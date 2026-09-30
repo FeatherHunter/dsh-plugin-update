@@ -64,6 +64,22 @@ createHostUpdate(
 )
 ```
 
+本包是 ESM（`"type": "module"`）：ESM 插件直接 `import`；CJS 插件用 `await import('dsh-plugin-update')`。
+
+### 三个电话的入参与回参
+
+面板与宿主两侧共用这一份契约（`…` 是你的前缀）：
+
+| 电话 | 入参 | 成功回包 | 失败回包 |
+|---|---|---|---|
+| `….updateStatus` | `{}` | `{ ok: true, snapshot, manual, receipt: null }` | `{ ok: false, error, errorKind }` |
+| `….updateCheck` | `{}` | `{ ok: true, snapshot, manual, receipt }` | 同上 |
+| `….updateInstall` | `{ checkId, requestId }` | `{ ok: true, snapshot, manual, receipt: null }` | 同上 |
+
+- `snapshot` 恒为第 5.1 节那六个字段；`manual` 是第 5.3 节那条手工命令（能给则给，不能给为 `null`）。
+- `receipt` 只有查新版给（`{ checkId, checkedAt, expiresAt }`）；装更新时把 `checkId` 原样带回来，`requestId` 由面板自己生成（同一个编号重复提交直接返回旧结果）。
+- 失败一律 `ok: false`：`error` 是原因码（第 5.2 节那八种，另加 `check-failed` / `invalid-release` / `check-expired` / `update-busy` / `install-failed`），`errorKind` 认不出时是 `internal`。面板照第 5.2 节给文案。
+
 ### 第 3 步：面板侧接线（构建期派生）
 
 目标只有一句：**面板里不要写死电话名与轮询间隔**。构建时用包内工具生成一个小文件：
@@ -149,7 +165,8 @@ const update = createHostUpdate(
 | 普通 DSH 宿主 | 自己起 `dsh plugin --profile <名> add …` | 参数数组直传；不经 shell、不用 `PATH` 上的命令名、不按系统分支 |
 
 三种出口都只装**精确版本**。第三方 Desktop 与普通宿主把官方源写进参数（`--registry=`），官方桌面版走管理器的 `registry` 选项。
-官方源不可达时诚实失败，不换源。装不上时宿主原话（截断到 300 字、去掉绝对路径）会写进任务说明 `job.message`，形如 `install-failed: <原话>`。
+官方源不可达时诚实失败，不换源。三种出口都不成立（宿主既没有桌面服务、也没有插件管理器、命令行入口也认不出）时同样诚实失败，转第 5.3 节的手工命令。
+装不上时宿主原话（截断到 300 字、去掉绝对路径）会写进任务说明 `job.message`，形如 `install-failed: <原话>`。
 
 时间口径：查新版 2 秒内重复点击复用上次结果；安装按 `installTimeoutMs` 计时，到点终止（官方桌面版先请求宿主取消，来不及就等它收尾再定成败）；终止宽限 3 秒。
 
@@ -176,7 +193,7 @@ const update = createHostUpdate(
 
 | 原因 | 中文含义 | 用户该做什么 |
 |---|---|---|
-| `unknown-profile` | 使用范围或目标包认不出（名字非法、目录不存在、按包名找不到你的插件包） | 检查使用范围名与目录是否还在；插件以依赖形态接入却在别的 `node_modules` 树里（hoisted、多副本、开发态链接）时，让集成方传 `readerOverrides.targetPackageDir`；这种情形不给手工命令 |
+| `unknown-profile` | 使用范围或插件位置认不出 | 重开宿主再查一次；一直这样就把版本号与日志交给插件作者；这种情形不给手工命令 |
 | `source-install` | 当前是从源码装的，不是按版本号装的 | 这种情形不给手工命令；想走更新先按版本号重装一次 |
 | `invalid-installation` | 已装的包不完整（名字对不上、版本非法、入口文件缺失） | 重装当前版本，修好已装目录再查更新 |
 | `installation-changed` | 安装位置在使用中途变了（换了目录或换了包） | 重新打开宿主再查一次；还出现就重装 |
