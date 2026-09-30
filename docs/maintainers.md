@@ -14,7 +14,7 @@ publish.cmd
 
 窗口全程**没有 y/n**：前置条件不满足就自己停下并说明原因；人只需要在 npm 要一次性验证码时把 6 位码贴进去（没登录时走一次网页登录）。工作区有未提交改动默认停，要照样发就加 `-AllowDirty`。
 
-**发布后校验必须轮询，不能立刻下结论**（2026-09-30 实测）：npm 的网页 2FA 审批走完后，registry 常回 `PUT 202` 且 `npm publish` 退出码 0，但那只是**已受理**——`npm` 自己会打印 “may take a few minutes to become available”，本次实测约 5 分钟后 `0.1.2` 才在 registry 上可见。窗口因此最多轮询 5 分钟（每 15 秒、`--prefer-online`），只有真能查到这一版才做冒烟安装；状态文件里的 `visible` 字段把「已受理但未确认」与「成功」分开。
+**发布后校验必须轮询，不能立刻下结论**（2026-09-30 实测）：npm 的网页 2FA 审批走完后，registry 常回 `PUT 202` 且 `npm publish` 退出码 0，但那只是**已受理**——`npm` 自己会打印 “may take a few minutes to become available”，本次实测约 5 分钟后 `0.1.2` 才在 registry 上可见。窗口因此最多轮询 10 分钟（每 15 秒、`--prefer-online`），只有真能查到这一版才做冒烟安装；状态文件里的 `visible` 字段把「已受理但未确认」与「成功」分开。
 
 - npm 的 2FA 审批要**真实 TTY ＋ 用户本人**：Agent 的后台环境直接跑 `npm publish` 只会拿到 `EOTP`，隔空传一次性验证码必过期。所以发布必须在这个窗口里做。
 - Agent 直接 `Start-Process` 开的窗口落在用户看不见的会话；要用 **schtasks 交互式任务**把窗口拉到用户桌面：

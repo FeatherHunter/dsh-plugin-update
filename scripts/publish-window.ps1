@@ -46,6 +46,13 @@ function Fail($why) {
     Write-Host '  停在这里，什么都没发。修好后重新双击 publish.cmd 即可。'
 }
 
+# 每次发布留一份转录，攒多了自己清理：只留最近 5 份。
+try {
+    Get-ChildItem (Join-Path $PackageDir '.tmp-publish-*.log') -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -Skip 5 |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+} catch { }
+
 try {
     Remove-Item $PublishStatus -Force -ErrorAction SilentlyContinue
     Start-Transcript -Path $PublishLog -Force | Out-Null
@@ -111,7 +118,7 @@ try {
     }
     Say ('  npmjs 身份：' + $whoami + ' ✓')
 
-    & npm view ($PkgName + '@' + $Version) version --registry=$Npmjs 2>$null | Out-Null
+    & npm view ($PkgName + '@' + $Version) version --registry=$Npmjs --prefer-online 2>$null | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Fail ($PkgName + '@' + $Version + ' 在 npmjs 上已经存在——先改 package.json 的版本号。')
         break main
@@ -155,6 +162,12 @@ try {
             $PublishExit = $LASTEXITCODE
         }
     }
+    if ($PublishExit -ne 0) {
+        # 窗口转录抓不全子进程输出；失败时把 npm 自己的调试日志指出来，便于事后定位。
+        $dbg = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'npm-cache\_logs\*-debug-0.log') -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($dbg) { Say ('  npm 调试日志: ' + $dbg.FullName) }
+    }
 
     # ── 5. 发布后校验 ─────────────────────────────────────────────────────
     # npm 回 202 / exit 0 只代表「已受理」：registry 上架可能滞后几分钟（npm 自己会打印
@@ -163,8 +176,8 @@ try {
     Write-Host '  ▸ 5/5 发布后校验'
     $Visible = $false
     if ($PublishExit -eq 0) {
-        Say ('  npm 已受理 ' + $PkgName + '@' + $Version + '；最多等 5 分钟，每 15 秒问一次 registry...')
-        $deadline = (Get-Date).AddMinutes(5)
+        Say ('  npm 已受理 ' + $PkgName + '@' + $Version + '；最多等 10 分钟，每 15 秒问一次 registry...')
+        $deadline = (Get-Date).AddMinutes(10)
         $waited = 0
         while ((Get-Date) -lt $deadline) {
             & npm view ($PkgName + '@' + $Version) version --registry=$Npmjs --prefer-online 2>$null | Out-Null
@@ -176,7 +189,7 @@ try {
         if ($Visible) {
             Say ('  registry 上已经有了 ✓（等了约 ' + $waited + ' 秒）')
         } else {
-            Write-Host '  ⚠ 5 分钟还没生效：npm 已受理但尚未落地。过几分钟自己再查一次：'
+            Write-Host '  ⚠ 10 分钟还没生效：npm 已受理但尚未落地。过几分钟自己再查一次：'
             Write-Host ('     npm view ' + $PkgName + '@' + $Version + ' version --registry=' + $Npmjs)
         }
     }
