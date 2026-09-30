@@ -4,6 +4,10 @@
   "description": "可复用的更新系统装成的 npm 包：任何 DSH 插件照文档能集成检查更新等功能（地图 #579）",
   "license": "MIT",
   "author": "王辰浩",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FeatherHunter/dsh-plugin-update.git"
+  },
   "engines": {
     "node": ">=22"
   },

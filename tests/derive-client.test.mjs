@@ -139,6 +139,23 @@ test('包内不自带 esbuild：工具从消费方仓库借，不把构建依赖
   assert.equal(MANIFEST.dependencies, undefined, '运行期依赖应为空（零运行时依赖）')
 })
 
+// 路径注释归一：打包器写的是「相对当前目录」的路径，cwd 换了就会变成 ../ 开头。
+// 不归一的话，消费方换个目录重新派生一次，就得到一份「只是注释不同」的 diff ——
+// 而这份文件是入库的，diff 会一路带到他们的提交里。这里把 cwd 换成包内的 tests/ 复现该情形。
+test('换个目录重跑，路径注释不会留下 ../（重跑零差异）', () => {
+  withTempDir((dir) => {
+    const out = join(dir, 'derived.mjs')
+    runTool(['--prefix', 'notes', '--out', out], { cwd: join(PKG_DIR, 'tests') })
+    const text = readFileSync(out, 'utf8')
+    const pathComments = text.split('\n').filter((line) => /^\/\/ .*\.(ts|js)$/.test(line))
+    assert.ok(pathComments.length > 0, '应当有来源路径注释，否则这条断言是空转')
+    assert.deepEqual(
+      pathComments.filter((line) => /^\/\/ \.\.\//.test(line)), [],
+      '路径注释不该以 ../ 开头'
+    )
+  })
+})
+
 // 与消费方插件的派生结果对齐：同一套取值真源，两处派生出同样的常量名与默认值。
 // 这条断言的对象不在本仓 —— 它在消费方仓库里（脚本生成物 scripts/generated/updateClient.derived.js）。
 // 包还在 monorepo 的 packages/ 下时，PKG_DIR/../.. 恰好指到消费方仓库根；本包独立成仓后那个相对路径不再成立。
