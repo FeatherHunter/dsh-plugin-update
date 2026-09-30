@@ -1,5 +1,5 @@
 /**
- * packages/dsh-plugin-update/src/commands.ts — 安装命令的纯拼接（政策收归核心）。
+ * src/commands.ts — 安装命令的纯拼接（政策收归核心）。
  *
  * 由 update-core/src/commands.ts 原样拎入，两条产物形状冻结（改键改模板即破冰）：
  *   1. 执行配方（installRecipe）——真正安装时用：按宿主种类选路由，程序与参数数组分开，

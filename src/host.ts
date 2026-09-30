@@ -1,4 +1,4 @@
-// packages/dsh-plugin-update/src/host.ts —— 更新包的宿主入口（包根，#581 双入口之一）。
+// src/host.ts —— 更新包的宿主入口（包根，#581 双入口之一）。
 //
 // 3 步接入：装包、调用 createHostUpdate 并传入插件标识、用默认配置即跑。
 // 当前插件传插件标识 dsh-mattpocock-skills-deck、电话名前缀 wf，拼出的 3 个电话名、

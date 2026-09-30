@@ -1,5 +1,5 @@
 /**
- * packages/dsh-plugin-update/tests/core-injection.test.mjs —— 三处注入默认现状、可调即生效。
+ * tests/core-injection.test.mjs —— 三处注入默认现状、可调即生效。
  *
  * 只测外部行为：注入的包名与源出现在实际请求的地址里；不传即走现状。不测内部私有常量。
  */

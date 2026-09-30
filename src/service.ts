@@ -1,5 +1,5 @@
 /**
- * packages/dsh-plugin-update/src/service.ts — 更新模块的业务流程（安装闭环）。
+ * src/service.ts — 更新模块的业务流程（安装闭环）。
  *
  * 由 update-core/src/service.ts 原样拎入：只记得规矩，不动手装：查状态读本地、查新版联网问一次、
  * 装前复核用的凭证与指纹在这里生成与比对，安装的排队、去重、复核、备份顺序也在此。

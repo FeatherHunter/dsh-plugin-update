@@ -164,19 +164,26 @@ checkEventCounts(manifest)
 
 ## 7. 发布前 build 与门禁跑法
 
+本包现在住在自己的仓库（`dsh-plugin-update`），下面所有命令都在本仓根目录跑。
+
 发布前按顺序两步（演练只跑 dry-run，不真发）：
 
 ```sh
-node packages/dsh-plugin-update/build.mjs
-cd packages/dsh-plugin-update && npm publish --dry-run
+node build.mjs
+npm publish --dry-run
 ```
 
-编译产物在 `dist` 下（9 个 JS：`client.js`、`commands.js`、`config.js`、`gate.js`、`host.js`、`ports.js`、`reader.js`、`service.js`、`store.js`），本地生成、不入库。发布白名单（`files`）共 4 项（`dist`、`event-list.template.json`、`README.md`、`LICENSE`，另加隐含的 `package.json`；`dist` 下 9 个 JS 全带上）。加新文件进包时同步改 `files` 并重跑 dry-run 确认文件数。
+编译产物在 `dist` 下（9 个 JS：`client.js`、`commands.js`、`config.js`、`gate.js`、`host.js`、`ports.js`、`reader.js`、`service.js`、`store.js`），本地生成、不入库。发布白名单（`files`）共 5 项（`dist`、`derive-client-values.mjs`、`event-list.template.json`、`README.md`、`LICENSE`，另加隐含的 `package.json`；`dist` 下 9 个 JS 全带上）。加新文件进包时同步改 `files` 并重跑 dry-run 确认文件数。
 
-门禁跑法（改包后全跑，退出码全 0 才算过）：
+本包自己的门禁（改包后必跑，退出码全 0 才算过）：
 
 ```sh
-node --test packages/dsh-plugin-update/tests/*.test.mjs
+node --test tests/*.test.mjs
+```
+
+下面这几道是**消费方仓库**（本包原来的家 `dsh-mattpocock-skills-deck`）里的门禁，不在本仓，要跑得切到那边：
+
+```sh
 node tests/verify-update-regression.js
 node tests/verify-update-freshness.js
 node tests/verify-update-install.js

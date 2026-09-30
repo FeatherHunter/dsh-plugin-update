@@ -1,5 +1,5 @@
 /**
- * packages/dsh-plugin-update/tests/routes.test.mjs —— 安装路由与参数模板（规格 #591 第 4、12 条）。
+ * tests/routes.test.mjs —— 安装路由与参数模板（规格 #591 第 4、12 条）。
  *
  * 只测外部行为：路由二选一、参数数组形状、桌面激活范围对不上转手工、子进程不用 PATH 名。
  * 子进程与桌面服务全用假件，不起真进程。

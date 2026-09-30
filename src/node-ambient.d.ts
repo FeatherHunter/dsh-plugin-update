@@ -1,5 +1,5 @@
 /**
- * packages/dsh-plugin-update/src/node-ambient.d.ts —— 本包触碰的 Node 内建能力最小形状。
+ * src/node-ambient.d.ts —— 本包触碰的 Node 内建能力最小形状。
  *
  * 为什么不用 @types/node：包定死零运行时依赖（规格 #581 第 5 条底座），加 @types/node 等于
  * 给每个消费者带一份类型依赖；本文件只声明本包实际用到的几个函数形状，调用处照旧传真值，

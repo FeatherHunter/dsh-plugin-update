@@ -1,5 +1,5 @@
 /**
- * packages/dsh-plugin-update/src/ports.ts —— 更新模块的插口定义（规格 #591 的字面落实）。
+ * src/ports.ts —— 更新模块的插口定义（规格 #591 的字面落实）。
  *
  * 由 update-core/src/ports.ts 原样拎入：六边形架构不变，核心只管做决定，插口由核心定，
  * 跑腿的活全在外面。检验标准仍是核心不碰硬盘、网络、子进程也能被测透，所以本文件只放类型，
@@ -211,4 +211,4 @@ export interface UpdateCore {
  * 模块标识（运行时唯一内容）：类型在转译时已擦除，
  * 转译出的 JS 只剩这一行；第二家直接吃 TS 源码。
  */
-export const PORTS_SOURCE = 'packages/dsh-plugin-update/src/ports.ts'
+export const PORTS_SOURCE = 'src/ports.ts'

@@ -1,4 +1,4 @@
-// packages/dsh-plugin-update/tests/derive-client.test.mjs —— 集成工具自查（#586 方案 A）。
+// tests/derive-client.test.mjs —— 集成工具自查（#586 方案 A）。
 //
 // 这个工具是给「第二个插件照文档三步接入」用的参考实现，所以它自己必须先被验过：
 //   1) 真的能跑起来，生成出文件；
@@ -7,7 +7,7 @@
 //   4) 参数不对时明确报错，不静默生成一个错文件（尤其 --out 与 --prefix 必填）；
 //   5) 生成内容里不留下模块级的 export 块（那个块拼进插件闭包会变语法错误）。
 //
-// 用法：node --test packages/dsh-plugin-update/tests/derive-client.test.mjs
+// 用法：node --test tests/derive-client.test.mjs
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
@@ -139,11 +139,20 @@ test('包内不自带 esbuild：工具从消费方仓库借，不把构建依赖
   assert.equal(MANIFEST.dependencies, undefined, '运行期依赖应为空（零运行时依赖）')
 })
 
-// 与本仓当前插件的派生结果对齐：同一套取值真源，两处派生出同样的常量名与默认值。
-test('与本仓当前插件派生的取值同源（同样四个常量名、同样默认值）', () => {
-  const pluginDerived = readFileSync(resolve(PKG_DIR, '..', '..', 'scripts', 'generated', 'updateClient.derived.js'), 'utf8')
-  for (const name of ['UPD_STATUS', 'UPD_CHECK', 'UPD_INSTALL', 'UPD_POLL']) {
-    assert.match(pluginDerived, new RegExp('export const ' + name + ' '), '本仓派生文件应有 ' + name)
+// 与消费方插件的派生结果对齐：同一套取值真源，两处派生出同样的常量名与默认值。
+// 这条断言的对象不在本仓 —— 它在消费方仓库里（脚本生成物 scripts/generated/updateClient.derived.js）。
+// 包还在 monorepo 的 packages/ 下时，PKG_DIR/../.. 恰好指到消费方仓库根；本包独立成仓后那个相对路径不再成立。
+// 所以改成显式给消费方仓库根目录才跑：设了 DSH_UPDATE_CONSUMER_REPO 就断言，没设就按缺席跳过并说明原因。
+test('与消费方插件派生的取值同源（同样四个常量名、同样默认值）', (t) => {
+  const consumerRoot = process.env.DSH_UPDATE_CONSUMER_REPO
+  if (!consumerRoot) {
+    t.skip('未设 DSH_UPDATE_CONSUMER_REPO（消费方仓库根目录）：本条断言的是消费方仓库里的 ' +
+      'scripts/generated/updateClient.derived.js，不在本仓，按缺席跳过')
+    return
   }
-  assert.match(pluginDerived, /CLIENT_POLL\.defaultMs/, '本仓派生文件的轮询间隔也应取自 CLIENT_POLL')
+  const pluginDerived = readFileSync(join(consumerRoot, 'scripts', 'generated', 'updateClient.derived.js'), 'utf8')
+  for (const name of ['UPD_STATUS', 'UPD_CHECK', 'UPD_INSTALL', 'UPD_POLL']) {
+    assert.match(pluginDerived, new RegExp('export const ' + name + ' '), '消费方派生文件应有 ' + name)
+  }
+  assert.match(pluginDerived, /CLIENT_POLL\.defaultMs/, '消费方派生文件的轮询间隔也应取自 CLIENT_POLL')
 })

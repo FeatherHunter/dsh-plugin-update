@@ -1,5 +1,8 @@
 # 更新包发布演练记录（#583 抽离票）
 
+> 本记录写于本包还住在 monorepo 的 `packages/dsh-plugin-update` 时，下面命令里的路径是**当时**的家；
+> 原样保留作证据，不改写。本包独立成仓后的跑法见 `README.md` 第 7 节（`node build.mjs` 与 `npm publish --dry-run`，都在仓根跑）。
+
 - 演练时间：2026-09-10（UTC）
 - 演练命令（按顺序四步）：
   1. `node packages/dsh-plugin-update/build.mjs`（先本地生成更新包的编译产物：tsc 只做类型检查，esbuild 一对一转译 8 个文件）

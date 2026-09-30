@@ -1,5 +1,5 @@
 /**
- * packages/dsh-plugin-update/tests/config.test.mjs —— 配置面外部行为（规格 #591 第 1 到 5 条）。
+ * tests/config.test.mjs —— 配置面外部行为（规格 #591 第 1 到 5 条）。
  *
  * 只测外部行为：默认值、非法抛错、电话名拼法。不测内部私有常量与函数名。
  */

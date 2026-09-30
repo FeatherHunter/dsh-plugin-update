@@ -1,5 +1,5 @@
 /**
- * packages/dsh-plugin-update/src/store.ts —— 更新任务的落盘与执行跑腿。
+ * src/store.ts —— 更新任务的落盘与执行跑腿。
  *
  * 由 src/host/updateStore.js 改写拎入：只跑腿不决策。相对旧实现的增量（规格 #591）：
  * 1. 状态目录按插件标识派生（第 3 条）：join(家目录, 'updates', 插件标识, 使用范围短指纹），

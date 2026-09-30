@@ -1,5 +1,5 @@
 /**
- * packages/dsh-plugin-update/src/runtime.d.ts — 核心允许触碰的通用运行时形状（由 update-core/src/runtime.d.ts 原样拎入）
+ * src/runtime.d.ts — 核心允许触碰的通用运行时形状（由 update-core/src/runtime.d.ts 原样拎入）
  *
  * 只有 Node 宿主与浏览器闭包两边都有的能力才允许出现在这里；
  * Node 专属（如 fs、子进程）与浏览器专属一律不许加，加了就是破保证。
