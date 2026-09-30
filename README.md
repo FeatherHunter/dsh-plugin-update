@@ -16,6 +16,9 @@
 npm install dsh-plugin-update
 ```
 
+把本包装成**你自己插件的依赖**即可（推荐）；老式的「把本包 vendor 进插件目录」也照旧可用。
+两种形态下，包都按**包名**在自己的 `node_modules` 链上找你的插件包——找到它，才能推出「插件装在哪、正在跑的是哪一版」。
+
 包还没公开发布时先用本地路径代替（例如 `npm install ../dsh-plugin-update`）。
 
 ## 2. 三步接入
@@ -50,6 +53,16 @@ for (const [name, handler] of Object.entries(update.handlers)) {
 
 `pluginId` 必填（非空字符串，不含路径分隔符）。单例复用键强制含插件标识，多插件不串内存状态与锁。
 除 `pluginId` 之外的配置都可选并带默认值，不传即走默认（见第 3 节）。
+
+接线的第二个参数除 `{ ctx, logCtx }` 外还能给 `pluginManager`（显式交宿主管理器实例）与 `readerOverrides`。
+平时不用管；只有自动解析对不上目标包时（hoisted、多副本、开发态链接）才用得上它的 `targetPackageDir`：
+
+```js
+createHostUpdate(
+  { ctx, logCtx, readerOverrides: { targetPackageDir: '/abs/path/to/node_modules/my-notes-plugin' } },
+  { pluginId: 'my-notes-plugin', prefix: 'notes', targetPackageName: 'my-notes-plugin' }
+)
+```
 
 ### 第 3 步：面板侧接线（构建期派生）
 
@@ -88,13 +101,10 @@ setInterval(readStatus, UPD_POLL)                // 轮询
 
 两处例外必须动代码（它们把自动探测挡住了）：显式传了 `readerOverrides.environmentKind`；显式传了与真实使用范围不符的 `profileDir` / `profileName`。
 
-`targetPackageName` 建议就是你自己的包名：使用范围目录按「装好的包住在 `<范围>/node_modules/<目标包名>`」反推，对不上时要自己传 `profileDir`。
+`targetPackageName` 建议就是你自己的包名：使用范围目录按「装好的包住在 `<范围>/node_modules/<目标包名>`」反推。
 
-目标包位置按包名自动解析（与读取器共用同一套顺序：清单直解 → 入口反查 → `node_modules` 步行 → 自锚定兜底）。
-`exports` 未导出 `.` 与 `./package.json` 的包也能命中（`node_modules` 步行绕过映射）。
-hoisted、多副本、开发态链接等自动解析对不上的场景，显式传 `readerOverrides.targetPackageDir`
-（目标包目录绝对路径，给了就不走自动解析）；目标包两条路都找不到且没给 `profileDir` /
-`targetPackageDir` 时诚实失败（`unknown-profile`），不再猜 `profiles/web`，也不再产出假的 `installation-changed`。
+`0.2.0` 起目标包**按包名解析**（清单直解 → 入口反查 → `node_modules` 步行 → 自锚定兜底），`exports` 没导出 `.` 与 `./package.json` 的包也能命中。
+`0.1.x` 只能在本包被 vendor 进插件目录时找到目标包；以依赖形态安装时一键升级会永远不可用（面板显示假的 `installation-changed`）。
 
 ## 3. 配置
 
@@ -166,7 +176,7 @@ const update = createHostUpdate(
 
 | 原因 | 中文含义 | 用户该做什么 |
 |---|---|---|
-| `unknown-profile` | 使用范围认不出（名字非法或目录不存在） | 检查使用范围名是否含特殊字符、目录是否还在；这种情形不给手工命令 |
+| `unknown-profile` | 使用范围或目标包认不出（名字非法、目录不存在、按包名找不到你的插件包） | 检查使用范围名与目录是否还在；插件以依赖形态接入却在别的 `node_modules` 树里（hoisted、多副本、开发态链接）时，让集成方传 `readerOverrides.targetPackageDir`；这种情形不给手工命令 |
 | `source-install` | 当前是从源码装的，不是按版本号装的 | 这种情形不给手工命令；想走更新先按版本号重装一次 |
 | `invalid-installation` | 已装的包不完整（名字对不上、版本非法、入口文件缺失） | 重装当前版本，修好已装目录再查更新 |
 | `installation-changed` | 安装位置在使用中途变了（换了目录或换了包） | 重新打开宿主再查一次；还出现就重装 |
@@ -219,6 +229,8 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 9. 第三方 Desktop 自动装失败但命令能装：检查桌面当前激活的使用范围是不是插件所在的那一个；对不上时自动装一定诚实失败，复制第 5.3 节的命令手工执行。
 10. 官方桌面版（使用范围名 `desktop`）装不上：看任务里的 `message`，形如 `install-failed: <宿主原话>`，里面带着宿主的错误码（例如 `operation-error`）。`message` 可能带详情，**匹配请匹配前缀错误码，不要整串相等**；日志里这条路的路由是 `desktop-manager`。
 11. 还定位不到：打开调试日志，按插件标识过滤 `host.call`、`host.call.fail`、`update.install.exec` 三个事件，看 `pluginId` 与 `route`、`exitCode` 字段；日志里不记命令与路径原文。
+12. 以依赖形态接入后一直显示「安装位置在使用中途变了」（`installation-changed`）：`0.1.x` 的已知缺陷（拿「本包自己住在哪」推断目标包位置，依赖形态下恒失败）；升到 `0.2.0` 即修复。
+13. 报 `unknown-profile` 但使用范围名与目录都没问题：本包按包名找不到你的插件包。让集成方传 `readerOverrides.targetPackageDir`，或把本包装成插件包的依赖（别装到别的 `node_modules` 树里）。
 
 ## 7. 接入自检清单
 
@@ -254,8 +266,14 @@ checkEventCounts(manifest)                                        // 计数与�
 `kind` 分三类只为计数检查服务：`resident` 常驻、`ondemand` 按需、`selfmon` 自监控。空模板见包内的 `event-list.template.json`。
 清单要以**对象**传入：字符串或数组会被拦下并给出中文说明，不静默修补。
 
+**宿主侧工具**：
+
+```js
+resolveTargetPackage(name, { targetPackageDir })  // 按包名解析你的插件包；找不到返回 null（自己搭读取器或写测试时用）
+```
+
 ## 9. 兼容与稳定性
 
 这些形状稳定，可以放心依赖：三个电话名与入参回参、快照六字段、任务公开形状、配置只经函数入参注入、安装配方五键、日志事件字段基线（三个事件各带必填 `pluginId`）、历史落盘路径。
 
-向后兼容的扩展：新增可选配置键、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。
+向后兼容的扩展：新增可选配置键、新增可选 `readerOverrides`（如 `targetPackageDir`）、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。
