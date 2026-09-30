@@ -57,6 +57,11 @@ export async function containingPackage(
   }
 }
 
+/** 使用范围名的唯一取法：调用方给了就用它，否则取使用范围目录的最后一段（宿主探测与读环境共用）。 */
+export function resolveProfileName(profileName: string | null | undefined, profileDir: string): string {
+  return profileName ?? basename(profileDir)
+}
+
 /** 使用范围名是否合法（纯谓词，导出供验证与面板复用）。 */
 export function profileNameValid(name: unknown): boolean {
   return (
@@ -182,7 +187,7 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
       installationKey: null,
       eligible: false,
     }
-    const profileName = options.profileName ?? basename(profileDirInput)
+    const profileName = resolveProfileName(options.profileName, profileDirInput)
     result.profileName = profileName
     if (!profileNameValid(profileName)) {
       result.blockedReason = 'unknown-profile'

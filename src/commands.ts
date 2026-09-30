@@ -17,6 +17,11 @@ import type { BlockedReason, EnvironmentKind, InstallRecipe } from './ports.js'
 
 const PACKAGE_NAME = 'dsh-mattpocock-skills-deck'
 const NPM_REGISTRY = 'https://registry.npmjs.org/'
+/**
+ * 宿主管理器（官方桌面版的 pluginManager）接受的包名形状：全小写、可带作用域。
+ * 出处：宿主 `@deepseek-ai/dsh-plugin-manager` 的 `PACKAGE_NAME`（见 docs/host-install-exits.md）。
+ */
+const MANAGER_TARGET_RE = /^(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/
 /** 安装时限：15 分钟（起进程到退出，超时终止整棵进程树并按失败处理）。 */
 export const INSTALL_TIMEOUT_MS = 15 * 60_000
 
@@ -58,15 +63,17 @@ function usableProfileName(raw: unknown): string | null {
 }
 
 /**
- * 安装执行配方：宿主决定路由，使用范围决定目标。
+ * 安装执行配方：宿主种类决定路由，使用范围决定目标。
  *
- * - 桌面宿主（environmentKind 为 desktop）→ desktop-service：由桌面端公开的
- *   desktopPnpm 服务用参数数组拉起打包好的 CLI，插件不碰 .cmd 垫片、不经 shell。
+ * - 第三方 Desktop（desktop）→ desktop-service：由桌面端公开的 desktopPnpm 服务用参数数组
+ *   拉起打包好的 CLI，插件不碰 .cmd 垫片、不经 shell。
+ * - 官方桌面版（desktop-manager）→ desktop-manager：交给宿主进程内的插件管理器，参数只有
+ *   「add + 精确版本规格」——它只收一个 spec 字符串、不接受任何开关，源走它的 registry 选项。
  * - 普通 DSH 宿主（cli）→ cli-process：用「当前运行时的可执行文件 + CLI 的 JS 入口
  *   + 参数数组」自己起进程；三系统同一套形态，差异只在可执行文件与入口由适配器提供。
  *
- * 三种取值一律带官方源与 --save-exact；官方源不可达时由适配器诚实失败，不换源。
- * 宿主种类不是已知两种取值时不给配方（诚实失败转手工命令），不猜。
+ * 前两条一律带官方源与 --save-exact；官方源不可达时由适配器诚实失败，不换源。
+ * 宿主种类不是已知三种取值、或目标包名不合管理器规格时不给配方（诚实失败转手工命令），不猜。
  */
 export function installRecipe(input: {
   profileName: string | null
@@ -80,11 +87,22 @@ export function installRecipe(input: {
   const version = input?.version
   if (!name || !validVersion(version)) return null
   const kind = input?.environmentKind
-  if (kind !== 'desktop' && kind !== 'cli') return null
+  if (kind !== 'desktop' && kind !== 'desktop-manager' && kind !== 'cli') return null
   const targetName = input?.targetPackageName ?? PACKAGE_NAME
   const registry = input?.registryUrl ?? NPM_REGISTRY
   const timeoutMs = input?.timeoutMs ?? INSTALL_TIMEOUT_MS
   if (!targetName || !registry) return null
+  if (kind === 'desktop-manager') {
+    // 管理器只吃一个 spec 字符串，且包名形状比 npm 通用写法更窄（全小写）；不合就不给配方。
+    if (!MANAGER_TARGET_RE.test(targetName)) return null
+    return {
+      route: 'desktop-manager',
+      profileName: name,
+      version,
+      pluginArgs: ['add', `${targetName}@${version}`],
+      timeoutMs,
+    }
+  }
   return {
     route: kind === 'desktop' ? 'desktop-service' : 'cli-process',
     profileName: name,

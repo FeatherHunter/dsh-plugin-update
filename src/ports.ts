@@ -10,7 +10,16 @@
  * 三个对外方法、快照六字段、任务公开形状、检查凭证形状、配方五键形状全部冻结不变。
  */
 
-export type EnvironmentKind = 'desktop' | 'cli'
+/**
+ * 宿主种类：核心按它选安装路由。
+ * - `desktop`：第三方 Desktop 宿主（发布 `desktopProfiles`／`desktopPnpm` 的那一支）；
+ * - `desktop-manager`：官方桌面版（宿主进程内 `pluginManager.installBundle` 那一支）；
+ * - `cli`：普通 DSH 宿主（本包自己起命令行）。
+ *
+ * 取值可增：新增取值属向后兼容，调用方不认就当普通宿主处理（诚实失败转手工命令）；
+ * 值按时间可调，键与形状仍冻结（见 README 第 5 节）。
+ */
+export type EnvironmentKind = 'desktop' | 'desktop-manager' | 'cli'
 
 /** 装不了的原因（装前不满足条件只给原因不给装，见通用方案复用清单）。 */
 export type BlockedReason =
@@ -92,15 +101,20 @@ export interface ReleaseInfo {
 }
 
 /**
- * 安装执行路由：桌面宿主走桌面服务，普通 DSH 宿主自己起进程。
- * 路由由核心按政策选（见 installRecipe），适配器只负责把它跑起来。
+ * 安装执行路由：三条，由核心按宿主种类选（见 installRecipe），适配器只负责把它跑起来。
+ * - `desktop-service`：第三方 Desktop 宿主公开的 `desktopPnpm.runPlugin`；
+ * - `desktop-manager`：官方桌面版进程内的 `pluginManager.installBundle`；
+ * - `cli-process`：普通 DSH 宿主自己起命令行。
  */
-export type InstallRoute = 'desktop-service' | 'cli-process'
+export type InstallRoute = 'desktop-service' | 'desktop-manager' | 'cli-process'
 
 /**
  * 安装执行配方：核心给适配器的完整政策产物（冻结五键：改键改模板即破冰，值按时间可调）。
- * 一律「程序 + 参数数组」——pluginArgs 原样交给命令行工具，
+ * 一律「程序 + 参数数组」——pluginArgs 是**这条路自己的**参数数组，按路由解释：
+ *   - `desktop-service`／`cli-process`：pnpm 形状（`add --save-exact <包名>@<版本> --registry=<源>`）；
+ *   - `desktop-manager`：宿主管理器形状（`add <包名>@<精确版本>`，一个 spec 字符串、不带任何开关）。
  * 使用范围名不做引号包裹也不按空格拆分（引号只出现在给用户看的手工命令里）。
+ * 源按路由落地：前两条进参数数组，`desktop-manager` 走管理器自己的 `registry` 选项（取同一个注入值）。
  */
 export interface InstallRecipe {
   route: InstallRoute
@@ -108,17 +122,18 @@ export interface InstallRecipe {
   profileName: string
   /** 精确版本（不带 ^ ~ 等前缀）。 */
   version: string
-  /** 追加在 `plugin --profile <使用范围名>` 之后的参数数组。 */
+  /** 这条路自己的参数数组；含义随路由而定（见本接口说明）。 */
   pluginArgs: string[]
-  /** 执行时限（毫秒）：超时终止整棵进程树并按安装失败处理。 */
+  /** 执行时限（毫秒）：超时终止（命令行终止整棵进程树，管理器请求取消）并按安装失败处理。 */
   timeoutMs: number
 }
 
 /**
- * 适配器看到的环境（小零件：读版本、看环境、上报是桌面还是命令行）。
+ * 适配器看到的环境（小零件：读版本、看环境、上报宿主种类）。
  * 拼安装命令和选执行器路由收归核心（精确版本、强制官方源是政策，不是跑腿）。
- * environmentKind 由适配器探测：桌面宿主存在 desktopProfiles 服务即 desktop，
- * 其余为 cli；探测不出就按 cli 走，跑不通按诚实失败转手工命令。
+ * environmentKind 由适配器探测，顺序固定：有 `desktopProfiles` 即 desktop；
+ * 否则有 `pluginManager.installBundle` 且使用范围名恰是命令行明确封禁的 `desktop` 即 desktop-manager；
+ * 其余为 cli。探测不出就按 cli 走，跑不通按诚实失败转手工命令。
  */
 export interface EnvironmentView {
   profileName: string | null

@@ -27,7 +27,7 @@ import {
 import { manualCommand } from './commands.js'
 import { validVersion } from './service.js'
 import { createUpdateDiskPorts, createUpdateExecutor } from './store.js'
-import { containingPackage, createUpdateReader, defaultHomeDir } from './reader.js'
+import { containingPackage, createUpdateReader, defaultHomeDir, resolveProfileName } from './reader.js'
 import type { EnvironmentKind } from './ports.js'
 
 export { buildPhoneName, buildPhoneNames, resolveUpdateConfig } from './config.js'
@@ -64,12 +64,37 @@ function ctxService(ctx: unknown, name: string): unknown {
 }
 
 /**
- * 宿主种类：桌面宿主的官方信号是 desktopProfiles 服务是否存在
- * （launcher 在 Loader entry 挂载前注册），不得用使用范围名判断宿主。
+ * 宿主种类按能力判定，顺序固定（写死是为了将来宿主形态收敛时行为可预测）：
+ *   1. 有 `desktopProfiles` 服务 → `desktop`（第三方 Desktop，launcher 在 Loader entry 挂载前注册）；
+ *   2. 否则有 `pluginManager.installBundle`、且使用范围名恰是命令行明确封禁的 `desktop`
+ *      → `desktop-manager`（官方桌面版：命令行那条对这个使用范围一定失败）；
+ *   3. 其余 → `cli`。
+ *
+ * 第 2 条不是拿名字猜宿主身份，而是用**命令行自己的拒绝规则**判断这条路封没封：
+ * `dsh` 在 boot 与 plugin 子命令都按名字（大小写不敏感）拒绝 `--profile desktop`，
+ * 唯一豁免是桌面自带的 CLI 载体。名字由调用方按 resolveProfileName 的同一口径给出；
+ * 不传名字时只认第 1、3 条，绝不猜。
  */
-export function detectEnvironmentKind(ctx: unknown): EnvironmentKind {
+export function detectEnvironmentKind(ctx: unknown, profileName?: string | null): EnvironmentKind {
   const profiles = ctxService(ctx, 'desktopProfiles')
-  return profiles === undefined || profiles === null ? 'cli' : 'desktop'
+  if (profiles !== undefined && profiles !== null) return 'desktop'
+  const manager = ctxService(ctx, 'pluginManager')
+  if (hasInstallBundle(manager) && cliRefusesProfile(profileName)) return 'desktop-manager'
+  return 'cli'
+}
+
+/** 插件管理器的能力判据：`installBundle` 是可调用的方法（现取现用，不缓存跨代服务）。 */
+function hasInstallBundle(manager: unknown): boolean {
+  try {
+    return typeof (manager as { installBundle?: unknown } | null | undefined)?.installBundle === 'function'
+  } catch {
+    return false
+  }
+}
+
+/** 命令行明确封禁的使用范围名：只有 `desktop`（大小写不敏感）。出处见 detectEnvironmentKind 注释。 */
+function cliRefusesProfile(profileName: unknown): boolean {
+  return typeof profileName === 'string' && profileName.trim().toLowerCase() === 'desktop'
 }
 
 /** 桌面服务用嵌套注入拿：不把桌面服务放进顶层依赖声明，普通 DSH 才能照常加载。 */
@@ -149,6 +174,8 @@ export interface ReaderOverrides {
   subprocess?: unknown
   desktopPnpm?: unknown
   desktopProfiles?: unknown
+  /** 官方桌面版进程内的插件管理器（显式覆盖用；不传就从 ctx 现取）。 */
+  pluginManager?: unknown
   runtimeExecutable?: string
   runtimeExecArgs?: string[]
   cliEntry?: string
@@ -165,7 +192,8 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   if (!runningVersion) throw Object.assign(new Error('unknown-profile'), { code: 'unknown-profile' })
   const profileDirInput = overrides.profileDir ?? (await inferProfileDir(loaded, homeDirDefault, targetPackageName))
   const homeDirInput = overrides.homeDir ?? config.homeDir ?? homeDirDefault
-  const environmentKind = overrides.environmentKind ?? detectEnvironmentKind(overrides.ctx)
+  const environmentKind =
+    overrides.environmentKind ?? detectEnvironmentKind(overrides.ctx, resolveProfileName(overrides.profileName, profileDirInput))
   const checkTimeoutMs = overrides.checkTimeoutMs ?? config.checkTimeoutMs
   const confirmationTtlMs = overrides.confirmationTtlMs ?? config.confirmationTtlMs
   const installTimeoutMs = overrides.installTimeoutMs ?? config.installTimeoutMs
@@ -182,6 +210,7 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
     subprocess: () => overrides.subprocess ?? ctxService(overrides.ctx, 'subprocess'),
     desktopPnpm: () => overrides.desktopPnpm ?? sharedDesktopPnpm,
     desktopProfiles: () => overrides.desktopProfiles ?? ctxService(overrides.ctx, 'desktopProfiles'),
+    pluginManager: () => overrides.pluginManager ?? ctxService(overrides.ctx, 'pluginManager'),
     runtimeExecutable: () => overrides.runtimeExecutable,
     runtimeExecArgs: () => overrides.runtimeExecArgs,
     cliEntry: () => overrides.cliEntry,
@@ -323,7 +352,7 @@ export interface HostUpdate {
  * 建宿主更新能力：一次调用得到该插件的一组电话名与处理器（调用方负责注册进自己的电话表）。
  * 配置只经函数入参注入（冻结写法，第 11 条），插件标识必填，其余可选。
  */
-export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktopPnpm?: unknown; readerOverrides?: ReaderOverrides } = {}, configInput: UpdateConfigInput): HostUpdate {
+export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktopPnpm?: unknown; pluginManager?: unknown; readerOverrides?: ReaderOverrides } = {}, configInput: UpdateConfigInput): HostUpdate {
   const config = resolveUpdateConfig(configInput)
   const pluginId = config.pluginId
   phoneLogCtx = deps.logCtx ?? phoneLogCtx
@@ -331,7 +360,7 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktop
   const ctx = deps.ctx ?? null
   if (deps.desktopPnpm) sharedDesktopPnpm = deps.desktopPnpm
   else watchDesktopPnpm(ctx)
-  const readerOverrides = { ...(deps.readerOverrides ?? {}), ctx } as ReaderOverrides
+  const readerOverrides = { ...(deps.readerOverrides ?? {}), ctx, ...(deps.pluginManager ? { pluginManager: deps.pluginManager } : {}) } as ReaderOverrides
   const phoneNames = buildPhoneNames(config.prefix)
   async function readStatus(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null }> {
     const reader = await getSharedReader(pluginId, config, {

@@ -11,7 +11,8 @@
  * 4. 三处注入默认现状（第 4 条）：目标包名、官方源、安装时限经零件注入，默认值等于现状。
  * 5. 安装执行日志带必填插件标识（第 8、13 条）：update.install.exec 加完标识后 5 键为基线。
  *
- * 安装执行按核心给的配方跑两条路由之一（桌面宿主走桌面服务，普通 DSH 自己起进程），
+ * 安装执行按核心给的配方跑三条路由之一（第三方 Desktop 走桌面服务、官方桌面版交给宿主
+ * 进程内的插件管理器、普通 DSH 自己起进程），
  * 本文件不按操作系统分支，也不拼 shell。决策顺序全在更新核心。测试一律用假零件，
  * 不真写盘真跑命令（经可选的文件读写函数注入，默认走真文件系统）。
  */
@@ -361,6 +362,8 @@ export interface ExecutorParts {
   subprocess?: unknown | (() => unknown)
   desktopPnpm?: unknown | (() => unknown)
   desktopProfiles?: unknown | (() => unknown)
+  /** 官方桌面版进程内的插件管理器（现取，不缓存跨代服务）。 */
+  pluginManager?: unknown | (() => unknown)
   runtimeExecutable?: string | (() => string | undefined)
   runtimeExecArgs?: string[] | (() => string[] | undefined)
   cliEntry?: string | (() => string | undefined)
@@ -417,6 +420,142 @@ async function runDesktopService(
   return code
 }
 
+/**
+ * 宿主管理器的回包（只声明本包用到的那几格）。
+ * 出处：官方桌面版 `@deepseek-ai/dsh-plugin-manager` 的 ChangeResult；契约抄件见 docs/host-install-exits.md。
+ */
+interface ManagerChangeResult {
+  application?: unknown
+  error?: unknown
+  packageResult?: { output?: unknown; exitCode?: unknown }
+}
+
+/** 失败详情封顶字数：回给用户的是一行人话，不是整段安装输出。 */
+const DETAIL_MAX = 300
+/** 成功三态：overridden 是「改动已被保留、只是被别的层盖住」，不是失败。 */
+const MANAGER_OK = ['applied', 'restart-required', 'overridden']
+
+function withDetail(error: Error & { detail?: string }, detail: string): Error & { detail?: string } {
+  if (detail) error.detail = detail
+  return error
+}
+
+/** 把外面世界的脏错误收成一行：折叠空白、绝对路径换占位、封顶（原文不进日志与回包）。 */
+function sanitizeDetail(text: string): string {
+  const flat = String(text ?? '').replace(/\s+/g, ' ').trim()
+  if (!flat) return ''
+  const noPath = flat.replace(/[A-Za-z]:\\[^\s"']*/g, '<路径>').replace(/(^|\s)\/[^\s"']+/g, '$1<路径>')
+  return noPath.length > DETAIL_MAX ? `${noPath.slice(0, DETAIL_MAX)}…` : noPath
+}
+
+/** 管理器失败时的 error 是普通对象（code／diagnostic），不是 Error；两种都要能读。 */
+function detailText(error: unknown): string {
+  if (typeof error === 'string') return sanitizeDetail(error)
+  if (error instanceof Error) return sanitizeDetail(error.message)
+  if (error && typeof error === 'object') {
+    const shape = error as { code?: unknown; diagnostic?: unknown; message?: unknown }
+    const code = typeof shape.code === 'string' ? shape.code : ''
+    const said = typeof shape.diagnostic === 'string' ? shape.diagnostic : typeof shape.message === 'string' ? shape.message : ''
+    const line = [code, said].filter(Boolean).join(': ')
+    if (line) return sanitizeDetail(line)
+    try {
+      return sanitizeDetail(JSON.stringify(error))
+    } catch {
+      return sanitizeDetail(String(error))
+    }
+  }
+  return error === undefined || error === null ? '' : sanitizeDetail(String(error))
+}
+
+/** 管理器只吃一个 spec 字符串；配方给的就是 ['add', spec]，别的形状一律不试也不猜。 */
+function managerSpecOf(pluginArgs: string[]): string | null {
+  if (!Array.isArray(pluginArgs) || pluginArgs.length !== 2) return null
+  const [verb, spec] = pluginArgs
+  if (verb !== 'add' || typeof spec !== 'string' || !spec || spec.startsWith('-')) return null
+  return spec
+}
+
+/** 等管理器回话：带时限；到点先问它能不能取消，再由调用方决定是等它自己结束还是按失败收场。 */
+async function raceManager(
+  running: Promise<ManagerChangeResult>,
+  timeoutMs: number,
+  requestCancel: () => Promise<string>
+): Promise<{ timedOut: false; value: ManagerChangeResult } | { timedOut: true; cancelStatus: string }> {
+  const settled = Promise.resolve(running).then((value) => ({ timedOut: false as const, value }))
+  if (!(typeof timeoutMs === 'number' && timeoutMs > 0)) return await settled
+  const TIMEOUT = Symbol('install-timeout')
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const deadline = new Promise<typeof TIMEOUT>((settle) => {
+    timer = setTimeout(() => settle(TIMEOUT), timeoutMs)
+  })
+  let winner: { timedOut: false; value: ManagerChangeResult } | typeof TIMEOUT
+  try {
+    winner = await Promise.race([settled, deadline])
+  } finally {
+    if (timer !== null) {
+      try {
+        clearTimeout(timer)
+      } catch {}
+    }
+  }
+  if (winner !== TIMEOUT) return winner
+  return { timedOut: true, cancelStatus: await requestCancel() }
+}
+
+/**
+ * 官方桌面版：把安装交给宿主进程内的插件管理器（`ctx.get('pluginManager')`）。
+ *
+ * 与命令行那条同政策：精确版本、官方源（走管理器的 registry 选项）、超时即终止（请求取消）。
+ * 管理器**预期失败不 reject**——它 resolve 出 `application:'failed'` 加 `error`，所以成败只看
+ * `application`，不看有没有抛异常；抛出来的只有「管理器自己挂了」这类意外。
+ * 成败与失败原话按合同收成一行（截断脱敏），挂在抛出的错上由上层决定给谁看。
+ */
+async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: number }, parts: ExecutorParts): Promise<number | null> {
+  try {
+    const manager = part(parts.pluginManager ?? null) as {
+      installBundle?: (spec: string, options: { requestId: string; registry?: string }) => unknown
+      cancelInstall?: (requestId: string) => unknown
+    } | null
+    if (!manager || typeof manager.installBundle !== 'function') throw fail('install-failed')
+    const spec = managerSpecOf(recipe.pluginArgs)
+    if (!spec) throw fail('install-failed')
+    const requestId = randomUUID()
+    const registry = part(parts.registryUrl ?? '') as unknown
+    const options: { requestId: string; registry?: string } = { requestId }
+    // 源不进参数数组（管理器不吃开关），走它自己的 registry 选项，取同一个注入值；
+    // 没人注入源就不传，由管理器用自己的源策略（宿主路径总会注入，默认即官方源）。
+    if (typeof registry === 'string' && registry) options.registry = registry
+    const running = Promise.resolve(manager.installBundle(spec, options)) as Promise<ManagerChangeResult>
+    const outcome = await raceManager(running, recipe.timeoutMs, async () => {
+      const cancel = manager.cancelInstall
+      if (typeof cancel !== 'function') return 'not-running'
+      try {
+        const answer = (await cancel.call(manager, requestId)) as { status?: unknown } | null
+        const status = answer && typeof answer.status === 'string' ? answer.status : ''
+        return status === 'cancelled' || status === 'too-late' ? status : 'not-running'
+      } catch {
+        return 'not-running'
+      }
+    })
+    let result: ManagerChangeResult
+    if (!outcome.timedOut) result = outcome.value
+    else if (outcome.cancelStatus === 'too-late') {
+      // 已经进入应用阶段、改不动了：等它自己结束，再按 application 判（不假装失败）。
+      result = await running
+    } else {
+      void running.catch(() => {})
+      throw withDetail(fail('install-failed'), '安装超时，已请求宿主取消')
+    }
+    const application = result && typeof result.application === 'string' ? result.application : ''
+    if (MANAGER_OK.includes(application)) return 0
+    throw withDetail(fail('install-failed'), detailText(result && result.error !== undefined ? result.error : `application: ${application || 'unknown'}`))
+  } catch (error) {
+    if ((error as { code?: unknown })?.code === 'install-failed') throw error
+    throw withDetail(fail('install-failed'), detailText(error))
+  }
+}
+
+
 /** 普通 DSH 宿主：当前运行时 + CLI 的 JS 入口 + 参数数组，经宿主注入的子进程能力起进程。 */
 async function runCliProcess(
   recipe: { pluginArgs: string[]; profileName: string; timeoutMs: number },
@@ -448,8 +587,9 @@ async function runCliProcess(
 /**
  * 真执行器：按核心给的配方跑安装（测试一律注入假零件，不走这里）。
  *
- * 路由只有两条，都由核心的 installRecipe 决定，本文件不按操作系统分支：
+ * 路由只有三条，都由核心的 installRecipe 决定，本文件不按操作系统分支：
  *   - desktop-service：桌面宿主公开的 desktopPnpm.runPlugin(参数数组, 使用范围目录)；
+ *   - desktop-manager：官方桌面版进程内的 pluginManager.installBundle(精确版本规格, 选项)；
  *   - cli-process：subprocess.spawn({ argv: [运行时, …运行时参数, CLI 入口, 'plugin', '--profile', 名, …参数] })。
  * 起进程只经宿主注入的子进程能力，不经 shell、不用 PATH 上的 `dsh` 命令名。
  */
@@ -468,11 +608,20 @@ export function createUpdateExecutor(parts: ExecutorParts = {}): (args?: { versi
     try {
       if (!recipe) throw fail('install-failed')
       exitCode =
-        recipe.route === 'desktop-service' ? await runDesktopService(recipe, parts) : await runCliProcess(recipe, parts)
+        recipe.route === 'desktop-service'
+          ? await runDesktopService(recipe, parts)
+          : recipe.route === 'desktop-manager'
+            ? await runDesktopManager(recipe, parts)
+            : await runCliProcess(recipe, parts)
       emitInstall(parts, recipe, true, exitCode, Date.now() - startedAt)
     } catch (error) {
       emitInstall(parts, recipe, false, (error as { exitCode?: number })?.exitCode ?? exitCode, Date.now() - startedAt)
-      throw Object.assign(fail('install-failed'), { debug: String((error as Error)?.stack || error) })
+      // 失败详情（宿主原话，已截断脱敏）随错误一起上抛，由上层决定给谁看；不塞进日志字段。
+      const detail = (error as { detail?: unknown })?.detail
+      throw Object.assign(fail('install-failed'), {
+        debug: String((error as Error)?.stack || error),
+        ...(typeof detail === 'string' && detail ? { detail } : {}),
+      })
     }
   }
 }

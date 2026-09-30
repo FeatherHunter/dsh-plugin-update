@@ -2,7 +2,7 @@
  * tests/routes.test.mjs —— 安装路由与参数模板（规格 #591 第 4、12 条）。
  *
  * 只测外部行为：路由二选一、参数数组形状、桌面激活范围对不上转手工、子进程不用 PATH 名。
- * 子进程与桌面服务全用假件，不起真进程。
+ * 子进程与桌面服务全用假件，不起真进程。（第三条路由——官方桌面版的管理器——见 desktop-manager.test.mjs。）
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -80,7 +80,7 @@ describe('手工兜底命令（冻结形状）', () => {
   })
 })
 
-describe('双宿主执行器（假件）', () => {
+describe('老两条路由执行器（假件）', () => {
   it('桌面宿主：经桌面服务用参数数组拉起，不碰垫片不经 shell', async () => {
     const seen = []
     const fires = []

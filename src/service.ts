@@ -378,8 +378,12 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       await saveJob(done)
     } catch (error) {
       const code = (error as { code?: unknown })?.code
-      const message =
+      const base =
         code === 'installation-changed' || code === 'registry-conflict' || code === 'install-failed' ? String(code) : 'install-failed'
+      // 失败详情（宿主原话，执行器已截断脱敏）补进已有的 message 通道：值从纯 code 变成
+      // 「code: 原话」，字段集与形状不变。消费方要匹配就匹配前缀 code，别做整串相等（README 第 12 节）。
+      const detail = (error as { detail?: unknown })?.detail
+      const message = typeof detail === 'string' && detail ? `${base}: ${detail}` : base
       const failedJob: UpdateJob = { ...job, state: 'failed', message, requestId: job.requestId ?? null }
       try {
         await saveJob(failedJob)
