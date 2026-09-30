@@ -61,10 +61,12 @@ Say ('发布目录: ' + $PackageDir)
 
 Set-Location -Path $PackageDir
 
-$PkgName = 'dsh-plugin-update'
+$PkgName = 'unknown'
 $Version = 'unknown'
 try {
-    $PkgJson = Get-Content (Join-Path $PackageDir 'package.json') -Raw | ConvertFrom-Json
+    # 必须显式 -Encoding UTF8：Windows PowerShell 5.1 的 Get-Content 默认按 ANSI(GBK) 读，
+    # 我们的 package.json 是 UTF-8 无 BOM，不写编码会读成乱码、连 JSON 都解析不了。
+    $PkgJson = Get-Content (Join-Path $PackageDir 'package.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     $PkgName = $PkgJson.name
     $Version = $PkgJson.version
 } catch {
@@ -72,6 +74,12 @@ try {
 }
 
 :main while ($true) {
+
+    # 读不出元数据就别往下走：版本号是 unknown 时，「npmjs 上有没有这个版本」全是假判断。
+    if ($PkgName -eq 'unknown' -or $Version -eq 'unknown') {
+        Write-Host '  ⚠ 读不出 package.json 的包名/版本号——停下，先修好再重跑。'
+        break main
+    }
 
     # ── 1. 预检 ───────────────────────────────────────────────────────────
     Write-Host ''
