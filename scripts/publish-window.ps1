@@ -36,10 +36,17 @@ $PublishStatus = Join-Path $PackageDir '.tmp-publish-status.json'
 $PublishExit = 1
 
 function Say($text) { Write-Host $text }
+# 默认 N（回车即中止）是故意的：这些门后面是「真发布」这类撤不回来的动作。
+# 所以提示必须把回车的含义写出来，别让人靠猜。
 function Gate($prompt) {
     if ($Preview) { return $true }
-    $reply = Read-Host ('  ? ' + $prompt + ' [y/N]')
+    Write-Host '     （输入 y 继续；直接回车＝中止，什么都不会发）'
+    $reply = Read-Host ('  ? ' + $prompt)
     return ($reply -eq 'y' -or $reply -eq 'Y')
+}
+function Stopped {
+    Say '停下了，什么都没发。'
+    Say '想继续就重新双击 publish.cmd（前两段会重跑，约十几秒）。'
 }
 
 try {
@@ -90,7 +97,7 @@ try {
     if ($dirty.Trim().Length -gt 0) {
         Write-Host '  ⚠ 工作区还有未提交的改动：'
         Write-Host $dirty
-        if (-not (Gate '忽略它、继续发布？')) { Say '停下了，什么都没发。'; break main }
+        if (-not (Gate '忽略它、继续发布？')) { Stopped; break main }
     } else {
         Say '  工作区干净（已跟踪文件无改动）✓'
     }
@@ -111,7 +118,7 @@ try {
     & npm view ($PkgName + '@' + $Version) version --registry=$Npmjs 2>$null | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Host ('  ⚠ npmjs 上已经有 ' + $PkgName + '@' + $Version + '——先改 package.json 的版本号')
-        if (-not (Gate '仍然继续？')) { Say '停下了，什么都没发。'; break main }
+        if (-not (Gate '仍然继续？')) { Stopped; break main }
     } else {
         Say ('  npmjs 上还没有 ' + $Version + '，可以发 ✓')
     }
@@ -133,7 +140,7 @@ try {
     & npm publish --dry-run --registry=$Npmjs
     if ($LASTEXITCODE -ne 0) { Say '  演练失败——先查上面的报错。'; break main }
     Say '  核对：版本号对不对；清单里只有 dist(9 个 JS) + derive-client-values.mjs + event-list.template.json + README.md + LICENSE + package.json。'
-    if (-not (Gate '清单没问题，继续真发布？')) { Say '停下了，什么都没发。'; break main }
+    if (-not (Gate '清单没问题，继续真发布？')) { Stopped; break main }
 
     if ($Preview) {
         Say '  [预览] 到此为止，没有执行 npm publish。'
