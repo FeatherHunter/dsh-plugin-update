@@ -13,8 +13,7 @@
 
 import { realpath } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { join, sep } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { sep } from 'node:path'
 import {
   DEFAULT_CONFIRMATION_TTL_MS,
   DEFAULT_CHECK_TIMEOUT_MS,
@@ -27,7 +26,7 @@ import {
 import { manualCommand } from './commands.js'
 import { validVersion } from './service.js'
 import { createUpdateDiskPorts, createUpdateExecutor } from './store.js'
-import { containingPackage, createUpdateReader, defaultHomeDir, resolveProfileName } from './reader.js'
+import { createUpdateReader, defaultHomeDir, resolveProfileName, resolveTargetPackage } from './reader.js'
 import type { EnvironmentKind } from './ports.js'
 
 export { buildPhoneName, buildPhoneNames, resolveUpdateConfig } from './config.js'
@@ -43,7 +42,7 @@ export type {
   GateFieldCheck,
   GateCountCheck
 } from './gate.js'
-export { containingPackage, defaultHomeDir, profileNameValid, registrySpec } from './reader.js'
+export { containingPackage, defaultHomeDir, profileNameValid, registrySpec, resolveTargetPackage } from './reader.js'
 export { createUpdateDiskPorts, createUpdateExecutor, pathsForUpdate, resolveCliEntry } from './store.js'
 
 // ---------- 宿主种类探测与桌面服务 ----------
@@ -123,15 +122,15 @@ function hash8(s: string): string {
   }
 }
 
-/** 从已装位置反推使用范围目录：装好的包住在 <范围>/node_modules 下，开发目录走默认范围。 */
-async function inferProfileDir(
-  loaded: { directory?: string } | null,
-  homeDirDefault: string,
-  targetPackageName: string
-): Promise<string> {
+/**
+ * 从目标包位置反推使用范围目录：装好的包住在 `<范围>/node_modules/<目标包>` 下。
+ * 反推不到返回 null，调用方诚实失败（issue #3：不再猜 `profiles/web`，多范围并存时猜即读错）。
+ */
+async function tryInferProfileDir(targetDir: string, targetPackageName: string): Promise<string | null> {
   try {
-    const dir = loaded && loaded.directory ? String(loaded.directory) : ''
-    const marker = `${sep}node_modules${sep}${targetPackageName}`
+    const dir = String(targetDir || '')
+    if (!dir) return null
+    const marker = `${sep}node_modules${sep}${String(targetPackageName || '').split('/').join(sep)}`
     const at = dir.lastIndexOf(marker)
     if (at > 0) {
       const candidate = dir.slice(0, at)
@@ -142,7 +141,11 @@ async function inferProfileDir(
       }
     }
   } catch {}
-  return join(homeDirDefault, 'profiles', 'web')
+  return null
+}
+
+function unknownProfile(): Error & { code: string } {
+  return Object.assign(new Error('unknown-profile'), { code: 'unknown-profile' })
 }
 
 export interface ReaderOverrides {
@@ -179,6 +182,8 @@ export interface ReaderOverrides {
   runtimeExecutable?: string
   runtimeExecArgs?: string[]
   cliEntry?: string
+  /** 显式目标包目录：优先于按包名自动解析（hoisted、多副本、开发态链接等场景的逃生口）。 */
+  targetPackageDir?: string
 }
 
 async function getSharedReader(pluginId: string, config: ReturnType<typeof resolveUpdateConfig>, overrides: ReaderOverrides = {}): Promise<ReturnType<typeof createUpdateReader>> {
@@ -186,11 +191,26 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   const osHome = overrides.osHome ?? homedir()
   const homeDirDefault = defaultHomeDir(env, osHome)
   const targetPackageName = overrides.targetPackageName ?? config.targetPackageName
-  const loaded = await containingPackage(fileURLToPath(import.meta.url), targetPackageName).catch(() => null)
+  const explicitTargetDir =
+    typeof overrides.targetPackageDir === 'string' && overrides.targetPackageDir ? String(overrides.targetPackageDir) : ''
+  // 与读取器共用同一个解析函数（issue #3）：显式目录优先，否则按包名解析。
+  const loaded = await resolveTargetPackage(targetPackageName, explicitTargetDir ? { targetPackageDir: explicitTargetDir } : {}).catch(
+    () => null
+  )
   const runningVersion =
     overrides.runningVersion ?? (loaded && validVersion((loaded.manifest as { version?: unknown }).version) ? String((loaded.manifest as { version: string }).version) : null)
-  if (!runningVersion) throw Object.assign(new Error('unknown-profile'), { code: 'unknown-profile' })
-  const profileDirInput = overrides.profileDir ?? (await inferProfileDir(loaded, homeDirDefault, targetPackageName))
+  if (!runningVersion) throw unknownProfile()
+  let profileDirInput: string
+  if (overrides.profileDir) {
+    profileDirInput = String(overrides.profileDir)
+  } else {
+    const anchorDir = (loaded && loaded.directory ? String(loaded.directory) : '') || explicitTargetDir
+    const inferred = anchorDir ? await tryInferProfileDir(anchorDir, targetPackageName) : null
+    // 诚实失败（issue #3）：目标包定位不到且调用方没给 profileDir / targetPackageDir 时，
+    // 不再猜 profiles/web（多范围并存即读错），也不再往下产出假的 installation-changed。
+    if (!inferred) throw unknownProfile()
+    profileDirInput = inferred
+  }
   const homeDirInput = overrides.homeDir ?? config.homeDir ?? homeDirDefault
   const environmentKind =
     overrides.environmentKind ?? detectEnvironmentKind(overrides.ctx, resolveProfileName(overrides.profileName, profileDirInput))
@@ -198,7 +218,7 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   const confirmationTtlMs = overrides.confirmationTtlMs ?? config.confirmationTtlMs
   const installTimeoutMs = overrides.installTimeoutMs ?? config.installTimeoutMs
   const registryUrl = overrides.registryUrl ?? config.registryUrl
-  const key = `${pluginId}\0${config.prefix}\0${runningVersion}\0${profileDirInput}\0${overrides.profileName ?? ''}\0${homeDirInput}\0${overrides.runInstall ? 'exec' : ''}\0${environmentKind}\0${targetPackageName}`
+  const key = `${pluginId}\0${config.prefix}\0${runningVersion}\0${profileDirInput}\0${overrides.profileName ?? ''}\0${homeDirInput}\0${overrides.runInstall ? 'exec' : ''}\0${environmentKind}\0${targetPackageName}\0${explicitTargetDir}`
   if (sharedReader && sharedReaderKey === key) return sharedReader
   const disk = overrides.readJob && overrides.writeJob ? null : createUpdateDiskPorts(homeDirInput, pluginId, profileDirInput)
   // 执行零件按需现取（桌面服务要等注入到位）：路由与参数形态由核心的 installRecipe 定，
@@ -226,6 +246,7 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
     pluginId,
     profileName: overrides.profileName ?? undefined,
     homeDir: overrides.homeDir,
+    targetPackageDir: explicitTargetDir || undefined,
     env,
     osHome,
     fetchImpl: overrides.fetchImpl as never,

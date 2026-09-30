@@ -10,6 +10,7 @@
 
 import { createHash, randomUUID } from 'node:crypto'
 import { readFile, realpath, stat } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -55,6 +56,80 @@ export async function containingPackage(
     if (parent === directory) return null
     directory = parent
   }
+}
+
+export interface ResolveTargetPackageOptions {
+  /** 显式目标包目录：给了就不走任何自动解析（hoisted、多副本、开发态链接等场景的逃生口）。 */
+  targetPackageDir?: string
+}
+
+/** 读目录清单且名字对得上才收，否则 null（解析全程 best-effort，失败由调用方诚实处理）。 */
+async function packageAtIfNamed(
+  directory: string,
+  name: string
+): Promise<{ directory: string; manifest: Record<string, unknown>; contents: string } | null> {
+  try {
+    const pkg = await packageAt(directory)
+    if (pkg.manifest && pkg.manifest.name === name) return pkg
+  } catch {}
+  return null
+}
+
+/**
+ * 按包名解析目标包（issue #3 治本：不再拿“本包自己住在哪”回答“要更新的包在哪”）。
+ *
+ * 顺序固定：
+ *   1. 显式目录优先（给了就不走自动解析）；
+ *   2. `createRequire(base).resolve(name + '/package.json')` 直解清单；
+ *   3. `createRequire(base).resolve(name)` 取入口，再用 `containingPackage(入口)` 向上找清单；
+ *   4. 手工 sibling 步行（绕过 `exports` 映射：逐级找 `node_modules/<name>/package.json`；
+ *      第 2、3 步受 `exports` 约束，对“契约完整但未导出 `.` 与 `./package.json`”的包会失败，
+ *      这一步按文件系统直读，保证普通依赖形态一定命中）；
+ *   5. 退回自锚定 `containingPackage(自身文件)`（vendor 在目标包内部的老形态）。
+ *
+ * 全失败返回 null，调用方诚实失败，不猜。
+ */
+export async function resolveTargetPackage(
+  targetName: string,
+  opts: ResolveTargetPackageOptions = {}
+): Promise<{ directory: string; manifest: Record<string, unknown>; contents: string } | null> {
+  const name = String(targetName || '')
+  if (!name) return null
+  // 显式目录优先：给了就不走自动解析，命中即收，不中即 null。
+  if (opts.targetPackageDir) return packageAtIfNamed(resolve(String(opts.targetPackageDir)), name)
+  const base = import.meta.url
+  let req: { resolve(spec: string): string } | null = null
+  try {
+    req = createRequire(base)
+  } catch {
+    req = null
+  }
+  if (req) {
+    try {
+      const pkg = await packageAtIfNamed(dirname(req.resolve(`${name}/package.json`)), name)
+      if (pkg) return pkg
+    } catch {}
+    try {
+      const entry = req.resolve(name)
+      const pkg = await containingPackage(entry, name)
+      if (pkg) return pkg
+    } catch {}
+  }
+  try {
+    let dir = dirname(fileURLToPath(base))
+    while (true) {
+      const pkg = await packageAtIfNamed(join(dir, 'node_modules', name), name)
+      if (pkg) return pkg
+      const parent = dirname(dir)
+      if (parent === dir) break
+      dir = parent
+    }
+  } catch {}
+  try {
+    const pkg = await containingPackage(fileURLToPath(base), name)
+    if (pkg) return pkg
+  } catch {}
+  return null
 }
 
 /** 使用范围名的唯一取法：调用方给了就用它，否则取使用范围目录的最后一段（宿主探测与读环境共用）。 */
@@ -127,6 +202,8 @@ export interface UpdateReaderOptions {
   pluginId: string
   profileName?: string
   homeDir?: string
+  /** 显式目标包目录：优先于按包名自动解析（hoisted、多副本、开发态链接等场景的逃生口）。 */
+  targetPackageDir?: string
   env?: Record<string, string | undefined>
   osHome?: string
   fetchImpl?: FetchImpl
@@ -172,7 +249,11 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
   const environmentKind = options.environmentKind ?? 'cli'
   const targetPackageName = options.targetPackageName ?? 'dsh-mattpocock-skills-deck'
   const registryUrl = options.registryUrl ?? 'https://registry.npmjs.org/'
-  const loadedPackage = containingPackage(fileURLToPath(import.meta.url), targetPackageName).catch(() => null)
+  // 与宿主入口共用同一个解析函数（issue #3）：显式目录优先，否则按包名解析，失败为 null。
+  const loadedPackage = resolveTargetPackage(
+    targetPackageName,
+    options.targetPackageDir ? { targetPackageDir: options.targetPackageDir } : {}
+  ).catch(() => null)
   let boundIdentity: string | undefined
   async function readInstalledReal(): Promise<EnvironmentView> {
     const result: EnvironmentView = {
@@ -218,6 +299,9 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
     result.installedVersion = typeof installed.manifest.version === 'string' ? installed.manifest.version : null
     result.packageValid = await validPackage(installed, targetPackageName)
     const loaded = await loadedPackage
+    // 目标包定位不到（自动解析全失败且没给显式目录）：诚实失败，不产假的 installation-changed
+    //（issue #3；到这里已装包真实存在，是“本包认不出目标”而非“安装位置变了”，重开宿主也修不好）。
+    const loadedUnresolvable = loaded === null
     // 环境指纹强制含插件标识（规格 #591 第 6 条）：多插件不共享同一份内存状态。
     const identity = `${homeDir}\0${profileDir}\0${profileName}\0${pluginId}`
     const sameLoadedPackage = loaded?.directory === installed.directory && loaded?.manifest.version === installed.manifest.version
@@ -231,6 +315,7 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
       result.installationKey = null
     }
     if (boundIdentity !== undefined && boundIdentity !== identity) result.blockedReason = 'installation-changed'
+    else if (loadedUnresolvable) result.blockedReason = 'unknown-profile'
     else if (!sameLoadedPackage && boundIdentity === undefined) result.blockedReason = 'installation-changed'
     else if (!result.packageValid) result.blockedReason = 'invalid-installation'
     else if (result.sourceInstall) result.blockedReason = 'source-install'

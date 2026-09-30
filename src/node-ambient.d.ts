@@ -32,6 +32,10 @@ declare module 'node:os' {
   export function homedir(): string
 }
 
+declare module 'node:module' {
+  export function createRequire(filename: string): { resolve(spec: string): string }
+}
+
 declare module 'node:path' {
   export function join(...parts: string[]): string
   export function resolve(...parts: string[]): string

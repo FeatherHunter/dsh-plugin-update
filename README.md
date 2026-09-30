@@ -2,7 +2,7 @@
 
 给 DSH 插件加「检查更新 / 安装更新」能力的 npm 包。宿主侧一段接线，面板侧构建期派生取值，装不上时给用户一条可复制的手工命令。
 
-要求 Node 22 或更高，零运行时依赖。当前版本 `0.1.2`。
+要求 Node 22 或更高，零运行时依赖。当前版本 `0.2.0`。
 
 装上它你会拿到三样东西：
 
@@ -82,13 +82,19 @@ setInterval(readStatus, UPD_POLL)                // 轮询
 
 宿主种类与安装出口都由本包自己探测和选择，**升级依赖即可，宿主侧与面板侧都不用改代码**：
 
-1. 依赖版本提到 `^0.1.2`。
+1. 依赖版本提到 `^0.2.0`。
 2. 重新装 / 发一版你自己的插件，让新依赖进当前使用范围（运行时用的是 `node_modules` 里那份）。
 3. 如果你自己接过一版宿主安装出口，把它删掉——它会挡在本包的路由前面。
 
 两处例外必须动代码（它们把自动探测挡住了）：显式传了 `readerOverrides.environmentKind`；显式传了与真实使用范围不符的 `profileDir` / `profileName`。
 
 `targetPackageName` 建议就是你自己的包名：使用范围目录按「装好的包住在 `<范围>/node_modules/<目标包名>`」反推，对不上时要自己传 `profileDir`。
+
+目标包位置按包名自动解析（与读取器共用同一套顺序：清单直解 → 入口反查 → `node_modules` 步行 → 自锚定兜底）。
+`exports` 未导出 `.` 与 `./package.json` 的包也能命中（`node_modules` 步行绕过映射）。
+hoisted、多副本、开发态链接等自动解析对不上的场景，显式传 `readerOverrides.targetPackageDir`
+（目标包目录绝对路径，给了就不走自动解析）；目标包两条路都找不到且没给 `profileDir` /
+`targetPackageDir` 时诚实失败（`unknown-profile`），不再猜 `profiles/web`，也不再产出假的 `installation-changed`。
 
 ## 3. 配置
 
