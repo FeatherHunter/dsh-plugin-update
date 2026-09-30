@@ -1,0 +1,7 @@
+# 换行规范化：沿用本包原来所在的 monorepo 口径（那边 .gitattributes 的首行就是这句）。
+#
+# 为什么要它：那边的检出是 CRLF、入库是 LF（text=auto 的 clean 过滤器把 CRLF 归一成 LF）。
+# 迁到本仓时如果只带工作树的 CRLF、又不在版本库里声明 text=auto，入库形态就与源仓不一致：
+# 别人克隆下来拿到的是 CRLF，自己发的包装进去的行尾也就跟着变。
+# 声明 text=auto 后，本仓与源仓一样：入库一律 LF，检出按本机。
+* text=auto
