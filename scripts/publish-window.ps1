@@ -197,7 +197,7 @@ try {
             Say ('  registry 上已经有了 ✓（等了约 ' + $waited + ' 秒）')
         } else {
             Write-Host '  ⚠ 15 分钟还没生效：npm 已受理但尚未落地。两个选择：'
-            Write-Host '     ① 过几分钟再查一次：npm view ' + $PkgName + '@' + $Version + ' version --registry=' + $Npmjs)
+            Write-Host ('     ① 过几分钟再查一次：npm view ' + $PkgName + '@' + $Version + ' version --registry=' + $Npmjs)
             Write-Host '     ② 重新双击 publish.cmd 重发一次（同版本重发是安全的：真已存在会报 E409，不会重复上架）'
         }
     }
