@@ -15,3 +15,9 @@ The five canonical triage roles, each label string equal to its role name (`need
 ### Domain docs
 
 Single-context — one `CONTEXT.md` at the repo root, with architecture decisions in `docs/adr/`. See `docs/agents/domain.md`.
+
+### Maintainer docs
+
+`README.md` is the user manual for developers integrating this package — keep it that way: no in-repo process, tickets, or design rationale there.
+
+Repo-side process (build, publish, publish whitelist, gates, change discipline) lives in `docs/maintainers.md`. Host install-exit contracts live in `docs/host-install-exits.md`.
