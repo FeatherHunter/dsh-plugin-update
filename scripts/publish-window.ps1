@@ -162,26 +162,33 @@ try {
             $PublishExit = $LASTEXITCODE
         }
     }
-    if ($PublishExit -ne 0) {
-        # 窗口转录抓不全子进程输出；失败时把 npm 自己的调试日志指出来，便于事后定位。
+    # 记下这次 publish 的 npm 调试日志：发布那一次的最有用，落进状态文件，事后不必靠窗口复述。
+    $PublishDebugLog = ''
+    try {
         $dbg = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'npm-cache\_logs\*-debug-0.log') -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        if ($dbg) { Say ('  npm 调试日志: ' + $dbg.FullName) }
-    }
+        if ($dbg) { $PublishDebugLog = $dbg.FullName }
+    } catch { }
+    if ($PublishExit -ne 0 -and $PublishDebugLog) { Say ('  npm 调试日志: ' + $PublishDebugLog) }
 
     # ── 5. 发布后校验 ─────────────────────────────────────────────────────
     # npm 回 202 / exit 0 只代表「已受理」：registry 上架可能滞后几分钟（npm 自己会打印
     # 「may take a few minutes to become available」）。所以这里必须轮询，不能立刻下结论。
+    # 轮询走 registry 的 HTTP GET，**不走 npm view**：npm 每跑一次写一份调试日志、只留最近
+    # 10 份（logs-max=10），高频 npm view 会把发布那一次的日志挤掉（0.2.0 发布时踩过）。
     Write-Host ''
     Write-Host '  ▸ 5/5 发布后校验'
     $Visible = $false
     if ($PublishExit -eq 0) {
-        Say ('  npm 已受理 ' + $PkgName + '@' + $Version + '；最多等 10 分钟，每 15 秒问一次 registry...')
-        $deadline = (Get-Date).AddMinutes(10)
+        Say ('  npm 已受理 ' + $PkgName + '@' + $Version + '；最多等 15 分钟，每 15 秒问一次 registry...')
+        $deadline = (Get-Date).AddMinutes(15)
         $waited = 0
         while ((Get-Date) -lt $deadline) {
-            & npm view ($PkgName + '@' + $Version) version --registry=$Npmjs --prefer-online 2>$null | Out-Null
-            if ($LASTEXITCODE -eq 0) { $Visible = $true; break }
+            $doc = $null
+            try {
+                $doc = Invoke-RestMethod ('https://registry.npmjs.org/' + $PkgName) -Headers @{ 'Cache-Control' = 'no-cache' } -TimeoutSec 20
+            } catch { $doc = $null }
+            if ($doc -and ($doc.versions.PSObject.Properties.Name -contains $Version)) { $Visible = $true; break }
             Start-Sleep -Seconds 15
             $waited += 15
             Write-Host ('    ...' + $waited + ' 秒，还没生效')
@@ -189,8 +196,9 @@ try {
         if ($Visible) {
             Say ('  registry 上已经有了 ✓（等了约 ' + $waited + ' 秒）')
         } else {
-            Write-Host '  ⚠ 10 分钟还没生效：npm 已受理但尚未落地。过几分钟自己再查一次：'
-            Write-Host ('     npm view ' + $PkgName + '@' + $Version + ' version --registry=' + $Npmjs)
+            Write-Host '  ⚠ 15 分钟还没生效：npm 已受理但尚未落地。两个选择：'
+            Write-Host '     ① 过几分钟再查一次：npm view ' + $PkgName + '@' + $Version + ' version --registry=' + $Npmjs)
+            Write-Host '     ② 重新双击 publish.cmd 重发一次（同版本重发是安全的：真已存在会报 E409，不会重复上架）'
         }
     }
 
@@ -247,6 +255,7 @@ try {
         log      = $PublishLog
         preview  = [bool]$Preview
         visible  = [bool]$Visible
+        debugLog = $PublishDebugLog
         at       = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
     } | ConvertTo-Json
     Set-Content -Path $PublishStatus -Value $status -Encoding UTF8
