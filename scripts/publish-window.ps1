@@ -157,9 +157,31 @@ try {
     }
 
     # ── 5. 发布后校验 ─────────────────────────────────────────────────────
+    # npm 回 202 / exit 0 只代表「已受理」：registry 上架可能滞后几分钟（npm 自己会打印
+    # 「may take a few minutes to become available」）。所以这里必须轮询，不能立刻下结论。
     Write-Host ''
     Write-Host '  ▸ 5/5 发布后校验'
+    $Visible = $false
     if ($PublishExit -eq 0) {
+        Say ('  npm 已受理 ' + $PkgName + '@' + $Version + '；最多等 5 分钟，每 15 秒问一次 registry...')
+        $deadline = (Get-Date).AddMinutes(5)
+        $waited = 0
+        while ((Get-Date) -lt $deadline) {
+            & npm view ($PkgName + '@' + $Version) version --registry=$Npmjs --prefer-online 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) { $Visible = $true; break }
+            Start-Sleep -Seconds 15
+            $waited += 15
+            Write-Host ('    ...' + $waited + ' 秒，还没生效')
+        }
+        if ($Visible) {
+            Say ('  registry 上已经有了 ✓（等了约 ' + $waited + ' 秒）')
+        } else {
+            Write-Host '  ⚠ 5 分钟还没生效：npm 已受理但尚未落地。过几分钟自己再查一次：'
+            Write-Host ('     npm view ' + $PkgName + '@' + $Version + ' version --registry=' + $Npmjs)
+        }
+    }
+
+    if ($PublishExit -eq 0 -and $Visible) {
         $latest = (& npm view $PkgName version --registry=$Npmjs 2>$null | Out-String).Trim()
         Say ('  npmjs latest = ' + $latest + '（本包版本 ' + $Version + '）')
         & npm view ($PkgName + '@' + $Version) dist.tarball dist.integrity --registry=$Npmjs
@@ -181,6 +203,8 @@ try {
             Pop-Location
             Remove-Item $smoke -Recurse -Force -ErrorAction SilentlyContinue
         }
+    } elseif ($PublishExit -eq 0) {
+        Write-Host '  npm 已受理，但 registry 上还没看到——别急着宣布成功，过几分钟再查一次。'
     } else {
         Write-Host '  发布没成功——把本窗口内容告知 Agent。'
     }
@@ -191,8 +215,10 @@ try {
 Write-Host ''
 Write-Host '============================================================'
 Write-Host ('  发布流程结束，退出码: ' + $PublishExit)
-if ($PublishExit -eq 0) {
-    Write-Host '  成功标志：上方出现 + <包名>@<版本>，且 npmjs latest 已是新版本'
+if ($PublishExit -eq 0 -and $Visible) {
+    Write-Host '  成功：registry 上已经有这一版'
+} elseif ($PublishExit -eq 0) {
+    Write-Host '  已受理但未确认：npm 收了，registry 还没生效——过几分钟再查'
 } else {
     Write-Host '  未成功：把本窗口内容告知 Agent'
 }
@@ -207,6 +233,7 @@ try {
         dir      = $PackageDir
         log      = $PublishLog
         preview  = [bool]$Preview
+        visible  = [bool]$Visible
         at       = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
     } | ConvertTo-Json
     Set-Content -Path $PublishStatus -Value $status -Encoding UTF8
