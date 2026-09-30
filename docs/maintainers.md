@@ -4,13 +4,26 @@
 
 ## 发布流程
 
-**发布用向导**（推荐，逐级确认、不带参数、跑一次走完全程）：
+**发布用窗口**（推荐；入口在仓根，用户双击即可）：
 
 ```sh
-bash scripts/release-wizard.sh
+publish.cmd
 ```
 
-它按下面七级走：预检（仓库/Node/版本号/npmjs 身份）→ 构建与门禁（`npm test`）→ 发布演练（`--dry-run` 核对文件清单）→ 真发布（含 2FA 验证码兜底）→ 发布后校验（npmjs 版本号 + 临时目录真装一次）→ 打 tag（可选）→ 交接提醒（消费方升级、现场验收）。
+窗口分五段，每段停下等你确认：预检（工作区/Node/版本号未占用/npmjs 身份）→ 门禁（`npm test`）→ 发布演练（`--dry-run` 核对文件清单）→ 真发布（2FA）→ 发布后校验（npmjs 版本号 + 临时目录真装一次）。
+
+- npm 的 2FA 审批要**真实 TTY ＋ 用户本人**：Agent 的后台环境直接跑 `npm publish` 只会拿到 `EOTP`，隔空传一次性验证码必过期。所以发布必须在这个窗口里做。
+- Agent 直接 `Start-Process` 开的窗口落在用户看不见的会话；要用 **schtasks 交互式任务**把窗口拉到用户桌面：
+
+```sh
+schtasks /create /tn "DSHPublishUpdate" /tr "\"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe\" -NoProfile -ExecutionPolicy Bypass -File \"<仓根>\scripts\publish-window.ps1\" -PackageDir \"<仓根>\"" /sc once /st 23:59 /it /f
+schtasks /run /tn "DSHPublishUpdate"
+schtasks /delete /tn "DSHPublishUpdate" /f
+```
+
+- 结果落盘（Agent 读文件，不必等用户复述）：`.tmp-publish-status.json` 是**权威判据**（退出码/版本/目录/时间），`.tmp-publish-<时间>.log` 是整窗转录。两者都已被 `.gitignore` 忽略。
+- `scripts/publish-window.ps1 -Preview` 只做前三段（预检、门禁、演练），不发布、不暂停，用来验证脚本本身。
+- 脚本必须存成 **UTF-8(BOM)**：Windows PowerShell 5.1 读没有 BOM 的 `.ps1` 会按 ANSI 解析，中文会乱码。
 
 手动照做的话，按顺序两步（演练只跑 dry-run，不真发）：
 

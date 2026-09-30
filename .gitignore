@@ -6,4 +6,5 @@ dist/
 
 # 临时件
 .tmp-publish-status.json
+.tmp-publish-*.log
 tests/.tmp/
