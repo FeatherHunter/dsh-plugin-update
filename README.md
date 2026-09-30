@@ -134,6 +134,8 @@ node node_modules/dsh-plugin-update/derive-client-values.mjs --prefix notes --ou
 
 宿主种类与路由的**取值可增**（新增取值属向后兼容：调用方不认就当普通宿主处理），键与形状仍冻结。三条路由的契约出处见 `docs/host-install-exits.md`。
 
+要显式覆盖出口：`createHostUpdate({ ctx, pluginManager })` 可以直接传入宿主管理器实例（与 `desktopPnpm` 同一手法），不传就从 `ctx` 现取。`detectEnvironmentKind(ctx, 使用范围名)` 的第二个参数就是上面第 ② 条判定要用的名字——**不传就只认第 ①③ 条**，新路由不会触发；`createHostUpdate` 内部会按与读环境同一个口径（`resolveProfileName`）替调用方补上。
+
 ## 5. 冻结清单（动任一条即走破冰讨论）
 
 默认电话名、入参回参形状、配置写法（只经函数入参注入）、配方五键形状、事件字段基线（三事件各加必填 `pluginId`）、默认旧路径。加可选键只需同步改文档与白名单。完整结论见规格 #591。
@@ -181,7 +183,7 @@ node build.mjs
 npm publish --dry-run
 ```
 
-编译产物在 `dist` 下（9 个 JS：`client.js`、`commands.js`、`config.js`、`gate.js`、`host.js`、`ports.js`、`reader.js`、`service.js`、`store.js`），本地生成、不入库。发布白名单（`files`）共 5 项（`dist`、`derive-client-values.mjs`、`event-list.template.json`、`README.md`、`LICENSE`，另加隐含的 `package.json`；`dist` 下 9 个 JS 全带上）。加新文件进包时同步改 `files` 并重跑 dry-run 确认文件数。
+编译产物在 `dist` 下（9 个 JS：`client.js`、`commands.js`、`config.js`、`gate.js`、`host.js`、`ports.js`、`reader.js`、`service.js`、`store.js`），本地生成、不入库。发布白名单（`files`）共 6 项（`dist`、`derive-client-values.mjs`、`event-list.template.json`、`README.md`、`LICENSE`、`docs/host-install-exits.md`，另加隐含的 `package.json`；`dist` 下 9 个 JS 全带上）。加新文件进包时同步改 `files` 并重跑 dry-run 确认文件数。
 
 本包自己的门禁（改包后必跑，退出码全 0 才算过）：
 

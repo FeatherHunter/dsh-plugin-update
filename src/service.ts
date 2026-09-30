@@ -372,8 +372,15 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       activeJobId = doing.id
       await saveJob(doing)
       const env = await ports.readInstalled()
-      if (env.installedVersion !== job.targetVersion) throw updateError('install-failed')
-      if (env.blockedReason && env.blockedReason !== 'pending-restart') throw updateError('install-failed')
+      // 装完校验也会失败：它同样要给出一句能读的说明，不能只留一个死码（验收判据 1）。
+      if (env.installedVersion !== job.targetVersion) {
+        throw Object.assign(updateError('install-failed'), {
+          detail: `装完校验没过：磁盘上是 ${env.installedVersion ?? '未知'}，目标是 ${job.targetVersion ?? '未知'}`,
+        })
+      }
+      if (env.blockedReason && env.blockedReason !== 'pending-restart') {
+        throw Object.assign(updateError('install-failed'), { detail: `装完校验没过：环境报告 ${env.blockedReason}` })
+      }
       const done: UpdateJob = { ...doing, state: 'restart-required', message: null }
       await saveJob(done)
     } catch (error) {

@@ -21,7 +21,8 @@
     "derive-client-values.mjs",
     "event-list.template.json",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "docs/host-install-exits.md"
   ],
   "publishConfig": {
     "access": "public",

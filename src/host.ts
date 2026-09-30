@@ -92,9 +92,9 @@ function hasInstallBundle(manager: unknown): boolean {
   }
 }
 
-/** 命令行明确封禁的使用范围名：只有 `desktop`（大小写不敏感）。出处见 detectEnvironmentKind 注释。 */
+/** 命令行明确封禁的使用范围名：只有 `desktop`（大小写不敏感，与命令行同一判据，不做 trim）。 */
 function cliRefusesProfile(profileName: unknown): boolean {
-  return typeof profileName === 'string' && profileName.trim().toLowerCase() === 'desktop'
+  return typeof profileName === 'string' && profileName.toLowerCase() === 'desktop'
 }
 
 /** 桌面服务用嵌套注入拿：不把桌面服务放进顶层依赖声明，普通 DSH 才能照常加载。 */

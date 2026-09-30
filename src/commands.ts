@@ -3,7 +3,8 @@
  *
  * 由 update-core/src/commands.ts 原样拎入，两条产物形状冻结（改键改模板即破冰）：
  *   1. 执行配方（installRecipe）——真正安装时用：按宿主种类选路由，程序与参数数组分开，
- *      使用范围名原样进数组；一律带精确版本、官方源与 --save-exact。
+ *      使用范围名原样进数组；一律精确版本与官方源——第三方 Desktop 与普通宿主那两条把源写进
+ *      参数数组（带 --save-exact），官方桌面版那条只交一个精确版本规格，源走宿主管理器的选项。
  *   2. 手工兜底文案（manualCommand）——给人复制到终端执行：沿用命令串形状，
  *      使用范围名含特殊字符时加引号（只影响展示，不影响配方）。
  * 自包含：不引用同层其它文件，版本号小工具按需内联。
@@ -94,6 +95,7 @@ export function installRecipe(input: {
   if (!targetName || !registry) return null
   if (kind === 'desktop-manager') {
     // 管理器只吃一个 spec 字符串，且包名形状比 npm 通用写法更窄（全小写）；不合就不给配方。
+    // 解码处见 src/store.ts 的 managerSpecOf——改这条形状要同时改两处（五键冻结，只能这样传）。
     if (!MANAGER_TARGET_RE.test(targetName)) return null
     return {
       route: 'desktop-manager',

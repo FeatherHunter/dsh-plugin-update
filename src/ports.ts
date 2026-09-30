@@ -70,6 +70,10 @@ export interface UpdateJob {
   id: string
   state: 'installing' | 'verifying' | 'restart-required' | 'completed' | 'failed' | 'interrupted'
   targetVersion: string | null
+  /**
+   * 任务说明：失败时是「失败码」或「失败码: 详情」（详情来自宿主原话，已截断、已去掉绝对路径）。
+   * 取值可变，字段与形状不变；要匹配请匹配前缀失败码，不要整串相等（README 第 12 节）。
+   */
   message: string | null
   /** 提交时的请求编号：同一个编号重复提交直接返回旧结果，不重装。 */
   requestId: string | null

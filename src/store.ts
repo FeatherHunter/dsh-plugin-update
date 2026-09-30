@@ -22,7 +22,7 @@ import { mkdir, open, readFile, rename, realpath, stat, unlink, writeFile } from
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { installRecipe } from './commands.js'
 import { BACKUP_FILE, LEGACY_PLUGIN_ID, LOCK_FILE, STATE_FILE } from './config.js'
-import type { EnvironmentKind, UpdateJob } from './ports.js'
+import type { EnvironmentKind, InstallRecipe, UpdateJob } from './ports.js'
 
 // 永久冻结的旧字面（规格 #591 第 14 条）：默认旧路径原文加三固定名永久冻结，永不删除。
 // 旧原文：join(家目录, 'updates', 'dsh-mattpocock-skills-deck', 短指纹(使用范围目录))。
@@ -427,7 +427,6 @@ async function runDesktopService(
 interface ManagerChangeResult {
   application?: unknown
   error?: unknown
-  packageResult?: { output?: unknown; exitCode?: unknown }
 }
 
 /** 失败详情封顶字数：回给用户的是一行人话，不是整段安装输出。 */
@@ -440,11 +439,17 @@ function withDetail(error: Error & { detail?: string }, detail: string): Error &
   return error
 }
 
+/**
+ * 绝对路径的具名规则：Windows 盘符开头的、以及空白之后紧跟 `/` 的 POSIX 路径，都换成占位。
+ * 两种形状合在一条规则里，保证回给用户的字符串里不留路径原文（URL 里的 `//` 不受影响）。
+ */
+const ABSOLUTE_PATH_RE = /[A-Za-z]:\\[^\s"']*|(^|\s)\/[^\s"']+/g
+
 /** 把外面世界的脏错误收成一行：折叠空白、绝对路径换占位、封顶（原文不进日志与回包）。 */
 function sanitizeDetail(text: string): string {
   const flat = String(text ?? '').replace(/\s+/g, ' ').trim()
   if (!flat) return ''
-  const noPath = flat.replace(/[A-Za-z]:\\[^\s"']*/g, '<路径>').replace(/(^|\s)\/[^\s"']+/g, '$1<路径>')
+  const noPath = flat.replace(ABSOLUTE_PATH_RE, (_whole, lead) => `${lead || ''}<路径>`)
   return noPath.length > DETAIL_MAX ? `${noPath.slice(0, DETAIL_MAX)}…` : noPath
 }
 
@@ -467,7 +472,10 @@ function detailText(error: unknown): string {
   return error === undefined || error === null ? '' : sanitizeDetail(String(error))
 }
 
-/** 管理器只吃一个 spec 字符串；配方给的就是 ['add', spec]，别的形状一律不试也不猜。 */
+/**
+ * 管理器只吃一个 spec 字符串；配方给的就是 ['add', spec]，别的形状一律不试也不猜。
+ * 编码处见 src/commands.ts 的 installRecipe——改这条形状要同时改两处（五键冻结，只能这样传）。
+ */
 function managerSpecOf(pluginArgs: string[]): string | null {
   if (!Array.isArray(pluginArgs) || pluginArgs.length !== 2) return null
   const [verb, spec] = pluginArgs
@@ -475,12 +483,12 @@ function managerSpecOf(pluginArgs: string[]): string | null {
   return spec
 }
 
-/** 等管理器回话：带时限；到点先问它能不能取消，再由调用方决定是等它自己结束还是按失败收场。 */
+/** 等管理器回话：带时限；到点先请它取消（能不能取消由它答），再由调用方决定怎么收场。 */
 async function raceManager(
   running: Promise<ManagerChangeResult>,
   timeoutMs: number,
-  requestCancel: () => Promise<string>
-): Promise<{ timedOut: false; value: ManagerChangeResult } | { timedOut: true; cancelStatus: string }> {
+  requestCancel: () => Promise<unknown>
+): Promise<{ timedOut: false; value: ManagerChangeResult } | { timedOut: true }> {
   const settled = Promise.resolve(running).then((value) => ({ timedOut: false as const, value }))
   if (!(typeof timeoutMs === 'number' && timeoutMs > 0)) return await settled
   const TIMEOUT = Symbol('install-timeout')
@@ -499,7 +507,28 @@ async function raceManager(
     }
   }
   if (winner !== TIMEOUT) return winner
-  return { timedOut: true, cancelStatus: await requestCancel() }
+  await requestCancel()
+  return { timedOut: true }
+}
+
+/** 宽限期内等它自己收尾：到点还没落定就回 null（调用方自己做诚实失败）。中途抛错照样往外抛。 */
+async function settleWithin<T>(promise: Promise<T>, graceMs: number): Promise<T | null> {
+  if (!(typeof graceMs === 'number' && graceMs > 0)) return null
+  const EXPIRED = Symbol('grace-expired')
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const deadline = new Promise<typeof EXPIRED>((settle) => {
+    timer = setTimeout(() => settle(EXPIRED), graceMs)
+  })
+  try {
+    const winner = await Promise.race([promise, deadline])
+    return winner === EXPIRED ? null : (winner as T)
+  } finally {
+    if (timer !== null) {
+      try {
+        clearTimeout(timer)
+      } catch {}
+    }
+  }
 }
 
 /**
@@ -539,15 +568,19 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
     })
     let result: ManagerChangeResult
     if (!outcome.timedOut) result = outcome.value
-    else if (outcome.cancelStatus === 'too-late') {
-      // 已经进入应用阶段、改不动了：等它自己结束，再按 application 判（不假装失败）。
-      result = await running
-    } else {
-      void running.catch(() => {})
-      throw withDetail(fail('install-failed'), '安装超时，已请求宿主取消')
+    else {
+      // 超时且已经点过取消。可能是「刚好装完、还没报到」的竞态，所以再给一个终止宽限期
+      // 等它自己收尾，按它自己的结局判——不把已经落地的改动记成失败。
+      const settled = await settleWithin(running, TERMINATION_GRACE_MS)
+      if (!settled) {
+        void running.catch(() => {})
+        throw withDetail(fail('install-failed'), '安装超时，已请求宿主取消')
+      }
+      result = settled
     }
     const application = result && typeof result.application === 'string' ? result.application : ''
     if (MANAGER_OK.includes(application)) return 0
+    if (application === 'cancelled') throw withDetail(fail('install-failed'), '安装已被取消')
     throw withDetail(fail('install-failed'), detailText(result && result.error !== undefined ? result.error : `application: ${application || 'unknown'}`))
   } catch (error) {
     if ((error as { code?: unknown })?.code === 'install-failed') throw error
@@ -585,6 +618,17 @@ async function runCliProcess(
 }
 
 /**
+ * 路由 → 跑法：三条路由与 README 第 4 节那张表一一对应，加路由只动这一处。
+ * 起进程与两处宿主出口都只经宿主注入的零件，不经 shell、不用 PATH 上的命令名。
+ */
+type InstallRunner = (recipe: InstallRecipe, parts: ExecutorParts) => Promise<number | null>
+const INSTALL_RUNNERS: Record<string, InstallRunner> = {
+  'desktop-service': runDesktopService,
+  'desktop-manager': runDesktopManager,
+  'cli-process': runCliProcess,
+}
+
+/**
  * 真执行器：按核心给的配方跑安装（测试一律注入假零件，不走这里）。
  *
  * 路由只有三条，都由核心的 installRecipe 决定，本文件不按操作系统分支：
@@ -607,12 +651,9 @@ export function createUpdateExecutor(parts: ExecutorParts = {}): (args?: { versi
     let exitCode: number | null = null
     try {
       if (!recipe) throw fail('install-failed')
-      exitCode =
-        recipe.route === 'desktop-service'
-          ? await runDesktopService(recipe, parts)
-          : recipe.route === 'desktop-manager'
-            ? await runDesktopManager(recipe, parts)
-            : await runCliProcess(recipe, parts)
+      const runner = INSTALL_RUNNERS[recipe.route] ?? null
+      if (!runner) throw fail('install-failed')
+      exitCode = await runner(recipe, parts)
       emitInstall(parts, recipe, true, exitCode, Date.now() - startedAt)
     } catch (error) {
       emitInstall(parts, recipe, false, (error as { exitCode?: number })?.exitCode ?? exitCode, Date.now() - startedAt)

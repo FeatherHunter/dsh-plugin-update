@@ -94,7 +94,8 @@ describe('宿主种类探测（顺序固定，老路不变）', () => {
     const ctx = ctxWith({ pluginManager: manager })
     assert.equal(detectEnvironmentKind(ctx, 'web'), 'cli')
     assert.equal(detectEnvironmentKind(ctx), 'cli')
-    assert.equal(detectEnvironmentKind(ctx, 'desktop '), MANAGER_KIND)
+    // 判据与命令行同一份（不做 trim）：带空格的写法命令行不会拒绝，这里也不认。
+    assert.equal(detectEnvironmentKind(ctx, 'desktop '), 'cli')
     assert.equal(detectEnvironmentKind(ctxWith({ pluginManager: {} }), 'desktop'), 'cli')
     assert.equal(detectEnvironmentKind(ctxWith({}), 'desktop'), 'cli')
     assert.equal(detectEnvironmentKind(null, 'desktop'), 'cli')
@@ -245,6 +246,46 @@ describe('管理器执行器（假件）', () => {
     })
     await call(runInstall)
   })
+
+  it('超时撞上「刚好装完」的竞态：取消说没在跑，也按它自己的结局判成功，不把落地的改动记成失败', async () => {
+    const runInstall = runWith({
+      installTimeoutMs: 20,
+      pluginManager: {
+        installBundle: () => new Promise((settle) => setTimeout(() => settle({ application: 'applied' }), 40)),
+        cancelInstall: () => Promise.resolve({ status: 'not-running' }),
+      },
+      log: () => {},
+    })
+    await call(runInstall)
+  })
+
+  it('超时且管理器一直不落定：终止宽限期过后诚实失败，详情说明超时', async () => {
+    const runInstall = runWith({
+      installTimeoutMs: 20,
+      pluginManager: { installBundle: () => new Promise(() => {}) },
+      log: () => {},
+    })
+    await assert.rejects(() => call(runInstall), (error) => {
+      assert.equal(error.code, 'install-failed')
+      assert.match(error.detail, /超时/)
+      return true
+    })
+  })
+
+  it('超时后取消成功：报「安装已被取消」，不报成宿主报错', async () => {
+    const runInstall = runWith({
+      installTimeoutMs: 20,
+      pluginManager: {
+        installBundle: () => new Promise((settle) => setTimeout(() => settle({ application: 'cancelled' }), 30)),
+        cancelInstall: () => Promise.resolve({ status: 'cancelled' }),
+      },
+      log: () => {},
+    })
+    await assert.rejects(() => call(runInstall), (error) => {
+      assert.match(error.detail, /取消/)
+      return true
+    })
+  })
 })
 
 describe('端到端：官方桌面版从查到装（假 ctx 与假管理器）', () => {
@@ -323,5 +364,16 @@ describe('端到端：官方桌面版从查到装（假 ctx 与假管理器）',
     assert.match(job.message, /^install-failed: /)
     assert.match(job.message, /operation-error/)
     assert.ok(!job.message.includes('C:\\Users\\someone\\secret'), '回给用户的详情里不带绝对路径')
+  })
+
+  it('宿主说成功但磁盘没变：装完校验也要给出能读的说明，不是死码', async () => {
+    const installed = { value: '1.0.0' }
+    const manager = { installBundle: () => Promise.resolve({ application: 'applied' }) }
+    const host = makeHost(manager, installed)
+    const check = await host.handlers['wf.updateCheck']({})
+    await host.handlers['wf.updateInstall']({ checkId: check.receipt.checkId, requestId: 'req-3' })
+    const job = await waitForJob(host, 'failed')
+    assert.match(job.message, /^install-failed: /)
+    assert.match(job.message, /装完校验没过/)
   })
 })
