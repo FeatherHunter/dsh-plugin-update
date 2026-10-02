@@ -79,8 +79,10 @@
 
   /* —— 待重启横幅 —— */
   .restart-banner{ margin-top:18px; border:2px solid var(--warn); background:var(--warn-bg);
-    border-radius:4px; padding:12px 16px; font-size:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  .restart-banner .mark{ font-size:18px; }
+    border-radius:4px; padding:12px 16px; font-size:14.5px; font-family:var(--serif);
+    display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .restart-banner .mark{ display:inline-flex; flex:none; }
+  .restart-banner .mark svg{ display:block; }
 
   /* —— 现状（T1 最高层级） —— */
   .status-line{ font-family:var(--serif); font-weight:700; font-size:27px; line-height:1.4; margin:22px 0 6px; }
@@ -175,8 +177,8 @@
     border-radius:4px; background:var(--card); color:var(--ink); max-width:230px; }
   @media (max-width:640px){
     .dossier{ padding:22px 18px; }
-    .filehead{ padding-right:0; }
-    .seal{ position:static; transform:rotate(-4deg); width:84px; height:84px; font-size:18px; margin-bottom:12px; }
+    .filehead{ padding-right:92px; }
+    .seal{ width:72px; height:72px; font-size:16px; top:14px; right:14px; }
     .masthead h1{ font-size:24px; }
   }
 </style>
@@ -404,6 +406,7 @@ function copyText(txt, what){
 }
 
 /* —— 渲染 —— */
+var WARN_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
 function hActions(){
   var s = snapshotSelf();
   var h = '<button class="btn" data-act="check">查新版</button> ';
@@ -433,7 +436,7 @@ function renderAll(){
     '<div><span class="k">是否可安装</span><span class="v">' + (s.canInstall && s.latestVersion ? "可" : "否") + '</span></div>';
 
   if (blockedOfSelf() === "pending-restart"){
-    $("restartSlot").innerHTML = '<div class="restart-banner"><span class="mark">⚠️</span><span>新版 ' +
+    $("restartSlot").innerHTML = '<div class="restart-banner"><span class="mark">' + WARN_SVG + '</span><span>新版 ' +
       esc(s.installedVersion) + ' 已安装，正在运行的仍是 ' + esc(s.runningVersion) + '，重启宿主后生效。待重启期间暂停安装。</span>' +
       '<button class="btn primary" data-act="restart">重启宿主</button></div>';
   } else $("restartSlot").innerHTML = "";
@@ -485,7 +488,7 @@ function renderAll(){
   var b = blockedOfSelf();
   if (!b) $("err").innerHTML = '<div class="okline">一切正常，可以安装。</div>';
   else if (b === "pending-restart")
-    $("err").innerHTML = '<div class="restart-banner"><span class="mark">⚠️</span><span>新版 ' + esc(s.installedVersion) +
+    $("err").innerHTML = '<div class="restart-banner"><span class="mark">' + WARN_SVG + '</span><span>新版 ' + esc(s.installedVersion) +
       " 已安装，正在运行的仍是 " + esc(s.runningVersion) + "，重启宿主后生效。</span></div>";
   else $("err").innerHTML = '<div class="errbox"><span class="code">' + esc(b) + "</span> · " + esc(REASONS[b][0]) +
     '<div class="todo"><b>建议操作</b><br>' + esc(REASONS[b][1]) + '</div>' +
