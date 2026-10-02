@@ -20,30 +20,30 @@
 </script>
 <style>
   :root{
-    --bg:#f6f7fb; --card:#ffffff; --ink:#0f172a; --muted:#64748b; --faint:#94a3b8;
-    --line:rgba(15,23,42,.09);
-    --accent:#4f46e5; --accent-hover:#4338ca; --on-accent:#ffffff; --accent-soft:#eef0ff; --accent-ink:#4338ca;
+    --bg:#faf8f3; --card:#ffffff; --ink:#1b1a15; --muted:#6b6f66; --faint:#9aa096;
+    --line:rgba(27,26,21,.10);
+    --accent:#0e7c5b; --accent-hover:#0a6549; --on-accent:#ffffff; --accent-soft:#e6f4ec; --accent-ink:#0a5c43;
     --ok-bg:#f0fdf4; --ok-line:#bbe7c9; --ok-ink:#15803d;
     --warn-bg:#fffbeb; --warn-line:#eab308; --warn-strong:#b45309; --warn-ink:#92400e;
     --err-bg:#fef2f2; --err-line:#f3c1c1; --err-ink:#991b1b; --err-code:#b91c1c;
-    --code-bg:#141a2e; --code-ink:#e6e9f2;
-    --chip:#f1f3f9;
-    --shadow:0 1px 2px rgba(15,23,42,.05), 0 18px 44px -22px rgba(79,70,229,.16);
-    --shadow-hover:0 2px 4px rgba(15,23,42,.06), 0 26px 56px -22px rgba(79,70,229,.24);
+    --code-bg:#14231c; --code-ink:#e6f2ea;
+    --chip:#eff2ec;
+    --shadow:0 1px 2px rgba(27,26,21,.05), 0 18px 44px -22px rgba(14,124,91,.16);
+    --shadow-hover:0 2px 4px rgba(27,26,21,.06), 0 26px 56px -22px rgba(14,124,91,.24);
     --radius:20px;
     --glow-op:.55;
   }
   :root[data-theme="dark"]{
-    --bg:#090c16; --card:#121728; --ink:#e9ecf5; --muted:#9aa3b8; --faint:#6b7590;
+    --bg:#0d1310; --card:#151d18; --ink:#e9f2ec; --muted:#98a69e; --faint:#68766e;
     --line:rgba(255,255,255,.10);
-    --accent:#6d74f2; --accent-hover:#7f86f5; --on-accent:#ffffff; --accent-soft:rgba(109,116,242,.16); --accent-ink:#b9bdfc;
+    --accent:#34c98e; --accent-hover:#4adca3; --on-accent:#06231a; --accent-soft:rgba(52,201,142,.16); --accent-ink:#a9e9cd;
     --ok-bg:rgba(34,197,94,.10); --ok-line:rgba(34,197,94,.35); --ok-ink:#4ade80;
     --warn-bg:rgba(245,158,11,.10); --warn-line:rgba(245,158,11,.55); --warn-strong:#f59e0b; --warn-ink:#fcd34d;
     --err-bg:rgba(248,113,113,.10); --err-line:rgba(248,113,113,.40); --err-ink:#fca5a5; --err-code:#f87171;
-    --code-bg:#05070f; --code-ink:#dbe0ee;
+    --code-bg:#070d0a; --code-ink:#dbeee4;
     --chip:rgba(255,255,255,.07);
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 22px 50px -20px rgba(0,0,0,.55);
-    --shadow-hover:0 2px 6px rgba(0,0,0,.45), 0 30px 64px -20px rgba(109,116,242,.25);
+    --shadow-hover:0 2px 6px rgba(0,0,0,.45), 0 30px 64px -20px rgba(52,201,142,.25);
     --glow-op:.8;
   }
   *{ box-sizing:border-box; }
@@ -60,7 +60,7 @@
   .mark{
     width:38px; height:38px; border-radius:12px; background:var(--accent); color:var(--on-accent);
     display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:700; flex:none;
-    box-shadow:0 8px 20px -8px rgba(79,70,229,.6);
+    box-shadow:0 8px 20px -8px rgba(14,124,91,.6);
   }
   .top h1{ font-size:17px; margin:0; font-weight:700; letter-spacing:.01em; }
   .top p{ margin:2px 0 0; font-size:12.5px; color:var(--muted); }
@@ -97,9 +97,9 @@
   .hero .aurora{
     position:absolute; inset:-40% -20% auto -20%; height:120%; pointer-events:none; opacity:var(--glow-op);
     background:
-      radial-gradient(42% 55% at 30% 30%, rgba(99,102,241,.28), transparent 70%),
-      radial-gradient(36% 50% at 62% 26%, rgba(168,85,247,.22), transparent 70%),
-      radial-gradient(30% 44% at 82% 44%, rgba(56,189,248,.20), transparent 70%);
+      radial-gradient(42% 55% at 30% 30%, rgba(52,201,142,.30), transparent 70%),
+      radial-gradient(36% 50% at 62% 26%, rgba(45,212,191,.20), transparent 70%),
+      radial-gradient(30% 44% at 82% 44%, rgba(190,242,100,.16), transparent 70%);
     filter:blur(10px);
   }
   .hero > *:not(.aurora){ position:relative; }

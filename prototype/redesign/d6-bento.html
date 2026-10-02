@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>插件更新 · Bento</title>
+<style>
+  :root{
+    --bg:#edf0f5; --tile:#ffffff; --ink:#101318; --mut:#5b6472; --line:#dfe4ec;
+    --primary:#ffd60a; --primary-ink:#141414;
+    --ok:#15803d; --ok-bg:#e9f7ee; --ok-line:#bfe6cb;
+    --warn:#b45309; --warn-bg:#fff7e3; --warn-line:#f0d48a;
+    --bad:#b91c1c; --bad-bg:#fdeeee; --bad-line:#f3c1c1;
+    --code-bg:#14181f; --code-ink:#e8edf3;
+    --shadow:0 10px 28px rgba(16,19,24,.08), 0 2px 6px rgba(16,19,24,.06);
+    --r:22px;
+  }
+  html[data-theme="dark"]{
+    --bg:#0d1014; --tile:#161b22; --ink:#f2f5f9; --mut:#9aa4b2; --line:#2a323d;
+    --primary:#ffd60a; --primary-ink:#141414;
+    --ok:#4ade80; --ok-bg:rgba(74,222,128,.12); --ok-line:rgba(74,222,128,.4);
+    --warn:#facc15; --warn-bg:rgba(250,204,21,.12); --warn-line:rgba(250,204,21,.45);
+    --bad:#f87171; --bad-bg:rgba(248,113,113,.12); --bad-line:rgba(248,113,113,.45);
+    --code-bg:#0a0d11; --code-ink:#e8edf3;
+    --shadow:0 12px 30px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.4);
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:system-ui,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    padding-bottom:96px; transition:background .25s, color .25s;
+  }
+  .wrap{ max-width:1060px; margin:0 auto; padding:0 20px; }
+  header.top{
+    display:flex; align-items:center; gap:12px;
+    padding:22px 0 14px;
+  }
+  header.top h1{ font-size:22px; margin:0; letter-spacing:.5px; }
+  .plug-chip{
+    font-size:12px; color:var(--mut); border:1px solid var(--line);
+    background:var(--tile); border-radius:999px; padding:4px 12px; white-space:nowrap;
+  }
+  .spacer{ flex:1; }
+  .theme-btn{
+    border:1px solid var(--line); background:var(--tile); color:var(--ink);
+    border-radius:999px; padding:7px 16px; font-size:13px; cursor:pointer;
+    box-shadow:var(--shadow);
+  }
+  .theme-btn:hover{ transform:translateY(-1px); }
+  /* ---- Bento 网格 ---- */
+  .grid{ display:grid; grid-template-columns:repeat(12,1fr); gap:16px; }
+  .tile{
+    background:var(--tile); border:1px solid var(--line); border-radius:var(--r);
+    box-shadow:var(--shadow); padding:22px;
+    transition:transform .18s ease, box-shadow .18s ease, background .25s;
+  }
+  .tile:hover{ transform:translateY(-2px); }
+  .tile h2{ font-size:13px; margin:0 0 12px; color:var(--mut); font-weight:600; letter-spacing:2px; }
+  .s12{ grid-column:span 12; } .s7{ grid-column:span 7; } .s5{ grid-column:span 5; }
+  /* ---- 状态大磁贴 ---- */
+  .one-liner{ font-size:23px; font-weight:800; line-height:1.45; margin:2px 0 10px; }
+  .ver-row{ display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 4px; }
+  .vchip{
+    font-size:12px; border:1px solid var(--line); border-radius:999px; padding:4px 12px;
+    color:var(--mut); background:transparent;
+  }
+  .vchip b{ color:var(--ink); font-weight:700; }
+  .cta-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  .btn{
+    font-size:14px; padding:10px 20px; border-radius:14px; cursor:pointer;
+    border:1px solid var(--line); background:transparent; color:var(--ink); font-weight:600;
+  }
+  .btn:hover:not(:disabled){ transform:translateY(-1px); }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn-primary{
+    background:var(--primary); border-color:var(--primary); color:var(--primary-ink);
+    font-weight:800; box-shadow:0 4px 14px rgba(255,214,10,.35);
+  }
+  .btn-sm{ font-size:13px; padding:8px 14px; border-radius:11px; }
+  .prog{ height:10px; background:var(--line); border-radius:6px; overflow:hidden; margin:14px 0 4px; }
+  .prog i{ display:block; height:100%; width:0; background:var(--primary); border-radius:6px; transition:width .35s ease; }
+  .receipt{ font-size:12px; color:var(--mut); margin-top:8px; }
+  .receipt code{ border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:12px; }
+  .skip-line{ font-size:13px; color:var(--mut); margin-top:8px; }
+  .skip-line button{ margin-left:8px; }
+  .link-btn{
+    background:none; border:none; color:var(--warn); cursor:pointer; font-size:13px;
+    text-decoration:underline; padding:0;
+  }
+  /* ---- 操作磁贴 ---- */
+  .op-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .op-grid .btn{ width:100%; }
+  .op-note{ font-size:12px; color:var(--mut); margin-top:12px; line-height:1.7; }
+  /* ---- 错误磁贴：平时一条细磁贴 ---- */
+  .tile-err{ padding:13px 22px; display:flex; align-items:center; gap:10px; font-size:14px; }
+  .tile-err.ok{ background:var(--ok-bg); border-color:var(--ok-line); }
+  .tile-err.warn{ background:var(--warn-bg); border-color:var(--warn-line); display:block; padding:20px 22px; }
+  .tile-err.err{ background:var(--bad-bg); border-color:var(--bad-line); display:block; padding:20px 22px; }
+  .dot{ width:11px; height:11px; border-radius:50%; flex:none; }
+  .dot.green{ background:var(--ok); } .dot.yellow{ background:var(--warn); } .dot.red{ background:var(--bad); }
+  .err-title{ font-weight:800; font-size:16px; margin:0 0 6px; }
+  .err-body{ font-size:13.5px; line-height:1.8; }
+  .err-body .todo{ margin-top:4px; }
+  .err-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+  /* ---- 日志磁贴 ---- */
+  .log-ver{ font-weight:800; font-size:15px; }
+  .log-date{ font-size:12px; color:var(--mut); margin-left:8px; }
+  .log-list{ margin:8px 0 16px 0; padding:0; list-style:none; }
+  .log-list li{ font-size:13.5px; line-height:1.9; }
+  .tag{
+    display:inline-block; font-size:11px; font-weight:800; border-radius:6px; padding:1px 8px; margin-right:8px;
+    background:var(--primary); color:var(--primary-ink);
+  }
+  .tag.fix{ background:var(--line); color:var(--ink); }
+  .log-empty{ font-size:13px; color:var(--mut); margin:6px 0 16px; }
+  /* ---- 队列磁贴 ---- */
+  .queue-head{ display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .queue-head h2{ margin:0; flex:1; }
+  table.q{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.q th, table.q td{ border-bottom:1px solid var(--line); padding:8px 6px; text-align:left; }
+  table.q th{ color:var(--mut); font-weight:600; font-size:12px; }
+  .pill{ display:inline-block; font-size:11px; border-radius:999px; padding:2px 10px; border:1px solid var(--line); color:var(--mut); }
+  .pill.me{ background:var(--primary); border-color:var(--primary); color:var(--primary-ink); font-weight:700; }
+  .queue-count{ font-size:12px; color:var(--mut); margin-top:10px; }
+  .queue-empty{ font-size:13px; color:var(--mut); }
+  .switch{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--mut); cursor:pointer; user-select:none; }
+  .switch input{ accent-color:#ffd60a; width:15px; height:15px; cursor:pointer; }
+  /* ---- 命令磁贴 ---- */
+  code.cmd{
+    display:block; background:var(--code-bg); color:var(--code-ink);
+    font-size:12.5px; padding:14px 16px; border-radius:14px;
+    overflow-x:auto; white-space:pre-wrap; word-break:break-all; line-height:1.7;
+  }
+  /* ---- 角落演示台 ---- */
+  .demo{
+    position:fixed; right:16px; bottom:16px; z-index:60;
+    background:var(--tile); border:1px solid var(--line); border-radius:16px;
+    box-shadow:var(--shadow); font-size:13px; overflow:hidden; max-width:250px;
+  }
+  .demo summary{ padding:9px 16px; cursor:pointer; font-weight:700; font-size:13px; list-style:none; }
+  .demo summary::before{ content:"🧪 "; }
+  .demo .demo-body{ padding:0 16px 14px; display:grid; gap:8px; }
+  .demo select{ font-size:12.5px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:var(--tile); color:var(--ink); max-width:218px; }
+  .demo .row{ display:flex; gap:8px; }
+  /* ---- toast ---- */
+  #toast{
+    position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:var(--bg); font-size:13px; border-radius:999px;
+    padding:9px 22px; opacity:0; pointer-events:none; transition:all .3s; z-index:70; white-space:nowrap;
+  }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  footer.foot{ font-size:12px; color:var(--mut); text-align:center; margin-top:22px; }
+  @media (max-width:880px){
+    .s7,.s5{ grid-column:span 12; }
+    .one-liner{ font-size:20px; }
+    .op-grid{ grid-template-columns:1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>🔌 插件更新</h1>
+    <span class="plug-chip">my-notes-plugin</span>
+    <span class="spacer"></span>
+    <button class="theme-btn" id="themeBtn" title="切换浅色 / 深色">🌙 深色</button>
+  </header>
+
+  <div class="grid">
+    <!-- 错误磁贴：平时收起为一条细磁贴，出错 / 待重启时放大变色 -->
+    <div class="tile tile-err ok s12" id="tErr"></div>
+
+    <!-- 大状态磁贴：一句话 + 主按钮 -->
+    <div class="tile s7" id="tStatus"></div>
+
+    <!-- 操作磁贴 -->
+    <div class="tile s5">
+      <h2>⚙️ 操作</h2>
+      <div class="op-grid" id="tOps"></div>
+      <div class="op-note">安装走跨插件单队列，关闭面板不中断；进度活在宿主侧。<br>凭证 10 分钟有效，过期重查一次再装。</div>
+    </div>
+
+    <!-- 日志磁贴 -->
+    <div class="tile s7">
+      <h2>🧾 更新日志</h2>
+      <div id="tLog"></div>
+    </div>
+
+    <!-- 队列磁贴：含看他人开关 -->
+    <div class="tile s5">
+      <div class="queue-head">
+        <h2>📋 更新队列</h2>
+        <label class="switch"><input type="checkbox" id="showOthers" checked>看他人排队</label>
+      </div>
+      <div id="tQueue"></div>
+    </div>
+
+    <!-- 命令磁贴 -->
+    <div class="tile s12">
+      <h2>⌨️ 手动命令</h2>
+      <div id="tManual"></div>
+    </div>
+  </div>
+
+  <footer class="foot">内存演示数据 · 关掉即丢 · 网络受限时可去掉命令里的 --registry= 走本地源</footer>
+</div>
+
+<!-- 演示台收进角落 -->
+<details class="demo">
+  <summary>演示</summary>
+  <div class="demo-body">
+    <select id="demoReason" title="阻塞原因演示">
+      <option value="">阻塞原因：无</option>
+      <option value="unknown-profile">unknown-profile · 认不出位置</option>
+      <option value="source-install">source-install · 源码安装</option>
+      <option value="invalid-installation">invalid-installation · 包不完整</option>
+      <option value="installation-changed">installation-changed · 位置变了</option>
+      <option value="pending-restart">pending-restart · 待重启</option>
+      <option value="registry-conflict">registry-conflict · 版本矛盾</option>
+      <option value="incompatible-node">incompatible-node · Node 对不上</option>
+      <option value="recovery-required">recovery-required · 半截任务</option>
+    </select>
+    <div class="row">
+      <button class="btn btn-sm" id="demoReset" style="flex:1">重置</button>
+    </div>
+  </div>
+</details>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* 内存 stub：状态模型与交互沿用现有 stub，只重做视觉布局 */
+var REASONS = {
+  "unknown-profile":      ["使用范围或插件位置认不出", "重开宿主再查一次；一直这样就把版本号与日志交给插件作者；这种情形不给手工命令"],
+  "source-install":       ["当前是从源码装的，不是按版本号装的", "这种情形不给手工命令；想走更新先按版本号重装一次"],
+  "invalid-installation": ["已装的包不完整（名字对不上、版本非法、入口文件缺失）", "重装当前版本，修好已装目录再查更新"],
+  "installation-changed": ["安装位置在使用中途变了（换了目录或换了包）", "重新打开宿主再查一次；还出现就重装"],
+  "pending-restart":      ["新版已装到磁盘，正在跑的还是旧版", "重启宿主，让新版跑起来；这是正常终态，不是失败"],
+  "registry-conflict":    ["本地声明的版本与磁盘实际版本互相矛盾", "打开使用范围的清单文件，把目标包名那一行改成版本号再试"],
+  "incompatible-node":    ["新版要求的 Node 与当前运行的对不上", "先升级 Node 到 22 或更高，再查更新"],
+  "recovery-required":    ["上次安装被打断，留下一个半截任务", "重新点一次安装；一直出现就按第 6 节排错"]
+};
+var NO_MANUAL = { "unknown-profile": true, "source-install": true };
+var CHANGELOG = {
+  "1.2.3": { date: "2026-10-02", items: [["Added", "一键复制诊断（含稳定码/脱敏诊断/版本/宿主/队列位置）"], ["Added", "队列位置显示（跨插件单队列）"], ["Fixed", "安装完成判据（先收尾再定成败）"]] },
+  "1.2.2": null
+};
+
+var S;
+function freshState() {
+  return {
+    self: { pluginId: "my-notes-plugin", profile: "my-web",
+      installed: "1.2.2", running: "1.2.2", latest: null,
+      job: null, receipt: null, skipped: ["1.2.1"], checkN: 0 },
+    queue: [{ pluginId: "other-tasks-plugin", version: "0.9.1", state: "installing", progress: 62 }]
+  };
+}
+function demoReason() { return document.getElementById("demoReason").value || ""; }
+function showOthers() { return document.getElementById("showOthers").checked; }
+function blockedOfSelf() {
+  if (S.self.job) return "";
+  return demoReason();
+}
+/* 快照六字段 */
+function snapshotSelf() {
+  var r = blockedOfSelf();
+  return {
+    installedVersion: S.self.installed, runningVersion: S.self.running,
+    latestVersion: S.self.latest, canInstall: !S.self.job && !r,
+    blockedReason: r || null,
+    job: S.self.job ? { phase: S.self.job.phase, progress: S.self.job.progress } : null
+  };
+}
+function manualCmd() {
+  var r = blockedOfSelf();
+  if (NO_MANUAL[r]) return null;
+  var v = S.self.latest || "1.2.3";
+  return "dsh plugin --profile " + S.self.profile + " add --save-exact " + S.self.pluginId + "@" + v + " --registry=https://registry.npmjs.org/";
+}
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+function oneLiner() {
+  var s = snapshotSelf();
+  if (s.job) return "正在安装 " + S.self.latest + "（" + s.job.progress + "%）…";
+  if (s.blockedReason === "pending-restart") return "新版 " + s.installedVersion + " 已装好，重启宿主后生效。";
+  if (s.blockedReason) return "装不了：" + REASONS[s.blockedReason][0];
+  if (s.latestVersion && s.latestVersion !== s.installedVersion && S.self.skipped.indexOf(s.latestVersion) < 0)
+    return "有新版 " + s.latestVersion + "，可以安装。";
+  if (s.latestVersion && S.self.skipped.indexOf(s.latestVersion) >= 0) return "新版 " + s.latestVersion + " 已跳过。";
+  if (s.latestVersion) return "已是最新（" + s.installedVersion + "）。";
+  return "还没查过新版，点一下看看。";
+}
+function nowT() { return new Date().toLocaleTimeString("zh-CN", { hour12: false }); }
+
+/* ---- 动作（全是桩，只改内存） ---- */
+function act(kind) {
+  var t = nowT();
+  if (kind === "check") {
+    S.self.checkN++;
+    S.self.latest = "1.2.3";
+    S.self.receipt = { checkId: "chk-7f3a", checkedAt: t, expiresAt: "+10min",
+      requestId: "req-" + Math.random().toString(36).slice(2, 7) };
+    toast("查到新版 1.2.3，已拿凭证");
+  }
+  if (kind === "install") {
+    if (!S.self.latest) { toast("先查新版，拿到凭证再装"); return renderAll(); }
+    if (S.self.job) return renderAll();
+    S.self.job = { phase: "installing", progress: 0 };
+    S.queue.push({ pluginId: S.self.pluginId, version: S.self.latest, state: "queued", progress: 0 });
+    toast("已提交安装，进入跨插件队列");
+  }
+  if (kind === "advance") {
+    var j = S.self.job; if (!j) return renderAll();
+    j.progress = Math.min(100, j.progress + 25);
+    var q = null;
+    for (var i = 0; i < S.queue.length; i++) if (S.queue[i].pluginId === S.self.pluginId) q = S.queue[i];
+    if (q) { q.progress = j.progress; q.state = j.progress >= 100 ? "verifying" : "installing"; }
+    if (j.progress >= 100) {
+      S.self.installed = S.self.latest; S.self.job = null;
+      S.queue = S.queue.filter(function (e) { return e.pluginId !== S.self.pluginId; });
+      document.getElementById("demoReason").value = "pending-restart";
+      toast("磁盘已是 " + S.self.installed + "，待重启生效");
+    } else toast("安装进度 → " + j.progress + "%");
+  }
+  if (kind === "restart") {
+    S.self.running = S.self.installed;
+    document.getElementById("demoReason").value = "";
+    toast("已重启，新版生效");
+  }
+  if (kind === "skip") {
+    if (S.self.latest && S.self.skipped.indexOf(S.self.latest) < 0) S.self.skipped.push(S.self.latest);
+    toast("已跳过 " + S.self.latest + "，新版本照常提醒");
+  }
+  if (kind === "unskip") {
+    S.self.skipped = S.self.skipped.filter(function (v) { return v !== S.self.latest; });
+    toast("已恢复 " + S.self.latest + " 的提醒");
+  }
+  renderAll();
+}
+function toast(msg) {
+  var el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(function () { el.classList.remove("show"); }, 2200);
+}
+function copyText(txt, what) {
+  var done = function () { toast("已复制" + what + "（已脱敏，可贴给作者定位）"); };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(txt).then(done, done); return; }
+  } catch (e) {}
+  try {
+    var ta = document.createElement("textarea");
+    ta.value = txt; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+  } catch (e) {}
+  done();
+}
+
+/* ---- 磁贴渲染 ---- */
+function renderErr() {
+  var el = document.getElementById("tErr");
+  var r = blockedOfSelf();
+  if (!r) {
+    el.className = "tile tile-err ok s12";
+    el.innerHTML = '<span class="dot green"></span><span>一切正常，可以安装。</span>';
+    return;
+  }
+  if (r === "pending-restart") {
+    el.className = "tile tile-err warn s12";
+    el.innerHTML = '<p class="err-title">⚠️ 新版 ' + esc(S.self.installed) + ' 已装好，正在跑的还是 ' + esc(S.self.running) + '，重启宿主后生效。</p>' +
+      '<div class="err-body">待重启期间不提供安装按钮，只给重启指引与手工命令入口。</div>' +
+      '<div class="err-row"><button class="btn btn-primary btn-sm" data-act="restart">现在重启</button>' +
+      '<button class="btn btn-sm" data-copy-manual>复制手动命令</button></div>';
+    return;
+  }
+  el.className = "tile tile-err err s12";
+  el.innerHTML = '<p class="err-title">⛔ ' + esc(r) + '：' + esc(REASONS[r][0]) + '</p>' +
+    '<div class="err-body"><div class="todo">用户该做什么：' + esc(REASONS[r][1]) + '</div></div>' +
+    '<div class="err-row"><button class="btn btn-sm" data-copy-diag>复制诊断（含稳定码/脱敏诊断/版本/宿主/队列位置）</button></div>';
+}
+function renderStatus() {
+  var el = document.getElementById("tStatus");
+  var s = snapshotSelf();
+  var skipped = s.latestVersion && S.self.skipped.indexOf(s.latestVersion) >= 0;
+  var h = '<h2>📌 当前状态</h2>';
+  h += '<div class="one-liner">' + esc(oneLiner()) + '</div>';
+  h += '<div class="ver-row">' +
+    '<span class="vchip">磁盘 <b>' + esc(s.installedVersion) + '</b></span>' +
+    '<span class="vchip">在跑 <b>' + esc(s.runningVersion) + '</b></span>' +
+    '<span class="vchip">最新 <b>' + esc(s.latestVersion || "未查") + '</b></span>' +
+    (s.job ? '<span class="vchip">任务 <b>' + esc(s.job.phase) + ' ' + s.job.progress + '%</b></span>' : '') +
+    '</div>';
+  if (s.job) h += '<div class="prog"><i style="width:' + s.job.progress + '%"></i></div>';
+  /* 主按钮：待重启只给重启；安装中给推进；否则查 / 装 */
+  h += '<div class="cta-row">';
+  if (s.blockedReason === "pending-restart") {
+    h += '<button class="btn btn-primary" data-act="restart">重启宿主</button>';
+  } else if (s.job) {
+    h += '<button class="btn btn-primary" data-act="advance">推进 25%</button>';
+  } else {
+    h += '<button class="btn" data-act="check">查新版</button>';
+    if (s.latestVersion && !skipped)
+      h += '<button class="btn btn-primary" data-act="install"' + (s.canInstall ? "" : " disabled") + '>安装 ' + esc(s.latestVersion) + '</button>';
+    else if (!s.latestVersion)
+      h += '<button class="btn btn-primary" data-act="install" disabled>安装</button>';
+  }
+  h += '</div>';
+  if (S.self.receipt && !s.job && s.blockedReason !== "pending-restart")
+    h += '<div class="receipt">凭证 <code>' + esc(S.self.receipt.checkId) + '</code> · 10 分钟内有效 · ' + esc(S.self.receipt.checkedAt) + ' 查得</div>';
+  if (skipped)
+    h += '<div class="skip-line">已跳过 ' + esc(s.latestVersion) + ' · <button class="link-btn" data-act="unskip">恢复</button></div>';
+  el.innerHTML = h;
+}
+function renderOps() {
+  var s = snapshotSelf();
+  var skipped = s.latestVersion && S.self.skipped.indexOf(s.latestVersion) >= 0;
+  var h = '<button class="btn btn-sm" data-act="check">查新版</button>';
+  if (s.blockedReason === "pending-restart") {
+    h += '<button class="btn btn-sm" data-act="restart">重启宿主</button>';
+  } else {
+    h += '<button class="btn btn-sm" data-act="install"' + ((s.canInstall && s.latestVersion && !skipped) ? "" : " disabled") + '>安装</button>';
+  }
+  h += (s.job ? '<button class="btn btn-sm" data-act="advance">推进 25%</button>' : '<button class="btn btn-sm" disabled>推进 25%</button>');
+  h += '<button class="btn btn-sm" data-act="skip"' + (s.latestVersion ? "" : " disabled") + '>跳过该版本</button>';
+  h += '<button class="btn btn-sm" data-act="restart"' + (s.blockedReason === "pending-restart" ? "" : " disabled") + '>重启</button>';
+  h += '<button class="btn btn-sm" data-copy-diag>复制诊断</button>';
+  document.getElementById("tOps").innerHTML = h;
+}
+function renderLog() {
+  var h = "";
+  ["1.2.3", "1.2.2"].forEach(function (v) {
+    var e = CHANGELOG[v];
+    h += '<div><span class="log-ver">' + v + '</span><span class="log-date">' + (e ? e.date : "") + '</span>';
+    if (!e) h += '<div class="log-empty">暂无更新说明，不影响安装。</div>';
+    else {
+      h += '<ul class="log-list">' + e.items.map(function (it) {
+        return '<li><span class="tag' + (it[0] === "Fixed" ? " fix" : "") + '">' + it[0] + '</span>' + esc(it[1]) + '</li>';
+      }).join("") + '</ul>';
+    }
+    h += '</div>';
+  });
+  document.getElementById("tLog").innerHTML = h;
+}
+function renderQueue() {
+  var vis = showOthers() ? S.queue : S.queue.filter(function (e) { return e.pluginId === S.self.pluginId; });
+  var h = "";
+  if (!vis.length) h = '<div class="queue-empty">队列空。</div>';
+  else {
+    h = '<table class="q"><tr><th>插件</th><th>版本</th><th>状态</th><th>进度</th></tr>' +
+      vis.map(function (e) {
+        var me = e.pluginId === S.self.pluginId;
+        return '<tr><td>' + esc(e.pluginId) + (me ? ' <span class="pill me">我</span>' : '') + '</td><td>' +
+          esc(e.version) + '</td><td>' + esc(e.state) + '</td><td>' + e.progress + '%</td></tr>';
+      }).join("") + '</table>';
+    h += '<div class="queue-count">共 ' + S.queue.length + ' 项，显示 ' + vis.length + ' 项。</div>';
+  }
+  document.getElementById("tQueue").innerHTML = h;
+}
+function renderManual() {
+  var m = manualCmd();
+  var el = document.getElementById("tManual");
+  if (!m) {
+    el.innerHTML = '<div class="queue-empty">当前情形不给手工命令（' + esc(blockedOfSelf()) + '），只展示原因。</div>';
+    return;
+  }
+  el.innerHTML = '<code class="cmd">' + esc(m) + '</code>' +
+    '<div class="cta-row"><button class="btn btn-sm" data-copy-manual>复制整行执行</button></div>';
+}
+function renderAll() { renderErr(); renderStatus(); renderOps(); renderLog(); renderQueue(); renderManual(); }
+
+/* ---- 主题：默认跟随系统，右上角切换 ---- */
+function sysDark() { try { return window.matchMedia("(prefers-color-scheme: dark)").matches; } catch (e) { return false; } }
+function setTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  document.getElementById("themeBtn").textContent = t === "dark" ? "☀️ 浅色" : "🌙 深色";
+}
+document.getElementById("themeBtn").addEventListener("click", function () {
+  setTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+});
+
+/* ---- 事件 ---- */
+document.addEventListener("click", function (ev) {
+  var a = ev.target.closest("[data-act]");
+  if (a) { act(a.getAttribute("data-act")); return; }
+  if (ev.target.closest("[data-copy-manual]")) { var m = manualCmd(); if (m) copyText(m, "手动命令"); return; }
+  if (ev.target.closest("[data-copy-diag]")) {
+    var s = snapshotSelf();
+    copyText("[update-diag] code=" + (s.blockedReason || "ok") + " plugin=" + S.self.pluginId + "@" +
+      s.installedVersion + "->" + (s.latestVersion || "?") + " host=DSH queue=" + S.queue.length + " poll=1000ms", "诊断");
+    return;
+  }
+});
+document.getElementById("demoReason").addEventListener("change", renderAll);
+document.getElementById("showOthers").addEventListener("change", renderAll);
+document.getElementById("demoReset").addEventListener("click", function () {
+  S = freshState();
+  document.getElementById("demoReason").value = "";
+  document.getElementById("showOthers").checked = true;
+  toast("演示状态已重置");
+  renderAll();
+});
+
+/* ---- 启动 ---- */
+S = freshState();
+setTheme(sysDark() ? "dark" : "light");
+try {
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) mq.addEventListener("change", function (e) { setTheme(e.matches ? "dark" : "light"); });
+  }
+} catch (e) {}
+renderAll();
+</script>
+</body>
+</html>
