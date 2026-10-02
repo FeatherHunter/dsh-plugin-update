@@ -84,6 +84,13 @@
 
   /* —— 现状（T1 最高层级） —— */
   .status-line{ font-family:var(--serif); font-weight:700; font-size:27px; line-height:1.4; margin:22px 0 6px; }
+  .status-line .hl{ color:var(--accent); }
+  .sealmini{ display:inline-block; width:30px; height:30px; line-height:26px; text-align:center;
+    border:2px solid currentColor; border-radius:7px; font-size:16px; font-family:var(--serif);
+    font-weight:700; transform:rotate(-5deg); margin-right:10px; vertical-align:3px;
+    background:color-mix(in srgb,currentColor 8%,transparent); }
+  .proftag{ font-family:var(--mono); font-size:11px; color:var(--muted);
+    border:1px solid var(--line-strong); border-radius:3px; padding:0 6px; margin-left:8px; letter-spacing:.06em; }
   .strip{ display:flex; gap:0; flex-wrap:wrap; margin:10px 0 0; border:1px solid var(--line);
     border-radius:4px; overflow:hidden; font-size:12.5px; }
   .strip div{ flex:1 1 120px; padding:8px 12px; border-left:1px solid var(--line); }
@@ -192,12 +199,12 @@
 
     <div class="filehead">
       <h2>my-notes-plugin</h2>
-      <div class="meta">使用范围 <b>my-web</b></div>
+      <div class="meta">使用范围 <b>my-web</b><span class="proftag">profile</span></div>
     </div>
 
     <div id="restartSlot"></div>
 
-    <p class="status-line" id="oneLiner">当前尚未检查更新。</p>
+    <p class="status-line"><span class="sealmini seal-ink" id="sealMini">查</span><span id="oneLiner">当前版本 1.2.2，尚未检查更新。</span></p>
     <div class="strip" id="verStrip"></div>
 
     <section class="chapter">
@@ -307,16 +314,17 @@ function manualCmd(){
   var v = S.self.latest || "1.2.3";
   return "dsh plugin --profile " + S.self.profile + " add --save-exact " + S.self.pluginId + "@" + v + " --registry=https://registry.npmjs.org/";
 }
+function HL(t){ return '<b class="hl">' + esc(t) + "</b>"; }
 function oneLiner(){
   var s = snapshotSelf();
-  if (s.job) return "正在安装 " + S.self.latest + "（" + s.job.progress + "%）。";
-  if (s.blockedReason === "pending-restart") return "新版 " + s.installedVersion + " 已就绪，重启后生效。";
-  if (s.blockedReason) return "无法安装：" + REASONS[s.blockedReason][0] + "。";
+  if (s.job) return "正在安装 " + HL(S.self.latest + "（" + s.job.progress + "%）") + "。";
+  if (s.blockedReason === "pending-restart") return "新版 " + HL(s.installedVersion) + " 已就绪，" + HL("重启后生效") + "。";
+  if (s.blockedReason) return HL("无法安装") + "：" + esc(REASONS[s.blockedReason][0]) + "。";
   if (s.latestVersion && s.latestVersion !== s.installedVersion && S.self.skipped.indexOf(s.latestVersion) < 0)
-    return "发现新版 " + s.latestVersion + "（当前 " + s.installedVersion + "）。";
-  if (s.latestVersion && S.self.skipped.indexOf(s.latestVersion) >= 0) return "新版 " + s.latestVersion + " 已跳过。";
-  if (s.latestVersion) return "已是最新版本（" + s.installedVersion + "）。";
-  return "当前版本 " + s.installedVersion + "，尚未检查更新。";
+    return "发现" + HL("新版 " + s.latestVersion) + "。";
+  if (s.latestVersion && S.self.skipped.indexOf(s.latestVersion) >= 0) return "新版 " + HL(s.latestVersion) + " 已跳过。";
+  if (s.latestVersion) return "已是" + HL("最新版本") + "（" + esc(s.installedVersion) + "）。";
+  return "当前版本 " + esc(s.installedVersion) + "，" + HL("尚未检查更新") + "。";
 }
 function sealState(){
   var s = snapshotSelf();
@@ -410,8 +418,13 @@ function renderAll(){
   var seal = $("seal");
   seal.className = "seal " + st[0];
   $("sealText").textContent = st[1];
+  var mini = { "待查": ["查", "seal-ink"], "可装": ["装", "seal-green"], "安装中": ["装", "seal-yellow"],
+    "待重启": ["启", "seal-yellow"], "受阻": ["阻", "seal-red"], "已最新": ["定", "seal-green"] }[st[1]] || ["查", "seal-ink"];
+  var sm = $("sealMini");
+  sm.textContent = mini[0];
+  sm.className = "sealmini " + mini[1];
 
-  $("oneLiner").textContent = oneLiner();
+  $("oneLiner").innerHTML = oneLiner();
 
   $("verStrip").innerHTML =
     '<div><span class="k">磁盘版本</span><span class="v">' + esc(s.installedVersion) + '</span></div>' +
