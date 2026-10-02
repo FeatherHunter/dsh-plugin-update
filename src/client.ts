@@ -42,6 +42,18 @@ export {
 } from './queue.js'
 export type { QueuedEntry, QueueOwner, UpdateQueueState, VisibleQueue, VisibleQueueOwner } from './queue.js'
 
+// 更新日志纯函数（#23：面板闭包同缝，零依赖；取数在宿主 Node 侧按需调用）。
+export {
+  CHANGELOG_FILENAME,
+  CHANGELOG_NEUTRAL_HINT,
+  CHANGELOG_NEUTRAL_LINE,
+  changelogForUpdate,
+  parseChangelog,
+  renderChangelogHTML,
+  selectChangelogEntries,
+} from './changelog.js'
+export type { ChangelogCategory, ChangelogEntry } from './changelog.js'
+
 export const CLIENT_POLL = {
   defaultMs: DEFAULT_PANEL_POLL_MS,
   minMs: MIN_PANEL_POLL_MS,

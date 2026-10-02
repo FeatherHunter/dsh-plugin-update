@@ -24,6 +24,7 @@ import { installRecipe } from './commands.js'
 import { BACKUP_FILE, LEGACY_PLUGIN_ID, LOCK_FILE, SKIPPED_FILE, STATE_FILE } from './config.js'
 import { normalizeQueueState, type UpdateQueueState } from './queue.js'
 import { validReleaseVersion } from './service.js'
+import { sanitizeDetail } from './redaction.js'
 import type { EnvironmentKind, InstallRecipe, UpdateJob } from './ports.js'
 
 // 永久冻结的旧字面（规格 #591 第 14 条）：默认旧路径原文加三固定名永久冻结，永不删除。
@@ -695,8 +696,6 @@ interface ManagerChangeResult {
   error?: unknown
 }
 
-/** 失败详情封顶字数：回给用户的是一行人话，不是整段安装输出。 */
-const DETAIL_MAX = 300
 /** 成功三态：overridden 是「改动已被保留、只是被别的层盖住」，不是失败。 */
 const MANAGER_OK = ['applied', 'restart-required', 'overridden']
 
@@ -706,18 +705,9 @@ function withDetail(error: Error & { detail?: string }, detail: string): Error &
 }
 
 /**
- * 绝对路径的具名规则：Windows 盘符开头的、以及空白之后紧跟 `/` 的 POSIX 路径，都换成占位。
- * 两种形状合在一条规则里，保证回给用户的字符串里不留路径原文（URL 里的 `//` 不受影响）。
+ * 脱敏规则表见 src/redaction.ts（#19）：五条具名规则 + 固定顺序 + 两占位符 + 空白边界封顶。
+ * 本文件只经 `sanitizeDetail` 消费它（唯一自由文本出口），不自建规则、不做运行时事后扫描。
  */
-const ABSOLUTE_PATH_RE = /[A-Za-z]:\\[^\s"']*|(^|\s)\/[^\s"']+/g
-
-/** 把外面世界的脏错误收成一行：折叠空白、绝对路径换占位、封顶（原文不进日志与回包）。 */
-function sanitizeDetail(text: string): string {
-  const flat = String(text ?? '').replace(/\s+/g, ' ').trim()
-  if (!flat) return ''
-  const noPath = flat.replace(ABSOLUTE_PATH_RE, (_whole, lead) => `${lead || ''}<路径>`)
-  return noPath.length > DETAIL_MAX ? `${noPath.slice(0, DETAIL_MAX)}…` : noPath
-}
 
 /** 管理器失败时的 error 是普通对象（code／diagnostic），不是 Error；两种都要能读。 */
 function detailText(error: unknown): string {
@@ -728,7 +718,14 @@ function detailText(error: unknown): string {
     const code = typeof shape.code === 'string' ? shape.code : ''
     const said = typeof shape.diagnostic === 'string' ? shape.diagnostic : typeof shape.message === 'string' ? shape.message : ''
     const line = [code, said].filter(Boolean).join(': ')
-    if (line) return sanitizeDetail(line)
+    if (line) {
+      const clean = sanitizeDetail(line)
+      // URL 用户信息命中时整项丢弃（回空串）：密码起止无法定位，替换会销毁证据；
+      // 此时退到 code 本身（安全短码），不把含凭据的原话带回来。
+      if (clean) return clean
+      if (code) return sanitizeDetail(code)
+      return ''
+    }
     try {
       return sanitizeDetail(JSON.stringify(error))
     } catch {
@@ -924,9 +921,9 @@ export function createUpdateExecutor(parts: ExecutorParts = {}): (args?: { versi
     } catch (error) {
       emitInstall(parts, recipe, false, (error as { exitCode?: number })?.exitCode ?? exitCode, Date.now() - startedAt)
       // 失败详情（宿主原话，已截断脱敏）随错误一起上抛，由上层决定给谁看；不塞进日志字段。
+      // 不带原始调用栈：栈里全是本机绝对路径，零读者，且一旦有人读就会顺着越界。
       const detail = (error as { detail?: unknown })?.detail
       throw Object.assign(fail('install-failed'), {
-        debug: String((error as Error)?.stack || error),
         ...(typeof detail === 'string' && detail ? { detail } : {}),
       })
     }

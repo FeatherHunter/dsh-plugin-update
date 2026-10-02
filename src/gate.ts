@@ -26,6 +26,8 @@
 //
 // 每条事件四样东西：事件名（events 的键）、级别（level）、允许字段（fields，之外不记）、
 // 脱敏引用（codes 是截断或散列代号、rules 是具名正则名，都是引用名，命中只记规则名不记原文）。
+// rules 栏引用 src/redaction.ts 的 REDACTION_RULE_NAMES（R_ABSOLUTE_PATH 等五条，顺序固定），
+// 不必复述匹配形态；codes/rules 两栏是声明格式，校验由测试执行（见 #19）。
 // kind 说明这条归哪类计数：resident 常驻（始终落盘的轻量轨迹）、ondemand 按需（只在调试开关
 // 打开时记）、selfmon 自监控（日志管道自己的故障行，错误与告警级、始终落盘）。
 // guard 可选，一句话写清守卫（如百分之一采样、节流），无特殊守卫不写。
@@ -38,7 +40,7 @@
 //
 // 冻结说明：清单格式版本现在只有 1；三个旧事件加完标识后的键集合为基线
 // （成功事件 5 键、失败事件 4 键、执行事件 5 键，见规格 #591 第 8、13 条），
-// 本文件不定基线，只给检查形状的尺子。
+// 本文件不定基线，只给检查形状的尺子。`r`n//`r`n// 诚实边界（#19）：本文件是给第二个接入方自查用的尺子，不是门禁——`r`n// checkEventFields 是纯函数（不抛错、不记日志、不被任何生产代码调用），`r`n// 真正在守日志字段基线的是 tests/phones.test.mjs 与 tests/routes.test.mjs 里的逐字键集断言。
 
 import { assertPluginId } from './config.js'
 
@@ -59,7 +61,7 @@ export interface GateEventEntry {
   fields: string[]
   // 脱敏引用：截断或散列代号（如 H_CWD、T120），无则不写或空数组。
   codes?: string[]
-  // 脱敏引用：具名正则名（如 R_WIN_ABS），该事件无自由文本则不写或空数组。
+  // 脱敏引用：具名正则名（取 src/redaction.ts 的 REDACTION_RULE_NAMES，如 R_ABSOLUTE_PATH），该事件无自由文本则不写或空数组。声明格式，校验由测试执行。
   rules?: string[]
   // 守卫说明：一句话写清采样或节流，无特殊守卫不写。
   guard?: string

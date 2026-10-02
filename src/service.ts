@@ -32,9 +32,22 @@ export const RECHECK_WINDOW_MS = 2_000
 export const MAX_METADATA_BYTES = 256 * 1024
 export const INTEGRITY_PATTERN = '^sha512-[A-Za-z0-9+/]{86}==$'
 
-/** 请求编号是否合法（非空、去空格后 1 到 128 个字符）。 */
+/**
+ * 请求编号是否合法（#19 收紧：非空、去空格后 1 到 128 个字符，且为不透明编号形状）。
+ *
+ * 收紧内容：只收 `[A-Za-z0-9._~-]`（UUID 与 `req-1` 形都在内），拒绝路径 / 令牌 / 邮箱 /
+ * 键值对 / URL 用户信息形状——要放进诊断块的正是接入方经公开电话传进来的这个值，
+ * 旧口径下路径与令牌形状的字符串都能通过（见 #19 Out of Scope 第 1 件）。
+ * 属公开契约变更（破冰范围）：兼容说明与迁移口径见 #19 进度区——调用方请用 UUID 或同形状不透明串，
+ * 不要把路径、令牌、邮箱、URL 当编号传；旧的合法不透明串（`req-1`、`id-N`、UUID）不受影响。
+ */
 export function validRequestId(v: unknown): v is string {
-  return typeof v === 'string' && v.trim().length >= 1 && v.trim().length <= 128
+  if (typeof v !== 'string') return false
+  const id = v.trim()
+  if (id.length < 1 || id.length > 128) return false
+  if (!/^[A-Za-z0-9._~-]+$/.test(id)) return false
+  if (/^(npm_|gh[pousr]_|github_pat_|sk-|bearer)/i.test(id)) return false
+  return true
 }
 
 export function updateError(code: UpdateErrorCode): Error & { code: UpdateErrorCode } {
@@ -240,9 +253,23 @@ function timeoutSignal(ms: number): unknown {
   return undefined
 }
 
+function httpStatusOf(response: MinimalResponse | null): number | null {
+  const raw = (response as { status?: unknown } | null)?.status
+  return typeof raw === 'number' && Number.isInteger(raw) && raw >= 100 && raw <= 599 ? raw : null
+}
+
+function checkFailedWithStatus(response: MinimalResponse | null): Error & { code: UpdateErrorCode; httpStatus?: number } {
+  const err = updateError('check-failed') as Error & { code: UpdateErrorCode; httpStatus?: number }
+  const status = httpStatusOf(response)
+  if (status !== null) err.httpStatus = status
+  return err
+}
 /**
  * 问官方源的最新版接口，只接受名字对得上、版本号合法正式版、
  * 包地址与完整性校验全合规的返回，否则按版本信息无效处理。
+ *
+ * 联网取数失败带 httpStatus（仅 !ok 有；假件不给即省略，diag 按阶段×键表断言）：
+ * 取数阶段该有、校验阶段不该有（由 diag 层按阶段强制省略，本层只诚实携带）。
  */
 export async function fetchNpmRelease(
   fetchImpl: FetchImpl,
@@ -263,7 +290,7 @@ export async function fetchNpmRelease(
     throw updateError('check-failed')
   }
   try {
-    if (!response.ok) throw updateError('check-failed')
+    if (!response.ok) throw checkFailedWithStatus(response)
     const declared = Number(response.headers.get('content-length'))
     if (Number.isFinite(declared) && declared > MAX_METADATA_BYTES) throw updateError('invalid-release')
     const text = await response.text()
@@ -302,9 +329,9 @@ export async function fetchNpmRelease(
     if ((error as { code?: unknown })?.code === 'check-failed') throw error
     if ((error as { code?: unknown })?.code === 'invalid-release') throw error
     // 已连上但内容坏掉（读 body 失败、JSON 解析失败）算版本信息无效；
-    // 连不上、超时、中断都算检查失败。
+    // 连不上、超时、中断都算检查失败（有状态带状态，无状态即省略）。
     if (response !== null && response.ok) throw updateError('invalid-release')
-    throw updateError('check-failed')
+    throw checkFailedWithStatus(response)
   }
 }
 

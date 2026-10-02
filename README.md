@@ -1,14 +1,15 @@
 # dsh-plugin-update
 
-给 DSH 插件加「检查更新 / 安装更新」能力的 npm 包。宿主侧一段接线，面板侧构建期派生取值，装不上时给用户一条可复制的手工命令。
+给 DSH 插件加「检查更新 / 安装更新」能力的 npm 包。宿主侧一段接线，面板侧挂一个现成组件，装不上时给用户一条可复制的手工命令。
 
 要求 Node 22 或更高，零运行时依赖。当前版本 `0.2.0`。
 
-装上它你会拿到三样东西：
+装上它你会拿到四样东西：
 
 - **三个电话**：查状态（只读本地）、查新版（用户点了才联网一次）、装更新（拿凭证提交）。电话指宿主对外提供的方法。
 - **一套落盘**：任务状态、安装锁、回滚凭据，按「插件标识 + 使用范围」隔离，多插件互不干扰。
 - **面板要的派生取值**：电话名与轮询间隔，构建期从本包生成，面板里不写死。
+- **一个现成整组件**：默认内嵌、可切弹窗，调用者传参指定；轮询、安装门控、中文一句话、待重启横幅、手工命令展示与复制、排队可见开关、跳过与恢复、诊断一键复制全在组件内部消化。
 
 ## 1. 安装
 
@@ -72,13 +73,14 @@ createHostUpdate(
 
 | 电话 | 入参 | 成功回包 | 失败回包 |
 |---|---|---|---|
-| `….updateStatus` | `{}` | `{ ok: true, snapshot, manual, receipt: null }` | `{ ok: false, error, errorKind }` |
+| `….updateStatus` | `{}` | `{ ok: true, snapshot, manual, receipt: null }` | `{ ok: false, error, errorKind, diag? }` |
 | `….updateCheck` | `{}` | `{ ok: true, snapshot, manual, receipt }` | 同上 |
 | `….updateInstall` | `{ checkId, requestId }` | `{ ok: true, snapshot, manual, receipt: null }` | 同上 |
 
 - `snapshot` 恒为第 5.1 节那六个字段；`manual` 是第 5.3 节那条手工命令（能给则给，不能给为 `null`）。
 - `receipt` 只有查新版给（`{ checkId, checkedAt, expiresAt }`）；装更新时把 `checkId` 原样带回来，`requestId` 由面板自己生成（同一个编号重复提交直接返回旧结果）。
-- 失败一律 `ok: false`：`error` 是原因码（第 5.2 节那八种，另加 `check-failed` / `invalid-release` / `check-expired` / `update-busy` / `install-failed`），`errorKind` 认不出时是 `internal`。面板照第 5.2 节给文案。
+- 失败一律 `ok: false`：`error` 是原因码（第 5.2 节那八种，另加 `check-failed` / `invalid-release` / `check-expired` / `update-busy` / `install-failed`），`errorKind` 认不出时是 `internal`。面板按 14 码给中文文案（八种见第 5.2 节，另五种与 `internal` 见下表，未来码走兜底）；分支只认 `errorKind`，`error` 仅回退。
+- 失败可能顺带回可选 `diag`（失败证据小对象：阶段、路由、耗时、人话摘要、版本、宿主、请求与检查编号、源主机、动作提示；缺省即省略，序列化恒在 1KB 内）。旧面板直接忽略它，行为逐字不变；新面板也只按稳定码分支，不拿它做分支。
 
 ### 第 3 步：面板侧接线（构建期派生）
 
@@ -106,6 +108,30 @@ setInterval(readStatus, UPD_POLL)                // 轮询
 - 工具用 `esbuild` 打包一次（构建期使用，不引入运行期依赖）；找不到 esbuild 时打印安装提示，不静默失败。
 
 以后换前缀或升级本包，重新跑一次这条命令即可。
+
+### 第 4 步：面板侧挂载整组件（一个挂载点即跑）
+
+前面三步是“自己拼面板”的走法；要整组件，把第 3 步的常量换成下面这一行（框架无关，任何面板直接嵌，样式隔离）：
+
+```js
+import { mountUpdatePanel } from 'dsh-plugin-update/panel'
+
+// host.call 是你调宿主电话的函数：(phoneName, args) => Promise<reply>
+const panel = mountUpdatePanel(document.getElementById('update-slot'), {
+  pluginId: 'my-notes-plugin',
+  prefix: 'notes',          // 与宿主侧一致；电话名从它算出，不写字面量
+  mode: 'embedded',         // 默认内嵌；切弹窗传 'dialog'，同一套内核
+  showOthers: false,        // 默认只看自己的排队，他人仅露“正忙”占位
+  call: (name, args) => host.call(name, args),
+})
+// 离开时 panel.unmount()：只停轮询，安装在宿主侧继续跑；重开面板立刻重查，1 秒内恢复显示。
+```
+
+组件内部消化的事（调用者不再写）：按 `panelPollMs` 轮询查状态（下限 250 毫秒）；安装按钮状态跟随快照的 `canInstall`，不另写门控规则；装不了的原因按第 5.2 节展示中文一句话；`pending-restart` 单独横幅加重启指引，不再给安装按钮；手工命令展示与复制；排队位置展示与 `showOthers` 开关；跳过按版本记（“已跳过 X.Y.Z · 恢复”在同一行，不藏进设置页）；失败时旁边的“复制诊断”一键给出脱敏后的自包含文本（稳定码、版本、宿主、队列位置），深挖仍看日志（组件里留着第 6 节第 11 条的过滤口径）。
+
+可选专业主题（D5 档案卷，不替换默认）：挂载时加 `theme: 'd5-paper'` 即换肤（迷你印章 + profile 牌 + 待重启衬线横幅 + 手绘 SVG 标 + 窄屏印章固定 + 省略号逐字折叠 + 浅深双主题跟随系统），内核 DOM 顺序不动、复制诊断常在；不传即最小可用默认样式。运行时用 `panel.setTheme('d5-paper' | 'default')` 可切。
+
+类型定义随包分发（`dsh-plugin-update/panel` 的 `.d.ts`），不用自编译；面板离线可读，与包版本绑定。
 
 ### 升级本包（已经接入过的项目）
 
@@ -203,6 +229,17 @@ const update = createHostUpdate(
 | `incompatible-node` | 新版要求的 Node 与当前运行的对不上 | 先升级 Node 到 22 或更高，再查更新 |
 | `recovery-required` | 上次安装被打断，留下一个半截任务 | 重新点一次安装；一直出现就按第 6 节排错 |
 
+电话专属码与 `internal`（面板同样给中文，不只给英文码；未来码走兜底并带上原码）：
+
+| 原因 | 中文含义 | 用户该做什么 |
+|---|---|---|
+| `check-failed` | 查新版没成功（联网、源、限流都可能） | 过一会儿再查一次；一直失败就把复制诊断交给插件作者 |
+| `invalid-release` | 拿到的发布信息不合法（版本号非法或内容对不上） | 检查清单文件里的包名与版本写法，再查一次 |
+| `check-expired` | 凭证过期了，安装请求被拒 | 重新查一次新版再点安装，不要重试旧编号 |
+| `update-busy` | 同一使用范围正在装另一个 | 等当前任务离开 installing/verifying 再点；排队中去查状态看位置 |
+| `install-failed` | 装不上（详见诊断摘要） | 先看复制诊断；官方桌面版把这段交给插件作者 |
+| `internal` | 出了点问题，认不出具体原因 | 先重试一次；一直这样就把复制诊断交给插件作者 |
+
 ### 5.3 手工兜底命令
 
 每次查状态与查新版都会顺带回一条手工命令（字段名 `manual`），能给则给、不能给则为空。
@@ -244,6 +281,12 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 - 公平先进先出：非队首直接 `update-busy`（沿用旧码），忙时去查状态补看位置；取消只能撤自己的排队占位，装上了只能等收尾。
 - 三个电话另收四个可选参数（不传即老样子）：`includeQueue: true` 顺带回队列视图，`showOthers: true` 才看他人明细（默认只看自己的，他人仅露“正忙”占位）；装更新另有 `enqueueOnly: true`（只取号不装）与 `cancelQueued: true`（撤自己的号），配 `requestId` 用。
 
+### 5.8 更新说明
+
+- 有新版时面板在横幅下方展示“更新说明（当前版 → 新版）：”，按目标包内 `CHANGELOG.md`（Keep-a-Changelog 子集）渲染：`Added/Fixed/Changed` 展开，`Deprecated/Removed/Security` 折叠，`Unreleased` 与空节不展示。
+- 作者未提供说明时显示“作者未提供更新说明，安装不受影响。”——缺日志永不挡安装，不改变 `canInstall` 与 `blockedReason`。
+- 说明文本由集成方备好后传入：已装版离线读本机 `node_modules/<目标包>/CHANGELOG.md`，新版按需取新版 tarball 内同名文件（复用官方源与 `integrity` 校验，取不到即回落中性提示；参考包根导出的 `readInstalledChangelogText` / `fetchReleaseChangelogText`），经 `mountUpdatePanel({ changelogMarkdown })` 或 `setChangelogMarkdown` 交给面板。
+
 ## 6. 排错
 
 按从常见到少见的顺序查，一次只动一处，动完重查一次状态。
@@ -270,8 +313,17 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 2. 面板按间隔轮询到快照，能展示第 5.2 节的原因文案；有新版时安装按钮可用，无新版与待重启时按钮状态正确。
 3. 模拟一次 `pending-restart` 能看到第 5.4 节的横幅，模拟一次自动装失败能看到第 5.3 节的命令可复制执行。
 4. 第二家同机隔离与串行：两家各传自己的插件标识与电话名前缀，电话名、落盘目录、锁文件逐个不同；安装执行跨插件串行——同范围撞上时后到者报 `update-busy`，凭队列位置（第 5.7 节）重试。
+5. 整组件（第 2 节第 4 步）：同一状态下内嵌与弹窗展示同一快照、同一按钮状态、同一复制内容；点“跳过”后该版本不再提醒，新版本照常提醒，“恢复”一击可达；复制出的诊断里没有绝对路径与个人标识。
 
 ## 8. 包还导出什么
+
+**整组件**（`dsh-plugin-update/panel`，框架无关，样式隔离，类型定义随包分发）：
+
+```js
+import { mountUpdatePanel } from 'dsh-plugin-update/panel'
+
+mountUpdatePanel(slot, { pluginId: 'notes', prefix: 'notes', call: host.call })
+```
 
 **客户端入口**（`dist/client.js`，构建期打包用）：
 

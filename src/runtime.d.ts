@@ -12,7 +12,9 @@ declare class TextEncoder {
 
 declare class URL {
   constructor(url: string)
+  readonly protocol: string
   readonly origin: string
+  readonly hostname: string
   readonly username: string
   readonly password: string
   readonly search: string

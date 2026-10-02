@@ -24,6 +24,7 @@ import {
   type UpdateConfigInput,
 } from './config.js'
 import { manualCommand } from './commands.js'
+import { buildDiag } from './diag.js'
 import { isVersionAllowedInChannel, validRequestId } from './service.js'
 import { createUpdateDiskPorts, createUpdateExecutor, createUpdateQueuePorts } from './store.js'
 import { createUpdateReader, defaultHomeDir, resolveProfileName, resolveTargetPackage } from './reader.js'
@@ -58,6 +59,75 @@ export type {
   GateCountCheck
 } from './gate.js'
 export { containingPackage, defaultHomeDir, profileNameValid, registrySpec, resolveTargetPackage } from './reader.js'
+// 脱敏词汇（#19：五条具名规则 + 两占位符 + 顺序 + 源主机名规则，经包根转出口，第二家可达）。
+// #24 单源收敛 + 字节墙：复制预算 / known-gap / 按序丢弃 enforcement 同经此出口。
+export {
+  COPY_BUDGET_CHARS,
+  DETAIL_MAX_CHARS,
+  DIAG_DROP_ORDER,
+  DIAG_INLINE_BUDGET_BYTES,
+  DIAG_NEVER_DROP_KEYS,
+  ENDORSED_REGISTRY_HOSTS,
+  KNOWN_GAP_FILE_URL_PREFIX,
+  REDACTED_PATH,
+  REDACTED_SECRET,
+  REDACTION_RULE_NAMES,
+  diagByteLength,
+  enforceDiagBudget,
+  resolveRegistryHost,
+  sanitizeDetail,
+  sanitizeForCopy,
+  truncateToWordBoundary,
+} from './redaction.js';
+export type { DiagDropKey, RedactionRuleName } from './redaction.js';
+// 电话侧失败证据 diag（#21，承接 #18 契约：16 键目录 + 阶段六值 + 路由/方法正交 +
+// 包内动作推导 + 缺省省略 + 1024 字节墙；queuePos 留空到队列转正，经包根转出口）。
+export {
+  DIAG_ACTIONS,
+  DIAG_KEYS,
+  DIAG_KNOWN_TYPES,
+  DIAG_STAGE_EXPECT,
+  DIAG_STAGES,
+  DIAG_VERSION,
+  buildDiag,
+  deriveAction,
+  deriveRouteMethod,
+  deriveStage,
+  enforceBudget as enforceDiagBudgetForPhone,
+} from './diag.js';
+export type { DiagAction, DiagInput, DiagObject, DiagStage } from './diag.js';
+// 更新日志（#23，承接 #11：包内 CHANGELOG.md 展示；纯函数两边可进，I/O 仅 Node 侧）。
+export {
+  CHANGELOG_ALL_CATEGORIES,
+  CHANGELOG_FILENAME,
+  CHANGELOG_FOLDED,
+  CHANGELOG_MAX_BULLETS_PER_SECTION,
+  CHANGELOG_MAX_BULLET_CHARS,
+  CHANGELOG_MAX_CHARS,
+  CHANGELOG_MAX_ENTRIES,
+  CHANGELOG_MUST_SHOW,
+  CHANGELOG_NEUTRAL_HINT,
+  CHANGELOG_NEUTRAL_LINE,
+  changelogForUpdate,
+  hasVisibleSections,
+  isUnreleasedVersion,
+  parseChangelog,
+  renderChangelogHTML,
+  renderChangelogNeutral,
+  renderChangelogSection,
+  selectChangelogEntries,
+} from './changelog.js';
+export type { ChangelogCategory, ChangelogEntry } from './changelog.js';
+export {
+  CHANGELOG_DEFAULT_REGISTRY,
+  CHANGELOG_FETCH_MAX_BYTES,
+  CHANGELOG_TAR_MAX_BYTES,
+  CHANGELOG_TARBALL_MAX_BYTES,
+  extractChangelogFromTar,
+  fetchReleaseChangelogText,
+  readInstalledChangelogText,
+} from './changelog-io.js';
+export type { ReleaseChangelogRef } from './changelog-io.js';
 export { createUpdateDiskPorts, createUpdateExecutor, pathsForUpdate, resolveCliEntry } from './store.js'
 // 跳过与版本通道（#16：按插件 + 版本持久化跳过、stable 默认 / prerelease 开关、精确版锁定）。
 export { SKIPPED_FILE } from './config.js'
@@ -558,7 +628,11 @@ function loggedPhone(
   method: string,
   kind: string,
   pluginId: string,
-  fn: (args: Record<string, unknown>) => Promise<{ snapshot: unknown; manual?: string | null; receipt?: unknown; queue?: VisibleQueue | null }>
+  fn: (args: Record<string, unknown>) => Promise<{ snapshot: unknown; manual?: string | null; receipt?: unknown; queue?: VisibleQueue | null }>,
+  diagCtx?: {
+    config: ReturnType<typeof resolveUpdateConfig>
+    readerOverrides: ReaderOverrides
+  },
 ): (args: Record<string, unknown>) => Promise<Record<string, unknown>> {
   return async function (args: Record<string, unknown>): Promise<Record<string, unknown>> {
     const t0 = Date.now()
@@ -567,10 +641,12 @@ function loggedPhone(
         if (phoneLogCtx && typeof phoneLogCtx.fire === 'function') phoneLogCtx.fire(level, event, fields)
       } catch {}
     }
+    const safeArgs = args && typeof args === 'object' ? (args as Record<string, unknown>) : {}
     try {
-      const out = await fn(args)
+      const out = await fn(safeArgs)
       const snapshot = out && out.snapshot ? out.snapshot : out
       // 成功事件 5 键基线（规格 #591 第 8 条）：旧 4 键加必填插件标识。
+      // 成功形状不动（#21）：成功回包永不带 diag，旧面板逐字不变。
       emit('info', 'host.call', { method, latencyMs: Date.now() - t0, ok: true, kind, pluginId })
       return {
         ok: true,
@@ -584,7 +660,31 @@ function loggedPhone(
       const payload = toUpdateErrorPayload(error)
       // 失败事件 4 键基线（规格 #591 第 8 条）：旧 3 键加必填插件标识。
       emit('warn', 'host.call.fail', { method, kind, errorHash: hash8(String((error as Error)?.message || payload.error)), pluginId })
-      return { ok: false, ...payload }
+      // 失败证据闭包（#21，#18 契约实现）：失败回包加可选 diag，只增不改。
+      // best-effort：组装失败即按无 diag 的旧形状返回（新面板×旧载荷仍为正常缺省）。
+      let diag: Record<string, unknown> | undefined
+      try {
+        const cfg = diagCtx?.config
+        const overrides = diagCtx?.readerOverrides ?? {}
+        const envRaw = (overrides as ReaderOverrides)?.environmentKind
+        const runningRaw = (overrides as ReaderOverrides)?.runningVersion
+        const built = buildDiag({
+          errorCode: payload.error,
+          phoneKind: kind,
+          error,
+          args: safeArgs,
+          targetPackageName: cfg?.targetPackageName,
+          registryUrl: cfg?.registryUrl,
+          runningVersion: typeof runningRaw === 'string' ? runningRaw : undefined,
+          latestVersion: undefined,
+          environmentKind: typeof envRaw === 'string' ? envRaw : undefined,
+          latencyMs: Date.now() - t0,
+        })
+        if (built && typeof built === 'object') diag = built as unknown as Record<string, unknown>
+      } catch {
+        diag = undefined
+      }
+      return { ok: false, ...payload, ...(diag ? { diag } : {}) }
     }
   }
 }
@@ -696,9 +796,18 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktop
     }
   }
   const handlers: Record<string, (args: Record<string, unknown>) => Promise<Record<string, unknown>>> = {
-    [phoneNames.updateStatus]: loggedPhone(phoneNames.updateStatus, 'update-status', pluginId, readStatus),
-    [phoneNames.updateCheck]: loggedPhone(phoneNames.updateCheck, 'update-check', pluginId, readCheck),
-    [phoneNames.updateInstall]: loggedPhone(phoneNames.updateInstall, 'update-install', pluginId, runInstall),
+    [phoneNames.updateStatus]: loggedPhone(phoneNames.updateStatus, 'update-status', pluginId, readStatus, {
+      config,
+      readerOverrides,
+    }),
+    [phoneNames.updateCheck]: loggedPhone(phoneNames.updateCheck, 'update-check', pluginId, readCheck, {
+      config,
+      readerOverrides,
+    }),
+    [phoneNames.updateInstall]: loggedPhone(phoneNames.updateInstall, 'update-install', pluginId, runInstall, {
+      config,
+      readerOverrides,
+    }),
   }
   return { phoneNames, handlers }
 }

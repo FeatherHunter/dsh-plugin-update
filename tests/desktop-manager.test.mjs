@@ -191,6 +191,84 @@ describe('管理器执行器（假件）', () => {
     )
   })
 
+  // 回归：路径规则的前置条件曾经只认行首与空白，于是 Node 报告「文件不存在」时
+  // 那个用单引号包着的路径原样回到用户面前——而 Windows 分支不要求前置字符，
+  // 不对称到这个程度，所以旧的两条测试（都用 Windows 盘符）一直看不见它。
+  const PATHS_ARE_MASKED = [
+    ["Node 报文件不存在（单引号包住）", `ENOENT: no such file or directory, open '/tmp/secret/data.json'`, '/tmp'],
+    ['冒号后面', 'at path:/tmp/secret/data.json', '/tmp'],
+    ['空白后面', 'cannot read /tmp/secret/data.json', '/tmp'],
+    ['方括号里面', 'see [/var/log/npm.log] for details', '/var'],
+    ['Windows 盘符（带引号）', `open 'C:\\Users\\someone\\secret'`, 'C:\\Users'],
+    ['UNC 双斜杠（行首）', '//server/share/file.txt', 'server'],
+    ['UNC 双斜杠（空白后）', 'at //server/share/x now', 'server'],
+    ['路径内逗号：整条掩掉不从逗号断开', 'see /tmp/a,b/c deep', '/tmp'],
+  ]
+  for (const [what, diagnostic, leaked] of PATHS_ARE_MASKED) {
+    it(`绝对路径脱敏：${what}`, async () => {
+      const runInstall = runWith({
+        pluginManager: {
+          installBundle: () => Promise.resolve({ application: 'failed', error: { code: 'operation-error', diagnostic } }),
+        },
+        log: () => {},
+      })
+      await assert.rejects(
+        () => call(runInstall),
+        (error) => {
+          assert.equal(error.code, 'install-failed')
+          assert.ok(!error.detail.includes(leaked), `${leaked} 不该出现在详情里`)
+          assert.match(error.detail, /<路径>/, '路径要换成占位')
+          return true
+        }
+      )
+    })
+  }
+
+  // 反向：URL 与散文里的斜杠不是路径，动了就是把可用信息擦掉。规则收紧时这组会先响。
+  // 这组只管「路径规则别越界」，不代表别的秘密形状可以原样通过——那些归本票的五条规则，
+  // 尚未实现（见 #6 正文「明确推迟」）。这里不把带账号密码的 URL 写进不误伤组，
+  // 否则等于把一个待修的泄漏钉成期望值。
+  const PATHS_ARE_LEFT_ALONE = [
+    ['URL 里的双斜杠', 'https://registry.npmjs.org/dsh-plugin-update'],
+    ['带端口的 URL', 'https://mirror.example.com:4873/foo'],
+    ['URL 路径内的多斜杠', 'http://a.com/x//y'],
+    ['散文里的斜杠', 'and/or'],
+    ['孤立斜杠', 'a / b'],
+  ]
+  for (const [what, diagnostic] of PATHS_ARE_LEFT_ALONE) {
+    it(`不误伤：${what}`, async () => {
+      const runInstall = runWith({
+        pluginManager: {
+          installBundle: () => Promise.resolve({ application: 'failed', error: { code: 'operation-error', diagnostic } }),
+        },
+        log: () => {},
+      })
+      await assert.rejects(
+        () => call(runInstall),
+        (error) => {
+          assert.match(error.detail, new RegExp(diagnostic.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')))
+          return true
+        }
+      )
+    })
+  }
+
+  it('失败不外带原始调用栈：栈里全是本机绝对路径', async () => {
+    const runInstall = runWith({
+      pluginManager: {
+        installBundle: () => Promise.resolve({ application: 'failed', error: { code: 'operation-error', diagnostic: '装不上' } }),
+      },
+      log: () => {},
+    })
+    await assert.rejects(
+      () => call(runInstall),
+      (error) => {
+        assert.equal(error.debug, undefined, '越界对象上不许出现原始栈')
+        return true
+      }
+    )
+  })
+
   it('管理器形状不对、包名不合规格：诚实失败，不试别的形状', async () => {
     await assert.rejects(() => call(runWith({ pluginManager: {}, log: () => {} })), /install-failed/)
     const mustNot = { installBundle: () => assert.fail('管理器不该被调用') }

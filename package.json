@@ -12,8 +12,20 @@
     "node": ">=22"
   },
   "type": "module",
+  "types": "./dist/host.d.ts",
   "exports": {
-    ".": "./dist/host.js",
+    ".": {
+      "types": "./dist/host.d.ts",
+      "default": "./dist/host.js"
+    },
+    "./panel": {
+      "types": "./dist/panel.d.ts",
+      "default": "./dist/panel.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -21,6 +33,7 @@
     "derive-client-values.mjs",
     "event-list.template.json",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "publishConfig": {

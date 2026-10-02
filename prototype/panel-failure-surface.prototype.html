@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>失败面 · 面板方案 4 版</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --sunk:#f3f4f6; --ink:#111827; --ink2:#374151;
+    --mut:#6b7280; --mut2:#9ca3af; --line:#d1d5db; --line2:#e5e7eb;
+    --accent:#4f46e5; --accent-s:#eef2ff; --accent-l:#c7d2fe;
+    --err:#b91c1c; --err-s:#fef2f2; --err-l:#fecaca;
+    --warn:#b45309; --warn-s:#fffbeb; --warn-l:#fcd34d;
+    --info:#1d4ed8; --info-s:#eff6ff; --info-l:#bfdbfe;
+    --ok:#15803d; --ok-s:#f0fdf4; --ok-l:#bbf7d0;
+    --chrome:#e9eaee; --chrome-ink:#4b5563; --shadow:0 1px 2px rgba(16,24,40,.06); --barbg:#111827;
+    --on-accent:#ffffff;
+  }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+    --bg:#0b0f19; --panel:#141a26; --sunk:#1b2331; --ink:#e5e7eb; --ink2:#d1d5db;
+    --mut:#9ca3af; --mut2:#6b7280; --line:#2b3648; --line2:#222c3c;
+    --accent:#a5b4fc; --accent-s:#1e2547; --accent-l:#3b4a7a;
+    --err:#fca5a5; --err-s:#2a1618; --err-l:#5c2a2c;
+    --warn:#fcd34d; --warn-s:#2a2214; --warn-l:#5c4a1e;
+    --info:#93c5fd; --info-s:#111d33; --info-l:#2b4470;
+    --ok:#86efac; --ok-s:#10231a; --ok-l:#1f4a33;
+    --chrome:#1b2331; --chrome-ink:#9ca3af; --shadow:0 1px 2px rgba(0,0,0,.4); --on-accent:#0b0f19; } }
+  :root[data-theme="dark"]{
+    --bg:#0b0f19; --panel:#141a26; --sunk:#1b2331; --ink:#e5e7eb; --ink2:#d1d5db;
+    --mut:#9ca3af; --mut2:#6b7280; --line:#2b3648; --line2:#222c3c;
+    --accent:#a5b4fc; --accent-s:#1e2547; --accent-l:#3b4a7a;
+    --err:#fca5a5; --err-s:#2a1618; --err-l:#5c2a2c;
+    --warn:#fcd34d; --warn-s:#2a2214; --warn-l:#5c4a1e;
+    --info:#93c5fd; --info-s:#111d33; --info-l:#2b4470;
+    --ok:#86efac; --ok-s:#10231a; --ok-l:#1f4a33;
+    --chrome:#1b2331; --chrome-ink:#9ca3af; --shadow:0 1px 2px rgba(0,0,0,.4);
+    --on-accent:#0b0f19; }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);padding:0 0 92px;
+       font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;font-size:14px;line-height:1.55;
+       -webkit-font-smoothing:antialiased}
+  .stage{max-width:940px;margin:0 auto;padding:26px 20px 0}
+  .variant{display:none}.variant.on{display:block}
+
+  .mock{border:1px dashed var(--line);border-radius:12px;background:var(--panel);box-shadow:var(--shadow);overflow:hidden}
+  .mockbar{background:var(--chrome);color:var(--chrome-ink);padding:9px 16px;font-size:12px;border-bottom:1px solid var(--line2)}
+  .mb{padding:0}
+  .vname{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut2);font-weight:700;margin-bottom:10px}
+
+  /* 通用件 */
+  .eyebrow{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;color:var(--mut2)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .ev{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;
+      background:var(--sunk);color:var(--ink2);border:1px solid var(--line2);padding:11px 13px;border-radius:8px;
+      white-space:pre-wrap;word-break:break-word;margin:0;line-height:1.7}
+  .chip{display:inline-flex;align-items:center;gap:4px;font-family:ui-monospace,Menlo,Consolas,monospace;
+        font-size:10.5px;border-radius:5px;padding:1.5px 7px;border:1px solid}
+  .chip.k{background:var(--ok-s);border-color:var(--ok-l);color:var(--ok)}
+  .chip.d{background:var(--sunk);border-color:var(--line);color:var(--mut2);text-decoration:line-through}
+  .chip.r{background:var(--err-s);border-color:var(--err-l);color:var(--err);text-decoration:line-through}
+  .chip.a{background:transparent;border-style:dashed;border-color:var(--line);color:var(--mut2)}
+  .mut{color:var(--mut);font-size:12.5px}
+  button{font-family:inherit;font-size:13px;padding:6px 13px;border-radius:7px;border:1px solid var(--line);
+         background:var(--panel);color:var(--ink);cursor:pointer}
+  button:hover{border-color:var(--mut)}
+  button.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+
+  /* 严重度条 */
+  .sev{display:flex;align-items:center;gap:9px;padding:9px 16px;border-bottom:1px solid var(--line2)}
+  .sev .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .sev .lvl{font-size:11px;font-weight:700;letter-spacing:.06em}
+  .sev .code{font-size:11.5px;color:var(--mut);margin-left:auto}
+  .sev.err{background:var(--err-s)}.sev.err .dot{background:var(--err)}.sev.err .lvl{color:var(--err)}
+  .sev.warn{background:var(--warn-s)}.sev.warn .dot{background:var(--warn)}.sev.warn .lvl{color:var(--warn)}
+  .sev.info{background:var(--info-s)}.sev.info .dot{background:var(--info)}.sev.info .lvl{color:var(--info)}
+
+  /* 区段 */
+  .sect{padding:15px 16px;border-bottom:1px solid var(--line2)}
+  .sect:last-child{border-bottom:none}
+  .sect > .hd{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+  .sect > .hd .t{font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;color:var(--mut)}
+  .sect > .hd .ln{flex:1;height:1px;background:var(--line2)}
+  .sect > .hd .act{display:flex;gap:6px}
+  .sect > .hd .act button{font-size:11.5px;padding:3px 9px}
+  .title{font-size:17px;font-weight:650;letter-spacing:-.01em;line-height:1.35}
+  .impact{font-size:12.5px;color:var(--mut);margin-top:4px}
+
+  ol.steps{margin:0;padding-left:0;list-style:none;counter-reset:s}
+  ol.steps li{counter-increment:s;display:flex;gap:9px;font-size:13px;padding:5px 0;color:var(--ink2)}
+  ol.steps li::before{content:counter(s);flex:0 0 auto;width:17px;height:17px;border-radius:50%;
+    background:var(--sunk);border:1px solid var(--line);color:var(--mut);
+    font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700;margin-top:2px}
+
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:12.5px}
+  .kv .k{color:var(--mut);white-space:nowrap}
+  .kv .v{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--ink);word-break:break-all}
+
+  table.fl{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.fl th{text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut2);
+    font-weight:700;padding:0 9px 6px 0;border-bottom:1px solid var(--line2)}
+  table.fl td{padding:5px 9px 5px 0;border-bottom:1px solid var(--line2);vertical-align:top}
+  table.fl tr:last-child td{border-bottom:none}
+  table.fl td.n{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;white-space:nowrap}
+  table.fl td.v{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--ink2);word-break:break-all}
+
+  details.disc{border-top:1px solid var(--line2)}
+  details.disc:first-of-type{border-top:none}
+  details.disc > summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;align-items:center;gap:9px}
+  details.disc > summary::-webkit-details-marker{display:none}
+  details.disc > summary::before{content:'▸';color:var(--mut2);font-size:11px;transition:none}
+  details.disc[open] > summary::before{content:'▾'}
+  details.disc > summary .t{font-size:13px;font-weight:600}
+  details.disc > summary .d{font-size:11.5px;color:var(--mut2);margin-left:auto}
+  details.disc > .bd{padding:0 16px 14px}
+
+  .chain{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+  .chain .node{flex:1;min-width:104px;border:1px solid var(--line2);background:var(--sunk);padding:8px 10px}
+  .chain .node:first-child{border-radius:7px 0 0 7px}
+  .chain .node:last-child{border-radius:0 7px 7px 0}
+  .chain .node + .node{border-left:none}
+  .chain .node .l{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut2);font-weight:700}
+  .chain .node .v{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;margin-top:2px;word-break:break-all}
+
+  .acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .acts .note{font-size:11.5px;color:var(--mut2)}
+
+  #bar{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:60;background:var(--barbg);
+       border-radius:999px;padding:7px 9px;display:flex;gap:8px;align-items:center;
+       box-shadow:0 8px 28px rgba(0,0,0,.4);color:#e5e7eb}
+  #bar .nav{background:#374151;border:none;color:#fff;font-size:15px;padding:5px 11px;border-radius:999px}
+  #bar .nav:hover{background:#4b5563}
+  #bar .lbl{min-width:150px;text-align:center;font-size:12.5px;line-height:1.25}
+  #bar .lbl small{display:block;font-size:10px;color:#9ca3af}
+  #bar select{font-family:inherit;font-size:12px;padding:5px 8px;border-radius:999px;
+              border:1px solid #374151;background:#1f2937;color:#e5e7eb;max-width:180px}
+  #bar .sep{width:1px;height:20px;background:#374151}
+  #bar .thm{background:#374151;border:none;color:#fff;font-size:12px;padding:5px 11px;border-radius:999px}
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <section class="variant" id="v1"></section>
+  <section class="variant" id="v2"></section>
+  <section class="variant" id="v3"></section>
+  <section class="variant" id="v4"></section>
+</div>
+
+<div id="bar">
+  <button class="nav" id="prev" title="上一方案（←）">◀</button>
+  <div class="lbl"><span id="lbl">1</span></div>
+  <button class="nav" id="next" title="下一方案（→）">▶</button>
+  <div class="sep"></div>
+  <select id="feed" title="切换载荷样本"></select>
+  <div class="sep"></div>
+  <button class="thm" id="thm" title="切换主题">主题</button>
+</div>
+
+<script>
+"use strict";
+/* ===== 纯模块：契约与 logic 原型同源（容错读取 + 码表 + 诊断载荷组装） ===== */
+const PANEL = (function () {
+  const TEXT = {
+    'unknown-profile':      { zh:'使用范围或插件位置无法识别', act:'重启宿主后重新查询；若持续出现，将版本号与日志提交插件作者', manual:false, src:'5.2' },
+    'source-install':       { zh:'当前为源码安装，非版本安装', act:'本情形不提供手工命令；如需更新，请先按版本号重新安装', manual:false, src:'5.2' },
+    'invalid-installation': { zh:'已安装包不完整：名称不匹配、版本非法或入口缺失', act:'重装当前版本，修复安装目录后重新查询', manual:true, src:'5.2' },
+    'installation-changed': { zh:'安装位置在运行期间发生变更', act:'重新打开宿主后查询；若持续出现则重装', manual:true, src:'5.2' },
+    'pending-restart':      { zh:'新版已写入磁盘，当前运行版本仍为旧版', act:'重启宿主使新版生效；此为正常终态，非失败', manual:true, src:'5.2', banner:true },
+    'registry-conflict':    { zh:'本地声明版本与磁盘实际版本不一致', act:'打开使用范围清单文件，将目标包名对应行修正为版本号后重试', manual:true, src:'5.2' },
+    'incompatible-node':    { zh:'新版要求的 Node 版本与当前运行时不匹配', act:'将 Node 升级至 22 或更高版本后重新查询', manual:true, src:'5.2' },
+    'recovery-required':    { zh:'上次安装被中断，遗留未完成任务', act:'重新触发安装；若持续出现，按文档第 6 节排查', manual:true, src:'5.2' },
+    'check-failed':         { zh:'版本查询失败：网络、源或限流', act:'稍后重新查询；若持续失败，将诊断载荷提交插件作者', manual:true, src:'draft' },
+    'invalid-release':      { zh:'返回的发行信息无效：版本号非法或内容不匹配', act:'检查清单文件中的包名与版本写法后重新查询', manual:true, src:'draft' },
+    'check-expired':        { zh:'凭证已过期，安装请求被拒绝', act:'重新查询版本以获取新凭证，勿复用旧请求编号', manual:true, src:'draft' },
+    'update-busy':          { zh:'同一使用范围内存在进行中的安装任务', act:'等待当前任务离开 installing/verifying 后重试；排队期间可查询队列位置', manual:true, src:'draft' },
+    'install-failed':       { zh:'安装失败，宿主原始信息见诊断摘要', act:'以诊断载荷定位失败阶段；官方桌面版场景提交插件作者', manual:true, src:'draft' },
+    'internal':             { zh:'发生内部错误，无法归类', act:'重试一次；若持续出现，将诊断载荷提交插件作者', manual:true, src:'draft' },
+    '__unknown__':          { zh:'未识别的失败码', act:'重试一次；若持续出现，携带诊断载荷与稳定码提交插件作者', manual:true, src:'draft' },
+  };
+  const KNOWN = { v:'number', stage:'string', route:'string', method:'string', httpStatus:'number', exitCode:'number',
+    latencyMs:'number', detail:'string', targetPackageName:'string', runningVersion:'string', latestVersion:'string',
+    environmentKind:'string', requestId:'string', checkId:'string', registryHost:'string', action:'string' };
+  const STAGES = ['read-installed','fetch-release','validate-release','preflight','exec','verify'];
+  const STAGE_EXPECT = { 'read-installed':{want:[],forbid:['httpStatus','exitCode']}, 'fetch-release':{want:['httpStatus'],forbid:['exitCode']},
+    'validate-release':{want:[],forbid:['httpStatus','exitCode']}, 'preflight':{want:[],forbid:['httpStatus','exitCode']},
+    'exec':{want:[],forbid:['httpStatus']}, 'verify':{want:[],forbid:['httpStatus','exitCode']} };
+  const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+  const typeOf = (v) => v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
+  function readDiag(payload){
+    const out = { present:false, usable:false, shape:null, kept:[], unknown:[], rejected:[], absent:[], anomaly:null,
+      v:null,stage:null,route:null,method:null,httpStatus:null,exitCode:null,latencyMs:null,detail:null,
+      targetPackageName:null,runningVersion:null,latestVersion:null,environmentKind:null,requestId:null,checkId:null,registryHost:null,action:null };
+    if(!isObj(payload) || !Object.prototype.hasOwnProperty.call(payload,'diag')){ out.shape='absent'; return out; }
+    out.present=true; const raw=payload.diag;
+    if(!isObj(raw)){ out.shape='not-object'; out.rejected=[{key:'diag',want:'object',got:typeOf(raw)}]; return out; }
+    out.shape='object';
+    for(const k of Object.keys(KNOWN)){
+      if(!Object.prototype.hasOwnProperty.call(raw,k)){ out.absent.push(k); continue; }
+      const v=raw[k];
+      if(v===undefined||v===null){ out.absent.push(k); continue; }
+      if(typeof v!==KNOWN[k]){ out.rejected.push({key:k,want:KNOWN[k],got:typeOf(v)}); continue; }
+      out[k]=v; out.kept.push(k);
+    }
+    for(const k of Object.keys(raw)) if(!Object.prototype.hasOwnProperty.call(KNOWN,k)) out.unknown.push(k);
+    out.usable=true;
+    const row=STAGE_EXPECT[out.stage];
+    if(row){ const m=row.want.filter(k=>out[k]===null), x=row.forbid.filter(k=>out[k]!==null);
+      if(m.length||x.length) out.anomaly={stage:out.stage,missing:m,extra:x}; }
+    else if(out.stage!==null) out.anomaly={stage:out.stage,unknownStage:true,missing:[],extra:[]};
+    return out;
+  }
+  function describe(payload){
+    const p=isObj(payload)?payload:{}, d=readDiag(p);
+    if(p.ok===true){ const s=isObj(p.snapshot)?p.snapshot:{};
+      const b=typeof s.blockedReason==='string'?s.blockedReason:null;
+      if(b){ const t=TEXT[b]||TEXT['__unknown__'];
+        return {kind:t.banner?'restart':'blocked',code:b,t,unknownCode:!TEXT[b],
+          heading:`${s.installedVersion??'?'} ← 运行中 ${s.runningVersion??'?'}`,
+          manual:t.manual?(typeof p.manual==='string'?p.manual:null):null}; }
+      return {kind:s.canInstall===true?'ready':'quiet',code:null,t:null,unknownCode:false,
+        heading:`${s.installedVersion??'?'} ← 运行中 ${s.runningVersion??'?'}${s.latestVersion?' · 最新 '+s.latestVersion:''}`,
+        manual:typeof p.manual==='string'?p.manual:null}; }
+    const ek=typeof p.errorKind==='string'&&p.errorKind?p.errorKind:(typeof p.error==='string'&&p.error?p.error:'internal');
+    const t=TEXT[ek]||TEXT['__unknown__'];
+    let sub=null;
+    if(d.usable){ const b=[]; if(d.stage)b.push(d.stage); if(d.route)b.push(d.route);
+      if(d.httpStatus!==null)b.push('HTTP '+d.httpStatus); if(d.exitCode!==null)b.push('exit '+d.exitCode);
+      if(d.detail)b.push(d.detail); if(b.length) sub=b.join(' · '); }
+    return {kind:'failed',code:ek,t,unknownCode:!TEXT[ek],heading:null,manual:null,sub,action:d.action};
+  }
+  function copyBlock(payload){
+    const p=isObj(payload)?payload:{}, d=readDiag(p);
+    const code=p.ok===true?(isObj(p.snapshot)&&typeof p.snapshot.blockedReason==='string'?p.snapshot.blockedReason:'ok')
+      :(typeof p.errorKind==='string'&&p.errorKind?p.errorKind:'internal');
+    const zh=TEXT[code]?TEXT[code].zh:TEXT['__unknown__'].zh, act=TEXT[code]?TEXT[code].act:TEXT['__unknown__'].act;
+    const prov=['插件='+(d.targetPackageName||'(未知包)'),'版本='+(d.runningVersion||'?')+'→'+(isObj(p.snapshot)?(p.snapshot.installedVersion||'?'):'?'),
+      '宿主='+(d.environmentKind||'?'),d.route?'路由='+d.route:null,d.stage?'阶段='+d.stage:null,d.method?'方法='+d.method:null,
+      d.httpStatus!==null?'HTTP='+d.httpStatus:null,d.exitCode!==null?'exit='+d.exitCode:null,
+      d.latencyMs!==null?'耗时='+d.latencyMs+'ms':null,d.registryHost?'源='+d.registryHost:null,d.action?'建议='+d.action:null,
+      d.requestId?'请求='+d.requestId:null,d.checkId?'检查='+d.checkId:null].filter(Boolean);
+    return ['[update-diag] '+code+' — '+zh,'  处置：'+act,'  摘要：'+(d.detail||'（本回包未携带诊断摘要）'),'  来源：'+prov.join(' · ')].join('\n');
+  }
+  return {TEXT,KNOWN,STAGES,STAGE_EXPECT,readDiag,describe,copyBlock,isObj};
+})();
+
+/* ===== 表现层：严重度按稳定码推导，不依赖 diag（保持「诊断不改分支」） ===== */
+const SEV = {
+  'pending-restart':['info','待重启'], 'source-install':['info','需按版本重装'],
+  'unknown-profile':['warn','范围无法识别'], 'update-busy':['warn','任务占用中'],
+  'check-expired':['warn','凭证已失效'], 'check-failed':['warn','版本查询失败'],
+  'invalid-release':['error','发行信息无效'], 'invalid-installation':['error','安装包不完整'],
+  'installation-changed':['error','安装位置变更'], 'registry-conflict':['error','版本声明冲突'],
+  'incompatible-node':['error','运行时版本不符'], 'recovery-required':['error','需恢复安装'],
+  'install-failed':['error','安装失败'], 'internal':['error','内部错误'],
+  '__unknown__':['error','未识别码'],
+};
+
+const FEEDS=[
+ {k:'r429',label:'版本查询 · 限流 429',p:{ok:false,error:'check-failed',errorKind:'check-failed',diag:{v:1,stage:'fetch-release',route:'registry',method:'https',httpStatus:429,latencyMs:2104,
+   detail:'源返回 429，触发限流',targetPackageName:'dsh-mattpocock-skills-deck',runningVersion:'1.2.2',
+   environmentKind:'cli',registryHost:'registry.npmjs.org',action:'retry',requestId:'req-4c02',checkId:'chk-9ad1'}}},
+ {k:'install',label:'安装 · 宿主管理器失败',p:{ok:false,error:'install-failed',errorKind:'install-failed',diag:{v:1,stage:'exec',route:'desktop-manager',method:'phone',exitCode:1,latencyMs:8420,
+   detail:'宿主管理器返回 operation-error，未产出可安装产物',targetPackageName:'dsh-mattpocock-skills-deck',
+   runningVersion:'1.2.2',latestVersion:'1.2.3',environmentKind:'desktop',requestId:'req-7f3a91',checkId:'chk-2b81',
+   action:'contact',queuePos:1,retryAfterMs:null,hint:'重试前确认队列',_x:{deep:1},registryHost:'registry.npmjs.org'}}},
+ {k:'busy',label:'安装 · 队列占用',p:{ok:false,error:'update-busy',errorKind:'update-busy'}},
+ {k:'restart',label:'待重启终态',p:{ok:true,snapshot:{installedVersion:'1.2.3',runningVersion:'1.2.2',latestVersion:'1.2.3',canInstall:false,blockedReason:'pending-restart',job:null},
+    manual:'dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3',
+    diag:{v:1,stage:'verify',route:'disk',method:'fs',latencyMs:31,targetPackageName:'dsh-mattpocock-skills-deck',
+           runningVersion:'1.2.2',environmentKind:'cli',action:'restart'}}},
+ {k:'future',label:'未登记失败码',p:{ok:true,snapshot:{installedVersion:'1.2.3',runningVersion:'1.2.3',latestVersion:'1.3.0',canInstall:false,blockedReason:'quota-exceeded',job:null},manual:null}},
+];
+
+const V=[
+ {k:'1',name:'三段式：结论 / 处置 / 诊断'},
+ {k:'2',name:'渐进披露：分层展开'},
+ {k:'3',name:'字段清单：键状态可审计'},
+ {k:'4',name:'分诊处置：动作与关联链'},
+];
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const val=v=>v===null||v===undefined?'—':String(v);
+let S={feed:'r429',cur:'1'};
+const feedOf=k=>FEEDS.find(f=>f.k===k)||FEEDS[0];
+
+const sevOf=(d)=>SEV[d.code]||SEV['__unknown__'];
+const CHROME=()=>`<div class="mockbar">插件设置</div>`;
+const sevBar=(d)=>{ const [lv,lb]=sevOf(d);
+  return `<div class="sev ${lv}"><span class="dot"></span><span class="lvl">${esc(lb)}</span>
+    <span class="code">${esc(d.code)}${d.unknownCode?' · 未登记':''}</span></div>`; };
+const actBtns=(d)=>`<div class="acts"><button class="pri">复制诊断载荷</button>
+  ${d.manual?'<button>复制手工命令</button>':''}
+  <span class="note">${d.manual?'':'本情形不提供手工命令'}</span></div>`;
+/* 步骤条目：t 为纯文本，code 为需要等宽呈现的稳定字段值（分开返回，避免整体转义把标签转义掉） */
+const stepsOf=(d,pg)=>{
+  const s=[];
+  s.push({t:pg.action==='retry'?'按建议在稍后重试版本查询':'确认失败阶段与来源后重试'});
+  if(pg.stage) s.push({t:'阶段 '+(pg.route?'，路由 '+pg.route:''),code:pg.stage});
+  if(pg.detail) s.push({t:'诊断摘要：'+pg.detail});
+  s.push({t:d.manual?'按需复制手工命令作为降级路径':'提交诊断载荷以获取支持'});
+  return s;
+};
+const stepsHTML=(d,pg)=>stepsOf(d,pg).map(s=>
+  `<li>${esc(s.t)}${s.code?' <code class="mono">'+esc(s.code)+'</code>':''}</li>`).join('');
+
+/* ---- 方案 1：三段式 ---- */
+function v1(p,d,pg){
+  return `<div class="vname">方案 1 · 三段式</div><div class="mock">${CHROME()}${sevBar(d)}<div class="mb">
+    <div class="sect">
+      <div class="eyebrow">结论</div>
+      <div class="title" style="margin-top:4px">${esc(d.t.zh)}</div>
+      <div class="impact">稳定码 <code class="mono">${esc(d.code)}</code> · ${d.unknownCode?'未在码表登记，按兜底处理':'已在码表登记'}</div>
+    </div>
+    <div class="sect">
+      <div class="hd"><span class="t">处置建议</span><span class="ln"></span></div>
+      <ol class="steps">${stepsHTML(d,pg)}</ol>
+      <div style="margin-top:11px">${actBtns(d)}</div>
+    </div>
+    <div class="sect">
+      <div class="hd"><span class="t">诊断载荷</span><span class="ln"></span><span class="act"><button>复制</button></span></div>
+      <pre class="ev">${esc(det(p))}</pre>
+    </div>
+  </div></div></div>`;
+}
+
+/* ---- 方案 2：渐进披露 ---- */
+function v2(p,d,pg){
+  return `<div class="vname">方案 2 · 渐进披露</div><div class="mock">${CHROME()}${sevBar(d)}
+    <details class="disc" open><summary><span class="t">${esc(d.t.zh)}</span><span class="d">结论</span></summary>
+      <div class="bd"><div class="kv">
+        <span class="k">稳定码</span><span class="v">${esc(d.code)}</span>
+        <span class="k">类别</span><span class="v">${esc(sevOf(d)[1])}</span>
+        <span class="k">摘要</span><span class="v" style="font-family:inherit">${esc(d.sub||'本回包未携带诊断摘要')}</span>
+      </div></div></details>
+    <details class="disc"><summary><span class="t">处置建议</span><span class="d">${stepsOf(d,pg).length} 项</span></summary>
+      <div class="bd"><ol class="steps">${stepsHTML(d,pg)}</ol>
+        <div style="margin-top:10px">${actBtns(d)}</div></div></details>
+    <details class="disc"><summary><span class="t">诊断载荷</span><span class="d">${pg.usable?pg.kept.length+' 键已读取':'缺省'}</span></summary>
+      <div class="bd"><pre class="ev">${esc(det(p))}</pre>
+        <div class="acts" style="margin-top:10px">${actBtns(d)}</div></div></details>
+  </div></div>`;
+}
+
+/* ---- 方案 3：字段清单 ---- */
+function v3(p,d,pg){
+  const rows=[];
+  for(const k of pg.kept) rows.push(`<tr><td class="n">${esc(k)}</td><td class="v">${esc(JSON.stringify(pg[k]))}</td>
+    <td><span class="chip k">已读取</span></td></tr>`);
+  for(const r of pg.rejected) rows.push(`<tr><td class="n">${esc(r.key)}</td><td class="v" style="text-decoration:line-through">${esc(JSON.stringify(p.diag[r.key]))}</td>
+    <td><span class="chip r">类型不符</span></td></tr>`);
+  for(const k of pg.unknown) rows.push(`<tr><td class="n">${esc(k)}</td><td class="v">${esc(JSON.stringify(p.diag[k]))}</td>
+    <td><span class="chip d">已忽略</span></td></tr>`);
+  for(const k of pg.absent) rows.push(`<tr><td class="n">${esc(k)}</td><td class="v" style="color:var(--mut2)">—</td>
+    <td><span class="chip a">缺省</span></td></tr>`);
+  if(!rows.length) rows.push(`<tr><td colspan="3" class="v" style="font-family:inherit;color:var(--mut)">本回包未携带 diag，按缺省处理。</td></tr>`);
+  return `<div class="vname">方案 3 · 字段清单</div><div class="mock">${CHROME()}${sevBar(d)}<div class="mb">
+    <div class="sect"><div class="eyebrow">结论</div>
+      <div class="title" style="margin-top:4px">${esc(d.t.zh)}</div>
+      <div style="margin-top:10px">${actBtns(d)}</div></div>
+    <div class="sect">
+      <div class="hd"><span class="t">处置建议</span><span class="ln"></span></div>
+      <ol class="steps">${stepsHTML(d,pg)}</ol>
+    </div>
+    <div class="sect">
+      <div class="hd"><span class="t">诊断字段状态</span><span class="ln"></span>
+        <span class="act"><span class="mut" style="font-size:11px">读取 ${pg.kept.length} · 忽略 ${pg.unknown.length} · 拒收 ${pg.rejected.length} · 缺省 ${pg.absent.length}</span></span></div>
+      <table class="fl"><thead><tr><th>键</th><th>值</th><th>状态</th></tr></thead><tbody>${rows.join('')}</tbody></table>
+    </div>
+  </div></div></div>`;
+}
+
+/* ---- 方案 4：分诊处置 ---- */
+function v4(p,d,pg){
+  const nodes=[['阶段',pg.stage||'—'],['路由',pg.route||'—'],['方法',pg.method||'—'],
+    ['请求编号',pg.requestId||'—'],['检查编号',pg.checkId||'—']];
+  const chain=nodes.map(([l,v])=>`<div class="node"><div class="l">${esc(l)}</div><div class="v">${esc(v)}</div></div>`).join('');
+  return `<div class="vname">方案 4 · 分诊处置</div><div class="mock">${CHROME()}${sevBar(d)}<div class="mb">
+    <div class="sect"><div class="eyebrow">结论</div>
+      <div class="title" style="margin-top:4px">${esc(d.t.zh)}</div></div>
+    <div class="sect">
+      <div class="hd"><span class="t">可执行动作</span><span class="ln"></span></div>
+      <ol class="steps">${stepsHTML(d,pg)}</ol>
+      <div style="margin-top:11px">${actBtns(d)}</div>
+    </div>
+    <div class="sect">
+      <div class="hd"><span class="t">关联链</span><span class="ln"></span>
+        <span class="act"><span class="mut" style="font-size:11px">用于对齐日志与任务</span></span></div>
+      <div class="chain">${chain}</div>
+      <div style="margin-top:12px"><pre class="ev">${esc(det(p))}</pre></div>
+    </div>
+  </div></div></div>`;
+}
+
+const det=(p)=>{ try{ return PANEL.copyBlock(p) }catch(e){ return '（诊断载荷组装失败）' } };
+
+function render(){
+  const f=feedOf(S.feed), p=f.p;
+  const d=PANEL.describe(p), pg=PANEL.readDiag(p);
+  const fns={'1':v1,'2':v2,'3':v3,'4':v4};
+  for(const v of V) $('v'+v.k).innerHTML=fns[v.k](p,d,pg);
+  $('feed').value=S.feed;
+}
+function setVariant(k){
+  if(!V.some(v=>v.k===k))k='1'; S.cur=k;
+  V.forEach(v=>$('v'+v.k).classList.toggle('on',v.k===k));
+  $('lbl').innerHTML=k+' · '+V.find(v=>v.k===k).name;
+  try{const u=new URL(location.href);u.searchParams.set('variant',k);history.replaceState(null,'',u);}catch(e){}
+}
+function setTheme(t){
+  if(t==='auto') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme',t);
+  $('thm').textContent='主题 '+(t==='auto'?'自动':t==='light'?'浅':'深');
+  try{localStorage.setItem('fs-theme',t)}catch(e){}
+}
+let theme='auto'; try{theme=localStorage.getItem('fs-theme')||'auto'}catch(e){}
+
+$('feed').innerHTML=FEEDS.map(f=>`<option value="${f.k}">${esc(f.label)}</option>`).join('');
+$('feed').addEventListener('change',e=>{S.feed=e.target.value;render();});
+$('prev').addEventListener('click',()=>{const i=V.findIndex(v=>v.k===S.cur);setVariant(V[(i+V.length-1)%V.length].k);});
+$('next').addEventListener('click',()=>{const i=V.findIndex(v=>v.k===S.cur);setVariant(V[(i+1)%V.length].k);});
+$('thm').addEventListener('click',()=>{theme=theme==='auto'?'light':theme==='light'?'dark':'auto';setTheme(theme);});
+window.addEventListener('keydown',ev=>{
+  if(ev.target.matches('input,textarea,select,[contenteditable]'))return;
+  if(ev.key!=='ArrowLeft'&&ev.key!=='ArrowRight')return;
+  const i=V.findIndex(v=>v.k===S.cur); setVariant(V[(i+(ev.key==='ArrowRight'?1:V.length-1))%V.length].k);
+});
+let init='1'; try{const q=new URLSearchParams(location.search).get('variant');if(q)init=q;}catch(e){}
+setTheme(theme); setVariant(init); render();
+</script>
+</body>
+</html>

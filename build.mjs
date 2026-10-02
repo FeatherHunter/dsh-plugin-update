@@ -23,6 +23,10 @@ const UNITS = [
   { ts: 'config.ts', js: 'config.js' },
   { ts: 'ports.ts', js: 'ports.js' },
   { ts: 'service.ts', js: 'service.js' },
+  { ts: 'redaction.ts', js: 'redaction.js' },
+  { ts: 'diag.ts', js: 'diag.js' },
+  { ts: 'changelog.ts', js: 'changelog.js' },
+  { ts: 'changelog-io.ts', js: 'changelog-io.js' },
   { ts: 'commands.ts', js: 'commands.js' },
   { ts: 'store.ts', js: 'store.js' },
   { ts: 'reader.ts', js: 'reader.js' },
@@ -30,6 +34,7 @@ const UNITS = [
   { ts: 'queue.ts', js: 'queue.js' },
   { ts: 'host.ts', js: 'host.js' },
   { ts: 'client.ts', js: 'client.js' },
+  { ts: 'panel.ts', js: 'panel.js' },
 ]
 
 function headerFor(tsName) {
@@ -67,6 +72,33 @@ function runTypeCheck() {
   console.log('[dsh-plugin-update] tsc --noEmit 通过')
 }
 
+// 类型定义随包分发（#17：公开入口一律带完整类型定义，不做源码级复用）。
+// tsconfig 是 noEmit 只检查，这里另起一次显式调用只产 .d.ts（运行时 JS 不动）。
+function runDeclarationEmit() {
+  const require = createRequire(resolve(PKG_DIR, 'package.json'))
+  let tscBin
+  try {
+    tscBin = resolve(dirname(require.resolve('typescript/package.json')), 'bin/tsc')
+  } catch {
+    throw new Error('[dsh-plugin-update] 找不到 typescript：请先运行 npm install（本包 devDependencies 含 typescript）')
+  }
+  const { readdirSync } = require('node:fs')
+  const inputs = readdirSync(SRC_DIR).filter((n) => n.endsWith('.ts')).map((n) => resolve(SRC_DIR, n))
+  const r = spawnSync(process.execPath, [tscBin,
+    '--target', 'ES2020',
+    '--lib', 'ES2020',
+    '--module', 'ESNext',
+    '--moduleResolution', 'Bundler',
+    '--strict', '--skipLibCheck',
+    '--declaration', '--emitDeclarationOnly',
+    '--outDir', OUT_DIR,
+  ].concat(inputs), { encoding: 'utf8' })
+  if (r.status !== 0) {
+    throw new Error(`[dsh-plugin-update] tsc 声明产出未通过：\n${r.stdout || ''}${r.stderr || ''}`)
+  }
+  console.log('[dsh-plugin-update] .d.ts 声明已产出 dist/')
+}
+
 function main() {
   runTypeCheck()
   mkdirSync(OUT_DIR, { recursive: true })
@@ -76,6 +108,7 @@ function main() {
     writeFileSync(outPath, text, 'utf8')
     console.log(`[dsh-plugin-update] ${u.ts} -> dist/${u.js}（${text.split('\n').length} 行）`)
   }
+  runDeclarationEmit()
 }
 
 const invoked = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)

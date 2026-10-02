@@ -162,6 +162,8 @@ export interface MinimalHeaders {
 
 export interface MinimalResponse {
   ok: boolean
+  /** HTTP 状态码（仅联网取数有；假件不给即省略，调用方不得猜）。 */
+  status?: number
   headers: MinimalHeaders
   text(): Promise<string>
 }

@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>面板宽容读 + §5.2 文案映射 · 抛弃式原型（PROTOTYPE — wipe me）</title>
+<!--
+  ============================================================================
+  PROTOTYPE — throwaway. 看完即焚，定稿后移抛弃分支。
+  票：https://github.com/FeatherHunter/dsh-plugin-update/issues/9  （父地图 #4，规格 #18，约定 #5）
+
+  设计问题（LOGIC 分支 · 单文件双击即开 · 内存零持久化 · 无测试）：
+    面板怎么做到「忽略未知 diag 字段不崩溃」，同时「保住 README §5.2 的码→中文映射」？
+
+  本原型要证伪/证实的四句：
+    ① 面板只分支于稳定码 error/errorKind；diag 有多、有少、类型错，行为都不变。
+    ② 未知键忽略、错类型忽略、缺省当正常缺省 —— 三者都不产生 null 三态分支。
+    ③ 文案映射表覆盖全部 14 个失败码（含 §5.2 未写的 5 个电话码 + internal），
+       未来新码有兜底行，不把英文码甩给用户。
+    ④ 复制诊断块自包含、已脱敏、有来源，且只有一种内容顺序（码 → 摘要 → 来源）。
+
+  三个原本要问人的分歧点，做成原型里能看的东西（用户 2026-10-02：原型看，不问）：
+    · 旧面板怎么造  → 并排两块：左边「今天写会写成什么样」的面板，右边新面板，逐字对照
+    · 复制块长什么样 → 一个开关切「三行块 / 单行 tag」，两种都在页面上
+    · 文案表覆盖到哪 → 14 码全表都摆出来，§5.2 原有八行与新起草六行用底色分开
+
+  范围外（父地图 #4 明写）：面板具体视觉样式。这里只定宽容读法与文案映射。
+  ============================================================================
+-->
+<style>
+  :root{
+    --accent:#4f46e5; --accent-soft:#eef2ff; --accent-line:#c7d2fe;
+    --ok:#15803d; --ok-soft:#f0fdf4; --ok-line:#bbf7d0;
+    --warn:#b45309; --warn-soft:#fffbeb; --warn-line:#fcd34d;
+    --bad:#b91c1c; --bad-soft:#fef2f2; --bad-line:#fecaca;
+    --ink:#111827; --ink-2:#374151; --mut:#6b7280; --mut-2:#9ca3af;
+    --line:#d1d5db; --line-2:#e5e7eb; --bg:#f8fafc; --card:#fff;
+    --new:#0f766e; --new-soft:#f0fdfa; --new-line:#99f6e4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--ink);background:var(--bg);padding-bottom:40px;font-size:14px;line-height:1.55}
+  .banner{background:#fef08a;border-bottom:2px dashed #a16207;padding:9px 16px;font-size:12.5px;color:#78350f}
+  .banner b{background:#111827;color:#fef08a;padding:1px 8px;border-radius:4px;margin-right:8px;font-size:11.5px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 18px}
+
+  h1{font-size:19px;margin:14px 0 4px}
+  .qline{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:8px;padding:12px 16px;margin:10px 0;font-size:13.5px}
+  .qline .lbl{font-size:11px;letter-spacing:.06em;color:var(--mut);text-transform:uppercase;font-weight:700}
+  .qline .ask{font-size:15px;font-weight:600;margin:4px 0 8px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0}
+  .card h2{font-size:14.5px;margin:0 0 3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .card h3{font-size:12.5px;margin:12px 0 5px;color:var(--ink-2)}
+  .card h2 .hint{font-weight:400;font-size:11.5px;color:var(--mut)}
+  .mut{font-size:12px;color:var(--mut)}
+  .mut-2{font-size:11.5px;color:var(--mut-2)}
+
+  /* 控制台 */
+  .console{background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:10px;padding:12px 16px;margin:12px 0}
+  .console .row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+  .console label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--ink-2);font-weight:600}
+  select,button{font-family:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);cursor:pointer}
+  select{max-width:340px}
+  button:hover{border-color:var(--mut);background:#f9fafb}
+  button.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.pri:hover{background:#4338ca}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#fff}
+  .seg button{border:none;border-radius:0;padding:6px 12px;font-size:12.5px}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+
+  /* 面板卡（两栏并排） */
+  .panes{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+  @media(max-width:900px){.panes{grid-template-columns:1fr}}
+  .pane{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .pane > header{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12px;font-weight:700;border-bottom:1px solid var(--line-2)}
+  .pane.old > header{background:#f3f4f6;color:var(--ink-2)}
+  .pane.new > header{background:var(--new-soft);color:var(--new);border-bottom-color:var(--new-line)}
+  .pane .hd-tag{font-size:10px;padding:1px 6px;border-radius:4px;background:#fff;border:1px solid var(--line);font-weight:600;color:var(--mut)}
+  .pane .body{padding:13px 14px}
+
+  /* 面板内渲染 —— 这才是「界面」，尽量像产品 */
+  .u-status{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+  .u-ver{font-size:19px;font-weight:700;letter-spacing:-.01em}
+  .u-sub{font-size:12.5px;color:var(--mut)}
+  .u-blob{border-radius:8px;padding:9px 12px;font-size:13px;margin:8px 0;border:1px solid}
+  .u-blob .code{font-size:10.5px;font-weight:700;letter-spacing:.04em;display:block;margin-bottom:3px;opacity:.85}
+  .u-blob .act{margin-top:5px;font-size:12.5px}
+  .u-blob.restart{background:var(--warn-soft);border-color:var(--warn);color:#92400e}
+  .u-blob.err{background:var(--bad-soft);border-color:var(--bad-line);color:#991b1b}
+  .u-blob.ok{background:var(--ok-soft);border-color:var(--ok-line);color:#14532d}
+  .u-blok.fallback{background:#f9fafb;border-color:var(--line);color:var(--ink-2)}
+  .u-diag{font-size:11px;color:var(--mut);background:#f9fafb;border:1px dashed var(--line);border-radius:7px;padding:7px 10px;margin-top:7px}
+  .u-diag .dv{display:inline-block;margin-right:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:10.5px}
+  .u-diag .dv b{font-weight:700}
+  .u-actions{margin-top:9px;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .u-actions button{font-size:12px;padding:5px 11px}
+  .u-empty{font-size:12.5px;color:var(--mut-2);padding:6px 0}
+
+  /* 一致性判定条 */
+  .verdict{display:flex;gap:9px;flex-wrap:wrap;margin-top:10px}
+  .vchip{font-size:12px;border-radius:7px;padding:5px 11px;border:1px solid;font-weight:600}
+  .vchip.pass{background:var(--ok-soft);border-color:var(--ok-line);color:var(--ok)}
+  .vchip.fail{background:var(--bad-soft);border-color:var(--bad-line);color:var(--bad)}
+
+  /* 解剖 */
+  .anat{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:900px){.anat{grid-template-columns:1fr}}
+  .anat .col{border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;background:#fcfcfd}
+  .anat .col > h4{margin:0 0 7px;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);font-weight:700}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .kv .k{color:var(--mut-2)}
+  .kv .v{color:var(--ink);word-break:break-all}
+  .kv .v.dim{color:var(--mut-2);font-style:italic}
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;border-radius:5px;padding:2px 7px;border:1px solid}
+  .chip.kept{background:var(--ok-soft);border-color:var(--ok-line);color:var(--ok)}
+  .chip.drop{background:#f3f4f6;border-color:var(--line);color:var(--mut-2);text-decoration:line-through}
+  .chip.rejected{background:var(--bad-soft);border-color:var(--bad-line);color:var(--bad);text-decoration:line-through}
+  .none{font-size:12px;color:var(--mut-2);font-style:italic}
+
+  /* 复制块 */
+  pre.copy{background:#111827;color:#e5e7eb;font-size:12px;padding:12px 14px;border-radius:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word;margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;line-height:1.6}
+  pre.copy .k{color:#93c5fd} pre.copy .v{color:#fde68a} pre.copy .c{color:#6ee7b7}
+
+  /* 文案表 */
+  table.map{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.map th,table.map td{border:1px solid var(--line-2);padding:6px 9px;text-align:left;vertical-align:top}
+  table.map th{background:#f3f4f6;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+  table.map td.code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;white-space:nowrap}
+  table.map tr.draft td{background:#fffbeb}
+  table.map tr.draft td.code{color:var(--warn);font-weight:700}
+  table.map tr.hit td{background:var(--accent-soft)}
+  .srcbadge{font-size:10px;border-radius:4px;padding:1px 6px;font-weight:700;white-space:nowrap}
+  .srcbadge.r52{background:#e0e7ff;color:#3730a3}
+  .srcbadge.draft{background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn-line)}
+
+  /* 走查 */
+  .tabs{display:flex;gap:5px;flex-wrap:wrap;border-bottom:2px solid var(--line);padding-bottom:0;margin:14px 0 0}
+  .tabs button{border:1px solid var(--line);border-bottom:none;border-radius:7px 7px 0 0;padding:7px 13px;font-size:12.5px;background:#f3f4f6;color:var(--ink-2)}
+  .tabs button[aria-selected="true"]{background:var(--card);color:var(--accent);font-weight:700;border-color:var(--line);border-bottom:2px solid var(--card);margin-bottom:-2px}
+  .tabpane{display:none}
+  .tabpane.on{display:block}
+  .scenario{background:var(--card);border:1px solid var(--line);border-top:none;border-radius:0 0 10px 10px;padding:14px 16px}
+  .scenario h3{margin:0 0 6px;font-size:14px}
+  .scenario .sit{font-size:12.5px;color:var(--ink-2);margin-bottom:3px}
+  .scenario .watch{font-size:12.5px;color:var(--ink-2);background:#f9fafb;border-left:3px solid var(--accent);padding:7px 11px;border-radius:0 7px 7px 0;margin:8px 0}
+  .steps{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+  .step{display:flex;gap:11px;align-items:flex-start;padding:9px 11px;border:1px solid var(--line-2);border-radius:8px;background:#fcfcfd;font-size:12.5px}
+  .step .n{width:21px;height:21px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700;flex:0 0 auto;margin-top:1px}
+  .step.done{background:var(--ok-soft);border-color:var(--ok-line)}
+  .step.done .n{background:var(--ok)}
+  .step.next{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+  .step .b{flex:1}
+  .step .b .d{color:var(--mut);font-size:11.5px;margin-top:2px}
+  .step button{font-size:12px;padding:4px 10px;flex:0 0 auto}
+  .step.done button{opacity:.55}
+  .runbar{display:flex;gap:9px;align-items:center;margin-top:11px;flex-wrap:wrap}
+
+  details{border:1px solid var(--line);border-radius:8px;margin:8px 0;background:var(--card)}
+  details summary{padding:8px 12px;font-size:12.5px;cursor:pointer;font-weight:600;color:var(--ink-2)}
+  details .body{padding:0 12px 12px;font-size:12.5px}
+  .state{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;background:#111827;color:#d1fae5;padding:12px 14px;border-radius:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word;margin:0;line-height:1.55}
+  .crash{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .fatal{display:none;background:var(--bad-soft);border:1px solid var(--bad);color:#7f1d1d;border-radius:8px;padding:10px 13px;font-size:12.5px;margin:10px 0;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .fatal.on{display:block}
+</style>
+</head>
+<body>
+
+<div class="banner"><b>PROTOTYPE · 抛弃式</b>票 #9 · 单文件双击即开 · 内存零持久化 · 无测试 · 不进包 · 看完即焚，定稿后移抛弃分支</div>
+
+<div class="wrap">
+  <h1>面板宽容读 + §5.2 文案映射</h1>
+  <div class="qline">
+    <div class="lbl">这个原型让你探的问题</div>
+    <div class="ask">面板怎么做到「忽略未知 <code>diag</code> 字段不崩溃」，同时「保住 README §5.2 的码→中文映射」？</div>
+    <div class="mut">
+      喂一个回包 → 左边的面板是<b>今天写会写成什么样</b>的读法（只认稳定码、完全不碰 <code>diag</code>），右边是宽容读的新面板。
+      看三件事：<b>①</b> 两个面板在同一个码上说的话是否一致；<b>②</b> 多出来的字段去了哪（有没有被静默丢掉、丢掉会不会改行为）；
+      <b>③</b> 复制出去的那段能不能单独粘给别人定位。
+    </div>
+    <div class="mut-2" style="margin-top:6px">规格依据：#5 v3 共识（三段分工 / 宽容读三向矩阵 / (阶段×键) 期望表）· #18 契约（线键 <code>diag</code>、<code>detail</code> 人话、<code>diagnostic</code> 脏原文永不过界）· 文案责任见 README:81。</div>
+  </div>
+
+  <!-- ============ 演示控制台 ============ -->
+  <div class="console">
+    <div class="row">
+      <label>喂一个回包
+        <select id="feed"></select>
+      </label>
+      <label>复制块形态
+        <span class="seg" id="fmtSeg">
+          <button data-fmt="block" aria-pressed="true">三行块</button>
+          <button data-fmt="line" aria-pressed="false">单行 tag</button>
+        </span>
+      </label>
+      <button id="reset">重置原型</button>
+      <span class="mut" id="feedNote"></span>
+    </div>
+  </div>
+
+  <div class="fatal" id="fatal"></div>
+
+  <!-- ============ 当前状态：两个面板 ============ -->
+  <div class="card">
+    <h2>面板实况 <span class="hint">左＝今天写会写成什么样（只读码）；右＝宽容读的新面板。同一份回包，两块并排。</span></h2>
+    <div class="panes">
+      <div class="pane old">
+        <header><span class="hd-tag">旧</span>今天的面板读法 <span class="hd-tag" style="margin-left:auto">只认 error / errorKind · 永不碰 diag</span></header>
+        <div class="body" id="oldPanel"></div>
+      </div>
+      <div class="pane new">
+        <header><span class="hd-tag">新</span>宽容读的面板 <span class="hd-tag" style="margin-left:auto">未知键忽略 · 错类型忽略 · 缺省当缺省</span></header>
+        <div class="body" id="newPanel"></div>
+      </div>
+    </div>
+    <div class="verdict" id="verdict"></div>
+    <div class="mut-2" style="margin-top:7px">
+      「剥掉 <code>diag</code> 后旧面板是否逐字不变」＝多出来的字段<b>不可能</b>破坏旧面板的直接证据（现场算，不靠嘴说）。
+    </div>
+  </div>
+
+  <!-- ============ 宽容读解剖 ============ -->
+  <div class="card">
+    <h2>宽容读解剖 <span class="hint">新面板到底读走了什么、丢了什么、拒了什么</span></h2>
+    <div class="anat">
+      <div class="col">
+        <h4>读进稳定槽（面板只渲染，不分支）</h4>
+        <div id="keptBox"></div>
+      </div>
+      <div class="col">
+        <h4>静默丢掉 · 错类型被拒</h4>
+        <div id="dropBox"></div>
+      </div>
+    </div>
+    <h3>阶段 × 键 期望表核对 <span class="mut" style="font-weight:400">#5：缺省即省略，按（阶段×键）断言，异常才报警</span></h3>
+    <div id="expectBox"></div>
+  </div>
+
+  <!-- ============ 复制诊断块 ============ -->
+  <div class="card">
+    <h2>复制诊断 <span class="hint">唯一可粘出去的一段 · 自包含 · 已脱敏 · 顺序由包内定：码 → 摘要 → 来源</span></h2>
+    <div id="copyBox"></div>
+    <div class="mut-2" style="margin-top:7px" id="copyNote"></div>
+  </div>
+
+  <!-- ============ 文案映射表 ============ -->
+  <div class="card">
+    <h2>码 → 中文文案映射表 <span class="hint">README §5.2 那八行 ＋ 电话专属码 ＋ internal 兜底 ＋ 未来码兜底</span></h2>
+    <div id="mapBox"></div>
+    <div class="mut-2" style="margin-top:8px">
+      紫底＝README §5.2 原文照抄；黄底＝<b>本原型起草</b>，需你过一遍再并回 §5.2（§5.2 今天只写了八行，
+      但 README:81 把文案责任覆盖到全部失败码 —— 那五个电话专属码今天没有中文文案，用户会看到一串英文码）。
+    </div>
+  </div>
+
+  <!-- ============ 引导式走查 ============ -->
+  <div class="card" style="padding-bottom:6px">
+    <h2>走查 <span class="hint">每一步都是真按钮，点一下就喂一个回包并刷新上面全部状态</span></h2>
+    <div class="tabs" id="tabs"></div>
+  </div>
+  <div class="scenario" id="paneScn"></div>
+
+  <!-- ============ 完整状态 ============ -->
+  <div class="card">
+    <h2>完整状态 <span class="hint">每次动作后刷新</span></h2>
+    <pre class="state" id="state"></pre>
+    <div class="crash" id="crashBar"></div>
+    <details style="margin-top:10px">
+      <summary>线上收到的原始回包（未加工）</summary>
+      <div class="body"><pre class="state" id="raw"></pre></div>
+    </details>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =============================================================================
+ * 纯模块（可整体拎进真实代码）：无 DOM、无 document、无事件处理。
+ * 这块才是本原型要回答的东西；页面只是它的壳。
+ * ========================================================================== */
+const PANEL = (function () {
+
+  /* ---- §5.2 码→中文映射表（面板的文案责任：README:81「面板照第 5.2 节给文案」） ---- */
+  const TEXT = {
+    /* —— README §5.2 原文八行（照抄，不改） —— */
+    'unknown-profile':      { zh:'使用范围或插件位置认不出',                 act:'重开宿主再查一次；一直这样就把版本号与日志交给插件作者',                    manual:false, src:'5.2' },
+    'source-install':       { zh:'当前是从源码装的，不是按版本号装的',       act:'这种情形不给手工命令；想走更新先按版本号重装一次',                          manual:false, src:'5.2' },
+    'invalid-installation': { zh:'已装的包不完整（名字对不上、版本非法、入口文件缺失）', act:'重装当前版本，修好已装目录再查更新',                                    manual:true,  src:'5.2' },
+    'installation-changed': { zh:'安装位置在使用中途变了（换了目录或换了包）',   act:'重新打开宿主再查一次；还出现就重装',                                        manual:true,  src:'5.2' },
+    'pending-restart':      { zh:'新版已装到磁盘，正在跑的还是旧版',           act:'重启宿主，让新版跑起来；这是正常终态，不是失败',                              manual:true,  src:'5.2', banner:true },
+    'registry-conflict':    { zh:'本地声明的版本与磁盘实际版本互相矛盾',       act:'打开使用范围的清单文件，把目标包名那一行改成版本号再试',                      manual:true,  src:'5.2' },
+    'incompatible-node':    { zh:'新版要求的 Node 与当前运行的对不上',         act:'先升级 Node 到 22 或更高，再查更新',                                        manual:true,  src:'5.2' },
+    'recovery-required':    { zh:'上次安装被打断，留下一个半截任务',           act:'重新点一次安装；一直出现就按第 6 节排错',                                    manual:true,  src:'5.2' },
+    /* —— 电话专属码：§5.2 今天没写，本原型起草（待并回 §5.2） —— */
+    'check-failed':         { zh:'查新版没成功（联网、源、限流都可能）',       act:'过一会儿再查一次；一直失败就把复制诊断交给插件作者',                        manual:true,  src:'draft' },
+    'invalid-release':      { zh:'拿到的发布信息不合法（版本号非法或内容对不上）', act:'检查清单文件里的包名与版本写法，再查一次',                                manual:true,  src:'draft' },
+    'check-expired':        { zh:'凭证过期了，安装请求被拒',                   act:'重新查一次新版再点安装，不要重试旧编号',                                    manual:true,  src:'draft' },
+    'update-busy':          { zh:'同一使用范围正在装另一个',                   act:'等当前任务离开 installing/verifying 再点；排队中去查状态看位置',             manual:true,  src:'draft' },
+    'install-failed':       { zh:'装不上（宿主原话见诊断摘要）',               act:'先看复制诊断；官方桌面版把这段交给插件作者',                                manual:true,  src:'draft' },
+    /* —— 兜底 —— */
+    'internal':             { zh:'出了点问题，认不出具体原因',                 act:'先重试一次；一直这样就把复制诊断交给插件作者',                              manual:true,  src:'draft' },
+    '__unknown__':          { zh:'出了点问题，认不出具体原因',                 act:'先重试一次；一直这样就把复制诊断交给插件作者（带上你看到的码）',              manual:true,  src:'draft' },
+  };
+
+  /* ---- diag 稳定键 v1（#18 目录）与类型 ---- */
+  const KNOWN = {
+    v: 'number', stage: 'string', route: 'string', method: 'string',
+    httpStatus: 'number', exitCode: 'number', latencyMs: 'number',
+    detail: 'string', targetPackageName: 'string', runningVersion: 'string',
+    latestVersion: 'string', environmentKind: 'string', requestId: 'string',
+    checkId: 'string', registryHost: 'string', action: 'string',
+  };
+  const STAGES = ['read-installed','fetch-release','validate-release','preflight','exec','verify'];
+  const ACTIONS = ['retry','manual','contact','restart'];
+
+  /* ---- (阶段×键) 期望表：期望有 / 期望没有（#5「缺省即省略」） ---- */
+  const STAGE_EXPECT = {
+    'read-installed':   { want:[], forbid:['httpStatus','exitCode'] },
+    'fetch-release':    { want:['httpStatus'], forbid:['exitCode'] },
+    'validate-release': { want:[], forbid:['httpStatus','exitCode'] },
+    'preflight':        { want:[], forbid:['httpStatus','exitCode'] },
+    'exec':             { want:[], forbid:['httpStatus'] },
+    'verify':           { want:[], forbid:['httpStatus','exitCode'] },
+  };
+
+  const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+  /** 宽容读：未知键忽略、错类型忽略、缺省当正常缺省。永不抛。 */
+  function readDiag(payload) {
+    const out = {
+      present:false, usable:false, v:null, stage:null, route:null, method:null,
+      httpStatus:null, exitCode:null, latencyMs:null, detail:null,
+      targetPackageName:null, runningVersion:null, latestVersion:null,
+      environmentKind:null, requestId:null, checkId:null, registryHost:null, action:null,
+      kept:[], unknown:[], rejected:[], absent:[], shape:null, anomaly:null,
+    };
+    if (!isObj(payload) || !Object.prototype.hasOwnProperty.call(payload, 'diag')) {
+      out.shape = 'absent'; out.absent = Object.keys(KNOWN); return out;
+    }
+    out.present = true;
+    const raw = payload.diag;
+    if (!isObj(raw)) { out.shape = 'not-object'; out.rejected = [{ key:'diag', want:'object', got:typeOf(raw) }]; return out; }
+    out.shape = 'object';
+    for (const key of Object.keys(KNOWN)) {
+      const want = KNOWN[key];
+      if (!Object.prototype.hasOwnProperty.call(raw, key)) { out.absent.push(key); continue; }
+      const v = raw[key];
+      if (v === undefined || v === null) { out.absent.push(key); continue; }   // 缺省即省略
+      if (typeof v !== want) { out.rejected.push({ key, want, got: typeOf(v) }); continue; }
+      out[key] = v; out.kept.push(key);
+    }
+    for (const key of Object.keys(raw)) {
+      if (!Object.prototype.hasOwnProperty.call(KNOWN, key)) out.unknown.push(key);
+    }
+    out.usable = true;
+    /* 期望表核对：只报「本该有而没有」与「本不该有而有」，不做分支 */
+    const row = STAGE_EXPECT[out.stage];
+    if (row) {
+      const missing = row.want.filter((k) => out[k] === null);
+      const extra   = row.forbid.filter((k) => out[k] !== null);
+      if (missing.length || extra.length) {
+        out.anomaly = { stage: out.stage, missing, extra };
+      }
+    } else if (out.stage !== null) {
+      out.anomaly = { stage: out.stage, unknownStage: true, missing: [], extra: [] };
+    }
+    return out;
+  }
+
+  function typeOf(v) {
+    if (v === null) return 'null';
+    if (Array.isArray(v)) return 'array';
+    return typeof v;
+  }
+
+  /** 脱敏 negative 断言（#18：写死「载荷里不得出现绝对路径形态与秘密形态」） */
+  const SECRETISH = [
+    { name:'Windows 绝对路径', re:/[A-Za-z]:\\\\?[^\s"']+/ },
+    { name:'Unix 家目录路径',  re:/\/(Users|home)\/[^\s"']+/ },
+    { name:'.env / 密钥形态',  re:/(sk-[A-Za-z0-9]{8,}|token|Bearer\s)[^\s"']*/i },
+    { name:'带凭据的 URL',    re:/https?:\/\/[^\s"']*[?&](token|auth|key)=[^\s"']+/i },
+  ];
+  function scanSecrets(payload) {
+    let text;
+    try { text = JSON.stringify(payload); } catch { return ['载荷不是可序列化对象']; }
+    const hits = [];
+    for (const s of SECRETISH) if (s.re.test(text)) hits.push(s.name);
+    return hits;
+  }
+
+  /** 面板的决策：只分支于稳定码。diag 一律不进分支。 */
+  function describe(payload, tolerant) {
+    const p = isObj(payload) ? payload : {};
+    /* 成功回包：看快照 */
+    if (p.ok === true) {
+      const s = isObj(p.snapshot) ? p.snapshot : {};
+      const blocked = typeof s.blockedReason === 'string' ? s.blockedReason : null;
+      if (blocked) {
+        const t = TEXT[blocked] || TEXT['__unknown__'];
+        return {
+          kind: t.banner ? 'restart' : 'blocked',
+          code: blocked, t, unknownCode: !TEXT[blocked],
+          manual: t.manual ? (typeof p.manual === 'string' ? p.manual : '(有)') : null,
+          heading: `${s.installedVersion ?? '?'} ← 运行中 ${s.runningVersion ?? '?'}`,
+        };
+      }
+      const canInstall = s.canInstall === true;
+      return {
+        kind: canInstall ? 'ready' : 'quiet', code: null, t: null, unknownCode: false,
+        manual: typeof p.manual === 'string' ? p.manual : null,
+        heading: `${s.installedVersion ?? '?'} ← 运行中 ${s.runningVersion ?? '?'}${s.latestVersion ? ' · 最新 ' + s.latestVersion : ''}`,
+      };
+    }
+    /* 失败回包：面板唯一允许的分支 —— errorKind */
+    const ek = typeof p.errorKind === 'string' && p.errorKind ? p.errorKind
+             : (typeof p.error === 'string' && p.error ? p.error : 'internal');
+    const t = TEXT[ek] || TEXT['__unknown__'];
+    /* 宽容读：新面板拿 detail/stage 去「多说一句」，但绝不用它改分支 */
+    let sub = null;
+    if (tolerant) {
+      const d = readDiag(p);
+      if (d.usable) {
+        const bits = [];
+        if (d.stage) bits.push(d.stage);
+        if (d.route) bits.push(d.route);
+        if (d.httpStatus !== null) bits.push('HTTP ' + d.httpStatus);
+        if (d.exitCode !== null) bits.push('exit ' + d.exitCode);
+        if (d.detail) bits.push(d.detail);
+        if (bits.length) sub = bits.join(' · ');
+      }
+    }
+    return {
+      kind: 'failed', code: ek, t, unknownCode: !TEXT[ek], manual: null,
+      heading: null, sub, action: tolerant ? readDiag(p).action : null,
+    };
+  }
+
+  /** 复制块组装：码 → 摘要 → 来源（顺序由包内定，形态两选一只是排版） */
+  function copyBlock(payload, tolerant, format) {
+    const p = isObj(payload) ? payload : {};
+    const d = readDiag(p);
+    const code = p.ok === true
+      ? (isObj(p.snapshot) && typeof p.snapshot.blockedReason === 'string' ? p.snapshot.blockedReason : 'ok')
+      : (typeof p.errorKind === 'string' && p.errorKind ? p.errorKind : 'internal');
+    const zh = TEXT[code] ? TEXT[code].zh : TEXT['__unknown__'].zh;
+    const act = TEXT[code] ? TEXT[code].act : TEXT['__unknown__'].act;
+    const pkg   = d.targetPackageName || '(未知包)';
+    const run   = d.runningVersion    || (isObj(p.snapshot) ? String(p.snapshot.runningVersion ?? '?') : '?');
+    const inst  = (isObj(p.snapshot) && p.snapshot.installedVersion) || (d.latestVersion ? d.latestVersion : '?');
+    const detail = d.detail || (p.ok === true ? '' : '（本回包没有带诊断摘要）');
+    const prov = [
+      '插件=' + pkg,
+      '版本=' + run + '→' + inst,
+      '宿主=' + (d.environmentKind || '?'),
+      d.route    ? '路由=' + d.route    : null,
+      d.stage    ? '阶段=' + d.stage    : null,
+      d.method   ? '方法=' + d.method   : null,
+      d.httpStatus !== null ? 'HTTP=' + d.httpStatus : null,
+      d.exitCode  !== null ? 'exit=' + d.exitCode  : null,
+      d.latencyMs !== null ? '耗时=' + d.latencyMs + 'ms' : null,
+      d.registryHost ? '源=' + d.registryHost : null,
+      d.action    ? '建议=' + d.action    : null,
+      d.requestId ? '请求=' + d.requestId : null,
+      d.checkId   ? '检查=' + d.checkId   : null,
+      '自检=' + SECRETISH.map((s) => s.name).join('/'),
+    ].filter(Boolean);
+    if (format === 'line') {
+      return '[update-diag] code=' + code + ' · ' + zh + ' · ' + prov.join(' · ') + ' · 怎么办=' + act;
+    }
+    return [
+      '[update-diag] ' + code + ' — ' + zh,
+      '  怎么办：' + act,
+      '  摘要：' + detail,
+      '  来源：' + prov.join(' · '),
+    ].join('\n');
+  }
+
+  return { TEXT, KNOWN, STAGES, ACTIONS, STAGE_EXPECT, readDiag, describe, copyBlock, scanSecrets, isObj };
+})();
+
+
+/* =============================================================================
+ * 线上回包样本（内存常量；原型不碰真实电话、不联网、不落盘）
+ * ========================================================================== */
+const FEEDS = [
+  { k:'new-full', label:'新载荷·字段齐全（install-failed）',
+    note:'规格内的完整样子：阶段、路由、退出码、人话摘要、来源编号都有',
+    p:{ ok:false, error:'install-failed', errorKind:'install-failed',
+        diag:{ v:1, stage:'exec', route:'desktop-manager', method:'phone', exitCode:1, latencyMs:8420,
+               detail:'宿主管理器返回 operation-error，打包阶段没产出可安装产物',
+               targetPackageName:'dsh-mattpocock-skills-deck', runningVersion:'1.2.2', latestVersion:'1.2.3',
+               environmentKind:'desktop', requestId:'req-7f3a91', checkId:'chk-2b81', action:'contact' } } },
+
+  { k:'new-extra', label:'新载荷·多出 4 个目录外键 ＋ 1 个新进目录的键',
+    note:'queuePos 属 #15 待定、retryAfterMs/hint/_x 尚未进目录 —— 一律静默丢；registryHost 在 #5 v1 目录内，所以被读走；旧面板对这五件事都得无感',
+    p:{ ok:false, error:'install-failed', errorKind:'install-failed',
+        diag:{ v:1, stage:'exec', route:'desktop-manager', method:'phone', exitCode:1, latencyMs:8420,
+               detail:'宿主管理器返回 operation-error，打包阶段没产出可安装产物',
+               targetPackageName:'dsh-mattpocock-skills-deck', runningVersion:'1.2.2', latestVersion:'1.2.3',
+               environmentKind:'desktop', requestId:'req-7f3a91', checkId:'chk-2b81', action:'contact',
+               /* ↓ 以下全是不在 v1 目录里的键 */
+               queuePos:1, retryAfterMs:null, hint:'重试前先看队列', _x:{ deep:1 }, registryHost:'registry.npmjs.org' } } },
+
+  { k:'dirty', label:'脏载荷·类型全错（第三向矩阵）',
+    note:'diag 是字符串、stage 是数字、httpStatus 是字符串、detail 是对象、action 是数组',
+    p:{ ok:false, error:'check-failed', errorKind:'check-failed',
+        diag:'我其实是个字符串' } },
+
+  { k:'dirty2', label:'脏载荷·diag 是对象但键类型乱',
+    note:'能进去，但每个键类型都不对 → 一个都留不下，面板必须照样说话',
+    p:{ ok:false, error:'check-failed', errorKind:'check-failed',
+        diag:{ v:'1', stage:123, route:['desktop-manager'], method:null,
+               httpStatus:'429', exitCode:{}, latencyMs:'8420ms',
+               detail:{ text:'人话摘要' }, targetPackageName:42, runningVersion:null,
+               latestVersion:true, environmentKind:'desktop', requestId:'req-1',
+               checkId:9, registryHost:{}, action:['contact'], queuePos:1 } } },
+
+  { k:'old', label:'旧载荷·完全没有 diag（第二向矩阵）',
+    note:'#9 之前所有失败回包长这样 —— 新面板必须当成正常缺省，不写 null 三态',
+    p:{ ok:false, error:'update-busy', errorKind:'update-busy' } },
+
+  { k:'ok-nodiag', label:'成功回包·无 diag（常态）',
+    note:'没失败就没有 diag，这是最常见的一种「没有 diag」，不是异常',
+    p:{ ok:true,
+        snapshot:{ installedVersion:'1.2.2', runningVersion:'1.2.2', latestVersion:'1.2.3',
+                   canInstall:true, blockedReason:null, job:null },
+        manual:'dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=https://registry.npmjs.org/',
+        receipt:null } },
+
+  { k:'restart', label:'待重启（§5.4 三条要求）',
+    note:'blockedReason===pending-restart 即展示；安装按钮不给；installed≠running 只作辅助',
+    p:{ ok:true,
+        snapshot:{ installedVersion:'1.2.3', runningVersion:'1.2.2', latestVersion:'1.2.3',
+                   canInstall:false, blockedReason:'pending-restart', job:null },
+        manual:'dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3',
+        diag:{ v:1, stage:'verify', route:'disk', method:'fs', latencyMs:31,
+               targetPackageName:'dsh-mattpocock-skills-deck', runningVersion:'1.2.2',
+               environmentKind:'cli', action:'restart' } } },
+
+  { k:'r429', label:'限流 429（验收场景一：只看回包知等后重试）',
+    note:'fetch-release 阶段该有 httpStatus；registryHost 只露主机名',
+    p:{ ok:false, error:'check-failed', errorKind:'check-failed',
+        diag:{ v:1, stage:'fetch-release', route:'registry', method:'https', httpStatus:429,
+               latencyMs:2104, detail:'源返回 429，这一分钟请求太多',
+               targetPackageName:'dsh-mattpocock-skills-deck', runningVersion:'1.2.2',
+               environmentKind:'cli', registryHost:'registry.npmjs.org', action:'retry',
+               requestId:'req-4c02', checkId:'chk-9ad1' } } },
+
+  { k:'invalid-release', label:'发行物非法（验收场景二：知哪阶段校验挂）',
+    note:'validate-release 阶段不该有 httpStatus 也不该有 exitCode',
+    p:{ ok:false, error:'invalid-release', errorKind:'invalid-release',
+        diag:{ v:1, stage:'validate-release', route:'registry', method:'https', latencyMs:880,
+               detail:'清单里的版本号不是合法版本',
+               targetPackageName:'dsh-mattpocock-skills-deck', runningVersion:'1.2.2',
+               environmentKind:'cli', action:'manual', requestId:'req-77b1' } } },
+
+  { k:'internal', label:'认不出的码（errorKind=internal）',
+    note:'包内把未知码收敛成 check-failed/internal —— 此时 error 那格已经不可信',
+    p:{ ok:false, error:'check-failed', errorKind:'internal',
+        diag:{ v:1, stage:'fetch-release', route:'registry', method:'https', httpStatus:500,
+               latencyMs:5200, detail:'源返回 500，重试仍失败',
+               targetPackageName:'dsh-mattpocock-skills-deck', runningVersion:'1.2.2',
+               environmentKind:'cli', action:'retry', requestId:'req-1f0e' } } },
+
+  { k:'future', label:'未来新码（不在今天 14 码里）',
+    note:'下一版新增一个 blockedReason，包还没跟上 —— 兜底行必须能顶住',
+    p:{ ok:true,
+        snapshot:{ installedVersion:'1.2.3', runningVersion:'1.2.3', latestVersion:'1.3.0',
+                   canInstall:false, blockedReason:'quota-exceeded', job:null },
+        manual:null } },
+
+  { k:'leaky', label:'脱敏 negative 断言用：一个带路径与令牌的载荷',
+    note:'这一格只用来演示断言会亮红灯 —— 真实链路里它不该出现',
+    p:{ ok:false, error:'install-failed', errorKind:'install-failed',
+        diag:{ v:1, stage:'exec', route:'desktop-manager', exitCode:1,
+               detail:'日志在 C:\\Users\\someone\\AppData\\Local\\dsh\\install.log，token=sk-abcdef123456',
+               targetPackageName:'dsh-mattpocock-skills-deck', runningVersion:'1.2.2',
+               environmentKind:'desktop', action:'contact' } } },
+];
+
+
+/* =============================================================================
+ * 走查场景（每步都是真按钮：喂一个回包 → 上面全部刷新）
+ * ========================================================================== */
+const SCENARIOS = [
+  { k:'compat', name:'旧面板 × 新载荷',
+    sit:'把 #9 之后会出现的那个带未知键的回包，喂给一个今天就已经写好的面板。',
+    watch:'盯「剥掉 diag 后旧面板是否逐字不变」这格：必须是不变。不变＝多出来的字段在物理上碰不到旧面板。',
+    steps:[
+      { feed:'new-full', d:'先喂规格内的完整载荷。两个面板说同一句话，新面板多一句来自 diag 的摘要。' },
+      { feed:'new-extra', d:'加进 4 个目录外的键，外加 1 个刚进目录的键（registryHost）。旧面板一个字都不该变；前四个进「静默丢掉」那栏，第五个被读走。' },
+      { feed:'old',      d:'把 diag 整个剥掉，旧面板输出必须与上一格逐字相同。' },
+    ] },
+  { k:'missing', name:'新面板 × 旧载荷',
+    sit:'面板更新了，用户装的还是旧版本包；或者失败回包本来就没带 diag。',
+    watch:'盯「没有 diag 时」那格：必须是「正常缺省」，不是「异常」。面板不许为此多写一个分支。',
+    steps:[
+      { feed:'old',       d:'失败回包没有 diag：新面板只说码对应的那句中文，与旧面板逐字相同。' },
+      { feed:'ok-nodiag', d:'成功回包也没有 diag（最常态）：面板照常显示版本与手工命令。' },
+      { feed:'new-extra', d:'同一块面板换上有 diag 的载荷：只多一句摘要，分支没变。' },
+    ] },
+  { k:'dirty', name:'脏载荷 × 新面板',
+    sit:'某个版本把字段类型写错了，或者中间代理塞进了非对象。',
+    watch:'盯「崩溃」格：必须永远是 0。错类型被拒 ≠ 面板少说话 —— 文案那一句由码决定，与 diag 无关。',
+    steps:[
+      { feed:'dirty',   d:'diag 根本不是对象：一个键都留不下，面板照样按码说话。' },
+      { feed:'dirty2',  d:'diag 是对象但每个键类型都不对：期望表与拒绝清单都亮出来，行为不变。' },
+      { feed:'r429',    d:'换成类型全对的载荷：HTTP 429 被读进稳定槽，摘要里出现「HTTP 429」。' },
+    ] },
+  { k:'mapping', name:'§5.2 八种原因逐个过',
+    sit:'README §5.2 那张表今天就是面板文案的唯一来源，得确认八行都能原样落到界面上。',
+    watch:'盯文案映射表高亮的那一行：紫色＝§5.2 原文，黄色＝本原型起草。pending-restart 要单独走横幅。',
+    steps:[
+      { feed:'restart',            d:'pending-restart：不是失败，是「新版已装好、跑的还是旧版」，必须显眼横幅 + 不给安装按钮。' },
+      { feed:'ok-nodiag',          d:'可装状态：一句话 + 手工命令，不铺错误面。' },
+      { feed:'new-full',           d:'install-failed：§5.2 没写这码，看黄色起草行顶不顶得住。' },
+    ] },
+  { k:'codes', name:'五个电话码 ＋ internal',
+    sit:'README:81 说文案责任覆盖全部失败码，但 §5.2 表里只有八行 —— 剩下这六个今天没有中文。',
+    watch:'盯「未被 §5.2 覆盖」那几行的黄底：这是本原型起草、要你过一遍的部分。internal 那格还有个坑：error 那格已被包内改写，不可信。',
+    steps:[
+      { feed:'r429',            d:'check-failed：联网、源、限流三种可能都归它，一句话必须够用户行动。' },
+      { feed:'invalid-release', d:'invalid-release：知哪阶段校验挂 → 知道该改清单还是该找上游。' },
+      { feed:'old',             d:'update-busy：排队撞车，等当前任务离开 installing/verifying。' },
+      { feed:'internal',        d:'errorKind=internal：包内把未知码收敛掉了，此时不能再按 error 说「查新版失败」。' },
+    ] },
+  { k:'future', name:'未来码 ＋ 动作提示',
+    sit:'下一个人往码表里加一个码、或往 diag 里加一个键，面板先长出来、包后跟上。',
+    watch:'兜底行顶不顶得住；以及「建议=contact/retry/manual/restart」是包内按（阶段×信号）推出来的，面板只渲染、不自己推。',
+    steps:[
+      { feed:'future',   d:'quota-exceeded 不在今天的表里：兜底行顶住，不把英文码甩给用户。' },
+      { feed:'leaky',    d:'脱敏断言亮红灯：载荷里混进了绝对路径与令牌形态 —— 真实链路里这一格不该发生。' },
+      { feed:'new-full', d:'收尾：action=contact 由包内给出；换掉它，旧面板输出依旧不变。' },
+    ] },
+];
+
+
+/* =============================================================================
+ * 页面壳（下面全是 DOM；纯模块在上面）
+ * ========================================================================== */
+const $ = (id) => document.getElementById(id);
+let S, CRASH = { old:0, new:0 };
+const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function fresh(){
+  return { feed:'new-extra', format:'block', scn:'compat', step:0, last:'原型已载入（内存，零持久化）', crashes:[] };
+}
+const feedOf = (k) => FEEDS.find((f) => f.k === k) || FEEDS[0];
+
+function feed(k, why){
+  S.feed = k; S.step = 0;
+  S.last = `${feedOf(k).label}${why ? ' —— ' + why : ''}`;
+  render();
+}
+
+/* ---- 渲染一个面板（视觉本体；旧/新只差 tolerant 一个参数） ---- */
+function panelHTML(d, payload){
+  const t = d.t;
+  let h = '';
+  if (d.kind === 'restart') {
+    const s = PANEL.isObj(payload.snapshot) ? payload.snapshot : {};
+    h += `<div class="u-blob restart"><span class="code">待重启 · 不是失败</span>
+      ⚠️ 新版 ${esc(s.installedVersion ?? '?')} 已装好，正在跑的还是 ${esc(s.runningVersion ?? '?')}，重启宿主后生效。
+      <div class="act">待重启期间不提供安装按钮，只给重启指引${d.manual ? '与手工命令' : ''}（§5.4）。</div></div>`;
+  } else if (d.kind === 'blocked' || d.kind === 'failed') {
+    h += `<div class="u-blob ${d.unknownCode ? 'fallback' : 'err'}">
+      <span class="code">${esc(d.code)}${d.unknownCode ? ' · 不在今天的码表里，走兜底' : ''}</span>
+      <b>${esc(t.zh)}</b>
+      <div class="act">怎么办：${esc(t.act)}</div></div>`;
+  } else if (d.kind === 'ready') {
+    h += `<div class="u-blob ok"><span class="code">可装</span><b>有新版可装</b>
+      <div class="act">点「安装」时带查新版的凭证与本次请求编号（§5.5）。</div></div>`;
+  } else {
+    h += `<div class="u-blok ok"><span class="code">无阻塞</span>已是最新，没有要装的东西。</div>`;
+  }
+
+  if (d.sub) h += `<div class="u-diag">诊断摘要（只多一句，不改分支）：${esc(d.sub)}</div>`;
+
+  if (d.kind === 'failed' || d.kind === 'blocked' || d.kind === 'restart') {
+    h += `<div class="u-actions">
+      <button>复制诊断</button>
+      ${d.manual ? `<button>复制手工命令</button>` : `<span class="u-empty">本情形不给手工命令（README §5.2）</span>`}
+    </div>`;
+  } else {
+    h += `<div class="u-actions"><button class="pri">安装</button><button>跳过这个版本</button><span class="u-empty">跳过＝dismissal，只压这一个版本</span></div>`;
+  }
+  return `<div class="u-status"><span class="u-ver">${esc(d.heading || '失败回包')}</span>
+    <span class="u-sub">${d.kind === 'failed' ? '稳定码分支：errorKind' : '快照分支：blockedReason / canInstall'}</span></div>${h}`;
+}
+
+/* ---- 关键一致性判定：剥掉 diag 会不会改旧面板输出 ---- */
+function stripDiag(p){
+  if (!PANEL.isObj(p)) return p;
+  const c = Object.assign({}, p); delete c.diag; return c;
+}
+function safeCall(fn){
+  try { return { ok:true, v:fn() }; } catch (e) { return { ok:false, e:String((e && e.message) || e) }; }
+}
+
+function render(){
+  const f = feedOf(S.feed);
+  const p = f.p;
+
+  /* 两个面板都跑，异常计数 —— 「崩溃」这格的来源 */
+  const rOld = safeCall(() => PANEL.describe(p, false));
+  const rNew = safeCall(() => PANEL.describe(p, true));
+  if (!rOld.ok) { CRASH.old++; S.crashes.push('旧面板：' + rOld.e); }
+  if (!rNew.ok) { CRASH.new++; S.crashes.push('新面板：' + rNew.e); }
+
+  const bare   = safeCall(() => PANEL.describe(stripDiag(p), false));
+  const diag   = PANEL.readDiag(p);
+  const stripSame = rOld.ok && bare.ok && JSON.stringify(rOld.v) === JSON.stringify(bare.v);
+  const sameWording = rOld.ok && rNew.ok && rOld.v.code === rNew.v.code && rOld.v.kind === rNew.v.kind && rOld.v.t === rNew.v.t;
+  const leaks = PANEL.scanSecrets(p);
+
+  /* 面板 */
+  $('oldPanel').innerHTML = rOld.ok ? panelHTML(rOld.v, p) : `<div class="u-blob err">旧面板抛异常：${esc(rOld.e)}</div>`;
+  $('newPanel').innerHTML = rNew.ok ? panelHTML(rNew.v, p) : `<div class="u-blob err">新面板抛异常：${esc(rNew.e)}</div>`;
+
+  const chips = [];
+  chips.push(chip(stripSame, '剥掉 diag 后旧面板逐字不变', stripSame ? '多出来的字段碰不到旧面板' : '旧面板被 diag 影响了'));
+  chips.push(chip(CRASH.old + CRASH.new === 0, '崩溃 0 次', `旧 ${CRASH.old} / 新 ${CRASH.new}`));
+  chips.push(chip(sameWording, '两面板文案与分支一致', sameWording ? 'diag 只多一句，不改分支' : '文案/分支不一致'));
+  chips.push(chip(diag.present ? (diag.usable ? !diag.anomaly : !diag.rejected.length) : true,
+    '宽容读未误判', diag.anomaly ? '阶段×键期望表有异常（仅提示，不改分支）' : '未知/错类型/缺省均未改行为'));
+  chips.push(chip(leaks.length === 0, '脱敏 negative 通过', leaks.length ? '命中：' + leaks.join('、') : '未出现绝对路径/令牌形态'));
+  $('verdict').innerHTML = chips.join('');
+
+  /* 解剖 */
+  const KEYS = Object.keys(PANEL.KNOWN);
+  $('keptBox').innerHTML = diag.kept.length
+    ? `<div class="kv">${diag.kept.map((k) => `<span class="k">${esc(k)}</span><span class="v">${esc(fmt(diag[k]))}</span>`).join('')}</div>`
+    : `<div class="none">${diag.present ? '一个都没读进来' : '没有 diag —— 正常缺省，面板照常工作'}</div>`
+    + `<div class="mut-2" style="margin-top:7px">形态：<code>${esc(diag.shape)}</code> · 读到 ${diag.kept.length} 键 · 缺省 ${diag.absent.length} 键</div>`;
+
+  const drop = [];
+  if (diag.unknown.length) drop.push(`<div class="mut-2" style="margin-bottom:3px">目录外（静默忽略，未来进目录即自动被读）：</div>
+    <div class="chips">${diag.unknown.map((k) => `<span class="chip drop">${esc(k)}</span>`).join('')}</div>`);
+  if (diag.rejected.length) drop.push(`<div class="mut-2" style="margin:7px 0 3px">类型不符（拒收）：</div>
+    <div class="chips">${diag.rejected.map((r) => `<span class="chip rejected">${esc(r.key)}：要 ${esc(r.want)}，实得 ${esc(r.got)}</span>`).join('')}</div>`);
+  if (!drop.length) drop.push('<div class="none">没有要丢的：要么没有 diag，要么全在目录内且类型正确。</div>');
+  if (diag.absent.length) drop.push(`<div class="mut-2" style="margin:7px 0 3px">缺省即省略（面板不写 null 三态）：</div>
+    <div class="chips">${diag.absent.map((k) => `<span class="chip drop">${esc(k)}</span>`).join('')}</div>`);
+  $('dropBox').innerHTML = drop.join('');
+
+  $('expectBox').innerHTML = expectHTML(diag);
+
+  /* 复制块 */
+  const cb = safeCall(() => PANEL.copyBlock(p, true, S.format));
+  $('copyBox').innerHTML = cb.ok
+    ? `<pre class="copy">${esc(cb.v)}</pre>`
+    : `<div class="u-blob err">组装抛异常：${esc(cb.e)}</div>`;
+  $('copyNote').textContent = cb.ok
+    ? `内容与顺序两种形态完全一致（码 → 摘要 → 来源），只有排版不同；面板分支依据不在这段文字里。「自检」那格列的是这一段被断言过的形态。`
+    : '';
+
+  /* 文案映射表 */
+  $('mapBox').innerHTML = mapHTML(rNew.ok ? rNew.v.code : null);
+
+  /* 控制台 */
+  $('feedNote').textContent = f.note;
+  $('raw').textContent = JSON.stringify(p, null, 2);
+  $('state').textContent = stateText(f, p, diag, rOld, rNew, leaks);
+
+  renderScenario();
+  const ff = $('fatal');
+  if (S.crashes.length) { ff.className = 'fatal on'; ff.textContent = '原型自身有崩溃（说明这个回包把原型打挂了，真面板也得挂）：' + S.crashes.join(' | '); }
+  else ff.className = 'fatal';
+}
+function fmt(v){ return typeof v === 'string' ? v : JSON.stringify(v); }
+function chip(pass, title, note){
+  return `<span class="vchip ${pass ? 'pass' : 'fail'}" title="${esc(note)}">${pass ? '✓' : '✗'} ${esc(title)}${pass ? '' : ' · ' + esc(note)}</span>`;
+}
+
+function expectHTML(diag){
+  const stage = diag.stage;
+  if (!stage) return `<div class="none">没有阶段可比对（没 diag、或阶段不是字符串）。缺省不报警。</div>`;
+  const row = PANEL.STAGE_EXPECT[stage] || null;
+  const seen = diag.kept;
+  let h = `<div class="mut-2" style="margin-bottom:6px">阶段 <b>${esc(stage)}</b>${row ? '' : ' · <span style="color:var(--bad)">不在冻结枚举内（面板仍只渲染，不分支）</span>'}</div>`;
+  const mark = (k, want) => {
+    const has = seen.indexOf(k) !== -1;
+    const good = want ? has : !has;
+    return `<span class="chip ${good ? 'kept' : 'rejected'}">${want ? '该有' : '不该有'} ${esc(k)} · ${has ? '有' : '无'}</span>`;
+  };
+  if (row) {
+    h += `<div class="chips" style="margin-bottom:6px">
+      ${row.want.map((k) => mark(k, true)).join('')}${row.forbid.map((k) => mark(k, false)).join('')}
+    </div>`;
+    h += `<div class="mut-2">期望表只用于「本该有而没有 / 本不该有而有」的提示；两者都不改变面板分支与文案。</div>`;
+  }
+  if (diag.anomaly) {
+    const a = diag.anomaly;
+    if (a.unknownStage) h += `<div class="u-blok err" style="margin-top:8px">阶段 <b>${esc(a.stage)}</b> 不在冻结枚举 ${PANEL.STAGES.join(' / ')} 内。</div>`;
+    if (a.missing.length) h += `<div class="u-blok err" style="margin-top:8px">本阶段该有却没有：${a.missing.map(esc).join('、')}</div>`;
+    if (a.extra.length)   h += `<div class="u-blok err" style="margin-top:8px">本阶段不该有却有：${a.extra.map(esc).join('、')}</div>`;
+  }
+  return h;
+}
+
+function mapHTML(hit){
+  const rows = Object.keys(PANEL.TEXT).filter((k) => k !== '__unknown__').map((k) => {
+    const t = PANEL.TEXT[k];
+    const draft = t.src === 'draft';
+    return `<tr class="${draft ? 'draft' : ''} ${hit === k ? 'hit' : ''}">
+      <td class="code">${esc(k)}</td>
+      <td>${esc(t.zh)}</td>
+      <td>${esc(t.act)}</td>
+      <td>${t.manual ? '给' : '不给'}</td>
+      <td><span class="srcbadge ${draft ? 'draft' : 'r52'}">${draft ? '本原型起草' : '§5.2 原文'}</span></td></tr>`;
+  }).join('');
+  const covered = Object.values(PANEL.TEXT).filter((t) => t.src === '5.2').length;
+  return `<table class="map">
+    <tr><th>稳定码</th><th>中文含义</th><th>用户该做什么</th><th>手工命令</th><th>来源</th></tr>
+    ${rows}
+    <tr class="draft"><td class="code">（未来新码）</td><td>出了点问题，认不出具体原因</td>
+      <td>先重试一次；一直这样就把复制诊断交给插件作者（带上你看到的码）</td><td>给</td>
+      <td><span class="srcbadge draft">兜底行</span></td></tr>
+  </table>
+  <div class="mut-2" style="margin-top:7px">共 15 行：§5.2 原文 ${covered} 行 ＋ 电话专属码 5 行 ＋ internal 1 行 ＋ 兜底 1 行。面板只在这一张表上按码取文案 —— 这是「多出的 diag 字段不破坏旧面板」的另一半：文案责任始终锚在码上，不锚在 diag 上。</div>`;
+}
+
+function stateText(f, p, diag, rOld, rNew, leaks){
+  const s = PANEL.isObj(p) && PANEL.isObj(p.snapshot) ? p.snapshot : {};
+  return [
+    `最后动作：${S.last}`,
+    `载荷：${f.k}（${f.label}）`,
+    `ok=${p.ok}  error=${p.error ?? '—'}  errorKind=${p.errorKind ?? '—'}`,
+    PANEL.isObj(p.snapshot) ? `snapshot: installed=${s.installedVersion} running=${s.runningVersion} latest=${s.latestVersion} canInstall=${s.canInstall} blockedReason=${s.blockedReason} job=${s.job === null ? 'null' : '有'}` : `snapshot：（无）`,
+    `diag: present=${diag.present} shape=${diag.shape} usable=${diag.usable}`,
+    `  读到(${diag.kept.length})=[${diag.kept.join(', ')}]`,
+    `  目录外(${diag.unknown.length})=[${diag.unknown.join(', ')}]`,
+    `  类型不符(${diag.rejected.length})=[${diag.rejected.map((r) => r.key + '要' + r.want + '得' + r.got).join(', ')}]`,
+    `  缺省(${diag.absent.length})=[${diag.absent.join(', ')}]`,
+    `  (阶段×键) 异常：${diag.anomaly ? JSON.stringify(diag.anomaly) : '无'}`,
+    `旧面板：${rOld.ok ? `kind=${rOld.v.kind} code=${rOld.v.code} 文案来源=${rOld.v.t ? rOld.v.t.src : '—'}` : '抛异常 ' + rOld.e}`,
+    `新面板：${rNew.ok ? `kind=${rNew.v.kind} code=${rNew.v.code} 文案来源=${rNew.v.t ? rNew.v.t.src : '—'} 摘要=${rNew.v.sub || '（无）'}` : '抛异常 ' + rNew.e}`,
+    `复制块形态：${S.format === 'block' ? '三行块' : '单行 tag'}`,
+    `脱敏断言：${leaks.length ? '命中 ' + leaks.join('、') : '通过'}`,
+    `崩溃计数：旧 ${CRASH.old} / 新 ${CRASH.new}`,
+  ].join('\n');
+}
+
+/* ---- 走查渲染 ---- */
+function renderScenario(){
+  const sc = SCENARIOS.find((x) => x.k === S.scn) || SCENARIOS[0];
+  const done = S.step;
+  const rows = sc.steps.map((s, i) => {
+    const cls = i < done ? 'done' : (i === done ? 'next' : '');
+    const here = feedOf(s.feed).label;
+    return `<div class="step ${cls}">
+      <div class="n">${i < done ? '✓' : i + 1}</div>
+      <div class="b"><b>${esc(here)}</b><div class="d">${esc(s.d)}</div></div>
+      <button data-step="${i}" ${i !== done ? 'disabled' : ''}>${i < done ? '已喂' : '喂这个'}</button>
+    </div>`;
+  }).join('');
+  const fin = done >= sc.steps.length;
+  $('paneScn').innerHTML = `
+    <h3>${esc(sc.name)}</h3>
+    <div class="sit">${esc(sc.sit)}</div>
+    <div class="watch"><b>盯这个：</b>${esc(sc.watch)}</div>
+    <div class="steps">${rows}</div>
+    <div class="runbar">
+      <button class="pri" data-run="all" ${fin ? 'disabled' : ''}>从头跑这一条</button>
+      <button data-run="step" ${fin ? 'disabled' : ''}>走一步</button>
+      <button data-run="next-scn">下一条 →</button>
+      <span class="mut">${fin ? '已走完：可以重跑，或切下一条。' : `第 ${done + 1} / ${sc.steps.length} 步 · 当前面板已按进度重置到已知初态`}</span>
+    </div>`;
+}
+function runStep(){
+  const sc = SCENARIOS.find((x) => x.k === S.scn) || SCENARIOS[0];
+  if (S.step >= sc.steps.length) return;
+  const s = sc.steps[S.step];
+  feed(s.feed, `走查「${sc.name}」第 ${S.step + 1} 步`);
+  S.step++;
+}
+
+/* ---- 装配 ---- */
+$('feed').innerHTML = FEEDS.map((f) => `<option value="${f.k}">${esc(f.label)}</option>`).join('');
+$('tabs').innerHTML = SCENARIOS.map((s) => `<button data-scn="${s.k}" aria-selected="false">${esc(s.name)}</button>`).join('');
+
+document.addEventListener('click', (ev) => {
+  const t = ev.target;
+  const step = t.closest('[data-step]');
+  if (step) { S.step = +step.dataset.step; runStep(); return; }
+  const scn = t.closest('[data-scn]');
+  if (scn) { S.scn = scn.dataset.scn; S.step = 0; S.last = `切走查 → ${SCENARIOS.find((x) => x.k === S.scn).name}（已重置到已知初态）`;
+             document.querySelectorAll('[data-scn]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.scn === S.scn)));
+             render(); return; }
+  const run = t.closest('[data-run]');
+  if (run) {
+    const sc = SCENARIOS.find((x) => x.k === S.scn);
+    if (run.dataset.run === 'all') { S.step = 0; S.crashes = []; while (S.step < sc.steps.length) runStep(); }
+    else if (run.dataset.run === 'step') runStep();
+    else {
+      const i = SCENARIOS.findIndex((x) => x.k === S.scn);
+      S.scn = SCENARIOS[(i + 1) % SCENARIOS.length].k; S.step = 0; S.crashes = [];
+      document.querySelectorAll('[data-scn]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.scn === S.scn)));
+      S.last = '切下一条走查'; render();
+    }
+    return;
+  }
+  const fmtBtn = t.closest('[data-fmt]');
+  if (fmtBtn) {
+    S.format = fmtBtn.dataset.fmt;
+    document.querySelectorAll('[data-fmt]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.fmt === S.format)));
+    S.last = `复制块形态 → ${S.format === 'block' ? '三行块' : '单行 tag'}（内容与顺序不变）`;
+    render(); return;
+  }
+});
+$('feed').addEventListener('change', (e) => feed(e.target.value, '控制台选择'));
+$('reset').addEventListener('click', () => { const k = S.feed; S = fresh(); S.feed = k; CRASH = { old:0, new:0 }; $('feed').value = k; S.last = '原型已重置（内存，零持久化）'; render(); });
+
+S = fresh();
+$('feed').value = S.feed;
+document.querySelector('[data-scn="' + S.scn + '"]').setAttribute('aria-selected', 'true');
+render();
+</script>
+</body>
+</html>

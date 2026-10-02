@@ -8,7 +8,7 @@
 
 declare module 'node:crypto' {
   export function createHash(algorithm: string): {
-    update(data: string): { digest(encoding: string): string }
+    update(data: string | Uint8Array): { digest(encoding: string): string }
   }
   export function randomUUID(): string
 }
@@ -50,6 +50,10 @@ declare module 'node:url' {
   export function fileURLToPath(url: string): string
 }
 
+declare module 'node:zlib' {
+  export function gunzipSync(data: Uint8Array): Uint8Array
+}
+
 // 模块地址（读取器与宿主入口用 import.meta.url 反查已装位置，只读地址，不碰模块状态）。
 interface ImportMeta {
   url: string
@@ -61,7 +65,11 @@ declare function clearTimeout(handle: unknown): void
 
 // 二进制长度计算（使用范围名合法性判定用，只读字节长度，不碰缓冲内容）。
 declare const Buffer: {
-  byteLength(input: string): number
+  byteLength(input: string, encoding?: string): number
+  from(input: Uint8Array | ArrayBuffer | string, encoding?: string): Uint8Array & {
+    slice(start?: number, end?: number): Uint8Array & { toString(encoding?: string): string }
+    toString(encoding?: string): string
+  }
 }
 
 // 宿主进程全局（本包只读环境变量、运行时路径、进程号、Node 版本号，不写进程状态）。

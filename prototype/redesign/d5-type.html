@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>更新档案 · my-notes-plugin</title>
+<title>更新档案 · 字体三案（宋/楷/黑）</title>
 <style>
   :root{
     --bg:#f7f3ea; --card:#fffdf6; --ink:#1a1a1a; --muted:#6f675a;
@@ -79,26 +79,14 @@
 
   /* —— 待重启横幅 —— */
   .restart-banner{ margin-top:18px; border:2px solid var(--warn); background:var(--warn-bg);
-    border-radius:4px; padding:12px 16px; font-size:14.5px; font-family:var(--serif);
-    display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    border-radius:4px; padding:12px 16px; font-size:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .restart-banner{ font-family:var(--serif); }
   .restart-banner .mark{ display:inline-flex; flex:none; }
+  .restart-banner .mark svg{ display:block; }
   .restart-banner .mark svg{ display:block; }
 
   /* —— 现状（T1 最高层级） —— */
   .status-line{ font-family:var(--serif); font-weight:700; font-size:27px; line-height:1.4; margin:22px 0 6px; }
-  .status-line .hl{ color:var(--accent); }
-  .sealmini{ display:inline-block; width:30px; height:30px; line-height:26px; text-align:center;
-    border:2px solid currentColor; border-radius:7px; font-size:16px; font-family:var(--serif);
-    font-weight:700; transform:rotate(-5deg); margin-right:10px; vertical-align:3px;
-    background:color-mix(in srgb,currentColor 8%,transparent); }
-  .proftag{ font-family:var(--mono); font-size:11px; color:var(--muted);
-    border:1px solid var(--line-strong); border-radius:3px; padding:0 6px; margin-left:8px; letter-spacing:.06em; }
-  /* —— 优先级折叠：窄屏时 data-fold 按编号从小到大逐字消失，永不折叠无标记部分 —— */
-  .foldwrap{ display:inline-block; max-width:100%; vertical-align:top; white-space:nowrap; overflow:hidden; }
-  .foldwrap.folding{
-    mask-image:linear-gradient(90deg,#000 90%,transparent 100%);
-    -webkit-mask-image:linear-gradient(90deg,#000 90%,transparent 100%); }
-  .restart-banner .foldwrap{ flex:1 1 auto; min-width:0; }
   .strip{ display:flex; gap:0; flex-wrap:wrap; margin:10px 0 0; border:1px solid var(--line);
     border-radius:4px; overflow:hidden; font-size:12.5px; }
   .strip div{ flex:1 1 120px; padding:8px 12px; border-left:1px solid var(--line); }
@@ -183,10 +171,36 @@
     border-radius:4px; background:var(--card); color:var(--ink); max-width:230px; }
   @media (max-width:640px){
     .dossier{ padding:22px 18px; }
-    .filehead{ padding-right:92px; }
-    .seal{ width:72px; height:72px; font-size:16px; top:14px; right:14px; }
+    .filehead{ padding-right:0; }
+    .seal{ position:static; transform:rotate(-4deg); width:84px; height:84px; font-size:18px; margin-bottom:12px; }
     .masthead h1{ font-size:24px; }
   }
+
+  /* —— 字体三案：song 宋体正统 / kai 楷体人文 / hei 黑体现代 —— */
+  :root, :root[data-type="song"]{
+    --serif:Georgia,"Songti SC","STSong","SimSun",serif;
+  }
+  :root[data-type="kai"]{
+    --serif:"Kaiti SC","KaiTi","STKaiti","TW-Kai","标楷体",serif;
+  }
+  :root[data-type="kai"] .masthead h1{ letter-spacing:.06em; }
+  :root[data-type="kai"] .status-line{ letter-spacing:.05em; }
+  :root[data-type="kai"] .chap-no{ font-style:normal; }
+  :root[data-type="kai"] .seal{ letter-spacing:.24em; text-indent:.24em; }
+  :root[data-type="hei"]{
+    --serif:system-ui,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  }
+  :root[data-type="hei"] .masthead h1{ letter-spacing:.02em; }
+  :root[data-type="hei"] .status-line{ letter-spacing:.01em; }
+  :root[data-type="hei"] .seal, :root[data-type="hei"] .chap-no{
+    font-family:Georgia,"Songti SC","STSong",serif;
+  }
+  #typebar{ position:fixed; left:50%; transform:translateX(-50%); bottom:16px; z-index:60;
+    background:var(--card); border:1px solid var(--line-strong); border-radius:999px;
+    box-shadow:var(--shadow); padding:6px; display:flex; gap:4px; align-items:center; }
+  #typebar button{ border:0; background:transparent; color:var(--muted); font-size:13px;
+    padding:7px 16px; border-radius:999px; cursor:pointer; }
+  #typebar button.on{ background:var(--accent); color:#fff; }
 </style>
 </head>
 <body>
@@ -207,12 +221,12 @@
 
     <div class="filehead">
       <h2>my-notes-plugin</h2>
-      <div class="meta">使用范围 <b>my-web</b><span class="proftag">profile</span></div>
+      <div class="meta">使用范围 <b>my-web</b></div>
     </div>
 
     <div id="restartSlot"></div>
 
-    <p class="status-line"><span class="sealmini seal-ink" id="sealMini">查</span><span id="oneLiner" class="foldwrap">当前版本 1.2.2，尚未检查更新。</span></p>
+    <p class="status-line" id="oneLiner">当前尚未检查更新。</p>
     <div class="strip" id="verStrip"></div>
 
     <section class="chapter">
@@ -245,6 +259,10 @@
     </section>
 
   </article>
+</div>
+
+<div id="typebar" role="group" aria-label="字体方案">
+  <button data-type-btn="song" class="on">宋</button><button data-type-btn="kai">楷</button><button data-type-btn="hei">黑</button>
 </div>
 
 <div class="demo">
@@ -322,19 +340,17 @@ function manualCmd(){
   var v = S.self.latest || "1.2.3";
   return "dsh plugin --profile " + S.self.profile + " add --save-exact " + S.self.pluginId + "@" + v + " --registry=https://registry.npmjs.org/";
 }
-function HL(t){ return '<b class="hl">' + esc(t) + "</b>"; }
 function oneLiner(){
   var s = snapshotSelf();
-  if (s.job) return "正在安装 " + HL(S.self.latest + "（" + s.job.progress + "%）") + "。";
-  if (s.blockedReason === "pending-restart") return "新版 " + HL(s.installedVersion) + " 已安装，" + FOLD1("重启宿主后生效。");
-  if (s.blockedReason) return HL("无法安装") + "：" + FOLD1(esc(REASONS[s.blockedReason][0]) + "。");
+  if (s.job) return "正在安装 " + S.self.latest + "（" + s.job.progress + "%）。";
+  if (s.blockedReason === "pending-restart") return "新版 " + s.installedVersion + " 已就绪，重启后生效。";
+  if (s.blockedReason) return "无法安装：" + REASONS[s.blockedReason][0] + "。";
   if (s.latestVersion && s.latestVersion !== s.installedVersion && S.self.skipped.indexOf(s.latestVersion) < 0)
-    return "发现" + HL("新版 " + s.latestVersion) + "。";
-  if (s.latestVersion && S.self.skipped.indexOf(s.latestVersion) >= 0) return "新版 " + HL(s.latestVersion) + " 已跳过。";
-  if (s.latestVersion) return "已是" + HL("最新版本") + FOLD1("（" + esc(s.installedVersion) + "）") + "。";
-  return FOLD1("当前版本 " + esc(s.installedVersion) + "，") + HL("尚未检查更新") + "。";
+    return "发现新版 " + s.latestVersion + "（当前 " + s.installedVersion + "）。";
+  if (s.latestVersion && S.self.skipped.indexOf(s.latestVersion) >= 0) return "新版 " + s.latestVersion + " 已跳过。";
+  if (s.latestVersion) return "已是最新版本（" + s.installedVersion + "）。";
+  return "当前版本 " + s.installedVersion + "，尚未检查更新。";
 }
-function FOLD1(t){ return '<span data-fold="1">' + t + "</span>"; }
 function sealState(){
   var s = snapshotSelf();
   if (s.blockedReason === "pending-restart" || (s.job)) {
@@ -428,13 +444,8 @@ function renderAll(){
   var seal = $("seal");
   seal.className = "seal " + st[0];
   $("sealText").textContent = st[1];
-  var mini = { "待查": ["查", "seal-ink"], "可装": ["装", "seal-green"], "安装中": ["装", "seal-yellow"],
-    "待重启": ["启", "seal-yellow"], "受阻": ["阻", "seal-red"], "已最新": ["定", "seal-green"] }[st[1]] || ["查", "seal-ink"];
-  var sm = $("sealMini");
-  sm.textContent = mini[0];
-  sm.className = "sealmini " + mini[1];
 
-  $("oneLiner").innerHTML = oneLiner();
+  $("oneLiner").textContent = oneLiner();
 
   $("verStrip").innerHTML =
     '<div><span class="k">磁盘版本</span><span class="v">' + esc(s.installedVersion) + '</span></div>' +
@@ -443,8 +454,8 @@ function renderAll(){
     '<div><span class="k">是否可安装</span><span class="v">' + (s.canInstall && s.latestVersion ? "可" : "否") + '</span></div>';
 
   if (blockedOfSelf() === "pending-restart"){
-    $("restartSlot").innerHTML = '<div class="restart-banner"><span class="mark">' + WARN_SVG + '</span><span class="foldwrap">新版 ' +
-      HL(s.installedVersion) + ' 已安装，' + FOLD1("重启宿主后生效。") + '</span>' +
+    $("restartSlot").innerHTML = '<div class="restart-banner"><span class="mark">' + WARN_SVG + '</span><span>新版 ' +
+      esc(s.installedVersion) + ' 已安装，正在运行的仍是 ' + esc(s.runningVersion) + '，重启宿主后生效。待重启期间暂停安装。</span>' +
       '<button class="btn primary" data-act="restart">重启宿主</button></div>';
   } else $("restartSlot").innerHTML = "";
 
@@ -495,8 +506,8 @@ function renderAll(){
   var b = blockedOfSelf();
   if (!b) $("err").innerHTML = '<div class="okline">一切正常，可以安装。</div>';
   else if (b === "pending-restart")
-    $("err").innerHTML = '<div class="restart-banner"><span class="mark">' + WARN_SVG + '</span><span class="foldwrap">新版 ' + HL(s.installedVersion) +
-      ' 已安装，' + FOLD1("重启宿主后生效。") + '</span></div>';
+    $("err").innerHTML = '<div class="restart-banner"><span class="mark">' + WARN_SVG + '</span><span>新版 ' + esc(s.installedVersion) +
+      " 已安装，正在运行的仍是 " + esc(s.runningVersion) + "，重启宿主后生效。</span></div>";
   else $("err").innerHTML = '<div class="errbox"><span class="code">' + esc(b) + "</span> · " + esc(REASONS[b][0]) +
     '<div class="todo"><b>建议操作</b><br>' + esc(REASONS[b][1]) + '</div>' +
     '<div class="row" style="margin-top:8px"><button class="btn small" data-copy-diag>复制诊断信息</button></div></div>';
@@ -506,7 +517,6 @@ function renderAll(){
   else $("manual").innerHTML = '<code class="cmd">' + esc(m) + '</code><div class="row" style="margin-top:8px">' +
     '<button class="btn small" data-copy-manual>复制命令</button></div>' +
     '<div class="cmd-hint">复制整行执行；网络受限时可去掉 --registry=。</div>';
-  foldAll();
 }
 
 document.addEventListener("click", function(ev){
@@ -521,6 +531,8 @@ document.addEventListener("click", function(ev){
   }
   var th = ev.target.closest("[data-theme-btn]");
   if (th){ setTheme(th.getAttribute("data-theme-btn")); return; }
+  var ty = ev.target.closest("[data-type-btn]");
+  if (ty){ setType(ty.getAttribute("data-type-btn")); return; }
 });
 $("demoReason").addEventListener("change", function(){
   S.lastAction = "演示：切换阻塞原因 → " + (demoReason() || "无") + "。";
@@ -565,37 +577,26 @@ try {
   if (mq && mq.addEventListener) mq.addEventListener("change", function(){ if (themeMode === "auto") paintThemeBtns("auto"); });
 } catch (e){}
 
-/* —— 优先级折叠引擎：data-fold 编号越小越先折叠，无标记部分永不折叠 —— */
-function armFold(box){
-  box.querySelectorAll("[data-fold]").forEach(function(sp){
-    sp.dataset.full = sp.textContent; sp.style.display = "";
-  });
+/* —— 字体方案：song / kai / hei —— */
+var TYPE_DEFAULT = "song";
+function readType(){
+  try { var m = /type=(song|kai|hei)/.exec(location.hash || ""); if (m) return m[1]; } catch (e){}
+  return TYPE_DEFAULT;
 }
-function foldAll(){
-  document.querySelectorAll(".foldwrap").forEach(function(box){
-    armFold(box);
-    var spans = Array.prototype.slice.call(box.querySelectorAll("[data-fold]"))
-      .sort(function(a, b){ return (+a.dataset.fold) - (+b.dataset.fold); });
-    var guard = 4000, dirty = false;
-    while (box.scrollWidth > box.clientWidth + 1 && guard-- > 0){
-      var sp = null;
-      for (var i = 0; i < spans.length; i++) if (spans[i].textContent.length){ sp = spans[i]; break; }
-      if (!sp) break;
-      sp.textContent = sp.textContent.slice(0, -1);
-      dirty = true;
-    }
-    spans.forEach(function(s){ if (!s.textContent.length) s.style.display = "none"; });
-    box.classList.toggle("folding", dirty);
-  });
+function paintTypeBtns(t){
+  var btns = document.querySelectorAll("[data-type-btn]");
+  for (var i = 0; i < btns.length; i++)
+    btns[i].classList.toggle("on", btns[i].getAttribute("data-type-btn") === t);
 }
-var foldT = null;
-window.addEventListener("resize", function(){
-  clearTimeout(foldT); foldT = setTimeout(foldAll, 120);
-});
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ foldAll(); });
+function setType(t){
+  try { document.documentElement.setAttribute("data-type", t); } catch (e){}
+  paintTypeBtns(t);
+  try { history.replaceState(null, "", "#type=" + t); } catch (e){}
+}
 
 /* —— 启动 —— */
 S = freshState();
+setType(readType());
 paintThemeBtns("auto");
 renderAll();
 </script>

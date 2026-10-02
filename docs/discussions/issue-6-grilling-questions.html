@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>脱敏边界画在哪 · Issue #6 · 讨论与定案</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --line: #d8d8d8;
+    --bg-soft: #f7f7f5;
+    --keep: #1f7a3d;
+    --cut: #a33a2a;
+    --wait: #8a6d1f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 48px 24px 96px;
+    font: 15px/1.75 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--ink);
+    background: #fff;
+  }
+  main { max-width: 940px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: .3px; }
+  h2 { font-size: 19px; margin: 52px 0 14px; padding-bottom: 7px; border-bottom: 2px solid var(--ink); }
+  h3 { font-size: 16px; margin: 30px 0 8px; }
+  h4 { font-size: 14px; margin: 20px 0 6px; color: var(--muted); font-weight: 600; letter-spacing: .4px; }
+  p, ul, ol { margin: 10px 0; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 5px 0; }
+  code {
+    font: 13px/1.5 ui-monospace, Consolas, monospace;
+    background: var(--bg-soft);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 4px; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--bg-soft); font-weight: 600; }
+  .box { border-left: 4px solid var(--ink); background: var(--bg-soft); padding: 14px 18px; margin: 18px 0; }
+  .box p:first-child { margin-top: 0; }
+  .box p:last-child { margin-bottom: 0; }
+  .final { border-left-color: var(--keep); }
+  .cut { border-left-color: var(--cut); }
+  .wait { border-left-color: var(--wait); }
+  .tag { font-size: 12px; font-weight: 700; letter-spacing: .5px; display: block; margin-bottom: 6px; }
+  .t-keep { color: var(--keep); }
+  .t-cut { color: var(--cut); }
+  .t-wait { color: var(--wait); }
+  .q { background: var(--bg-soft); padding: 12px 16px; margin: 18px 0 10px; font-weight: 600; }
+  .bg { font-size: 14px; }
+  .bg ul { margin: 6px 0; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0 0; }
+  footer { margin-top: 44px; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>脱敏边界画在哪</h1>
+<p class="sub">Issue #6 · <code>FeatherHunter/dsh-plugin-update</code> · 讨论与定案记录 · 2026-10-02</p>
+
+<h2>一、这件事要解决什么</h2>
+
+<p>失败时，插件现在只能回一个纯错误码。要加一个可选的 <code>diag</code> 小诊断块给集成方，让它能定位问题。这个票专门回答一件事：<strong>诊断块里哪些内容可以放，哪些永远不放。</strong></p>
+
+<p>边界已经划好了，是上游 <a href="https://github.com/FeatherHunter/dsh-plugin-update/issues/5">#5</a> 定的不动：</p>
+<ul>
+  <li>失败回包里加一个可选的 <code>diag</code> 对象，面板只认稳定错误码，看不懂 <code>diag</code> 也不影响行为。</li>
+  <li>敏感信息必须在<strong>生成的时候就不产生</strong>，不是生成完再过滤。</li>
+  <li>宁可这一项不给，也不要给原文。</li>
+  <li>出问题的大小顺序：<strong>泄漏 &gt; 崩溃 &gt; 契约腐坏 &gt; 误导 &gt; 缺失</strong>。关联编号断掉单独算。</li>
+  <li><code>detail</code> 这一项永远是给人看的一行字：300 字封顶，路径换成 <code>&lt;路径&gt;</code>。</li>
+  <li>宿主传进来的原始错误文字叫 <code>diagnostic</code>，永远不过边界。</li>
+</ul>
+<p>本票不动上面任何一条，只在它们下面填具体内容。</p>
+
+<h2>二、代码现状（实测，不是推测）</h2>
+
+<div class="box">
+<ul>
+  <li><strong>系统里现在没有 <code>diag</code></strong>。<code>src/</code> 里搜不到这个词。所谓"诊断"现在只是一行 <code>"错误码: 说明"</code>，最长 301 字。</li>
+  <li><strong>脱敏函数只管一件事</strong>：把空白压成一行、把绝对路径换成 <code>&lt;路径&gt;</code>、截到 300 字。它不认识令牌、密码、URL 里的账号密码。</li>
+  <li><strong>它只服务一条路</strong>：桌面管理器报错。其余所有出口都不经过它。</li>
+  <li><strong>包内没有令牌遮蔽</strong>。唯一的 <code>npm_***</code> 写在一个不随包发布的维护脚本里。</li>
+  <li><strong>日志侧已经关死了</strong>：三个日志事件的字段名被测试**逐字锁死**，多一个键就红。这是全仓最强的约束。<strong>注意执行者不是 <code>gate.ts</code></strong>——<code>checkEventFields</code> 是个纯函数，读清单、算结果、返回 <code>{ok}</code>，<strong>不抛错、不记日志、不被任何生产代码调用</strong>。它那两栏"脱敏引用"（<code>rules</code>/<code>codes</code>）也全仓无人读，注释里"命中只记规则名不记原文"这个行为<b>没有实现</b>。</li>
+  <li><strong>全仓没有"永不外发"清单</strong>。安全完全靠每个事件各自列字段。</li>
+  <li><strong><code>src/store.ts:929</code> 有一行原始调用栈</strong>直接挂在错误对象上，不过滤、不截断。全仓只写不读，README 从未记载。</li>
+</ul>
+</div>
+
+<h2>三、探针实测：找到三个已经在线上的问题</h2>
+
+<p>照抄现有脱敏规则，喂真实字符串，结果如下（脚本：<code>.scratch/probe-redaction.js</code>）：</p>
+
+<table>
+<thead><tr><th style="width:34%">输入</th><th style="width:34%">现在的输出</th><th>判定</th></tr></thead>
+<tbody>
+<tr><td><code>ENOENT: ... open '/tmp/secret/data.json'</code></td><td>原样吐出 <code>/tmp/secret/data.json</code></td><td><strong>泄漏</strong></td></tr>
+<tr><td><code>at path:/tmp/secret/data.json</code></td><td>原样吐出路径</td><td><strong>泄漏</strong></td></tr>
+<tr><td><code>open 'C:\Users\someone\secret'</code></td><td><code>open '&lt;路径&gt;'</code></td><td>正常</td></tr>
+<tr><td><code>https://registry.npmjs.org/dsh</code></td><td>原样（该保留）</td><td>正常</td></tr>
+<tr><td><code>https://user:sup3rpass@mirror…</code></td><td>原样</td><td><strong>泄漏</strong></td></tr>
+<tr><td><code>token=abcd1234 secret: hunter2</code></td><td>原样</td><td><strong>泄漏</strong></td></tr>
+<tr><td><code>401 for user alice@example.com</code></td><td>原样</td><td><strong>泄漏</strong></td></tr>
+</tbody>
+</table>
+
+<div class="box cut">
+<span class="tag t-cut">实测结论（已修）</span>
+<p><strong>Windows 分支正常，POSIX 分支漏。</strong> 因为 Windows 那条不要求前面有字符，而 POSIX 那条要求前面必须是行首或空格。Node 报告文件不存在时，路径是用单引号包着的——<strong>这正好是 POSIX 分支唯一漏掉的形状</strong>。</p>
+<p>规则注释里写的是"保证回给用户的字符串里不留路径原文"。这句话是<strong>承诺</strong>，而实现只做到了"尽力"。<strong>这是实现没兑现自己的承诺，不是设计取舍。</strong></p>
+<p>顺带说明为什么一直没被发现：现有两条脱敏测试用的都是 Windows 盘符——恰好是能工作的那个分支。</p>
+</div>
+
+<div class="box final">
+<span class="tag t-keep">已落地</span>
+<p>前置条件放宽到行首、空白、引号、括号、方括号、等号、冒号、逗号；路径体要求至少一个字符，免得散文里孤立的一个斜杠被当成路径。</p>
+<p><strong>中途踩了一个自己挖的坑</strong>：第一版用「后面不是斜杠」来保住 URL，结果把 UNC 形状 <code>//server/share</code> 也放过了——<strong>而旧规则本来能掩它</strong>。用「有没有两个斜杠」当判据是错的，URL 的 <code>://</code> 和 UNC 的 <code>//</code> 在字符上分不开。改成按<strong>位置</strong>判据：行首或空白后的 <code>//</code> 是 UNC 要掩，前置带冒号或字母的不是。</p>
+<p>教训记进 ADR 与测试：<strong>收紧安全规则时，必须拿新规则去比对旧规则能覆盖的全部输入</strong>，只测新加的用例会漏掉自己制造的回归。已固化 3 条回归（UNC 行首 / UNC 空白后 / URL 路径内多斜杠）。</p>
+<p><strong>仍未覆盖并已记进票里</strong>：UNC 反斜杠形状 <code>\\server\share</code>（Windows 分支只认盘符形状）与 <code>file:///tmp/x</code>。属同一类泄漏，但本轮未实测到具体输入，不在本次修复范围。</p>
+</div>
+
+<h2>四、贯穿全部五题的那句话</h2>
+
+<div class="box final">
+<span class="tag t-keep">第一性原理</span>
+<p>整个系统只守一条：<strong>任何由外部（宿主、包管理器）决定的文字，不许无限制地越过边界。</strong></p>
+<p>落地方式只有一句：<strong>在生成的时候就不让它产生</strong>。不做事后扫描。</p>
+</div>
+
+<p>下面每一题的"最终定案"，都是从这句话推出来的。</p>
+
+<!-- ===================== Q1 ===================== -->
+<h2>五、逐题</h2>
+
+<h3>Q1 · "源地址"是什么？域名什么时候才能给？</h3>
+
+<div class="q">诊断块里能不能放请求来源的地址？</div>
+
+<h4>背景</h4>
+<div class="bg">
+<ul>
+  <li>本票原文问的是"源地址"能不能进。</li>
+  <li>但 #5 定的字段表里只有 <code>registryHost</code>（源主机），<strong>没有"源地址"这个字段</strong>。两回事。</li>
+  <li>"客户端 IP"从未被批准过，属于个人信息。</li>
+  <li><code>registryHost</code> 旁边有一句"仅安全时给"，但<strong>从没定义过什么算安全</strong>。</li>
+  <li>本包政策是"一律官方源"，这意味着它本来就持有一份自己认可的源名单。</li>
+</ul>
+</div>
+
+<h4>选项与取舍</h4>
+<table>
+<thead><tr><th style="width:22%">选项</th><th>优点</th><th>缺点</th></tr></thead>
+<tbody>
+<tr><td>给域名，只要不含点或后缀是内网常见后缀就跳过</td><td>看起来具体，评审容易过</td><td><strong>靠猜</strong>。真实的内网名有无数种写法，名单永远漏；而且清单在，会让人以为已经处理过了，就不再追问</td></tr>
+<tr><td>域名永远不给</td><td>最省事，不可能出错</td><td>诊断价值少一半。#5 验收场景里"装不上是不是源的问题"要靠它</td></tr>
+<tr><td>一律给域名</td><td>最有诊断价值</td><td>把集成方的公司名、内网域名粘到公开 issue 里</td></tr>
+<tr><td><strong>只给本包认可的源；不在名单里就整项不给</strong></td><td>不靠猜，名单是本来就有的政策；漏不了</td><td>用企业镜像的用户拿不到源信息</td></tr>
+</tbody>
+</table>
+
+<div class="box">
+<span class="tag">对抗式审查改了什么</span>
+<p>我第一轮选的是"内网后缀黑名单"。自己审的时候推翻了：那份清单<strong>会永远漏</strong>，而且它制造虚假的安全感。换成"只给本包认可的源"——<strong>名单不是新造的，是"一律官方源"这条政策本来就蕴含的一个集合</strong>，不是新增的长期维护负担。</p>
+</div>
+
+<div class="box final">
+<span class="tag t-keep">最终定案</span>
+<ul>
+  <li>客户端 IP <strong>永远不进</strong>（#5 没批准，且对"定位到下一跳"没有帮助）。</li>
+  <li>只给域名，<strong>不带</strong>账号密码、端口、路径、查询参数。</li>
+  <li>只给本包认可的源；不认可就整项不给。不用后缀黑名单。</li>
+  <li>只在跟源有关的阶段出现（由 #18 已定的期望表表达，不另造机制）。</li>
+  <li><strong>不给本身就是信息</strong>：等价于"这不是官方源"。对读的人够用，且不泄漏任何东西。</li>
+</ul>
+</div>
+
+<!-- ===================== Q2 ===================== -->
+<h3>Q2 · 脱敏该在哪一层做？</h3>
+
+<div class="q">规则写在哪：生成的时候就不产生，还是生成完再扫一遍？</div>
+
+<h4>背景</h4>
+<div class="bg">
+<ul>
+  <li>#5 已定："脱敏是生成属性"，<strong>缺诊断宁可省略</strong>。</li>
+  <li>现状：脱敏是个函数，只服务一条路，其余出口都不经过。</li>
+  <li><code>src/gate.ts</code> 里预留了"脱敏引用"字段（规则名、截断代号），注释里写了 <code>R_WIN_ABS</code>、<code>H_CWD</code> 两个名字，<strong>但全仓没有任何代码读它们，也没实现</strong>。真正的路径规则没登记在任何清单里。</li>
+</ul>
+</div>
+
+<h4>选项与取舍</h4>
+<table>
+<thead><tr><th style="width:22%">选项</th><th>优点</th><th>缺点</th></tr></thead>
+<tbody>
+<tr><td>生成完统一扫一遍，违规就遮住</td><td>能兜住漏网</td><td>遮住和"本来就没有"在产物上<strong>无法区分</strong>。诊断的全部价值是"读它的人可以相信它"，遮住等于把一次泄漏变成一次看不见的错。#5 也把"误导"排在"缺失"前面——遮住两头都输</td></tr>
+<tr><td>给每个字段建一张表，运行时查表</td><td>看着统一</td><td>字段名（枚举）、数字、自己生成的编号，<strong>类型本身就管住了</strong>。真正的自由文本只有 <code>detail</code> 一项。为一项建一张表，是把类型系统已经做完的事重做一遍</td></tr>
+<tr><td>运行时扫描 + 构造器 + 完备性检查，四层</td><td>看着最保险</td><td>四层意味着四处都要读、都有各自的错。而且<strong>最内层那层经不起推敲</strong>（见下）</td></tr>
+<tr><td><strong>生成时就不产生：一个自由文本函数 + 一个查表 + 其余交给类型</strong></td><td>代码最少；出问题只有一处可查；<strong>把 #5 那句话变成字面为真</strong></td><td>要求后来加字段的人走同一条路，靠代码评审保证</td></tr>
+</tbody>
+</table>
+
+<div class="box">
+<span class="tag">对抗式审查改了什么</span>
+<p><strong>我推翻了自己上一轮的核心结论。</strong> 我原先说"不留运行时扫描会导致规则变成第二份真相"。错在把"两个执行点"当成了"两份真相"——如果扫描和构造读的是同一张表，就只有一个真相。</p>
+<p>但继续推下去，<strong>扫描自己被自己的顺序规则推翻了</strong>：先脱敏、再截断，那么截断只做减法，<strong>不可能凭空造出秘密</strong>。既然如此，截断后再扫一遍就是多余的。真正要防的从来不是"有人手搓字符串绕过构造器"（那是一行代码，评审看得见），而是<strong>顺序搞错</strong>——顺序写死就够了，不需要一层常驻扫描兜底。</p>
+<p>四层被砍到不需要任何一层机制。留下的全部是：一个函数、一张表、几个判断、删一行。</p>
+</div>
+
+<div class="box final">
+<span class="tag t-keep">最终定案</span>
+<ul>
+  <li>枚举、数字：类型本身管住，运行时零成本。</li>
+  <li>取不到来源的项：<strong>不写</strong>。</li>
+  <li><code>detail</code>：全系统<strong>唯一</strong>的自由文本，产出口只有一条路。</li>
+  <li>关联编号：本包自己生成（见 Q3），不需要校验。</li>
+  <li><strong>不引入运行时扫描，不建逐字段清单，不建完备性检查。</strong></li>
+  <li>#18 已经定好的"阶段×字段期望表"断言，本身就是最严格的门禁：新增字段必须回答"它在哪些阶段出现"，加不出静默。</li>
+</ul>
+</div>
+
+<!-- ===================== Q3 ===================== -->
+<h3>Q3 · 关联编号能不能原样给出？</h3>
+
+<div class="q"><code>requestId</code> 和 <code>checkId</code> 是不可控的外部字符串，要不要原样贴出去？</div>
+
+<h4>背景</h4>
+<div class="bg">
+<ul>
+  <li>#5 把这两个定成"跨回包/日志/任务记录"的<strong>关联锚</strong>，并把"关联断裂"单独列进风险。</li>
+  <li>两条路分开看，结论不一样：
+    <ul>
+      <li><strong>执行器 → 宿主</strong>：<code>requestId</code> 是<strong>我们生成</strong>的（<code>src/store.ts:817</code> 用 <code>randomUUID()</code>），形状本来就在我们手里。</li>
+      <li><strong>接入方 → 公开电话</strong>：<code>args.requestId</code> 来自<strong>接入方</strong>，只过 <code>validRequestId</code>——它只校验"非空、trim 后 ≤128 字符"，<strong>任何字符都放行</strong>（<code>src/service.ts:36-38</code>）。路径、令牌形状的字符串都能通过。</li>
+    </ul>
+  </li>
+  <li>也就是说，要放进诊断块的那个值，<strong>是外部来的、只查了长度的</strong>。</li>
+  <li><code>checkId</code> 由本包 <code>ports.randomId()</code> 生成（<code>src/service.ts:444</code>），形状可控。</li>
+</ul>
+</div>
+
+<h4>选项与取舍</h4>
+<table>
+<thead><tr><th style="width:22%">选项</th><th>优点</th><th>缺点</th></tr></thead>
+<tbody>
+<tr><td>原样贴出</td><td>最简单</td><td>在赌第三方不在里面塞东西</td></tr>
+<tr><td>过一遍脱敏</td><td>保险</td><td>会把编号里的斜杠换成 <code>&lt;路径&gt;</code>——等于告诉集成方"你的编号有问题"却不说哪有问题。<strong>误导</strong>，而且这个编号在宿主那边根本不是路径</td></tr>
+<tr><td>改成短哈希</td><td>安全</td><td>直接砍掉 #5 唯一认定的关联手段，日志那边对不上</td></tr>
+<tr><td><strong>两个都自己生成，形状固定，不做运行时校验</strong></td><td>形状由构造保证、由测试锁死，校验分支整个消失；面板永远能关联</td><td>跨宿主那道边本来就只能尽力而为——得在 ADR 里写明，不能假装它是保证</td></tr>
+</tbody>
+</table>
+
+<div class="box">
+<span class="tag">对抗式审查改了什么</span>
+<p>我第一轮建议"校验形状，不合规就不给"。改成"自己生成"之后，<strong>那个校验分支不存在了</strong>——不是变简单，是<strong>整条路径被删除</strong>。这正是"生成时不产生"该有的样子。</p>
+<p>同时我把一句说过头的话收回来了：不能说"一定出现"，只能说"确实传给宿主时才出现"。</p>
+</div>
+
+<div class="box final">
+<span class="tag t-keep">最终定案</span>
+<ul>
+  <li>两个编号由<strong>同一个生成函数</strong>产出，形状固定。</li>
+  <li><strong>不做运行时丢格</strong>。</li>
+  <li>只在确实传给宿主时，才出现在诊断块里。</li>
+  <li>跨宿主的关联是<strong>尽力而为</strong>，这一点必须写进 ADR。</li>
+  <li><strong>但不收紧 <code>validRequestId</code>。</strong>它是已公开的公开契约，收紧会影响现有接入方，属破冰。现状（只查长度）连同这个判断一并记进票与 ADR，留给规格阶段。</li>
+</ul>
+</div>
+
+<div class="box wait">
+<span class="tag t-wait">第三轮审查补正</span>
+<p>我先前把 Q3 的背景写成「<code>requestId</code> 是我们自己生成的」，<strong>只对了一半</strong>。实际是两条路：</p>
+<ul>
+  <li><strong>执行器 → 宿主</strong>：<code>randomUUID()</code> 自产，形状在我们手里。</li>
+  <li><strong>接入方 → 公开电话</strong>：<code>args.requestId</code> 来自接入方，只过 <code>validRequestId</code>——它只校验「非空、trim 后 ≤128 字符」，<strong>任何字符都放行</strong>。</li>
+</ul>
+<p>也就是说，<strong>要放进诊断块的那个值，是外部来的、只查了长度的</strong>。这比我原先写的更具体，也正因如此才需要单独立一条推迟项。</p>
+</div>
+
+<!-- ===================== Q4 ===================== -->
+<h3>Q4 · 拦哪些形状？拦下来之后遮住还是丢掉？</h3>
+
+<div class="q">敏感信息抓到之后，是替换成占位符，还是整项丢弃？</div>
+
+<h4>背景</h4>
+<div class="bg">
+<ul>
+  <li>全仓现在<strong>没有</strong>"永不外发"清单。#18 写了"不得出现秘密形状"，但"秘密形状"没定义。</li>
+  <li><code>&lt;路径&gt;</code> 这个占位符<strong>本身就是"遮住"</strong>，而且是 #5 冻结的。</li>
+  <li>探针实测：URL 里的账号密码、令牌、密码键值对、邮箱，<strong>今天全部原样通过</strong>。</li>
+  <li>但"响应正文原文""安装输出全文""调用栈"<strong>不该出现在这张清单里</strong>——它们根本不该被拼进来，是生成时就不拼，跟文字无关。</li>
+</ul>
+</div>
+
+<h4>核心取舍：遮住 vs 丢掉</h4>
+<table>
+<thead><tr><th style="width:30%"></th><th>遮住（替换成占位符）</th><th>丢掉（整项不给）</th></tr></thead>
+<tbody>
+<tr><td>产物长什么样</td><td>看起来像处理过了</td><td>就是少了一项</td></tr>
+<tr><td>出事时能看出来吗</td><td><strong>看不出来</strong>。和"本来就没有"完全一样</td><td>能看出来</td></tr>
+<tr><td>对照 #5 风险顺序</td><td>属于"误导"，排在"缺失"前面</td><td>属于"缺失"，排在最后</td></tr>
+</tbody>
+</table>
+
+<div class="box final">
+<span class="tag t-keep">最终定案 · 一条可判定的规则</span>
+<p><strong>能明确找到秘密的起止位置 → 就地换成占位符。找不到 → 整项丢弃。</strong></p>
+<p>绝不用"盖住一部分"去处理"不知道剩下的是什么"。</p>
+<p>判据是机械的：路径终止于空白（找得到）；URL 账号密码可能自身含 <code>@</code>（<strong>起止不唯一 → 整项丢掉</strong>）。这条规则最后产出的确实是"丢掉"，说明它不是装饰。</p>
+</div>
+
+<h4>五条规则</h4>
+<table>
+<thead><tr><th>抓什么</th><th style="width:14%">动作</th><th style="width:16%">占位符</th></tr></thead>
+<tbody>
+<tr><td>绝对路径（Windows 盘符 / POSIX，一条规则两种形状）</td><td>替换</td><td><code>&lt;路径&gt;</code>（冻结，不动）</td></tr>
+<tr><td>URL 里的账号密码</td><td><strong>整项丢弃</strong></td><td>—</td></tr>
+<tr><td>令牌前缀（<code>npm_</code> / <code>ghp_</code> / <code>sk-</code> / <code>Bearer</code>）</td><td>替换</td><td><code>&lt;脱敏&gt;</code></td></tr>
+<tr><td>密码键值对（<code>token=</code> / <code>password=</code> / <code>api_key=</code> / <code>cookie=</code>）</td><td>替换</td><td><code>&lt;脱敏&gt;</code></td></tr>
+<tr><td>邮箱</td><td>替换</td><td><code>&lt;脱敏&gt;</code></td></tr>
+</tbody>
+</table>
+<p>只有两个占位符。路径是唯一结构上可识别的类别，其余一律 <code>&lt;脱敏&gt;</code>——不值得为每种秘密建一套分类。</p>
+
+<h4>被剔出清单的三样（它们是生成问题，不是文字问题）</h4>
+<ul>
+  <li><strong>响应正文 / 安装输出全文</strong> → 自由文本的入口根本不接受这类参数。</li>
+  <li><strong>调用栈</strong> → 见 Q5。</li>
+  <li><strong>内网主机名</strong> → <strong>不是</strong>高准确度的标记，是猜的，不进清单。<code>detail</code> 里出现源主机名是分工结果，源信息的隐私由 Q1 那个结构化项承担。</li>
+</ul>
+
+<h4>处理顺序</h4>
+<p><code>压平空白 → 五条规则依次跑 → 300 字封顶</code></p>
+<p>顺序只是为了输出稳定，<strong>不是为了正确性</strong>（两种顺序实测输出相同）。另外：<strong>封顶之后不再扫描</strong>，因为截断只做减法，扫不出新东西。</p>
+
+<div class="box">
+<span class="tag">对抗式审查改了什么</span>
+<p>我第一轮建议"结构化字段丢掉、自由文本遮住"。<strong>自由文本那半是错的</strong>，理由就是上面那张对照表：遮住会销毁泄漏的证据，等于把一次泄漏变成一次静默的错误。</p>
+<p>另外实测推翻了我另一个预测：我以为"令牌规则必须排在路径规则前面，否则路径会被标成凭据"。<strong>实测两种顺序输出相同</strong>（令牌规则的匹配范围把路径一起吃掉了），这条多余的约束已从方案里删掉。</p>
+</div>
+
+<div class="box final">
+<span class="tag t-keep">最终定案</span>
+<ul>
+  <li>五条规则如上，规则表按顺序执行（只为输出稳定）。</li>
+  <li>替换 or 丢弃，按"起止能不能唯一确定"判断。</li>
+  <li>两个占位符：<code>&lt;路径&gt;</code>、<code>&lt;脱敏&gt;</code>。</li>
+  <li><strong>每条规则必须有两套测试</strong>：一套"必须被处理掉"，一套"不能被误伤"。这不只是保险——<strong>探针已经证明只做单向会漏</strong>。</li>
+  <li><code>detail</code> 300 字封顶保持不动（冻结口径）。</li>
+  <li>额外补一条断言：序列化后的整个诊断块不得超过 #5 写的小诊断块上限。理由：<strong>300 个汉字就是 900 字节</strong>，加上来源信息可能越过 #5 说过线要破冰的那条线。把假设变成会响的测试。</li>
+</ul>
+</div>
+
+<!-- ===================== Q5 ===================== -->
+<h3>Q5 · 那行原始调用栈怎么办？</h3>
+
+<div class="q"><code>src/store.ts:929</code> 把完整的 <code>error.stack</code> 原文挂在错误对象上，不过滤、不截断。</div>
+
+<h4>背景</h4>
+<div class="bg">
+<ul>
+  <li>调用栈里全是 <code>file:///D:/…</code> 绝对路径和完整调用过程。</li>
+  <li>已核实：<strong>全仓只写不读</strong>，README <strong>从未记载</strong>，删掉不改变任何外部行为。</li>
+  <li>但 <code>#18</code> 落地后，诊断块会第一次有正式内容——而没有任何东西拦着这行代码进去。</li>
+</ul>
+</div>
+
+<h4>选项与取舍</h4>
+<table>
+<thead><tr><th style="width:26%">选项</th><th>优点</th><th>缺点</th></tr></thead>
+<tbody>
+<tr><td>删掉这一行</td><td>最干净，零读者零损失</td><td>不防止将来有人再加回来</td></tr>
+<tr><td>保留但走同一套脱敏</td><td>保留原能力</td><td>为一个<strong>零读者</strong>的字段养一条脱敏路径。#5 的取向是泄漏第一，但不为不存在的需求付维护费</td></tr>
+<tr><td>代码不动，加一条 grep 检查</td><td>防将来加回来</td><td>是已有负向测试的<strong>更弱版本</strong>，属于重复</td></tr>
+<tr><td><strong>删掉这一行</strong></td><td>消掉现存唯一一处违规</td><td>靠测试兜底（见下）</td></tr>
+</tbody>
+</table>
+
+<div class="box cut">
+<span class="tag t-cut">对抗式审查改了什么</span>
+<p>我第一轮建议"删掉 + 加 grep 门禁"。<strong>grep 门禁被自己否掉了</strong>：#18 已经要求对产物做负向断言（"载荷里不得出现秘密形状"），而 grep 只是它的更弱版本。真有人把这行接回边界，负向测试先响。</p>
+</div>
+
+<div class="box final">
+<span class="tag t-keep">最终定案</span>
+<ul>
+  <li><strong>删掉 <code>src/store.ts:929</code> 那一行。</strong>不留替代方案，不加 grep 检查。</li>
+  <li>真要留调用栈，它的归宿是 <a href="https://github.com/FeatherHunter/dsh-plugin-update/issues/8">#8</a> 的本地落盘（不外发、可查），不是挂在一个即将被读的错误对象上。</li>
+  <li>它之所以值得写进本票，是因为：<strong>它就是这个主题在代码里现存的唯一实例</strong>。票关掉后，仓库里不会留下一个已知却没写下来的漏洞。</li>
+</ul>
+</div>
+
+<!-- ===================== 砍掉的 ===================== -->
+<h2>六、我砍掉了什么（自审）</h2>
+
+<p>判据只有一条：<strong>不写它，会具体坏在哪儿？说不出来，就是过度设计。</strong></p>
+
+<div class="box cut">
+<span class="tag t-cut">已砍</span>
+<ul>
+  <li><strong>运行时再扫一遍</strong> — 被自己的顺序规则推翻：先脱敏再截断，截断只做减法，扫不出新东西。</li>
+  <li><strong>逐字段规则表</strong> — 类型系统已经在管枚举和数字；真正的自由文本只有一项。</li>
+  <li><strong>完备性检查</strong> — #18 的"阶段×字段期望表"已经覆盖：加字段必须回答"哪些阶段"。</li>
+  <li><strong>把"起止不唯一就丢弃"做成类型约束</strong> — 它是代码评审的标准，不该做成运行时机制。</li>
+  <li><strong><code>min(300字, 预算余额)</code> 双上限</strong> — 为一个理论最坏情况建机制，那条分支 99% 时间不生效。<strong>只保留断言</strong>（序列化不得越上限），越界真发生了再修。</li>
+  <li><strong>路径规则不吞右括号</strong> — 泄漏防住了，这就只是观感，砍。</li>
+  <li><strong>规则顺序约束</strong> — 实测两种顺序输出相同，删。</li>
+</ul>
+</div>
+
+<p>三轮下来架构一次都没翻。挖出来的问题全部落在<strong>实现细节</strong>和<strong>契约被假设而非被断言</strong>这两层，没有一条动摇骨架。</p>
+
+<!-- ===================== 待定 ===================== -->
+<h2>七、还等你拍板的两件事</h2>
+
+<div class="box wait">
+<span class="tag t-wait">待定 1 · 产品决定，本票不代决</span>
+<p><strong>README:260 与 #5 冻结口径打架。</strong></p>
+<p>README 教用户：<code>message</code> 形如 <code>install-failed: &lt;宿主原话&gt;</code>，并说「<code>message</code> 可能带详情」。</p>
+<p>但 #5 冻结的是「<code>diagnostic</code> 永指宿主脏原文、永不过边界」，而当前实现里<strong>真实存在的唯一诊断通道恰恰就是宿主原话</strong>（经 <code>sanitizeDetail</code> 收过一遍，不是全原样）。</p>
+<p>所以要问的是：<strong>README 是在教一个有意保留的逃生口，还是历史遗留？</strong></p>
+<ul>
+  <li>若<strong>有意保留</strong>——须登记为一条明确的、有边界有措辞的例外，下游做 <code>detail</code> 口径时不能顺手收紧它。</li>
+  <li>若<strong>历史遗留</strong>——与 #5 冻结口径直接冲突，要走破冰改 README。</li>
+</ul>
+<p>按 AGENTS.md，README 是面向集成方的用户手册、不放设计意图，所以本票未动它。<strong>但这是下游做 <code>detail</code> 口径前必须先解开的前置。</strong></p>
+</div>
+
+<div class="box wait">
+<span class="tag t-wait">待定 2 · 命名</span>
+<p>ADR 文件名走什么约定。<code>docs/adr/</code> 原本是空的，看不到既有命名习惯。<strong>本轮已按 <code>docs/agents/domain.md</code> 的示例定为 <code>0001-&lt;kebab&gt;.md</code></strong>，若不合意可改。</p>
+</div>
+
+<!-- ===================== 落地清单 ===================== -->
+<h2>八、确认后要落的东西</h2>
+
+<table>
+<thead><tr><th style="width:6%">#</th><th style="width:34%">做什么</th><th style="width:12%">状态</th><th>内容</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><strong>修已上线的泄漏</strong></td><td><strong>已做</strong></td><td>POSIX 路径规则前置放宽 + UNC 双斜杠保住。19 条探针全过，<strong>并逐条比对旧规则能覆盖的输入，确认无回归</strong>；14 条回归走公开电话这一处缝</td></tr>
+<tr><td>2</td><td>删 <code>src/store.ts:929</code> 裸 stack</td><td><strong>已做</strong></td><td>不留替代方案，零外部行为</td></tr>
+<tr><td>3</td><td>决策记录 <code>docs/adr/0001-diagnostics-redaction-boundary.md</code></td><td><strong>已做</strong></td><td>承载四条决策与代价，含已知未覆盖项、修复记录（含自己制造的回归）、README 张力</td></tr>
+<tr><td>4</td><td>词表 <code>CONTEXT.md</code></td><td><strong>已做</strong></td><td><strong>只收已定的三个词</strong>。第一版把尚未批准的规格写成了既成语言，等规格改动就会变成"与仓库说法冲突"——已收缩</td></tr>
+<tr><td>5</td><td>#6 正文 · #18 errata · #4 指针 · #9 渲染义务</td><td><strong>已做</strong></td><td>全 160 项测试通过</td></tr>
+<tr><td>6</td><td>一个自由文本处理函数 + 五条规则表</td><td class="t-wait"><strong>推迟</strong></td><td>改变落进 <code>detail</code> 的内容（含新增的"整项丢弃"）= 改 #5 冻结口径，<strong>需破冰</strong>。等 <code>/to-spec</code></td></tr>
+<tr><td>7</td><td>规则双向语料</td><td class="t-wait"><strong>推迟</strong></td><td>同上——规则还不存在</td></tr>
+<tr><td>8</td><td>诊断块不越上限的断言</td><td class="t-wait"><strong>推迟</strong></td><td><code>diag</code> 对象还不存在，<strong>没有东西可序列化</strong></td></tr>
+<tr><td>9</td><td><code>manualCommand</code> 的 registry 拼接</td><td class="t-wait"><strong>推迟</strong></td><td><code>src/commands.ts:188-207</code> 把集成方传入的地址原样拼进用户要粘到终端/工单/issue 的命令串。但修法里藏着一个未回答的<strong>产品问题</strong>（整个 <code>--registry=</code> 不写，还是只写域名？），不是正则问题，不猜</td></tr>
+<tr><td>11</td><td>诊断块字节上限 · 补报 #10</td><td class="t-wait"><strong>推迟</strong></td><td>300 汉字 = 900 字节，离 #5 说的 1KB 分界只差 100 字节，而 #5 明写过线要破冰。<strong>本票未主动上报 #10，需补报</strong></td></tr>
+<tr><td>10</td><td>UNC 路径 <code>\\server\share</code> · <code>file:///tmp/x</code></td><td class="t-wait"><strong>推迟</strong></td><td>属同一类泄漏，但本轮未实测到具体输入，不在本次修复范围</td></tr></tbody>
+</table>
+
+<p><strong>已落地的部分没有新增任何一层架构</strong>：修一个正则、删一行、补十条测试、一份记录、一张词表。<strong>推迟的五项都写进了 #6 正文，每项附具体理由</strong>——是"需要破冰"或"有未回答的产品问题"，不是遗漏。</p>
+
+<footer>
+讨论结论以本票正文为准。本文件是决策过程的记录，不作为实现依据。<br>
+相关：<a href="https://github.com/FeatherHunter/dsh-plugin-update/issues/4">#4 地图</a> ·
+<a href="https://github.com/FeatherHunter/dsh-plugin-update/issues/5">#5 契约 v3</a> ·
+<a href="https://github.com/FeatherHunter/dsh-plugin-update/issues/18">#18 规格</a> ·
+<a href="https://github.com/FeatherHunter/dsh-plugin-update/issues/6">#6 本票</a>
+</footer>
+
+</main>
+</body>
+</html>

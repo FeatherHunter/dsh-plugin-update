@@ -56,7 +56,7 @@ npm publish
 
 ## 发布白名单
 
-`package.json` 的 `files` 共 5 项：`dist`、`derive-client-values.mjs`、`event-list.template.json`、`README.md`、`LICENSE`（另加隐含的 `package.json`；`dist` 下 10 个 JS 全带上）。
+`package.json` 的 `files` 共 6 项：`dist`、`derive-client-values.mjs`、`event-list.template.json`、`README.md`、`CHANGELOG.md`、`LICENSE`（另加隐含的 `package.json`；`dist` 下 12 个 JS 全带上，另加同名 `.d.ts` 类型定义）。
 加新文件进包时同步改 `files`，并重跑 `npm publish --dry-run` 确认文件数。
 
 ## 本包门禁

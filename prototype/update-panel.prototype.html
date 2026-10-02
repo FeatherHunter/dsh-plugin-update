@@ -79,20 +79,10 @@
 </head>
 <body>
 
-<div class="proto-banner"><b>PROTOTYPE</b>抛弃式原型 · issue #13 · 单文件双击即开 · 内存 stub、无持久化 · 不进包、不写测试 · 看完即焚，定稿后移抛弃分支</div>
-
-<header class="q">
-  <h1>全套UI原型：更新面板 4 变体（A / B / C / D）</h1>
-  <p>设计问题：<b>“全套UI应该长什么样？”</b> → UI 分支 / sub-shape B（本包是 npm 包、无现成页面，只能起抛弃式载体）。切换：<code>?variant=A|B|C|D</code> + 底部悬浮条 + ←/→ 键。</p>
-  <p>约束（#12 grill 共识）：宿主侧 ≤5 行、面板侧 1 个标签即跑；轮询/队列/跳过/错误文案归本包；<code>mode="embedded|dialog"</code> 开关；平时一句话 + “复制诊断”；全面功能、消费者决定是否看他人排队项。</p>
-  <p>假设（待你看完视觉确认）：4 变体 <b>A=内嵌紧凑条 / B=对话框向导 / C=队列运维台 / D=极简徽标</b>；E（日志头条/终端手感）暂不画。</p>
-</header>
-
 <div class="demobar">
-  <span class="tag">演示控制台（脚手架，非设计）</span>
-  <label>错误面：
+  <label>阻塞原因：
     <select id="demoReason">
-      <option value="">（无阻塞，可装）</option>
+      <option value="">无</option>
       <option value="unknown-profile">unknown-profile</option>
       <option value="source-install">source-install</option>
       <option value="invalid-installation">invalid-installation</option>
@@ -103,29 +93,25 @@
       <option value="recovery-required">recovery-required</option>
     </select>
   </label>
-  <label><input type="checkbox" id="demoShowOthers" checked> 看他人排队项（showOthers）</label>
-  <button id="demoReset">重置演示状态</button>
-  <span class="muted">八种原因文案见 README §5.2；pending-restart 必须显眼横幅（§5.4）。</span>
+  <label><input type="checkbox" id="demoShowOthers" checked> 看他人排队</label>
+  <button id="demoReset">重置</button>
 </div>
 
 <main>
   <!-- ============ A 内嵌紧凑条 ============ -->
   <section class="variant" id="vA">
     <div class="chrome">
-      <div class="topbar">（ mock 宿主插件设置页 ） 顶栏 · 侧栏 · 内容区 —— 更新条嵌在内容区顶部</div>
       <div class="cols">
-        <div class="side">侧栏<br>设置<br>关于</div>
         <div class="maincol">
           <div class="card" style="border-left:6px solid var(--accent)">
             <div class="row"><b id="aOneLiner">…</b></div>
             <div class="row" style="margin-top:8px" id="aActions"></div>
             <div id="aRestart"></div>
           </div>
-          <details open><summary>更新日志（包内 CHANGELOG.md · Keep-a-Changelog 子集）</summary><div class="body" id="aLog"></div></details>
-          <details><summary>更新队列（跨插件单队列串行，一次一个）</summary><div class="body" id="aQueue"></div></details>
+          <details open><summary>更新日志</summary><div class="body" id="aLog"></div></details>
+          <details><summary>更新队列</summary><div class="body" id="aQueue"></div></details>
           <details><summary>错误信息</summary><div class="body" id="aErr"></div></details>
-          <details open><summary>手动命令（每次回包刷新，不缓存旧的）</summary><div class="body" id="aManual"></div></details>
-          <div class="card"><h3>状态外显（每次动作后刷新）</h3><pre class="dock" id="aState"></pre></div>
+          <details open><summary>手动命令</summary><div class="body" id="aManual"></div></details>
         </div>
       </div>
     </div>
@@ -134,7 +120,6 @@
   <!-- ============ B 对话框向导 ============ -->
   <section class="variant" id="vB">
     <div class="chrome">
-      <div class="topbar">（ mock 插件设置页 ） 内容区只有一个入口按钮，其余全在对话框里 · mode="dialog"</div>
       <div class="row"><button class="primary" id="bOpen">检查更新</button> <span class="muted" id="bHint"></span></div>
       <div id="bRestart"></div>
       <div class="modalwrap" id="bModalWrap" style="display:none">
@@ -142,69 +127,47 @@
           <div class="steps"><div class="st" data-s="1">1 检查</div><div class="st" data-s="2">2 日志</div><div class="st" data-s="3">3 安装</div><div class="st" data-s="4">4 收尾</div></div>
           <div id="bStep"></div>
           <div class="row" style="margin-top:10px">
-            <button id="bPrev">上一步</button><button id="bNext" class="primary">下一步</button><button id="bClose">关闭（安装不中断·桩）</button>
+            <button id="bPrev">上一步</button><button id="bNext" class="primary">下一步</button><button id="bClose">关闭</button>
           </div>
         </div>
       </div>
-      <div class="card"><h3>状态外显（每次动作后刷新）</h3><pre class="dock" id="bState"></pre></div>
     </div>
   </section>
 
   <!-- ============ C 队列运维台 ============ -->
   <section class="variant" id="vC">
     <div class="card">
-      <h2>更新运维台 <span class="muted">mode="embedded" 全功能 · 左=self，右=跨插件队列</span></h2>
+      <h2>更新运维台</h2>
       <div class="row" id="cActions" style="margin-bottom:8px"></div>
       <div id="cRestart"></div>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
         <div style="flex:1;min-width:280px">
-          <h3>本插件（my-notes-plugin）</h3>
+          <h3>my-notes-plugin</h3>
           <div id="cSelf"></div>
           <h3>更新日志</h3><div id="cLog"></div>
           <h3>错误信息</h3><div id="cErr"></div>
           <h3>手动命令</h3><div id="cManual"></div>
         </div>
         <div style="flex:1;min-width:280px">
-          <h3>跨插件队列 <span class="muted">（串行；公平/取消策略待 #15 定）</span></h3>
+          <h3>更新队列</h3>
           <div id="cQueue"></div>
         </div>
       </div>
-      <h3>轮询与凭证</h3><div id="cMeta" class="muted"></div>
-      <h3>状态外显（每次动作后刷新）</h3><pre class="dock" id="cState"></pre>
     </div>
   </section>
 
   <!-- ============ D 极简徽标 ============ -->
   <section class="variant" id="vD">
     <div class="chrome">
-      <div class="topbar">（ mock 插件列表页 ） 每行一只徽标：瞥一眼就知道谁要更新，点开才看详情</div>
       <div id="dList"></div>
       <div class="popover" id="dPop" style="display:none"></div>
-      <div class="card"><h3>状态外显（每次动作后刷新）</h3><pre class="dock" id="dState"></pre></div>
     </div>
-  </section>
-
-  <!-- 状态总 dock -->
-  <section class="card">
-    <h2>总状态外显（切变体 / 每次动作都刷新）</h2>
-    <pre class="dock" id="dock"></pre>
   </section>
 </main>
 
-<footer class="lines">
-  <section class="card">
-    <h2>接入行数清单（三件套锁死，变体不换边界 → 四变体接入成本相同）</h2>
-    <h3>宿主侧 <span class="muted" id="hostLines"></span></h3>
-    <code class="cmd" id="hostSnippet"></code>
-    <h3>面板侧 <span class="muted" id="panelLines"></span> ＋ 构建期派生 1 条命令（非常驻代码）</h3>
-    <code class="cmd" id="panelSnippet"></code>
-    <p class="muted">派生：<code>node node_modules/dsh-plugin-update/derive-client-values.mjs --prefix notes --out scripts/generated/updateClient.derived.js</code>（换前缀/升级包时重跑一次）。轮询常量 UPD_POLL 默认 1000ms、下限 250ms；电话名永远从派生常量读，不手拼。</p>
-  </section>
-</footer>
-
 <div id="switcher">
   <button id="swPrev" title="上一个（←）">◀</button>
-  <div class="lbl"><span id="swLabel">A</span><small>原型切换条（非设计）· ←/→ 键也可切</small></div>
+  <div class="lbl"><span id="swLabel">A</span></div>
   <button id="swNext" title="下一个（→）">▶</button>
 </div>
 
@@ -223,7 +186,7 @@ const REASONS = {
   "pending-restart":      ["新版已装到磁盘，正在跑的还是旧版", "重启宿主，让新版跑起来；这是正常终态，不是失败"],
   "registry-conflict":    ["本地声明的版本与磁盘实际版本互相矛盾", "打开使用范围的清单文件，把目标包名那一行改成版本号再试"],
   "incompatible-node":    ["新版要求的 Node 与当前运行的对不上", "先升级 Node 到 22 或更高，再查更新"],
-  "recovery-required":    ["上次安装被打断，留下一个半截任务", "重新点一次安装；一直出现就按 README 第 6 节排错"],
+  "recovery-required":    ["上次安装被打断，留下一个半截任务", "重新点一次安装；一直出现请查看排错指引"],
 };
 const NO_MANUAL = new Set(["unknown-profile", "source-install"]);
 const CHANGELOG = {
@@ -281,7 +244,7 @@ function oneLiner(){
   if (s.blockedReason) return `装不了：${REASONS[s.blockedReason][0]}`;
   if (s.latestVersion && s.latestVersion !== s.installedVersion && !S.self.skipped.includes(s.latestVersion))
     return `有新版 ${s.latestVersion}（当前 ${s.installedVersion}），可安装。`;
-  if (s.latestVersion && S.self.skipped.includes(s.latestVersion)) return `新版 ${s.latestVersion} 已跳过（按插件+版本记住，可重置·入口待#16定）。`;
+  if (s.latestVersion && S.self.skipped.includes(s.latestVersion)) return `新版 ${s.latestVersion} 已跳过，可重置。`;
   if (s.latestVersion) return `已是最新（${s.installedVersion}）。`;
   return `当前 ${s.installedVersion}，还没查过新版。`;
 }
@@ -337,43 +300,39 @@ function hLog(){
   for (const v of ["1.2.3","1.2.2"]){
     const e = CHANGELOG[v];
     h += `<div><b>${v}</b> <span class="muted">${e?e.date:""}</span>`;
-    if (!e) h += `<div class="muted">暂无更新说明，不影响安装（#11：缺日志中性提示、不挡安装）。</div>`;
+    if (!e) h += `<div class="muted">暂无更新说明，不影响安装。</div>`;
     else h += "<ul>" + e.items.map(i=>`<li><b>${i[0]}</b>：${esc(i[1])}</li>`).join("") + "</ul>";
     h += "</div>";
   }
-  return h + `<div class="muted">prerelease 通道默认不推安装（stable 默认，#16 待定）。</div>`;
+  return h;
 }
 function hQueue(){
   const vis = showOthers() ? S.queue : S.queue.filter(e=>e.pluginId===S.self.pluginId);
-  if (!vis.length) return `<div class="muted">队列空。同一使用范围同时只装一个，撞上会报 update-busy。</div>`;
+  if (!vis.length) return `<div class="muted">队列空。</div>`;
   return `<table class="q"><tr><th>插件</th><th>版本</th><th>状态</th><th>进度</th></tr>` +
     vis.map(e=>`<tr><td>${esc(e.pluginId)}${e.pluginId===S.self.pluginId?"（我）":""}</td><td>${esc(e.version)}</td><td>${esc(e.state)}</td><td>${e.progress}%</td></tr>`).join("") +
-    `</table><div class="muted">共 ${S.queue.length} 项，当前显示 ${vis.length} 项（showOthers=${showOthers()}，消费者决定）。</div>`;
+    `</table><div class="muted">共 ${S.queue.length} 项，显示 ${vis.length} 项。</div>`;
 }
 function hErr(){
   const r = blockedOfSelf();
-  if (!r) return `<div class="okline">无阻塞：canInstall=true。要看错误面，用顶部演示控制台切八种原因。</div>`;
+  if (!r) return `<div class="okline">一切正常，可以安装。</div>`;
   if (r === "pending-restart") return `<div class="banner-restart">⚠️ 新版 ${esc(S.self.installed)} 已装好，正在跑的还是 ${esc(S.self.running)}，重启宿主后生效。待重启期间不提供安装按钮，只给重启指引与手工命令入口。</div>`;
   return `<div class="errbox"><b>${esc(r)}</b>：${esc(REASONS[r][0])}<br>用户该做什么：${esc(REASONS[r][1])}<br><button data-copy-diag style="margin-top:6px">复制诊断（含稳定码/脱敏诊断/版本/宿主/队列位置）</button></div>`;
 }
 function hManual(){
   const m = manualCmd();
   if (!m) return `<div class="muted">当前情形不给手工命令（${esc(blockedOfSelf())}），只展示原因。</div>`;
-  return `<code class="cmd">${esc(m)}</code><div class="row" style="margin-top:6px"><button data-copy-manual>复制整行执行</button><span class="muted">范围名特殊字符已加引号（桩：my-web 无需引号）；网络受限可去掉 --registry= 走本地源。</span></div>`;
-}
-function hMeta(){
-  const r = S.self.receipt;
-  return `轮询 UPD_POLL=1000ms（下限250ms，越界抛错）；查新版2s内复用上次结果；凭证 ${r?`checkId=${r.checkId} checkedAt=${r.checkedAt} expiresAt=${r.expiresAt}`:"（还没查过）"}；同一 requestId 重复提交返回旧结果，不重装。`;
+  return `<code class="cmd">${esc(m)}</code><div class="row" style="margin-top:6px"><button data-copy-manual>复制整行执行</button></div>`;
 }
 function hActionsHTML(prefix){
   const s = snapshotSelf();
   return `<button data-act="check">查新版</button>
     <button data-act="install" class="primary" ${s.canInstall&&s.latestVersion?"":"disabled"}>安装${s.latestVersion?" "+esc(s.latestVersion):""}</button>
-    ${s.job?`<button data-act="advance">推进 25%（桩）</button>`:""}
-    <button data-act="skip" ${s.latestVersion?"":"disabled"}>跳过该版本（桩）</button>`;
+    ${s.job?`<button data-act="advance">推进 25%</button>`:""}
+    <button data-act="skip" ${s.latestVersion?"":"disabled"}>跳过该版本</button>`;
 }
 function hRestartHTML(){
-  if (blockedOfSelf()==="pending-restart") return `<div class="banner-restart">⚠️ 新版 ${esc(S.self.installed)} 已装好，正在跑的还是 ${esc(S.self.running)}，重启宿主后生效。<button data-act="restart" class="primary" style="margin-left:8px">重启（桩）</button></div>`;
+  if (blockedOfSelf()==="pending-restart") return `<div class="banner-restart">⚠️ 新版 ${esc(S.self.installed)} 已装好，正在跑的还是 ${esc(S.self.running)}，重启宿主后生效。<button data-act="restart" class="primary" style="margin-left:8px">重启</button></div>`;
   return "";
 }
 
@@ -386,7 +345,6 @@ function renderA(){
   document.getElementById("aQueue").innerHTML = hQueue();
   document.getElementById("aErr").innerHTML = hErr();
   document.getElementById("aManual").innerHTML = hManual();
-  document.getElementById("aState").textContent = dockText();
 }
 function renderB(){
   document.getElementById("bHint").textContent = oneLiner();
@@ -398,12 +356,11 @@ function renderB(){
     el.className = "st" + (n===S.bStep?" on":n<S.bStep?" done":"");
   });
   const s = snapshotSelf(); let h = "";
-  if (S.bStep===1) h = `<h3>检查更新</h3><div class="row">${hActionsHTML()}</div><div class="muted" style="margin-top:6px">${esc(hMeta())}</div>`;
+  if (S.bStep===1) h = `<h3>检查更新</h3><div class="row">${hActionsHTML()}</div>`;
   if (S.bStep===2) h = `<h3>更新日志</h3>${hLog()}`;
   if (S.bStep===3) h = `<h3>安装</h3>${hQueue()}<div class="row" style="margin-top:6px">${hActionsHTML()}</div>${hErr()}`;
   if (S.bStep===4) h = `<h3>收尾</h3>${hRestartHTML()}${hErr()}${hManual()}`;
   document.getElementById("bStep").innerHTML = h;
-  document.getElementById("bState").textContent = dockText();
 }
 function renderC(){
   const s = snapshotSelf();
@@ -411,14 +368,11 @@ function renderC(){
   document.getElementById("cRestart").innerHTML = hRestartHTML();
   document.getElementById("cSelf").innerHTML =
     `<table class="q"><tr><th>字段</th><th>值</th></tr>` +
-    Object.entries(s).map(([k,v])=>`<tr><td>${k}</td><td>${esc(v===null?"null":typeof v==="object"?JSON.stringify(v):v)}</td></tr>`).join("") + `</table>
-     <div class="muted">快照恒六字段；job 只读半程恒为 null 以外，装更新时带 phase/progress（桩）。</div>`;
+    Object.entries(s).map(([k,v])=>`<tr><td>${k}</td><td>${esc(v===null?"null":typeof v==="object"?JSON.stringify(v):v)}</td></tr>`).join("") + `</table>`;
   document.getElementById("cLog").innerHTML = hLog();
   document.getElementById("cErr").innerHTML = hErr();
   document.getElementById("cManual").innerHTML = hManual();
   document.getElementById("cQueue").innerHTML = hQueue();
-  document.getElementById("cMeta").textContent = hMeta();
-  document.getElementById("cState").textContent = dockText();
 }
 function dotFor(p){
   if (p.job) return "yellow";
@@ -437,24 +391,11 @@ function renderD(){
   }).join("");
   const pop = document.getElementById("dPop");
   if (!S.dSel){ pop.style.display = "none"; }
-  else if (!S.dSel.startsWith("my-notes")){ pop.style.display = "block"; pop.innerHTML = `<b>${esc(S.dSel)}</b> <span class="muted">（他人插件：只读徽标 + 队列位置，不代操作）</span><div class="muted">队列位置：第 1 位 · installing 62%（桩）。showOthers=${showOthers()}。</div>`; }
+  else if (!S.dSel.startsWith("my-notes")){ pop.style.display = "block"; pop.innerHTML = `<b>${esc(S.dSel)}</b><div class="muted">队列位置：第 1 位 · installing 62%。</div>`; }
   else {
     pop.style.display = "block";
     pop.innerHTML = `<b>my-notes-plugin</b>：${esc(oneLiner())}<div class="row" style="margin:6px 0">${hActionsHTML()}</div>${hRestartHTML()}${hErr()}${hManual()}<h3>日志</h3>${hLog()}<h3>队列</h3>${hQueue()}`;
   }
-  document.getElementById("dState").textContent = dockText();
-}
-
-/* ---- 总 dock ---- */
-function dockText(){
-  const s = snapshotSelf();
-  const vis = showOthers() ? S.queue : S.queue.filter(e=>e.pluginId===S.self.pluginId);
-  return [
-    `变体=${cur}（${VARIANTS.find(v=>v.k===cur).name}）· 最后动作：${S.lastAction}`,
-    `snapshot: installed=${s.installedVersion} running=${s.runningVersion} latest=${s.latestVersion} canInstall=${s.canInstall} blockedReason=${s.blockedReason} job=${s.job?JSON.stringify(s.job):"null"}`,
-    `receipt: ${S.self.receipt?JSON.stringify(S.self.receipt):"null"} · skipped=[${S.self.skipped.join(",")}]`,
-    `queue: 显示${vis.length}/共${S.queue.length}（showOthers=${showOthers()}）· manual=${manualCmd()?"有":"无（"+(blockedOfSelf()||"—")+"）"}`,
-  ].join("\n");
 }
 
 /* ---- 变体切换 ---- */
@@ -474,7 +415,7 @@ function setVariant(k, silent){
   catch(e){ location.hash = "variant="+k; }
   if (!silent){ S.lastAction = `切换变体 → ${k}（URL 可分享，重载稳定）`; renderAll(); }
 }
-function renderAll(){ renderA(); renderB(); renderC(); renderD(); document.getElementById("dock").textContent = dockText(); }
+function renderAll(){ renderA(); renderB(); renderC(); renderD(); }
 
 /* ---- 事件 ---- */
 document.addEventListener("click", ev=>{
@@ -507,10 +448,6 @@ window.addEventListener("keydown", ev=>{
 
 /* ---- 启动 ---- */
 S = freshState();
-document.getElementById("hostSnippet").textContent = HOST_SNIPPET;
-document.getElementById("panelSnippet").textContent = PANEL_SNIPPET.replace("<\\/script>", "<"+"/script>");
-document.getElementById("hostLines").textContent = `（${HOST_SNIPPET.split("\n").length} 行）`;
-document.getElementById("panelLines").textContent = `（${PANEL_SNIPPET.split("\n").length} 行）`;
 setVariant(readVariant(), true);
 S.lastAction = "原型已载入（内存 stub；切变体或点按钮开始）";
 renderAll();
