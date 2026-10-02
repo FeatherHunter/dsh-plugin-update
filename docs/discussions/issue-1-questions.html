@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>票 #1 · 待决问题清单（第一性 ＋ 对抗式）</title>
+<style>
+  :root { --ink:#1b1f24; --dim:#5b6673; --line:#e2e6ea; --bg:#fbfcfd; --box:#f4f7fa; }
+  * { box-sizing:border-box; }
+  body { margin:0 auto; padding:40px 28px 90px; max-width:960px; background:var(--bg); color:var(--ink);
+         font:16px/1.75 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif; }
+  h1 { font-size:26px; margin:0 0 6px; }
+  h2 { font-size:20px; margin:46px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--line); }
+  h3 { font-size:16.5px; margin:0 0 6px; }
+  .sub { color:var(--dim); font-size:14px; }
+  code { background:#f1f3f5; padding:1px 5px; border-radius:4px; font-size:13.5px;
+         font-family:ui-monospace,Consolas,"Cascadia Mono",monospace; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:12px 0; }
+  .info { background:var(--box); border:1px solid var(--line); border-radius:10px; padding:14px 18px; margin:12px 0; }
+  .q { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin:14px 0; }
+  .q .tag { float:right; font-size:12.5px; color:var(--dim); border:1px solid var(--line); border-radius:20px; padding:1px 10px; }
+  .opts { margin:10px 0 2px; }
+  .opts label { display:block; padding:5px 8px; border-radius:6px; cursor:pointer; }
+  .opts label:hover { background:#f6f8fa; }
+  .rec { background:#eef7ee; border:1px solid #9ccf9c; border-radius:8px; padding:10px 14px; margin:12px 0 8px; }
+  .rec b { color:#1d6b1d; }
+  .why { margin:10px 0 0; padding-top:8px; border-top:1px dashed var(--line); color:var(--dim); font-size:14px; }
+  textarea, input.note { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:14.5px; }
+  textarea { min-height:64px; }
+  .note { margin-top:8px; }
+  table { border-collapse:collapse; width:100%; font-size:14.5px; }
+  th,td { border:1px solid var(--line); padding:6px 10px; text-align:left; vertical-align:top; }
+  th { background:#f4f6f8; }
+  #summary { width:100%; min-height:220px; font-family:ui-monospace,Consolas,monospace; font-size:13.5px;
+             padding:10px; border:1px solid var(--line); border-radius:8px; }
+  button { font:inherit; padding:8px 16px; border-radius:8px; border:1px solid #c9ced4; background:#fff; cursor:pointer; }
+  button.primary { background:#1b1f24; color:#fff; border-color:#1b1f24; }
+  footer { margin-top:48px; color:var(--dim); font-size:13.5px; border-top:1px solid var(--line); padding-top:14px; }
+</style>
+</head>
+<body>
+
+<h1>票 #1 · 待决问题清单</h1>
+<p class="sub">
+  仓库 <code>FeatherHunter/dsh-plugin-update</code> · 票 <a href="https://github.com/FeatherHunter/dsh-plugin-update/issues/1">#1 官方桌面版宿主缺安装路由</a><br>
+  分支 <code>master</code> · HEAD <code>234f5fa</code> · 已认领（<code>FeatherHunter</code>）· 代码未改动 · 基线 <code>node --test tests/*.test.mjs</code> = 66 pass / 1 skipped / 0 fail<br>
+  2026-09-30
+</p>
+
+<p class="sub"><b>➡️ 标出的是我的推荐答案，并且已经按推荐帮你勾好了。</b>同意就跳过，不同意直接改选；每道题的推荐理由写在该题选项下面。全部过完点页面底部的「生成我的回答」。</p>
+
+<h2>基本信息</h2>
+
+<div class="info">
+  <p><b>这个包是干什么的</b>：<code>dsh-plugin-update</code> 给任意 DSH 插件提供「检查更新 / 安装更新」的能力。它向调用方交出三个电话名与处理器（查状态、查新版、装更新），自己负责版本比较、落盘（<code>state.json</code> / <code>install.lock</code> / <code>before.json</code>）、超时与凭证，以及**怎么把新版装进当前使用范围**。</p>
+  <p><b>两代宿主</b>：这套系统最早是在第三方 DSH 桌面端（anywhere-labs 那一支）下开发的，现在跑在官方桌面版 0.2.0-rc.2 上。</p>
+  <table>
+    <tr><th></th><th>时代 A · 第三方 Desktop</th><th>时代 B · 官方桌面版 0.2.0-rc.2</th></tr>
+    <tr><td>「我是桌面」的信号</td><td>发布 <code>desktopProfiles</code></td><td>不发布；该服务与 <code>desktopPnpm</code> 在 app.asar 里 0 命中</td></tr>
+    <tr><td>安装出口</td><td><code>desktopPnpm.runPlugin(argv, 范围目录)</code></td><td>进程内 <code>pluginManager.installBundle(spec, 选项)</code></td></tr>
+    <tr><td>自己起子进程</td><td>可用</td><td>不可用：<code>argv[1]</code> 是宿主入口，认不出 CLI 入口</td></tr>
+    <tr><td>命令行兜底</td><td><code>dsh plugin --profile &lt;名&gt; add …</code></td><td>CLI 按名字拒绝 <code>--profile desktop</code></td></tr>
+    <tr><td>使用范围名</td><td>由 launcher 决定</td><td>固定 <code>desktop</code></td></tr>
+  </table>
+  <p class="sub" style="margin-bottom:0">包里的隐含假设是「桌面宿主 = 发布那两项服务的那一支」。这个假设在时代 B 不成立，于是判定落回「普通宿主」，而命令行那条在这个宿主里必然认不出入口 ⇒ 装不上。现象是「很多用这个包的插件无法更新」，根因是缺一条宿主出口。</p>
+</div>
+
+<div class="info">
+  <p><b>官方宿主出口的已知契约</b>（只读取证，来自 <code>app.asar</code> 内文件）</p>
+  <ul style="margin:6px 0 0">
+    <li><code>pluginManager.installBundle(spec, { enabled?, requestId?, approvedBuilds?, registry? })</code>；服务是 root 级，普通插件上下文 <code>ctx.pluginManager</code> 直接可取。</li>
+    <li>返回 <code>application ∈ {applied, restart-required, overridden, failed, cancelled}</code>；<b>预期失败不 reject</b>，而是 resolve 出 <code>failed</code> ＋ <code>error:{code, diagnostic}</code>。</li>
+    <li><code>spec</code> 是单个字符串，形如 <code>name@x.y.z</code>（全小写）；不接受任何开关。registry 是选项不是开关。</li>
+    <li>管理器自己有静默超时（默认 10 分钟杀树）与写锁等待（默认 120 秒）；<code>cancelInstall(requestId)</code> 返回 <code>{status:'cancelled'|'too-late'|'not-running'}</code>。</li>
+    <li>命令行 <code>dsh</code> 在 boot 与 <code>plugin</code> 子命令都拒绝 <code>--profile desktop</code>（唯一豁免是桌面自带的 CLI 载体）。</li>
+  </ul>
+</div>
+
+<div class="info">
+  <p><b>包内与宿主耦合的只有三处</b>（我 grep 过全仓 <code>environmentKind</code> 的 21 处引用）：<code>detectEnvironmentKind</code>（认宿主）、<code>installRecipe</code>（选路由、拼参数）、<code>createUpdateExecutor</code>（两条执行分支）。查更新的那条链（读磁盘版本、查源、落盘、锁）与宿主无关。</p>
+</div>
+
+<h2>问题树（先定三个根，其余挂在这三个下面）</h2>
+<div class="card">
+  <ul>
+    <li><b>根一 · 责任边界</b>：这个包在「安装」这件事上负责到哪一步？ → A1（B、D、E 组都受它约束）</li>
+    <li><b>根二 · 「修好了」的判据</b>：谁认证、什么算通过、什么时候关单？ → A2</li>
+    <li><b>根三 · 「兼容」的判据</b>：要保住哪几条路、保到什么程度？ → A3（B1、B3 直接由它决定）</li>
+  </ul>
+  <p class="sub" style="margin-bottom:0">其余分组：A 目标与验收 · B 判定与路由 · C 冻结面与契约 · D 安装语义（对抗式）· E 并发与状态（对抗式）· F 交付与交接。</p>
+</div>
+
+<h2>A · 目标与验收</h2>
+
+<section class="q" data-q="A1">
+  <span class="tag">根问题</span>
+  <h3>A1 · 这个包在「安装」上负责到哪一步？</h3>
+  <div class="opts">
+    <label><input type="radio" name="a1" value="(a) 只做判断与转达，交不出去就诚实失败"> <b>(a)</b> 只做判断与转达：能交宿主就交宿主，交不出去就诚实失败，自己不再安装（普通宿主将只剩手工命令）</label>
+    <label><input type="radio" name="a1" value="(b) 保留自己安装的权力（能交就交，交不出去自己起进程）"> <b>(b)</b> 保留自己安装的权力：能交宿主就交，交不出去时自己起进程装（现状）</label>
+    <label><input type="radio" name="a1" value="(c) 按宿主能力分级：谁拥有安装谁执行，包只做问—请—核" checked> <b>(c)</b> 按宿主能力分级：谁拥有安装谁执行，包只做「问—请—核」</label>
+  </div>
+  <p class="why">为什么问：这一条决定新路由是「加一条委托」还是重画执行责任；也决定命令行子进程那条路将来留不留。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (c)。普通宿主没有进程内管理器，选 (a) 等于把它们的自动安装能力砍掉，与 A3 的兼容承诺冲突；(b) 与 (c) 在代码上是同一件事，写 (c) 只是把「命令行子进程也是宿主自己的工具、不是包自己发明安装」这层说清楚。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="A2">
+  <span class="tag">根问题</span>
+  <h3>A2 · 「修好了」由谁认证、什么时候关单？</h3>
+  <div class="opts">
+    <label><input type="radio" name="a2" value="(a) 库内测试＋类型检查全绿、提交即关单"> <b>(a)</b> 库内测试 ＋ 类型检查全绿、提交即关单</label>
+    <label><input type="radio" name="a2" value="(b) 必须真机点一次「装上」成功才关单"> <b>(b)</b> 必须真机点一次「装上」成功才关单（要消费方发版配合）</label>
+    <label><input type="radio" name="a2" value="(c) 库内绿先关本单，另开一单跟踪真机验收" checked> <b>(c)</b> 库内绿先关本单，另开一单跟踪真机验收</label>
+  </div>
+  <p class="why">为什么问：本仓拿不到真机验收的路径（面板在消费方那边）；关单口径决定这张票开多久、要不要把消费方拉进来。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (c)。本仓拿不到真机路径（面板在消费方那边），把「真机点一次」拆成独立一单，本单才有明确的完成定义，票也不会长期挂着。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="A3">
+  <span class="tag">根问题</span>
+  <h3>A3 · 「兼容」的判据是什么？</h3>
+  <div class="opts">
+    <label><input type="radio" name="a3" value="(a) 老两条路行为一字不变，且继续有测试喂假件" checked> <b>(a)</b> 老两条路（第三方 Desktop、普通 DSH 宿主）行为一字不变，且继续有测试覆盖</label>
+    <label><input type="radio" name="a3" value="(b) 老两条路保留代码路径即可，不再要求测试覆盖"> <b>(b)</b> 老两条路保留代码路径即可，不再要求测试覆盖</label>
+    <label><input type="radio" name="a3" value="(c) 只保留普通 DSH 宿主那条，第三方 Desktop 可以放弃"> <b>(c)</b> 只保留「普通 DSH 宿主」那条，第三方 Desktop 可以放弃</label>
+  </div>
+  <p class="why">为什么问：兼容承诺决定新判定的收紧程度与测试规模；也决定第三方 Desktop 是否还在支持列表里。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。你的原话就是「以前的那些方式做好兼容」；测试继续喂假件即可，不要求真机覆盖。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="A4">
+  <h3>A4 · 事实确认：官方桌面端上「查更新」是否正常？</h3>
+  <p class="sub">我按代码判断：查更新只读磁盘 ＋ 查源，与宿主无关，卡的只是安装那一步。</p>
+  <div class="opts">
+    <label><input type="radio" name="a4" value="(a) 能查到新版，点「装上」才失败"> <b>(a)</b> 能查到新版，点「装上」才失败</label>
+    <label><input type="radio" name="a4" value="(b) 连查都异常"> <b>(b)</b> 连查都异常（请描述现象）</label>
+    <label><input type="radio" name="a4" value="(c) 没实测过，需要现场确认" checked> <b>(c)</b> 没实测过，需要在现场确认一次</label>
+  </div>
+  <p class="why">为什么问：票面验收判据 1 要按事实写，不能按我的推断写。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：我按代码推 (a)：查更新只读磁盘 ＋ 查源，与宿主无关，卡的只是安装那一步。但这是事实题，值得现场确认一次；若真看到 (b)，那是另一条 bug，本单要扩范围。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="A5">
+  <h3>A5 · 事实确认 ＋ 政策：README 第 9 节那条手工兜底命令，在官方桌面端还能跑吗？</h3>
+  <p class="sub">证据打架：0.2.0-rc.2 的 CLI 在 boot 与 <code>plugin</code> 子命令都按名字拒绝 <code>--profile desktop</code>（唯一豁免是桌面自带的 CLI 载体）；交接文档记的是那条命令 exit 0；而本机 PATH 上没有 <code>dsh</code>，全局也没装 <code>@deepseek-ai/dsh</code>。</p>
+  <div class="opts">
+    <label><input type="radio" name="a5" value="(a) 能跑（我当时是这么跑的，见补充）"> <b>(a)</b> 能跑 —— 我当时是这么跑的（写在补充里）</label>
+    <label><input type="radio" name="a5" value="(b) 不能跑，官方桌面端上这条命令被拒"> <b>(b)</b> 不能跑，官方桌面端上这条命令被拒</label>
+    <label><input type="radio" name="a5" value="(c) 不确定，需要现场验一次" checked> <b>(c)</b> 不确定，需要现场验一次</label>
+  </div>
+  <p class="sub" style="margin-top:10px">若答 (b)：兜底政策改成什么？<br>
+    <label class="sub"><input type="radio" name="a5b" value=" (i) 指向「设置 → 插件」" checked> (i) 指向「设置 → 插件」</label><br>
+    <label class="sub"><input type="radio" name="a5b" value=" (ii) 不给命令，只给原因"> (ii) 不给命令，只给原因</label><br>
+    <label class="sub"><input type="radio" name="a5b" value=" (iii) 其他（写在补充里）"> (iii) 其他（写在补充里）</label>
+  </p>
+  <p class="why">为什么问：票面验收判据 1 写着「或按政策诚实失败并给出可执行的手工命令」；如果这条命令在时代 B 根本执行不了，这句话就是空的。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (c)，先现场验一次：0.2.0-rc.2 的 CLI 明确按名字拒绝 <code>--profile desktop</code>，而交接文档记的是 exit 0，两者必有一处前提不同（哪份 <code>dsh</code>、什么路径）。若确为 (b)，二级题选 (i)——官方宿主自己的入口是唯一正路，给一条跑不通的命令比不给更糟。</p>
+  <textarea class="free" placeholder="补充（可留空）"></textarea>
+</section>
+
+<h2>B · 判定与路由</h2>
+
+<section class="q" data-q="B1">
+  <h3>B1 · 第三条路由凭什么认出来？</h3>
+  <div class="opts">
+    <label><input type="radio" name="b1" value="(a) 纯能力：有 installBundle 就走"> <b>(a)</b> 纯能力：宿主有 <code>pluginManager.installBundle</code> 就走这条</label>
+    <label><input type="radio" name="b1" value="(b) 能力＋使用范围名恰是 CLI 封禁的 desktop" checked> <b>(b)</b> 能力 ＋ 使用范围名恰是 CLI 明确封禁的 <code>desktop</code></label>
+    <label><input type="radio" name="b1" value="(c) dshmarket 式：缺 desktopProfiles 且名字是 desktop"> <b>(c)</b> <code>dshmarket</code> 式：没有 <code>desktopProfiles</code> 且使用范围名是 <code>desktop</code></label>
+    <label><input type="radio" name="b1" value="(d) 兜底式：CLI 入口认不出时才改走管理器"> <b>(d)</b> 兜底式：原 <code>cli-process</code> 在执行时认不出 CLI 入口，才改走管理器</label>
+  </div>
+  <p class="why">为什么问：判定写错会把本来跑得通的老路改掉（与 A3 的兼容承诺直接冲突）；而 <code>pluginManager</code> 的挂载条件是「有 <code>profileContext</code>」，普通宿主也可能满足，所以「有能力就用」不等于安全。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (b)。只有「有管理器」和「名字恰是 CLI 封禁的那一个」同时成立才改行为，对任何别的使用范围零影响；纯能力 (a) 有把普通宿主老路改掉的风险（<code>pluginManager</code> 在普通宿主也可能挂载）。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="B2">
+  <h3>B2 · 「不得用使用范围名判断宿主」这条纪律的边界在哪？</h3>
+  <div class="opts">
+    <label><input type="radio" name="b2" value="(a) 仍是硬纪律：任何以名字为条件的路由判定都不许"> <b>(a)</b> 仍是硬纪律：任何以名字为条件的路由判定都不许</label>
+    <label><input type="radio" name="b2" value="(b) 允许用 CLI 自己封禁的名字判断这条路能不能走" checked> <b>(b)</b> 允许用「CLI 自己封禁的名字」判断这条路能不能走（不用于判断宿主身份）</label>
+    <label><input type="radio" name="b2" value="(c) 纪律作废，改按 dshmarket 的做法"> <b>(c)</b> 纪律作废，改按 <code>dshmarket</code> 的做法</label>
+  </div>
+  <p class="why">为什么问：<code>src/host.ts:68</code> 现在把这句话写成注释纪律；B1 选 (b)/(c) 都会碰到它。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (b)。把「用名字判断宿主身份」和「用名字判断 CLI 这条路封没封」分开——(b) 是后者，判据来自 CLI 自己的实现，不是对宿主的猜测。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="B3">
+  <h3>B3 · 路由优先级，以及未来的收敛情形</h3>
+  <p>现在：<code>desktopProfiles</code> 与 <code>pluginManager</code> 同时存在时，谁赢？<br>
+     未来：官方桌面版补发了 <code>desktopProfiles</code>，或第三方 Desktop 补发了 <code>pluginManager</code> —— 规则要不要现在就写死成「先服务、后管理器、再命令行」？</p>
+  <div class="opts">
+    <label><input type="radio" name="b3" value="(a) 现在就写死固定优先级" checked> <b>(a)</b> 现在就写死固定优先级</label>
+    <label><input type="radio" name="b3" value="(b) 按能力探测，谁在就先用谁"> <b>(b)</b> 按能力探测，谁在就先用谁（不写死）</label>
+    <label><input type="radio" name="b3" value="(c) 等真的出现再说，本单不处理"> <b>(c)</b> 等真的出现再说，本单不处理</label>
+  </div>
+  <p class="why">为什么问：不写死，两种宿主形态将来收敛时，走哪条路会变成偶然。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。现在就写死「先 <code>desktopProfiles</code> → 再 <code>pluginManager</code>（且仅在 CLI 封禁的名字上）→ 否则命令行」，将来两种宿主形态收敛时行为可预测。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="B4">
+  <h3>B4 · 管理器从哪来？</h3>
+  <div class="opts">
+    <label><input type="radio" name="b4" value="(a) 包内现取 ctx.get('pluginManager') ＋ 允许调用方覆盖" checked> <b>(a)</b> 包内现取 <code>ctx.get('pluginManager')</code> ＋ 允许调用方覆盖</label>
+    <label><input type="radio" name="b4" value="(b) 只留显式注入，调用方自己交进来"> <b>(b)</b> 只留显式注入，调用方自己交进来</label>
+    <label><input type="radio" name="b4" value="(c) 嵌套注入 ctx.inject(['pluginManager'], …)"> <b>(c)</b> 嵌套注入 <code>ctx.inject(['pluginManager'], …)</code></label>
+  </div>
+  <p class="why">为什么问：这一条决定消费方要不要改代码；票面把「让每个调用方各自适配」列为要消灭的东西。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。官方同进程消费者就是这么取的；消费方升级本包即可，不用各自接线——这正是这张票要消灭的东西。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="B5">
+  <h3>B5 · 命名与用词</h3>
+  <p>两个子问题：<br>
+     1）新取值叫什么？<br>
+     2）「Desktop」这个词要不要拆成三个：第三方 Desktop（发服务的那支）／官方桌面版（进程内管理器那支）／普通 DSH 宿主（命令行那支）？</p>
+  <div class="opts">
+    <label><input type="radio" name="b5" value="desktop-manager；拆词" checked> <b>1)</b> <code>desktop-manager</code>　<b>2)</b> 拆词</label>
+    <label><input type="radio" name="b5" value="host-manager；拆词"> <b>1)</b> <code>host-manager</code>　<b>2)</b> 拆词</label>
+    <label><input type="radio" name="b5" value="official-desktop；拆词"> <b>1)</b> <code>official-desktop</code>　<b>2)</b> 拆词</label>
+    <label><input type="radio" name="b5" value="沿用 desktop 一词，不拆"> <b>1)</b> 其它（写在补充）　<b>2)</b> 不拆，沿用 <code>desktop</code></label>
+  </div>
+  <p class="why">为什么问：<code>src/ports.ts</code> 与 README 里的 "desktop" 现在专指第三方那一支；不拆词，第三个取值会继续加重歧义。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 <code>desktop-manager</code> ＋ 拆词。取值与现有两值对称；三个词（第三方 Desktop / 官方桌面版 / 普通 DSH 宿主）分开写，README 与注释里的 "desktop" 才不再指两件事。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="B6">
+  <h3>B6 · 要不要考虑宿主的 Remote 入口？</h3>
+  <p>官方客户端既提供进程内 <code>pluginManager</code>，也把它暴露成 Remote（Web 侧走 <code>ctx.remote.pluginManager</code>），两条都指向同一个服务。</p>
+  <div class="opts">
+    <label><input type="radio" name="b6" value="(a) 只走进程内（插件本身就跑在宿主进程里）" checked> <b>(a)</b> 只走进程内（插件本身就跑在宿主进程里）</label>
+    <label><input type="radio" name="b6" value="(b) 两条都考虑，将来面板与宿主不同进程时也要能用"> <b>(b)</b> 两条都考虑，面板与宿主不同进程时也要能用</label>
+  </div>
+  <p class="why">为什么问：这决定这条路由是「一个取用口」还是「一层可替换的传输」。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。插件与面板都在宿主进程里，进程内服务是直路；Remote 那条约需要另一套凭据与信封，等真有跨进程需求再加。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<h2>C · 冻结面与契约</h2>
+
+<section class="q" data-q="C1">
+  <h3>C1 · 给 <code>EnvironmentKind</code> / <code>InstallRoute</code> 各加一个取值，算不算「破冰」？</h3>
+  <p class="sub">README §5 的冻结清单写着「动任一条即走破冰讨论」；<code>src/ports.ts:101</code> 写的是「改键改模板即破冰，值按时间可调」——两条口径不一致。</p>
+  <div class="opts">
+    <label><input type="radio" name="c1" value="(a) 算「值可调」，不算破冰（记进 README §5）" checked> <b>(a)</b> 算「值可调」，不算破冰（但要记进 README §5）</label>
+    <label><input type="radio" name="c1" value="(b) 算破冰：本单先只讨论，不动类型"> <b>(b)</b> 算破冰：本单先只讨论，不动类型</label>
+    <label><input type="radio" name="c1" value="(c) 算破冰，本轮讨论即那次破冰，结论入票面后可改"> <b>(c)</b> 算破冰，本轮讨论即那次破冰，结论写进票面后即可改</label>
+  </div>
+  <p class="why">为什么问：这条决定本单能不能动类型定义，也决定这张票是「讨论票」还是「实施票」。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。两个取值都是「值」，<code>src/ports.ts:101</code> 写的正是「值按时间可调」；但要留痕：README §5 记一笔 ＋ 票面记录本轮讨论结论。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="C2">
+  <h3>C2 · 新路由的参数数组怎么表达？</h3>
+  <p>宿主管理器只吃一个 spec 字符串（<code>['add', '&lt;包名&gt;@&lt;精确版本&gt;']</code>），而 <code>pluginArgs</code> 现在的注释是「追加在 <code>plugin --profile &lt;名&gt;</code> 之后的参数数组」——两者不是一回事。</p>
+  <div class="opts">
+    <label><input type="radio" name="c2" value="(a) 放宽注释：pluginArgs 是这条路自己的参数数组" checked> <b>(a)</b> 放宽注释：<code>pluginArgs</code> 解释为「这条路自己的参数数组」</label>
+    <label><input type="radio" name="c2" value="(b) 给配方加第六个键，专放管理器的 spec"> <b>(b)</b> 给配方加第六个键，专放管理器的 spec</label>
+    <label><input type="radio" name="c2" value="(c) 参数照旧拼 pnpm 形状，由适配器翻译"> <b>(c)</b> 参数照旧拼 pnpm 形状，由适配器翻译成 spec</label>
+  </div>
+  <p class="why">为什么问：五键配方是冻结项，「注释里的定义」也算契约的一部分。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。配方五键是冻结项，放宽注释不动键；选 (c) 让适配器翻译，会把政策漏进跑腿层。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="C3">
+  <h3>C3 · 「源」怎么带过去？</h3>
+  <p>官方管理器把 registry 当**选项**（<code>installBundle(spec, { registry })</code>），不是开关。而本包的政策是「一律官方源、不可达即诚实失败，不换源」。</p>
+  <div class="opts">
+    <label><input type="radio" name="c3" value="(a) 不带，走管理器自己的源策略"> <b>(a)</b> 不带，走管理器自己的源策略</label>
+    <label><input type="radio" name="c3" value="(b) 不进配方，用注入的 registryUrl 作为管理器的 registry 选项" checked> <b>(b)</b> 不进配方，把注入的 <code>registryUrl</code> 作为管理器的 <code>registry</code> 选项传入</label>
+    <label><input type="radio" name="c3" value="(c) 配方加第六个键 registry"> <b>(c)</b> 配方加第六个键 <code>registry</code></label>
+  </div>
+  <p class="why">为什么问：这条路上源要么跟着配置走，要么如实说明「这个配置在这条路上不生效」。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (b)。官方源政策在这条路上不丢，又不动配方形状；代价是这条路的源走注入零件而不是配方，我在 <code>src/ports.ts</code> 与 README 里注明。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="C4">
+  <h3>C4 · 对消费方的兼容承诺怎么写？</h3>
+  <p><code>environmentKind</code> 多一个取值之后，调用方若有 <code>switch</code> 或不认这个值，应当怎么表现？</p>
+  <div class="opts">
+    <label><input type="radio" name="c4" value="(a) 约定「不认就按普通宿主处理」，写进 README" checked> <b>(a)</b> 约定「不认就按普通宿主处理」，写进 README</label>
+    <label><input type="radio" name="c4" value="(b) 约定消费方必须显式支持新值"> <b>(b)</b> 约定消费方必须显式支持新值（要求升级）</label>
+  </div>
+  <p class="why">为什么问：ilife / dshmarket 各自都有一层适配，行为不写清就会出现多种解读。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。新增取值属向后兼容；写死「不认就当普通宿主」，消费方不用被迫升级。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="C5">
+  <h3>C5 · 日志事件的值域扩展，要不要同步消费方的门禁？</h3>
+  <p><code>update.install.exec</code> 的 <code>route</code> 字段会多一个取值。</p>
+  <div class="opts">
+    <label><input type="radio" name="c5" value="(a) 直接加：事件字段基线只管字段名，不管值域"> <b>(a)</b> 直接加：事件字段基线只管字段名，不管值域</label>
+    <label><input type="radio" name="c5" value="(b) 同步 event-list.template.json 与消费方事件清单（counts 检查）" checked> <b>(b)</b> 同步 <code>event-list.template.json</code> 与消费方的事件清单（<code>counts</code> 检查）</label>
+    <label><input type="radio" name="c5" value="(c) 换事件名或加字段来区分"> <b>(c)</b> 换事件名或加字段来区分</label>
+  </div>
+  <p class="why">为什么问：消费方仓库有自己的日志门禁（<code>verify-log-count</code> 一类），值域变化可能让那边变红。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (b)。字段名与事件条数都不变，但消费方（ilife、deck）各有一道日志门禁，改完去跑一遍确认不变红；哪边有枚举白名单就同步补上。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="C6">
+  <h3>C6 · 要不要把官方宿主的契约抄一份进本仓？</h3>
+  <p>官方宿主没有 <code>.d.ts</code>，最精确的契约是生成物里的内嵌声明；而本包现在依的契约是第三方 Desktop 的 <code>plugin-services.md</code>。</p>
+  <div class="opts">
+    <label><input type="radio" name="c6" value="(a) 在本仓加一份只读引用文档（写明出处与宿主版本）" checked> <b>(a)</b> 在本仓加一份只读引用文档（写明出处与宿主版本）</label>
+    <label><input type="radio" name="c6" value="(b) 不进仓，只在票面留证据"> <b>(b)</b> 不进仓，只在票面留证据</label>
+  </div>
+  <p class="why">为什么问：这个 bug 的成因之一就是「宿主契约换了、包不知道」；同类问题还会再来一次。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。这次 bug 的成因之一就是「宿主契约换了、包不知道」；留一份写明出处与宿主版本的只读引用文档，下次有据可查。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<h2>D · 安装语义（对抗式）</h2>
+
+<section class="q" data-q="D1">
+  <h3>D1 · 成功怎么判？</h3>
+  <div class="opts">
+    <label><input type="radio" name="d1" value="(a) 三态都算成功（applied / restart-required / overridden）" checked> <b>(a)</b> 三态都算成功：<code>applied</code> / <code>restart-required</code> / <code>overridden</code></label>
+    <label><input type="radio" name="d1" value="(b) 只认 applied"> <b>(b)</b> 只认 <code>applied</code></label>
+    <label><input type="radio" name="d1" value="(c) applied＋restart-required，overridden 单独报给用户"> <b>(c)</b> <code>applied</code> ＋ <code>restart-required</code> 算成功，<code>overridden</code> 单独报给用户</label>
+  </div>
+  <p class="why">为什么问：<code>overridden</code> 的含义是「改动已被保留，只是被别的层盖住」；当失败会让上层回滚一次已经落地的改动。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。<code>overridden</code> 的含义是「改动已被保留、只是被别的层盖住」；把它当失败会让上层回滚一次已经落地的改动。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="D2">
+  <h3>D2 · 管理器的 <code>restart-required</code> 与本包的 <code>pending-restart</code>，是一回事吗？</h3>
+  <p>本包自己按「磁盘版本 ≠ 运行版本」判 <code>pending-restart</code>；管理器按「宿主里有没有 hmr」判 <code>applied</code> / <code>restart-required</code>。两个判据不同源。</p>
+  <div class="opts">
+    <label><input type="radio" name="d2" value="(a) 两套并存：宿主的话只进日志，面板仍按本包的 pending-restart 展示" checked> <b>(a)</b> 两套并存：宿主的话只进日志，面板仍按本包的 <code>pending-restart</code> 展示</label>
+    <label><input type="radio" name="d2" value="(b) 以宿主的话为准，改造本包的判定"> <b>(b)</b> 以宿主的话为准，改造本包的判定</label>
+    <label><input type="radio" name="d2" value="(c) 不一致时按更保守的那个（都当需要重启）"> <b>(c)</b> 不一致时按更保守的那个（都当需要重启）</label>
+  </div>
+  <p class="why">为什么问：判据不同源，用户可能同时看到「宿主说装好了」和「本包说待重启」两句互相矛盾的话。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。面向用户的状态仍由本包自己的磁盘判据决定（八种 <code>blockedReason</code> 与面板文案都建在它上面）；宿主的 <code>application</code> 进日志与事件，不当第二套真相。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="D3">
+  <h3>D3 · 失败原话要不要回给调用方/面板？</h3>
+  <div class="opts">
+    <label><input type="radio" name="d3" value="(a) 只留在日志与执行器内部（不动电话回包形状）" checked> <b>(a)</b> 只留在日志与执行器内部（不动电话回包形状）</label>
+    <label><input type="radio" name="d3" value="(b) 回包带详情（要动冻结的入参回参形状）"> <b>(b)</b> 回包带详情（要动冻结的「入参回参形状」）</label>
+  </div>
+  <p class="why">为什么问：票面验收写着「不得是一条不可诊断的死码」，但回包形状是冻结项——两者的取舍要你定。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。本单不动回包形状；宿主原话挂在执行器抛出的错与日志上。要让面板直接看到详情，另开一单走破冰。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="D4">
+  <h3>D4 · 失败原话的脱敏做到什么程度？</h3>
+  <p><code>error.diagnostic</code> 通常是 pnpm 的输出，可能含路径、registry、令牌。</p>
+  <div class="opts">
+    <label><input type="radio" name="d4" value="(a) 原样转达"> <b>(a)</b> 原样转达</label>
+    <label><input type="radio" name="d4" value="(b) 截断＋去掉绝对路径" checked> <b>(b)</b> 截断（例如前 300 字）＋ 去掉绝对路径</label>
+    <label><input type="radio" name="d4" value="(c) 只转达 error.code，正文一律不转"> <b>(c)</b> 只转达 <code>error.code</code>，正文一律不转</label>
+  </div>
+  <p class="why">为什么问：本包有「日志里不记命令与路径原文」的纪律；回给面板的字符串是另一条出口，纪律管不管它，要你定。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (b)。与日志纪律同一精神：截断（约 300 字）＋ 去掉绝对路径；<code>error.code</code> 原样保留。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="D5">
+  <h3>D5 · 时限：<code>installTimeoutMs</code> 在这条路上要不要自己计时？</h3>
+  <p>管理器自己有 10 分钟静默超时与 120 秒写锁等待，没有整体墙钟；配方里的安装时限默认 15 分钟。</p>
+  <div class="opts">
+    <label><input type="radio" name="d5" value="(a) 自己计时" checked> <b>(a)</b> 自己计时</label>
+    <label><input type="radio" name="d5" value="(b) 不自己计时，以宿主界限为准（文档写明）"> <b>(b)</b> 不自己计时，以宿主界限为准（文档写明）</label>
+  </div>
+  <p class="why">为什么问：不写清，这个配置项在这条路上就是「静默失效」。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。对齐老路由「超时即终止」的语义，也让这个配置项在这条路上不静默失效。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="D6">
+  <h3>D6 · 取消：超时或用户取消时调 <code>cancelInstall(requestId)</code> 吗？</h3>
+  <p>它返回 <code>{status:'cancelled'|'too-late'|'not-running'}</code>；<code>cancelled</code> 会等托管进程退出并把 <code>package.json</code> / <code>pnpm-lock.yaml</code> 还原，<code>too-late</code> 表示已经进入应用阶段、改不动了。</p>
+  <div class="opts">
+    <label><input type="radio" name="d6" value="(a) 调；cancelled 算失败，too-late 等它自己结束再按 application 判" checked> <b>(a)</b> 调；<code>cancelled</code> 算失败，<code>too-late</code> 等它自己结束再按 <code>application</code> 判</label>
+    <label><input type="radio" name="d6" value="(b) 不调，等它自己结束"> <b>(b)</b> 不调，等它自己结束</label>
+    <label><input type="radio" name="d6" value="(c) 调；too-late 直接算失败"> <b>(c)</b> 调；<code>too-late</code> 直接算失败</label>
+  </div>
+  <p class="why">为什么问：取消会还原两个文件，不取消则可能留下半个改动——这与本包自己的 job / <code>before.json</code> 收尾是同一件事的两面。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。取消会等进程退出并把两个文件还原，不会留半个改动；<code>too-late</code> 说明已进入应用阶段，等它自己结束再按 <code>application</code> 判最诚实。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="D7">
+  <h3>D7 · <code>enabled</code> 选不选？</h3>
+  <p><code>installBundle</code> 默认 <code>enabled: true</code>＝装完即选为 bundle 层；官方 Web 插件页传的是 <code>false</code>，两个进程内参照实现都不传。</p>
+  <div class="opts">
+    <label><input type="radio" name="d7" value="(a) 不传（默认 true）" checked> <b>(a)</b> 不传（默认 <code>true</code>）</label>
+    <label><input type="radio" name="d7" value="(b) 传 false（装上了但不启用）"> <b>(b)</b> 传 <code>false</code>（装上了但不启用）</label>
+  </div>
+  <p class="why">为什么问：两种语义不同，且决定更新之后插件是不是立刻生效。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。两条进程内参照实现都不传；官方 Web 页传 <code>false</code> 是因为它的语义是「先在清单里出现，再由用户启用」，与「更新」不同。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="D8">
+  <h3>D8 · 管理器自己会在多个 registry 之间轮询，与「不换源」冲突吗？</h3>
+  <div class="opts">
+    <label><input type="radio" name="d8" value="(a) 接受宿主的轮询（宿主的源策略优先）" checked> <b>(a)</b> 接受宿主的轮询（宿主的源策略优先）</label>
+    <label><input type="radio" name="d8" value="(b) 限制成一个源"> <b>(b)</b> 限制成一个源</label>
+  </div>
+  <p class="why">为什么问：同一个包里两条源政策，会让「装不上」的原因变得不可预测。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。这条路上宿主拥有安装，源策略归它；在 README 写明「这条路由不强制官方源」。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="D9">
+  <h3>D9 · 构建脚本被拦（<code>pendingBuilds</code>）算哪种结果？</h3>
+  <p>pnpm 11 会拦构建脚本，管理器返回 <code>pendingBuilds</code>——即「包装上了但脚本没跑」。</p>
+  <div class="opts">
+    <label><input type="radio" name="d9" value="(a) 转达给用户，算「装上了但有未完成的构建」"> <b>(a)</b> 转达给用户，算「装上了但有未完成的构建」</label>
+    <label><input type="radio" name="d9" value="(b) 当失败处理"> <b>(b)</b> 当失败处理</label>
+    <label><input type="radio" name="d9" value="(c) 忽略（当前不处理）" checked> <b>(c)</b> 忽略（当前不处理）</label>
+  </div>
+  <p class="why">为什么问：这是第三种半成品状态，现有八种 <code>blockedReason</code> 里没有对应项。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (c)。本单只把它记进日志，不新增对外状态——对外状态与 D3 的冻结面是同一件事，另开一单做。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<h2>E · 并发与状态（对抗式）</h2>
+
+<section class="q" data-q="E1">
+  <h3>E1 · 同进程内并发：锁的语义变了，靠谁？</h3>
+  <p>老路由是跨进程子进程，本包的 <code>install.lock</code> 有效；新路由是进程内调用。</p>
+  <div class="opts">
+    <label><input type="radio" name="e1" value="(a) 仍靠本包的 install.lock，宿主管理器内部如何互斥不管" checked> <b>(a)</b> 仍靠本包的 <code>install.lock</code>，宿主管理器内部如何互斥不管</label>
+    <label><input type="radio" name="e1" value="(b) 先探测宿主忙闲，再决定要不要发起"> <b>(b)</b> 先探测宿主忙闲（例如管理器自己的进行中状态），再决定要不要发起</label>
+    <label><input type="radio" name="e1" value="(c) 两层都做"> <b>(c)</b> 两层都做</label>
+  </div>
+  <p class="why">为什么问：两个插件（比如 ilife 与另一家）在同一个宿主里同时点安装时，期望行为是什么，现在没有约定。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。保持现状：本包的锁负责「同一个插件不重复发起」，宿主自己的写锁负责排队；把「不同插件并发会排队、超时即诚实失败」写进文档，发现真实损坏再另开单。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="E2">
+  <h3>E2 · 取消/超时之后，本包自己的 job 与 <code>before.json</code> 怎么收尾？</h3>
+  <p>本包有 job 状态与「半截任务」（<code>recovery-required</code>）这条原因。</p>
+  <div class="opts">
+    <label><input type="radio" name="e2" value="(a) 一律按现有失败路径收尾，不动" checked> <b>(a)</b> 一律按现有失败路径收尾，不动</label>
+    <label><input type="radio" name="e2" value="(b) 新路由下场要另加一种「已被宿主还原」的状态"> <b>(b)</b> 新路由下场要另加一种「已被宿主还原」的状态</label>
+  </div>
+  <p class="why">为什么问：宿主的取消会自己还原两个文件，本包的回滚记录可能与它重复或冲突。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。宿主的还原与本包的记录互不冲突，先不新增状态；等真出现不一致再谈。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="E3">
+  <h3>E3 · 宿主自己的安装入口也在动同一个 profile，怎么处理？</h3>
+  <p>用户可以同时在「设置 → 插件」或 Web 插件页点安装。</p>
+  <div class="opts">
+    <label><input type="radio" name="e3" value="(a) 包不处理，撞上就诚实失败" checked> <b>(a)</b> 包不处理，撞上就诚实失败</label>
+    <label><input type="radio" name="e3" value="(b) 发起前先探测宿主忙闲"> <b>(b)</b> 发起前先探测宿主忙闲</label>
+  </div>
+  <p class="why">为什么问：两条入口同时改一个 profile，最终状态谁说了算，现在没有约定。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。撞上就诚实失败，先不做忙闲探测——宿主自己的写锁已经在兜底。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="E4">
+  <h3>E4 · 装完之后拿什么校验成功？</h3>
+  <div class="opts">
+    <label><input type="radio" name="e4" value="(a) 只看磁盘版本号（现状）" checked> <b>(a)</b> 只看磁盘版本号（现状）</label>
+    <label><input type="radio" name="e4" value="(b) 加看管理器返回的 changed / bundle"> <b>(b)</b> 加看管理器返回的 <code>changed</code> / <code>bundle</code></label>
+  </div>
+  <p class="why">为什么问：管理器返回 <code>changed:false</code> 但磁盘版本已经对上时，算不算成功，需要一个口径。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。本包的判据是磁盘版本（面板文案都建在它上面）；<code>changed</code> / <code>bundle</code> 进日志当旁证。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<h2>F · 交付与交接</h2>
+
+<section class="q" data-q="F1">
+  <h3>F1 · 本单的边界包含哪些？（可多选）</h3>
+  <div class="opts">
+    <label><input type="checkbox" name="f1" value="路由＋测试＋文档" checked> <b>(a)</b> 路由 ＋ 测试 ＋ 文档</label>
+    <label><input type="checkbox" name="f1" value="加上失败可诊断（D3）" checked> <b>(b)</b> 加上「失败可诊断」（D3）</label>
+    <label><input type="checkbox" name="f1" value="加上 manual 命令形态调整（A5）"> <b>(c)</b> 加上 <code>manual</code> 命令形态调整（A5 的结论）</label>
+    <label><input type="checkbox" name="f1" value="加上 remove（管理器也有 removeBundle）"> <b>(d)</b> 加上 <code>remove</code> 支持（管理器也有 <code>removeBundle</code>）</label>
+  </div>
+  <p class="why">为什么问：边界不定，工作量差一倍以上。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：勾 (a)、(b)。(c) 等 A5 的结论：若那条手工命令在官方桌面端确实不可执行，就把 <code>manual</code> 的形态调整并进来；(d) <code>remove</code> 另开一单。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="F2">
+  <h3>F2 · 消费方（ilife）已经自己接了一版管理器路由，怎么收口？</h3>
+  <p>它现在挡在新路由前面：两处各一份路由，就是仓库纪律里说的「概念不唯一」。</p>
+  <div class="opts">
+    <label><input type="radio" name="f2" value="(a) 顺序：本包发版 → ilife 升级 → 删掉各自那份兜底" checked> <b>(a)</b> 顺序：本包发版 → ilife 升级 → 删掉各自那份兜底</label>
+    <label><input type="radio" name="f2" value="(b) 各留各的，短期并存"> <b>(b)</b> 各留各的，短期并存</label>
+    <label><input type="radio" name="f2" value="(c) 本包不补，长期由消费方各自适配"> <b>(c)</b> 本包不补，长期由消费方各自适配（与票面结论相反）</label>
+  </div>
+  <p class="why">为什么问：这一条决定这次修复是「上游收口」还是「继续各自为政」。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：选 (a)。上游收口才符合「概念唯一」；顺序：本包发版 → ilife 升级 → 删掉各自那份兜底，并留一条注释说明为什么删。</p>
+  <input class="note" placeholder="补充（可留空）">
+</section>
+
+<section class="q" data-q="F3">
+  <h3>F3 · 发版：本包这次修复要不要发版、谁执行？</h3>
+  <p>当前版本 <code>0.1.1</code>；不发版，消费方就升不上来，真机验收也无从谈起。</p>
+  
+  <p class="rec"><b>➡️ 我的推荐</b>：版本走 <code>0.1.2</code>（纯修复，无破坏性契约变化）。发布动作要人来按：<code>node build.mjs</code> ＋ <code>npm publish</code>（交互窗口按回车 ＋ 浏览器 2FA）——我负责把 build、dry-run 与全量门禁跑到全绿再交给你按那一下。</p>
+  <textarea class="free" placeholder="版本号怎么走、谁发布（npm 发布需要交互窗口按回车 ＋ 浏览器 2FA）"></textarea>
+  <p class="why">为什么问：发版动作不在本仓的自动化范围内，需要人配合；不先定，修完也只能停在本地。</p>
+</section>
+
+<h2>生成我的回答</h2>
+<p class="sub">选完选项（开放题直接写），点按钮生成一段可复制的文字。</p>
+<p>
+  <button class="primary" onclick="buildSummary()">生成我的回答</button>
+  <button onclick="copySummary()">复制</button>
+  <span id="copyHint" class="sub"></span>
+</p>
+<textarea id="summary" placeholder="（点「生成我的回答」后出现在这里）"></textarea>
+
+<footer>
+  这份清单由「第一性 ＋ 对抗式审查」两遍过筛：先立三个根问题（责任边界 / 修好的判据 / 兼容的判据），再顺着它们把判定、契约、语义、并发、交付各层的分支摆出来，最后用对抗视角补上「判据不同源」「脱敏」「锁的语义变了」「半成品状态」这几类容易被漏掉的格子。<br>
+  行号与成因依据来自本仓 <code>234f5fa</code> 的 <code>src/</code> 与 <code>README.md</code>，以及一次对 <code>app.asar</code> 的只读取证。2026-09-30。
+</footer>
+
+<script>
+function answerOf(sec) {
+  var picked = sec.querySelector('input[type=radio]:not([name=a5b]):checked, input[type=checkbox]:checked');
+  var boxes = sec.querySelectorAll('input[type=checkbox]:checked');
+  var text = sec.querySelector('textarea.free, input.note');
+  var ans;
+  if (boxes.length > 1) {
+    ans = Array.prototype.map.call(boxes, function (b) { return b.value; }).join('；');
+  } else if (picked) {
+    ans = picked.value;
+  } else if (text && text.value.trim()) {
+    ans = text.value.trim();
+  } else {
+    ans = '（未答）';
+  }
+  if (picked && text && text.value.trim()) ans += ' —— 补充：' + text.value.trim();
+  var extra = sec.querySelector('input[name=a5b]:checked');
+  if (extra) ans += extra.value;
+  return ans;
+}
+function buildSummary() {
+  var out = [];
+  document.querySelectorAll('section.q').forEach(function (sec) {
+    out.push(sec.dataset.q + '：' + answerOf(sec));
+  });
+  document.getElementById('summary').value = out.join('\n');
+}
+function copySummary() {
+  var box = document.getElementById('summary');
+  if (!box.value.trim()) buildSummary();
+  box.select();
+  var hint = document.getElementById('copyHint');
+  function done() { hint.textContent = '已复制'; }
+  try {
+    navigator.clipboard.writeText(box.value).then(done, function () { document.execCommand('copy'); done(); });
+  } catch (e) { document.execCommand('copy'); done(); }
+}
+</script>
+</body>
+</html>

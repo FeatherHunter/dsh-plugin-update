@@ -27,6 +27,7 @@ const UNITS = [
   { ts: 'store.ts', js: 'store.js' },
   { ts: 'reader.ts', js: 'reader.js' },
   { ts: 'gate.ts', js: 'gate.js' },
+  { ts: 'queue.ts', js: 'queue.js' },
   { ts: 'host.ts', js: 'host.js' },
   { ts: 'client.ts', js: 'client.js' },
 ]

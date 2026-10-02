@@ -21,7 +21,9 @@ import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, open, readFile, rename, realpath, stat, unlink, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { installRecipe } from './commands.js'
-import { BACKUP_FILE, LEGACY_PLUGIN_ID, LOCK_FILE, STATE_FILE } from './config.js'
+import { BACKUP_FILE, LEGACY_PLUGIN_ID, LOCK_FILE, SKIPPED_FILE, STATE_FILE } from './config.js'
+import { normalizeQueueState, type UpdateQueueState } from './queue.js'
+import { validReleaseVersion } from './service.js'
 import type { EnvironmentKind, InstallRecipe, UpdateJob } from './ports.js'
 
 // 永久冻结的旧字面（规格 #591 第 14 条）：默认旧路径原文加三固定名永久冻结，永不删除。
@@ -230,6 +232,270 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
     })
   }
   return { paths, legacyPaths, readJob, writeJob, tryAcquireLock, releaseLock, backupJob }
+}
+
+/** 跨插件队列的共享落盘（#15，新增强制串行的归属与持久化，不碰按插件隔离的旧树）。
+ *
+ * 归属：按使用范围共享——同一 (homeDir, profileDir) 的全部插件共用同一目录，
+ * 不同使用范围各用各的、可并行。父目录取 `update-queue`（与 `updates` 平级），
+ * 任何插件标识都撞不上（插件标识只能决定 `updates` 下的子目录名）。
+ * 文件：`queue.json`（owner + waiting，快照式整写），`global.lock`（执行互斥，
+ * 抢到才许装，一次只装一个）。
+ */
+export const QUEUE_DIR_SEGMENT = 'update-queue'
+export const QUEUE_FILE = 'queue.json'
+export const QUEUE_LOCK_FILE = 'global.lock'
+/** 全局锁陈旧回收默认口径：15 分钟（与安装时限同口径，调用方可按注入覆盖）。 */
+export const QUEUE_LOCK_STALE_MS = 15 * 60_000
+
+export interface UpdateQueuePaths {
+  directory: string
+  file: string
+  lock: string
+}
+
+/**
+ * 队列共享目录：家目录下按使用范围短指纹派生（短指纹算法与按插件隔离的旧树同一套，
+ * 只做同一性判断，不记原文）。入参非法返回 null，调用方按“无队列可用”放行安装，
+ * 绝不因队列自身故障挡住更新。
+ */
+export function queuePathsForUpdate(homeDir: string, profileDir: string): UpdateQueuePaths | null {
+  if (typeof homeDir !== 'string' || !homeDir || typeof profileDir !== 'string' || !profileDir) return null
+  const directory = join(homeDir, QUEUE_DIR_SEGMENT, shortHash(profileDir))
+  return { directory, file: join(directory, QUEUE_FILE), lock: join(directory, QUEUE_LOCK_FILE) }
+}
+
+export interface QueuePortsDeps {
+  readFileImpl?: (filename: string, encoding: string) => Promise<string>
+  statImpl?: (filename: string) => Promise<{ size: number }>
+  nowImpl?: () => number
+}
+
+function queueFail(): Error & { code: string } {
+  // 队列自身的错不用 install-failed（那是安装失败的码）：队列坏了只影响可见性与公平
+  // 提示，不改变安装成败的归类，调用方（host.ts）一律 best-effort 吞掉。
+  return Object.assign(new Error('queue-unavailable'), { code: 'queue-unavailable' })
+}
+
+/**
+ * 建跨插件队列存取与全局锁：调用方按当前使用范围建一份（与插件标识无关），转交宿主入口组合进安装锁。
+ * 读走单读（队列文件只此一份，没有旧影子）；写原子整写；锁走独占建文件，过期可回收一次。
+ */
+export function createUpdateQueuePorts(
+  homeDir: string,
+  profileDir: string,
+  deps: QueuePortsDeps = {}
+): {
+  paths: UpdateQueuePaths | null
+  readQueue: () => Promise<UpdateQueueState>
+  writeQueue: (state: UpdateQueueState) => Promise<void>
+  tryAcquireGlobalLock: (lockId: string, pluginId: string, opts?: { timeoutMs?: number }) => Promise<boolean>
+  releaseGlobalLock: (lockId: string) => Promise<void>
+} {
+  const paths = queuePathsForUpdate(homeDir, profileDir)
+  const readText = deps.readFileImpl ?? ((filename: string, encoding: string) => readFile(filename, encoding))
+  const statFile = deps.statImpl ?? ((filename: string) => stat(filename))
+  const now = deps.nowImpl ?? Date.now
+  async function readQueue(): Promise<UpdateQueueState> {
+    if (!paths) throw queueFail()
+    try {
+      if ((await statFile(paths.file)).size > 10 * 1024 * 1024) throw queueFail()
+      return normalizeQueueState(JSON.parse(await readText(paths.file, 'utf8')))
+    } catch (error) {
+      if (error && (error as { code?: string }).code === 'ENOENT') {
+        return normalizeQueueState(null)
+      }
+      throw error && (error as { code?: string }).code ? error : queueFail()
+    }
+  }
+  async function writeQueue(state: UpdateQueueState): Promise<void> {
+    if (!paths) throw queueFail()
+    try {
+      await mkdir(paths.directory, { recursive: true, mode: 0o700 })
+      const temporary = `${paths.file}.${randomUUID()}.tmp`
+      try {
+        await writeFile(temporary, `${JSON.stringify(normalizeQueueState(state), null, 2)}\n`, { mode: 0o600, flag: 'wx' })
+        await rename(temporary, paths.file)
+      } catch {
+        throw queueFail()
+      } finally {
+        await unlink(temporary).catch(() => {})
+      }
+    } catch (error) {
+      throw error && (error as { code?: string }).code ? error : queueFail()
+    }
+  }
+  async function readLockRaw(): Promise<Record<string, unknown> | null> {
+    if (!paths) return null
+    try {
+      if ((await statFile(paths.lock)).size > 1024 * 1024) return null
+      return JSON.parse(await readText(paths.lock, 'utf8')) as Record<string, unknown>
+    } catch {
+      return null
+    }
+  }
+  async function tryAcquireGlobalLock(lockId: string, pluginId: string, opts: { timeoutMs?: number } = {}): Promise<boolean> {
+    if (!paths) return false
+    if (typeof lockId !== 'string' || !lockId || typeof pluginId !== 'string' || !pluginId) return false
+    const timeoutMs =
+      typeof opts.timeoutMs === 'number' && Number.isFinite(opts.timeoutMs) && opts.timeoutMs > 0
+        ? opts.timeoutMs
+        : QUEUE_LOCK_STALE_MS
+    try {
+      await mkdir(paths.directory, { recursive: true, mode: 0o700 })
+      const handle = await open(paths.lock, 'wx', 0o600)
+      try {
+        await handle.writeFile(JSON.stringify({ id: lockId, pluginId, pid: process.pid, startedAt: now() }))
+      } finally {
+        await handle.close()
+      }
+      return true
+    } catch (error) {
+      if (!error || (error as { code?: string }).code !== 'EEXIST') return false
+      // 占着：看是不是陈旧（持有者早该收尾却没放），陈旧才回收一次，不陈旧直接认输。
+      try {
+        const current = await readLockRaw()
+        const startedAt = current && typeof current['startedAt'] === 'number' ? (current['startedAt'] as number) : 0
+        if (!current || now() - startedAt < timeoutMs) return false
+        await unlink(paths.lock).catch(() => {})
+        const handle = await open(paths.lock, 'wx', 0o600)
+        try {
+          await handle.writeFile(JSON.stringify({ id: lockId, pluginId, pid: process.pid, startedAt: now() }))
+        } finally {
+          await handle.close()
+        }
+        return true
+      } catch {
+        return false
+      }
+    }
+  }
+  async function releaseGlobalLock(lockId: string): Promise<void> {
+    if (!paths) return
+    try {
+      const current = await readLockRaw()
+      if (current && (current as { id?: unknown }).id === lockId) await unlink(paths.lock).catch(() => {})
+    } catch {}
+  }
+  return { paths, readQueue, writeQueue, tryAcquireGlobalLock, releaseGlobalLock }
+}
+
+/** 按插件 + 版本持久化的跳过记录（#16，与三冻结落盘名并存的第四文件，不碰旧树）。
+ *
+ * 键：跳过只按「插件标识 + 版本」记——目录已按插件标识隔离（pathsForUpdate），
+ * 文件内只记版本集合。新版本恒重新提醒（跳过是 dismissal 不是全局静音）。
+ * 重置入口（第一性原理结论，见 #16）：已跳过版本留在同一更新横幅行展示为
+ * 「已跳过 X.Y.Z · 恢复」，点恢复即清掉该版本的跳过并重查；不藏进设置页。
+ * 文件：`skipped.json`（`{ skipped: [{ version, skippedAt }] }`，快照式整写，上限 50 条）。
+ */
+export interface SkippedVersionEntry {
+  version: string
+  skippedAt: number
+}
+
+/** 跳过文件上限：只留最近 50 条，避免无界增长（老条目自然淘汰）。 */
+export const MAX_SKIPPED_ENTRIES = 50
+
+/** 跳过展示键：面板行展示与去重用（`插件标识@版本`）。 */
+export function skipKey(pluginId: string, version: string): string {
+  return `${String(pluginId)}@${String(version)}`
+}
+
+/** 跳过记录归一化：只收发行合法版（stable + 预发布），非法条目丢弃（自愈不抛错）。 */
+export function normalizeSkipped(raw: unknown): SkippedVersionEntry[] {
+  if (!raw || typeof raw !== 'object') return []
+  const list = (raw as { skipped?: unknown }).skipped
+  if (!Array.isArray(list)) return []
+  const seen = new Set<string>()
+  const out: SkippedVersionEntry[] = []
+  for (const item of list) {
+    if (!item || typeof item !== 'object') continue
+    const version = (item as { version?: unknown }).version
+    const skippedAt = (item as { skippedAt?: unknown }).skippedAt
+    if (!validReleaseVersion(version) || seen.has(version as string)) continue
+    seen.add(version as string)
+    out.push({ version: version as string, skippedAt: typeof skippedAt === 'number' && Number.isFinite(skippedAt) ? skippedAt : 0 })
+  }
+  return out.slice(0, MAX_SKIPPED_ENTRIES)
+}
+
+/** 该版本是否已被跳过（版本须发行合法，否则为 false）。 */
+export function isVersionSkipped(skipped: readonly SkippedVersionEntry[] | unknown, version: unknown): boolean {
+  if (!validReleaseVersion(version)) return false
+  return normalizeSkipped({ skipped }).some((entry) => entry.version === version)
+}
+
+/** 记一次跳过：同版本幂等（刷新 skippedAt），新版本追加并按上限裁剪。 */
+export function addSkipped(skipped: readonly SkippedVersionEntry[] | unknown, version: string, now: number): SkippedVersionEntry[] {
+  if (!validReleaseVersion(version)) throw fail('install-failed')
+  const at = typeof now === 'number' && Number.isFinite(now) ? now : Date.now()
+  const rest = normalizeSkipped({ skipped }).filter((entry) => entry.version !== version)
+  return [{ version, skippedAt: at }, ...rest].slice(0, MAX_SKIPPED_ENTRIES)
+}
+
+/** 重置跳过：给了版本只清该版本（面板「恢复」走这条），不给清全部。 */
+export function clearSkipped(skipped: readonly SkippedVersionEntry[] | unknown, version?: string): SkippedVersionEntry[] {
+  const base = normalizeSkipped({ skipped })
+  if (version === undefined) return []
+  return base.filter((entry) => entry.version !== version)
+}
+
+export interface SkipPortsDeps {
+  readFileImpl?: (filename: string, encoding: string) => Promise<string>
+  statImpl?: (filename: string) => Promise<{ size: number }>
+}
+
+/**
+ * 建跳过存取：调用方按当前插件标识建一份（目录与任务落盘同一套，无旧影子）。
+ * 读坏自愈为空（缺文件、超大、JSON 坏掉都回 []，绝不因跳过文件挡住更新）；
+ * 写走原子整写。
+ */
+export function createSkipDiskPorts(
+  homeDir: string,
+  pluginId: string,
+  profileDir: string,
+  deps: SkipPortsDeps = {}
+): {
+  file: string | null
+  readSkipped: () => Promise<SkippedVersionEntry[]>
+  writeSkipped: (skipped: readonly SkippedVersionEntry[] | unknown) => Promise<void>
+  clearSkippedVersion: (version?: string) => Promise<SkippedVersionEntry[]>
+} {
+  const paths = pathsForUpdate(homeDir, pluginId, profileDir)
+  const file = paths ? join(paths.directory, SKIPPED_FILE) : null
+  const readText = deps.readFileImpl ?? ((filename: string, encoding: string) => readFile(filename, encoding))
+  const statFile = deps.statImpl ?? ((filename: string) => stat(filename))
+  async function readSkipped(): Promise<SkippedVersionEntry[]> {
+    if (!file) return []
+    try {
+      if ((await statFile(file)).size > 64 * 1024) return []
+      return normalizeSkipped(JSON.parse(await readText(file, 'utf8')))
+    } catch {
+      // 自愈为空：缺文件、超大、JSON 坏掉、读失败都回 []，
+      // 绝不因跳过文件挡住更新；下次写时整体覆盖。
+      return []
+    }
+  }
+  async function writeSkipped(skipped: readonly SkippedVersionEntry[] | unknown): Promise<void> {
+    if (!file || !paths) throw fail('install-failed')
+    const normalized = normalizeSkipped({ skipped })
+    await mkdir(paths.directory, { recursive: true, mode: 0o700 })
+    const temporary = `${file}.${randomUUID()}.tmp`
+    try {
+      await writeFile(temporary, `${JSON.stringify({ skipped: normalized }, null, 2)}\n`, { mode: 0o600, flag: 'wx' })
+      await rename(temporary, file)
+    } catch {
+      throw fail('install-failed')
+    } finally {
+      await unlink(temporary).catch(() => {})
+    }
+  }
+  async function clearSkippedVersion(version?: string): Promise<SkippedVersionEntry[]> {
+    const next = clearSkipped(await readSkipped(), version)
+    await writeSkipped(next)
+    return next
+  }
+  return { file, readSkipped, writeSkipped, clearSkippedVersion }
 }
 
 /** 运行入口要反查的 CLI 包名（入口必须来自正在运行的这份 CLI）。 */

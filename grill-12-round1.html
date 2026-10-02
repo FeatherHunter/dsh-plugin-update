@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#12 Grill 第一轮 — 开放给其他插件的最优雅形式选型</title>
+<style>
+  :root { --fg:#1a1a1a; --muted:#666; --line:#e5e5e5; --bg:#fff; --card:#fafafa; --accent:#0b6e4f; --warn:#8a5a00; }
+  body { font-family: "PingFang SC","Microsoft YaHei",system-ui,sans-serif; color:var(--fg); background:var(--bg); line-height:1.7; margin:0; padding:32px 20px; }
+  .wrap { max-width:960px; margin:0 auto; }
+  h1 { font-size:24px; margin:0 0 8px; }
+  .sub { color:var(--muted); font-size:14px; margin-bottom:24px; }
+  .toc { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin-bottom:28px; }
+  .toc a { color:var(--accent); text-decoration:none; }
+  section.q { border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin-bottom:24px; }
+  section.q h2 { font-size:19px; margin:0 0 6px; }
+  .tag { display:inline-block; font-size:12px; border:1px solid var(--line); border-radius:999px; padding:2px 10px; color:var(--muted); margin-right:6px; }
+  h3 { font-size:15px; margin:22px 0 8px; border-left:4px solid var(--accent); padding-left:10px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; margin:10px 0; }
+  th,td { border:1px solid var(--line); padding:8px 10px; vertical-align:top; text-align:left; }
+  th { background:#f2f2f2; }
+  .rec { background:#eef7f2; border:1px solid #bfe0d1; border-radius:8px; padding:12px 14px; margin:10px 0; }
+  .adv { background:#fff8e6; border:1px solid #ecd9a0; border-radius:8px; padding:12px 14px; margin:10px 0; }
+  .first { background:#eef2ff; border:1px solid #c3cff5; border-radius:8px; padding:12px 14px; margin:10px 0; }
+  .meta { font-size:13px; color:var(--muted); }
+  code { background:#f4f4f4; padding:1px 6px; border-radius:4px; font-size:13px; }
+  footer { color:var(--muted); font-size:13px; margin-top:28px; border-top:1px solid var(--line); padding-top:14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>#12 Grill 第一轮 — 开放给其他插件的最优雅形式选型</h1>
+<div class="sub">票：<code>FeatherHunter/dsh-plugin-update#12</code> ｜ 父地图：<code>#10 更新系统升级</code> ｜ 阻塞下游：<code>#13 / #14 / #15 / #16</code> ｜ 本轮：frontier 四问（彼此独立，可一次全答）｜ 状态：<b>讨论中，未落盘</b>（等你确认结论再写 issue 正文）</div>
+
+<div class="toc">
+<b>目录</b>
+<ol>
+<li><a href="#q1">Q1 — “最优雅”的验收线</a> <span class="tag">目标</span><span class="tag">决策</span></li>
+<li><a href="#q2">Q2 — 现成面板组件的技术形态</a> <span class="tag">边界</span><span class="tag">选项权衡</span></li>
+<li><a href="#q3">Q3 — 三件套的边界</a> <span class="tag">边界</span><span class="tag">风险</span></li>
+<li><a href="#q4">Q4 — #12 要定多深</a> <span class="tag">风险</span><span class="tag">决策</span></li>
+<li><a href="#next">下一轮预告 &amp; 五要素覆盖表</a></li>
+</ol>
+</div>
+
+<section class="q" id="q1">
+<h2>❓ Q1 — “最优雅”的验收线：接入行数 + BUG 消化范围</h2>
+<div><span class="tag">目标</span><span class="tag">决策</span></div>
+
+<h3>问题</h3>
+<p>“接入行数越少越好、未来更新相关 BUG 都由本包消化” — 少到什么程度才算达标？BUG 消化包到哪里？候选：<b>A</b> 宿主侧 5 行内 + 面板侧 1 个组件标签即跑，轮询 / 重试 / 错误文案 / 跳过 / 队列可见性全由组件内部消化，消费者只传 <code>prefix</code>；<b>B</b> 宿主侧现状行数即可，面板侧给 hook + 示例代码，消费者自己拼 UI；<b>C</b> 你另给一条数字线。若选 A，“未来 BUG 都由本包消化”是否包括面板样式跟随 DSH 主题变、文案中文化、无障碍也归本包？</p>
+
+<h3>背景</h3>
+<ul>
+<li>票面约束：消费者就是 DSH 插件；输出已点名 <code>createHostUpdate</code> + 派生文件 + 现成面板组件，组件内部消化轮询 / 队列 / 跳过 / 错误文案。</li>
+<li>地图 #10 偏好：接入行数越少越好；后台 / 队列 / 跳过行为已定方向，细节留白。</li>
+<li>仓库现状：宿主侧 <code>createHostUpdate</code> 已是几行接入；面板侧现状只有最小形状（<code>derive-client-values.mjs</code> + <code>CLIENT_POLL</code> + <code>manualCommand</code>），<code>src/client.ts:1-17</code> 明写“面板界面不进包”。所以“优雅”的差距全在面板侧。</li>
+<li>为什么现在问：验收线不定，后面“组件边界”“行数清单”（#13 输出之一）无法验收；且 BUG 范围不定会导致“样式 BUG 算谁的”这种扯皮。</li>
+</ul>
+
+<h3>我的推荐答案</h3>
+<div class="rec">➡️ 推荐 <b>A，但样式跟随主题先排除在验收线外</b>：只收逻辑 + 文案 + 状态机，样式只给最小可用默认。验收线写成可数数字：宿主侧 ≤5 行、面板侧 ≤3 行（导组件 + 传 prefix + 挂载），#13 用真实二家插件数行数。</div>
+
+<h3>每个答案的优点和缺点</h3>
+<table>
+<tr><th>选项</th><th>优点</th><th>缺点 / 风险</th></tr>
+<tr><td><b>A：整组件即跑</b></td><td>行数最少，心智负担最低；轮询 / 队列 / 跳过 / 文案的 BUG 真正收敛到本包，符合“未来 BUG 都由本包消化”；#13 可数行数验收。</td><td>本包要承担 UI 状态机 + 文案 + 兼容性全部责任；样式一旦承诺跟随主题，DSH 主题一变就得发版；组件 API 设计失误会锁死后面 #14–#16。</td></tr>
+<tr><td><b>B：hook + 示例</b></td><td>本包责任最小，不碰 DOM/样式，主题变化零成本；各家 UI 自由度最大；#12 讨论最快收敛。</td><td>每家至少多写一个面板（几十行），“接入行数越少越好”落空；轮询 / 错误文案各家自写，BUG 分散，违背票面“由本包消化”；#13 的“接入行数清单”会很难看。</td></tr>
+<tr><td><b>C：你另划线</b></td><td>可按你的真实痛点定制（例如只要求“比现在少一半”）。</td><td>线不定就无法验收；若线定得含糊（“尽量少”），#13 和 to-spec 都写不出判据。</td></tr>
+</table>
+
+<h3>对抗式审查后的推荐</h3>
+<div class="adv">
+<b>红队观点：</b>反对方会说“A 把 UI 塞进 npm 包是把简单问题复杂化——包体积、框架绑定、样式打架三个坑，每个都比省下的几十行更贵”。<br>
+<b>回应与修正：</b>承认坑存在，所以 A 必须配套两条护栏才成立：① 组件只承诺逻辑与文案，不承诺像素级样式（主题跟随排除）；② 组件 API 必须版本化、可回退（老 hook 路径保留）。<b>对抗后推荐仍为 A，但加护栏</b>：若你不接受护栏（即要求样式也完美跟随），则对抗结论翻转为 B。
+</div>
+
+<h3>从第一性原理出发后的推荐</h3>
+<div class="first">
+<b>第一性：</b>消费者的核心任务不是“写更新 UI”，而是“让用户能装上新版”。一切不能减少“消费者为更新写的代码 + 未来为更新修的 BUG”的工作都是成本。面板 UI 的状态机（轮询、队列、跳过、错误文案）是跨插件完全相同的重复逻辑，按 DRY 应收敛到一处。只有样式是各家不同的（主题、布局），不应收敛。<br>
+<b>结论：</b>逻辑收敛、样式分离 → <b>A 的“逻辑全收 + 样式最小默认”</b>是最贴近第一性的形态。B 把相同逻辑推回每家，违反 DRY。
+</div>
+</section>
+
+<section class="q" id="q2">
+<h2>❓ Q2 — 现成面板组件的技术形态：以什么形态进包才真省行数？</h2>
+<div><span class="tag">边界</span><span class="tag">选项权衡</span></div>
+
+<h3>问题</h3>
+<p>DSH 插件面板技术栈不统一，组件以什么形态进包？候选：<b>A</b> 框架无关（Web Component / 纯 JS 函数返回 HTML + 事件委托，任何面板直接嵌）；<b>B</b> React 组件（假设消费方都是 React）；<b>C</b> 纯逻辑 hook（<code>useUpdate()</code> 类）+ 各家自画 UI，本包只消化状态机不管 DOM；<b>D</b> 你指定别的形态。这题直接决定 #13 原型怎么做。</p>
+
+<h3>背景</h3>
+<ul>
+<li>现状 <code>dist/client.js</code> 只有电话名 / 轮询口径 / 手工命令三样（见 <code>src/client.ts</code>），零 DOM、零框架依赖（包整体“零运行时依赖”，Node ≥22）。一旦进 UI，就要第一次回答“包要不要带框架依赖”。</li>
+<li>地图 #10 要求“他插件几行接入”“全面功能但消费者可决定是否看他人排队项” — 形态必须同时满足“几行”和“可见性开关”。</li>
+<li>事实待查（我的事，不问你）：DSH 插件面板的真实技术栈分布、宿主是否允许自定义元素 / shadow DOM。我会在下一轮前用只读核对补上，不阻塞你先选方向。</li>
+</ul>
+
+<h3>我的推荐答案</h3>
+<div class="rec">➡️ 推荐 <b>C（纯逻辑 + 示例 UI），A 为备选</b>：样式收进包会把主题 / 布局 BUG 也收进来，违背“BUG 由本包消化越少越好”的初衷。C 让本包消化状态机（轮询 / 队列 / 跳过 / 文案映射），DOM 留给各家；#13 用示例 UI 证明“几行”。</div>
+
+<h3>每个答案的优点和缺点</h3>
+<table>
+<tr><th>选项</th><th>优点</th><th>缺点 / 风险</th></tr>
+<tr><td><b>A：框架无关组件</b></td><td>任何栈都能嵌，真正“几行”；样式封装在 shadow DOM 内不打架。</td><td>要自研一套无依赖 UI（可及性、主题、国际化全自己扛）；DSH 宿主对 custom elements 的支持需验证；包体积首次变大。</td></tr>
+<tr><td><b>B：React 组件</b></td><td>若消费方全是 React，开发最快、体验最好；生态现成（状态管理、无障碍）。</td><td>非 React 消费方直接出局；包要带 React 依赖或 peerDeps，违背“零运行时依赖”；版本打架（两家 React 版本不同）是经典 BUG 源。</td></tr>
+<tr><td><b>C：纯逻辑 + 示例</b></td><td>零依赖延续，不碰 DOM 即不引入样式 BUG；各家 UI 自由；状态机 BUG 仍收敛到本包。</td><td>每家仍要写几十行 UI，“1 个标签即跑”做不到；错误文案 / 队列可见性各家可能画偏，需要示例 + 审查护栏。</td></tr>
+<tr><td><b>D：你指定</b></td><td>若你知道宿主只认某一种形态，可一锤定音。</td><td>需你提供事实输入（哪种面板栈是主流）。</td></tr>
+</table>
+
+<h3>对抗式审查后的推荐</h3>
+<div class="adv">
+<b>红队观点：</b>“C 省了包的麻烦，把麻烦推回每家——每家画一遍更新面板，风格不统一、文案不统一，用户在三个插件看到三个更新面板，这叫优雅？”<br>
+<b>回应与修正：</b>承认 C 的一致性风险。所以 C 成立的前提是本包同时交付：① 文案映射表（blockedReason → 中文一句话，复用 README §5.2）；② 示例 UI + 接入行数清单（#13 输出）；③ 可选的 A 形态作为第二步（先 C 后 A）。<b>对抗后推荐：先 C，后按 #13 原型验证再决定是否加 A；B 除非你确认“全是 React”否则不选。</b>
+</div>
+
+<h3>从第一性原理出发后的推荐</h3>
+<div class="first">
+<b>第一性：</b>跨插件相同的只有状态机与规则（什么时候轮询、什么原因装不了、队列谁先谁后、跳过按什么键存），DOM 与样式天然各家不同。收敛应发生在“变的部分最少、复用价值最高”的一层 = 状态机层。<br>
+<b>结论：</b>先收敛状态机（C），DOM 收敛（A）是可选的第二层。若 Q1 选了“1 个标签即跑”，则第一性会把你推向 A；若 Q1 接受“hook + 示例”，则 C 即最优。两题联动，以 Q1 为准。
+</div>
+</section>
+
+<section class="q" id="q3">
+<h2>❓ Q3 — 三件套的边界：固定吗？冻不冻结？要不要第四件？</h2>
+<div><span class="tag">边界</span><span class="tag">风险</span></div>
+
+<h3>问题</h3>
+<p>票面输出写死“三件套”（宿主侧 <code>createHostUpdate</code> + 面板侧派生文件 + 现成面板组件的边界）。候选：<b>A</b> 固定就这三样，#12 只划边界不动冻结项（快照六字段、配方五键、电话名一字不动）；<b>B</b> 允许为“最优雅”动冻结项，但动之前先走破冰讨论（按 <code>docs/maintainers.md:80</code> 纪律）；<b>C</b> 允许新增第四件（脚手架 / 模板 / CLI 向导）。若选 B，你现在就授权 #12 可以碰哪些冻结项，还是留到碰到时再议？</p>
+
+<h3>背景</h3>
+<ul>
+<li>冻结项（<code>docs/maintainers.md:80</code>）：默认电话名、入参回参形状、配置写法（只经函数入参注入）、配方五键形状、事件字段基线、默认旧路径。动任一项要先破冰，结论写进对应 issue 并同步 README。</li>
+<li>三件套现状：① <code>createHostUpdate</code>（宿主侧）；② <code>derive-client-values.mjs</code> 派生文件（面板取值）；③ 待建的面板组件。#11 已证明“加文件进包要同步改 <code>files</code> 白名单 + dry-run 核对”，面板组件进包同样要过这一关。</li>
+<li>风险：#12 若顺手改冻结项，会与 #4（错误 envelope 地图，主导错误细节）撞车。地图 #10 已明确“本 MAP 主导、#4 协同”，但错误形状到底谁定，需要在 #12 划清。</li>
+</ul>
+
+<h3>我的推荐答案</h3>
+<div class="rec">➡️ 推荐 <b>A（先按不动冻结项讨论，碰到再单点破冰）</b>：这样 #12 不会膨胀成重构票；真碰到（例如快照要加 changelog / 队列字段）就单点开破冰，不预授权。</div>
+
+<h3>每个答案的优点和缺点</h3>
+<table>
+<tr><th>选项</th><th>优点</th><th>缺点 / 风险</th></tr>
+<tr><td><b>A：不动冻结项</b></td><td>讨论收敛最快；与 #4 分工清晰（#12 不碰错误形状）；发布风险最小。</td><td>若“最优雅”真需要加字段（如队列位置、跳过状态），会被迫绕路（走独立纯函数 / 可选字段），可能不够“优雅”。</td></tr>
+<tr><td><b>B：允许动，先破冰</b></td><td>给最优解留路；纪律本身已ready（破冰流程现成）。</td><td>预授权等于开空白支票，#12 范围失控；与 #4 的主导权要重谈；每个冻结项都值得单独一轮 grill。</td></tr>
+<tr><td><b>C：加第四件</b></td><td>脚手架 / 向导可能比组件更省行数（例如 <code>init</code> 一条命令生成接线）。</td><td>新增件 = 新增维护面（模板腐烂是经典问题）；与“npm 包”定位偏离；#13 工作量翻倍。</td></tr>
+</table>
+
+<h3>对抗式审查后的推荐</h3>
+<div class="adv">
+<b>红队观点：</b>“现在说不动，到 #15/#16 发现快照六字段装不下队列和跳过，还不是要回来返工？长痛不如短痛，一次把冻结项谈完。”<br>
+<b>回应与修正：</b>返工风险真实存在，但一次谈完等于把 #14–#16 的未知数提前押注，误判成本更高。折中：<b>A + 预留扩展点声明</b> — #12 明确写出“快照六字段不动，队列 / 跳过 / changelog 一律走新增可选字段或独立纯函数”（已有先例：README §8 事件清单检查器就是纯函数扩展范式），下游真要动形状再破冰。对抗后仍为 A，但把扩展规则写进结论。
+</div>
+
+<h3>从第一性原理出发后的推荐</h3>
+<div class="first">
+<b>第一性：</b>冻结项是已发布的契约（README §9 “可以放心依赖”），契约的价值在于稳定。消费者要的是“少写 + 少修”，而改契约恰恰制造“要改 + 要修”。除非新形态不改契约就做不到，否则不应改。<br>
+<b>结论：</b>默认 A；B 的举证责任在主张改的人（拿出“不改就做不到”的证明再破冰）。
+</div>
+</section>
+
+<section class="q" id="q4">
+<h2>❓ Q4 — #12 要定多深：接口承诺 vs 一次定死？</h2>
+<div><span class="tag">风险</span><span class="tag">决策</span></div>
+
+<h3>问题</h3>
+<p>#14 后台归属、#15 队列公平与取消、#16 重置入口与版本通道，这些细节在 #12 里定到什么颗粒度？候选：<b>A</b> #12 只定接口承诺（例如“组件保证关面板不丢进度、重开可恢复”，归属留给 #14；“组件暴露是否看他人项开关”，公平留给 #15），细节留给下游；<b>B</b> #12 一次定死，后面三票只做实现；<b>C</b> 你划别的线。定太深 #12 爆炸，定太浅后面打架。</p>
+
+<h3>背景</h3>
+<ul>
+<li>地图 #10 “Not yet specified” 已留白三条：重置入口最终形态（待原型后定）、版本通道细节、队列公平与取消细节（待实现时定）。#12 若一次定死等于推翻地图留白。</li>
+<li>依赖关系：#13 ← #11,#12；#14/#15/#16 ← #12。#12 是扇出点，定得太具体会变成四票的瓶颈；定得太抽象，下游会对同一接口各写一版（已有前科：建议方向里提到 dshmarket 与 ilife 各自接了一版路由）。</li>
+<li>五要素视角：这是典型的风险题 — 范围蔓延 vs 接口失配，只能二选一 hedge。</li>
+</ul>
+
+<h3>我的推荐答案</h3>
+<div class="rec">➡️ 推荐 <b>A（#12 定接口承诺 + 默认行为，下游定实现）</b>：与地图留白口径一致；#12 输出“组件契约”（保证什么、默认什么、开关有哪些），#14–#16 各自填实现。</div>
+
+<h3>每个答案的优点和缺点</h3>
+<table>
+<tr><th>选项</th><th>优点</th><th>缺点 / 风险</th></tr>
+<tr><td><b>A：只定契约</b></td><td>#12 按时收敛；下游并行度最高；返工面小（契约稳定，实现可换）。</td><td>契约写不准会导致下游各解释一版；需要 #12 的契约写得可测试（ given / when / then ），否则等于没定。</td></tr>
+<tr><td><b>B：一次定死</b></td><td>下游零分歧，照着做；接口失配风险最低。</td><td>#12 讨论量 ×4（后台 + 队列 + 跳过 + 通道全挤进来）；任一细节误判都会锁死三票；违背地图留白，前后矛盾。</td></tr>
+<tr><td><b>C：另划线</b></td><td>可按你的风险偏好调（例如后台定死、队列留白）。</td><td>需要你逐项表态，问答轮次变多。</td></tr>
+</table>
+
+<h3>对抗式审查后的推荐</h3>
+<div class="adv">
+<b>红队观点：</b>“契约式留白就是和稀泥——‘保证不丢进度’八个字，#14 用宿主侧执行、还是用本地队列持久化，两者对组件的接口完全不同，现在不定后面必打架。”<br>
+<b>回应与修正：</b>承认“纯口号式契约 = 没定”。所以 A 的契约必须写到可验证的程度：每条承诺配验收判据（例如“关面板后安装继续，重开面板 1s 内恢复进度显示；仅进程关才停”），但不锁实现（宿主侧归属 vs 面板侧归属留给 #14 选）。<b>对抗后推荐：A + 每条契约配验收判据</b>，判据由 #12 定，实现由下游定。
+</div>
+
+<h3>从第一性原理出发后的推荐</h3>
+<div class="first">
+<b>第一性：</b>决策应在信息最充分的时刻做（信息充分原则）。后台归属需要看宿主能力（#14 的取证），队列公平需要看并发现场（#15 的实现），重置入口需要看原型反馈（#13 的原型）。#12 此刻信息最少，最不适合定细节；适合定的是“下游信息回来后如何判定对错”的标准 = 接口 + 验收判据。<br>
+<b>结论：</b>A。B 违反信息充分原则。
+</div>
+</section>
+
+<section id="next">
+<h2>下一轮预告 &amp; 五要素覆盖表</h2>
+<table>
+<tr><th>要素</th><th>本轮覆盖</th><th>下一轮（待你答完本轮后展开）</th></tr>
+<tr><td>目标</td><td>Q1 验收线</td><td>接入行数清单的计数口径（空行 / 注释算不算）</td></tr>
+<tr><td>边界</td><td>Q2 形态、Q3 三件套</td><td>与 #4 错误 envelope 的分工线、<code>files</code> 白名单与包体积线</td></tr>
+<tr><td>风险</td><td>Q3 冻结项、Q4 颗粒度</td><td>框架绑定 / 主题漂移 / 双路由并存（上游补路由后谁优先）</td></tr>
+<tr><td>选项权衡</td><td>Q2 A/B/C、Q1 A/B</td><td>包内 UI vs hook vs 脚手架的三方对比 + #13 原型输入</td></tr>
+<tr><td>决策</td><td>Q1–Q4 四个拍板点</td><td>形成 #12 结论草案 → 你确认 → 写 issue 正文 → 提醒 /to-spec（挂 #10 子议题）</td></tr>
+</table>
+<p class="meta">流程承诺：不等你确认，不写 issue 正文；结论落盘时正文为首、tickets 为辅；结束前把真实状态写进正文；意图对齐后提醒你执行 <code>/to-spec</code>（规格单挂 #10）。deck 上报：#12 已上报“开始 grill”。</p>
+</section>
+
+<footer>生成时间：2026-10-01（Asia/Shanghai）｜ 来源：#12 票面 + #10 地图 + 仓库只读核对（README / src/client.ts / src/ports.ts / package.json files）｜ 本文件为讨论资产，不进 issue、不进包。</footer>
+</div>
+</body>
+</html>

@@ -24,10 +24,25 @@ import {
   type UpdateConfigInput,
 } from './config.js'
 import { manualCommand } from './commands.js'
-import { validVersion } from './service.js'
-import { createUpdateDiskPorts, createUpdateExecutor } from './store.js'
+import { isVersionAllowedInChannel, validRequestId } from './service.js'
+import { createUpdateDiskPorts, createUpdateExecutor, createUpdateQueuePorts } from './store.js'
 import { createUpdateReader, defaultHomeDir, resolveProfileName, resolveTargetPackage } from './reader.js'
-import type { EnvironmentKind } from './ports.js'
+import type { EnvironmentKind, ReleaseChannel } from './ports.js'
+import {
+  QUEUE_INTENT_TTL_MS,
+  cancelEnqueuedInQueue,
+  emptyQueueState,
+  enqueueInQueue,
+  isHeadOfQueue,
+  normalizeQueueState,
+  pruneExpiredIntents,
+  queuePositionOf,
+  releaseOwnerInQueue,
+  setOwnerIfFree,
+  visibleQueueFor,
+  type UpdateQueueState,
+  type VisibleQueue,
+} from './queue.js'
 
 export { buildPhoneName, buildPhoneNames, resolveUpdateConfig } from './config.js'
 export type { PhoneAction, UpdateConfigInput } from './config.js'
@@ -44,11 +59,62 @@ export type {
 } from './gate.js'
 export { containingPackage, defaultHomeDir, profileNameValid, registrySpec, resolveTargetPackage } from './reader.js'
 export { createUpdateDiskPorts, createUpdateExecutor, pathsForUpdate, resolveCliEntry } from './store.js'
+// 跳过与版本通道（#16：按插件 + 版本持久化跳过、stable 默认 / prerelease 开关、精确版锁定）。
+export { SKIPPED_FILE } from './config.js'
+export {
+  addSkipped,
+  clearSkipped,
+  createSkipDiskPorts,
+  isVersionSkipped,
+  MAX_SKIPPED_ENTRIES,
+  normalizeSkipped,
+  skipKey,
+  type SkippedVersionEntry,
+} from './store.js'
+export {
+  compareReleaseVersions,
+  isPrereleaseVersion,
+  isVersionAllowedInChannel,
+  validReleaseVersion,
+  validVersion,
+  compareVersions,
+} from './service.js'
+export type { ReleaseChannel } from './ports.js'
+// 跨插件单队列（#15）：纯决策经包根转出口，落盘与全局锁同上；面板展示过滤见 client.ts 同名转出口。
+export {
+  createUpdateQueuePorts,
+  queuePathsForUpdate,
+  QUEUE_DIR_SEGMENT,
+  QUEUE_FILE,
+  QUEUE_LOCK_FILE,
+  QUEUE_LOCK_STALE_MS,
+} from './store.js'
+export {
+  QUEUE_INTENT_TTL_MS,
+  cancelEnqueuedInQueue,
+  emptyQueueState,
+  enqueueInQueue,
+  isHeadOfQueue,
+  normalizeQueueState,
+  pruneExpiredIntents,
+  queuePositionOf,
+  releaseOwnerInQueue,
+  setOwnerIfFree,
+  visibleQueueFor,
+} from './queue.js'
+export type { QueuedEntry, QueueOwner, UpdateQueueState, VisibleQueue } from './queue.js'
 
 // ---------- 宿主种类探测与桌面服务 ----------
 
 // 单例让查状态看到查新版的结果；复用键强制含插件标识（规格 #591 第 6 条），多插件不串内存。
-let sharedReader: ReturnType<typeof createUpdateReader> | null = null
+// 跨插件队列读写口（#15）随单例一起缓存，与本次解析出的使用范围绑定。
+type SharedQueueIO = {
+  readQueuePruned(): Promise<UpdateQueueState>
+  writeQueueState(state: UpdateQueueState): Promise<void>
+  queueTtlMs: number
+  queueNow(): number
+}
+let sharedReader: (ReturnType<typeof createUpdateReader> & SharedQueueIO) | null = null
 let sharedReaderKey = ''
 /** 桌面宿主才有：launcher 注册的公开服务，嵌套注入拿到后缓存（普通 DSH 拿不到也不报错）。 */
 let sharedDesktopPnpm: unknown = null
@@ -166,6 +232,15 @@ export interface ReaderOverrides {
   checkTimeoutMs?: number
   confirmationTtlMs?: number
   installTimeoutMs?: number
+  /** 版本通道：默认走配置的通道，显式覆盖供测试与特殊宿主用（#16）。 */
+  releaseChannel?: ReleaseChannel
+  /** 队列意向有效期毫秒：默认 10 分钟（#15），须为有限大于 0 的数才生效，否则走默认。 */
+  queueTtlMs?: number
+  /** 跨插件队列的显式假件（测试用；给了 readQueue + writeQueue 即不走真实队列目录，#15）。 */
+  readQueue?: () => UpdateQueueState | Promise<UpdateQueueState>
+  writeQueue?: (state: UpdateQueueState) => void | Promise<void>
+  tryAcquireGlobalLock?: (lockId: string, pluginId: string) => boolean | Promise<boolean>
+  releaseGlobalLock?: (lockId: string) => void | Promise<void>
   readInstalled?: () => Promise<import('./ports.js').EnvironmentView>
   readJob?: () => Promise<import('./ports.js').UpdateJob | null>
   writeJob?: (job: import('./ports.js').UpdateJob | null) => Promise<void>
@@ -186,11 +261,12 @@ export interface ReaderOverrides {
   targetPackageDir?: string
 }
 
-async function getSharedReader(pluginId: string, config: ReturnType<typeof resolveUpdateConfig>, overrides: ReaderOverrides = {}): Promise<ReturnType<typeof createUpdateReader>> {
+async function getSharedReader(pluginId: string, config: ReturnType<typeof resolveUpdateConfig>, overrides: ReaderOverrides = {}): Promise<ReturnType<typeof createUpdateReader> & SharedQueueIO> {
   const env = overrides.env ?? process.env
   const osHome = overrides.osHome ?? homedir()
   const homeDirDefault = defaultHomeDir(env, osHome)
   const targetPackageName = overrides.targetPackageName ?? config.targetPackageName
+  const releaseChannel: ReleaseChannel = overrides.releaseChannel ?? config.releaseChannel ?? 'stable'
   const explicitTargetDir =
     typeof overrides.targetPackageDir === 'string' && overrides.targetPackageDir ? String(overrides.targetPackageDir) : ''
   // 与读取器共用同一个解析函数（issue #3）：显式目录优先，否则按包名解析。
@@ -198,7 +274,10 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
     () => null
   )
   const runningVersion =
-    overrides.runningVersion ?? (loaded && validVersion((loaded.manifest as { version?: unknown }).version) ? String((loaded.manifest as { version: string }).version) : null)
+    overrides.runningVersion ??
+    (loaded && isVersionAllowedInChannel((loaded.manifest as { version?: unknown }).version, releaseChannel)
+      ? String((loaded.manifest as { version: string }).version)
+      : null)
   if (!runningVersion) throw unknownProfile()
   let profileDirInput: string
   if (overrides.profileDir) {
@@ -218,9 +297,127 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   const confirmationTtlMs = overrides.confirmationTtlMs ?? config.confirmationTtlMs
   const installTimeoutMs = overrides.installTimeoutMs ?? config.installTimeoutMs
   const registryUrl = overrides.registryUrl ?? config.registryUrl
-  const key = `${pluginId}\0${config.prefix}\0${runningVersion}\0${profileDirInput}\0${overrides.profileName ?? ''}\0${homeDirInput}\0${overrides.runInstall ? 'exec' : ''}\0${environmentKind}\0${targetPackageName}\0${explicitTargetDir}`
+  const key = `${pluginId}\0${config.prefix}\0${runningVersion}\0${profileDirInput}\0${overrides.profileName ?? ''}\0${homeDirInput}\0${overrides.runInstall ? 'exec' : ''}\0${environmentKind}\0${targetPackageName}\0${explicitTargetDir}\0${releaseChannel}`
   if (sharedReader && sharedReaderKey === key) return sharedReader
   const disk = overrides.readJob && overrides.writeJob ? null : createUpdateDiskPorts(homeDirInput, pluginId, profileDirInput)
+  // 跨插件单队列（#15）：与插件标识无关，按使用范围共享。显式队列假件优先；有真实落盘
+  // 才走真实队列目录；纯内存测试（磁盘被假件替代）默认不碰真实队列目录，免得单测写脏真机。
+  // 队列自身永远 best-effort：读不到按空队放行，写失败吞掉——队列坏了不能挡安装。
+  const queueTtlMs =
+    typeof overrides.queueTtlMs === 'number' && Number.isFinite(overrides.queueTtlMs) && overrides.queueTtlMs > 0
+      ? overrides.queueTtlMs
+      : QUEUE_INTENT_TTL_MS
+  const queueDisk = overrides.readQueue && overrides.writeQueue ? null : disk ? createUpdateQueuePorts(homeDirInput, profileDirInput) : null
+  const queueNow = overrides.now ?? Date.now
+  async function readQueueBestEffort(): Promise<UpdateQueueState> {
+    try {
+      if (overrides.readQueue) return normalizeQueueState(await overrides.readQueue())
+      if (queueDisk) return normalizeQueueState(await queueDisk.readQueue())
+    } catch {}
+    return emptyQueueState()
+  }
+  async function writeQueueBestEffort(state: UpdateQueueState): Promise<void> {
+    try {
+      if (overrides.writeQueue) await overrides.writeQueue(normalizeQueueState(state))
+      else if (queueDisk) await queueDisk.writeQueue(state)
+    } catch {}
+  }
+  async function loadQueuePruned(): Promise<UpdateQueueState> {
+    const raw = await readQueueBestEffort()
+    const pruned = pruneExpiredIntents(raw, queueNow(), queueTtlMs)
+    if (pruned !== raw) await writeQueueBestEffort(pruned)
+    return pruned
+  }
+  // 组合锁：先抢全局（跨插件一次只装一个），再抢自家；自家没抢到就把全局放了，不占着。
+  // 无全局可用时退化为自家锁（与改造前一字不差，老单测走这条）。
+  const baseTryAcquire = overrides.tryAcquireLock ?? disk?.tryAcquireLock
+  const baseRelease = overrides.releaseLock ?? disk?.releaseLock
+  const globalTryAcquire: ((lockId: string) => boolean | Promise<boolean>) | undefined = overrides.tryAcquireGlobalLock
+    ? (lockId: string) => (overrides.tryAcquireGlobalLock as (id: string, pid: string) => boolean | Promise<boolean>)(lockId, pluginId)
+    : queueDisk
+      ? (lockId: string) => queueDisk.tryAcquireGlobalLock(lockId, pluginId, { timeoutMs: installTimeoutMs })
+      : undefined
+  const globalRelease: ((lockId: string) => void | Promise<void>) | undefined =
+    overrides.releaseGlobalLock ?? queueDisk?.releaseGlobalLock
+  async function combinedTryAcquire(lockId: string): Promise<boolean> {
+    try {
+      if (globalTryAcquire && !(await globalTryAcquire(lockId))) return false
+      if (baseTryAcquire && !(await baseTryAcquire(lockId))) {
+        if (globalRelease) {
+          try {
+            await globalRelease(lockId)
+          } catch {}
+        }
+        return false
+      }
+      return true
+    } catch {
+      return false
+    }
+  }
+  async function combinedRelease(lockId: string): Promise<void> {
+    try {
+      if (baseRelease) await baseRelease(lockId)
+    } catch {}
+    try {
+      if (globalRelease) await globalRelease(lockId)
+    } catch {}
+    // 拥有者兜底：只清自己的牌（jobId 对上才清），终态正常走镜像已清，这里多半是空操作。
+    try {
+      const current = await readQueueBestEffort()
+      const next = releaseOwnerInQueue(current, pluginId, lockId)
+      if (next.released) await writeQueueBestEffort(next.state)
+    } catch {}
+  }
+  // 任务镜像：持久化路由与现状一字不差（有注入走注入，无注入走内存），只顺带把 owner
+  // 状态对齐进队列（安装中记牌、终态摘牌）。队列异常只吞不抛，安装成败归类不动。
+  let memJobFallback: import('./ports.js').UpdateJob | null = null
+  async function mirroredWriteJob(job: import('./ports.js').UpdateJob | null): Promise<void> {
+    if (overrides.writeJob) await overrides.writeJob(job)
+    else memJobFallback = job
+    try {
+      if (!job) return
+      const current = await readQueueBestEffort()
+      const pruned = pruneExpiredIntents(current, queueNow(), queueTtlMs)
+      if (job.state === 'installing' || job.state === 'verifying') {
+        let next = pruned
+        if (next.owner && next.owner.jobId === job.id) {
+          next = {
+            version: 1 as const,
+            owner: {
+              ...next.owner,
+              requestId: job.requestId ?? next.owner.requestId,
+              targetVersion: job.targetVersion ?? next.owner.targetVersion,
+            },
+            waiting: next.waiting.filter((e) => !(e.pluginId === pluginId && (e.requestId ?? null) === (job.requestId ?? null))),
+          }
+        } else {
+          // 陈旧拥有者回收：持有者早该收尾却没摘牌（崩溃/杀进程），后来者直接接管不等它；
+          // 口径与全局锁一致（安装时限），未知年龄按可回收算。
+          let base = next
+          const age = queueNow() - (typeof base.owner?.startedAt === 'number' ? base.owner.startedAt : 0)
+          if (base.owner && age > installTimeoutMs) base = { version: 1 as const, owner: null, waiting: base.waiting }
+          next = setOwnerIfFree(base, {
+            pluginId,
+            jobId: job.id,
+            requestId: job.requestId,
+            targetVersion: job.targetVersion,
+            startedAt: queueNow(),
+          }).state
+        }
+        if (next !== pruned) await writeQueueBestEffort(next)
+        else if (pruned !== current) await writeQueueBestEffort(pruned)
+      } else {
+        const released = releaseOwnerInQueue(pruned, pluginId, job.id)
+        const out = released.released ? released.state : pruned
+        if (out !== current) await writeQueueBestEffort(out)
+      }
+    } catch {}
+  }
+  async function mirroredReadJob(): Promise<import('./ports.js').UpdateJob | null> {
+    if (overrides.readJob) return (await overrides.readJob()) ?? null
+    return memJobFallback
+  }
   // 执行零件按需现取（桌面服务要等注入到位）：路由与参数形态由核心的 installRecipe 定，
   // 这里只提供「用哪个可执行文件、哪份 CLI 入口、哪条子进程口子」。
   const defaultRun = createUpdateExecutor({
@@ -240,32 +437,37 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
     pluginId,
     log: emitInstallLog,
   })
-  sharedReader = createUpdateReader({
-    runningVersion,
-    profileDir: profileDirInput,
-    pluginId,
-    profileName: overrides.profileName ?? undefined,
-    homeDir: overrides.homeDir,
-    targetPackageDir: explicitTargetDir || undefined,
-    env,
-    osHome,
-    fetchImpl: overrides.fetchImpl as never,
-    now: overrides.now,
-    randomId: overrides.randomId,
-    nodeVersion: overrides.nodeVersion,
-    environmentKind,
-    targetPackageName,
-    registryUrl,
-    checkTimeoutMs,
-    confirmationTtlMs,
-    readInstalled: overrides.readInstalled,
-    readJob: overrides.readJob,
-    writeJob: overrides.writeJob,
-    tryAcquireLock: overrides.tryAcquireLock ?? disk?.tryAcquireLock,
-    releaseLock: overrides.releaseLock ?? disk?.releaseLock,
-    backupJob: overrides.backupJob ?? disk?.backupJob,
-    runInstall: overrides.runInstall ?? defaultRun,
-  })
+  sharedReader = Object.assign(
+    createUpdateReader({
+      runningVersion,
+      profileDir: profileDirInput,
+      pluginId,
+      profileName: overrides.profileName ?? undefined,
+      homeDir: overrides.homeDir,
+      targetPackageDir: explicitTargetDir || undefined,
+      env,
+      osHome,
+      fetchImpl: overrides.fetchImpl as never,
+      now: overrides.now,
+      randomId: overrides.randomId,
+      nodeVersion: overrides.nodeVersion,
+      environmentKind,
+      targetPackageName,
+      registryUrl,
+      checkTimeoutMs,
+      confirmationTtlMs,
+      releaseChannel,
+      readInstalled: overrides.readInstalled,
+      readJob: mirroredReadJob,
+      writeJob: mirroredWriteJob,
+      tryAcquireLock: combinedTryAcquire,
+      releaseLock: combinedRelease,
+      backupJob: overrides.backupJob ?? disk?.backupJob,
+      runInstall: overrides.runInstall ?? defaultRun,
+    }),
+    // 跨插件队列的面板侧读写口（#15）：与本次解析出的使用范围绑定，面板经电话可选参数消费。
+    { readQueuePruned: loadQueuePruned, writeQueueState: writeQueueBestEffort, queueTtlMs, queueNow },
+  )
   sharedReaderKey = key
   return sharedReader
 }
@@ -336,11 +538,27 @@ function emitInstallLog(level: string, event: string, fields: Record<string, unk
   } catch {}
 }
 
+/** 电话回包里的可选队列视图（#15）：只在调用方显式要时才带，不传即与改造前一字不差。 */
+function queueArgsOf(args: Record<string, unknown>): { includeQueue: boolean; showOthers: boolean } {
+  return {
+    includeQueue: !!args && args['includeQueue'] === true,
+    showOthers: !!args && args['showOthers'] === true,
+  }
+}
+
+function checkExpiredError(): Error & { code: string } {
+  return Object.assign(new Error('check-expired'), { code: 'check-expired' })
+}
+
+function updateBusyError(): Error & { code: string } {
+  return Object.assign(new Error('update-busy'), { code: 'update-busy' })
+}
+
 function loggedPhone(
   method: string,
   kind: string,
   pluginId: string,
-  fn: (args: Record<string, unknown>) => Promise<{ snapshot: unknown; manual?: string | null; receipt?: unknown }>
+  fn: (args: Record<string, unknown>) => Promise<{ snapshot: unknown; manual?: string | null; receipt?: unknown; queue?: VisibleQueue | null }>
 ): (args: Record<string, unknown>) => Promise<Record<string, unknown>> {
   return async function (args: Record<string, unknown>): Promise<Record<string, unknown>> {
     const t0 = Date.now()
@@ -354,7 +572,14 @@ function loggedPhone(
       const snapshot = out && out.snapshot ? out.snapshot : out
       // 成功事件 5 键基线（规格 #591 第 8 条）：旧 4 键加必填插件标识。
       emit('info', 'host.call', { method, latencyMs: Date.now() - t0, ok: true, kind, pluginId })
-      return { ok: true, snapshot, manual: out && out.snapshot ? (out.manual ?? null) : null, receipt: out && out.receipt ? out.receipt : null }
+      return {
+        ok: true,
+        snapshot,
+        manual: out && out.snapshot ? (out.manual ?? null) : null,
+        receipt: out && out.receipt ? out.receipt : null,
+        // 新增选填（#15）：调用方没要时不带该键，老调用形状不变。
+        ...(out && out.queue ? { queue: out.queue } : {}),
+      }
     } catch (error) {
       const payload = toUpdateErrorPayload(error)
       // 失败事件 4 键基线（规格 #591 第 8 条）：旧 3 键加必填插件标识。
@@ -383,30 +608,92 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktop
   else watchDesktopPnpm(ctx)
   const readerOverrides = { ...(deps.readerOverrides ?? {}), ctx, ...(deps.pluginManager ? { pluginManager: deps.pluginManager } : {}) } as ReaderOverrides
   const phoneNames = buildPhoneNames(config.prefix)
-  async function readStatus(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null }> {
+  async function readStatus(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; queue?: VisibleQueue | null }> {
     const reader = await getSharedReader(pluginId, config, {
       ...readerOverrides,
       profileDir: args && args.profileDir ? String(args.profileDir) : readerOverrides.profileDir,
     })
-    return snapWithManual(reader, (await reader.status()) as never, config)
+    const out = await snapWithManual(reader, (await reader.status()) as never, config)
+    const { includeQueue, showOthers } = queueArgsOf(args)
+    if (!includeQueue) return out
+    const requestId = args && typeof args.requestId === 'string' ? args.requestId : undefined
+    return { ...out, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
   }
-  async function readCheck(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; receipt: unknown }> {
+  async function readCheck(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; receipt: unknown; queue?: VisibleQueue | null }> {
     const reader = await getSharedReader(pluginId, config, {
       ...readerOverrides,
       profileDir: args && args.profileDir ? String(args.profileDir) : readerOverrides.profileDir,
     })
     const result = await reader.check()
     const withManual = await snapWithManual(reader, result.snapshot as never, config)
-    return { snapshot: withManual.snapshot, manual: withManual.manual, receipt: result.receipt ?? null }
+    const { includeQueue, showOthers } = queueArgsOf(args)
+    if (!includeQueue) return { snapshot: withManual.snapshot, manual: withManual.manual, receipt: result.receipt ?? null }
+    const requestId = args && typeof args.requestId === 'string' ? args.requestId : undefined
+    return {
+      snapshot: withManual.snapshot,
+      manual: withManual.manual,
+      receipt: result.receipt ?? null,
+      queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId),
+    }
   }
-  async function runInstall(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null }> {
+  async function runInstall(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; queue?: VisibleQueue | null }> {
     const checkId = args && typeof args.checkId === 'string' ? args.checkId : ''
     const requestId = args && typeof args.requestId === 'string' ? args.requestId : ''
+    const { includeQueue, showOthers } = queueArgsOf(args)
+    const enqueueOnly = !!args && args['enqueueOnly'] === true
+    const cancelQueued = !!args && args['cancelQueued'] === true
     const reader = await getSharedReader(pluginId, config, {
       ...readerOverrides,
       profileDir: args && args.profileDir ? String(args.profileDir) : readerOverrides.profileDir,
     })
-    return snapWithManual(reader, (await reader.install({ checkId, requestId })) as never, config)
+    // 取消占位：只撤自己的 waiting 条目（owner 不经这里取消），顺带回快照与队列。
+    if (cancelQueued) {
+      if (!validRequestId(requestId)) throw checkExpiredError()
+      const current = await reader.readQueuePruned()
+      const next = cancelEnqueuedInQueue(current, pluginId, requestId)
+      if (next.removed) await reader.writeQueueState(next.state)
+      const out = await snapWithManual(reader, (await reader.status()) as never, config)
+      return { ...out, queue: visibleQueueFor(next.state, pluginId, showOthers, requestId) }
+    }
+    // 只占位不装：面板先取号再装，供公平排队用（幂等占一位）。
+    if (enqueueOnly) {
+      if (!validRequestId(requestId)) throw checkExpiredError()
+      const current = await reader.readQueuePruned()
+      const placed = enqueueInQueue(current, { pluginId, requestId, targetVersion: null, enqueuedAt: reader.queueNow() })
+      if (placed.state !== current) await reader.writeQueueState(placed.state)
+      const out = await snapWithManual(reader, (await reader.status()) as never, config)
+      return { ...out, queue: visibleQueueFor(placed.state, pluginId, showOthers, requestId) }
+    }
+    // 正常安装：凭证不齐交给核心判（归类与改造前一致）；齐了先占位再过公平门。
+    if (!checkId || !validRequestId(requestId)) {
+      const out = await snapWithManual(reader, (await reader.install({ checkId, requestId })) as never, config)
+      if (!includeQueue) return out
+      return { ...out, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
+    }
+    const before = await reader.readQueuePruned()
+    const placed = enqueueInQueue(before, { pluginId, requestId, targetVersion: null, enqueuedAt: reader.queueNow() })
+    if (placed.state !== before) await reader.writeQueueState(placed.state)
+    // 公平门：非队首直接忙（沿用 update-busy，不新增码）；已是拥有者（同编号重复提交）
+    // 不受此门阻拦，交给核心按旧结果返回。
+    if (queuePositionOf(placed.state, pluginId, requestId) !== 0 && !isHeadOfQueue(placed.state, pluginId, requestId)) {
+      throw updateBusyError()
+    }
+    try {
+      const out = await snapWithManual(reader, (await reader.install({ checkId, requestId })) as never, config)
+      if (!includeQueue) return out
+      return { ...out, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
+    } catch (error) {
+      // 忙失败留占位（面板凭它轮询位置，忙时失败回包不带队列，凭查状态补看）；
+      // 其余失败撤占位，不留僵尸。
+      if ((error as { code?: unknown })?.code !== 'update-busy') {
+        try {
+          const current = await reader.readQueuePruned()
+          const next = cancelEnqueuedInQueue(current, pluginId, requestId)
+          if (next.removed) await reader.writeQueueState(next.state)
+        } catch {}
+      }
+      throw error
+    }
   }
   const handlers: Record<string, (args: Record<string, unknown>) => Promise<Record<string, unknown>>> = {
     [phoneNames.updateStatus]: loggedPhone(phoneNames.updateStatus, 'update-status', pluginId, readStatus),

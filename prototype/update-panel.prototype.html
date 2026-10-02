@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#13 全套UI原型 · 抛弃式（PROTOTYPE — wipe me）</title>
+<!--
+  Three variants... no: FOUR variants of the update panel, switchable via `?variant=`, on a throwaway single file.
+  Question: 全套UI长什么样？（检查更新/更新面板/更新日志/更新队列/错误信息/手动命令；约束见 #12 结论）
+  Branch: UI / sub-shape B（本包无现成页面，只能新起抛弃式载体；双击即开，内存 stub，无持久化，不进包 files，无测试）。
+  Assumption: 4 变体 A=内嵌紧凑条 / B=对话框向导 / C=队列运维台 / D=极简徽标；E（日志头条/终端手感）待看完视觉再定。
+-->
+<style>
+  :root{ --accent:#4f46e5; --ok:#15803d; --warn:#b45309; --bad:#b91c1c; --ink:#111827; --mut:#6b7280;
+         --line:#d1d5db; --bg:#f8fafc; --card:#ffffff; --proto:#fef08a; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif; color:var(--ink); background:var(--bg); padding-bottom:120px; }
+  .proto-banner{ background:var(--proto); border-bottom:2px dashed #a16207; padding:10px 16px; font-size:13px; }
+  .proto-banner b{ background:#111827; color:#fef08a; padding:1px 8px; border-radius:4px; margin-right:8px; }
+  header.q{ padding:16px; max-width:1100px; margin:0 auto; }
+  header.q h1{ font-size:20px; margin:6px 0; }
+  header.q p{ font-size:13px; color:#374151; margin:4px 0; }
+  .demobar{ max-width:1100px; margin:0 auto 12px; padding:10px 16px; background:#eef2ff; border:1px solid #c7d2fe;
+            border-radius:8px; font-size:13px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .demobar .tag{ font-size:11px; background:var(--accent); color:#fff; border-radius:4px; padding:1px 6px; }
+  main{ max-width:1100px; margin:0 auto; padding:0 16px; }
+  section.variant{ display:none; }
+  section.variant.active{ display:block; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; }
+  .card h2{ font-size:15px; margin:0 0 8px; }
+  .card h3{ font-size:13px; margin:12px 0 6px; color:#374151; }
+  .muted{ color:var(--mut); font-size:12px; }
+  .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  button{ font-size:13px; padding:6px 12px; border-radius:6px; border:1px solid var(--line); background:#fff; cursor:pointer; }
+  button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:disabled{ opacity:.45; cursor:not-allowed; }
+  select, input[type=text]{ font-size:13px; padding:5px 8px; border:1px solid var(--line); border-radius:6px; }
+  code.cmd{ display:block; background:#111827; color:#e5e7eb; font-size:12px; padding:10px 12px; border-radius:8px;
+            overflow-x:auto; white-space:pre-wrap; word-break:break-all; }
+  .banner-restart{ background:#fffbeb; border:2px solid var(--warn); color:#92400e; border-radius:8px; padding:10px 14px; font-size:14px; margin:10px 0; }
+  .errbox{ background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 14px; font-size:13px; margin:8px 0; }
+  .okline{ background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 14px; font-size:13px; margin:8px 0; }
+  table.q{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.q th, table.q td{ border:1px solid var(--line); padding:6px 8px; text-align:left; }
+  table.q th{ background:#f3f4f6; }
+  details{ border:1px solid var(--line); border-radius:8px; margin:8px 0; background:#fff; }
+  details summary{ padding:8px 12px; font-size:13px; cursor:pointer; font-weight:600; }
+  details .body{ padding:0 12px 12px; font-size:13px; }
+  pre.dock{ background:#111827; color:#d1fae5; font-size:12px; padding:12px 14px; border-radius:8px; overflow-x:auto; white-space:pre-wrap; }
+  /* mock chrome（低保真页面骨架，非设计本身） */
+  .chrome{ border:2px dashed #9ca3af; border-radius:10px; padding:12px; background:#f9fafb; }
+  .chrome .topbar{ background:#e5e7eb; border-radius:6px; padding:8px 12px; font-size:12px; color:#4b5563; margin-bottom:10px; }
+  .chrome .cols{ display:flex; gap:10px; }
+  .chrome .side{ width:150px; background:#e5e7eb; border-radius:6px; padding:8px; font-size:12px; color:#4b5563; }
+  .chrome .maincol{ flex:1; }
+  /* D 变体：插件列表 + 徽标 */
+  .pluginrow{ display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin:8px 0; }
+  .dot{ width:12px; height:12px; border-radius:50%; display:inline-block; }
+  .dot.green{ background:#16a34a; } .dot.yellow{ background:#eab308; } .dot.red{ background:#dc2626; } .dot.gray{ background:#9ca3af; }
+  .popover{ border:2px solid var(--accent); border-radius:10px; background:#fff; padding:12px 14px; margin:4px 0 12px 22px; }
+  /* B 变体：对话框 */
+  .modalwrap{ background:rgba(17,24,39,.35); border-radius:10px; padding:24px; }
+  .modal{ background:#fff; border-radius:12px; padding:16px 18px; max-width:640px; margin:0 auto; }
+  .steps{ display:flex; gap:6px; margin:10px 0; }
+  .steps .st{ flex:1; text-align:center; font-size:12px; padding:6px 4px; border-radius:6px; background:#f3f4f6; color:#6b7280; }
+  .steps .st.on{ background:var(--accent); color:#fff; }
+  .steps .st.done{ background:#dcfce7; color:var(--ok); }
+  /* switcher */
+  #switcher{ position:fixed; left:50%; transform:translateX(-50%); bottom:16px; z-index:50;
+             background:#111827; color:#fff; border-radius:999px; padding:8px 10px; display:flex; gap:10px; align-items:center;
+             box-shadow:0 6px 24px rgba(0,0,0,.35); font-size:14px; }
+  #switcher button{ background:#374151; color:#fff; border:none; font-size:16px; padding:4px 12px; }
+  #switcher .lbl{ min-width:170px; text-align:center; }
+  #switcher .lbl small{ display:block; font-size:10px; color:#9ca3af; }
+  .prog{ height:8px; background:#e5e7eb; border-radius:4px; overflow:hidden; margin:6px 0; }
+  .prog i{ display:block; height:100%; background:var(--accent); }
+  footer.lines{ max-width:1100px; margin:24px auto 0; padding:0 16px; }
+</style>
+</head>
+<body>
+
+<div class="proto-banner"><b>PROTOTYPE</b>抛弃式原型 · issue #13 · 单文件双击即开 · 内存 stub、无持久化 · 不进包、不写测试 · 看完即焚，定稿后移抛弃分支</div>
+
+<header class="q">
+  <h1>全套UI原型：更新面板 4 变体（A / B / C / D）</h1>
+  <p>设计问题：<b>“全套UI应该长什么样？”</b> → UI 分支 / sub-shape B（本包是 npm 包、无现成页面，只能起抛弃式载体）。切换：<code>?variant=A|B|C|D</code> + 底部悬浮条 + ←/→ 键。</p>
+  <p>约束（#12 grill 共识）：宿主侧 ≤5 行、面板侧 1 个标签即跑；轮询/队列/跳过/错误文案归本包；<code>mode="embedded|dialog"</code> 开关；平时一句话 + “复制诊断”；全面功能、消费者决定是否看他人排队项。</p>
+  <p>假设（待你看完视觉确认）：4 变体 <b>A=内嵌紧凑条 / B=对话框向导 / C=队列运维台 / D=极简徽标</b>；E（日志头条/终端手感）暂不画。</p>
+</header>
+
+<div class="demobar">
+  <span class="tag">演示控制台（脚手架，非设计）</span>
+  <label>错误面：
+    <select id="demoReason">
+      <option value="">（无阻塞，可装）</option>
+      <option value="unknown-profile">unknown-profile</option>
+      <option value="source-install">source-install</option>
+      <option value="invalid-installation">invalid-installation</option>
+      <option value="installation-changed">installation-changed</option>
+      <option value="pending-restart">pending-restart（装完待重启）</option>
+      <option value="registry-conflict">registry-conflict</option>
+      <option value="incompatible-node">incompatible-node</option>
+      <option value="recovery-required">recovery-required</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="demoShowOthers" checked> 看他人排队项（showOthers）</label>
+  <button id="demoReset">重置演示状态</button>
+  <span class="muted">八种原因文案见 README §5.2；pending-restart 必须显眼横幅（§5.4）。</span>
+</div>
+
+<main>
+  <!-- ============ A 内嵌紧凑条 ============ -->
+  <section class="variant" id="vA">
+    <div class="chrome">
+      <div class="topbar">（ mock 宿主插件设置页 ） 顶栏 · 侧栏 · 内容区 —— 更新条嵌在内容区顶部</div>
+      <div class="cols">
+        <div class="side">侧栏<br>设置<br>关于</div>
+        <div class="maincol">
+          <div class="card" style="border-left:6px solid var(--accent)">
+            <div class="row"><b id="aOneLiner">…</b></div>
+            <div class="row" style="margin-top:8px" id="aActions"></div>
+            <div id="aRestart"></div>
+          </div>
+          <details open><summary>更新日志（包内 CHANGELOG.md · Keep-a-Changelog 子集）</summary><div class="body" id="aLog"></div></details>
+          <details><summary>更新队列（跨插件单队列串行，一次一个）</summary><div class="body" id="aQueue"></div></details>
+          <details><summary>错误信息</summary><div class="body" id="aErr"></div></details>
+          <details open><summary>手动命令（每次回包刷新，不缓存旧的）</summary><div class="body" id="aManual"></div></details>
+          <div class="card"><h3>状态外显（每次动作后刷新）</h3><pre class="dock" id="aState"></pre></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ B 对话框向导 ============ -->
+  <section class="variant" id="vB">
+    <div class="chrome">
+      <div class="topbar">（ mock 插件设置页 ） 内容区只有一个入口按钮，其余全在对话框里 · mode="dialog"</div>
+      <div class="row"><button class="primary" id="bOpen">检查更新</button> <span class="muted" id="bHint"></span></div>
+      <div id="bRestart"></div>
+      <div class="modalwrap" id="bModalWrap" style="display:none">
+        <div class="modal">
+          <div class="steps"><div class="st" data-s="1">1 检查</div><div class="st" data-s="2">2 日志</div><div class="st" data-s="3">3 安装</div><div class="st" data-s="4">4 收尾</div></div>
+          <div id="bStep"></div>
+          <div class="row" style="margin-top:10px">
+            <button id="bPrev">上一步</button><button id="bNext" class="primary">下一步</button><button id="bClose">关闭（安装不中断·桩）</button>
+          </div>
+        </div>
+      </div>
+      <div class="card"><h3>状态外显（每次动作后刷新）</h3><pre class="dock" id="bState"></pre></div>
+    </div>
+  </section>
+
+  <!-- ============ C 队列运维台 ============ -->
+  <section class="variant" id="vC">
+    <div class="card">
+      <h2>更新运维台 <span class="muted">mode="embedded" 全功能 · 左=self，右=跨插件队列</span></h2>
+      <div class="row" id="cActions" style="margin-bottom:8px"></div>
+      <div id="cRestart"></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:280px">
+          <h3>本插件（my-notes-plugin）</h3>
+          <div id="cSelf"></div>
+          <h3>更新日志</h3><div id="cLog"></div>
+          <h3>错误信息</h3><div id="cErr"></div>
+          <h3>手动命令</h3><div id="cManual"></div>
+        </div>
+        <div style="flex:1;min-width:280px">
+          <h3>跨插件队列 <span class="muted">（串行；公平/取消策略待 #15 定）</span></h3>
+          <div id="cQueue"></div>
+        </div>
+      </div>
+      <h3>轮询与凭证</h3><div id="cMeta" class="muted"></div>
+      <h3>状态外显（每次动作后刷新）</h3><pre class="dock" id="cState"></pre>
+    </div>
+  </section>
+
+  <!-- ============ D 极简徽标 ============ -->
+  <section class="variant" id="vD">
+    <div class="chrome">
+      <div class="topbar">（ mock 插件列表页 ） 每行一只徽标：瞥一眼就知道谁要更新，点开才看详情</div>
+      <div id="dList"></div>
+      <div class="popover" id="dPop" style="display:none"></div>
+      <div class="card"><h3>状态外显（每次动作后刷新）</h3><pre class="dock" id="dState"></pre></div>
+    </div>
+  </section>
+
+  <!-- 状态总 dock -->
+  <section class="card">
+    <h2>总状态外显（切变体 / 每次动作都刷新）</h2>
+    <pre class="dock" id="dock"></pre>
+  </section>
+</main>
+
+<footer class="lines">
+  <section class="card">
+    <h2>接入行数清单（三件套锁死，变体不换边界 → 四变体接入成本相同）</h2>
+    <h3>宿主侧 <span class="muted" id="hostLines"></span></h3>
+    <code class="cmd" id="hostSnippet"></code>
+    <h3>面板侧 <span class="muted" id="panelLines"></span> ＋ 构建期派生 1 条命令（非常驻代码）</h3>
+    <code class="cmd" id="panelSnippet"></code>
+    <p class="muted">派生：<code>node node_modules/dsh-plugin-update/derive-client-values.mjs --prefix notes --out scripts/generated/updateClient.derived.js</code>（换前缀/升级包时重跑一次）。轮询常量 UPD_POLL 默认 1000ms、下限 250ms；电话名永远从派生常量读，不手拼。</p>
+  </section>
+</footer>
+
+<div id="switcher">
+  <button id="swPrev" title="上一个（←）">◀</button>
+  <div class="lbl"><span id="swLabel">A</span><small>原型切换条（非设计）· ←/→ 键也可切</small></div>
+  <button id="swNext" title="下一个（→）">▶</button>
+</div>
+
+<script>
+"use strict";
+/* ============ 纯 stub 逻辑（内存，无持久化；https://github.com/FeatherHunter/dsh-plugin-update/issues/13） ============ */
+const VARIANTS = [
+  { k:"A", name:"内嵌紧凑条" }, { k:"B", name:"对话框向导" },
+  { k:"C", name:"队列运维台" }, { k:"D", name:"极简徽标" },
+];
+const REASONS = {
+  "unknown-profile":      ["使用范围或插件位置认不出", "重开宿主再查一次；一直这样就把版本号与日志交给插件作者；这种情形不给手工命令"],
+  "source-install":       ["当前是从源码装的，不是按版本号装的", "这种情形不给手工命令；想走更新先按版本号重装一次"],
+  "invalid-installation": ["已装的包不完整（名字对不上、版本非法、入口文件缺失）", "重装当前版本，修好已装目录再查更新"],
+  "installation-changed": ["安装位置在使用中途变了（换了目录或换了包）", "重新打开宿主再查一次；还出现就重装"],
+  "pending-restart":      ["新版已装到磁盘，正在跑的还是旧版", "重启宿主，让新版跑起来；这是正常终态，不是失败"],
+  "registry-conflict":    ["本地声明的版本与磁盘实际版本互相矛盾", "打开使用范围的清单文件，把目标包名那一行改成版本号再试"],
+  "incompatible-node":    ["新版要求的 Node 与当前运行的对不上", "先升级 Node 到 22 或更高，再查更新"],
+  "recovery-required":    ["上次安装被打断，留下一个半截任务", "重新点一次安装；一直出现就按 README 第 6 节排错"],
+};
+const NO_MANUAL = new Set(["unknown-profile", "source-install"]);
+const CHANGELOG = {
+  "1.2.3": { date:"2026-10-02", items:[["Added","一键复制诊断（含稳定码/脱敏诊断/版本/宿主/队列位置）"],["Added","队列位置显示（跨插件单队列）"],["Fixed","安装完成判据（先收尾再定成败）"]] },
+  "1.2.2": null, // 缺日志 → 中性提示，不挡安装（#11 结论）
+};
+const HOST_SNIPPET = [
+  "import { createHostUpdate } from 'dsh-plugin-update'",
+  "const update = createHostUpdate({ ctx, logCtx }, { pluginId: 'my-notes-plugin', prefix: 'notes' })",
+  "for (const [name, handler] of Object.entries(update.handlers))",
+  "  registry.set(name, handler)",
+].join("\n");
+const PANEL_SNIPPET = [
+  "<update-panel prefix=\"notes\" mode=\"embedded\" show-others></update-panel>",
+  "<script type=\"module\" src=\"./update-panel.js\"><\/script> <!-- 整组件由本包提供（拟议，未实现） -->",
+].join("\n");
+
+let S;
+function freshState(){
+  return {
+    lastAction:"（刚打开，还没点任何按钮）",
+    self:{ pluginId:"my-notes-plugin", prefix:"notes", profile:"my-web",
+           installed:"1.2.2", running:"1.2.2", latest:null,
+           job:null, receipt:null, skipped:["1.2.1"], checkN:0 },
+    other:[ { pluginId:"other-tasks-plugin", installed:"0.9.0", running:"0.9.0", latest:"0.9.1", job:{ phase:"installing", progress:62 } },
+            { pluginId:"third-theme", installed:"2.0.0", running:"2.0.0", latest:null, job:null } ],
+    queue:[ { pluginId:"other-tasks-plugin", version:"0.9.1", state:"installing", progress:62 } ],
+    bStep:1, bOpen:false, dSel:null,
+  };
+}
+function demoReason(){ return document.getElementById("demoReason").value || ""; }
+function showOthers(){ return document.getElementById("demoShowOthers").checked; }
+function blockedOfSelf(){
+  if (S.self.job) return "";
+  if (demoReason()) return demoReason();
+  return "";
+}
+function snapshotSelf(){
+  const r = blockedOfSelf();
+  return { installedVersion:S.self.installed, runningVersion:S.self.running,
+    latestVersion:S.self.latest, canInstall:!S.self.job && !r, blockedReason:r||null,
+    job:S.self.job ? { phase:S.self.job.phase, progress:S.self.job.progress } : null };
+}
+function manualCmd(){
+  const r = blockedOfSelf();
+  if (NO_MANUAL.has(r)) return null;
+  const v = S.self.latest || "1.2.3";
+  return `dsh plugin --profile ${S.self.profile} add --save-exact ${S.self.pluginId}@${v} --registry=https://registry.npmjs.org/`;
+}
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+function oneLiner(){
+  const s = snapshotSelf();
+  if (s.job) return `正在安装 ${S.self.latest}（${s.job.progress}%）…`;
+  if (s.blockedReason === "pending-restart") return `⚠️ 新版 ${s.installedVersion} 已装好，正在跑的还是 ${s.runningVersion}，重启宿主后生效。`;
+  if (s.blockedReason) return `装不了：${REASONS[s.blockedReason][0]}`;
+  if (s.latestVersion && s.latestVersion !== s.installedVersion && !S.self.skipped.includes(s.latestVersion))
+    return `有新版 ${s.latestVersion}（当前 ${s.installedVersion}），可安装。`;
+  if (s.latestVersion && S.self.skipped.includes(s.latestVersion)) return `新版 ${s.latestVersion} 已跳过（按插件+版本记住，可重置·入口待#16定）。`;
+  if (s.latestVersion) return `已是最新（${s.installedVersion}）。`;
+  return `当前 ${s.installedVersion}，还没查过新版。`;
+}
+
+/* ---- 动作（全是桩，只改内存） ---- */
+function act(kind){
+  const t = new Date().toLocaleTimeString("zh-CN",{hour12:false});
+  if (kind==="check"){
+    S.self.checkN++;
+    S.self.latest = "1.2.3";
+    S.self.receipt = { checkId:"chk-7f3a", checkedAt:t, expiresAt:"+10min",
+      requestId:"req-"+Math.random().toString(36).slice(2,7) };
+    S.lastAction = `${t} 查新版（notes.updateCheck）：带回 1.2.3 + 凭证 checkId`;
+  }
+  if (kind==="install"){
+    if (!S.self.latest){ S.lastAction = `${t} 安装被拦：先查新版拿凭证（check-expired 桩）`; return renderAll(); }
+    if (S.self.job) return renderAll();
+    S.self.job = { phase:"installing", progress:0 };
+    S.queue.push({ pluginId:S.self.pluginId, version:S.self.latest, state:"queued", progress:0 });
+    S.lastAction = `${t} 装更新（notes.updateInstall）：checkId + requestId 提交，进入跨插件队列`;
+  }
+  if (kind==="advance"){
+    const j = S.self.job; if (!j) return renderAll();
+    j.progress = Math.min(100, j.progress + 25);
+    const q = S.queue.find(e=>e.pluginId===S.self.pluginId); if (q){ q.progress=j.progress; q.state = j.progress>=100?"verifying":"installing"; }
+    if (j.progress>=100){
+      S.self.installed = S.self.latest; S.self.job = null;
+      S.queue = S.queue.filter(e=>e.pluginId!==S.self.pluginId);
+      document.getElementById("demoReason").value = "pending-restart";
+      S.lastAction = `${t} 安装收尾：磁盘已是 ${S.self.installed}，running 还是旧版 → pending-restart（正常终态）`;
+    } else S.lastAction = `${t} 推进安装进度 → ${j.progress}%（关面板不中断·桩：进度活在宿主侧）`;
+  }
+  if (kind==="restart"){
+    S.self.running = S.self.installed;
+    document.getElementById("demoReason").value = "";
+    S.lastAction = `${t} 重启宿主（桩）：running 追上 installed，新版生效`;
+  }
+  if (kind==="skip"){
+    if (S.self.latest && !S.self.skipped.includes(S.self.latest)) S.self.skipped.push(S.self.latest);
+    S.lastAction = `${t} 跳过 ${S.self.latest}（按插件+版本持久化·桩；重置入口待 #16 定）`;
+  }
+  renderAll();
+}
+function copyText(txt, what){
+  const done = ()=>{ S.lastAction = `已复制${what}（已脱敏，可贴给作者定位）`; renderAll(); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, done);
+  else done();
+}
+
+/* ---- 六面渲染 helpers ---- */
+function hLog(){
+  let h = "";
+  for (const v of ["1.2.3","1.2.2"]){
+    const e = CHANGELOG[v];
+    h += `<div><b>${v}</b> <span class="muted">${e?e.date:""}</span>`;
+    if (!e) h += `<div class="muted">暂无更新说明，不影响安装（#11：缺日志中性提示、不挡安装）。</div>`;
+    else h += "<ul>" + e.items.map(i=>`<li><b>${i[0]}</b>：${esc(i[1])}</li>`).join("") + "</ul>";
+    h += "</div>";
+  }
+  return h + `<div class="muted">prerelease 通道默认不推安装（stable 默认，#16 待定）。</div>`;
+}
+function hQueue(){
+  const vis = showOthers() ? S.queue : S.queue.filter(e=>e.pluginId===S.self.pluginId);
+  if (!vis.length) return `<div class="muted">队列空。同一使用范围同时只装一个，撞上会报 update-busy。</div>`;
+  return `<table class="q"><tr><th>插件</th><th>版本</th><th>状态</th><th>进度</th></tr>` +
+    vis.map(e=>`<tr><td>${esc(e.pluginId)}${e.pluginId===S.self.pluginId?"（我）":""}</td><td>${esc(e.version)}</td><td>${esc(e.state)}</td><td>${e.progress}%</td></tr>`).join("") +
+    `</table><div class="muted">共 ${S.queue.length} 项，当前显示 ${vis.length} 项（showOthers=${showOthers()}，消费者决定）。</div>`;
+}
+function hErr(){
+  const r = blockedOfSelf();
+  if (!r) return `<div class="okline">无阻塞：canInstall=true。要看错误面，用顶部演示控制台切八种原因。</div>`;
+  if (r === "pending-restart") return `<div class="banner-restart">⚠️ 新版 ${esc(S.self.installed)} 已装好，正在跑的还是 ${esc(S.self.running)}，重启宿主后生效。待重启期间不提供安装按钮，只给重启指引与手工命令入口。</div>`;
+  return `<div class="errbox"><b>${esc(r)}</b>：${esc(REASONS[r][0])}<br>用户该做什么：${esc(REASONS[r][1])}<br><button data-copy-diag style="margin-top:6px">复制诊断（含稳定码/脱敏诊断/版本/宿主/队列位置）</button></div>`;
+}
+function hManual(){
+  const m = manualCmd();
+  if (!m) return `<div class="muted">当前情形不给手工命令（${esc(blockedOfSelf())}），只展示原因。</div>`;
+  return `<code class="cmd">${esc(m)}</code><div class="row" style="margin-top:6px"><button data-copy-manual>复制整行执行</button><span class="muted">范围名特殊字符已加引号（桩：my-web 无需引号）；网络受限可去掉 --registry= 走本地源。</span></div>`;
+}
+function hMeta(){
+  const r = S.self.receipt;
+  return `轮询 UPD_POLL=1000ms（下限250ms，越界抛错）；查新版2s内复用上次结果；凭证 ${r?`checkId=${r.checkId} checkedAt=${r.checkedAt} expiresAt=${r.expiresAt}`:"（还没查过）"}；同一 requestId 重复提交返回旧结果，不重装。`;
+}
+function hActionsHTML(prefix){
+  const s = snapshotSelf();
+  return `<button data-act="check">查新版</button>
+    <button data-act="install" class="primary" ${s.canInstall&&s.latestVersion?"":"disabled"}>安装${s.latestVersion?" "+esc(s.latestVersion):""}</button>
+    ${s.job?`<button data-act="advance">推进 25%（桩）</button>`:""}
+    <button data-act="skip" ${s.latestVersion?"":"disabled"}>跳过该版本（桩）</button>`;
+}
+function hRestartHTML(){
+  if (blockedOfSelf()==="pending-restart") return `<div class="banner-restart">⚠️ 新版 ${esc(S.self.installed)} 已装好，正在跑的还是 ${esc(S.self.running)}，重启宿主后生效。<button data-act="restart" class="primary" style="margin-left:8px">重启（桩）</button></div>`;
+  return "";
+}
+
+/* ---- 各变体渲染 ---- */
+function renderA(){
+  document.getElementById("aOneLiner").textContent = oneLiner();
+  document.getElementById("aActions").innerHTML = hActionsHTML();
+  document.getElementById("aRestart").innerHTML = hRestartHTML();
+  document.getElementById("aLog").innerHTML = hLog();
+  document.getElementById("aQueue").innerHTML = hQueue();
+  document.getElementById("aErr").innerHTML = hErr();
+  document.getElementById("aManual").innerHTML = hManual();
+  document.getElementById("aState").textContent = dockText();
+}
+function renderB(){
+  document.getElementById("bHint").textContent = oneLiner();
+  document.getElementById("bRestart").innerHTML = hRestartHTML();
+  const wrap = document.getElementById("bModalWrap");
+  wrap.style.display = S.bOpen ? "block" : "none";
+  document.querySelectorAll("#vB .st").forEach(el=>{
+    const n = +el.dataset.s;
+    el.className = "st" + (n===S.bStep?" on":n<S.bStep?" done":"");
+  });
+  const s = snapshotSelf(); let h = "";
+  if (S.bStep===1) h = `<h3>检查更新</h3><div class="row">${hActionsHTML()}</div><div class="muted" style="margin-top:6px">${esc(hMeta())}</div>`;
+  if (S.bStep===2) h = `<h3>更新日志</h3>${hLog()}`;
+  if (S.bStep===3) h = `<h3>安装</h3>${hQueue()}<div class="row" style="margin-top:6px">${hActionsHTML()}</div>${hErr()}`;
+  if (S.bStep===4) h = `<h3>收尾</h3>${hRestartHTML()}${hErr()}${hManual()}`;
+  document.getElementById("bStep").innerHTML = h;
+  document.getElementById("bState").textContent = dockText();
+}
+function renderC(){
+  const s = snapshotSelf();
+  document.getElementById("cActions").innerHTML = hActionsHTML();
+  document.getElementById("cRestart").innerHTML = hRestartHTML();
+  document.getElementById("cSelf").innerHTML =
+    `<table class="q"><tr><th>字段</th><th>值</th></tr>` +
+    Object.entries(s).map(([k,v])=>`<tr><td>${k}</td><td>${esc(v===null?"null":typeof v==="object"?JSON.stringify(v):v)}</td></tr>`).join("") + `</table>
+     <div class="muted">快照恒六字段；job 只读半程恒为 null 以外，装更新时带 phase/progress（桩）。</div>`;
+  document.getElementById("cLog").innerHTML = hLog();
+  document.getElementById("cErr").innerHTML = hErr();
+  document.getElementById("cManual").innerHTML = hManual();
+  document.getElementById("cQueue").innerHTML = hQueue();
+  document.getElementById("cMeta").textContent = hMeta();
+  document.getElementById("cState").textContent = dockText();
+}
+function dotFor(p){
+  if (p.job) return "yellow";
+  if (p.latest && p.latest!==p.installed) return "yellow";
+  return "green";
+}
+function renderD(){
+  const rows = [{ id:"my-notes-plugin", me:true, p:S.self },
+    ...S.other.map(o=>({ id:o.pluginId, me:false, p:o }))];
+  document.getElementById("dList").innerHTML = rows.map(r=>{
+    const d = r.me ? (S.self.job?"yellow":(S.self.latest&&S.self.latest!==S.self.installed?"yellow":"green")) : dotFor(r.p);
+    const ver = r.me ? S.self.installed : r.p.installed;
+    const upd = r.me ? (S.self.latest&&S.self.latest!==S.self.installed?` → ${S.self.latest}可装`:"") : (r.p.latest?` → ${r.p.latest}可装`:"");
+    return `<div class="pluginrow"><span class="dot ${d}"></span><b>${esc(r.id)}</b><span class="muted">${esc(ver)}${esc(upd)}</span>
+      <button data-dsel="${esc(r.id)}" style="margin-left:auto">详情</button></div>`;
+  }).join("");
+  const pop = document.getElementById("dPop");
+  if (!S.dSel){ pop.style.display = "none"; }
+  else if (!S.dSel.startsWith("my-notes")){ pop.style.display = "block"; pop.innerHTML = `<b>${esc(S.dSel)}</b> <span class="muted">（他人插件：只读徽标 + 队列位置，不代操作）</span><div class="muted">队列位置：第 1 位 · installing 62%（桩）。showOthers=${showOthers()}。</div>`; }
+  else {
+    pop.style.display = "block";
+    pop.innerHTML = `<b>my-notes-plugin</b>：${esc(oneLiner())}<div class="row" style="margin:6px 0">${hActionsHTML()}</div>${hRestartHTML()}${hErr()}${hManual()}<h3>日志</h3>${hLog()}<h3>队列</h3>${hQueue()}`;
+  }
+  document.getElementById("dState").textContent = dockText();
+}
+
+/* ---- 总 dock ---- */
+function dockText(){
+  const s = snapshotSelf();
+  const vis = showOthers() ? S.queue : S.queue.filter(e=>e.pluginId===S.self.pluginId);
+  return [
+    `变体=${cur}（${VARIANTS.find(v=>v.k===cur).name}）· 最后动作：${S.lastAction}`,
+    `snapshot: installed=${s.installedVersion} running=${s.runningVersion} latest=${s.latestVersion} canInstall=${s.canInstall} blockedReason=${s.blockedReason} job=${s.job?JSON.stringify(s.job):"null"}`,
+    `receipt: ${S.self.receipt?JSON.stringify(S.self.receipt):"null"} · skipped=[${S.self.skipped.join(",")}]`,
+    `queue: 显示${vis.length}/共${S.queue.length}（showOthers=${showOthers()}）· manual=${manualCmd()?"有":"无（"+(blockedOfSelf()||"—")+"）"}`,
+  ].join("\n");
+}
+
+/* ---- 变体切换 ---- */
+let cur = "A";
+function readVariant(){
+  try { const q = new URLSearchParams(location.search).get("variant"); if (q) return q.toUpperCase(); } catch(e){}
+  const m = /variant=([A-Da-d])/.exec(location.hash||""); if (m) return m[1].toUpperCase();
+  return "A";
+}
+function setVariant(k, silent){
+  if (!VARIANTS.some(v=>v.k===k)) k = "A";
+  cur = k;
+  document.querySelectorAll("section.variant").forEach(el=>el.classList.remove("active"));
+  document.getElementById("v"+k).classList.add("active");
+  document.getElementById("swLabel").textContent = k + " — " + VARIANTS.find(v=>v.k===k).name;
+  try { const u = new URL(location.href); u.searchParams.set("variant", k); history.replaceState(null, "", u); }
+  catch(e){ location.hash = "variant="+k; }
+  if (!silent){ S.lastAction = `切换变体 → ${k}（URL 可分享，重载稳定）`; renderAll(); }
+}
+function renderAll(){ renderA(); renderB(); renderC(); renderD(); document.getElementById("dock").textContent = dockText(); }
+
+/* ---- 事件 ---- */
+document.addEventListener("click", ev=>{
+  const a = ev.target.closest("[data-act]");
+  if (a){ act(a.dataset.act); return; }
+  if (ev.target.closest("[data-copy-manual]")){ copyText(manualCmd(), "手动命令"); return; }
+  if (ev.target.closest("[data-copy-diag]")){
+    const s = snapshotSelf();
+    copyText(`[update-diag] code=${s.blockedReason} plugin=${S.self.pluginId}@${s.installedVersion}->${s.latestVersion} host=DSH queue=${S.queue.length} poll=1000ms`, "诊断");
+    return;
+  }
+  const d = ev.target.closest("[data-dsel]");
+  if (d){ S.dSel = d.dataset.dsel; S.lastAction = `D 变体：展开 ${S.dSel} 详情`; renderAll(); return; }
+});
+document.getElementById("demoReason").addEventListener("change", ()=>{ S.lastAction = "演示控制台：切换 blockedReason → " + (demoReason()||"无"); renderAll(); });
+document.getElementById("demoShowOthers").addEventListener("change", ()=>{ S.lastAction = "演示控制台：showOthers → " + showOthers(); renderAll(); });
+document.getElementById("demoReset").addEventListener("click", ()=>{ const b=S.bOpen, d=S.dSel; S = freshState(); S.bOpen=b; S.dSel=null; document.getElementById("demoReason").value=""; document.getElementById("demoShowOthers").checked=true; S.lastAction="演示状态已重置（内存）"; renderAll(); });
+document.getElementById("bOpen").addEventListener("click", ()=>{ S.bOpen = true; S.bStep = 1; S.lastAction = "B 变体：打开对话框（mode=dialog）"; renderAll(); });
+document.getElementById("bClose").addEventListener("click", ()=>{ S.bOpen = false; S.lastAction = "B 变体：关闭对话框 —— 安装不中断（桩，进度活在宿主侧，重开1s内恢复·待#14实现）"; renderAll(); });
+document.getElementById("bPrev").addEventListener("click", ()=>{ S.bStep = Math.max(1, S.bStep-1); renderAll(); });
+document.getElementById("bNext").addEventListener("click", ()=>{ S.bStep = Math.min(4, S.bStep+1); renderAll(); });
+document.getElementById("swPrev").addEventListener("click", ()=>{ const i = VARIANTS.findIndex(v=>v.k===cur); setVariant(VARIANTS[(i+3)%4].k); });
+document.getElementById("swNext").addEventListener("click", ()=>{ const i = VARIANTS.findIndex(v=>v.k===cur); setVariant(VARIANTS[(i+1)%4].k); });
+window.addEventListener("keydown", ev=>{
+  if (ev.target.matches("input,textarea,select,[contenteditable]")) return;
+  if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+  const i = VARIANTS.findIndex(v=>v.k===cur);
+  setVariant(VARIANTS[(i + (ev.key==="ArrowRight"?1:3))%4].k);
+});
+
+/* ---- 启动 ---- */
+S = freshState();
+document.getElementById("hostSnippet").textContent = HOST_SNIPPET;
+document.getElementById("panelSnippet").textContent = PANEL_SNIPPET.replace("<\\/script>", "<"+"/script>");
+document.getElementById("hostLines").textContent = `（${HOST_SNIPPET.split("\n").length} 行）`;
+document.getElementById("panelLines").textContent = `（${PANEL_SNIPPET.split("\n").length} 行）`;
+setVariant(readVariant(), true);
+S.lastAction = "原型已载入（内存 stub；切变体或点按钮开始）";
+renderAll();
+</script>
+</body>
+</html>

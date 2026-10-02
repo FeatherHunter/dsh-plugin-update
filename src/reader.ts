@@ -15,8 +15,8 @@ import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertPluginId } from './config.js'
-import { createUpdateCore, validVersion } from './service.js'
-import type { EnvironmentKind, EnvironmentView, FetchImpl, UpdateCore, UpdateJob } from './ports.js'
+import { createUpdateCore, isVersionAllowedInChannel, validVersion } from './service.js'
+import type { EnvironmentKind, EnvironmentView, FetchImpl, ReleaseChannel, UpdateCore, UpdateJob } from './ports.js'
 
 const LOCK_FILES = ['pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package-lock.json']
 
@@ -160,9 +160,13 @@ export function registrySpec(spec: unknown): boolean {
   )
 }
 
-/** 包是否完好：名字对得上目标包名、版本合法、三个入口文件都在包内且真实存在。 */
-async function validPackage(pkg: { manifest: Record<string, unknown>; directory: string } | null, targetName: string): Promise<boolean> {
-  if (!pkg || pkg.manifest?.name !== targetName || !validVersion(pkg.manifest.version)) return false
+/** 包是否完好：名字对得上目标包名、版本在通道内合法、三个入口文件都在包内且真实存在。 */
+async function validPackage(
+  pkg: { manifest: Record<string, unknown>; directory: string } | null,
+  targetName: string,
+  channel: ReleaseChannel = 'stable'
+): Promise<boolean> {
+  if (!pkg || pkg.manifest?.name !== targetName || !isVersionAllowedInChannel(pkg.manifest.version, channel)) return false
   const main = pkg.manifest.main
   const exportsField = pkg.manifest.exports as Record<string, unknown> | undefined
   const dshField = pkg.manifest.dsh as Record<string, unknown> | undefined
@@ -215,6 +219,8 @@ export interface UpdateReaderOptions {
   registryUrl?: string
   checkTimeoutMs?: number
   confirmationTtlMs?: number
+  /** 版本通道：默认 stable，显式传 prerelease 才收预发布（#16，加法扩展）。 */
+  releaseChannel?: ReleaseChannel
   readInstalled?: () => EnvironmentView | Promise<EnvironmentView>
   readJob?: () => UpdateJob | null | Promise<UpdateJob | null>
   writeJob?: (job: UpdateJob | null) => void | Promise<void>
@@ -249,6 +255,7 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
   const environmentKind = options.environmentKind ?? 'cli'
   const targetPackageName = options.targetPackageName ?? 'dsh-mattpocock-skills-deck'
   const registryUrl = options.registryUrl ?? 'https://registry.npmjs.org/'
+  const releaseChannel: ReleaseChannel = options.releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
   // 与宿主入口共用同一个解析函数（issue #3）：显式目录优先，否则按包名解析，失败为 null。
   const loadedPackage = resolveTargetPackage(
     targetPackageName,
@@ -297,7 +304,7 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
     const deps = (profile.manifest.dependencies ?? {}) as Record<string, unknown>
     result.sourceInstall = !registrySpec(deps[targetPackageName]) || !inside(join(profileDir, 'node_modules'), installed.directory)
     result.installedVersion = typeof installed.manifest.version === 'string' ? installed.manifest.version : null
-    result.packageValid = await validPackage(installed, targetPackageName)
+    result.packageValid = await validPackage(installed, targetPackageName, releaseChannel)
     const loaded = await loadedPackage
     // 目标包定位不到（自动解析全失败且没给显式目录）：诚实失败，不产假的 installation-changed
     //（issue #3；到这里已装包真实存在，是“本包认不出目标”而非“安装位置变了”，重开宿主也修不好）。
@@ -336,6 +343,7 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
     confirmationTtlMs: options.confirmationTtlMs,
     targetPackageName,
     registryUrl,
+    releaseChannel,
     readJob: options.readJob,
     writeJob: options.writeJob,
     tryAcquireLock: options.tryAcquireLock,

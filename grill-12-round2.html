@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#12 第二轮 — 三个待定问题</title>
+<style>
+body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.6;margin:0;padding:24px 16px;color:#222}
+.wrap{max-width:860px;margin:0 auto}
+h1{font-size:22px;margin:0 0 6px}
+.sub{color:#666;font-size:13px;margin-bottom:16px}
+.box{border:1px solid #e3e3e3;border-radius:10px;padding:16px;margin-bottom:16px}
+h2{font-size:17px;margin:0 0 8px}
+h3{font-size:14px;margin:14px 0 6px;color:#0b6e4f}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{border:1px solid #e3e3e3;padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#f5f5f5}
+.rec{background:#eef7f2;border:1px solid #bfe0d1;border-radius:8px;padding:10px;margin:8px 0;font-size:14px}
+.adv{background:#fff8e6;border:1px solid #ecd9a0;border-radius:8px;padding:10px;margin:8px 0;font-size:14px}
+.first{background:#eef2ff;border:1px solid #c3cff5;border-radius:8px;padding:10px;margin:8px 0;font-size:14px}
+.done{background:#fafafa;border:1px solid #e3e3e3;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:16px}
+footer{color:#888;font-size:12px;margin-top:16px;border-top:1px solid #eee;padding-top:10px}
+code{background:#f4f4f4;padding:0 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>#12 第二轮 — 三个待定问题</h1>
+<div class="sub">#12 开放形式选型 ｜ 已定：Q1 全包（问题越少越好，本包多扛）＋故障可排查；Q2 整组件；Q4 只定承诺不锁实现 ｜ 本文件只讨论未定的三问，不写票</div>
+
+<div class="done"><b>已定回顾（一句话）：</b>以后别的插件接更新，宿主几行、面板一个标签就行；样子、文字、排队、跳过都归本包；出故障时对方能一键给我们有效信息；后面三票（后台/排队/跳过）按承诺做实现。</div>
+
+<div class="box">
+<h2>Q5 — 出故障时，对方拿什么给我们查？</h2>
+<h3>问题</h3>
+<p>你提过：对方拿不到信息，只能讲个大概。以后点一下能不能复制出够我们定位的东西？选项：A 一键复制诊断（含原因码＋脱敏信息＋版本）；B 只显示一句话，详细记录走原来的日志；C 两者都要。</p>
+<h3>背景</h3>
+<p>现在失败只有一句粗话，没有细节。对方想帮我们也帮不上。隐私信息不能直接给，要先去掉敏感内容。</p>
+<h3>我的推荐</h3>
+<div class="rec">➡️ 推荐 C：页面上给一句话，旁边放“复制诊断”按钮。对方一点就复制一段干净的信息贴给我们。</div>
+<h3>各选项好处和坏处</h3>
+<table><tr><th>选项</th><th>好处</th><th>坏处</th></tr>
+<tr><td>A 一键复制</td><td>信息最全，好定位</td><td>如果日志里有更多，只能再去翻</td></tr>
+<tr><td>B 只看日志</td><td>包最轻</td><td>对方还是讲不清，白提了要求</td></tr>
+<tr><td>C 都要</td><td>平时简单，查问题时有料</td><td>多做一点点</td></tr></table>
+<h3>对抗后推荐</h3>
+<div class="adv">反方：按钮会不会泄露隐私？回应：复制前先去掉路径、人名等，只留原因和版本。所以仍推 C。</div>
+<h3>从根本出发推荐</h3>
+<div class="first">根本：谁用谁最清楚现象，但只有我们能修。所以“让对方一点就给全”最省事。结论仍是 C。</div>
+</div>
+
+<div class="box">
+<h2>Q6 — 内嵌还是弹窗？TS 要什么？</h2>
+<h3>问题</h3>
+<p>你说要内嵌或弹窗、调用者指定。拆成三小问：① 怎么指定：A 一个组件加开关，B 两个组件二选一；② 默认哪种；③ TS 要什么：A 带类型提示，B 给源码，C 无要求。</p>
+<h3>背景</h3>
+<p>有的插件想把更新嵌在自己页面里，有的想弹个窗。TS 项目一般要类型提示，写代码时有自动补全。</p>
+<h3>我的推荐</h3>
+<div class="rec">➡️ 推荐①选 A（一个组件＋开关，默认内嵌）＋③选 A（带类型提示）。一个东西最好维护，默认内嵌最不打扰。</div>
+<h3>各选项好处和坏处</h3>
+<table><tr><th>选项</th><th>好处</th><th>坏处</th></tr>
+<tr><td>①A 一个加开关</td><td>只维护一份，问题少</td><td>开关要写清楚</td></tr>
+<tr><td>①B 两个组件</td><td>各用各的，直观</td><td>改一处要改两处，问题翻倍</td></tr>
+<tr><td>③A 类型提示</td><td>写代码不猜，不传错</td><td>几乎零成本</td></tr>
+<tr><td>③B 给源码</td><td>最灵活</td><td>对方要自己编译，麻烦且易错</td></tr></table>
+<h3>对抗后推荐</h3>
+<div class="adv">反方：一个组件两种样子会不会乱？回应：样子不同，内核同一套（检查、排队、跳过共用），并不会乱。所以仍推 A。</div>
+<h3>从根本出发推荐</h3>
+<div class="first">根本：相同的东西只应写一遍。内嵌和弹窗只是“放在哪”，里面做的事一样。所以一个内核＋开关最对。结论仍是 A。</div>
+</div>
+
+<div class="box">
+<h2>Q3' — 老合同动不动？（大白话版）</h2>
+<h3>问题</h3>
+<p>老合同指已发布、别人在用的约定。选项：A 不动，真碰到再单独谈；B 现在就授权可改；C 再加个新工具（生成代码的向导）。只选风险偏好，不用懂技术。</p>
+<h3>背景</h3>
+<p>不动最快最稳；改可能更优雅但慢且易返工；加新工具等于多养一份模板，长期会旧。</p>
+<h3>我的推荐</h3>
+<div class="rec">➡️ 推荐 A：先不动。以后真需要加字段，走加选填项绕过去，不改老合同。</div>
+<h3>各选项好处和坏处</h3>
+<table><tr><th>选项</th><th>好处</th><th>坏处</th></tr>
+<tr><td>A 不动</td><td>快、稳、不吵架</td><td>极个别优雅做法做不到</td></tr>
+<tr><td>B 可改</td><td>给最优留路</td><td>讨论翻倍，可能返工</td></tr>
+<tr><td>C 加向导</td><td>可能更省行数</td><td>模板会过期，多一份活</td></tr></table>
+<h3>对抗后推荐</h3>
+<div class="adv">反方：以后发现老合同装不下排队信息怎么办？回应：用“加选填项”的方式绕过去，不动老的。所以仍推 A。</div>
+<h3>从根本出发推荐</h3>
+<div class="first">根本：合同的价值是稳定。不到“不改就做不成”那一步，不改。结论仍是 A。</div>
+</div>
+
+<footer>请回：Q5 / Q6①②③ / Q3' 的字母。仍不写票，等你确认草案后再落盘。</footer>
+</div>
+</body>
+</html>

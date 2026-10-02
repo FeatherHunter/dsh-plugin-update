@@ -27,6 +27,11 @@ export const LEGACY_DIR_SEGMENT = 'updates'
 export const STATE_FILE = 'state.json'
 export const LOCK_FILE = 'install.lock'
 export const BACKUP_FILE = 'before.json'
+// 跳过落盘文件名（#16 新增：三冻结名一字不动，跳过另起一文件，按插件标识隔离）。
+export const SKIPPED_FILE = 'skipped.json'
+// 版本通道取值（#16）：默认只推 stable，显式 opt-in 才收预发布。
+export const RELEASE_CHANNELS = ['stable', 'prerelease'] as const
+export type ReleaseChannelOption = (typeof RELEASE_CHANNELS)[number]
 
 // 时间默认值（冻结默认值，规格 #591 第 5 条）：联网超时 10 秒、凭证有效期 10 分钟、
 // 安装时限 15 分钟、面板轮询 1 秒；2 秒复用窗口保持不变（不开放调节）。
@@ -58,6 +63,8 @@ export interface UpdateConfigInput {
   installTimeoutMs?: number
   // 面板轮询毫秒：默认 1 秒，不得小于 250 毫秒。
   panelPollMs?: number
+  // 版本通道：默认 stable（与旧行为一字不差），显式传 prerelease 才收预发布（#16）。
+  releaseChannel?: ReleaseChannelOption
 }
 
 // 生效后的完整配置（无可选，调用处不再分支）。
@@ -71,6 +78,7 @@ export interface ResolvedUpdateConfig {
   confirmationTtlMs: number
   installTimeoutMs: number
   panelPollMs: number
+  releaseChannel: ReleaseChannelOption
 }
 
 // 插件标识形状（规格 #591 第 2 条）：必填的非空字符串且不含路径分隔符。
@@ -131,7 +139,11 @@ export function resolveUpdateConfig(input: UpdateConfigInput): ResolvedUpdateCon
   if (panelPollMs < MIN_PANEL_POLL_MS) {
     throw new Error('[dsh-plugin-update] 面板轮询 panelPollMs 非法：不得小于 250 毫秒（收到 ' + JSON.stringify(input.panelPollMs) + '）')
   }
-  return { pluginId, prefix, targetPackageName, registryUrl, homeDir, checkTimeoutMs, confirmationTtlMs, installTimeoutMs, panelPollMs }
+  const releaseChannel: ReleaseChannelOption = input.releaseChannel === undefined ? 'stable' : input.releaseChannel
+  if (releaseChannel !== 'stable' && releaseChannel !== 'prerelease') {
+    throw new Error('[dsh-plugin-update] 版本通道 releaseChannel 非法：只收 stable 或 prerelease（收到 ' + JSON.stringify(input.releaseChannel) + '）')
+  }
+  return { pluginId, prefix, targetPackageName, registryUrl, homeDir, checkTimeoutMs, confirmationTtlMs, installTimeoutMs, panelPollMs, releaseChannel }
 }
 
 // 三个电话名拼法（冻结：默认 wf 下与现状一字不差）。

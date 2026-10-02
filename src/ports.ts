@@ -21,6 +21,9 @@
  */
 export type EnvironmentKind = 'desktop' | 'desktop-manager' | 'cli'
 
+/** 版本通道（#16）：默认只推 stable；prerelease 须调用方显式 opt-in。 */
+export type ReleaseChannel = 'stable' | 'prerelease'
+
 /** 装不了的原因（装前不满足条件只给原因不给装，见通用方案复用清单）。 */
 export type BlockedReason =
   | 'unknown-profile'
@@ -192,6 +195,8 @@ export interface UpdatePorts {
   targetPackageName?: string
   /** 官方源：默认等于现状地址（规格 #591 第 4 条）。 */
   registryUrl?: string
+  /** 版本通道：默认 stable（与旧行为一字不差），显式传 prerelease 才收预发布（#16）。 */
+  releaseChannel?: ReleaseChannel
   /** 安装时限毫秒：默认 15 分钟（规格 #591 第 5 条）。 */
   installTimeoutMs?: number
   /** 读已落盘的任务（没有为 null；读坏由外面抛错，核心收敛为状态不可用）。 */

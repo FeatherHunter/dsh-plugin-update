@@ -24,6 +24,23 @@ import { manualCommand } from './commands.js'
 export { buildPhoneName, buildPhoneNames } from './config.js'
 export type { PhoneAction } from './config.js'
 export { manualCommand } from './commands.js'
+// 跨插件队列的面板侧形状（#15）：纯函数，无 Node 专属能力，可进浏览器闭包。
+// 面板凭电话可选参数（includeQueue/showOthers）拿队列视图，用这里的同名函数再做展示裁剪。
+export {
+  QUEUE_INTENT_TTL_MS,
+  cancelEnqueuedInQueue,
+  emptyQueueState,
+  enqueueInQueue,
+  isHeadOfQueue,
+  isQueueBusy,
+  normalizeQueueState,
+  pruneExpiredIntents,
+  queuePositionOf,
+  releaseOwnerInQueue,
+  setOwnerIfFree,
+  visibleQueueFor,
+} from './queue.js'
+export type { QueuedEntry, QueueOwner, UpdateQueueState, VisibleQueue, VisibleQueueOwner } from './queue.js'
 
 export const CLIENT_POLL = {
   defaultMs: DEFAULT_PANEL_POLL_MS,

@@ -14,7 +14,7 @@
  * 默认值等于现状常量。不传即走现状，老调用零变化。
  */
 
-import type { BlockedReason, EnvironmentKind, InstallRecipe } from './ports.js'
+import type { BlockedReason, EnvironmentKind, InstallRecipe, ReleaseChannel } from './ports.js'
 
 const PACKAGE_NAME = 'dsh-mattpocock-skills-deck'
 const NPM_REGISTRY = 'https://registry.npmjs.org/'
@@ -28,6 +28,32 @@ export const INSTALL_TIMEOUT_MS = 15 * 60_000
 
 function validVersion(v: unknown): v is string {
   return typeof v === 'string' && /^\d+\.\d+\.\d+$/.test(v)
+}
+
+// 发行版识别（#16，与 src/service.ts 同口径的内联版，本文件自包含不引用同层其它文件）。
+function validPrereleaseIds(ids: string): boolean {
+  if (typeof ids !== 'string' || !ids) return false
+  const parts = ids.split('.')
+  if (parts.length === 0) return false
+  for (const p of parts) {
+    if (!p || !/^[0-9A-Za-z-]+$/.test(p)) return false
+    if (/^\d+$/.test(p) && p.length > 1 && p.startsWith('0')) return false
+  }
+  return true
+}
+
+function validReleaseVersion(v: unknown): v is string {
+  if (typeof v !== 'string' || !v) return false
+  const dash = v.indexOf('-')
+  if (dash < 0) return validVersion(v)
+  if (v.slice(dash + 1).includes('+')) return false
+  return validVersion(v.slice(0, dash)) && validPrereleaseIds(v.slice(dash + 1))
+}
+
+/** 该版本在该通道是否可装：stable 只收纯三段，prerelease 通道两者皆收（精确版锁定不变）。 */
+function versionAllowed(version: unknown, channel: ReleaseChannel): version is string {
+  if (channel === 'prerelease') return validReleaseVersion(version)
+  return validVersion(version)
 }
 
 function parseTriple(v: string): [number, number, number] | null {
@@ -51,6 +77,41 @@ function compareVersions(a: string, b: string): -1 | 0 | 1 {
   for (let i = 0; i < 3; i++) {
     if (pa[i] < pb[i]) return -1
     if (pa[i] > pb[i]) return 1
+  }
+  return 0
+}
+
+// 发行版比较（#16，内联版：三段数字先比，无预发布大于有预发布，标识符按 SemVer §11）。
+function compareReleaseVersions(a: string, b: string): -1 | 0 | 1 {
+  if (!validReleaseVersion(a) || !validReleaseVersion(b)) throw new Error('invalid-release')
+  const dashA = a.indexOf('-')
+  const dashB = b.indexOf('-')
+  const coreA = dashA < 0 ? a : a.slice(0, dashA)
+  const coreB = dashB < 0 ? b : b.slice(0, dashB)
+  const order = compareVersions(coreA, coreB)
+  if (order !== 0) return order
+  const preA = dashA < 0 ? null : a.slice(dashA + 1).split('.')
+  const preB = dashB < 0 ? null : b.slice(dashB + 1).split('.')
+  if (preA === null && preB === null) return 0
+  if (preA === null) return 1
+  if (preB === null) return -1
+  const width = Math.max(preA.length, preB.length)
+  for (let i = 0; i < width; i++) {
+    const x = preA[i]
+    const y = preB[i]
+    if (x === undefined) return -1
+    if (y === undefined) return 1
+    const xn = /^\d+$/.test(x) ? Number(x) : null
+    const yn = /^\d+$/.test(y) ? Number(y) : null
+    if (xn !== null && yn !== null) {
+      if (xn < yn) return -1
+      if (xn > yn) return 1
+      continue
+    }
+    if (xn !== null) return -1
+    if (yn !== null) return 1
+    if (x < y) return -1
+    if (x > y) return 1
   }
   return 0
 }
@@ -83,10 +144,13 @@ export function installRecipe(input: {
   targetPackageName?: string
   registryUrl?: string
   timeoutMs?: number
+  /** 版本通道（#16）：默认 stable；显式传 prerelease 才可装预发布精确版。 */
+  releaseChannel?: ReleaseChannel
 }): InstallRecipe | null {
   const name = usableProfileName(input?.profileName)
   const version = input?.version
-  if (!name || !validVersion(version)) return null
+  const channel: ReleaseChannel = input?.releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
+  if (!name || !versionAllowed(version, channel)) return null
   const kind = input?.environmentKind
   if (kind !== 'desktop' && kind !== 'desktop-manager' && kind !== 'cli') return null
   const targetName = input?.targetPackageName ?? PACKAGE_NAME
@@ -121,21 +185,22 @@ export function installRecipe(input: {
  * 因为这一串要经用户自己的 shell 解释。网络受限时用户可自行去掉 --registry=。
  * 源码安装等不安全情形不给命令。
  */
-export function manualCommand(input: { profileName: string | null; latestVersion: string | null; installedVersion: string | null; runningVersion: string; jobTargetVersion: string | null; blockedReason: BlockedReason | null; sourceInstall: boolean; targetPackageName?: string; registryUrl?: string }): string | null {
+export function manualCommand(input: { profileName: string | null; latestVersion: string | null; installedVersion: string | null; runningVersion: string; jobTargetVersion: string | null; blockedReason: BlockedReason | null; sourceInstall: boolean; targetPackageName?: string; registryUrl?: string; releaseChannel?: ReleaseChannel }): string | null {
   if (input.sourceInstall || input.blockedReason === 'source-install' || input.blockedReason === 'unknown-profile') return null
   const name = usableProfileName(input.profileName)
   if (!name) return null
   const targetName = input.targetPackageName ?? PACKAGE_NAME
   const registry = input.registryUrl ?? NPM_REGISTRY
   if (!targetName || !registry) return null
+  const channel: ReleaseChannel = input.releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
   const arg = /^[A-Za-z0-9_.-]+$/.test(name) ? name : JSON.stringify(name)
-  const picks = [input.latestVersion, input.jobTargetVersion, input.installedVersion].filter(validVersion)
+  const picks = [input.latestVersion, input.jobTargetVersion, input.installedVersion].filter((v) => versionAllowed(v, channel))
   let version = picks.length > 0 ? picks[0] : 'latest'
   try {
-    const ranked = picks.filter((v) => compareVersions(v, input.runningVersion) >= 0)
+    const ranked = picks.filter((v) => compareReleaseVersions(v, input.runningVersion) >= 0)
     if (ranked.length > 0) {
       version = ranked[0]
-      for (const v of ranked) if (compareVersions(v, version) === 1) version = v
+      for (const v of ranked) if (compareReleaseVersions(v, version) === 1) version = v
     }
   } catch {}
   return `dsh plugin --profile ${arg} add --save-exact ${targetName}@${version} --registry=${registry}`

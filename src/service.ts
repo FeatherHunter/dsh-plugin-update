@@ -42,9 +42,58 @@ export function updateError(code: UpdateErrorCode): Error & { code: UpdateErrorC
 }
 
 // ---------- 版本号小工具（只认纯数字三段，预发布一律拒绝） ----------
+// 冻结语：validVersion / compareVersions 的行为保持现状（stable 通道默认值），
+// 预发布识别走下面新增的 release 版小工具（#16，加法扩展，不改旧行为）。
 
 export function validVersion(v: unknown): v is string {
   return typeof v === 'string' && /^\d+\.\d+\.\d+$/.test(v)
+}
+
+/** 版本通道：默认只推 stable；prerelease 须调用方显式 opt-in（#16）。 */
+export type ReleaseChannel = 'stable' | 'prerelease'
+export const RELEASE_CHANNELS = ['stable', 'prerelease'] as const
+
+export function validReleaseChannel(v: unknown): v is ReleaseChannel {
+  return v === 'stable' || v === 'prerelease'
+}
+
+/** 预发布标识符是否合法（SemVer §9：点分字母数字与连字符，非空、不留空段）。 */
+function validPrereleaseIds(ids: string): boolean {
+  if (typeof ids !== 'string' || !ids) return false
+  const parts = ids.split('.')
+  if (parts.length === 0) return false
+  for (const p of parts) {
+    if (!p || !/^[0-9A-Za-z-]+$/.test(p)) return false
+    if (/^\d+$/.test(p) && p.length > 1 && p.startsWith('0')) return false
+  }
+  return true
+}
+
+/**
+ * 发行版本号（含预发布）：`X.Y.Z` 或 `X.Y.Z-ids`（ids 见 SemVer §9）。
+ * stable 版（纯三段）恒为真；`0.2.0-rc.2` 这类预发布在此为真、在 validVersion 为假。
+ */
+export function validReleaseVersion(v: unknown): v is string {
+  if (typeof v !== 'string' || !v) return false
+  const dash = v.indexOf('-')
+  if (dash < 0) return validVersion(v)
+  const core = v.slice(0, dash)
+  const ids = v.slice(dash + 1)
+  if (!validVersion(core) || !validPrereleaseIds(ids)) return false
+  // 构建元数据（`+build`）不参与版本比较，本包不接受：含 `+` 一律拒绝。
+  if (ids.includes('+')) return false
+  return true
+}
+
+/** 是否预发布版本（发行合法但非纯三段）。 */
+export function isPrereleaseVersion(v: unknown): v is string {
+  return validReleaseVersion(v) && !validVersion(v)
+}
+
+/** 该版本在该通道是否允许出现：stable 通道只收纯三段，prerelease 通道两者皆收。 */
+export function isVersionAllowedInChannel(version: unknown, channel: ReleaseChannel = 'stable'): version is string {
+  if (channel === 'prerelease') return validReleaseVersion(version)
+  return validVersion(version)
 }
 
 function parseTriple(v: string): [number, number, number] | null {
@@ -69,6 +118,47 @@ export function compareVersions(a: string, b: string): -1 | 0 | 1 {
   for (let i = 0; i < 3; i++) {
     if (pa[i] < pb[i]) return -1
     if (pa[i] > pb[i]) return 1
+  }
+  return 0
+}
+
+function parseReleaseIds(ids: string): (number | string)[] {
+  return ids.split('.').map((p) => (/^\d+$/.test(p) ? Number(p) : p))
+}
+
+/**
+ * 发行版比较（SemVer §11）：先比三段数字；三段相等时，无预发布 > 有预发布；
+ * 都有预发布则按标识符逐个比（纯数字按数字比、数字 < 字母、段多者大）。
+ * 入参须先过 validReleaseVersion，否则抛 invalid-release。
+ */
+export function compareReleaseVersions(a: string, b: string): -1 | 0 | 1 {
+  if (!validReleaseVersion(a) || !validReleaseVersion(b)) throw updateError('invalid-release')
+  const dashA = String(a).indexOf('-')
+  const dashB = String(b).indexOf('-')
+  const coreA = dashA < 0 ? String(a) : String(a).slice(0, dashA)
+  const coreB = dashB < 0 ? String(b) : String(b).slice(0, dashB)
+  const order = compareVersions(coreA, coreB)
+  if (order !== 0) return order
+  const preA = dashA < 0 ? null : parseReleaseIds(String(a).slice(dashA + 1))
+  const preB = dashB < 0 ? null : parseReleaseIds(String(b).slice(dashB + 1))
+  if (preA === null && preB === null) return 0
+  if (preA === null) return 1
+  if (preB === null) return -1
+  const width = Math.max(preA.length, preB.length)
+  for (let i = 0; i < width; i++) {
+    const x = preA[i]
+    const y = preB[i]
+    if (x === undefined) return -1
+    if (y === undefined) return 1
+    if (typeof x === 'number' && typeof y === 'number') {
+      if (x < y) return -1
+      if (x > y) return 1
+      continue
+    }
+    if (typeof x === 'number') return -1
+    if (typeof y === 'number') return 1
+    if (x < y) return -1
+    if (x > y) return 1
   }
   return 0
 }
@@ -157,10 +247,11 @@ function timeoutSignal(ms: number): unknown {
 export async function fetchNpmRelease(
   fetchImpl: FetchImpl,
   timeoutMs: number = CHECK_TIMEOUT_MS,
-  opts?: { targetPackageName?: string; registryUrl?: string },
+  opts?: { targetPackageName?: string; registryUrl?: string; releaseChannel?: ReleaseChannel },
 ): Promise<ReleaseInfo> {
   const targetName = opts?.targetPackageName ?? PACKAGE_NAME
   const registry = opts?.registryUrl ?? NPM_REGISTRY
+  const channel: ReleaseChannel = opts?.releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
   let response: MinimalResponse | null = null
   try {
     response = await fetchImpl(`${registry}${encodeURIComponent(targetName)}/latest`, {
@@ -183,7 +274,7 @@ export async function fetchNpmRelease(
       engines?: { node?: unknown }
       dist?: { tarball?: unknown; integrity?: unknown }
     }
-    if (value.name !== targetName || !validVersion(value.version)) throw updateError('invalid-release')
+    if (value.name !== targetName || !isVersionAllowedInChannel(value.version, channel)) throw updateError('invalid-release')
     const version = value.version
     const nodeRange = value.engines?.node
     if (nodeRange !== undefined && typeof nodeRange !== 'string') throw updateError('invalid-release')
@@ -233,8 +324,9 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
   const confirmationTtlMs = ports.confirmationTtlMs ?? CONFIRMATION_TTL_MS
   const targetPackageName = ports.targetPackageName ?? PACKAGE_NAME
   const registryUrl = ports.registryUrl ?? NPM_REGISTRY
+  const releaseChannel: ReleaseChannel = ports.releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
   function fetchRelease(): Promise<ReleaseInfo> {
-    return fetchNpmRelease(ports.fetchImpl, checkTimeoutMs, { targetPackageName, registryUrl })
+    return fetchNpmRelease(ports.fetchImpl, checkTimeoutMs, { targetPackageName, registryUrl, releaseChannel })
   }
   let checked: CheckedState | null = null
   let checking: Promise<CheckResult> | null = null
@@ -298,15 +390,25 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     const busy = job?.state === 'installing' || job?.state === 'verifying'
     const fresh = checked !== null && checked.checkId !== null && ports.now() < checked.expiresAt
     const runningVersion = ports.readRunningVersion()
+    // 通道门（#16）：stable 默认与旧行为一字不差（纯三段 + 数字比较）；
+    // prerelease 通道下运行版与远端版都按发行版语义比（预发布 < 同号正式版）。
+    let newer = false
+    try {
+      newer =
+        isVersionAllowedInChannel(runningVersion, releaseChannel) &&
+        !!checked?.release &&
+        isVersionAllowedInChannel(checked.release.version, releaseChannel) &&
+        compareReleaseVersions(checked.release.version, runningVersion) === 1
+    } catch {
+      newer = false
+    }
     const canInstall = Boolean(
       env.eligible &&
         !blockedReason &&
         !busy &&
         fresh &&
         checked?.installationKey === env.installationKey &&
-        validVersion(runningVersion) &&
-        checked?.release &&
-        compareVersions(checked.release.version, runningVersion) === 1,
+        newer,
     )
     return {
       runningVersion,

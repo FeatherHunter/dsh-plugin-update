@@ -14,6 +14,16 @@ publish.cmd
 
 窗口全程**没有 y/n**：前置条件不满足就自己停下并说明原因；人只需要在 npm 要一次性验证码时把 6 位码贴进去（没登录时走一次网页登录）。工作区有未提交改动默认停，要照样发就加 `-AllowDirty`。
 
+**token 无人值守发布**（窗口之外的新通道；有写权限 token 时优先走这条，不用人贴码）：
+
+```powershell
+$env:NODE_AUTH_TOKEN='npm_...'  # Automation 或 Granular 写权限（须含 dsh-plugin-update）；只给变量，不贴全文
+pwsh -NoProfile -File scripts\publish-token.ps1 -Probe    # 先探针（约 5 秒，无副作用），PROBE-OK 再往下
+pwsh -NoProfile -File scripts\publish-token.ps1           # 门禁(build+test)→发布→一次采样；宣布前加 -FullPost 轮询到可见
+```
+
+快协议：publish exit 0 或 `E409 previously-staged` 即证明 registry 收下（受理≠可见，staged 要等几分钟才可见，属正常）；token 只走环境变量、不进仓库不打屏。发布侧到 registry 全绿即交付，安装一律用户侧做。
+
 **发布后校验必须轮询，不能立刻下结论**（2026-09-30 实测）：npm 的网页 2FA 审批走完后，registry 常回 `PUT 202` 且 `npm publish` 退出码 0，但那只是**已受理**——`npm` 自己会打印 “may take a few minutes to become available”，本次实测约 5 分钟后 `0.1.2` 才在 registry 上可见。窗口因此最多轮询 10 分钟（每 15 秒、`--prefer-online`），只有真能查到这一版才做冒烟安装；状态文件里的 `visible` 字段把「已受理但未确认」与「成功」分开。
 
 - npm 的 2FA 审批要**真实 TTY ＋ 用户本人**：Agent 的后台环境直接跑 `npm publish` 只会拿到 `EOTP`，隔空传一次性验证码必过期。所以发布必须在这个窗口里做。
@@ -46,7 +56,7 @@ npm publish
 
 ## 发布白名单
 
-`package.json` 的 `files` 共 5 项：`dist`、`derive-client-values.mjs`、`event-list.template.json`、`README.md`、`LICENSE`（另加隐含的 `package.json`；`dist` 下 9 个 JS 全带上）。
+`package.json` 的 `files` 共 5 项：`dist`、`derive-client-values.mjs`、`event-list.template.json`、`README.md`、`LICENSE`（另加隐含的 `package.json`；`dist` 下 10 个 JS 全带上）。
 加新文件进包时同步改 `files`，并重跑 `npm publish --dry-run` 确认文件数。
 
 ## 本包门禁

@@ -148,6 +148,7 @@ const update = createHostUpdate(
 | `confirmationTtlMs` | `600000` | 凭证有效期，须为有限大于 0 的数 |
 | `installTimeoutMs` | `900000` | 安装时限，须为有限大于 0 的数 |
 | `panelPollMs` | `1000` | 面板轮询间隔，不得小于 250 毫秒 |
+| `releaseChannel` | `stable` | 版本通道：默认只推稳定版；显式传 `prerelease` 才收预发布版（如 `0.2.0-rc.2`），安装仍只装精确版 |
 
 配置只经函数入参注入，不读配置文件。越界直接抛错，不静默取整。
 
@@ -231,6 +232,18 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 - 装更新要带查新版的凭证（`checkId`）与本次请求编号（`requestId`）。凭证有过期时间，过期后重新查一次新版再提交。
 - 同一个 `requestId` 重复提交直接返回旧结果，不重装；同一使用范围同时只装一个，撞上会报 `update-busy`。
 
+### 5.6 跳过与版本通道
+
+- 跳过按「插件标识 + 版本」持久化：用户点“跳过”后该版本不再提醒，新版本照常提醒（跳过是 dismissal，不是全局静音）。
+- 重置入口与跳过发生在同一行：已跳过版本在更新横幅行展示为“已跳过 X.Y.Z · 恢复”，点恢复即清掉该版本的跳过并重查；不要藏进设置页。
+- 版本通道默认 `stable`（与旧行为一字不差，预发布版按版本信息无效处理）；显式配 `releaseChannel: 'prerelease'` 才收预发布版。两个通道都只装精确版（`包名@精确版本`），范围写法一律不收。
+
+### 5.7 跨插件单队列
+
+- 同一使用范围的全部插件共用一个队列（目录与按插件隔离的落盘树平级，任何插件标识都撞不上），一次只装一个；不同使用范围各用各的、可并行。
+- 公平先进先出：非队首直接 `update-busy`（沿用旧码），忙时去查状态补看位置；取消只能撤自己的排队占位，装上了只能等收尾。
+- 三个电话另收四个可选参数（不传即老样子）：`includeQueue: true` 顺带回队列视图，`showOthers: true` 才看他人明细（默认只看自己的，他人仅露“正忙”占位）；装更新另有 `enqueueOnly: true`（只取号不装）与 `cancelQueued: true`（撤自己的号），配 `requestId` 用。
+
 ## 6. 排错
 
 按从常见到少见的顺序查，一次只动一处，动完重查一次状态。
@@ -240,7 +253,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 3. 面板轮询报错说小于 250 毫秒：把 `panelPollMs` 调到 250 或更大。
 4. 查新版总超时：先调大 `checkTimeoutMs`，再检查源地址是否写错、网络是否通。
 5. 点安装报 `check-expired`：凭证过期，重新查一次新版再点安装，不要重试旧编号。
-6. 点安装报 `update-busy`：同一使用范围同时只装一个，等当前任务离开 `installing`/`verifying` 再点。
+6. 点安装报 `update-busy`：同一使用范围同时只装一个，等当前任务离开 `installing`/`verifying` 再点；跨插件排队时去查状态（`includeQueue: true`）看自己的位置，到队首再点，面板默认看不到他人明细。
 7. 手工命令为空：对照第 5.2 节前两行（源码安装或认不出使用范围），先修好再要命令。
 8. 装完版本号没变：先看是否 `pending-restart`（第 5.4 节），是则重启宿主；不是则按第 5.2 节的表查原因。
 9. 第三方 Desktop 自动装失败但命令能装：检查桌面当前激活的使用范围是不是插件所在的那一个；对不上时自动装一定诚实失败，复制第 5.3 节的命令手工执行。
@@ -256,7 +269,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 1. 宿主启动不报错，`update.phoneNames` 读到自家前缀的三个电话名，查状态返回六字段快照。
 2. 面板按间隔轮询到快照，能展示第 5.2 节的原因文案；有新版时安装按钮可用，无新版与待重启时按钮状态正确。
 3. 模拟一次 `pending-restart` 能看到第 5.4 节的横幅，模拟一次自动装失败能看到第 5.3 节的命令可复制执行。
-4. 第二家同机隔离：两家各传自己的插件标识与电话名前缀，电话名、落盘目录、锁文件逐个不同，各拿各的锁互不阻塞。
+4. 第二家同机隔离与串行：两家各传自己的插件标识与电话名前缀，电话名、落盘目录、锁文件逐个不同；安装执行跨插件串行——同范围撞上时后到者报 `update-busy`，凭队列位置（第 5.7 节）重试。
 
 ## 8. 包还导出什么
 
@@ -287,6 +300,15 @@ checkEventCounts(manifest)                                        // 计数与�
 
 ```js
 resolveTargetPackage(name, { targetPackageDir })  // 按包名解析你的插件包；找不到返回 null（自己搭读取器或写测试时用）
+```
+
+**跨插件队列**（纯函数，面板侧同名函数见 `dist/client.js`，可进浏览器闭包）：
+
+```js
+import { visibleQueueFor, queuePositionOf } from 'dsh-plugin-update'
+
+visibleQueueFor(queueState, 'my-plugin', false)  // 默认只看自己的，他人仅露正忙占位；传 true 看全量
+queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 在装，1..n = 顺位，null = 不在队里
 ```
 
 ## 9. 兼容与稳定性

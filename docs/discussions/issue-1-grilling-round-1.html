@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>票 #1 方案讨论 · 第一轮（grilling）</title>
+<style>
+  :root { --ink:#1b1f24; --dim:#5b6673; --line:#e2e6ea; --bg:#fbfcfd; --rec:#eef7ee; --recborder:#9ccf9c; --warn:#fff8e6; --warnborder:#e6cf8a; }
+  * { box-sizing:border-box; }
+  body { margin:0 auto; padding:40px 28px 80px; max-width:920px; background:var(--bg); color:var(--ink);
+         font:16px/1.75 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif; }
+  h1 { font-size:26px; margin:0 0 6px; }
+  h2 { font-size:20px; margin:44px 0 12px; padding-bottom:6px; border-bottom:2px solid var(--line); }
+  h3 { font-size:17px; margin:0 0 8px; }
+  .sub { color:var(--dim); font-size:14px; }
+  code { background:#f1f3f5; padding:1px 5px; border-radius:4px; font-size:13.5px;
+         font-family:ui-monospace,Consolas,"Cascadia Mono",monospace; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:12px 0; }
+  .fact { margin:0 0 14px; }
+  .fact b { display:block; margin-bottom:2px; }
+  .fact .src { color:var(--dim); font-size:13.5px; }
+  .q { background:#fff; border:1px solid var(--line); border-radius:10px; padding:18px 20px; margin:16px 0; }
+  .opts { margin:10px 0 4px; }
+  .opts label { display:block; padding:5px 8px; border-radius:6px; cursor:pointer; }
+  .opts label:hover { background:#f6f8fa; }
+  .rec { background:var(--rec); border:1px solid var(--recborder); border-radius:8px; padding:10px 14px; margin:12px 0 10px; }
+  .rec b { color:#1d6b1d; }
+  .note { width:100%; padding:7px 10px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:14px; }
+  .flag { background:var(--warn); border:1px solid var(--warnborder); border-radius:8px; padding:10px 14px; }
+  table { border-collapse:collapse; width:100%; font-size:14.5px; }
+  th,td { border:1px solid var(--line); padding:6px 10px; text-align:left; vertical-align:top; }
+  th { background:#f4f6f8; }
+  #summary { width:100%; min-height:150px; font-family:ui-monospace,Consolas,monospace; font-size:13.5px;
+             padding:10px; border:1px solid var(--line); border-radius:8px; }
+  button { font:inherit; padding:8px 16px; border-radius:8px; border:1px solid #c9ced4; background:#fff; cursor:pointer; }
+  button.primary { background:#1b1f24; color:#fff; border-color:#1b1f24; }
+  button:hover { filter:brightness(.97); }
+  footer { margin-top:48px; color:var(--dim); font-size:13.5px; border-top:1px solid var(--line); padding-top:14px; }
+</style>
+</head>
+<body>
+
+<h1>票 #1 方案讨论 · 第一轮</h1>
+<p class="sub">
+  <a href="https://github.com/FeatherHunter/dsh-plugin-update/issues/1">官方桌面版宿主缺安装路由：desktop-service 与 cli-process 都不通，插件在官方桌面端装不上更新</a><br>
+  仓库 <code>FeatherHunter/dsh-plugin-update</code> · 分支 <code>master</code> · HEAD <code>234f5fa</code> · 状态：<b>等你作答</b> · 2026-09-30
+</p>
+
+<h2>这一轮要定的东西</h2>
+<p>这张票的「建议方向」里写了：补第三条路由会碰到冻结的配方形状，按仓库纪律要先走一次破冰讨论。这一轮就是那次讨论——<b>下面 7 个问题都是待你拍板的决定，不是我发现的事实</b>。你在页面上选完，点「生成我的回答」复制回来即可。</p>
+
+<h2>决定性事实（只读取证，非待定项）</h2>
+<div class="card">
+  <p class="fact"><b>1．管理器是 root 级服务，名字就叫 <code>pluginManager</code></b>
+    普通插件上下文直接 <code>ctx.pluginManager</code> 就能取到，不需要 <code>inject</code>；<code>inject</code> 只是「等服务可用」的门闩。<br>
+    <span class="src">出处：<code>asar:…/@deepseek-ai/dsh-plugin-manager/lib/index.js:1379-1380</code>；官方同进程消费者 <code>…/lib/types/tools.js:38</code> 正是这么用的。</span></p>
+
+  <p class="fact"><b>2．失败不 reject —— 这是实现红线</b>
+    预期失败会 <b>resolve</b> 出 <code>application:'failed'</code> ＋ <code>error:{code, diagnostic}</code>。只写 <code>catch</code> 会把「装失败」当成成功。<br>
+    <span class="src">出处：<code>asar:…/dsh-plugin-manager/lib/types/index.js:814-835</code>。</span></p>
+
+  <p class="fact"><b>3．签名与选项（registry 是选项，不是开关）</b>
+    <code>installBundle(spec, { enabled?, requestId?, approvedBuilds?, registry? })</code>；<code>requestId</code> 与 <code>cancelInstall</code> 配对；<code>registry</code> 走 <code>registryPlan</code>，非法值报 <code>operation-error</code>。<br>
+    <span class="src">出处：<code>asar:…/dsh-plugin-manager/lib/typert.host.js:795-799</code>、<code>:848</code>。</span></p>
+
+  <p class="fact"><b>4．spec 只吃一个字符串、且全小写</b>
+    <code>PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/</code>；<code>name@x.y.z</code> 可以，以 <code>-</code> 开头的整串直接 <code>invalid-spec</code>，带开关也不会被当开关解析。<br>
+    <span class="src">出处：<code>…/lib/types/install-spec.js:18-19</code>、<code>:57-86</code>；<code>…/lib/index.js:1708</code>、<code>:1749-1753</code>。</span></p>
+
+  <p class="fact"><b>5．<code>pluginManager</code> 的挂载条件是「有 <code>profileContext</code>」，普通 web 宿主也可能满足</b>
+    所以「有能力就用」的判定会把本来跑得通的老路改掉，与验收判据 2（两条老路行为不变）冲突。这是我上一轮推荐要收回的地方。<br>
+    <span class="src">出处：<code>asar:…/@deepseek-ai/dsh-base/cordis.patch.yml:22</code>（<code>disabled: !!js "!ctx.get('profileContext')"</code>）。</span></p>
+
+  <p class="fact"><b>6．超时、取消，与命令行的封禁</b>
+    <code>cancelInstall(requestId)</code> → <code>{status:'cancelled'|'too-late'|'not-running'}</code>，取消后原 promise resolve 成 <code>application:'cancelled'</code>；管理器自己有静默超时（默认 10 分钟杀树）与写锁等待（默认 120 秒，这条会 reject）。<br>
+    <code>dsh</code> 命令行<b>按名字</b>拒绝 <code>--profile desktop</code>。<br>
+    <span class="src">出处：<code>…/dsh-plugin-manager/lib/index.js:1827-1839</code>、<code>:1356-1359</code>；<code>asar:…/@deepseek-ai/dsh/lib/bin.js:35-37</code>。</span></p>
+</div>
+
+<h2>待你拍板的 7 个问题</h2>
+
+<section class="q">
+  <h3>❓ Q1 · 本单交付边界</h3>
+  <p>(a) 只做「第三条路由 ＋ 测试 ＋ 文档」；(b) 在 (a) 之上，失败时把宿主原话（<code>error.code</code> / <code>diagnostic</code>）挂在执行器抛出的错上——不动电话回包形状；(c) 在 (a) 之上，让回包直接带详情——那要动冻结的「入参回参形状」，另走一次破冰。</p>
+  <div class="opts">
+    <label><input type="radio" name="q1" value="(a) 只做路由＋测试＋文档"> <b>(a)</b> 只做路由 ＋ 测试 ＋ 文档</label>
+    <label><input type="radio" name="q1" value="(a)＋(b) 另把宿主原话挂到执行器抛出的错上"> <b>(a)＋(b)</b> 另把宿主原话挂到执行器抛出的错上</label>
+    <label><input type="radio" name="q1" value="(c) 连回包形状一起改"> <b>(c)</b> 连回包形状一起改（再走一次破冰）</label>
+  </div>
+  <p class="rec">➡️ 推荐 <b>(a)＋(b)</b>：(b) 只在执行器内部加字段，五键配方与电话形状都不动，却正好兑现票面那句「不得是一条不可诊断的死码」。现场点「装上」的验收写进票面当待验证——本仓做不到，要等消费方升级。</p>
+  <input class="note" data-note="q1" placeholder="补充（可留空）">
+</section>
+
+<section class="q">
+  <h3>❓ Q2 · 第三条路由凭什么认出来</h3>
+  <p>(a) 纯能力：有 <code>installBundle</code> 就走——事实 5 说它可能改掉老路；(b) 能力 ＋ <b>使用范围名恰是命令行明确拒绝的那一个</b>（<code>desktop</code>，判据来自 CLI 自己的实现）；(c) <code>dshmarket</code> 式：<code>desktopProfiles</code> 缺席 ＋ 名字叫 <code>desktop</code>；(d) 兜底式：CLI 入口认不出才走管理器。</p>
+  <div class="opts">
+    <label><input type="radio" name="q2" value="(a) 纯能力"> <b>(a)</b> 纯能力（有 installBundle 就走）</label>
+    <label><input type="radio" name="q2" value="(b) 能力＋名字恰是 CLI 拒绝的 desktop"> <b>(b)</b> 能力 ＋ 名字恰是 CLI 拒绝的 <code>desktop</code></label>
+    <label><input type="radio" name="q2" value="(c) dshmarket 式：缺 desktopProfiles＋名字 desktop"> <b>(c)</b> dshmarket 式（缺 <code>desktopProfiles</code> ＋ 名字 <code>desktop</code>）</label>
+    <label><input type="radio" name="q2" value="(d) 兜底式：CLI 入口认不出才走管理器"> <b>(d)</b> 兜底式（CLI 入口认不出才走管理器）</label>
+  </div>
+  <p class="rec">➡️ 推荐 <b>(b)</b>：先判 <code>desktopProfiles</code>（第三方 Desktop 一字不变），再看「有管理器 ＋ 名字是 <code>desktop</code>」。两个都是事实：CLI 对叫 <code>desktop</code> 的使用范围一定拒绝，管理器在那个宿主上一定在。它对任何不叫 <code>desktop</code> 的使用范围<b>零影响</b>。</p>
+  <p class="flag">⚠️ 这一条要你明确点头：它动了 <code>src/host.ts:68</code> 那句「不得用使用范围名判断宿主」。我的理解是——这不是拿名字猜宿主身份，而是拿 CLI 自己的拒绝规则判断「这条路对这个使用范围封没封」。算不算破线，你定。(d) 更不碰名字，但要把路由选择挪进适配器，我不推荐。</p>
+  <input class="note" data-note="q2" placeholder="补充（可留空）">
+</section>
+
+<section class="q">
+  <h3>❓ Q3 · 管理器从哪来</h3>
+  <p>(a) 包内现取 <code>ctx.get('pluginManager')</code> ＋ <code>deps.pluginManager</code> 可覆盖；(b) 只留显式注入，让调用方自己交进来；(c) 抄 <code>desktopPnpm</code> 的嵌套注入 <code>ctx.inject(['pluginManager'], …)</code>。</p>
+  <div class="opts">
+    <label><input type="radio" name="q3" value="(a) 现取＋可覆盖"> <b>(a)</b> 现取 ＋ 可覆盖</label>
+    <label><input type="radio" name="q3" value="(b) 只留显式注入"> <b>(b)</b> 只留显式注入</label>
+    <label><input type="radio" name="q3" value="(c) 嵌套注入"> <b>(c)</b> 嵌套注入</label>
+  </div>
+  <p class="rec">➡️ 推荐 <b>(a)</b>：与 <code>desktopProfiles</code> 同一手法（<code>src/host.ts:184</code>）。事实 1 已证明不需要嵌套注入；只留显式注入就是把「各自适配」留给调用方——正是这张票要消灭的东西。</p>
+  <input class="note" data-note="q3" placeholder="补充（可留空）">
+</section>
+
+<section class="q">
+  <h3>❓ Q4 · 冻结面，以及「源」怎么带过去</h3>
+  <p>给 <code>EnvironmentKind</code> / <code>InstallRoute</code> 各加一个取值，我按「值可调」算不算破冰，要你点头。参数数组必然是 <code>['add', spec]</code>（事实 4）。剩下的是源：(a1) 不带，走管理器自己的源策略；(a2) 不动冻结键，把注入的 <code>registryUrl</code>（<code>src/host.ts:189</code> 已经在传）作为管理器的 <code>registry</code> 选项传进去；(c) 配方加第六个键 <code>registry</code>（改键＝破冰）。</p>
+  <div class="opts">
+    <label><input type="radio" name="q4" value="加值算值可调＋(a2) 源经注入零件传给 registry 选项"> 加值算「值可调」 ＋ <b>(a2)</b> 源经注入零件传给 <code>registry</code> 选项</label>
+    <label><input type="radio" name="q4" value="加值算值可调＋(a1) 走管理器自己的源策略"> 加值算「值可调」 ＋ <b>(a1)</b> 走管理器自己的源策略</label>
+    <label><input type="radio" name="q4" value="算破冰＋(c) 配方加第六个键 registry"> 算破冰 ＋ <b>(c)</b> 配方加第六个键 <code>registry</code></label>
+    <label><input type="radio" name="q4" value="加值算破冰，本单先不动路由"> 加值<b>也算破冰</b>，本单先不动路由</label>
+  </div>
+  <p class="rec">➡️ 推荐 <b>「值可调」＋ (a2)</b>：官方源政策在这条路上不丢，五键形状一个不动；代价是这条路的源走注入零件而不是配方，我在 <code>src/ports.ts</code> 注明。README §4 改成三条路由、§5 记这一笔。</p>
+  <input class="note" data-note="q4" placeholder="补充（可留空）">
+</section>
+
+<section class="q">
+  <h3>❓ Q5 · 新取值叫什么</h3>
+  <p>(a) <code>'desktop-manager'</code>；(b) <code>'host-manager'</code>；(c) <code>'official-desktop'</code>。</p>
+  <div class="opts">
+    <label><input type="radio" name="q5" value="(a) desktop-manager"> <b>(a)</b> <code>desktop-manager</code></label>
+    <label><input type="radio" name="q5" value="(b) host-manager"> <b>(b)</b> <code>host-manager</code></label>
+    <label><input type="radio" name="q5" value="(c) official-desktop"> <b>(c)</b> <code>official-desktop</code></label>
+  </div>
+  <p class="rec">➡️ 推荐 <b>(a)</b>：日志读作 <code>desktop-service | desktop-manager | cli-process</code>，与现有两值对称；<code>official-desktop</code> 把「宿主身份」写进值里，和 Q2 的能力口径打架。</p>
+  <input class="note" data-note="q5" placeholder="补充（可留空）">
+</section>
+
+<section class="q">
+  <h3>❓ Q6 · 时限与取消怎么对齐</h3>
+  <p>管理器自己有静默超时（10 分钟）与写锁等待（2 分钟），没有整体墙钟；配方里的 <code>installTimeoutMs</code>（15 分钟）在这条路上要不要自己计时？(i) 计时，到点 <code>cancelInstall(requestId)</code>，再按操作自己的结局归类（<code>cancelled</code> → 失败；<code>too-late</code> → 它已进入应用阶段，等它自己结束再按 <code>application</code> 判）；(ii) 不自己计时，文档注明这条路以宿主界限为准。</p>
+  <div class="opts">
+    <label><input type="radio" name="q6" value="(i) 自己计时，超时先请求取消再按实际结局归类"> <b>(i)</b> 自己计时，超时先请求取消，再按实际结局归类</label>
+    <label><input type="radio" name="q6" value="(ii) 不自己计时，交给宿主的界限"> <b>(ii)</b> 不自己计时，交给宿主的界限</label>
+  </div>
+  <p class="rec">➡️ 推荐 <b>(i)</b>：等价于老路由「超时杀进程树」，而且取消本身会把 <code>package.json</code> / <code>pnpm-lock.yaml</code> 还原——不会留下半个改动。</p>
+  <input class="note" data-note="q6" placeholder="补充（可留空）">
+</section>
+
+<section class="q">
+  <h3>❓ Q7 · <code>enabled</code> 选不选</h3>
+  <p><code>installBundle</code> 默认 <code>enabled: true</code>＝装完即选为 bundle 层；官方 Web 页那条走 <code>enabled:false</code>，<code>dshmarket</code> 与 ilife 的进程内路线都不传。</p>
+  <div class="opts">
+    <label><input type="radio" name="q7" value="不传，沿用默认 true"> <b>不传</b>，沿用默认 <code>true</code></label>
+    <label><input type="radio" name="q7" value="传 false（装上了但不启用）"> <b>传 <code>false</code></b>（装上了但不启用）</label>
+  </div>
+  <p class="rec">➡️ 推荐 <b>不传</b>：与两条进程内参照实现（<code>dshmarket</code>、ilife）一致；传 <code>false</code> 会变成「装上了但没启用」，不符合「更新」语义。</p>
+  <input class="note" data-note="q7" placeholder="补充（可留空）">
+</section>
+
+<h2>这一轮之后才问的</h2>
+<div class="card">
+  <ul>
+    <li>路由优先级（第三方 Desktop → 官方管理器 → 命令行）要不要写死、写在哪。</li>
+    <li>要不要顺带接 <code>remove</code>（管理器也提供 <code>removeBundle</code>）。</li>
+    <li>消费方交接：ilife 已经自己接了一版管理器路由，会挡在新路由前面——两处各一份路由怎么收口。</li>
+  </ul>
+</div>
+
+<h2>生成我的回答</h2>
+<p class="sub">选完上面的选项（可另填补充），点下面的按钮生成一段可直接复制回聊天的文字。</p>
+<p>
+  <button class="primary" onclick="buildSummary()">生成我的回答</button>
+  <button onclick="copySummary()">复制</button>
+  <span id="copyHint" class="sub"></span>
+</p>
+<textarea id="summary" placeholder="（点「生成我的回答」后出现在这里）"></textarea>
+
+<footer>
+  依据：本仓 <code>234f5fa</code> 的 <code>src/</code> 与 <code>README.md</code>；<code>app.asar</code> 内文件的行号由一次只读取证给出（未写文件、未执行安装）。<br>
+  生成于 2026-09-30 · 对应票 <a href="https://github.com/FeatherHunter/dsh-plugin-update/issues/1">FeatherHunter/dsh-plugin-update#1</a>。
+</footer>
+
+<script>
+function buildSummary() {
+  var out = [];
+  for (var i = 1; i <= 7; i++) {
+    var key = 'q' + i;
+    var picked = document.querySelector('input[name="' + key + '"]:checked');
+    var note = document.querySelector('[data-note="' + key + '"]');
+    var line = 'Q' + i + '：' + (picked ? picked.value : '（未选）');
+    if (note && note.value.trim()) line += ' —— 补充：' + note.value.trim();
+    out.push(line);
+  }
+  document.getElementById('summary').value = out.join('\n');
+}
+function copySummary() {
+  var box = document.getElementById('summary');
+  if (!box.value.trim()) buildSummary();
+  box.select();
+  var hint = document.getElementById('copyHint');
+  try {
+    navigator.clipboard.writeText(box.value).then(function () { hint.textContent = '已复制'; },
+      function () { document.execCommand('copy'); hint.textContent = '已复制'; });
+  } catch (e) { document.execCommand('copy'); hint.textContent = '已复制'; }
+}
+</script>
+</body>
+</html>
