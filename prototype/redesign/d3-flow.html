@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>更新面板</title>
+<style>
+  :root{
+    --bg:#f6f7fb;
+    --ink:#151a28;
+    --mut:#5d6579;
+    --faint:rgba(21,26,40,.55);
+    --card:rgba(255,255,255,.72);
+    --line:rgba(21,26,40,.12);
+    --accent:#4f46e5;
+    --accent-hover:#4338ca;
+    --accent-ink:#ffffff;
+    --accent-soft:rgba(79,70,229,.12);
+    --ok-bg:#f0fdf4; --ok-line:#86c79a; --ok-ink:#166534;
+    --err-bg:#fef2f2; --err-line:#f3a3a3; --err-ink:#991b1b;
+    --banner-bg:#fffbeb; --banner-line:#b45309; --banner-ink:#92400e;
+    --code-bg:#151a28; --code-ink:#e9ebf4;
+    --glow-a:rgba(99,102,241,.30);
+    --glow-b:rgba(45,212,191,.22);
+    --shadow:0 18px 60px rgba(30,35,80,.16);
+    --sheet-bg:rgba(255,255,255,.82);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0c0f1e;
+      --ink:#e9ebf4;
+      --mut:#9aa3bc;
+      --faint:rgba(233,235,244,.55);
+      --card:rgba(22,27,48,.62);
+      --line:rgba(233,235,244,.14);
+      --accent:#818cf8;
+      --accent-hover:#a5b4fc;
+      --accent-ink:#111434;
+      --accent-soft:rgba(129,140,248,.16);
+      --ok-bg:rgba(22,101,52,.22); --ok-line:#3f7d58; --ok-ink:#bbf7d0;
+      --err-bg:rgba(153,27,27,.22); --err-line:#7f3a3a; --err-ink:#fecaca;
+      --banner-bg:rgba(180,83,9,.18); --banner-line:#f59e0b; --banner-ink:#fde68a;
+      --code-bg:#05070f; --code-ink:#e9ebf4;
+      --glow-a:rgba(129,140,248,.34);
+      --glow-b:rgba(45,212,191,.20);
+      --shadow:0 18px 60px rgba(0,0,0,.55);
+      --sheet-bg:rgba(18,22,42,.86);
+    }
+  }
+  html[data-theme="light"]{
+    --bg:#f6f7fb; --ink:#151a28; --mut:#5d6579; --faint:rgba(21,26,40,.55);
+    --card:rgba(255,255,255,.72); --line:rgba(21,26,40,.12);
+    --accent:#4f46e5; --accent-hover:#4338ca; --accent-ink:#ffffff; --accent-soft:rgba(79,70,229,.12);
+    --ok-bg:#f0fdf4; --ok-line:#86c79a; --ok-ink:#166534;
+    --err-bg:#fef2f2; --err-line:#f3a3a3; --err-ink:#991b1b;
+    --banner-bg:#fffbeb; --banner-line:#b45309; --banner-ink:#92400e;
+    --code-bg:#151a28; --code-ink:#e9ebf4;
+    --glow-a:rgba(99,102,241,.30); --glow-b:rgba(45,212,191,.22);
+    --shadow:0 18px 60px rgba(30,35,80,.16);
+    --sheet-bg:rgba(255,255,255,.82);
+  }
+  html[data-theme="dark"]{
+    --bg:#0c0f1e; --ink:#e9ebf4; --mut:#9aa3bc; --faint:rgba(233,235,244,.55);
+    --card:rgba(22,27,48,.62); --line:rgba(233,235,244,.14);
+    --accent:#818cf8; --accent-hover:#a5b4fc; --accent-ink:#111434; --accent-soft:rgba(129,140,248,.16);
+    --ok-bg:rgba(22,101,52,.22); --ok-line:#3f7d58; --ok-ink:#bbf7d0;
+    --err-bg:rgba(153,27,27,.22); --err-line:#7f3a3a; --err-ink:#fecaca;
+    --banner-bg:rgba(180,83,9,.18); --banner-line:#f59e0b; --banner-ink:#fde68a;
+    --code-bg:#05070f; --code-ink:#e9ebf4;
+    --glow-a:rgba(129,140,248,.34); --glow-b:rgba(45,212,191,.20);
+    --shadow:0 18px 60px rgba(0,0,0,.55);
+    --sheet-bg:rgba(18,22,42,.86);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    min-height:100vh; display:flex; flex-direction:column; overflow-x:hidden;
+    transition:background .4s ease, color .4s ease;
+  }
+  /* 顶部细进度条 */
+  #progress{ position:fixed; top:0; left:0; height:3px; width:0%;
+    background:linear-gradient(90deg,var(--accent),#2dd4bf);
+    transition:width .7s ease; z-index:60; border-radius:0 3px 3px 0; }
+  /* 背景光晕：随进度推进 + 缓慢呼吸 */
+  #glow{ position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(42vmax 42vmax at 50% 30%, var(--glow-a), transparent 70%),
+      radial-gradient(36vmax 36vmax at 50% 78%, var(--glow-b), transparent 70%);
+    opacity:calc(.35 + var(--p, 0) * .0065);
+    animation:breathe 7s ease-in-out infinite;
+    transition:opacity .7s ease; }
+  @keyframes breathe{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.06); } }
+  /* 顶栏 */
+  header.top{ position:relative; z-index:2; display:flex; align-items:center; gap:10px;
+    padding:14px 20px; font-size:13px; color:var(--mut); }
+  header.top .brand{ font-weight:650; color:var(--ink); }
+  header.top .sp{ flex:1; }
+  #themeBtn{ font-size:12px; padding:6px 12px; border-radius:999px; cursor:pointer;
+    border:1px solid var(--line); background:transparent; color:var(--mut); }
+  #themeBtn:hover{ color:var(--ink); border-color:var(--mut); }
+  /* 待重启横幅：显眼 */
+  #restartBanner{ position:relative; z-index:2; margin:2px auto 0; width:min(720px,calc(100vw - 40px));
+    background:var(--banner-bg); border:2px solid var(--banner-line); color:var(--banner-ink);
+    border-radius:14px; padding:12px 16px; font-size:14px; line-height:1.6;
+    box-shadow:var(--shadow); display:none; }
+  #restartBanner.show{ display:block; animation:rise .35s ease; }
+  #restartBanner b{ font-size:15px; }
+  #restartBanner .row{ display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; align-items:center; }
+  @keyframes rise{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+  /* 中央单焦点 */
+  main.stage{ position:relative; z-index:1; flex:1; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+    padding:48px 24px 150px; width:100%; }
+  .eyebrow{ font-size:13px; color:var(--mut); letter-spacing:.06em; margin-bottom:14px; max-width:640px; }
+  h1.q{ margin:0 0 30px; max-width:760px;
+    font-size:clamp(28px,5.2vw,52px); line-height:1.28; font-weight:680; letter-spacing:.01em; }
+  h1.q .ver{ color:var(--accent); }
+  .primary{ font-size:17px; font-weight:650; padding:15px 46px; border-radius:999px; cursor:pointer;
+    border:none; background:var(--accent); color:var(--accent-ink);
+    box-shadow:0 8px 28px var(--accent-soft), 0 2px 8px rgba(0,0,0,.12);
+    transition:transform .18s ease, box-shadow .25s ease, background .25s ease, opacity .2s; }
+  .primary:hover:not(:disabled){ background:var(--accent-hover); transform:translateY(-1px); }
+  .primary:disabled{ opacity:.45; cursor:not-allowed; box-shadow:none; }
+  .primary.pulse{ animation:pulse 2.8s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{ box-shadow:0 8px 28px var(--accent-soft),0 2px 8px rgba(0,0,0,.12);} 50%{ box-shadow:0 8px 40px var(--accent-soft),0 2px 8px rgba(0,0,0,.12);} }
+  .subs{ display:flex; gap:6px; margin-top:18px; flex-wrap:wrap; justify-content:center; }
+  .subs button{ background:none; border:none; cursor:pointer; font-size:13px; color:var(--faint);
+    padding:6px 10px; border-radius:8px; }
+  .subs button:hover:not(:disabled){ color:var(--accent); background:var(--accent-soft); }
+  .subs button:disabled{ opacity:.4; cursor:not-allowed; }
+  .subs .sep{ color:var(--line); align-self:center; }
+  .meta{ margin-top:26px; font-size:12px; color:var(--mut); max-width:640px; line-height:1.8; }
+  .meta .ok{ color:var(--ok-ink); }
+  /* 底部幽灵按钮坞 */
+  nav.dock{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:40;
+    display:flex; gap:8px; padding:8px 10px; border-radius:999px;
+    background:var(--card); border:1px solid var(--line);
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    box-shadow:var(--shadow); max-width:calc(100vw - 24px); flex-wrap:wrap; justify-content:center; }
+  nav.dock button{ background:transparent; border:1px solid transparent; color:var(--mut);
+    font-size:13px; padding:8px 16px; border-radius:999px; cursor:pointer; white-space:nowrap;
+    transition:all .2s ease; position:relative; }
+  nav.dock button:hover{ color:var(--ink); border-color:var(--line); }
+  nav.dock button.on{ color:var(--accent); border-color:var(--accent); background:var(--accent-soft); }
+  nav.dock button .dot{ display:inline-block; width:7px; height:7px; border-radius:50%;
+    background:var(--accent); margin-left:6px; vertical-align:1px; }
+  nav.dock button .dot.warn{ background:var(--banner-line); }
+  /* 半透明浮层 */
+  #sheetWrap{ position:fixed; inset:0; z-index:30; pointer-events:none; }
+  #sheet{ position:absolute; left:50%; transform:translateX(-50%) translateY(14px);
+    bottom:78px; width:min(680px,calc(100vw - 32px)); max-height:48vh; overflow:auto;
+    background:var(--sheet-bg); border:1px solid var(--line); border-radius:18px;
+    backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    box-shadow:var(--shadow); padding:18px 20px 20px; font-size:13.5px; line-height:1.7;
+    opacity:0; transition:opacity .25s ease, transform .25s ease; pointer-events:none; }
+  #sheet.open{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+  #sheet h2{ margin:0 0 4px; font-size:15px; display:flex; align-items:center; gap:8px; }
+  #sheet h2 .x{ margin-left:auto; background:none; border:none; cursor:pointer;
+    font-size:15px; color:var(--mut); padding:2px 8px; border-radius:8px; }
+  #sheet h2 .x:hover{ color:var(--ink); background:var(--accent-soft); }
+  #sheet h3{ font-size:13px; color:var(--mut); margin:14px 0 6px; font-weight:650; }
+  #sheet ul{ margin:6px 0; padding-left:20px; }
+  #sheet li{ margin:3px 0; }
+  table.q{ width:100%; border-collapse:collapse; font-size:12.5px; margin:6px 0; }
+  table.q th, table.q td{ border:1px solid var(--line); padding:6px 8px; text-align:left; }
+  table.q th{ color:var(--mut); font-weight:600; }
+  code.cmd{ display:block; background:var(--code-bg); color:var(--code-ink);
+    font-size:12.5px; padding:12px 14px; border-radius:10px; overflow-x:auto;
+    white-space:pre-wrap; word-break:break-all; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  .btnrow{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center; }
+  .ghost{ font-size:12.5px; padding:7px 14px; border-radius:8px; cursor:pointer;
+    border:1px solid var(--line); background:transparent; color:var(--ink); }
+  .ghost:hover{ border-color:var(--accent); color:var(--accent); }
+  .ghost.solid{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .muted{ color:var(--mut); font-size:12.5px; }
+  .errbox{ background:var(--err-bg); border:1px solid var(--err-line); color:var(--err-ink);
+    border-radius:10px; padding:10px 14px; margin:8px 0; }
+  .okline{ background:var(--ok-bg); border:1px solid var(--ok-line); color:var(--ok-ink);
+    border-radius:10px; padding:10px 14px; margin:8px 0; }
+  details.allreasons{ margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:8px 12px; }
+  details.allreasons summary{ cursor:pointer; font-size:12.5px; color:var(--mut); }
+  label.showothers{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--mut); cursor:pointer; }
+  /* 演示角落：小尺寸 */
+  #demo{ position:fixed; right:10px; bottom:10px; z-index:45; font-size:11px; color:var(--mut);
+    display:flex; gap:6px; align-items:center; opacity:.8;
+    background:var(--card); border:1px solid var(--line); border-radius:10px; padding:5px 8px;
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+  #demo select{ font-size:11px; max-width:130px; padding:2px 4px; border-radius:6px;
+    border:1px solid var(--line); background:transparent; color:var(--mut); }
+  #demo button{ font-size:11px; padding:2px 8px; border-radius:6px; cursor:pointer;
+    border:1px solid var(--line); background:transparent; color:var(--mut); }
+  #demo button:hover{ color:var(--ink); }
+  /* toast */
+  #toast{ position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(8px);
+    background:var(--code-bg); color:var(--code-ink); font-size:13px; padding:9px 20px;
+    border-radius:999px; opacity:0; transition:opacity .25s ease, transform .25s ease;
+    z-index:70; pointer-events:none; white-space:nowrap; }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  @media (max-width:560px){
+    h1.q{ font-size:26px; }
+    .primary{ width:100%; max-width:340px; }
+    #sheet{ bottom:86px; max-height:52vh; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    #glow,.primary.pulse{ animation:none; }
+    #progress,.primary,#sheet,#toast{ transition:none; }
+  }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="glow"></div>
+
+<header class="top">
+  <span class="brand">my-notes-plugin</span>
+  <span>更新面板</span>
+  <span class="sp"></span>
+  <button id="themeBtn" title="切换主题">🖥 跟随系统</button>
+</header>
+
+<div id="restartBanner" role="alert"></div>
+
+<main class="stage">
+  <div class="eyebrow" id="eyebrow">…</div>
+  <h1 class="q" id="question">…</h1>
+  <button class="primary" id="primaryBtn">…</button>
+  <div class="subs" id="subs"></div>
+  <div class="meta" id="meta"></div>
+</main>
+
+<div id="sheetWrap"><section id="sheet" aria-live="polite"></section></div>
+
+<nav class="dock" id="dock">
+  <button data-sheet="log">更新日志</button>
+  <button data-sheet="queue" id="dockQueue">更新队列</button>
+  <button data-sheet="manual">手动命令</button>
+  <button data-sheet="err" id="dockErr">错误信息</button>
+</nav>
+
+<div id="demo" title="演示用开关">
+  <span>演示</span>
+  <select id="demoReason" aria-label="阻塞原因演示">
+    <option value="">原因：无</option>
+    <option value="unknown-profile">unknown-profile</option>
+    <option value="source-install">source-install</option>
+    <option value="invalid-installation">invalid-installation</option>
+    <option value="installation-changed">installation-changed</option>
+    <option value="pending-restart">pending-restart</option>
+    <option value="registry-conflict">registry-conflict</option>
+    <option value="incompatible-node">incompatible-node</option>
+    <option value="recovery-required">recovery-required</option>
+  </select>
+  <button id="demoReset">重置</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* 内存 stub：状态与交互口径与现有面板一致，不持久化 */
+var REASONS = {
+  "unknown-profile":      ["使用范围或插件位置认不出", "重开宿主再查一次；一直这样就把版本号与日志交给插件作者；这种情形不给手工命令"],
+  "source-install":       ["当前是从源码装的，不是按版本号装的", "这种情形不给手工命令；想走更新先按版本号重装一次"],
+  "invalid-installation": ["已装的包不完整（名字对不上、版本非法、入口文件缺失）", "重装当前版本，修好已装目录再查更新"],
+  "installation-changed": ["安装位置在使用中途变了（换了目录或换了包）", "重新打开宿主再查一次；还出现就重装"],
+  "pending-restart":      ["新版已装到磁盘，正在跑的还是旧版", "重启宿主，让新版跑起来；这是正常终态，不是失败"],
+  "registry-conflict":    ["本地声明的版本与磁盘实际版本互相矛盾", "打开使用范围的清单文件，把目标包名那一行改成版本号再试"],
+  "incompatible-node":    ["新版要求的 Node 与当前运行的对不上", "先升级 Node 到 22 或更高，再查更新"],
+  "recovery-required":    ["上次安装被打断，留下一个半截任务", "重新点一次安装；一直出现请查看排错指引"]
+};
+var NO_MANUAL = { "unknown-profile": true, "source-install": true };
+var CHANGELOG = {
+  "1.2.3": { date: "2026-10-02", items: [
+    ["Added", "一键复制诊断（含稳定码/脱敏诊断/版本/宿主/队列位置）"],
+    ["Added", "队列位置显示（跨插件单队列）"],
+    ["Fixed", "安装完成判据（先收尾再定成败）"]
+  ] },
+  "1.2.2": null
+};
+
+var S, sheet = null;
+
+function freshState(){
+  return {
+    self: { pluginId: "my-notes-plugin", profile: "my-web",
+            installed: "1.2.2", running: "1.2.2", latest: null,
+            job: null, receipt: null, skipped: ["1.2.1"], checkN: 0 },
+    queue: [ { pluginId: "other-tasks-plugin", version: "0.9.1", state: "installing", progress: 62 } ],
+    showOthers: true
+  };
+}
+function demoReason(){ return document.getElementById("demoReason").value || ""; }
+function blockedOfSelf(){
+  if (S.self.job) return "";
+  return demoReason();
+}
+function snapshotSelf(){
+  var r = blockedOfSelf();
+  return {
+    installedVersion: S.self.installed, runningVersion: S.self.running,
+    latestVersion: S.self.latest, canInstall: !S.self.job && !r,
+    blockedReason: r || null,
+    job: S.self.job ? { phase: S.self.job.phase, progress: S.self.job.progress } : null
+  };
+}
+function manualCmd(){
+  var r = blockedOfSelf();
+  if (NO_MANUAL[r]) return null;
+  var v = S.self.latest || "1.2.3";
+  return "dsh plugin --profile " + S.self.profile + " add --save-exact " +
+         S.self.pluginId + "@" + v + " --registry=https://registry.npmjs.org/";
+}
+function esc(s){ return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+function isSkipped(v){ return v && S.self.skipped.indexOf(v) >= 0; }
+
+function oneLiner(){
+  var s = snapshotSelf();
+  if (s.job) return "正在安装 " + S.self.latest + "（" + s.job.progress + "%）…";
+  if (s.blockedReason === "pending-restart")
+    return "⚠️ 新版 " + s.installedVersion + " 已装好，正在跑的还是 " + s.runningVersion + "，重启宿主后生效。";
+  if (s.blockedReason) return "装不了：" + REASONS[s.blockedReason][0];
+  if (s.latestVersion && s.latestVersion !== s.installedVersion && !isSkipped(s.latestVersion))
+    return "有新版 " + s.latestVersion + "（当前 " + s.installedVersion + "），可安装。";
+  if (s.latestVersion && isSkipped(s.latestVersion)) return "新版 " + s.latestVersion + " 已跳过，可恢复。";
+  if (s.latestVersion) return "已是最新（" + s.installedVersion + "）。";
+  return "当前 " + s.installedVersion + "，还没查过新版。";
+}
+
+/* 中央单焦点：一次只回答一个问题，配一个主按钮 */
+function centralPlan(){
+  var s = snapshotSelf();
+  if (s.job) return {
+    q: "正在为你装上 <span class=\"ver\">" + esc(S.self.latest) + "</span>……",
+    primary: { label: "推进 25%", act: "advance" }, subs: []
+  };
+  if (s.blockedReason === "pending-restart") return {
+    q: "新版 <span class=\"ver\">" + esc(s.installedVersion) + "</span> 已装好，现在重启吗？",
+    primary: { label: "重启宿主", act: "restart" },
+    subs: [{ label: "查看手动命令", sheet: "manual" }]
+  };
+  if (s.blockedReason) return {
+    q: "这个版本暂时装不了",
+    primary: { label: "复制诊断", act: "copy-diag" },
+    subs: [{ label: "查新版", act: "check" }, { label: "看看原因", sheet: "err" }]
+  };
+  if (s.latestVersion && s.latestVersion !== s.installedVersion && !isSkipped(s.latestVersion)) return {
+    q: "发现新版 <span class=\"ver\">" + esc(s.latestVersion) + "</span>，现在装吗？",
+    primary: { label: "安装 " + s.latestVersion, act: "install", pulse: true },
+    subs: [{ label: "跳过该版本", act: "skip" }, { label: "先看看日志", sheet: "log" }]
+  };
+  if (s.latestVersion && isSkipped(s.latestVersion)) return {
+    q: "新版 <span class=\"ver\">" + esc(s.latestVersion) + "</span> 已跳过，要恢复提醒吗？",
+    primary: { label: "恢复提醒", act: "restore" },
+    subs: [{ label: "查新版", act: "check" }]
+  };
+  if (s.latestVersion) return {
+    q: "已是最新，放心用吧。",
+    primary: { label: "再查一次", act: "check" }, subs: []
+  };
+  return {
+    q: "当前 <span class=\"ver\">" + esc(s.installedVersion) + "</span>，要查一下新版吗？",
+    primary: { label: "查新版", act: "check" }, subs: []
+  };
+}
+
+/* ---- 动作（内存桩） ---- */
+function toast(msg){
+  var t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(function(){ t.classList.remove("show"); }, 1800);
+}
+function copyText(txt, what){
+  var done = function(){ toast("已复制" + what); };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(done, function(){ fallbackCopy(txt); done(); });
+    } else { fallbackCopy(txt); done(); }
+  } catch(e){ done(); }
+}
+function fallbackCopy(txt){
+  try {
+    var ta = document.createElement("textarea");
+    ta.value = txt; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+  } catch(e){}
+}
+function diagText(){
+  var s = snapshotSelf();
+  return "[update-diag] code=" + s.blockedReason + " plugin=" + S.self.pluginId +
+    "@" + s.installedVersion + "->" + s.latestVersion + " host=DSH queue=" + S.queue.length + " poll=1000ms";
+}
+function act(kind){
+  if (kind === "check"){
+    S.self.checkN++;
+    S.self.latest = "1.2.3";
+    var t = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+    S.self.receipt = { checkId: "chk-7f3a", checkedAt: t, expiresAt: "+10min",
+      requestId: "req-" + Math.random().toString(36).slice(2, 7) };
+  }
+  if (kind === "install"){
+    if (!S.self.latest){ toast("先查新版，拿到凭证再安装"); render(); return; }
+    if (S.self.job){ render(); return; }
+    S.self.job = { phase: "installing", progress: 0 };
+    S.queue.push({ pluginId: S.self.pluginId, version: S.self.latest, state: "queued", progress: 0 });
+  }
+  if (kind === "advance"){
+    var j = S.self.job; if (!j){ render(); return; }
+    j.progress = Math.min(100, j.progress + 25);
+    var q = null;
+    for (var i = 0; i < S.queue.length; i++)
+      if (S.queue[i].pluginId === S.self.pluginId) q = S.queue[i];
+    if (q){ q.progress = j.progress; q.state = j.progress >= 100 ? "verifying" : "installing"; }
+    if (j.progress >= 100){
+      S.self.installed = S.self.latest; S.self.job = null;
+      S.queue = S.queue.filter(function(e){ return e.pluginId !== S.self.pluginId; });
+      document.getElementById("demoReason").value = "pending-restart";
+      toast("安装完成，待重启生效");
+    }
+  }
+  if (kind === "restart"){
+    S.self.running = S.self.installed;
+    document.getElementById("demoReason").value = "";
+    toast("已重启，新版已生效");
+  }
+  if (kind === "skip"){
+    if (S.self.latest && !isSkipped(S.self.latest)) S.self.skipped.push(S.self.latest);
+    toast("已跳过 " + S.self.latest + "，新版本会照常提醒");
+  }
+  if (kind === "restore"){
+    S.self.skipped = S.self.skipped.filter(function(v){ return v !== S.self.latest; });
+    toast("已恢复 " + S.self.latest + " 的提醒");
+  }
+  render();
+}
+
+/* ---- 浮层内容 ---- */
+function hLog(){
+  var h = "";
+  ["1.2.3", "1.2.2"].forEach(function(v){
+    var e = CHANGELOG[v];
+    h += "<div><b>" + v + "</b> <span class=\"muted\">" + (e ? e.date : "") + "</span>";
+    if (!e) h += "<div class=\"muted\">暂无更新说明，不影响安装。</div>";
+    else h += "<ul>" + e.items.map(function(i){ return "<li><b>" + i[0] + "</b>：" + esc(i[1]) + "</li>"; }).join("") + "</ul></div>";
+  });
+  return h;
+}
+function hQueue(){
+  var vis = S.showOthers ? S.queue : S.queue.filter(function(e){ return e.pluginId === S.self.pluginId; });
+  var h = "<label class=\"showothers\"><input type=\"checkbox\" id=\"showOthers\" " +
+          (S.showOthers ? "checked" : "") + "> 看他人排队</label>";
+  if (!vis.length) h += "<div class=\"muted\" style=\"margin-top:6px\">队列空。</div>";
+  else {
+    h += "<table class=\"q\" style=\"margin-top:8px\"><tr><th>插件</th><th>版本</th><th>状态</th><th>进度</th></tr>" +
+      vis.map(function(e){
+        return "<tr><td>" + esc(e.pluginId) + (e.pluginId === S.self.pluginId ? "（我）" : "") +
+               "</td><td>" + esc(e.version) + "</td><td>" + esc(e.state) + "</td><td>" + e.progress + "%</td></tr>";
+      }).join("") + "</table>";
+    h += "<div class=\"muted\">共 " + S.queue.length + " 项，显示 " + vis.length + " 项。</div>";
+  }
+  h += "<div class=\"muted\" style=\"margin-top:6px\">同一使用范围一次只装一个；忙时查状态可看排队位置。面板按轮询查状态，凭证过期后重新查一次新版再提交。</div>";
+  return h;
+}
+function hErr(){
+  var r = blockedOfSelf();
+  var h = "";
+  if (!r) h += "<div class=\"okline\">一切正常，可以安装。</div>";
+  else if (r === "pending-restart")
+    h += "<div class=\"errbox\"><b>pending-restart</b>：新版已装到磁盘，正在跑的还是旧版。<br>用户该做什么：重启宿主，让新版跑起来；这是正常终态，不是失败。</div>";
+  else h += "<div class=\"errbox\"><b>" + esc(r) + "</b>：" + esc(REASONS[r][0]) +
+            "<br>用户该做什么：" + esc(REASONS[r][1]) +
+            "<br><div class=\"btnrow\"><button class=\"ghost\" data-do=\"copy-diag\">复制诊断（含稳定码/脱敏诊断/版本/宿主/队列位置）</button></div></div>";
+  h += "<details class=\"allreasons\"><summary>八种原因一览</summary><table class=\"q\">" +
+       "<tr><th>原因</th><th>中文含义</th><th>用户该做什么</th></tr>" +
+       Object.keys(REASONS).map(function(k){
+         return "<tr><td>" + esc(k) + "</td><td>" + esc(REASONS[k][0]) + "</td><td>" + esc(REASONS[k][1]) + "</td>";
+       }).join("") + "</table></details>";
+  return h;
+}
+function hManual(){
+  var m = manualCmd();
+  var h = "";
+  if (!m) h += "<div class=\"muted\">当前情形不给手工命令（" + esc(blockedOfSelf()) + "），只展示原因。</div>";
+  else {
+    h += "<code class=\"cmd\">" + esc(m) + "</code>" +
+         "<div class=\"btnrow\"><button class=\"ghost solid\" data-do=\"copy-manual\">复制整行执行</button></div>" +
+         "<div class=\"muted\" style=\"margin-top:8px\">复制整行执行即可；网络受限时可去掉 --registry= 走本地源。面板每次都会刷新展示最新命令，不缓存旧的。</div>";
+  }
+  if (S.self.receipt)
+    h += "<div class=\"muted\" style=\"margin-top:6px\">本次凭证 checkId=" + esc(S.self.receipt.checkId) +
+         "（" + esc(S.self.receipt.expiresAt) + "内有效）· 请求号 " + esc(S.self.receipt.requestId) + "。</div>";
+  else h += "<div class=\"muted\" style=\"margin-top:6px\">还没查过新版，先查新版拿凭证再安装。</div>";
+  return h;
+}
+var SHEET_TITLES = { log: "更新日志", queue: "更新队列", manual: "手动命令", err: "错误信息" };
+function sheetBodyHTML(){
+  if (sheet === "log") return hLog();
+  if (sheet === "queue") return hQueue();
+  if (sheet === "manual") return hManual();
+  if (sheet === "err") return hErr();
+  return "";
+}
+
+/* ---- 渲染 ---- */
+function render(){
+  var s = snapshotSelf();
+  var prog = s.job ? s.job.progress : 0;
+  document.getElementById("progress").style.width = prog + "%";
+  document.getElementById("glow").style.setProperty("--p", prog);
+
+  /* 待重启横幅：显眼、说清版本号、只给重启与命令入口 */
+  var banner = document.getElementById("restartBanner");
+  if (s.blockedReason === "pending-restart"){
+    banner.className = "show";
+    banner.innerHTML = "⚠️ <b>新版 " + esc(s.installedVersion) + " 已装好，正在跑的还是 " +
+      esc(s.runningVersion) + "，重启宿主后生效。</b><br>待重启期间不再提供安装，只给重启指引与手动命令入口。" +
+      "<div class=\"row\"><button class=\"ghost solid\" data-do=\"restart\">重启宿主</button>" +
+      "<button class=\"ghost\" data-do=\"open-manual\">查看手动命令</button></div>";
+  } else { banner.className = ""; banner.innerHTML = ""; }
+
+  document.getElementById("eyebrow").textContent = oneLiner();
+
+  var plan = centralPlan();
+  var h1 = document.getElementById("question");
+  h1.innerHTML = plan.q;
+  var btn = document.getElementById("primaryBtn");
+  btn.textContent = plan.primary.label;
+  btn.dataset.act = plan.primary.act;
+  btn.disabled = false;
+  if (plan.primary.act === "install" && !s.canInstall) btn.disabled = true;
+  btn.classList.toggle("pulse", !!plan.primary.pulse && !btn.disabled);
+
+  var subs = document.getElementById("subs");
+  var html = "";
+  /* 查新版常驻一行：单焦点之下，次要入口保持可达 */
+  var hasCheck = plan.subs.some(function(x){ return x.act === "check"; });
+  if (!hasCheck && !s.job && s.blockedReason !== "pending-restart")
+    html += "<button data-do=\"check\">查新版</button><span class=\"sep\">·</span>";
+  plan.subs.forEach(function(x, i){
+    if (i > 0 || html) html += (html && !html.endsWith("<span class=\"sep\">·</span>") ? "<span class=\"sep\">·</span>" : "");
+    if (x.act) html += "<button data-do=\"" + x.act + "\"> " + esc(x.label) + " </button>";
+    else html += "<button data-open=\"" + x.sheet + "\"> " + esc(x.label) + " </button>";
+  });
+  subs.innerHTML = html;
+
+  var meta = "当前 " + esc(s.installedVersion) + " · 运行中 " + esc(s.runningVersion);
+  if (s.latestVersion) meta += " · 最新查到 " + esc(s.latestVersion);
+  if (S.self.receipt) meta += " · 凭证 " + esc(S.self.receipt.checkId) + "（" + esc(S.self.receipt.expiresAt) + "有效）";
+  if (S.self.skipped.length) meta += " · 已跳过 " + S.self.skipped.map(esc).join("、") + "（新版本照常提醒）";
+  document.getElementById("meta").innerHTML = meta;
+
+  /* 浮层 */
+  var sh = document.getElementById("sheet");
+  if (!sheet){ sh.className = ""; sh.innerHTML = ""; }
+  else {
+    sh.className = "open";
+    sh.innerHTML = "<h2>" + SHEET_TITLES[sheet] +
+      "<button class=\"x\" data-do=\"close-sheet\" aria-label=\"关闭\">✕</button></h2>" + sheetBodyHTML();
+    var cb = document.getElementById("showOthers");
+    if (cb) cb.addEventListener("change", function(){ S.showOthers = cb.checked; render(); });
+  }
+  document.querySelectorAll("#dock button").forEach(function(b){
+    b.classList.toggle("on", b.dataset.sheet === sheet);
+  });
+  var dq = document.getElementById("dockQueue");
+  dq.innerHTML = "更新队列" + (S.queue.length ? "<span class=\"dot\"></span>" : "");
+  var de = document.getElementById("dockErr");
+  de.innerHTML = "错误信息" + (s.blockedReason ? "<span class=\"dot warn\"></span>" : "");
+}
+
+/* ---- 主题：默认跟随系统，按钮可切浅色/深色 ---- */
+var themeMode = "auto";
+try { themeMode = localStorage.getItem("d3flow-theme") || "auto"; } catch(e){}
+function applyTheme(){
+  var root = document.documentElement;
+  root.removeAttribute("data-theme");
+  if (themeMode === "light" || themeMode === "dark") root.setAttribute("data-theme", themeMode);
+  document.getElementById("themeBtn").textContent =
+    themeMode === "light" ? "☀️ 浅色" : themeMode === "dark" ? "🌙 深色" : "🖥 跟随系统";
+}
+document.getElementById("themeBtn").addEventListener("click", function(){
+  themeMode = themeMode === "auto" ? "light" : themeMode === "light" ? "dark" : "auto";
+  try { localStorage.setItem("d3flow-theme", themeMode); } catch(e){}
+  applyTheme();
+});
+
+/* ---- 事件 ---- */
+document.addEventListener("click", function(ev){
+  var d = ev.target.closest("[data-do]");
+  if (d){
+    var k = d.dataset.do;
+    if (k === "copy-manual"){ copyText(manualCmd(), "手动命令"); return; }
+    if (k === "copy-diag"){ copyText(diagText(), "诊断"); return; }
+    if (k === "open-manual"){ sheet = "manual"; render(); return; }
+    if (k === "close-sheet"){ sheet = null; render(); return; }
+    act(k); return;
+  }
+  var o = ev.target.closest("[data-open]");
+  if (o){ sheet = (sheet === o.dataset.open) ? null : o.dataset.open; render(); return; }
+  var dock = ev.target.closest("#dock button");
+  if (dock){ sheet = (sheet === dock.dataset.sheet) ? null : dock.dataset.sheet; render(); return; }
+});
+document.getElementById("demoReason").addEventListener("change", render);
+document.getElementById("demoReset").addEventListener("click", function(){
+  S = freshState(); sheet = null;
+  document.getElementById("demoReason").value = "";
+  toast("已重置");
+  render();
+});
+document.addEventListener("keydown", function(ev){
+  if (ev.key === "Escape" && sheet){ sheet = null; render(); }
+});
+
+/* ---- 启动 ---- */
+S = freshState();
+applyTheme();
+render();
+</script>
+</body>
+</html>
