@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>更新面板 · D4 胶囊</title>
+<style>
+  :root, [data-theme="light"]{
+    --bg:#f4f4f7; --card:#ffffff; --ink:#191a20; --mut:#767682;
+    --line:#e7e7ee; --accent:#5b5bd6; --accent-ink:#ffffff;
+    --ok:#1a9e5c; --okbg:#e7f7ef; --warn:#b26a00; --warnbg:#fff4e0; --warnline:#eab308;
+    --bad:#c93a3a; --badbg:#fdeeee; --badline:#f0aaaa;
+    --codebg:#191a20; --codeink:#e8e8f0;
+    --shadow:0 10px 30px rgba(25,26,32,.08);
+    --pill-shadow:0 4px 14px rgba(91,91,214,.28);
+  }
+  [data-theme="dark"]{
+    --bg:#131316; --card:#1e1e25; --ink:#f1f1f6; --mut:#a2a2b0;
+    --line:#33333e; --accent:#8f8ff7; --accent-ink:#14141a;
+    --ok:#4ade80; --okbg:#14301f; --warn:#f5b942; --warnbg:#33270e; --warnline:#8a6d1f;
+    --bad:#f27d7d; --badbg:#3a1a1a; --badline:#7a3535;
+    --codebg:#0c0c10; --codeink:#e8e8f0;
+    --shadow:0 10px 30px rgba(0,0,0,.45);
+    --pill-shadow:0 4px 16px rgba(143,143,247,.35);
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink);
+        font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;
+        transition:background .25s ease, color .25s ease; }
+  .wrap{ max-width:720px; margin:0 auto; padding:28px 20px 90px; }
+  .topbar{ display:flex; align-items:center; gap:10px; margin-bottom:22px; }
+  .appname{ font-weight:800; font-size:15px; }
+  .verpill{ font-size:12px; color:var(--mut); background:var(--card); border:1px solid var(--line);
+            border-radius:999px; padding:3px 12px; box-shadow:var(--shadow); }
+  .themebtn{ margin-left:auto; border:1px solid var(--line); background:var(--card); color:var(--ink);
+             border-radius:999px; padding:6px 14px; font-size:13px; cursor:pointer; box-shadow:var(--shadow); }
+  .capsule{ background:var(--card); border-radius:26px; padding:26px 26px 22px; box-shadow:var(--shadow);
+            text-align:center; margin-bottom:16px; }
+  .statusdot{ display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:8px; vertical-align:1px; }
+  .dot.green{ background:var(--ok); box-shadow:0 0 0 5px var(--okbg); }
+  .dot.blue{ background:var(--accent); box-shadow:0 0 0 5px color-mix(in srgb, var(--accent) 18%, transparent); }
+  .dot.yellow{ background:var(--warnline); box-shadow:0 0 0 5px var(--warnbg); }
+  .dot.red{ background:var(--bad); box-shadow:0 0 0 5px var(--badbg); }
+  .bigline{ font-size:21px; font-weight:800; letter-spacing:.2px; }
+  .actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
+  button.pill{ border-radius:999px; padding:10px 22px; font-size:14px; font-weight:700; cursor:pointer;
+               border:1px solid var(--line); background:var(--card); color:var(--ink);
+               transition:transform .12s ease, box-shadow .12s ease, opacity .12s; }
+  button.pill:hover:not(:disabled){ transform:translateY(-1px); }
+  button.pill:disabled{ opacity:.4; cursor:not-allowed; }
+  button.pill.primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); box-shadow:var(--pill-shadow); }
+  .card{ background:var(--card); border-radius:22px; padding:20px 22px; box-shadow:var(--shadow); margin:14px 0; }
+  .card h3{ margin:0 0 10px; font-size:13px; letter-spacing:2px; color:var(--mut); font-weight:700; }
+  .restart{ background:var(--warnbg); border:2px solid var(--warnline); color:var(--ink);
+            border-radius:22px; padding:16px 20px; font-size:15px; font-weight:700;
+            display:flex; align-items:center; gap:12px; flex-wrap:wrap; box-shadow:var(--shadow); margin:14px 0; }
+  .errbox{ background:var(--badbg); border:1px solid var(--badline); border-radius:18px; padding:14px 18px; font-size:14px; }
+  .okline{ background:var(--okbg); border-radius:18px; padding:14px 18px; font-size:14px; }
+  code.cmd{ display:block; background:var(--codebg); color:var(--codeink); font-size:12.5px;
+            padding:14px 16px; border-radius:16px; overflow-x:auto; white-space:pre-wrap; word-break:break-all;
+            font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  table.q{ width:100%; border-collapse:separate; border-spacing:0; font-size:13px; }
+  table.q th, table.q td{ padding:9px 10px; text-align:left; border-bottom:1px solid var(--line); }
+  table.q tr:last-child td{ border-bottom:none; }
+  table.q th{ color:var(--mut); font-weight:600; font-size:12px; }
+  ul.log{ margin:6px 0; padding-left:20px; font-size:13.5px; }
+  ul.log li{ margin:4px 0; }
+  .muted{ color:var(--mut); font-size:12.5px; }
+  select{ font-size:13px; padding:7px 12px; border-radius:999px; border:1px solid var(--line);
+          background:var(--card); color:var(--ink); }
+  .demobar{ display:flex; gap:10px; align-items:center; justify-content:center; margin-top:26px; flex-wrap:wrap; }
+  .prog{ height:10px; background:var(--line); border-radius:999px; overflow:hidden; margin-top:14px; }
+  .prog i{ display:block; height:100%; background:var(--accent); border-radius:999px; transition:width .3s ease; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <span class="appname">my-notes-plugin</span>
+    <span class="verpill" id="verPill">1.2.2</span>
+    <button class="themebtn" id="themeBtn">🌙 深色</button>
+  </div>
+
+  <div class="capsule">
+    <div class="bigline"><span class="statusdot green" id="dot"></span><span id="oneLiner">…</span></div>
+    <div class="prog" id="progWrap" style="display:none"><i id="progBar" style="width:0%"></i></div>
+    <div class="actions" id="actions"></div>
+    <div class="actions"><button class="pill" id="copyDiag" style="display:none">复制诊断</button></div>
+  </div>
+
+  <div class="restart" id="restart" style="display:none"></div>
+
+  <div class="card"><h3>更新日志</h3><div id="log"></div></div>
+  <div class="card"><h3>更新队列</h3><div id="queue"></div></div>
+  <div class="card" id="errCard" style="display:none"><h3>错误信息</h3><div id="err"></div></div>
+  <div class="card"><h3>手动命令</h3><div id="manual"></div></div>
+
+  <div class="demobar">
+    <select id="demoReason"><option value="">无阻塞</option></select>
+    <label class="muted"><input type="checkbox" id="demoShowOthers" checked> 看他人排队</label>
+    <button class="pill" id="demoReset" style="padding:7px 16px;font-size:13px">重置</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+const REASONS = {
+  "unknown-profile":      ["使用范围或插件位置认不出", "重开宿主再查一次；一直这样就把版本号与日志交给插件作者；这种情形不给手工命令"],
+  "source-install":       ["当前是从源码装的，不是按版本号装的", "这种情形不给手工命令；想走更新先按版本号重装一次"],
+  "invalid-installation": ["已装的包不完整", "重装当前版本，修好已装目录再查更新"],
+  "installation-changed": ["安装位置在使用中途变了", "重新打开宿主再查一次；还出现就重装"],
+  "pending-restart":      ["新版已装到磁盘，正在跑的还是旧版", "重启宿主，让新版跑起来；这是正常终态，不是失败"],
+  "registry-conflict":    ["本地声明的版本与磁盘实际版本互相矛盾", "打开使用范围的清单文件，把目标包名那一行改成版本号再试"],
+  "incompatible-node":    ["新版要求的 Node 与当前运行的对不上", "先升级 Node 到 22 或更高，再查更新"],
+  "recovery-required":    ["上次安装被打断，留下一个半截任务", "重新点一次安装；一直出现请查看排错指引"],
+};
+const NO_MANUAL = new Set(["unknown-profile", "source-install"]);
+const CHANGELOG = {
+  "1.2.3": { date:"2026-10-02", items:[["Added","一键复制诊断"],["Added","队列位置显示"],["Fixed","安装完成判据"]] },
+  "1.2.2": null,
+};
+let S;
+function freshState(){
+  return {
+    self:{ pluginId:"my-notes-plugin", profile:"my-web", installed:"1.2.2", running:"1.2.2", latest:null, job:null, skipped:["1.2.1"] },
+    queue:[ { pluginId:"other-tasks-plugin", version:"0.9.1", state:"installing", progress:62 } ],
+  };
+}
+const demoReason = () => document.getElementById("demoReason").value || "";
+const showOthers = () => document.getElementById("demoShowOthers").checked;
+function blockedOfSelf(){ if (S.self.job) return ""; return demoReason(); }
+function snapshotSelf(){
+  const r = blockedOfSelf();
+  return { installedVersion:S.self.installed, runningVersion:S.self.running, latestVersion:S.self.latest,
+    canInstall:!S.self.job && !r, blockedReason:r||null, job:S.self.job?{phase:S.self.job.phase,progress:S.self.job.progress}:null };
+}
+function manualCmd(){
+  if (NO_MANUAL.has(blockedOfSelf())) return null;
+  return `dsh plugin --profile ${S.self.profile} add --save-exact ${S.self.pluginId}@${S.self.latest||"1.2.3"} --registry=https://registry.npmjs.org/`;
+}
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+function oneLiner(){
+  const s = snapshotSelf();
+  if (s.job) return `正在安装 ${S.self.latest}（${s.job.progress}%）`;
+  if (s.blockedReason === "pending-restart") return `新版 ${s.installedVersion} 已就绪，重启后生效`;
+  if (s.blockedReason) return REASONS[s.blockedReason][0];
+  if (s.latestVersion && !S.self.skipped.includes(s.latestVersion)) return `发现新版 ${s.latestVersion}`;
+  if (s.latestVersion) return `新版 ${s.latestVersion} 已跳过`;
+  return `当前已是最新`;
+}
+function dotColor(){
+  const s = snapshotSelf();
+  if (s.blockedReason && s.blockedReason !== "pending-restart") return "red";
+  if (s.job || s.blockedReason === "pending-restart") return "yellow";
+  if (s.latestVersion && !S.self.skipped.includes(s.latestVersion)) return "blue";
+  return "green";
+}
+function act(kind){
+  if (kind === "check"){ S.self.latest = "1.2.3"; }
+  if (kind === "install"){
+    if (!S.self.latest || S.self.job) return render();
+    S.self.job = { phase:"installing", progress:0 };
+    S.queue.push({ pluginId:S.self.pluginId, version:S.self.latest, state:"queued", progress:0 });
+  }
+  if (kind === "advance"){
+    const j = S.self.job; if (!j) return render();
+    j.progress = Math.min(100, j.progress + 25);
+    const q = S.queue.find(e => e.pluginId === S.self.pluginId);
+    if (q){ q.progress = j.progress; q.state = "installing"; }
+    if (j.progress >= 100){
+      S.self.installed = S.self.latest; S.self.job = null;
+      S.queue = S.queue.filter(e => e.pluginId !== S.self.pluginId);
+      document.getElementById("demoReason").value = "pending-restart";
+    }
+  }
+  if (kind === "restart"){ S.self.running = S.self.installed; document.getElementById("demoReason").value = ""; }
+  if (kind === "skip"){ if (S.self.latest && !S.self.skipped.includes(S.self.latest)) S.self.skipped.push(S.self.latest); }
+  render();
+}
+function copyText(txt, btn){
+  const done = () => { btn.textContent = "已复制 ✓"; setTimeout(() => render(), 1200); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, done);
+  else done();
+}
+function render(){
+  const s = snapshotSelf();
+  document.getElementById("verPill").textContent = s.installedVersion + (s.latestVersion && s.latestVersion !== s.installedVersion ? " → " + s.latestVersion : "");
+  document.getElementById("oneLiner").textContent = oneLiner();
+  document.getElementById("dot").className = "statusdot " + dotColor();
+  const pw = document.getElementById("progWrap");
+  if (s.job){ pw.style.display = "block"; document.getElementById("progBar").style.width = s.job.progress + "%"; }
+  else pw.style.display = "none";
+  document.getElementById("actions").innerHTML =
+    `<button class="pill" data-act="check">查新版</button>` +
+    `<button class="pill primary" data-act="install" ${s.canInstall && s.latestVersion ? "" : "disabled"}>安装${s.latestVersion ? " " + esc(s.latestVersion) : ""}</button>` +
+    (s.job ? `<button class="pill" data-act="advance">推进 25%</button>` : "") +
+    `<button class="pill" data-act="skip" ${s.latestVersion ? "" : "disabled"}>跳过</button>`;
+  const rs = document.getElementById("restart");
+  if (s.blockedReason === "pending-restart"){
+    rs.style.display = "flex";
+    rs.innerHTML = `⚠️ 新版 ${esc(s.installedVersion)} 已装好，重启宿主后生效。<button class="pill primary" data-act="restart">重启</button>`;
+  } else rs.style.display = "none";
+  const cd = document.getElementById("copyDiag");
+  cd.style.display = s.blockedReason && s.blockedReason !== "pending-restart" ? "" : "none";
+  let lh = "";
+  for (const v of ["1.2.3", "1.2.2"]){
+    const e = CHANGELOG[v];
+    lh += `<div><b>${v}</b> <span class="muted">${e ? e.date : ""}</span>`;
+    lh += e ? `<ul class="log">` + e.items.map(i => `<li><b>${i[0]}</b> · ${esc(i[1])}</li>`).join("") + `</ul>`
+            : `<div class="muted">暂无更新说明，不影响安装。</div>`;
+    lh += `</div>`;
+  }
+  document.getElementById("log").innerHTML = lh;
+  const vis = showOthers() ? S.queue : S.queue.filter(e => e.pluginId === S.self.pluginId);
+  document.getElementById("queue").innerHTML = vis.length
+    ? `<table class="q"><tr><th>插件</th><th>版本</th><th>状态</th><th>进度</th></tr>` +
+      vis.map(e => `<tr><td>${esc(e.pluginId)}</td><td>${esc(e.version)}</td><td>${esc(e.state)}</td><td>${e.progress}%</td></tr>`).join("") +
+      `</table><div class="muted">共 ${S.queue.length} 项，显示 ${vis.length} 项。</div>`
+    : `<div class="muted">队列空。</div>`;
+  const ec = document.getElementById("errCard");
+  if (s.blockedReason && s.blockedReason !== "pending-restart"){
+    ec.style.display = "block";
+    document.getElementById("err").innerHTML =
+      `<div class="errbox"><b>${esc(s.blockedReason)}</b> · ${esc(REASONS[s.blockedReason][0])}<br><span class="muted">${esc(REASONS[s.blockedReason][1])}</span></div>`;
+  } else if (!s.blockedReason){
+    ec.style.display = "block";
+    document.getElementById("err").innerHTML = `<div class="okline">一切正常，可以安装。</div>`;
+  } else ec.style.display = "none";
+  const m = manualCmd();
+  document.getElementById("manual").innerHTML = m
+    ? `<code class="cmd">${esc(m)}</code><div class="actions" style="justify-content:flex-start"><button class="pill" data-copy-manual>复制整行执行</button></div>`
+    : `<div class="muted">当前情形不给手工命令，只展示原因。</div>`;
+}
+document.addEventListener("click", ev => {
+  const a = ev.target.closest("[data-act]");
+  if (a){ act(a.dataset.act); return; }
+  if (ev.target.closest("[data-copy-manual]")){ copyText(manualCmd(), ev.target.closest("[data-copy-manual]")); return; }
+});
+document.getElementById("copyDiag").addEventListener("click", ev => {
+  const s = snapshotSelf();
+  copyText(`[update-diag] code=${s.blockedReason} plugin=${S.self.pluginId}@${s.installedVersion} queue=${S.queue.length}`, ev.target);
+});
+document.getElementById("demoReason").addEventListener("change", render);
+document.getElementById("demoShowOthers").addEventListener("change", render);
+document.getElementById("demoReset").addEventListener("click", () => {
+  S = freshState();
+  document.getElementById("demoReason").value = "";
+  document.getElementById("demoShowOthers").checked = true;
+  render();
+});
+let theme = 'light';
+try{ if (matchMedia('(prefers-color-scheme: dark)').matches) theme = 'dark'; }catch(e){}
+const btn = document.getElementById("themeBtn");
+function applyTheme(){
+  document.documentElement.dataset.theme = theme;
+  btn.textContent = theme === "dark" ? "☀️ 浅色" : "🌙 深色";
+}
+btn.addEventListener("click", () => { theme = theme === "dark" ? "light" : "dark"; applyTheme(); });
+S = freshState();
+const sel = document.getElementById("demoReason");
+for (const k of Object.keys(REASONS)){ const o = document.createElement("option"); o.value = k; o.textContent = k; sel.appendChild(o); }
+applyTheme();
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>插件更新 · my-notes-plugin</title>
+<script>try{var __m=matchMedia("(prefers-color-scheme: light)");document.documentElement.setAttribute("data-theme",(__m&&__m.matches)?"light":"dark");}catch(__e){document.documentElement.setAttribute("data-theme","dark");}</script>
+<style>
+  :root{ --radius:14px; }
+  html[data-theme="dark"]{
+    --bg:#070A0F; --bg2:#0B1018; --panel:#0F1621; --panel2:#0B121C;
+    --line:#1E2A3C; --line-soft:#141E2D;
+    --ink:#E9EFF6; --mut:#8E9BB0; --faint:#5C6A81;
+    --accent:#00E5CC; --accent-soft:rgba(0,229,204,.11); --accent-line:rgba(0,229,204,.55);
+    --accent-ink:#032622;
+    --ok:#34D399; --warn:#FFB224; --bad:#FF7A7A;
+    --code-bg:#05090F; --code-ink:#D3F4E9;
+    --banner-bg:rgba(255,178,36,.09); --banner-line:#FFB224; --banner-ink:#FFD88A;
+    --err-bg:rgba(255,122,122,.08); --err-line:#5A2B2E;
+    --ok-bg:rgba(52,211,153,.09); --ok-line:#1E5C46;
+    --shadow:0 14px 44px rgba(0,0,0,.5);
+    --glow:0 0 0 1px rgba(0,229,204,.25), 0 0 26px rgba(0,229,204,.12);
+  }
+  html[data-theme="light"]{
+    --bg:#F3F0E8; --bg2:#EBE6D8; --panel:#FDFCF7; --panel2:#F6F1E5;
+    --line:#DCD4BF; --line-soft:#E8E1CF;
+    --ink:#171310; --mut:#6F6656; --faint:#A29881;
+    --accent:#0B7A6B; --accent-soft:rgba(11,122,107,.10); --accent-line:rgba(11,122,107,.65);
+    --accent-ink:#FFFFFF;
+    --ok:#0E7A54; --warn:#8F5E00; --bad:#B3261E;
+    --code-bg:#101418; --code-ink:#D8F3E8;
+    --banner-bg:#FFF6DF; --banner-line:#B97A00; --banner-ink:#7A5200;
+    --err-bg:#FCECEA; --err-line:#E3B3AE;
+    --ok-bg:#E7F5EC; --ok-line:#A9D3BC;
+    --shadow:0 12px 32px rgba(74,60,32,.14);
+    --glow:0 0 0 1px rgba(11,122,107,.22), 0 0 22px rgba(11,122,107,.10);
+  }
+  *{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0; color:var(--ink); background:
+      radial-gradient(1200px 320px at 70% -80px, var(--accent-soft), transparent 60%),
+      linear-gradient(var(--bg2), var(--bg));
+    background-color:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+    font-size:14px; line-height:1.6; padding-bottom:96px;
+    transition:background-color .25s ease, color .25s ease;
+  }
+  .mono, code, pre, .stat .v, .cred, .cmd, td.num, .pill, .ver-pill{ font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace; }
+  .wrap{ max-width:1180px; margin:0 auto; padding:0 20px; }
+  .neon-line{ height:2px; background:linear-gradient(90deg, transparent 4%, var(--accent) 50%, transparent 96%); opacity:.85; }
+  /* ---- 顶栏 ---- */
+  header.top{ display:flex; align-items:flex-start; gap:16px; padding:22px 0 14px; }
+  .brand{ flex:1; min-width:0; }
+  .eyebrow{ font-size:11px; letter-spacing:.28em; color:var(--mut); font-weight:600; }
+  .eyebrow i{ display:inline-block; width:22px; height:2px; background:var(--accent); vertical-align:middle; margin-right:8px; border-radius:2px; }
+  h1{ font-size:24px; margin:6px 0 4px; letter-spacing:.01em; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .ver-pill{ font-size:12px; border:1px solid var(--line); background:var(--panel2); color:var(--mut); border-radius:999px; padding:2px 10px; }
+  .meta{ font-size:12px; color:var(--mut); display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .meta code{ background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:0 6px; font-size:11.5px; color:var(--ink); }
+  #themeBtn{
+    flex:none; margin-top:4px; font-size:13px; padding:7px 14px; border-radius:999px; cursor:pointer;
+    border:1px solid var(--line); background:var(--panel); color:var(--ink);
+    transition:border-color .2s, box-shadow .2s, transform .15s;
+  }
+  #themeBtn:hover{ border-color:var(--accent-line); box-shadow:var(--glow); transform:translateY(-1px); }
+  /* ---- 待重启横幅 ---- */
+  #restartBanner:empty{ display:none; }
+  .banner-restart{
+    border:2px solid var(--banner-line); background:var(--banner-bg); color:var(--ink);
+    border-radius:var(--radius); padding:14px 16px; margin:6px 0 14px; font-size:14px;
+    display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+    box-shadow:0 0 24px rgba(255,178,36,.12);
+    animation:bannerIn .3s ease;
+  }
+  html[data-theme="dark"] .banner-restart{ color:#FFE9BC; }
+  .banner-restart .big{ font-size:20px; }
+  .banner-restart .txt b{ color:var(--banner-ink); }
+  .banner-restart .sp{ flex:1; }
+  @keyframes bannerIn{ from{ opacity:0; transform:translateY(-4px);} to{ opacity:1; transform:none;} }
+  /* ---- 驾驶舱 ---- */
+  .cockpit{ display:grid; grid-template-columns:1.08fr .92fr; gap:14px; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px; }
+  @media (max-width:920px){ .cockpit,.grid2{ grid-template-columns:1fr; } }
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:16px 18px; box-shadow:var(--shadow);
+    transition:background-color .25s ease, border-color .25s ease;
+  }
+  .card-h{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .card-h .k{ font-size:11px; letter-spacing:.24em; color:var(--mut); font-weight:700; }
+  .card-h .rule{ flex:1; height:1px; background:var(--line-soft); }
+  .card-h .side{ font-size:12px; color:var(--mut); display:flex; align-items:center; gap:6px; }
+  .switch{ display:inline-flex; align-items:center; gap:6px; cursor:pointer; user-select:none; }
+  .switch input{ accent-color:var(--accent); width:14px; height:14px; }
+  /* 状态 */
+  .one{ font-size:16px; font-weight:650; margin:2px 0 12px; display:flex; gap:10px; align-items:flex-start; }
+  .led{ flex:none; width:11px; height:11px; border-radius:50%; margin-top:7px; background:var(--faint); }
+  .led.ok{ background:var(--ok); box-shadow:0 0 10px var(--ok); }
+  .led.work{ background:var(--warn); box-shadow:0 0 10px var(--warn); animation:blink 1.6s ease-in-out infinite; }
+  .led.bad{ background:var(--bad); box-shadow:0 0 10px var(--bad); }
+  .led.new{ background:var(--accent); box-shadow:0 0 10px var(--accent); }
+  @keyframes blink{ 50%{ opacity:.45; } }
+  .tag{ flex:none; font-size:11px; border:1px solid var(--line); color:var(--mut); border-radius:999px; padding:2px 10px; margin-top:2px; white-space:nowrap; }
+  .tag.hot{ border-color:var(--accent-line); color:var(--accent); background:var(--accent-soft); }
+  .tag.warn{ border-color:var(--banner-line); color:var(--banner-ink); }
+  .tag.bad{ border-color:var(--bad); color:var(--bad); }
+  .stats{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:0 0 10px; }
+  @media (max-width:560px){ .stats{ grid-template-columns:1fr 1fr; } }
+  .stat{ background:var(--panel2); border:1px solid var(--line-soft); border-radius:10px; padding:8px 12px; }
+  .stat .k{ font-size:11px; color:var(--mut); }
+  .stat .v{ font-size:17px; font-weight:600; }
+  .stat .v small{ font-size:11px; color:var(--faint); font-weight:400; }
+  .progwrap{ display:flex; align-items:center; gap:10px; margin:2px 0 12px; }
+  .prog{ flex:1; height:6px; background:var(--line-soft); border-radius:4px; overflow:hidden; }
+  .prog i{ display:block; height:100%; width:0; background:linear-gradient(90deg, var(--accent-line), var(--accent)); border-radius:4px; transition:width .3s ease; }
+  .prog-txt{ font-size:12px; color:var(--mut); min-width:44px; text-align:right; }
+  .actions{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .btn{
+    font-size:13px; padding:7px 14px; border-radius:8px; cursor:pointer;
+    border:1px solid var(--line); background:transparent; color:var(--ink);
+    transition:transform .15s, box-shadow .2s, border-color .2s, background-color .2s, opacity .2s;
+  }
+  .btn:hover:not(:disabled){ transform:translateY(-1px); border-color:var(--accent-line); }
+  .btn:disabled{ opacity:.38; cursor:not-allowed; transform:none; }
+  .btn-primary{ background:var(--accent); border-color:transparent; color:var(--accent-ink); font-weight:700; }
+  html[data-theme="dark"] .btn-primary{ box-shadow:0 0 18px rgba(0,229,204,.35); }
+  .btn-warn{ border-color:var(--banner-line); }
+  .skipchip{ font-size:12px; color:var(--mut); border:1px dashed var(--line); border-radius:8px; padding:5px 8px; }
+  .skipchip button{ font-size:12px; margin-left:4px; padding:2px 10px; border-radius:6px; border:1px solid var(--accent-line); background:var(--accent-soft); color:var(--accent); cursor:pointer; }
+  html[data-theme="light"] .skipchip button{ color:var(--accent); }
+  .cred{ font-size:11.5px; color:var(--faint); margin-top:12px; border-top:1px dashed var(--line); padding-top:8px; word-break:break-all; }
+  .last{ font-size:12px; color:var(--mut); margin-top:4px; }
+  .last b{ color:var(--ink); font-weight:600; }
+  /* 队列 */
+  table.q{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.q th, table.q td{ border-bottom:1px solid var(--line-soft); padding:8px 8px; text-align:left; vertical-align:middle; }
+  table.q th{ font-size:11px; color:var(--mut); font-weight:600; border-bottom:1px solid var(--line); letter-spacing:.06em; }
+  table.q td.num{ font-size:12.5px; }
+  .pill{ display:inline-block; font-size:11px; border:1px solid var(--line); border-radius:999px; padding:1px 9px; color:var(--mut); white-space:nowrap; }
+  .pill.me{ border-color:var(--accent-line); color:var(--accent); background:var(--accent-soft); }
+  .pill.run{ border-color:var(--banner-line); color:var(--banner-ink); }
+  .qfoot{ font-size:12px; color:var(--mut); margin-top:8px; }
+  .qnote{ font-size:12px; color:var(--faint); margin-top:6px; border-top:1px dashed var(--line); padding-top:8px; }
+  .empty{ font-size:13px; color:var(--mut); padding:14px 4px; }
+  /* 错误 / 手动 */
+  .okline{ background:var(--ok-bg); border:1px solid var(--ok-line); border-radius:10px; padding:10px 14px; font-size:13px; }
+  .errbox{ background:var(--err-bg); border:1px solid var(--err-line); border-left:4px solid var(--bad); border-radius:10px; padding:10px 14px; font-size:13px; }
+  .errbox .code{ font-size:12px; border:1px solid var(--err-line); border-radius:6px; padding:0 8px; margin-right:6px; background:var(--panel); }
+  .errbox .row2{ margin-top:6px; }
+  .mini-btn{ font-size:12px; padding:4px 12px; border-radius:7px; border:1px solid var(--line); background:var(--panel2); color:var(--ink); cursor:pointer; transition:border-color .2s, transform .15s; }
+  .mini-btn:hover{ border-color:var(--accent-line); transform:translateY(-1px); }
+  .cmd{
+    display:block; background:var(--code-bg); color:var(--code-ink); font-size:12.5px; line-height:1.7;
+    padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    overflow-x:auto; white-space:pre; word-break:normal; margin:0;
+  }
+  .hint{ font-size:12px; color:var(--mut); margin-top:8px; }
+  /* 日志 */
+  .logcard{ margin-top:14px; }
+  .logver{ display:grid; grid-template-columns:86px 1fr; gap:12px; padding:10px 0; border-bottom:1px dashed var(--line); }
+  .logver:last-child{ border-bottom:none; }
+  .logver .vn{ font-size:15px; font-weight:700; }
+  .logver .vd{ font-size:11px; color:var(--faint); }
+  .logver ul{ margin:4px 0 0; padding-left:18px; font-size:13px; }
+  .logver li{ margin:2px 0; }
+  .chg{ display:inline-block; font-size:10.5px; font-weight:700; border-radius:5px; padding:0 7px; margin-right:6px; border:1px solid var(--line); color:var(--mut); }
+  .chg.added{ border-color:var(--accent-line); color:var(--accent); background:var(--accent-soft); }
+  .chg.fixed{ border-color:var(--ok-line); color:var(--ok); }
+  /* 角落演示控件 */
+  .demo{
+    position:fixed; right:14px; bottom:14px; z-index:60;
+    display:flex; gap:8px; align-items:center; flex:none;
+    font-size:11px; color:var(--mut);
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:6px 10px; box-shadow:var(--shadow); opacity:.94;
+  }
+  .demo .t{ font-size:10px; letter-spacing:.18em; border:1px solid var(--line); border-radius:5px; padding:0 6px; color:var(--faint); }
+  .demo select{ font-size:11px; max-width:170px; padding:3px 6px; border:1px solid var(--line); border-radius:6px; background:var(--panel2); color:var(--ink); }
+  .demo button{ font-size:11px; padding:3px 10px; border-radius:6px; border:1px solid var(--line); background:var(--panel2); color:var(--ink); cursor:pointer; }
+  .demo button:hover{ border-color:var(--accent-line); }
+  @media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="neon-line"></div>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow"><i></i>DSH · 插件更新控制台</div>
+      <h1>my-notes-plugin <span class="ver-pill">v<span id="tInstalled">1.2.2</span></span></h1>
+      <div class="meta">使用范围 <code>my-web</code> · 前缀 <code>notes</code> · 轮询 <span class="mono">1000ms</span> · 通道 <span class="mono">stable</span></div>
+    </div>
+    <button id="themeBtn" type="button" aria-live="polite">☀ 浅色</button>
+  </header>
+
+  <div id="restartBanner"></div>
+
+  <main class="cockpit">
+    <section class="card" aria-label="本插件状态与操作">
+      <div class="card-h"><span class="k">状态 · 本插件</span><span class="rule"></span><span class="side mono" id="pollSide">panelPollMs 1000ms</span></div>
+      <p class="one"><span class="led" id="led"></span><span id="oneLiner">…</span><span class="tag" id="statusTag">…</span></p>
+      <div class="stats">
+        <div class="stat"><div class="k">磁盘已装 installed</div><div class="v" id="vInstalled">—</div></div>
+        <div class="stat"><div class="k">正在运行 running</div><div class="v" id="vRunning">—</div></div>
+        <div class="stat"><div class="k">最新版本 latest</div><div class="v" id="vLatest">—</div></div>
+      </div>
+      <div class="progwrap"><div class="prog"><i id="progFill"></i></div><span class="prog-txt mono" id="progTxt">—</span></div>
+      <div class="actions" id="actions"></div>
+      <div class="cred mono" id="cred"></div>
+      <div class="last" id="lastAction"></div>
+    </section>
+
+    <section class="card" aria-label="更新队列">
+      <div class="card-h"><span class="k">更新队列 · 跨插件单队列</span><span class="rule"></span>
+        <label class="switch side"><input type="checkbox" id="showOthers" checked>看他人排队</label>
+      </div>
+      <div id="queue"></div>
+      <div class="qnote">同一使用范围的全部插件共用一个队列，一次只装一个；不同使用范围各用各的、可并行。忙时去查状态补看位置。</div>
+    </section>
+  </main>
+
+  <div class="grid2">
+    <section class="card" aria-label="错误信息">
+      <div class="card-h"><span class="k">错误信息</span><span class="rule"></span></div>
+      <div id="err"></div>
+    </section>
+    <section class="card" aria-label="手动命令">
+      <div class="card-h"><span class="k">手动命令</span><span class="rule"></span></div>
+      <div id="manual"></div>
+    </section>
+  </div>
+
+  <section class="card logcard" aria-label="更新日志">
+    <div class="card-h"><span class="k">更新日志</span><span class="rule"></span></div>
+    <div id="log"></div>
+  </section>
+</div>
+
+<div class="demo" aria-label="演示控制台">
+  <span class="t">演示</span>
+  <label>阻塞原因
+    <select id="demoReason">
+      <option value="">无</option>
+      <option value="unknown-profile">unknown-profile</option>
+      <option value="source-install">source-install</option>
+      <option value="invalid-installation">invalid-installation</option>
+      <option value="installation-changed">installation-changed</option>
+      <option value="pending-restart">pending-restart（装完待重启）</option>
+      <option value="registry-conflict">registry-conflict</option>
+      <option value="incompatible-node">incompatible-node</option>
+      <option value="recovery-required">recovery-required</option>
+    </select>
+  </label>
+  <button id="demoReset" type="button">重置</button>
+</div>
+
+<script>
+"use strict";
+/* 内存 stub：数据与交互逻辑复用现有 stub，只重做视觉与布局。不写盘，不联网。 */
+const REASONS = {
+  "unknown-profile":      ["使用范围或插件位置认不出", "重开宿主再查一次；一直这样就把版本号与日志交给插件作者；这种情形不给手工命令"],
+  "source-install":       ["当前是从源码装的，不是按版本号装的", "这种情形不给手工命令；想走更新先按版本号重装一次"],
+  "invalid-installation": ["已装的包不完整（名字对不上、版本非法、入口文件缺失）", "重装当前版本，修好已装目录再查更新"],
+  "installation-changed": ["安装位置在使用中途变了（换了目录或换了包）", "重新打开宿主再查一次；还出现就重装"],
+  "pending-restart":      ["新版已装到磁盘，正在跑的还是旧版", "重启宿主，让新版跑起来；这是正常终态，不是失败"],
+  "registry-conflict":    ["本地声明的版本与磁盘实际版本互相矛盾", "打开使用范围的清单文件，把目标包名那一行改成版本号再试"],
+  "incompatible-node":    ["新版要求的 Node 与当前运行的对不上", "先升级 Node 到 22 或更高，再查更新"],
+  "recovery-required":    ["上次安装被打断，留下一个半截任务", "重新点一次安装；一直出现就按第 6 节排错"]
+};
+const NO_MANUAL = new Set(["unknown-profile", "source-install"]);
+const CHANGELOG = {
+  "1.2.3": { date:"2026-10-02", items:[["Added","一键复制诊断（含稳定码/脱敏诊断/版本/宿主/队列位置）"],["Added","队列位置显示（跨插件单队列）"],["Fixed","安装完成判据（先收尾再定成败）"]] },
+  "1.2.2": null
+};
+
+let S;
+function freshState(){
+  return {
+    lastAction:"刚打开，还没点任何按钮。",
+    self:{ pluginId:"my-notes-plugin", prefix:"notes", profile:"my-web",
+           installed:"1.2.2", running:"1.2.2", latest:null,
+           job:null, receipt:null, skipped:["1.2.1"], checkN:0 },
+    other:[ { pluginId:"other-tasks-plugin", installed:"0.9.0", running:"0.9.0", latest:"0.9.1", job:{ phase:"installing", progress:62 } },
+            { pluginId:"third-theme", installed:"2.0.0", running:"2.0.0", latest:null, job:null } ],
+    queue:[ { pluginId:"other-tasks-plugin", version:"0.9.1", state:"installing", progress:62 } ]
+  };
+}
+function demoReason(){ const el = document.getElementById("demoReason"); return el ? (el.value || "") : ""; }
+function showOthers(){ const el = document.getElementById("showOthers"); return el ? el.checked : true; }
+function blockedOfSelf(){
+  if (S.self.job) return "";
+  return demoReason() || "";
+}
+function snapshotSelf(){
+  const r = blockedOfSelf();
+  return { installedVersion:S.self.installed, runningVersion:S.self.running,
+    latestVersion:S.self.latest, canInstall:!S.self.job && !r, blockedReason:r || null,
+    job:S.self.job ? { phase:S.self.job.phase, progress:S.self.job.progress } : null };
+}
+function manualCmd(){
+  const r = blockedOfSelf();
+  if (NO_MANUAL.has(r)) return null;
+  const v = S.self.latest || "1.2.3";
+  return "dsh plugin --profile " + S.self.profile + " add --save-exact " + S.self.pluginId + "@" + v + " --registry=https://registry.npmjs.org/";
+}
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function oneLiner(){
+  const s = snapshotSelf();
+  if (s.job) return "正在安装 " + S.self.latest + "（" + s.job.progress + "%）…";
+  if (s.blockedReason === "pending-restart") return "新版 " + s.installedVersion + " 已装好，正在跑的还是 " + s.runningVersion + "，重启宿主后生效。";
+  if (s.blockedReason) return "装不了：" + REASONS[s.blockedReason][0];
+  if (s.latestVersion && s.latestVersion !== s.installedVersion && S.self.skipped.indexOf(s.latestVersion) < 0)
+    return "有新版 " + s.latestVersion + "（当前 " + s.installedVersion + "），可安装。";
+  if (s.latestVersion && S.self.skipped.indexOf(s.latestVersion) >= 0) return "新版 " + s.latestVersion + " 已跳过，可恢复。";
+  if (s.latestVersion) return "已是最新（" + s.installedVersion + "）。";
+  return "当前 " + s.installedVersion + "，还没查过新版。";
+}
+function statusTag(){
+  const s = snapshotSelf();
+  if (s.job) return ["work", "安装中 " + s.job.progress + "%"];
+  if (s.blockedReason === "pending-restart") return ["warn", "待重启"];
+  if (s.blockedReason) return ["bad", "装不了"];
+  if (s.latestVersion && s.latestVersion !== s.installedVersion && S.self.skipped.indexOf(s.latestVersion) < 0) return ["hot", "有新版"];
+  if (s.latestVersion && S.self.skipped.indexOf(s.latestVersion) >= 0) return ["", "已跳过"];
+  if (s.latestVersion) return ["", "已是最新"];
+  return ["", "未检查"];
+}
+function ledClass(){
+  const t = statusTag()[1];
+  if (t.indexOf("安装中") === 0) return "work";
+  if (t === "待重启") return "work";
+  if (t === "装不了") return "bad";
+  if (t === "有新版") return "new";
+  if (t === "已是最新") return "ok";
+  return "";
+}
+
+/* ---- 动作（全是内存桩） ---- */
+function act(kind){
+  const t = new Date().toLocaleTimeString("zh-CN", { hour12:false });
+  if (kind === "check"){
+    S.self.checkN++;
+    S.self.latest = "1.2.3";
+    S.self.receipt = { checkId:"chk-7f3a", checkedAt:t, expiresAt:"+10min",
+      requestId:"req-" + Math.random().toString(36).slice(2, 7) };
+    S.lastAction = t + " 查新版：带回 1.2.3 与凭证 checkId，有效期 +10min。";
+  }
+  if (kind === "install"){
+    if (!S.self.latest){ S.lastAction = t + " 安装被拦：先查新版拿凭证，过期后重新查一次再提交。"; renderAll(); return; }
+    if (S.self.job){ renderAll(); return; }
+    S.self.job = { phase:"installing", progress:0 };
+    S.queue.push({ pluginId:S.self.pluginId, version:S.self.latest, state:"queued", progress:0 });
+    S.lastAction = t + " 装更新：凭 checkId + requestId 提交，进入跨插件队列。";
+  }
+  if (kind === "advance"){
+    const j = S.self.job; if (!j){ renderAll(); return; }
+    j.progress = Math.min(100, j.progress + 25);
+    const q = S.queue.filter(function(e){ return e.pluginId === S.self.pluginId; })[0];
+    if (q){ q.progress = j.progress; q.state = j.progress >= 100 ? "verifying" : "installing"; }
+    if (j.progress >= 100){
+      S.self.installed = S.self.latest; S.self.job = null;
+      S.queue = S.queue.filter(function(e){ return e.pluginId !== S.self.pluginId; });
+      document.getElementById("demoReason").value = "pending-restart";
+      S.lastAction = t + " 安装收尾：磁盘已是 " + S.self.installed + "，正在跑的还是旧版，进入待重启（正常终态）。";
+    } else S.lastAction = t + " 推进安装进度到 " + j.progress + "%（关面板不中断，进度活在宿主侧）。";
+  }
+  if (kind === "restart"){
+    S.self.running = S.self.installed;
+    document.getElementById("demoReason").value = "";
+    S.lastAction = t + " 重启宿主：正在跑的版本已追上磁盘版本，新版生效。";
+  }
+  if (kind === "skip"){
+    if (S.self.latest && S.self.skipped.indexOf(S.self.latest) < 0) S.self.skipped.push(S.self.latest);
+    S.lastAction = t + " 跳过 " + S.self.latest + "（按插件加版本记录，新版本照常提醒）。";
+  }
+  if (kind === "recover"){
+    S.self.skipped = S.self.skipped.filter(function(v){ return v !== S.self.latest; });
+    S.lastAction = t + " 已恢复 " + S.self.latest + " 的提醒，并重新检查。";
+  }
+  renderAll();
+}
+function copyText(txt, what){
+  const done = function(ok){
+    const t = new Date().toLocaleTimeString("zh-CN", { hour12:false });
+    S.lastAction = t + " 已复制" + what + "（已脱敏，可贴给作者定位）。";
+    renderAll();
+  };
+  try{
+    if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(function(){ done(true); }, function(){ done(true); }); return; }
+    const ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); }catch(e){}
+    document.body.removeChild(ta); done(true);
+  }catch(e){ done(false); }
+}
+
+/* ---- 渲染 ---- */
+function hRestartBanner(){
+  if (blockedOfSelf() !== "pending-restart") return "";
+  return '<div class="banner-restart" role="alert"><span class="big">⚠️</span>' +
+    '<span class="txt"><b>新版 ' + esc(S.self.installed) + ' 已装好，正在跑的还是 ' + esc(S.self.running) + '，重启宿主后生效。</b>' +
+    '<br><span style="font-size:12.5px">待重启期间不提供安装按钮，只给重启指引与手工命令入口。这是正常终态，不是失败。</span></span>' +
+    '<span class="sp"></span><button class="btn btn-primary" data-act="restart" type="button">重启宿主</button></div>';
+}
+function hActions(){
+  const s = snapshotSelf();
+  const skippedNow = s.latestVersion && S.self.skipped.indexOf(s.latestVersion) >= 0;
+  let h = '<button class="btn" data-act="check" type="button">查新版</button>';
+  h += '<button class="btn btn-primary" data-act="install" type="button"' + ((s.canInstall && s.latestVersion) ? "" : " disabled") + '>安装' + (s.latestVersion ? " " + esc(s.latestVersion) : "") + '</button>';
+  h += '<button class="btn" data-act="advance" type="button"' + (s.job ? "" : " disabled") + '>推进 25%</button>';
+  h += '<button class="btn" data-act="skip" type="button"' + ((s.latestVersion && !skippedNow) ? "" : " disabled") + '>跳过该版本</button>';
+  h += '<button class="btn btn-warn" data-act="restart" type="button">重启</button>';
+  if (skippedNow) h += '<span class="skipchip">已跳过 ' + esc(s.latestVersion) + ' · <button data-act="recover" type="button">恢复</button></span>';
+  return h;
+}
+function hQueue(){
+  const show = showOthers();
+  const vis = show ? S.queue : S.queue.filter(function(e){ return e.pluginId === S.self.pluginId; });
+  const hidden = S.queue.length - vis.length;
+  let h = "";
+  if (!vis.length && !hidden){
+    h += '<div class="empty">队列空。同一使用范围同时只装一个，撞上会报 update-busy。</div>';
+  } else {
+    h += '<table class="q"><tr><th>插件</th><th>版本</th><th>状态</th><th>进度</th></tr>';
+    vis.forEach(function(e){
+      const me = e.pluginId === S.self.pluginId;
+      h += "<tr><td>" + esc(e.pluginId) + ' <span class="pill' + (me ? " me" : "") + '">' + (me ? "我" : "他人") + "</span></td>" +
+        '<td class="num">' + esc(e.version) + "</td>" +
+        '<td><span class="pill run">' + esc(e.state) + "</span></td>" +
+        '<td class="num">' + e.progress + "%</td></tr>";
+    });
+    if (hidden > 0) h += '<tr><td>其他插件 <span class="pill">正忙</span></td><td class="num">—</td><td>明细已隐藏</td><td class="num">—</td></tr>';
+    h += "</table>";
+    h += '<div class="qfoot mono">共 ' + S.queue.length + " 项，显示 " + (vis.length + (hidden > 0 ? 1 : 0)) + " 项（含占位）。</div>";
+  }
+  h += '<div class="qnote">公平先进先出：非队首直接 update-busy；取消只能撤自己的排队占位，装上了只能等收尾。同一 requestId 重复提交返回旧结果，不重装。</div>';
+  return h;
+}
+function hErr(){
+  const r = blockedOfSelf();
+  if (!r) return '<div class="okline">一切正常，可以安装。</div>';
+  if (r === "pending-restart")
+    return '<div class="okline">新版 ' + esc(S.self.installed) + ' 已装好，正在跑的还是 ' + esc(S.self.running) + '。重启宿主，让新版跑起来；这是正常终态，不是失败。顶部横幅有重启入口。</div>';
+  return '<div class="errbox"><span class="code mono">' + esc(r) + "</span><b>" + esc(REASONS[r][0]) + "</b>" +
+    "<br>用户该做什么：" + esc(REASONS[r][1]) +
+    '<div class="row2"><button class="mini-btn" data-copy-diag type="button">复制诊断（含稳定码/脱敏诊断/版本/宿主/队列位置）</button></div></div>';
+}
+function hManual(){
+  const m = manualCmd();
+  if (!m) return '<div class="empty">当前情形不给手工命令（' + esc(blockedOfSelf()) + '），只展示原因。</div>';
+  return '<pre class="cmd">' + esc(m) + '</pre>' +
+    '<div class="actions" style="margin-top:8px"><button class="mini-btn" data-copy-manual type="button">复制整行执行</button></div>' +
+    '<div class="hint">每次查询都会刷新这条命令，不要沿用旧命令；网络受限时可去掉 --registry= 走本地源。</div>';
+}
+function hLog(){
+  let h = "";
+  ["1.2.3", "1.2.2"].forEach(function(v){
+    const e = CHANGELOG[v];
+    h += '<div class="logver"><div><div class="vn mono">' + v + "</div>" + (e ? '<div class="vd mono">' + e.date + "</div>" : "") + "</div><div>";
+    if (!e) h += '<div class="empty" style="padding:2px 0">暂无更新说明，不影响安装。</div>';
+    else h += "<ul>" + e.items.map(function(i){
+      return "<li><span class=\"chg " + i[0].toLowerCase() + "\">" + i[0] + "</span>" + esc(i[1]) + "</li>";
+    }).join("") + "</ul>";
+    h += "</div></div>";
+  });
+  return h;
+}
+function hCred(){
+  if (S.self.receipt){
+    return "凭证 checkId=" + S.self.receipt.checkId + " · requestId=" + S.self.receipt.requestId +
+      " · 查于 " + S.self.receipt.checkedAt + " · 有效期 " + S.self.receipt.expiresAt + "（过期后重新查一次再提交）";
+  }
+  return "还没查过新版 — 先查新版拿凭证，凭 checkId + requestId 安装；查新版 2 秒内重复点击复用上次结果。";
+}
+function renderAll(){
+  const s = snapshotSelf();
+  const tag = statusTag();
+  document.getElementById("led").className = "led " + ledClass();
+  document.getElementById("oneLiner").textContent = oneLiner();
+  const tagEl = document.getElementById("statusTag");
+  tagEl.textContent = tag[1];
+  tagEl.className = "tag" + (tag[0] ? " " + tag[0] : "");
+  document.getElementById("tInstalled").textContent = s.installedVersion;
+  document.getElementById("vInstalled").textContent = s.installedVersion;
+  document.getElementById("vRunning").textContent = s.runningVersion;
+  document.getElementById("vLatest").textContent = s.latestVersion || "未查过";
+  const pct = s.job ? s.job.progress : (s.blockedReason === "pending-restart" ? 100 : 0);
+  document.getElementById("progFill").style.width = pct + "%";
+  document.getElementById("progTxt").textContent = s.job ? (s.job.phase + " " + pct + "%") : (s.blockedReason === "pending-restart" ? "收尾完成" : "—");
+  document.getElementById("restartBanner").innerHTML = hRestartBanner();
+  document.getElementById("actions").innerHTML = hActions();
+  document.getElementById("cred").textContent = hCred();
+  document.getElementById("lastAction").innerHTML = "上次操作：<b>" + esc(S.lastAction) + "</b>";
+  document.getElementById("queue").innerHTML = hQueue();
+  document.getElementById("err").innerHTML = hErr();
+  document.getElementById("manual").innerHTML = hManual();
+  document.getElementById("log").innerHTML = hLog();
+}
+
+/* ---- 主题：默认跟随系统，右上角切换 ---- */
+function syncThemeBtn(){
+  const cur = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+  document.getElementById("themeBtn").textContent = cur === "dark" ? "☀ 浅色" : "☾ 深色";
+}
+document.getElementById("themeBtn").addEventListener("click", function(){
+  const cur = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
+  syncThemeBtn();
+});
+try{
+  const mq = matchMedia("(prefers-color-scheme: light)");
+  if (mq && mq.addEventListener) mq.addEventListener("change", function(e){
+    document.documentElement.setAttribute("data-theme", e.matches ? "light" : "dark");
+    syncThemeBtn();
+  });
+}catch(e){}
+
+/* ---- 事件 ---- */
+document.addEventListener("click", function(ev){
+  const a = ev.target.closest ? ev.target.closest("[data-act]") : null;
+  if (a){ act(a.getAttribute("data-act")); return; }
+  if (ev.target.closest && ev.target.closest("[data-copy-manual]")){ copyText(manualCmd(), "手动命令"); return; }
+  if (ev.target.closest && ev.target.closest("[data-copy-diag]")){
+    const s = snapshotSelf();
+    copyText("[update-diag] code=" + (s.blockedReason || "ok") + " plugin=" + S.self.pluginId + "@" +
+      s.installedVersion + "->" + s.latestVersion + " host=DSH queue=" + S.queue.length + " poll=1000ms", "诊断");
+    return;
+  }
+});
+document.getElementById("demoReason").addEventListener("change", function(){
+  const t = new Date().toLocaleTimeString("zh-CN", { hour12:false });
+  S.lastAction = t + " 演示：切换阻塞原因 → " + (demoReason() || "无");
+  renderAll();
+});
+document.getElementById("showOthers").addEventListener("change", function(){
+  S.lastAction = "看他人排队 → " + (showOthers() ? "开" : "关（他人仅露正忙占位）");
+  renderAll();
+});
+document.getElementById("demoReset").addEventListener("click", function(){
+  S = freshState();
+  document.getElementById("demoReason").value = "";
+  document.getElementById("showOthers").checked = true;
+  S.lastAction = "演示状态已重置（仅内存）。";
+  renderAll();
+});
+
+/* ---- 启动（不碰 history，file:// 双击即开无报错） ---- */
+S = freshState();
+syncThemeBtn();
+renderAll();
+</script>
+</body>
+</html>
