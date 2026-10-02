@@ -93,6 +93,12 @@
     background:color-mix(in srgb,currentColor 8%,transparent); }
   .proftag{ font-family:var(--mono); font-size:11px; color:var(--muted);
     border:1px solid var(--line-strong); border-radius:3px; padding:0 6px; margin-left:8px; letter-spacing:.06em; }
+  /* —— 优先级折叠：窄屏时 data-fold 按编号从小到大逐字消失，永不折叠无标记部分 —— */
+  .foldwrap{ display:inline-block; max-width:100%; vertical-align:top; white-space:nowrap; overflow:hidden; }
+  .foldwrap.folding{
+    mask-image:linear-gradient(90deg,#000 90%,transparent 100%);
+    -webkit-mask-image:linear-gradient(90deg,#000 90%,transparent 100%); }
+  .restart-banner .foldwrap{ flex:1 1 auto; min-width:0; }
   .strip{ display:flex; gap:0; flex-wrap:wrap; margin:10px 0 0; border:1px solid var(--line);
     border-radius:4px; overflow:hidden; font-size:12.5px; }
   .strip div{ flex:1 1 120px; padding:8px 12px; border-left:1px solid var(--line); }
@@ -206,7 +212,7 @@
 
     <div id="restartSlot"></div>
 
-    <p class="status-line"><span class="sealmini seal-ink" id="sealMini">查</span><span id="oneLiner">当前版本 1.2.2，尚未检查更新。</span></p>
+    <p class="status-line"><span class="sealmini seal-ink" id="sealMini">查</span><span id="oneLiner" class="foldwrap">当前版本 1.2.2，尚未检查更新。</span></p>
     <div class="strip" id="verStrip"></div>
 
     <section class="chapter">
@@ -320,14 +326,15 @@ function HL(t){ return '<b class="hl">' + esc(t) + "</b>"; }
 function oneLiner(){
   var s = snapshotSelf();
   if (s.job) return "正在安装 " + HL(S.self.latest + "（" + s.job.progress + "%）") + "。";
-  if (s.blockedReason === "pending-restart") return "新版 " + HL(s.installedVersion) + " 已就绪，" + HL("重启后生效") + "。";
-  if (s.blockedReason) return HL("无法安装") + "：" + esc(REASONS[s.blockedReason][0]) + "。";
+  if (s.blockedReason === "pending-restart") return "新版 " + HL(s.installedVersion) + " 已安装，" + FOLD1("重启宿主后生效。");
+  if (s.blockedReason) return HL("无法安装") + "：" + FOLD1(esc(REASONS[s.blockedReason][0]) + "。");
   if (s.latestVersion && s.latestVersion !== s.installedVersion && S.self.skipped.indexOf(s.latestVersion) < 0)
     return "发现" + HL("新版 " + s.latestVersion) + "。";
   if (s.latestVersion && S.self.skipped.indexOf(s.latestVersion) >= 0) return "新版 " + HL(s.latestVersion) + " 已跳过。";
-  if (s.latestVersion) return "已是" + HL("最新版本") + "（" + esc(s.installedVersion) + "）。";
-  return "当前版本 " + esc(s.installedVersion) + "，" + HL("尚未检查更新") + "。";
+  if (s.latestVersion) return "已是" + HL("最新版本") + FOLD1("（" + esc(s.installedVersion) + "）") + "。";
+  return FOLD1("当前版本 " + esc(s.installedVersion) + "，") + HL("尚未检查更新") + "。";
 }
+function FOLD1(t){ return '<span data-fold="1">' + t + "</span>"; }
 function sealState(){
   var s = snapshotSelf();
   if (s.blockedReason === "pending-restart" || (s.job)) {
@@ -436,8 +443,8 @@ function renderAll(){
     '<div><span class="k">是否可安装</span><span class="v">' + (s.canInstall && s.latestVersion ? "可" : "否") + '</span></div>';
 
   if (blockedOfSelf() === "pending-restart"){
-    $("restartSlot").innerHTML = '<div class="restart-banner"><span class="mark">' + WARN_SVG + '</span><span>新版 ' +
-      esc(s.installedVersion) + ' 已安装，正在运行的仍是 ' + esc(s.runningVersion) + '，重启宿主后生效。待重启期间暂停安装。</span>' +
+    $("restartSlot").innerHTML = '<div class="restart-banner"><span class="mark">' + WARN_SVG + '</span><span class="foldwrap">新版 ' +
+      HL(s.installedVersion) + ' 已安装，' + FOLD1("重启宿主后生效。") + '</span>' +
       '<button class="btn primary" data-act="restart">重启宿主</button></div>';
   } else $("restartSlot").innerHTML = "";
 
@@ -488,8 +495,8 @@ function renderAll(){
   var b = blockedOfSelf();
   if (!b) $("err").innerHTML = '<div class="okline">一切正常，可以安装。</div>';
   else if (b === "pending-restart")
-    $("err").innerHTML = '<div class="restart-banner"><span class="mark">' + WARN_SVG + '</span><span>新版 ' + esc(s.installedVersion) +
-      " 已安装，正在运行的仍是 " + esc(s.runningVersion) + "，重启宿主后生效。</span></div>";
+    $("err").innerHTML = '<div class="restart-banner"><span class="mark">' + WARN_SVG + '</span><span class="foldwrap">新版 ' + HL(s.installedVersion) +
+      ' 已安装，' + FOLD1("重启宿主后生效。") + '</span></div>';
   else $("err").innerHTML = '<div class="errbox"><span class="code">' + esc(b) + "</span> · " + esc(REASONS[b][0]) +
     '<div class="todo"><b>建议操作</b><br>' + esc(REASONS[b][1]) + '</div>' +
     '<div class="row" style="margin-top:8px"><button class="btn small" data-copy-diag>复制诊断信息</button></div></div>';
@@ -499,6 +506,7 @@ function renderAll(){
   else $("manual").innerHTML = '<code class="cmd">' + esc(m) + '</code><div class="row" style="margin-top:8px">' +
     '<button class="btn small" data-copy-manual>复制命令</button></div>' +
     '<div class="cmd-hint">复制整行执行；网络受限时可去掉 --registry=。</div>';
+  foldAll();
 }
 
 document.addEventListener("click", function(ev){
@@ -556,6 +564,35 @@ function setTheme(mode){
 try {
   if (mq && mq.addEventListener) mq.addEventListener("change", function(){ if (themeMode === "auto") paintThemeBtns("auto"); });
 } catch (e){}
+
+/* —— 优先级折叠引擎：data-fold 编号越小越先折叠，无标记部分永不折叠 —— */
+function armFold(box){
+  box.querySelectorAll("[data-fold]").forEach(function(sp){
+    sp.dataset.full = sp.textContent; sp.style.display = "";
+  });
+}
+function foldAll(){
+  document.querySelectorAll(".foldwrap").forEach(function(box){
+    armFold(box);
+    var spans = Array.prototype.slice.call(box.querySelectorAll("[data-fold]"))
+      .sort(function(a, b){ return (+a.dataset.fold) - (+b.dataset.fold); });
+    var guard = 4000, dirty = false;
+    while (box.scrollWidth > box.clientWidth + 1 && guard-- > 0){
+      var sp = null;
+      for (var i = 0; i < spans.length; i++) if (spans[i].textContent.length){ sp = spans[i]; break; }
+      if (!sp) break;
+      sp.textContent = sp.textContent.slice(0, -1);
+      dirty = true;
+    }
+    spans.forEach(function(s){ if (!s.textContent.length) s.style.display = "none"; });
+    box.classList.toggle("folding", dirty);
+  });
+}
+var foldT = null;
+window.addEventListener("resize", function(){
+  clearTimeout(foldT); foldT = setTimeout(foldAll, 120);
+});
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ foldAll(); });
 
 /* —— 启动 —— */
 S = freshState();
