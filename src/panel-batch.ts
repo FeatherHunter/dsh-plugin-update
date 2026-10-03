@@ -46,6 +46,7 @@ import {
   buildDiagnosticText,
   createBrowserSkipStore,
   failureCopy,
+  isKnownFailureCode,
   renderUpdatePanelHTML,
   type PanelDiagnosticInput,
   type PanelSkipStore,
@@ -762,20 +763,56 @@ function currentVersionOf(row: BatchRowView): string | null {
 }
 
 /**
+ * 该行后台失败任务收尾时记下的真原因（该行快照里的 job）。
+ * job.message 的形状由 ports.ts 冻结：失败时是「失败码」或「失败码: 详情」（详情是宿主原话）。
+ * 只认失败／被打断的任务——跑着或已完成的 message 不是失败原因，不许拿来当诊断。
+ * 拆不开就不硬拆：整串是包内已知稳定码就当码，否则整串当正文；返回 null 即这行没有可用记录。
+ */
+function jobFailureOf(row: BatchRowView): { code: string | null; detail: string | null } | null {
+  const snapshot = isObject(row.snapshot) ? row.snapshot : null
+  if (!snapshot) return null
+  const job = isObject(snapshot['job']) ? snapshot['job'] : null
+  if (!job) return null
+  const state = typeof job['state'] === 'string' ? job['state'] : ''
+  if (state !== 'failed' && state !== 'interrupted') return null
+  const message = typeof job['message'] === 'string' ? job['message'].trim() : ''
+  if (!message) return null
+  const at = message.indexOf(':')
+  if (at < 0) {
+    return isKnownFailureCode(message) ? { code: message, detail: null } : { code: null, detail: message }
+  }
+  const code = message.slice(0, at).trim()
+  const detail = message.slice(at + 1).trim()
+  return { code: code || null, detail: detail || null }
+}
+
+/**
  * 该行的诊断文本：逐字出自单插件面板那套 buildDiagnosticText（稳定码 + 脱敏详情 + 版本 + 宿主 + 队列）。
- * 本函数只负责把行字段填进去，缺的给 null、不猜；profileName 一并透传（当前入参类型还没声明它，
- * 多传不影响既有输出）。复制出去前已由 redactForCopy 收干净（绝对路径 → <路径>）。
+ * 详情按来源优先级取，取到什么就标什么来源，绝不编造：
+ *   ① row.diag.detail —— 宿主给的诊断摘要（最优先）；
+ *   ② 该行后台失败任务收尾记下的正文（job.message 去掉前缀稳定码），并标「来源：后台任务收尾记录」；
+ *   ③ 都没有就留空 —— buildDiagnosticText 走 failureCopy 的泛化人话。
+ * 稳定码同理：后台那句带前缀码就取它（比账本里的码更贴这一家的失败），否则用行上的 error。
+ * 使用范围（profileName）与宿主种类一并透传：诊断里能看出更新装到了哪个范围。
+ * 复制出去前已由 redactForCopy 收干净（绝对路径 → <路径>）。
  */
 function diagTextOf(row: BatchRowView): string {
   const snapshot = isObject(row.snapshot) ? row.snapshot : null
   const queue = isObject(row.queue) ? row.queue : null
   const diag = isObject(row.diag) ? row.diag : null
   const text = (value: unknown): string | null => (typeof value === 'string' && value ? value : null)
-  const input = {
+  const job = jobFailureOf(row)
+  const diagDetail = diag ? text(diag['detail']) : null
+  const detail =
+    diagDetail !== null
+      ? diagDetail
+      : job !== null && job.detail !== null
+        ? job.detail + '（来源：后台任务收尾记录）'
+        : null
+  const input: PanelDiagnosticInput = {
     pluginId: pluginIdOf(row),
-    code: row.error || 'check-failed',
-    // 诊断摘要：宿主给的 diag.detail 优先；没有就不带，buildDiagnosticText 自会说人话。
-    detail: diag ? text(diag['detail']) : null,
+    code: job !== null && job.code !== null ? job.code : row.error || 'check-failed',
+    detail,
     runningVersion: text(snapshot ? snapshot['runningVersion'] : null),
     installedVersion: text(snapshot ? snapshot['installedVersion'] : null),
     latestVersion: text(snapshot ? snapshot['latestVersion'] : null),
@@ -784,7 +821,7 @@ function diagTextOf(row: BatchRowView): string {
     manual: text(row.manual),
     diag: row.diag ?? null,
     profileName: text(row.profileName),
-  } as PanelDiagnosticInput
+  }
   return buildDiagnosticText(input)
 }
 

@@ -619,6 +619,123 @@ describe('跳过语义：与单插件面板同一套（按插件 + 版本）', (
   })
 })
 
+// ---------- 后台装失败的行也要能复制出有内容的诊断 ----------
+
+describe('后台失败：诊断降级路径（真 diag 优先，不许编造）', () => {
+  /** 挂一次面板、展开该家、点复制诊断，返回复制到的文本。 */
+  async function copyDiagOf(row) {
+    const copied = []
+    const box = fakeContainer()
+    const { call } = fakeCall([row])
+    const panel = mountUpdateBatchPanel(box, {
+      prefix: 'life',
+      call,
+      pollMs: 60000,
+      copyText: (text) => {
+        copied.push(text)
+      },
+    })
+    await settled()
+    await panel.act('toggle-details', row.key)
+    await panel.act('row-copy-diag', row.key)
+    panel.unmount()
+    return copied[0]
+  }
+
+  function failedJob(message, state = 'failed') {
+    return snapshotOf({
+      canInstall: false,
+      job: { id: 'j', state, targetVersion: '1.1.0', message, requestId: 'r' },
+    })
+  }
+
+  it('后台装失败的行：job.message 的真正文进诊断，并标出来源', async () => {
+    const text = await copyDiagOf(
+      rowOf({
+        key: 'a',
+        pluginId: 'demo',
+        profileName: 'web',
+        phase: 'failed',
+        error: 'install-failed',
+        snapshot: failedJob('install-failed: 装完校验没过：磁盘上是 1.0.0，目标是 1.1.0'),
+      }),
+    )
+    assert.ok(text.includes('装完校验没过'), '真正文要进诊断：' + text)
+    assert.ok(text.includes('（来源：后台任务收尾记录）'), '要标来源，读者才知道这段不是请求回包')
+    assert.ok(text.includes('稳定码：install-failed'), '前缀码要认出来')
+    assert.ok(text.includes('使用范围：web'), '使用范围一并透传（更新装到哪个范围）')
+  })
+
+  it('有真 diag 时最优先：降级路径不许顶掉它', async () => {
+    const text = await copyDiagOf(
+      rowOf({
+        key: 'a',
+        pluginId: 'demo',
+        phase: 'failed',
+        error: 'install-failed',
+        diag: { v: 1, detail: '来自回包的真原因' },
+        snapshot: failedJob('install-failed: 后台那句不该被用'),
+      }),
+    )
+    assert.ok(text.includes('来自回包的真原因'), 'diag.detail 优先')
+    assert.ok(!text.includes('后台那句不该被用'), '不许用降级路径顶掉真 diag')
+    assert.ok(!text.includes('后台任务收尾记录'), '来自回包的不该标后台来源')
+  })
+
+  it('两者都没有：行为不变（泛化人话，不抛错）', async () => {
+    const text = await copyDiagOf(
+      rowOf({ key: 'a', pluginId: 'demo', phase: 'failed', error: null, snapshot: snapshotOf({ job: null }) }),
+    )
+    assert.ok(text.includes('稳定码：check-failed'), '退了稳定码')
+    assert.ok(text.includes('人话：'), '人话那段照给')
+    assert.ok(!text.includes('后台任务收尾记录'), '没有来源就不标来源')
+  })
+
+  it('后台那句照样脱敏：本机路径换成占位符', async () => {
+    const text = await copyDiagOf(
+      rowOf({
+        key: 'a',
+        pluginId: 'demo',
+        phase: 'failed',
+        error: 'install-failed',
+        snapshot: failedJob('install-failed: 写不进 /home/me/.dsh/profile 里的清单'),
+      }),
+    )
+    assert.ok(text.includes('<路径>'), '路径要换成占位符')
+    assert.ok(!text.includes('/home/me'), '不许带本机路径')
+    assert.ok(text.includes('写不进'), '正文照留')
+  })
+
+  it('拆不开就不硬拆：整串是稳定码时只当码，不当正文', async () => {
+    const text = await copyDiagOf(
+      rowOf({
+        key: 'a',
+        pluginId: 'demo',
+        phase: 'failed',
+        error: 'check-failed',
+        snapshot: failedJob('install-failed'),
+      }),
+    )
+    assert.ok(text.includes('稳定码：install-failed'), '整串是包内已知码就取它')
+    assert.ok(!text.includes('人话：install-failed'), '别把码当正文塞进人话')
+    assert.ok(text.includes('人话：'), '人话走泛化文案')
+  })
+
+  it('任务还在跑（不是失败）时不读 message', async () => {
+    const text = await copyDiagOf(
+      rowOf({
+        key: 'a',
+        pluginId: 'demo',
+        phase: 'installing',
+        error: null,
+        snapshot: failedJob('install-failed: 不该被读', 'installing'),
+      }),
+    )
+    assert.ok(!text.includes('不该被读'), '没失败就不许拿 message 当失败原因')
+    assert.ok(text.includes('稳定码：check-failed'))
+  })
+})
+
 // ---------- 双主题 ----------
 
 describe('双主题：默认最小，d5-paper 只换肤', () => {
