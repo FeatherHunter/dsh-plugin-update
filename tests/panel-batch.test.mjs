@@ -194,11 +194,11 @@ describe('明细：一行一家', () => {
     const cases = {
       pending: '等它，轮到就自动查新版',
       checking: '正在查新版，稍等',
-      ready: '点「装这家」装 1.2.0',
+      ready: '点「安装这家」安装 1.2.0',
       installing: '正在安装，别动',
       current: '已是最新，不用动',
-      done: '装好了，不用动',
-      failed: '没装上，点「重试」再来一次',
+      done: '安装好了，不用动',
+      failed: '安装没成功，点「重试」再来一次',
       skipped: '这一版已跳过，不用动',
     }
     for (const [phase, word] of Object.entries(cases)) {
@@ -212,7 +212,7 @@ describe('明细：一行一家', () => {
       assert.equal(batchRowStatus(rowOf({ phase })), word)
     }
     const restart = renderBatchPanelHTML({ rows: [rowOf({ phase: 'done', restartRequired: true })] })
-    assert.ok(restart.includes('装好了，重启宿主才生效'), '待重启要说清下一步是重启')
+    assert.ok(restart.includes('安装好了，重启宿主才生效'), '待重启要说清下一步是重启')
   })
 })
 
@@ -273,19 +273,23 @@ describe('总账与两个宏', () => {
     panel.unmount()
   })
 
-  it('忙守卫：任一行 installing 时两个批量入口都置灰，没人装时才放开', async () => {
+  it('忙守卫按行：正在装的那一行禁自己，别的行给可点的「加入队列」；两个宏仍置灰', async () => {
     const busyBox = fakeContainer()
     const busy = mountPanel(busyBox, [rowOf({ key: 'a', phase: 'installing' }), rowOf({ key: 'b' })])
     await settled()
-    assert.match(busyBox.innerHTML, /data-act="check"[^>]*disabled/, '检查更新要禁用')
-    assert.match(busyBox.innerHTML, /data-act="install"[^>]*disabled/, '全部更新要禁用')
-    assert.match(busyBox.innerHTML, /data-act="row-install"[^>]*disabled/, '行内装这家也要禁用')
-    assert.match(busyBox.innerHTML, /data-act="cancel"[^>]*disabled/, '安装中取消也停不了正在跑的一家，别给人假动作')
+    const html = busyBox.innerHTML
+    assert.match(html, /data-act="row-install" data-key="a"[^>]*disabled/, '正在装的那一行禁自己（不许重复提交）')
+    assert.match(html, /data-act="row-install" data-key="b"[^>]*>加入队列</, '别家在装：这一家给排队入口')
+    assert.ok(!/data-act="row-install" data-key="b"[^>]*disabled/.test(html), '排队入口要能点')
+    assert.match(html, /data-act="check"[^>]*disabled/, '检查更新忙时仍禁用')
+    assert.match(html, /data-act="install"[^>]*disabled/, '全部更新忙时仍禁用')
+    assert.match(html, /data-act="cancel"[^>]*disabled/, '安装中取消也停不了正在跑的一家，别给人假动作')
     busy.panel.unmount()
 
     const idleBox = fakeContainer()
     const idle = mountPanel(idleBox, [rowOf({ key: 'b' })])
     await settled()
+    assert.match(idleBox.innerHTML, /data-act="row-install" data-key="b"[^>]*>安装这家</, '没人装时给的是「安装这家」')
     assert.ok(!/data-act="check"[^>]*disabled/.test(idleBox.innerHTML), '没人装时检查更新可用')
     assert.ok(!/data-act="install"[^>]*disabled/.test(idleBox.innerHTML), '没人装时全部更新可用')
     idle.panel.unmount()
@@ -304,7 +308,7 @@ describe('失败与待重启：常驻横幅 + 行内入口', () => {
     assert.ok(html.includes('install-failed'), '稳定码要露出来')
     assert.ok(html.includes('装不上（详见诊断摘要）'), '稳定码要配中文人话')
     assert.match(html, /data-act="row-install" data-key="a"[^>]*>重试</, '失败行要给行内重试')
-    assert.ok(html.includes('1 家没装成'), '失败常驻横幅')
+    assert.ok(html.includes('1 家安装失败'), '失败常驻横幅')
     log.length = 0
     await panel.act('row-install')
     assert.equal(log.length, 0, '没给键就不许瞎装一家')
@@ -323,7 +327,7 @@ describe('失败与待重启：常驻横幅 + 行内入口', () => {
     const html = box.innerHTML
     assert.match(html, /data-act="restart"[^>]*>重启宿主</, '待重启行要有「重启宿主」')
     assert.ok(html.includes('重启宿主，让新版跑起来；这是正常终态，不是失败。'), '与单插件面板同一措辞')
-    assert.ok(html.includes('1 家已装好，重启宿主后生效。'), '待重启常驻横幅')
+    assert.ok(html.includes('1 家已安装好，重启宿主后生效。'), '待重启常驻横幅')
     const before = log.length
     await panel.act('restart')
     assert.equal(log.length, before, '重启入口不打任何电话（宿主没有重启自己的电话）')
@@ -491,17 +495,17 @@ describe('死按钮门禁：面板里每个可点按钮都得有人接', () => {
 })
 
 describe('详情动作行：与行内同一通道', () => {
-  it('详情里「装 X.Y.Z」与行内「装这家」打到同一个电话、同一个 key', async () => {
+  it('详情里「安装 X.Y.Z」与行内「安装这家」打到同一个电话、同一个 key', async () => {
     const rows = [rowOf({ key: 'a', title: '甲插件', targetVersion: '2.4.0' })]
     const box = fakeContainer()
     const { panel, log } = mountPanel(box, rows)
     await settled()
     await panel.act('toggle-details', 'a')
     const html = box.innerHTML
-    const rowButton = html.match(/<button type="button" data-act="row-install" data-key="a"[^>]*>装这家<\/button>/)
-    const detailButton = html.match(/<button type="button" data-act="row-install" data-key="a"[^>]*>装 2\.4\.0<\/button>/)
-    assert.ok(rowButton, '行内要有「装这家」')
-    assert.ok(detailButton, '详情里要有「装 2.4.0」')
+    const rowButton = html.match(/<button type="button" data-act="row-install" data-key="a"[^>]*>安装这家<\/button>/)
+    const detailButton = html.match(/<button type="button" data-act="row-install" data-key="a"[^>]*>安装 2\.4\.0<\/button>/)
+    assert.ok(rowButton, '行内要有「安装这家」')
+    assert.ok(detailButton, '详情里要有「安装 2.4.0」')
     const attrsOf = (tag) => tag.slice(0, tag.indexOf('>'))
     assert.equal(attrsOf(detailButton[0]), attrsOf(rowButton[0]), '两颗按钮走的同一条通道（属性逐字相同）')
     log.length = 0
@@ -526,18 +530,26 @@ describe('详情动作行：与行内同一通道', () => {
     panel.unmount()
   })
 
-  it('任一行 installing 时，详情里的动作与行内一起置灰', async () => {
-    const rows = [rowOf({ key: 'a' }), rowOf({ key: 'b', phase: 'installing' })]
+  it('详情里的动作也按行：别家在装时给可点的「加入队列」，自己那行禁自己', async () => {
+    const rows = [rowOf({ key: 'a', targetVersion: '2.4.0' }), rowOf({ key: 'b', phase: 'installing' })]
     const box = fakeContainer()
     const { panel } = mountPanel(box, rows)
     await settled()
+    const actionsOf = (key) => {
+      const at = box.innerHTML.indexOf('<div class="dsh-upd-bdetail" data-key="' + key + '"')
+      assert.ok(at >= 0, key + ' 的详情要展开着')
+      const start = box.innerHTML.indexOf('<span class="dsh-upd-bdetail-actions"', at)
+      return box.innerHTML.slice(start, box.innerHTML.indexOf('</span>', start))
+    }
     await panel.act('toggle-details', 'a')
-    const start = box.innerHTML.indexOf('<span class="dsh-upd-bdetail-actions"')
-    const actions = box.innerHTML.slice(start, box.innerHTML.indexOf('</span>', start))
-    assert.ok(actions.includes('data-act="row-install"'), '详情里有装这家')
-    assert.match(actions, /data-act="row-install"[^>]*disabled/, '详情动作要置灰')
-    assert.match(actions, /data-act="row-skip"[^>]*disabled/, '跳过也要置灰')
-    assert.match(actions, /data-act="row-copy-diag"[^>]*disabled/, '复制诊断也要置灰')
+    const actionsA = actionsOf('a')
+    assert.match(actionsA, /data-act="row-install" data-key="a"[^>]*>加入队列</, '别家在装：详情里给排队入口')
+    assert.ok(!/data-act="row-install"[^>]*disabled/.test(actionsA), '排队入口要能点')
+    assert.match(actionsA, /data-act="row-skip"[^>]*>跳过这一版</, '跳过不受别家影响')
+    await panel.act('toggle-details', 'a')
+    await panel.act('toggle-details', 'b')
+    const actionsB = actionsOf('b')
+    assert.match(actionsB, /data-act="row-install" data-key="b"[^>]*disabled>安装中…</, '正在装的那一行详情里禁自己')
     panel.unmount()
   })
 
@@ -591,17 +603,17 @@ describe('跳过语义：与单插件面板同一套（按插件 + 版本）', (
     const box = fakeContainer()
     const { panel } = mountPanel(box, rows)
     await settled()
-    assert.equal(statOf(box.innerHTML), '点「装这家」装 2.4.0')
+    assert.equal(statOf(box.innerHTML), '点「安装这家」安装 2.4.0')
     await panel.act('row-skip', 'a')
     assert.equal(statOf(box.innerHTML), '已跳过 2.4.0', '跳过后状态词要说已跳过')
     assert.match(box.innerHTML, /data-act="row-resume-skip"[^>]*>恢复（2\.4\.0）</, '跳过后要给恢复入口')
-    assert.ok(!box.innerHTML.includes('>装这家</button>'), '跳过后行内不再给装这家')
+    assert.ok(!box.innerHTML.includes('>安装这家</button>'), '跳过后行内不再给安装这家')
     await panel.act('toggle-details', 'a')
     assert.ok(box.innerHTML.includes('data-chapter="01"'), '详情照画五章')
     assert.ok(box.innerHTML.includes('data-act="row-resume-skip"'), '详情里也给恢复')
     assert.ok(!box.innerHTML.includes('data-act="row-skip"'), '跳过后详情里不再给跳过')
     await panel.act('row-resume-skip', 'a')
-    assert.equal(statOf(box.innerHTML), '点「装这家」装 2.4.0', '恢复后回原状')
+    assert.equal(statOf(box.innerHTML), '点「安装这家」安装 2.4.0', '恢复后回原状')
     panel.unmount()
   })
 
@@ -614,7 +626,7 @@ describe('跳过语义：与单插件面板同一套（按插件 + 版本）', (
     assert.equal(statOf(box.innerHTML), '已跳过 2.4.0')
     rows[0].targetVersion = '3.0.0'
     await panel.refresh()
-    assert.equal(statOf(box.innerHTML), '点「装这家」装 3.0.0', '换一版即重新提醒')
+    assert.equal(statOf(box.innerHTML), '点「安装这家」安装 3.0.0', '换一版即重新提醒')
     panel.unmount()
   })
 })
@@ -733,6 +745,189 @@ describe('后台失败：诊断降级路径（真 diag 优先，不许编造）'
     )
     assert.ok(!text.includes('不该被读'), '没失败就不许拿 message 当失败原因')
     assert.ok(text.includes('稳定码：check-failed'))
+  })
+})
+
+// ---------- 文案：安装不许简写成「装」 ----------
+
+describe('文案：安装不许简写成「装」', () => {
+  const labelOf = (html) => [...html.matchAll(/<button\b[^>]*>([^<]*)<\/button>/g)].map((m) => m[1])
+
+  it('整块面板 HTML：没有「装这家」「装 X.Y.Z」这类简写，按钮一律用全称', async () => {
+    const rows = [
+      rowOf({ key: 'a', title: '甲插件', pluginId: 'copy-probe', targetVersion: '2.4.0', manual: 'npm i -g demo@2.4.0' }),
+      rowOf({ key: 'b', title: '乙插件', phase: 'failed', error: 'install-failed' }),
+      rowOf({ key: 'c', title: '丙插件', targetVersion: '3.0.0' }),
+      rowOf({ key: 'd', title: '丁插件', phase: 'done', restartRequired: true }),
+      rowOf({ key: 'e', title: '戊插件', phase: 'current', targetVersion: null }),
+    ]
+    const box = fakeContainer()
+    const { panel } = mountPanel(box, rows)
+    await settled()
+    // 一次只展开一家，所以先展开失败那家、最后停在可更新那家。
+    await panel.act('toggle-details', 'b')
+    await panel.act('toggle-details', 'a')
+    const html = box.innerHTML
+    assert.ok(!/(?<!安)装这家/.test(html), '不许把「安装这家」简写成「装这家」')
+    assert.ok(!/(?<!安)装 ?\d+\.\d+/.test(html), '不许把「安装 2.4.0」简写成「装 2.4.0」')
+    const labels = labelOf(html)
+    assert.ok(labels.length >= 6, '按钮盘点要有量，实到 ' + labels.length)
+    for (const label of labels) {
+      if (label.includes('装')) assert.ok(label.includes('安装'), '按钮文案要用全称「安装」：' + label)
+    }
+    assert.ok(labels.includes('安装这家'), '行内动作要用「安装这家」')
+    assert.ok(labels.includes('安装 2.4.0'), '详情动作要用「安装 2.4.0」')
+    assert.ok(!/(?<!安)装好了/.test(html), '状态词不许写「装好了」')
+    assert.ok(!html.includes('没装上'), '状态词不许写「没装上」')
+    assert.ok(!html.includes('没装成'), '总账不许写「没装成」')
+    assert.ok(!html.includes('已装好'), '横幅不许写「已装好」')
+    panel.unmount()
+  })
+
+  it('忙时的排队入口也不含简写（「加入队列」本来就不带那个字）', async () => {
+    const box = fakeContainer()
+    const { panel } = mountPanel(box, [
+      rowOf({ key: 'a', title: '甲插件', phase: 'installing' }),
+      rowOf({ key: 'b', title: '乙插件', targetVersion: '2.4.0' }),
+    ])
+    await settled()
+    const html = box.innerHTML
+    assert.ok(html.includes('>加入队列</button>'), '忙时给的是排队入口')
+    assert.ok(!/(?<!安)装这家/.test(html), '排队入口也不许退成「装这家」')
+    assert.ok(!/(?<!安)装 ?\d+\.\d+/.test(html), '排队入口不带版本号简写')
+    const labels = labelOf(html)
+    for (const label of labels) {
+      if (label.includes('装')) assert.ok(label.includes('安装'), '按钮文案要用全称「安装」：' + label)
+    }
+    panel.unmount()
+  })
+
+  it('状态词与总账用全称：可更新那句点名的就是「安装这家」', async () => {
+    const box = fakeContainer()
+    const { panel } = mountPanel(box, [rowOf({ key: 'a', targetVersion: '2.4.0' })])
+    await settled()
+    assert.ok(box.innerHTML.includes('点「安装这家」安装 2.4.0'), '状态词要写全称')
+    assert.ok(box.innerHTML.includes('逐家点「安装这家」'), '总账那句要写全称')
+    assert.ok(box.innerHTML.includes('一次安装完'), '总账那句的「安装完」也要全称')
+    panel.unmount()
+  })
+})
+
+// ---------- 排队语义：忙时也能加入队列（入队不算失败） ----------
+
+describe('排队语义：忙时也能加入队列（入队不算失败）', () => {
+  function queueView(position, requestId = 'batch:s1:b') {
+    return {
+      busy: true,
+      owner: { pluginId: null, busy: true },
+      waiting: [{ pluginId: 'b-plugin', requestId, targetVersion: null, enqueuedAt: 1 }],
+      position,
+    }
+  }
+  function queuedRow(overrides = {}) {
+    return rowOf({
+      key: 'b',
+      title: '乙插件',
+      pluginId: 'b-plugin',
+      targetVersion: '2.0.0',
+      // 位置 1 = waiting 队首：前面正好压着正在装的那一家（A），所以显示「前方 1 个」。
+      queue: queueView(1),
+      phoneNames: {
+        updateStatus: 'bp.updateStatus',
+        updateCheck: 'bp.updateCheck',
+        updateInstall: 'bp.updateInstall',
+      },
+      ...overrides,
+    })
+  }
+
+  it('点「加入队列」→ 还是同一张安装票；回包带位置后 B 显示排队位置且不是 failed', async () => {
+    const before = [
+      rowOf({ key: 'a', phase: 'installing' }),
+      rowOf({ key: 'b', title: '乙插件', pluginId: 'b-plugin', targetVersion: '2.0.0' }),
+    ]
+    const after = [rowOf({ key: 'a', phase: 'installing' }), queuedRow()]
+    const box = fakeContainer()
+    const { call, log } = fakeCall(before, (name) => {
+      if (name.endsWith('.batchInstall')) return { ok: true, session: sessionOf(after), rows: after, progress: {} }
+      return { ok: true, session: sessionOf(before), rows: before, progress: {} }
+    })
+    const panel = mountUpdateBatchPanel(box, { prefix: 'life', call, pollMs: 60000 })
+    await settled()
+    log.length = 0
+    clickAct(box, 'row-install', 'b')
+    await settled()
+    assert.ok(
+      log.some((e) => e.name === 'life.batchInstall' && JSON.stringify(e.args) === JSON.stringify({ keys: ['b'] })),
+      '加入队列发的还是同一张安装票（只推这一家）',
+    )
+    const html = box.innerHTML
+    assert.ok(html.includes('已排队 · 前方 1 个'), 'B 行要显示排队位置')
+    assert.ok(!html.includes('data-phase="failed"'), '排队不许显示成 failed')
+    assert.match(html, /class="dsh-upd-brow" data-phase="ready" data-key="b" data-queued="1"/, 'B 行要标成排队')
+    assert.ok(!html.includes('<div class="dsh-upd-banner" data-kind="failed"'), '排队不该出失败横幅')
+    assert.match(html, /data-act="row-cancel-queue" data-key="b"/, '排队行要给取消入口')
+    panel.unmount()
+  })
+
+  it('宿主把忙记成 failed+update-busy 时，面板翻回排队：不画失败提示、总账不记失败', async () => {
+    const rows = [
+      rowOf({ key: 'a', phase: 'installing' }),
+      rowOf({
+        key: 'b',
+        title: '乙插件',
+        pluginId: 'b-plugin',
+        phase: 'failed',
+        error: 'update-busy',
+        targetVersion: '2.0.0',
+        queue: queueView(1),
+      }),
+    ]
+    const box = fakeContainer()
+    const { panel } = mountPanel(box, rows)
+    await settled()
+    const html = box.innerHTML
+    const at = html.indexOf('<div class="dsh-upd-brow" data-phase="failed" data-key="b"')
+    assert.ok(at >= 0, 'B 行还在')
+    const rowHtml = html.slice(at, html.indexOf('</div>', at))
+    assert.ok(rowHtml.includes('已排队'), '排队那行要说已排队')
+    assert.ok(!rowHtml.includes('dsh-upd-bfail'), '排队不算失败：不画失败提示')
+    assert.ok(!html.includes('家失败'), '总账不许把它记成失败')
+    assert.ok(html.includes('1 家可更新 · 1 家安装中'), '它算可更新（等前面装完就轮到）')
+    panel.unmount()
+  })
+
+  it('老宿主回 update-busy：不画红条、不记失败，只给一句「等它装完再点」', async () => {
+    const rows = [rowOf({ key: 'a', phase: 'installing' }), rowOf({ key: 'b', title: '乙插件', targetVersion: '2.0.0' })]
+    const box = fakeContainer()
+    const { call } = fakeCall(rows, (name) => {
+      if (name.endsWith('.batchInstall')) return { ok: false, error: 'update-busy', errorKind: 'update-busy' }
+      return { ok: true, session: sessionOf(rows), rows, progress: {} }
+    })
+    const panel = mountUpdateBatchPanel(box, { prefix: 'life', call, pollMs: 60000 })
+    await settled()
+    await panel.act('row-install', 'b')
+    const html = box.innerHTML
+    assert.ok(!html.includes('<div class="dsh-upd-banner" data-kind="failed"'), '入队被拒也不画失败横幅')
+    assert.ok(html.includes('还没排上'), '给一句等它装完再点的回执')
+    assert.ok(!html.includes('data-phase="failed"'), '不许把这一行记成失败')
+    panel.unmount()
+  })
+
+  it('「取消排队」打该家自己的安装电话（cancelQueued + 编号），不碰批量取消', async () => {
+    const rows = [rowOf({ key: 'a', phase: 'installing' }), queuedRow({ queue: queueView(3, 'batch:s1:b') })]
+    const box = fakeContainer()
+    const { panel, log } = mountPanel(box, rows)
+    await settled()
+    assert.ok(box.innerHTML.includes('已排队 · 前方 3 个'), '位置 3 → 前方 3 个（含正在装的那家）')
+    log.length = 0
+    await panel.act('row-cancel-queue', 'b')
+    const cancelCall = log.find((e) => e.name === 'bp.updateInstall')
+    assert.ok(cancelCall, '取消走该家自己的安装电话，实到：' + JSON.stringify(log.map((e) => e.name)))
+    assert.deepEqual(cancelCall.args, { cancelQueued: true, requestId: 'batch:s1:b' })
+    assert.ok(!log.some((e) => e.name === 'life.batchCancel'), '不许拿批量取消顶（那是清整轮会话）')
+    assert.ok(box.innerHTML.includes('已取消排队'), '取消后给一句回执')
+    panel.unmount()
   })
 })
 

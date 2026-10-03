@@ -211,3 +211,37 @@ describe('空会话与坏输入', () => {
 function FAILED(s) {
   return s.entries.filter((e) => e.phase === 'failed').map((e) => e.key)
 }
+
+describe('入队：忙时排队不是失败（一个一个加入队列那条路）', () => {
+  it('装电话回 queued：相位退回 ready、不算 failed、本轮停下', async () => {
+    const { deps } = fakeDeps({ alpha: { check: { kind: 'update', version: '2.0.0' }, install: { kind: 'queued', position: 1 } } })
+    const r = await runBatch(session(), deps)
+    assert.equal(r.stoppedBecause, 'queued', '停下等下一轮，不继续推下一家')
+    assert.equal(batchEntryOf(r.session, 'alpha').phase, 'ready', '排上队但没轮到：回 ready（版本留着）')
+    assert.equal(batchEntryOf(r.session, 'alpha').error, null, '入队不是失败，不许写 error')
+    assert.notEqual(batchEntryOf(r.session, 'alpha').phase, 'failed')
+    assert.equal(batchEntryOf(r.session, 'alpha').targetVersion, '2.0.0', '远端版本要留着')
+    assert.deepEqual(r.steps, [
+      { key: 'alpha', action: 'check', phase: 'ready', error: null },
+      { key: 'alpha', action: 'install', phase: 'queued', error: null },
+    ])
+  })
+
+  it('排队后下一轮接着装（幂等编号不变），不会被记成失败', async () => {
+    const first = fakeDeps({ alpha: { check: { kind: 'update', version: '2.0.0' }, install: { kind: 'queued', position: 1 } } })
+    const half = await runBatch(session(), first.deps)
+    const second = fakeDeps()
+    const rest = await runBatch(half.session, second.deps)
+    assert.equal(rest.stoppedBecause, 'finished')
+    assert.deepEqual(second.calls.check, ['beta', 'self'], '排队那家已是 ready，直接进安装不重查；其余照常查')
+    assert.deepEqual(second.calls.install.map((i) => i.requestId), ['batch:b1:alpha', 'batch:b1:beta', 'batch:b1:self'], '编号恒定')
+    assert.equal(batchEntryOf(rest.session, 'alpha').phase, 'done')
+  })
+
+  it('入队不触发 stopOnFailure 的停（它不是失败）', async () => {
+    const { deps } = fakeDeps({ alpha: { check: { kind: 'update', version: '2.0.0' }, install: { kind: 'queued', position: 2 } } })
+    const r = await runBatch(session({ stopOnFailure: true }), deps)
+    assert.equal(r.stoppedBecause, 'queued', '停下是因为排队，不是因为遇错')
+    assert.equal(batchEntryOf(r.session, 'alpha').phase, 'ready')
+  })
+})

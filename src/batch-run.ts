@@ -34,6 +34,13 @@ export type BatchInstallOutcome =
   | { kind: 'done'; restartRequired: boolean }
   /** 装失败（稳定码）。 */
   | { kind: 'failed'; error: string }
+  /**
+   * 已入队：全局锁被别家占着（宿主的 update-busy），本家排上了但还没轮到。
+   * **不是失败**——这一行的相位回到 ready（远端版本留着），本轮推动到此为止，
+   * 下次推动（或宿主 drain）会从它接着走。这是「一个一个加入队列」那条路的正解：
+   * 用户点「加入队列」= 递一个意图进队列，而不是报一次错。
+   */
+  | { kind: 'queued'; position?: number | null }
 
 /** 驱动器要用到的传输与落盘（调用方注入）。 */
 export interface BatchRunDeps {
@@ -59,8 +66,8 @@ export interface BatchRunStep {
 export interface BatchRunResult {
   session: BatchSession
   steps: BatchRunStep[]
-  /** 停下来的原因：做完了／按策略遇错停／步数用完／没活可干。 */
-  stoppedBecause: 'finished' | 'stopped-after-failure' | 'max-steps' | 'empty'
+  /** 停下来的原因：做完了／按策略遇错停／步数用完／没活可干／**排上队但还没轮到**。 */
+  stoppedBecause: 'finished' | 'stopped-after-failure' | 'max-steps' | 'empty' | 'queued'
 }
 
 /** 驱动器选项：`maxSteps` 给 1 就是「只推进一步」，便于宿主按自己的节奏推进（drain）。 */
@@ -142,6 +149,13 @@ export async function runBatch(
     const installed = await deps.install(key, entry.requestId, version)
     used += 1
 
+    if (installed.kind === 'queued') {
+      // 入了队但没轮到：相位退回 ready（版本留着，别丢），本轮到此为止——
+      // 不记 failed（它不是失败），也不继续推下一家（锁还在别人手里，推了也白推）。
+      await persist(markBatchEntry(current, key, { phase: 'ready', error: null }, deps.now()).session)
+      steps.push({ key, action: 'install', phase: 'queued', error: null })
+      return { session: current, steps, stoppedBecause: 'queued' }
+    }
     if (installed.kind === 'failed') {
       await persist(markBatchEntry(current, key, { phase: 'failed', error: installed.error }, deps.now()).session)
       steps.push({ key, action: 'install', phase: 'failed', error: installed.error })

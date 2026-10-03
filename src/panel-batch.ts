@@ -12,20 +12,20 @@
 //     <p>.batchStatus  {}                 挂载即查、按 pollMs 轮询
 //     <p>.batchCheck   {}                 「检查更新」
 //     <p>.batchInstall {}                 「全部更新」（不点 keys 即「全部提交」语义）
-//     <p>.batchInstall { keys: [key] }     行内「装这家」/「重试」只推这一家
+//     <p>.batchInstall { keys: [key] }     行内「安装这家」/「重试」只推这一家
 //     <p>.batchResume  {} / <p>.batchCancel {}   「接着上次」/「取消这一批」
 //
 // 信息架构（第一性：多插件场景用户只问有没有事 / 是哪几家 / 我要做什么）：
 //   ① 总账：一句话（有没有事）+ 分类计数（可更新/安装中/待查/待重启/失败/已跳过/已最新）；
 //   ② 明细：一行一家（状态灯 + 中文名 + 当前版本 → 远端版本 + 一句可执行的状态词 + 行内动作）；
-//   ③ 动作：顶部两件宏（检查更新/全部更新）+ 行内（装这家/重试/重启宿主/详情）。
+//   ③ 动作：顶部两件宏（检查更新/全部更新）+ 行内（安装这家/重试/重启宿主/详情）。
 //   一行只回答一个问题：这家的**下一步**是什么。状态词一律中文可执行，不写相位英文。
 //   待重启与失败走常驻横幅，不藏进抽屉。
 //
 // 忙守卫：任一行 installing（或本面板正有一次电话在飞）→「检查更新」「全部更新」一起置灰，
-//   与单插件面板同一口径（同一使用范围一次只装一个，禁止并发提交）。
+//   与单插件面板同一口径（同一使用范围一次只安装一个，禁止并发提交）。
 // 详情：复用单插件内核 renderUpdatePanelHTML（embedded + actions:'none' 只读渲染，内核不画动作按钮）；
-//   动作行由批量面板自己出（data-act，与行内同一通道：装／重试、跳过／恢复、复制手工命令、复制诊断）。
+//   动作行由批量面板自己出（data-act，与行内同一通道：安装／重试、跳过／恢复、复制手工命令、复制诊断）。
 //   内核里残留的 data-action 控件（03 章队列开关不在 actions 缝里）整颗摘掉——详情里绝不留「可点没人接」的死按钮。
 //   详情不嵌套滚动（CSS 显式中和 overlay 的 max-height/overflow）。
 // 卸载：只停轮询、只拆监听，绝不发安装/取消电话（安装在宿主进程内继续跑）。
@@ -66,7 +66,7 @@ export interface BatchRowView {
   targetVersion: string | null
   restartRequired: boolean
   error: string | null
-  /** 该行的单插件快照（展开详情与「装上」按钮的门控都用它）。 */
+  /** 该行的单插件快照（展开详情与「安装这家」按钮的门控都用它）。 */
   snapshot: unknown
   manual?: string | null
   queue?: unknown
@@ -77,6 +77,8 @@ export interface BatchRowView {
   diag?: unknown
   /** 宿主种类（进诊断文本；缺省说人话）。 */
   hostKind?: string | null
+  /** 该家单插件三电话的名字（取消排队要用它自己的安装电话；老宿主不给就不给取消入口）。 */
+  phoneNames?: unknown
 }
 
 /** 摆放形态：默认内嵌，切弹窗走同一参数（与单插件面板同一套写法）。 */
@@ -113,6 +115,7 @@ export type BatchPanelActionKind =
   | 'row-install'
   | 'row-skip'
   | 'row-resume-skip'
+  | 'row-cancel-queue'
   | 'row-copy-manual'
   | 'row-copy-diag'
   | 'toggle-details'
@@ -165,13 +168,13 @@ export function buildBatchPhoneNames(prefix: string): BatchPhoneNames {
 // ---------- 总账（一句话 + 分类计数：面板与门禁共用同一份口径） ----------
 
 export interface BatchLedgerCounts {
-  /** phase=ready：有新版、还没装。 */
+  /** phase=ready：有新版、还没安装。 */
   updatable: number
-  /** phase=installing：正在装。 */
+  /** phase=installing：正在安装。 */
   installing: number
   /** phase=pending/checking：还没轮到/正在查。 */
   pending: number
-  /** 装好了但要重启宿主才生效（终态之外的一档，单独数）。 */
+  /** 安装好了但要重启宿主才生效（终态之外的一档，单独数）。 */
   restart: number
   /** phase=failed。 */
   failed: number
@@ -184,6 +187,8 @@ export interface BatchLedgerCounts {
 /**
  * 从行上数分类账（每行恰好进一档，七档之和 === 行数）：
  * 失败优先（失败行永远算失败，不算待重启）；其余按相位落档；不用重启的终态才算「已最新」。
+ * 例外一处：「忙失败占位」（phase=failed 但 error=update-busy）其实是**排队**不是失败——
+ * 宿主忙时先写占位再回 update-busy，面板把它翻回「可更新」，免得总账把它报成失败。
  */
 export function batchLedgerCounts(rows: readonly BatchRowView[]): BatchLedgerCounts {
   const counts: BatchLedgerCounts = {
@@ -197,7 +202,8 @@ export function batchLedgerCounts(rows: readonly BatchRowView[]): BatchLedgerCou
   }
   for (const row of rows) {
     const phase = asBatchPhase(row.phase)
-    if (phase === 'failed') counts.failed += 1
+    if (isQueueBusyRow(row)) counts.updatable += 1
+    else if (phase === 'failed') counts.failed += 1
     else if (phase === 'installing') counts.installing += 1
     else if (phase === 'ready') counts.updatable += 1
     else if (phase === 'pending' || phase === 'checking') counts.pending += 1
@@ -222,6 +228,17 @@ export function batchLedgerText(counts: BatchLedgerCounts): string {
 }
 
 /**
+ * 排队中的状态词：只回答「还要等多久」。位置从该行的队列视图来。
+ * queue.ts 的 position 是 waiting 顺位（队首为 1、0 = 自己正在装），而正在装的那一家也压在这一家前面，
+ * 所以「前方 N 个」= position N（队首那家前方正好 1 个：正在装的拥有者）。
+ * 位置取不到（宿主只记了忙、没给占位读数）就说「等前面安装完」，不猜数字。
+ */
+export function batchQueuedStatus(position: number | null): string {
+  if (typeof position !== 'number' || !Number.isFinite(position) || position < 1) return '已排队 · 等前面安装完'
+  return '已排队 · 前方 ' + position + ' 个'
+}
+
+/**
  * 一行的状态词：只回答一个问题——这家的**下一步**是什么。
  * 中文可执行，不写相位英文（相位只留在 data-phase 属性上，给人看的这句永远是动作）。
  */
@@ -234,15 +251,17 @@ export function batchRowStatus(row: BatchRowView, skippedVersion?: string | null
     case 'checking':
       return '正在查新版，稍等'
     case 'ready':
-      return row.targetVersion ? '点「装这家」装 ' + row.targetVersion : '点「装这家」装上新版'
+      return row.targetVersion
+      ? '点「安装这家」安装 ' + row.targetVersion
+      : '点「安装这家」安装新版'
     case 'installing':
       return '正在安装，别动'
     case 'current':
       return '已是最新，不用动'
     case 'done':
-      return row.restartRequired === true ? '装好了，重启宿主才生效' : '装好了，不用动'
+      return row.restartRequired === true ? '安装好了，重启宿主才生效' : '安装好了，不用动'
     case 'failed':
-      return '没装上，点「重试」再来一次'
+      return '安装没成功，点「重试」再来一次'
     case 'skipped':
       return '这一版已跳过，不用动'
     default:
@@ -275,7 +294,10 @@ export interface BatchPanelRenderInput {
 
 interface RowRenderContext {
   expanded: boolean
+  /** 有人正在装（别家）：本行按钮文案换「加入队列」，但不置灰。 */
   busy: boolean
+  /** 本面板正有一次电话在飞：行内动作短暂置灰，防连点。 */
+  inFlight: boolean
   theme: UpdatePanelTheme
   titles: Record<string, string>
   /** 这一家被跳过的版本（null = 没跳过）。 */
@@ -296,7 +318,9 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   const lastError = typeof input.lastError === 'string' && input.lastError ? input.lastError : null
   const loaded = input.loaded === undefined ? rows.length > 0 : input.loaded === true
   const counts = batchLedgerCounts(rows)
-  const busy = input.inFlight === true || counts.installing > 0
+  // 忙分两种：installing = 有人正在装（决定「加入队列」文案）；macroBusy = 再加本地电话在飞（决定宏按钮置灰）。
+  const installing = counts.installing > 0
+  const macroBusy = input.inFlight === true || installing
   const total = rows.length
   const terminal = total > 0 && rows.every((row) => isTerminalPhase(asBatchPhase(row.phase)))
   const stalled =
@@ -306,12 +330,20 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
       const phase = asBatchPhase(row.phase)
       return phase === 'installing' || phase === 'checking'
     })
-  const disabled = busy ? ' disabled' : ''
+  const disabled = macroBusy ? ' disabled' : ''
   const notice = typeof input.notice === 'string' && input.notice ? input.notice : null
   const noticeKey = typeof input.noticeKey === 'string' && input.noticeKey ? input.noticeKey : null
   // 回执挂在该家详情里（那家正展开才算数）；否则落回面板底部那条。
   const detailNoticeKey = notice !== null && noticeKey !== null && noticeKey === expandedKey ? noticeKey : null
-  const ctx: RowRenderContext = { expanded: false, busy, theme, titles, skipped: null, notice: null }
+  const ctx: RowRenderContext = {
+    expanded: false,
+    busy: installing,
+    inFlight: input.inFlight === true,
+    theme,
+    titles,
+    skipped: null,
+    notice: null,
+  }
   const parts: string[] = []
 
   // 顶部一行：卷宗抬头 + 两件宏（忙守卫：任一行安装中，两个批量入口一起置灰）。
@@ -326,7 +358,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
 
   // 一句话总账（有没有事）。
   const summary = loaded
-    ? batchSummaryText(counts, total, busy, lastError !== null)
+    ? batchSummaryText(counts, rows, total, installing, lastError !== null)
     : '正在读取批量更新状态…'
   parts.push('<div class="dsh-upd-batch-sum" role="status" aria-live="polite">' + escapeHtml(summary) + '</div>')
 
@@ -383,13 +415,26 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
 }
 
 /** 一句话总账：先答「有没有事」。 */
-function batchSummaryText(counts: BatchLedgerCounts, total: number, busy: boolean, hasError: boolean): string {
+function batchSummaryText(
+  counts: BatchLedgerCounts,
+  rows: readonly BatchRowView[],
+  total: number,
+  installing: boolean,
+  hasError: boolean,
+): string {
   if (hasError) return '刚才那次没成功：看下面的红条，照它说的做一次。'
   if (total === 0) return '还没有目标：点「检查更新」看看哪几家有新版。'
-  if (busy) return '正在安装 ' + counts.installing + ' 家，装完自动下一家；这期间别重复点。'
-  if (counts.failed > 0) return counts.failed + ' 家没装成；照下面的失败提示逐家重试。'
-  if (counts.updatable > 0) return counts.updatable + ' 家可更新；点「全部更新」一次装完，也可以逐家点「装这家」。'
-  if (counts.restart > 0) return counts.restart + ' 家已装好，重启宿主后生效。'
+  if (installing) {
+    // 忙不等于别的家不能动：可以排队（入队不算失败），所以这里说的是「还能怎么加进来」。
+    const canQueue = rows.filter((row) => asBatchPhase(row.phase) === 'ready' && !isQueuedRow(row)).length
+    return canQueue > 0
+      ? '正在安装 ' + counts.installing + ' 家；还有 ' + canQueue + ' 家可以点「加入队列」排队等。'
+      : '正在安装 ' + counts.installing + ' 家，安装完自动下一家。'
+  }
+  if (counts.failed > 0) return counts.failed + ' 家安装失败；照下面的失败提示逐家重试。'
+  if (counts.updatable > 0)
+    return counts.updatable + ' 家可更新；点「全部更新」一次安装完，也可以逐家点「安装这家」。'
+  if (counts.restart > 0) return counts.restart + ' 家已安装好，重启宿主后生效。'
   if (counts.pending > 0) return counts.pending + ' 家还没查过；点「检查更新」查一轮。'
   return '全部已最新，没有要做的。'
 }
@@ -415,7 +460,8 @@ function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, strin
         '</div>',
     )
   }
-  const failed = rows.filter((row) => asBatchPhase(row.phase) === 'failed')
+  // 排队占位不算失败：忙时宿主会把它记成 failed+update-busy，这里翻回来。
+  const failed = rows.filter((row) => asBatchPhase(row.phase) === 'failed' && !isQueueBusyRow(row))
   if (failed.length > 0) {
     const lines = failed
       .map((row) => {
@@ -429,7 +475,7 @@ function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, strin
       .join('')
     parts.push(
       '<div class="dsh-upd-banner" data-kind="failed" data-mini="阻" role="status">' +
-        '<div><strong>' + failed.length + ' 家没装成。</strong></div>' +
+        '<div><strong>' + failed.length + ' 家安装失败。</strong></div>' +
         '<div>逐家点行内「重试」再来一次；一直失败就把复制诊断交给插件作者。</div>' +
         '<div class="dsh-upd-blist">' + lines + '</div>' +
         '</div>',
@@ -439,7 +485,7 @@ function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, strin
   if (restart.length > 0) {
     parts.push(
       '<div class="dsh-upd-banner" data-kind="restart" role="status">' +
-        '<div><strong>' + restart.length + ' 家已装好，重启宿主后生效。</strong></div>' +
+        '<div><strong>' + restart.length + ' 家已安装好，重启宿主后生效。</strong></div>' +
         // 措辞与单插件面板 BLOCKED_COPY['pending-restart'] 同一句：正常终态，不是失败。
         '<div>重启宿主，让新版跑起来；这是正常终态，不是失败。</div>' +
         '<div class="dsh-upd-blist">' + restart.map((row) => escapeHtml(titleOf(row, titles))).join('、') + '</div>' +
@@ -455,6 +501,8 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const phase = asBatchPhase(row.phase)
   const keyAttr = escapeHtml(row.key)
   const skipped = ctx.skipped
+  const queued = isQueuedRow(row)
+  const position = queued ? queuePositionOf(row) : null
   const current = currentVersionOf(row)
   const version = row.targetVersion
     ? (current === null ? '?' : current) + ' → ' + row.targetVersion
@@ -462,21 +510,34 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
       ? ''
       : current
   const actions: string[] = []
-  if (phase === 'ready' && skipped === null) {
+  // 忙守卫按行：正在装的那一行禁自己（不许重复提交）；**别的行不灰**——点下去是「加入队列」。
+  const off = ctx.inFlight ? ' disabled' : ''
+  if (phase === 'installing') {
     actions.push(
-      '<button type="button" data-act="row-install" data-key="' + keyAttr + '" data-primary="1"' +
-        (ctx.busy ? ' disabled' : '') + '>装这家</button>',
+      '<button type="button" data-act="row-install" data-key="' + keyAttr + '" disabled>安装中…</button>',
+    )
+  } else if (queued) {
+    // 排队那行的下一步是「取消排队」：撤掉自己的占位（别家与正在装的拥有者都不碰）。
+    if (cancelQueuePhoneOf(row) !== null && queuedRequestIdOf(row) !== null) {
+      actions.push(
+        '<button type="button" data-act="row-cancel-queue" data-key="' + keyAttr + '"' + off + '>取消排队</button>',
+      )
+    }
+  } else if (phase === 'ready' && skipped === null) {
+    actions.push(
+      '<button type="button" data-act="row-install" data-key="' + keyAttr + '" data-primary="1"' + off + '>' +
+        (ctx.busy ? '加入队列' : '安装这家') + '</button>',
     )
   } else if (phase === 'ready' && skipped !== null) {
     // 跳过后这一版的下一步是「恢复」：与单插件面板同一套本地跳过语义（按插件 + 版本记）。
     actions.push(
-      '<button type="button" data-act="row-resume-skip" data-key="' + keyAttr + '"' +
-        (ctx.busy ? ' disabled' : '') + '>恢复（' + escapeHtml(skipped) + '）</button>',
+      '<button type="button" data-act="row-resume-skip" data-key="' + keyAttr + '"' + off +
+        '>恢复（' + escapeHtml(skipped) + '）</button>',
     )
   } else if (phase === 'failed') {
     actions.push(
-      '<button type="button" data-act="row-install" data-key="' + keyAttr + '"' +
-        (ctx.busy ? ' disabled' : '') + '>重试</button>',
+      '<button type="button" data-act="row-install" data-key="' + keyAttr + '"' + off + '>' +
+        (ctx.busy ? '加入队列' : '重试') + '</button>',
     )
   }
   if (row.restartRequired === true) {
@@ -488,17 +549,17 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
       (ctx.expanded ? '收起' : '详情') + '</button>',
   )
   const failLine =
-    phase === 'failed'
+    phase === 'failed' && !queued
       ? '<span class="dsh-upd-bfail">失败 <code>' + escapeHtml(row.error || 'install-failed') + '</code>：' +
         escapeHtml(failureCopy(row.error || 'install-failed')?.zh ?? '认不出具体原因') + '</span>'
       : ''
   const main =
     '<button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="' + keyAttr +
     '" aria-expanded="' + (ctx.expanded ? 'true' : 'false') + '">' +
-    '<span class="dsh-upd-updot" data-tone="' + dotToneOf(row, phase, skipped) + '"></span>' +
+    '<span class="dsh-upd-updot" data-tone="' + dotToneOf(row, phase, skipped, queued) + '"></span>' +
     '<span class="dsh-upd-bname">' + escapeHtml(titleOf(row, ctx.titles)) + '</span>' +
     (version ? '<span class="dsh-upd-bver">' + escapeHtml(version) + '</span>' : '') +
-    '<span class="dsh-upd-bstat">' + escapeHtml(batchRowStatus(row, skipped)) + '</span>' +
+    '<span class="dsh-upd-bstat">' + escapeHtml(queued ? batchQueuedStatus(position) : batchRowStatus(row, skipped)) + '</span>' +
     failLine +
     '</button>'
   const detail = ctx.expanded
@@ -512,7 +573,8 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
     : ''
   return (
     '<div class="dsh-upd-brow-set" data-key="' + keyAttr + '">' +
-    '<div class="dsh-upd-brow" data-phase="' + escapeHtml(phase) + '" data-key="' + keyAttr + '">' +
+    '<div class="dsh-upd-brow" data-phase="' + escapeHtml(phase) + '" data-key="' + keyAttr + '"' +
+    (queued ? ' data-queued="1"' : '') + '>' +
     main +
     '<span class="dsh-upd-brow-actions">' + actions.join('') + '</span>' +
     '</div>' +
@@ -554,35 +616,46 @@ function detailActionsHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const phase = asBatchPhase(row.phase)
   const keyAttr = escapeHtml(row.key)
   const version = latestVersionOf(row)
-  const disabled = ctx.busy ? ' disabled' : ''
+  const queued = isQueuedRow(row)
+  // 忙守卫按行：只防连点（本面板有电话在飞）；别家正在装不影响这一家的按钮（那正是「加入队列」）。
+  const off = ctx.inFlight ? ' disabled' : ''
   const buttons: string[] = []
-  if (phase === 'failed') {
+  if (phase === 'installing') {
+    buttons.push('<button type="button" data-act="row-install" data-key="' + keyAttr + '" disabled>安装中…</button>')
+  } else if (queued) {
+    if (cancelQueuePhoneOf(row) !== null && queuedRequestIdOf(row) !== null) {
+      buttons.push(
+        '<button type="button" data-act="row-cancel-queue" data-key="' + keyAttr + '"' + off + '>取消排队</button>',
+      )
+    }
+  } else if (phase === 'failed') {
     buttons.push(
-      '<button type="button" data-act="row-install" data-key="' + keyAttr + '"' + disabled + '>重试</button>',
+      '<button type="button" data-act="row-install" data-key="' + keyAttr + '"' + off + '>' +
+        (ctx.busy ? '加入队列' : '重试') + '</button>',
     )
   } else if (phase === 'ready' && ctx.skipped === null) {
     buttons.push(
-      '<button type="button" data-act="row-install" data-key="' + keyAttr + '" data-primary="1"' + disabled +
-        '>装 ' + escapeHtml(version ?? '新版') + '</button>',
+      '<button type="button" data-act="row-install" data-key="' + keyAttr + '" data-primary="1"' + off +
+        '>' + (ctx.busy ? '加入队列' : '安装 ' + escapeHtml(version ?? '新版')) + '</button>',
     )
   }
-  if (phase === 'ready' && ctx.skipped === null && version !== null) {
+  if (!queued && phase === 'ready' && ctx.skipped === null && version !== null) {
     buttons.push(
-      '<button type="button" data-act="row-skip" data-key="' + keyAttr + '"' + disabled + '>跳过这一版</button>',
+      '<button type="button" data-act="row-skip" data-key="' + keyAttr + '"' + off + '>跳过这一版</button>',
     )
   }
   if (ctx.skipped !== null) {
     buttons.push(
-      '<button type="button" data-act="row-resume-skip" data-key="' + keyAttr + '"' + disabled +
+      '<button type="button" data-act="row-resume-skip" data-key="' + keyAttr + '"' + off +
         '>恢复（' + escapeHtml(ctx.skipped) + '）</button>',
     )
   }
   if (typeof row.manual === 'string' && row.manual) {
     buttons.push(
-      '<button type="button" data-act="row-copy-manual" data-key="' + keyAttr + '"' + disabled + '>复制手工命令</button>',
+      '<button type="button" data-act="row-copy-manual" data-key="' + keyAttr + '"' + off + '>复制手工命令</button>',
     )
   }
-  buttons.push('<button type="button" data-act="row-copy-diag" data-key="' + keyAttr + '"' + disabled + '>复制诊断</button>')
+  buttons.push('<button type="button" data-act="row-copy-diag" data-key="' + keyAttr + '"' + off + '>复制诊断</button>')
   return '<span class="dsh-upd-bdetail-actions">' + buttons.join('') + '</span>'
 }
 
@@ -600,9 +673,11 @@ function dotToneOf(
   row: BatchRowView,
   phase: BatchPhase,
   skipped: string | null,
+  queued: boolean,
 ): 'idle' | 'todo' | 'busy' | 'warn' | 'bad' | 'ok' {
-  if (phase === 'failed') return 'bad'
+  if (phase === 'failed' && !queued) return 'bad'
   if (phase === 'installing' || phase === 'checking') return 'busy'
+  if (queued) return 'warn'
   if (row.restartRequired === true) return 'warn'
   if (phase === 'ready') return skipped === null ? 'todo' : 'idle'
   if (phase === 'current' || phase === 'done') return 'ok'
@@ -692,6 +767,50 @@ const BATCH_PHASES: readonly BatchPhase[] = [
   'failed',
   'skipped',
 ]
+
+/** 「忙失败占位」：宿主忙时先把占位写进队列再回 update-busy —— 那是排队，不是失败。 */
+function isQueueBusyRow(row: BatchRowView): boolean {
+  return asBatchPhase(row.phase) === 'failed' && row.error === 'update-busy'
+}
+
+/** 这一家在队里的位置（1..n；0=自己就在装、null=不在队里）：只认忙且有位置的队列视图。 */
+function queuePositionOf(row: BatchRowView): number | null {
+  const queue = asQueueLike(row.queue)
+  if (!queue || queue.busy !== true) return null
+  const position = queue.position
+  return typeof position === 'number' && Number.isFinite(position) && position > 0 ? position : null
+}
+
+/**
+ * 排队中：正在等前面那家装完。
+ * 两条来源都认：① 宿主忙时把占位写进队列、会话里记成 failed+update-busy 的那档（面板必须翻回排队）；
+ * ② 队列视图说这一家在等（position > 0）。自己正在装的那一行不算排队。
+ */
+function isQueuedRow(row: BatchRowView): boolean {
+  const phase = asBatchPhase(row.phase)
+  if (phase === 'installing') return false
+  if (isQueueBusyRow(row)) return true
+  if (isTerminalPhase(phase)) return false
+  return queuePositionOf(row) !== null
+}
+
+/** 排队那一条自己的编号（取消排队要用；showOthers=false 时 waiting 里只有自己）。 */
+function queuedRequestIdOf(row: BatchRowView): string | null {
+  const queue = asQueueLike(row.queue)
+  if (!queue || !Array.isArray(queue.waiting)) return null
+  for (const entry of queue.waiting) {
+    if (entry && typeof entry.requestId === 'string' && entry.requestId) return entry.requestId
+  }
+  return null
+}
+
+/** 取消排队要打的电话：该家自己的单插件安装电话（带 cancelQueued 用）；老宿主不给就取消不了。 */
+function cancelQueuePhoneOf(row: BatchRowView): string | null {
+  const phones = isObject(row.phoneNames) ? row.phoneNames : null
+  if (!phones) return null
+  const install = phones['updateInstall']
+  return typeof install === 'string' && install ? install : null
+}
 
 /** 相位宽容读：认不出按 pending（坏回包不许把面板打挂，与队列/账本同一纪律）。 */
 function asBatchPhase(value: unknown): BatchPhase {
@@ -793,7 +912,7 @@ function jobFailureOf(row: BatchRowView): { code: string | null; detail: string 
  *   ② 该行后台失败任务收尾记下的正文（job.message 去掉前缀稳定码），并标「来源：后台任务收尾记录」；
  *   ③ 都没有就留空 —— buildDiagnosticText 走 failureCopy 的泛化人话。
  * 稳定码同理：后台那句带前缀码就取它（比账本里的码更贴这一家的失败），否则用行上的 error。
- * 使用范围（profileName）与宿主种类一并透传：诊断里能看出更新装到了哪个范围。
+ * 使用范围（profileName）与宿主种类一并透传：诊断里能看出更新安装到了哪个范围。
  * 复制出去前已由 redactForCopy 收干净（绝对路径 → <路径>）。
  */
 function diagTextOf(row: BatchRowView): string {
@@ -825,6 +944,14 @@ function diagTextOf(row: BatchRowView): string {
   return buildDiagnosticText(input)
 }
 
+/** 回包说「忙」：入队没接住（老宿主）——那是排队语义，不是失败，别画红条。 */
+function isBusyReply(reply: unknown): boolean {
+  if (!isObject(reply) || reply['ok'] === true) return false
+  const kind = typeof reply['errorKind'] === 'string' ? reply['errorKind'] : ''
+  const err = typeof reply['error'] === 'string' ? reply['error'] : ''
+  return kind === 'update-busy' || err === 'update-busy'
+}
+
 /** 宿主回包 rows -> 行视图（坏行丢弃：没有稳定键就没法指认哪一家）。 */
 function readRows(value: unknown): BatchRowView[] {
   if (!Array.isArray(value)) return []
@@ -851,6 +978,7 @@ function readRows(value: unknown): BatchRowView[] {
       pluginId: typeof item['pluginId'] === 'string' && item['pluginId'] ? item['pluginId'] : null,
       diag: item['diag'] === undefined ? null : item['diag'],
       hostKind: typeof item['hostKind'] === 'string' && item['hostKind'] ? item['hostKind'] : null,
+      phoneNames: item['phoneNames'] === undefined ? null : item['phoneNames'],
     })
   }
   return out
@@ -974,7 +1102,7 @@ export function mountUpdateBatchPanel(
     return store
   }
 
-  /** 这一家被跳过的版本：只在「有可装新版」的行上算数（与单插件面板同一口径）。 */
+  /** 这一家被跳过的版本：只在「有可安装新版」的行上算数（与单插件面板同一口径）。 */
   function skippedVersionOf(row: BatchRowView): string | null {
     if (asBatchPhase(row.phase) !== 'ready') return null
     const version = latestVersionOf(row)
@@ -1050,8 +1178,11 @@ export function mountUpdateBatchPanel(
     render()
   }
 
-  /** 打一次批量电话：飞之前先置忙（两个宏一起灰），回来后重绘。 */
-  async function phone(name: string, args: Record<string, unknown>): Promise<void> {
+  /**
+   * 打一次批量电话：飞之前先置忙（两个宏一起灰），回来后重绘。
+   * busyRowKey 给「只推这一家」那条路：回包说忙时只给一句排队回执，绝不记成失败。
+   */
+  async function phone(name: string, args: Record<string, unknown>, busyRowKey: string | null = null): Promise<void> {
     if (!mounted || inFlight) return
     inFlight = true
     clearNotice()
@@ -1059,6 +1190,11 @@ export function mountUpdateBatchPanel(
     try {
       const reply = await call(name, args)
       if (!mounted) return
+      if (busyRowKey !== null && isBusyReply(reply)) {
+        // 老宿主还没接住这次入队：如实说「没排上，等它装完再点」，不画失败横幅、不把行记成失败。
+        say('前面还在装：这一家还没排上，等那家装完再点一次。', busyRowKey)
+        return
+      }
       applyReply(reply)
     } catch {
       if (!mounted) return
@@ -1079,8 +1215,8 @@ export function mountUpdateBatchPanel(
         return phone(phones.install, {})
       case 'row-install': {
         if (typeof key !== 'string' || !key) return
-        // 行内「装这家」/「重试」：只推这一家（同一会话同一幂等编号，重复提交不重复装）。
-        return phone(phones.install, { keys: [key] })
+        // 行内「安装这家」/「重试」/「加入队列」：只推这一家（同一会话同一幂等编号，重复提交不重复装）。
+        return phone(phones.install, { keys: [key] }, key)
       }
       case 'resume': {
         await phone(phones.resume, {})
@@ -1121,6 +1257,34 @@ export function mountUpdateBatchPanel(
         }
         say(version ? '已恢复 ' + version + '：这一版会照常提醒。' : '已恢复跳过提醒。', row.key)
         render()
+        return
+      }
+      // 「取消排队」：走**该家自己的**单插件安装电话（宿主支持 cancelQueued：只撤自己那条 waiting，
+      // 不碰别家、也不碰正在装的拥有者）。批量取消会清掉整轮会话，所以这里绝不用它顶。
+      case 'row-cancel-queue': {
+        const row = typeof key === 'string' && key ? rowOfKey(key) : null
+        if (!row) return
+        const phoneName = cancelQueuePhoneOf(row)
+        const requestId = queuedRequestIdOf(row)
+        if (phoneName === null || requestId === null) {
+          say('这一行没带取消排队要用的电话名或编号，暂不能取消：等下一次刷新再看。', row.key)
+          render()
+          return
+        }
+        if (inFlight) return
+        inFlight = true
+        clearNotice()
+        render()
+        try {
+          // 单插件回包形状与批量回包不同（没有 ok/session/rows），所以不进 applyReply，只当回执。
+          await call(phoneName, { cancelQueued: true, requestId })
+          if (mounted) say('已取消排队：这一家不等了。', row.key)
+        } catch {
+          if (mounted) say('取消排队没成功（可能已经开始装了）：看下面最新状态。', row.key)
+        } finally {
+          inFlight = false
+        }
+        await refresh()
         return
       }
       case 'row-copy-manual': {

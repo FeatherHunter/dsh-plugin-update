@@ -27,20 +27,30 @@
 //   6. 一家收尾才起下一家：装电话返回后轮询该家状态到终态（restart-required / completed /
 //      failed / interrupted），期间本进程不再打别家电话——宿主读取器是单槽缓存，换键会丢掉
 //      正在装那家的活动任务编号，把「在装」误读成「中断」。
+//   7. 忙时入队（#25 排队语义）：batchInstall 在驱动进行中不再回 update-busy，而是把 keys 并进
+//      当前会话（幂等）并回 ok:true，单飞不另起驱动；单插件装电话回 update-busy（已占位、等轮到你）
+//      时映射成驱动器的 { kind:'queued', position }（相位退回 ready，不是 failed），行上带出队列位置。
 
 import { homedir } from 'node:os'
 import {
   batchProgress,
+  batchRequestId,
   createBatchSession,
   emptyBatchSession,
   isBatchFinished,
   orderTargets,
   resumeBatchSession,
+  type BatchEntry,
   type BatchPhase,
   type BatchProgress,
   type BatchSession,
 } from './batch.js'
-import { runBatch, type BatchCheckOutcome, type BatchInstallOutcome } from './batch-run.js'
+import {
+  runBatch,
+  type BatchCheckOutcome,
+  type BatchInstallOutcome,
+  type BatchRunStep,
+} from './batch-run.js'
 import { assertPluginId, assertPrefix, resolveUpdateConfig, type UpdateConfigInput } from './config.js'
 import { createHostUpdate, type HostUpdate, type ReaderOverrides } from './host.js'
 import { defaultHomeDir } from './reader.js'
@@ -138,6 +148,8 @@ export interface MultiHostUpdate {
   phoneNames: { status: string; check: string; install: string; resume: string; cancel: string }
   /** 目标清单（顺序与会话一致）。 */
   targets: readonly MultiTargetSpec[]
+  /** 最近一次推进的读数（驱动器停下来的原因 + 步骤）：给日志与门禁用；没推过为 null。 */
+  lastRun: { stoppedBecause: string; steps: BatchRunStep[] } | null
   /** 停掉 drain（接入方卸载时调）。 */
   dispose(): void
 }
@@ -257,6 +269,66 @@ function sleep(ms: number): Promise<void> {
   return new Promise((settle) => {
     setTimeout(() => settle(), ms > 0 ? ms : 0)
   })
+}
+
+/** 一轮推进的步数上限：防病态状态下空转（正常一家两步，七家十几步）。 */
+const DRIVE_STEP_GUARD = 10000
+
+/**
+ * 把更全的那份会话里的行并进 base（键相同的以 base 的相位为准），顺序以更全的那份为准。
+ * 两处用：忙时入队（驱动期间并进来的新行）、「只推几家」的视图会话合并回全量账本。
+ */
+function mergeInto(base: BatchSession, extra: BatchSession | null): BatchSession {
+  if (!extra) return base
+  const baseKeys = new Set(base.entries.map((entry) => entry.key))
+  const missing = extra.entries.filter((entry) => !baseKeys.has(entry.key))
+  if (missing.length === 0) return base
+  const merged = new Map<string, BatchEntry>(base.entries.map((entry) => [entry.key, entry]))
+  for (const entry of missing) merged.set(entry.key, entry)
+  const order: string[] = []
+  const seen = new Set<string>()
+  for (const key of [...extra.order, ...base.order]) {
+    if (seen.has(key) || !merged.has(key)) continue
+    seen.add(key)
+    order.push(key)
+  }
+  for (const key of merged.keys()) {
+    if (seen.has(key)) continue
+    seen.add(key)
+    order.push(key)
+  }
+  return {
+    ...base,
+    entries: order.map((key) => merged.get(key) as BatchEntry),
+    order,
+    updatedAt: Math.max(base.updatedAt, extra.updatedAt),
+  }
+}
+
+/** 忙时入队：把键并进会话（幂等）——缺的按会话编号补一条 pending 行，顺序仍「自己排最后」。 */
+function addKeys(session: BatchSession, keys: Iterable<string>, at: number): BatchSession {
+  const have = new Set(session.entries.map((entry) => entry.key))
+  const added: BatchEntry[] = []
+  for (const key of keys) {
+    if (have.has(key)) continue
+    have.add(key)
+    added.push({
+      key,
+      phase: 'pending',
+      requestId: batchRequestId(session.id, key),
+      targetVersion: null,
+      restartRequired: false,
+      error: null,
+      updatedAt: at,
+    })
+  }
+  if (added.length === 0) return session
+  return {
+    ...session,
+    entries: [...session.entries, ...added],
+    order: orderTargets([...session.order, ...added.map((entry) => entry.key)], session.selfKey),
+    updatedAt: at,
+  }
 }
 
 function validateTargets(raw: unknown): MultiTargetSpec[] {
@@ -435,6 +507,20 @@ async function settleInstall(rt: TargetRuntime, firstReply: Record<string, unkno
   }
 }
 
+/** 某家当前的队列位置（0 = 正在装，1..n = 顺位，null = 不在队里或取不到）。 */
+async function queuePositionFor(rt: TargetRuntime, requestId: string | null): Promise<number | null> {
+  try {
+    const args: Record<string, unknown> = { includeQueue: true }
+    if (requestId) args['requestId'] = requestId
+    const reply = await callPhone(rt, rt.host.phoneNames.updateStatus, args)
+    if (reply['ok'] !== true) return null
+    const position = asRecord(reply['queue'])['position']
+    return typeof position === 'number' && Number.isFinite(position) ? position : null
+  } catch {
+    return null
+  }
+}
+
 /** 真装一家：拿凭证提交，再等它收尾；没有凭证（跨重启只剩 ready）就重查一次拿凭证。 */
 async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetSpec, requestId: string): Promise<BatchInstallOutcome> {
   let receipt = rt.receipt
@@ -444,13 +530,20 @@ async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetS
     receipt = rt.receipt
     if (!receipt) return { kind: 'failed', error: 'check-expired' }
   }
+  const phoneRequestId = phoneRequestIdOf(requestId)
   const reply = await callPhone(rt, rt.host.phoneNames.updateInstall, {
     checkId: receipt.checkId,
-    requestId: phoneRequestIdOf(requestId),
+    requestId: phoneRequestId,
   })
   rt.receipt = null
-  if (reply['ok'] !== true) return { kind: 'failed', error: codeOfReply(reply) }
-  return await settleInstall(rt, reply)
+  if (reply['ok'] === true) return await settleInstall(rt, reply)
+  const code = codeOfReply(reply)
+  if (code === 'update-busy') {
+    // 宿主的「已占位、排队等轮到你」不是失败（#25 排队语义）：回 queued + 该家队列位置，
+    // 驱动器据此把相位退回 ready（远端版本留着），下一轮推动从它接着装。
+    return { kind: 'queued', position: await queuePositionFor(rt, phoneRequestId) }
+  }
+  return { kind: 'failed', error: code }
 }
 
 /**
@@ -566,6 +659,10 @@ export function createMultiHostUpdate(
     batchScope && batchScope.profileDir ? createBatchDiskPorts(batchScope.homeDir, batchScope.profileDir) : null
   let memSession: BatchSession | null = null
   let driveActive = false
+  /** 正在被驱动的那份会话（内存里的唯一真相）：忙时入队并进来的行靠它传给正在跑的驱动。 */
+  let liveSession: BatchSession | null = null
+  /** 最近一次推进的读数（lastRun 用；推进抛错时不更新）。 */
+  let lastRun: { stoppedBecause: string; steps: BatchRunStep[] } | null = null
   let drainTimer: unknown = null
   let disposed = false
 
@@ -647,14 +744,21 @@ export function createMultiHostUpdate(
     return rt
   }
 
-  /** 只推选中的几家：拿一份「视图会话」喂驱动器，每次落盘前把结果合并回全量账本。 */
-  function mergeSession(full: BatchSession, view: BatchSession): BatchSession {
-    const byEntry = new Map(view.entries.map((entry) => [entry.key, entry]))
-    return {
-      ...full,
-      entries: full.entries.map((entry) => byEntry.get(entry.key) ?? entry),
-      updatedAt: Math.max(full.updatedAt, view.updatedAt),
+  async function checkByKey(key: string): Promise<BatchCheckOutcome> {
+    const rt = runtimeOf(key)
+    return await rt.check(key, rt.spec)
+  }
+
+  /** 装一家；回 queued（已占位、排队等轮到你）时把队列位置补进该行读数，面板据此显示「已排队 · 前方 N 个」。 */
+  async function installByKey(key: string, requestId: string, version: string): Promise<BatchInstallOutcome> {
+    const rt = runtimeOf(key)
+    const outcome = await rt.install(key, rt.spec, requestId, version)
+    if (outcome.kind === 'queued') {
+      const position =
+        typeof outcome.position === 'number' && Number.isFinite(outcome.position) ? outcome.position : null
+      if (position !== null) rt.cache = { ...rt.cache, queue: { ...asRecord(rt.cache.queue), position } }
     }
+    return outcome
   }
 
   /** 显式重试：选中的行里，失败（或显式点到的跳过）先复位成 pending 再推，别的行不动。 */
@@ -671,46 +775,69 @@ export function createMultiHostUpdate(
     return changed ? { ...session, entries, updatedAt: at } : session
   }
 
-  async function drive(
-    session: BatchSession,
-    selected: Set<string> | null,
-    runOptions: { maxSteps?: number },
-  ): Promise<BatchSession> {
+  /**
+   * 推进会话：一轮一步地走（每轮至多一次传输调用），轮与轮之间把「驱动期间并入的行」并进来，
+   * 所以忙时入队的那几家会在本轮接着被推，而不是等下一次点击。调用方必须先占住 driveActive。
+   * budget：允许的传输调用次数（Infinity = 推到收尾；drain 给 1 = 只推一步）。
+   */
+  async function driveLocked(session: BatchSession, selected: Set<string> | null, budget: number): Promise<BatchSession> {
+    let full = mergeInto(session, liveSession)
+    liveSession = full
+    const steps: BatchRunStep[] = []
+    let remaining = budget
+    let guard = 0
+    try {
+      while (true) {
+        // 忙时入队：驱动期间并进来的行这一轮就带上（不丢意图，也不等下一次点击）。
+        full = mergeInto(full, liveSession)
+        liveSession = full
+        const view: BatchSession =
+          selected === null
+            ? full
+            : {
+                ...full,
+                order: full.order.filter((key) => selected.has(key)),
+                entries: full.entries.filter((entry) => selected.has(entry.key)),
+              }
+        const result = await runBatch(
+          view,
+          {
+            check: (key: string) => checkByKey(key),
+            install: (key: string, requestId: string, version: string) => installByKey(key, requestId, version),
+            save: async (next: BatchSession) => {
+              // 只推几家的视图合并回全量账本；忙时入队的行也在这里保住（驱动不会再把它覆盖掉）。
+              const merged = mergeInto(next, liveSession)
+              liveSession = merged
+              full = merged
+              await saveSession(merged)
+            },
+            now: () => now(),
+          },
+          { maxSteps: 1 },
+        )
+        for (const step of result.steps) steps.push(step)
+        remaining -= 1
+        guard += 1
+        if (result.stoppedBecause !== 'max-steps') {
+          lastRun = { stoppedBecause: result.stoppedBecause, steps }
+          return full
+        }
+        if (remaining <= 0 || guard >= DRIVE_STEP_GUARD) {
+          lastRun = { stoppedBecause: 'max-steps', steps }
+          return full
+        }
+      }
+    } finally {
+      liveSession = null
+    }
+  }
+
+  /** 单飞入口：抢到位子才推（resume / drain 走这条；batchInstall 自己占位后直接调 driveLocked）。 */
+  async function drive(session: BatchSession, selected: Set<string> | null, budget: number): Promise<BatchSession> {
     if (driveActive) throw batchFail('update-busy')
     driveActive = true
     try {
-      const depsForRun = {
-        check: (key: string) => runtimeOf(key).check(key, runtimeOf(key).spec),
-        install: (key: string, requestId: string, version: string) =>
-          runtimeOf(key).install(key, runtimeOf(key).spec, requestId, version),
-        now: () => now(),
-      }
-      if (selected === null) {
-        const result = await runBatch(
-          session,
-          { ...depsForRun, save: (next: BatchSession) => saveSession(next) },
-          runOptions,
-        )
-        return result.session
-      }
-      let full = session
-      const view: BatchSession = {
-        ...session,
-        order: session.order.filter((key) => selected.has(key)),
-        entries: session.entries.filter((entry) => selected.has(entry.key)),
-      }
-      const result = await runBatch(
-        view,
-        {
-          ...depsForRun,
-          save: (next: BatchSession) => {
-            full = mergeSession(full, next)
-            return saveSession(full)
-          },
-        },
-        runOptions,
-      )
-      return mergeSession(full, result.session)
+      return await driveLocked(session, selected, budget)
     } finally {
       driveActive = false
     }
@@ -749,18 +876,11 @@ export function createMultiHostUpdate(
     return await table(session, false)
   }
 
-  async function installPhone(args: Record<string, unknown>): Promise<Record<string, unknown>> {
-    const refuse = denied()
-    if (refuse) return refuse
-    if (driveActive) return { ok: false, error: 'update-busy', errorKind: 'update-busy' }
-    const selected = selectedKeysOf(args)
-    if (selected && selected.size === 0) return await table(await readSession())
-    let session = await readSession()
-    // 盘上没会话、或上一轮已收尾（且这次是「全部提交」）：按全清单开新会话
-    // （新编号 ⇒ 重新查一遍；已是最新的自然进 current，不重装）。
-    // 行内只推几家（keys）时即使上一轮已收尾也复用同一份账本：别家的 done/failed 是事实，不能抹掉。
-    const reuse = session.entries.length > 0 && (selected !== null || !isBatchFinished(session))
-    if (!reuse) {
+  /** 忙时入队：把 keys 并进「正在被驱动的那份会话」（幂等，显式点到的失败行先复位重试），落盘后回全表。 */
+  async function joinWhileBusy(selected: Set<string> | null): Promise<Record<string, unknown>> {
+    let session = liveSession ?? (await readSession())
+    if (session.entries.length === 0) {
+      // 理论上到不了（有驱动在跑就一定有会话）：真到了就按全清单补一份，别把用户的意图丢了。
       session = createBatchSession({
         id: newSessionId(),
         keys: runtimes.map((rt) => rt.spec.key),
@@ -768,18 +888,59 @@ export function createMultiHostUpdate(
         stopOnFailure: options.stopOnFailure === true,
         now: now(),
       })
+      liveSession = session
       await saveSession(session)
+    } else {
+      let next = selected && selected.size > 0 ? addKeys(session, selected, now()) : session
+      next = resetForRetry(next, selected, now())
+      if (next !== session) {
+        session = next
+        liveSession = session
+        await saveSession(session)
+      }
     }
-    const retried = resetForRetry(session, selected, now())
-    if (retried !== session) {
-      session = retried
-      await saveSession(session)
-    }
+    return await table(session, false)
+  }
+
+  async function installPhone(args: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const refuse = denied()
+    if (refuse) return refuse
+    const selected = selectedKeysOf(args)
+    // 忙时入队（#25 排队语义）：驱动进行中不再回 update-busy——把 keys 并进当前会话（幂等）就回全表；
+    // 单飞：已有驱动在跑就不另起一个，等它把这批带完（或用户再点一次 / drain 接着推）。
+    if (driveActive) return await joinWhileBusy(selected)
+    if (selected && selected.size === 0) return await table(await readSession())
+    driveActive = true
+    let driven: BatchSession
     try {
-      return await table(await drive(session, selected, {}))
+      let session = await readSession()
+      // 盘上没会话、或上一轮已收尾（且这次是「全部提交」）：按全清单开新会话
+      // （新编号 ⇒ 重新查一遍；已是最新的自然进 current，不重装）。
+      // 行内只推几家（keys）时即使上一轮已收尾也复用同一份账本：别家的 done/failed 是事实，不能抹掉。
+      const reuse = session.entries.length > 0 && (selected !== null || !isBatchFinished(session))
+      if (!reuse) {
+        session = createBatchSession({
+          id: newSessionId(),
+          keys: runtimes.map((rt) => rt.spec.key),
+          selfKey: options.selfKey ?? null,
+          stopOnFailure: options.stopOnFailure === true,
+          now: now(),
+        })
+        await saveSession(session)
+      }
+      const retried = resetForRetry(session, selected, now())
+      if (retried !== session) {
+        session = retried
+        await saveSession(session)
+      }
+      driven = await driveLocked(session, selected, Number.POSITIVE_INFINITY)
     } catch (error) {
       return { ok: false, ...errorPayloadOf(error) }
+    } finally {
+      driveActive = false
     }
+    // 驱动已收尾：这里才刷新各行快照（含排队位置），排队中不打扰正在跑的那家。
+    return await table(driven)
   }
 
   async function resumePhone(): Promise<Record<string, unknown>> {
@@ -791,7 +952,7 @@ export function createMultiHostUpdate(
     const resumed = resumeBatchSession(disk, now())
     if (resumed !== disk) await saveSession(resumed)
     try {
-      return await table(await drive(resumed, null, {}))
+      return await table(await drive(resumed, null, Number.POSITIVE_INFINITY))
     } catch (error) {
       return { ok: false, ...errorPayloadOf(error) }
     }
@@ -819,7 +980,7 @@ export function createMultiHostUpdate(
     const disk = await readSession()
     if (disk.entries.length === 0 || isBatchFinished(disk)) return
     try {
-      await drive(disk, null, { maxSteps: 1 })
+      await drive(disk, null, 1)
     } catch {}
   }
 
@@ -877,6 +1038,9 @@ export function createMultiHostUpdate(
     handlers,
     phoneNames,
     targets: orderedSpecs,
+    get lastRun(): { stoppedBecause: string; steps: BatchRunStep[] } | null {
+      return lastRun
+    },
     dispose(): void {
       disposed = true
       if (drainTimer !== null) {

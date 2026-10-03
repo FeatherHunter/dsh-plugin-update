@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createMultiHostUpdate, phoneRequestIdOf } from '../dist/host-batch.js'
 import { __resetSharedUpdateReaderForTests } from '../dist/host.js'
+import { createBatchSession } from '../dist/batch.js'
 import { batchPathsForUpdate } from '../dist/store.js'
 
 beforeEach(() => {
@@ -497,6 +498,178 @@ describe('drain：默认关，显式开了也要能停干净', () => {
     await settle()
     assert.deepEqual(calls.trace, [], 'dispose 后陈旧回调不再推进')
     assert.equal(scheduled.length, 3, 'dispose 后不再排新的')
+  })
+})
+
+describe('忙时入队：驱动进行中也能加人（#25 排队语义）', () => {
+  it('驱动进行中调 batchInstall { keys:[b] }：回 ok:true、b 入队、别家相位不被打乱', async () => {
+    const { dir, scope } = await tempScope()
+    const { calls, transport } = fakeTransport()
+    let joined = null
+    let duringResume = null
+    let duringCancel = null
+    const innerInstall = transport.install
+    transport.install = async (key, spec, requestId, version) => {
+      if (key === 'a' && joined === null) {
+        joined = await host.handlers['life.batchInstall']({ keys: ['b'] })
+        // 既有忙守卫不动：resume / cancel 不是入队语义，驱动在跑时照旧回忙。
+        duringResume = await host.handlers['life.batchResume']({})
+        duringCancel = await host.handlers['life.batchCancel']({})
+      }
+      return await innerInstall(key, spec, requestId, version)
+    }
+    const host = createMultiHostUpdate(
+      { scope, transport },
+      { prefix: 'life', targets: ['a', 'b', 'self'].map((key) => target(key)), selfKey: 'self' },
+    )
+    // 先手写一份只含 a/self 的会话（模拟「已经开跑、b 还没进来」）
+    const paths = batchPathsForUpdate(dir, dir)
+    await mkdir(dirname(paths.file), { recursive: true })
+    await writeFile(
+      paths.file,
+      JSON.stringify(createBatchSession({ id: 'seed-1', keys: ['a', 'self'], selfKey: 'self', now: 1000 })),
+      'utf8',
+    )
+    const reply = await host.handlers['life.batchInstall']({})
+    assert.ok(joined, '驱动中那次调用回来了')
+    assert.equal(joined.ok, true, '忙时不再回 update-busy')
+    assert.deepEqual(joined.session.order, ['a', 'b', 'self'], 'b 并入会话，自己仍在最后')
+    assert.equal(phaseOf(joined.session, 'a'), 'installing', '正在装的那家相位不被打乱')
+    assert.equal(phaseOf(joined.session, 'b'), 'pending')
+    assert.equal(phaseOf(joined.session, 'self'), 'pending')
+    assert.equal(entryOf(joined.session, 'b').requestId, 'batch:seed-1:b', '并入的行用同一会话编号（幂等）')
+    assert.equal(duringResume.ok, false)
+    assert.equal(duringResume.error, 'update-busy')
+    assert.equal(duringCancel.ok, false)
+    assert.equal(duringCancel.error, 'update-busy')
+    assert.deepEqual(
+      calls.trace,
+      ['check:a', 'install:a', 'check:b', 'install:b', 'check:self', 'install:self'],
+      '并入的那家也在本轮里被推（不用等下一次点击）',
+    )
+    assert.equal(reply.ok, true)
+    assert.equal(phaseOf(reply.session, 'b'), 'done')
+    assert.equal(reply.progress.finished, true)
+    host.dispose()
+  })
+
+  it('单插件装电话回 update-busy：该家 ready（不是 failed）并带出队列位置', async () => {
+    const { dir, scope } = await tempScope()
+    const targetName = 'pkg-a'
+    const registry = 'https://registry.npmjs.org/'
+    let clock = 1000000
+    let installed = '1.0.0'
+    let job = null
+    let queue = {
+      version: 1,
+      owner: null,
+      waiting: [{ pluginId: 'other-plugin', requestId: 'req-other', targetVersion: null, enqueuedAt: 1000000 }],
+    }
+    const overrides = {
+      runningVersion: '1.0.0',
+      profileDir: dir,
+      homeDir: dir,
+      profileName: 'web',
+      environmentKind: 'cli',
+      nodeVersion: '22.0.0',
+      targetPackageName: targetName,
+      fetchImpl: async () => ({
+        ok: true,
+        headers: { get: () => null },
+        text: async () =>
+          JSON.stringify({
+            name: targetName,
+            version: '2.0.0',
+            engines: { node: '>=22' },
+            dist: {
+              tarball: registry + targetName + '/-/' + targetName + '-2.0.0.tgz',
+              integrity: 'sha512-' + 'A'.repeat(86) + '==',
+            },
+          }),
+      }),
+      now: () => (clock += 10),
+      randomId: (() => {
+        let n = 0
+        return () => 'id-' + (n += 1)
+      })(),
+      readInstalled: async () => ({
+        profileName: 'web',
+        environmentKind: 'cli',
+        homeDir: dir,
+        profileDir: dir,
+        installedVersion: installed,
+        packageValid: true,
+        sourceInstall: false,
+        blockedReason: null,
+        installationKey: 'key-1',
+        eligible: true,
+      }),
+      readJob: async () => job,
+      writeJob: async (value) => {
+        job = value
+      },
+      tryAcquireLock: async () => true,
+      releaseLock: async () => {},
+      backupJob: async () => {},
+      runInstall: async () => {
+        installed = '2.0.0'
+      },
+      readQueue: async () => queue,
+      writeQueue: async (state) => {
+        queue = state
+      },
+    }
+    const host = createMultiHostUpdate(
+      { scope, installPollMs: 5, readerOverrides: overrides },
+      { prefix: 'life', targets: [{ key: 'a', title: '甲', packageName: targetName, prefix: 'p-a' }] },
+    )
+    const first = await host.handlers['life.batchInstall']({})
+    assert.equal(first.ok, true)
+    assert.equal(entryOf(first.session, 'a').phase, 'ready', '排上队：相位退回 ready，不是 failed')
+    assert.equal(entryOf(first.session, 'a').error, null)
+    assert.equal(entryOf(first.session, 'a').targetVersion, '2.0.0', '远端版本留着，不用重查')
+    assert.equal(first.progress.failed, 0)
+    assert.equal(first.progress.finished, false)
+    assert.equal(host.lastRun.stoppedBecause, 'queued', '驱动器在排队处停下')
+    assert.deepEqual(
+      host.lastRun.steps.map((step) => step.action + ':' + step.phase),
+      ['check:ready', 'install:queued'],
+    )
+    assert.equal(first.rows[0].queue.position, 2, '行上能读到队列位置（前方 1 个）')
+
+    // 别家收尾、队列让开后再推：从 ready 直接装，不重查
+    queue = { version: 1, owner: null, waiting: [] }
+    const second = await host.handlers['life.batchInstall']({})
+    assert.equal(second.ok, true)
+    assert.equal(entryOf(second.session, 'a').phase, 'done')
+    assert.equal(second.progress.finished, true)
+    assert.deepEqual(
+      host.lastRun.steps.map((step) => step.action + ':' + step.phase),
+      ['install:done'],
+      '接着装：不再查一遍（ready 直接进安装）',
+    )
+    host.dispose()
+  })
+
+  it('假件回 queued：行能读到位置，且排上队就不再推别家', async () => {
+    const { scope } = await tempScope()
+    const { calls, transport } = fakeTransport({ a: { install: { kind: 'queued', position: 3 } } })
+    const host = createMultiHostUpdate(
+      { scope, transport },
+      { prefix: 'life', targets: ['a', 'b'].map((key) => target(key)) },
+    )
+    const reply = await host.handlers['life.batchInstall']({})
+    assert.equal(reply.ok, true)
+    assert.equal(phaseOf(reply.session, 'a'), 'ready')
+    assert.equal(entryOf(reply.session, 'a').error, null)
+    assert.equal(entryOf(reply.session, 'a').targetVersion, '2.0.0')
+    assert.equal(phaseOf(reply.session, 'b'), 'pending', '排上队就停，不推下一家')
+    assert.deepEqual(calls.trace, ['check:a', 'install:a'])
+    assert.equal(host.lastRun.stoppedBecause, 'queued')
+    const rowOf = Object.fromEntries(reply.rows.map((row) => [row.key, row]))
+    assert.equal(rowOf.a.queue.position, 3)
+    assert.equal(rowOf.b.queue, null)
+    host.dispose()
   })
 })
 
