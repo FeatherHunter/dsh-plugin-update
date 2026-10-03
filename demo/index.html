@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>更新系统体验场（真逻辑 · 假安装）</title>
+<style>
+body{font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;max-width:980px;margin:24px auto;padding:0 20px;line-height:1.7}
+.badge{display:inline-block;background:#fbf0d0;border:1px solid #e3d9c4;border-radius:6px;padding:6px 12px;font-size:13px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.slot{border:1px solid #e5e7eb;border-radius:8px;padding:12px;min-height:200px}
+button{font:inherit;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;padding:6px 12px;cursor:pointer}
+pre{background:#f6f6f6;padding:10px;border-radius:6px;font-size:12px;overflow:auto;max-height:220px}
+ol li{margin:6px 0}
+</style>
+</head>
+<body>
+<h1>更新系统体验场 <span class="badge">真逻辑 · 假安装（装包 6 秒模拟，不真装；沙盒与你真实环境零交集）</span></h1>
+<p>先起两个宿主（两个窗口，各跑一个插件——和真实部署一样，一个插件一份包实例）：</p>
+<pre><code>node demo/server.mjs
+$env:DEMO_PORT='18788'; $env:DEMO_PLUGIN='demo-tasks-plugin'; $env:DEMO_PREFIX='tasks'; node demo/server.mjs</code></pre>
+<p>再看本页。两个面板各跑一个插件，方便看单队列串行。</p>
+<p>
+<button id="themeBtn">切 D5 / 最小主题</button>
+<button id="resetBtn">重置沙盒（清状态/队列/跳过）</button>
+<button id="filesBtn">看三落盘文件</button>
+<button id="logBtn">填示例更新日志</button>
+<button id="nlogBtn">清空日志（看缺日志提示）</button>
+</p>
+<div class="grid">
+<div><h2>插件 A（notes）</h2><div class="slot" id="slotA"></div></div>
+<div><h2>插件 B（tasks）</h2><div class="slot" id="slotB"></div></div>
+</div>
+<h2>照着点（5 分钟闭环）</h2>
+<ol>
+<li>两边各点“检查更新”：都应出现 1.0.0 → 1.1.0 可装。</li>
+<li>A 点安装，立刻去 B 点安装：B 应正忙（一次只装一个），排队位置可见。</li>
+<li>A 安装 6 秒内关掉本页再重开（别停 server）：重开 1 秒内恢复进度，安装不停。</li>
+<li>对 B 点“跳过此版”：横幅变“已跳过 1.1.0 · 恢复”，点恢复即回来。</li>
+<li>点“复制诊断”粘到下面：应含稳定码/版本/宿主/队列/requestId，且无真实路径无秘密。</li>
+<li>点“填示例更新日志”：面板出现 Added/Fixed/Changed；点“清空日志”：中性提示且不挡安装。</li>
+</ol>
+<h2>落盘与回包（证据）</h2>
+<pre id="out">点“看三落盘文件”读 state.json / queue.json / skipped.json（沙盒临时目录）。</pre>
+<script type="module">
+import { mountUpdatePanel } from '../dist/panel.js'
+const PORTS = { notes: 18787, tasks: 18788 }
+const call = (plugin) => async (name, args) => {
+  const r = await fetch(`http://127.0.0.1:${PORTS[plugin]}/phone`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ plugin, phone: name, args }) })
+  return r.json()
+}
+const A = mountUpdatePanel(document.getElementById('slotA'), { pluginId: 'demo-notes-plugin', prefix: 'notes', call: call('notes') })
+const B = mountUpdatePanel(document.getElementById('slotB'), { pluginId: 'demo-tasks-plugin', prefix: 'tasks', call: call('tasks') })
+let d5 = false
+document.getElementById('themeBtn').onclick = async () => { d5 = !d5; await A.setTheme(d5 ? 'd5-paper' : 'default'); await B.setTheme(d5 ? 'd5-paper' : 'default') }
+document.getElementById('resetBtn').onclick = async () => {
+  await fetch('http://127.0.0.1:18787/reset'); await fetch('http://127.0.0.1:18788/reset')
+  await A.refresh(); await B.refresh()
+  document.getElementById('out').textContent = '沙盒已清空，两面板已重查。'
+}
+document.getElementById('filesBtn').onclick = async () => {
+  const r = await fetch('http://127.0.0.1:18787/files'); const j = await r.json()
+  document.getElementById('out').textContent = 'updates/\n' + j.updates + '\n\nupdate-queue/\n' + j['update-queue']
+}
+const SAMPLE = '# Changelog\n\n## [1.1.0] - 2026-10-01\n\n### Added\n- 更快的检查\n\n### Fixed\n- 修了一个崩溃\n\n### Changed\n- 文案微调\n'
+document.getElementById('logBtn').onclick = () => { A.setChangelogMarkdown(SAMPLE); B.setChangelogMarkdown(SAMPLE) }
+document.getElementById('nlogBtn').onclick = () => { A.setChangelogMarkdown(null); B.setChangelogMarkdown(null) }
+</script>
+</body>
+</html>

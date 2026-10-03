@@ -598,6 +598,36 @@ async function snapWithManual(
   }
 }
 
+/**
+ * 面板要的一栏「装到哪个使用范围」：只回**使用范围名**与宿主种类，绝不回目录路径。
+ * 为什么重要：同一个插件在 web / desktop 两个使用范围里各装一份，更新必须落到当前这一份；
+ * 面板把这栏显示出来，用户才知道自己点的是哪个范围的更新（也才能对上 `--profile` 那一段）。
+ * 走 includeEnv 选填（与 includeQueue 同一套口径）：老调用不带这个参数，回包形状一字不变。
+ */
+export interface PhoneEnvView {
+  profileName: string | null
+  environmentKind: string | null
+}
+
+async function readEnvForPanel(reader: { readEnv?: () => Promise<unknown> }): Promise<PhoneEnvView | null> {
+  try {
+    if (typeof reader.readEnv !== 'function') return null
+    const env = (await reader.readEnv()) as { profileName?: unknown; environmentKind?: unknown } | null
+    if (!env || typeof env !== 'object') return null
+    return {
+      profileName: typeof env.profileName === 'string' && env.profileName ? env.profileName : null,
+      environmentKind: typeof env.environmentKind === 'string' && env.environmentKind ? env.environmentKind : null,
+    }
+  } catch {
+    return null
+  }
+}
+
+/** 调用方显式要使用范围一栏时才算（默认不算，老回包形状不变）。 */
+function wantsEnv(args: Record<string, unknown>): boolean {
+  return !!args && args['includeEnv'] === true
+}
+
 type LogCtx = { fire: (level: string, event: string, fields: Record<string, unknown>) => void } | null
 let phoneLogCtx: LogCtx = null
 
@@ -628,7 +658,7 @@ function loggedPhone(
   method: string,
   kind: string,
   pluginId: string,
-  fn: (args: Record<string, unknown>) => Promise<{ snapshot: unknown; manual?: string | null; receipt?: unknown; queue?: VisibleQueue | null }>,
+  fn: (args: Record<string, unknown>) => Promise<{ snapshot: unknown; manual?: string | null; receipt?: unknown; queue?: VisibleQueue | null; env?: PhoneEnvView | null }>,
   diagCtx?: {
     config: ReturnType<typeof resolveUpdateConfig>
     readerOverrides: ReaderOverrides
@@ -655,6 +685,8 @@ function loggedPhone(
         receipt: out && out.receipt ? out.receipt : null,
         // 新增选填（#15）：调用方没要时不带该键，老调用形状不变。
         ...(out && out.queue ? { queue: out.queue } : {}),
+        // 新增选填：使用范围一栏（只有调用方传了 includeEnv 才带，老调用形状不变）。
+        ...(out && out.env ? { env: out.env } : {}),
       }
     } catch (error) {
       const payload = toUpdateErrorPayload(error)
@@ -708,35 +740,38 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktop
   else watchDesktopPnpm(ctx)
   const readerOverrides = { ...(deps.readerOverrides ?? {}), ctx, ...(deps.pluginManager ? { pluginManager: deps.pluginManager } : {}) } as ReaderOverrides
   const phoneNames = buildPhoneNames(config.prefix)
-  async function readStatus(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; queue?: VisibleQueue | null }> {
+  async function readStatus(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; env?: PhoneEnvView | null; queue?: VisibleQueue | null }> {
     const reader = await getSharedReader(pluginId, config, {
       ...readerOverrides,
       profileDir: args && args.profileDir ? String(args.profileDir) : readerOverrides.profileDir,
     })
     const out = await snapWithManual(reader, (await reader.status()) as never, config)
+    const env = wantsEnv(args) ? { env: await readEnvForPanel(reader) } : {}
     const { includeQueue, showOthers } = queueArgsOf(args)
-    if (!includeQueue) return out
+    if (!includeQueue) return { ...out, ...env }
     const requestId = args && typeof args.requestId === 'string' ? args.requestId : undefined
-    return { ...out, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
+    return { ...out, ...env, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
   }
-  async function readCheck(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; receipt: unknown; queue?: VisibleQueue | null }> {
+  async function readCheck(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; receipt: unknown; env?: PhoneEnvView | null; queue?: VisibleQueue | null }> {
     const reader = await getSharedReader(pluginId, config, {
       ...readerOverrides,
       profileDir: args && args.profileDir ? String(args.profileDir) : readerOverrides.profileDir,
     })
     const result = await reader.check()
     const withManual = await snapWithManual(reader, result.snapshot as never, config)
+    const env = wantsEnv(args) ? { env: await readEnvForPanel(reader) } : {}
     const { includeQueue, showOthers } = queueArgsOf(args)
-    if (!includeQueue) return { snapshot: withManual.snapshot, manual: withManual.manual, receipt: result.receipt ?? null }
+    if (!includeQueue) return { snapshot: withManual.snapshot, manual: withManual.manual, receipt: result.receipt ?? null, ...env }
     const requestId = args && typeof args.requestId === 'string' ? args.requestId : undefined
     return {
       snapshot: withManual.snapshot,
       manual: withManual.manual,
       receipt: result.receipt ?? null,
+      ...env,
       queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId),
     }
   }
-  async function runInstall(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; queue?: VisibleQueue | null }> {
+  async function runInstall(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; env?: PhoneEnvView | null; queue?: VisibleQueue | null }> {
     const checkId = args && typeof args.checkId === 'string' ? args.checkId : ''
     const requestId = args && typeof args.requestId === 'string' ? args.requestId : ''
     const { includeQueue, showOthers } = queueArgsOf(args)
@@ -746,6 +781,7 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktop
       ...readerOverrides,
       profileDir: args && args.profileDir ? String(args.profileDir) : readerOverrides.profileDir,
     })
+    const envPatch = wantsEnv(args) ? { env: await readEnvForPanel(reader) } : {}
     // 取消占位：只撤自己的 waiting 条目（owner 不经这里取消），顺带回快照与队列。
     if (cancelQueued) {
       if (!validRequestId(requestId)) throw checkExpiredError()
@@ -753,7 +789,7 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktop
       const next = cancelEnqueuedInQueue(current, pluginId, requestId)
       if (next.removed) await reader.writeQueueState(next.state)
       const out = await snapWithManual(reader, (await reader.status()) as never, config)
-      return { ...out, queue: visibleQueueFor(next.state, pluginId, showOthers, requestId) }
+      return { ...out, ...envPatch, queue: visibleQueueFor(next.state, pluginId, showOthers, requestId) }
     }
     // 只占位不装：面板先取号再装，供公平排队用（幂等占一位）。
     if (enqueueOnly) {
@@ -762,13 +798,13 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktop
       const placed = enqueueInQueue(current, { pluginId, requestId, targetVersion: null, enqueuedAt: reader.queueNow() })
       if (placed.state !== current) await reader.writeQueueState(placed.state)
       const out = await snapWithManual(reader, (await reader.status()) as never, config)
-      return { ...out, queue: visibleQueueFor(placed.state, pluginId, showOthers, requestId) }
+      return { ...out, ...envPatch, queue: visibleQueueFor(placed.state, pluginId, showOthers, requestId) }
     }
     // 正常安装：凭证不齐交给核心判（归类与改造前一致）；齐了先占位再过公平门。
     if (!checkId || !validRequestId(requestId)) {
       const out = await snapWithManual(reader, (await reader.install({ checkId, requestId })) as never, config)
-      if (!includeQueue) return out
-      return { ...out, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
+      if (!includeQueue) return { ...out, ...envPatch }
+      return { ...out, ...envPatch, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
     }
     const before = await reader.readQueuePruned()
     const placed = enqueueInQueue(before, { pluginId, requestId, targetVersion: null, enqueuedAt: reader.queueNow() })
@@ -780,8 +816,8 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktop
     }
     try {
       const out = await snapWithManual(reader, (await reader.install({ checkId, requestId })) as never, config)
-      if (!includeQueue) return out
-      return { ...out, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
+      if (!includeQueue) return { ...out, ...envPatch }
+      return { ...out, ...envPatch, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
     } catch (error) {
       // 忙失败留占位（面板凭它轮询位置，忙时失败回包不带队列，凭查状态补看）；
       // 其余失败撤占位，不留僵尸。

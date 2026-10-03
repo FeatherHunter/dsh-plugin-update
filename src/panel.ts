@@ -54,6 +54,7 @@ export type UpdatePanelActionKind =
   | 'copy-manual'
   | 'copy-diag'
   | 'toggle-queue'
+  | 'restart-hint'
   | 'close-view'
 
 export interface UpdatePanelOptions {
@@ -73,8 +74,18 @@ export interface UpdatePanelOptions {
   call: UpdatePanelCall
   copyText?: UpdatePanelCopyText
   skipStore?: PanelSkipStore
-  /** 宿主种类（调用方知道就传进诊断文本；不传显示“未知”，等 #18 回包契约补全来源）。 */
+  /** 宿主种类（调用方知道就传进诊断文本；不传就用宿主 includeEnv 回的宿主种类，再没有显示“未知”）。 */
   hostKind?: string | null
+  /**
+   * 使用范围名（profile）：**装到哪个范围**的展示面。不传就用宿主 includeEnv 回的真值；
+   * 两者都没有时显示“未知”，绝不猜（猜错会让人以为更新装到了别的范围）。
+   */
+  profileName?: string | null
+  /**
+   * 「重启宿主」按钮的落地（可选）：宿主没有重启自己的电话，默认点击只提示手动重启；
+   * 调用方能把重启流程接进来（拉起自己的重启脚本/提示用户），按钮就交给它。
+   */
+  onRestartRequested?: () => void | Promise<void>
   diagCopyFormat?: DiagCopyFormat
   /**
    * 更新日志 Markdown（#23 包内 CHANGELOG 展示）：
@@ -608,6 +619,35 @@ export interface PanelView {
   showManual: boolean
   showReset: boolean
   queueNote: string | null
+  /** 大印章（状态词）与小印章（一字）：取值与原型 `d5-paper.html:431-432` 的状态映射一一对应。 */
+  seal: PanelSeal
+}
+
+/** 印章色调：与原型 `seal-ink / seal-green / seal-yellow / seal-red` 四个类同名同义。 */
+export type PanelSealTone = 'ink' | 'green' | 'yellow' | 'red'
+
+export interface PanelSeal {
+  /** 大印章文字：待查 / 可装 / 安装中 / 待重启 / 受阻 / 已最新。 */
+  text: string
+  /** 小印章文字：查 / 装 / 启 / 阻 / 定（一字，与原型 sealmini 同口径）。 */
+  mini: string
+  tone: PanelSealTone
+}
+
+/**
+ * 状态 → 印章（原型映射表，逐条对齐 d5-paper.html:431-432）：
+ * 待查=查/ink、可装=装/green、安装中=装/yellow、待重启=启/yellow、受阻=阻/red、已最新=定/green。
+ * 主题无关：默认主题只把它当属性带着（不画），D5 用 CSS 读出来画成印章，DOM 两边仍同一份。
+ */
+const SEAL_BY_KIND: Record<PanelBanner['kind'], PanelSeal> = {
+  loading: { text: '待查', mini: '查', tone: 'ink' },
+  idle: { text: '待查', mini: '查', tone: 'ink' },
+  update: { text: '可装', mini: '装', tone: 'green' },
+  busy: { text: '安装中', mini: '装', tone: 'yellow' },
+  restart: { text: '待重启', mini: '启', tone: 'yellow' },
+  blocked: { text: '受阻', mini: '阻', tone: 'red' },
+  failed: { text: '受阻', mini: '阻', tone: 'red' },
+  done: { text: '已最新', mini: '定', tone: 'green' },
 }
 
 function messageCodeOf(message: unknown): string {
@@ -632,6 +672,11 @@ export interface PanelViewInput {
 }
 
 export function panelViewModel(input: PanelViewInput): PanelView {
+  const view = panelViewModelCore(input)
+  return { ...view, seal: SEAL_BY_KIND[view.banner.kind] ?? SEAL_BY_KIND.idle }
+}
+
+function panelViewModelCore(input: PanelViewInput): Omit<PanelView, 'seal'> {
   const { snapshot, manual, queue, skippedLatest, lastError } = input
   const errorKind = (input as { errorKind?: unknown }).errorKind
   if (!snapshot) {
@@ -695,7 +740,9 @@ export function panelViewModel(input: PanelViewInput): PanelView {
     return {
       banner: {
         kind: 'restart',
-        title: `⚠️ 新版 ${latest} 已装好，正在跑的还是 ${snapshot.runningVersion}，重启宿主后生效。`,
+        // 文案照原型（d5-paper.html:329）：不带 emoji——警示由横幅左侧的手绘 SVG 标承担，
+        // 印章在状态一侧，两者各司其职，不再三重标记。
+        title: `新版 ${latest} 已安装，重启宿主后生效。`,
         action: BLOCKED_COPY['pending-restart'].action,
       },
       installEnabled: false,
@@ -793,7 +840,11 @@ export function panelViewModel(input: PanelViewInput): PanelView {
 
 export const UPDATE_PANEL_CSS = [
   '.dsh-upd{font:14px/1.6 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-upd-fg,#1f2937);',
-  'background:var(--dsh-upd-bg,#ffffff);border:1px solid var(--dsh-upd-line,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px}',
+  'background:var(--dsh-upd-bg,#ffffff);border:1px solid var(--dsh-upd-line,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;',
+  // 横幅配色走变量（浅色默认 + 深色覆盖，见下方 dark 媒体块）：硬编码浅色会让深色下
+  // 「浅底 + 浅字」读不出来（现场回归：默认主题深色模式更新横幅白底浅字）。
+  '--dsh-upd-ok-bg:#ecfdf5;--dsh-upd-ok-line:#059669;--dsh-upd-warn-bg:#fffbeb;--dsh-upd-warn-line:#d97706;',
+  '--dsh-upd-bad-bg:#fef2f2;--dsh-upd-bad-line:#dc2626;--dsh-upd-busy-bg:#eff6ff;--dsh-upd-busy-line:#2563eb}',
   '.dsh-upd *{box-sizing:border-box}',
   '.dsh-upd button{font:inherit;border:1px solid var(--dsh-upd-line,#d1d5db);border-radius:6px;background:var(--dsh-upd-btn,#f9fafb);',
   'color:inherit;padding:4px 12px;cursor:pointer;margin:2px 6px 2px 0}',
@@ -801,10 +852,10 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd button:focus-visible{outline:2px solid var(--dsh-upd-focus,#2563eb);outline-offset:1px}',
   '.dsh-upd button[data-primary="1"]{background:var(--dsh-upd-primary,#2563eb);border-color:var(--dsh-upd-primary,#2563eb);color:#fff}',
   '.dsh-upd-banner{border-left:4px solid var(--dsh-upd-line,#9ca3af);padding:6px 10px;margin:0 0 8px;background:var(--dsh-upd-soft,#f3f4f6)}',
-  '.dsh-upd-banner[data-kind="restart"]{border-color:#d97706;background:#fffbeb}',
-  '.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:#dc2626;background:#fef2f2}',
-  '.dsh-upd-banner[data-kind="update"]{border-color:#059669;background:#ecfdf5}',
-  '.dsh-upd-banner[data-kind="busy"]{border-color:#2563eb;background:#eff6ff}',
+  '.dsh-upd-banner[data-kind="restart"]{border-color:var(--dsh-upd-warn-line);background:var(--dsh-upd-warn-bg)}',
+  '.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-upd-bad-line);background:var(--dsh-upd-bad-bg)}',
+  '.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-upd-ok-line);background:var(--dsh-upd-ok-bg)}',
+  '.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-upd-busy-line);background:var(--dsh-upd-busy-bg)}',
   '.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}',
   '.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:8px 0;font-size:13px}',
   '.dsh-upd-changelog-wrap{margin:8px 0;font-size:13px;border-top:1px solid var(--dsh-upd-line,#e5e7eb);padding-top:8px}',
@@ -818,18 +869,62 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-changelog-neutral{color:inherit;opacity:.8}',
   '.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}',
   '.dsh-upd-overlay .dsh-upd{background:var(--dsh-upd-bg,#ffffff);max-height:85vh;overflow:auto}',
+  // —— 档案头 / 版本条 / 章节 / 进度条 / 跳过行（原型 :208-245 的新结构，默认主题给最小可用样式）——
+  '.dsh-upd-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}',
+  // 卷宗抬头「插件更新 / 更新档案 卷」：D5 档案卷才画，默认（最小）主题不画。
+  // 两个主题共用同一份内核 HTML（见 renderUpdatePanelHTML 的注释），画不画是皮肤决定的事。
+  '.dsh-upd-masthead{display:none}',
+  '.dsh-upd-name{font-weight:700}',
+  '.dsh-upd-meta{font-size:12.5px;opacity:.75}',
+  '.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:11px;border:1px solid var(--dsh-upd-line,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}',
+  '.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-upd-line,#e5e7eb);border-radius:4px;overflow:hidden;font-size:12.5px}',
+  '.dsh-upd-strip>div{flex:1 1 110px;padding:6px 10px;border-left:1px solid var(--dsh-upd-line,#e5e7eb)}',
+  '.dsh-upd-strip>div:first-child{border-left:0}',
+  '.dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.14em;opacity:.7}',
+  '.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px}',
+  '.dsh-upd-chapter{margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-upd-line,#e5e7eb)}',
+  '.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}',
+  '.dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}',
+  '.dsh-upd-chap-title{font-size:14px;margin:0}',
+  '.dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-upd-line,#e5e7eb);transform:translateY(-3px)}',
+  // 03 章标题行右端的开关（问题 3 定案：按钮形态、挪到标题行）。
+  '.dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}',
+  '.dsh-upd-chap-note button{margin:0}',
+  // 更新队列两行键值（用户定案的设计）：结构两主题共用，皮肤各自收敛。
+  '.dsh-upd-qrow{display:flex;align-items:baseline;gap:10px;padding:6px 0}',
+  '.dsh-upd-qrow+.dsh-upd-qrow{border-top:1px solid var(--dsh-upd-line,#e5e7eb)}',
+  '.dsh-upd-qdot{width:8px;height:8px;border-radius:50%;flex:none;align-self:center;background:currentColor;opacity:.5}',
+  '.dsh-upd-qdot[data-tone="busy"]{background:var(--dsh-upd-warn-line,#d97706);opacity:1}',
+  '.dsh-upd-qdot[data-tone="you"]{background:var(--dsh-upd-primary,#2563eb);opacity:1}',
+  '.dsh-upd-qk{flex:none;width:5.5em;font-size:12px;opacity:.7}',
+  '.dsh-upd-qv{font-weight:600}',
+  '.dsh-upd-qn{margin-left:auto;font-size:12px;opacity:.7}',
+  '.dsh-upd-qseq{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}',
+  '.dsh-upd-prog{height:8px;background:var(--dsh-upd-line,#e5e7eb);border-radius:4px;overflow:hidden;margin:10px 0 4px}',
+  '.dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-upd-primary,#2563eb);transition:width .3s}',
+  '.dsh-upd-progtxt{font-size:12.5px;opacity:.75}',
+  '.dsh-upd-skipline{font-size:13px;margin-top:8px}',
+  '.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:12px}',
+  '.dsh-upd-err{font-size:13px;margin:0 0 6px}',
   '@media (prefers-color-scheme: dark){.dsh-upd{--dsh-upd-fg:#e5e7eb;--dsh-upd-bg:#111827;--dsh-upd-line:#374151;',
-  '--dsh-upd-btn:#1f2937;--dsh-upd-soft:#1f2937;--dsh-upd-primary:#3b82f6;--dsh-upd-focus:#93c5fd}}',
+  '--dsh-upd-btn:#1f2937;--dsh-upd-soft:#1f2937;--dsh-upd-primary:#3b82f6;--dsh-upd-focus:#93c5fd;',
+  // 横幅深色覆盖：底色用低透明度同色系（不是浅色原值），边线提亮，保证「深底浅字」可读。
+  '--dsh-upd-ok-bg:rgba(16,185,129,.14);--dsh-upd-ok-line:#34d399;',
+  '--dsh-upd-warn-bg:rgba(245,158,11,.16);--dsh-upd-warn-line:#fbbf24;',
+  '--dsh-upd-bad-bg:rgba(239,68,68,.16);--dsh-upd-bad-line:#f87171;',
+  '--dsh-upd-busy-bg:rgba(59,130,246,.16);--dsh-upd-busy-line:#60a5fa}}',
 ].join('\n')
 
 // ---------- D5 档案卷可选主题（#20：只换肤，不换 DOM 顺序） ----------
 //
 // 约束（验收线）：内核 DOM 冻结——主题只换颜色/字体/间距，不得改顺序、不得藏复制诊断。
-// 要素映射（原型 `prototype/redesign/d5-paper.html` → 现有内核类）：
-// 迷你印章 → `.dsh-upd-banner::before`（按 data-kind 一字：查/装/启/阻/定；纯 CSS 内容，不加节点）；
+// 要素映射（原型 `prototype/redesign/d5-paper.html` → 现有内核类，逐条对齐原型行号）：
+// 大印章 → 根元素 `::before` + `content:attr(data-seal)`（原型 :206 `.seal`，右上 88px 旋转 -7°，
+//          外框 + 内细框用两条 inset 阴影合成，不加节点）；色调按 `data-seal-tone` 四档。
+// 小印章 → `.dsh-upd-banner::before` + `content:attr(data-mini)`（原型 :215 `.sealmini`，30px 旋转 -5°）；
+//          **待重启横幅不画印章**——那一档的标记是手绘 SVG（原型 :446 `.mark` 只有 SVG）。
 // profile 牌 → `.dsh-upd-log code`（现有插件标识 code 穿上牌样式，不加节点）；
-// 待重启衬线横幅 → `[data-kind="restart"]` 衬线字体 + 警告配色；
-// 手绘 SVG 标 → 待重启标题行左侧背景 SVG（警告三角手绘形，浅深各一色；forced-colors 下自动降级为文字）；
+// 待重启衬线横幅 → `[data-kind="restart"]` 衬线字体 + 警告配色 + 标题行左侧 SVG 标；
 // 窄屏印章固定 → 640px 下印章固定 24px、不被挤掉，操作区换行；
 // 优先级逐字折叠 → CSS 省略号逐字折叠（标题行单行省略；JS 引擎不移植：它要 data-fold 标记，会动 DOM）；
 // 浅深双主题 → 同一套变量，浅色默认 + `prefers-color-scheme: dark` 深色（跟随系统，与默认主题同口径）。
@@ -858,27 +953,92 @@ export const UPDATE_PANEL_D5_CSS = [
   '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]{border-color:var(--d5-warn);background:var(--d5-warn-bg);font-family:var(--d5-serif);border-width:2px}',
   '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="failed"],.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="blocked"]{border-color:var(--d5-bad);background:var(--d5-bad-bg)}',
   '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="done"]{border-color:var(--d5-ok);background:var(--d5-ok-bg)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner::before{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;margin-right:10px;vertical-align:middle;',
-  'border:2px solid currentColor;border-radius:7px;font-family:var(--d5-serif);font-weight:700;font-size:16px;line-height:26px;transform:rotate(-5deg);flex:none}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="loading"]::before,.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="idle"]::before{content:"查";color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="update"]::before{content:"装";color:var(--d5-ok)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="busy"]::before{content:"装";color:var(--d5-warn)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]::before{content:"启";color:var(--d5-warn)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="blocked"]::before,.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="failed"]::before{content:"阻";color:var(--d5-bad)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="done"]::before{content:"定";color:var(--d5-ok)}',
+  // —— 大印章（原型 :206 `.seal`：右上 88px、旋转 -7°、双细框；内容与色调来自根属性，不加节点）——
+  '.dsh-upd[data-theme="d5-paper"]{position:relative;padding:22px 26px 20px}',
+  '.dsh-upd[data-theme="d5-paper"]::before{content:attr(data-seal);position:absolute;top:20px;right:24px;width:88px;height:88px;',
+  'display:flex;align-items:center;justify-content:center;text-align:center;letter-spacing:.18em;text-indent:.18em;line-height:1.35;',
+  'border:3px solid currentColor;border-radius:14px;transform:rotate(-7deg);font-family:var(--d5-serif);font-weight:700;font-size:21px;',
+  'background:color-mix(in srgb,currentColor 8%,transparent);user-select:none;pointer-events:none;',
+  'box-shadow:inset 0 0 0 5px var(--d5-card),inset 0 0 0 6px currentColor,0 2px 6px rgba(0,0,0,.12)}',
+  '.dsh-upd[data-theme="d5-paper"][data-seal-tone="ink"]::before{color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="d5-paper"][data-seal-tone="green"]::before{color:var(--d5-ok)}',
+  '.dsh-upd[data-theme="d5-paper"][data-seal-tone="yellow"]::before{color:var(--d5-warn)}',
+  '.dsh-upd[data-theme="d5-paper"][data-seal-tone="red"]::before{color:var(--d5-bad)}',
+  // 印章占位：首行（横幅/状态行）右侧留出 120px，文字不许压到印章上（原型 .filehead padding-right:120px）
+  // —— 卷宗抬头（原型 :195-203 的刊头，主题切换按钮按用户口径去掉）：只有 D5 档案卷才显示 ——
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-masthead{display:block;padding:0 0 10px;margin:0 0 12px;border-bottom:1px solid var(--d5-line)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-masthead-kicker{display:block;font-size:11px;letter-spacing:.35em;color:var(--d5-muted);margin-bottom:3px}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-masthead-title{font-family:var(--d5-serif);font-size:26px;font-weight:700;line-height:1.2}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-masthead-title i{color:var(--d5-accent);font-style:normal}',
+  // 横幅不再给大印章留 124px：实测（headless 量盒子）印章盒底边 y=109，横幅正文顶边 y=108、
+  // 状态行那句在 y=159——印章只压到横幅顶部的留白带，压不到正文。留着反而把 27px 那句话挤成两行
+  // （27px 单行需 428px，留白后只剩 366px）。档案头那 120px 保留：那里是真的重叠。
+  // —— 更新队列（03 章）D5 皮肤 ——
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-qrow{padding:8px 0}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-qk{width:66px;letter-spacing:.18em}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-qv{font-family:var(--d5-serif);font-size:16px}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-qn{font-family:var(--d5-mono);font-size:11.5px;color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-qseq{color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-chap-note{color:var(--d5-muted)}',
+  // —— 小印章（原型 :215 `.sealmini`：30px、旋转 -5°、一字）——
+  // 待重启横幅一律不画印章：那一档的标记是左侧手绘 SVG（原型 :446 的 .mark 只有 SVG）。
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="loading"]::before,.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="idle"]::before,',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="update"]::before,.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="busy"]::before,',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="blocked"]::before,.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="failed"]::before,',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="done"]::before{content:attr(data-mini);display:inline-flex;align-items:center;justify-content:center;',
+  'width:30px;height:30px;margin-right:10px;vertical-align:middle;border:2px solid currentColor;border-radius:7px;',
+  'font-family:var(--d5-serif);font-weight:700;font-size:16px;line-height:26px;transform:rotate(-5deg);flex:none;color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="update"]::before{color:var(--d5-ok)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="busy"]::before{color:var(--d5-warn)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="blocked"]::before,.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="failed"]::before{color:var(--d5-bad)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="done"]::before{color:var(--d5-ok)}',
   '.dsh-upd[data-theme="d5-paper"] .dsh-upd-log code{font-family:var(--d5-mono);font-size:11px;color:var(--d5-muted);border:1px solid var(--d5-line-strong);border-radius:3px;padding:0 6px;letter-spacing:.06em}',
   '.dsh-upd[data-theme="d5-paper"] .dsh-upd-manual code{display:block;background:var(--d5-ink);color:var(--d5-bg);font-family:var(--d5-mono);font-size:12.5px;padding:12px 14px;border-radius:4px;white-space:pre-wrap;word-break:break-all}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]>div:first-child{background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%238a5a00%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E") no-repeat left center;background-size:20px 20px;padding-left:28px}',
+  // 待重启标记：手绘 SVG 当**独立 flex 标记**放在文字块左侧（原型 :446 `.mark` 是独立节点），
+  // 不能用行内背景——那样换行时三角会落在句子中间把话劈开（现场回归）。
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]>div:first-child{display:flex;gap:10px;align-items:flex-start}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{content:"";flex:none;width:20px;height:20px;margin-top:3px;',
+  'background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%238a5a00%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E") no-repeat center/20px 20px}',
   '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner>div:first-child{overflow:hidden;text-overflow:ellipsis}',
   '.dsh-upd[data-theme="d5-paper"] .dsh-upd-actions{flex-wrap:wrap}',
-  '@media (max-width:640px){.dsh-upd[data-theme="d5-paper"]{padding:10px 12px}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner::before{width:24px;height:24px;font-size:14px;line-height:20px;flex:none}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner>div:first-child{white-space:nowrap}}',
+  // —— 档案头（原型 :208-211 `.filehead`：serif 插件名 22px + 使用范围 + profile 牌；右侧留章位）——
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-head{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;padding-right:120px}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-name{font-family:var(--d5-serif);font-size:22px;font-weight:700}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-meta{width:100%;font-size:12.5px;color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-meta b{color:var(--d5-ink);font-weight:600}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-proftag{font-family:var(--d5-mono);font-size:11px;color:var(--d5-muted);border:1px solid var(--d5-line-strong);border-radius:3px;padding:0 6px;margin-left:8px;letter-spacing:.06em}',
+  // —— 版本条（原型 :216 `.strip`：三格，格间一线，左上小写标签 + 等宽值）——
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-strip{display:flex;flex-wrap:wrap;margin:10px 0 0;border:1px solid var(--d5-line);border-radius:4px;overflow:hidden;font-size:12.5px}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-strip>div{flex:1 1 120px;padding:8px 12px;border-left:1px solid var(--d5-line)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-strip>div:first-child{border-left:0}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.2em;color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-strip-v{font-family:var(--d5-mono);font-size:13px}',
+  // —— 章节（原型 :218-245：01–05 编号 + 衬线标题 + 细线）——
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-chapter{margin-top:26px;padding-top:16px;border-top:1px solid var(--d5-line)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-chap-head{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-chap-no{font-family:var(--d5-serif);font-style:italic;font-size:15px;color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-chap-title{font-family:var(--d5-serif);font-size:17px;margin:0;letter-spacing:.1em}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-chap-rule{flex:1;border-top:1px solid var(--d5-line);transform:translateY(-4px)}',
+  // —— 横幅即状态行 / 待重启横幅（原型 :81-85 `.restart-banner`：2px 边框、圆角 4、内边距 12/16、衬线；右侧留章位）——
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner{border:2px solid var(--d5-line-strong);border-radius:4px;padding:12px 16px;font-size:14.5px;font-family:var(--d5-serif);display:flex;gap:10px;align-items:center;flex-wrap:wrap}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner>div:first-child{flex:1 1 auto;min-width:0}',
+  // 状态行字号照原型 .status-line=27px（实测去掉横幅右侧占位后可写 486px > 428px，一行放得下）
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner>div:first-child strong{font-family:var(--d5-serif);font-size:27px;font-weight:700;line-height:1.35}',
+  // —— 进度条 / 跳过行（原型 :132-133 `.prog`、:129-131 `.skipline .tag`）——
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-prog{height:8px;background:var(--d5-line);border-radius:4px;overflow:hidden;margin:10px 0 4px}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-prog-bar{display:block;height:100%;background:var(--d5-accent);transition:width .3s}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-progtxt{font-size:12.5px;color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-skipline{font-size:13px;margin-top:8px}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-tag{display:inline-block;border:1px dashed var(--d5-line-strong);border-radius:3px;padding:1px 8px;margin-right:8px;font-family:var(--d5-mono);font-size:12px}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-err{font-size:13px;margin:0 0 6px;color:var(--d5-muted)}',
+  '@media (max-width:640px){.dsh-upd[data-theme="d5-paper"]{padding:10px 12px}.dsh-upd[data-theme="d5-paper"]::before{top:12px;right:12px;width:56px;height:56px;font-size:15px;box-shadow:inset 0 0 0 4px var(--d5-card),inset 0 0 0 5px currentColor}.dsh-upd[data-theme="d5-paper"] .dsh-upd-masthead-title{font-size:19px}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner{padding-right:16px}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner::before{width:24px;height:24px;font-size:14px;line-height:20px;flex:none}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner>div:first-child{white-space:normal}}',
   '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="d5-paper"]{--d5-bg:#141210;--d5-card:#1e1a15;--d5-ink:#ece5d3;--d5-muted:#a89c83;',
   '--d5-line:#3a3226;--d5-line-strong:#5c4e3b;--d5-accent:#e0684e;--d5-accent-deep:#f0866b;',
   '--d5-ok:#8fd6a4;--d5-ok-bg:rgba(80,180,120,.12);--d5-warn:#e8c15a;--d5-warn-bg:rgba(232,193,90,.12);',
   '--d5-bad:#ef8a7d;--d5-bad-bg:rgba(239,138,125,.12);--d5-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.45)}}',
   '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="d5-paper"] button[data-primary="1"]{color:#141210}.dsh-upd[data-theme="d5-paper"] button:focus-visible{outline-color:var(--d5-accent-deep)}}',
-  '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]>div:first-child{background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23e8c15a%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E")}}',
-  '@media (forced-colors: active){.dsh-upd[data-theme="d5-paper"]{box-shadow:none}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner{border:1px solid CanvasText}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner::before{border-color:CanvasText;color:CanvasText;background:Canvas}.dsh-upd[data-theme="d5-paper"] button{border:1px solid ButtonText}.dsh-upd[data-theme="d5-paper"] button[data-primary="1"]{background:ButtonFace;color:ButtonText;border-color:ButtonText}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]>div:first-child{background-image:none;padding-left:0}}',
+  '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23e8c15a%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E")}}',
+  '@media (forced-colors: active){.dsh-upd[data-theme="d5-paper"]{box-shadow:none}.dsh-upd[data-theme="d5-paper"]::before{background:none;box-shadow:none;border-color:CanvasText;color:CanvasText}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner{border:1px solid CanvasText}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner::before{border-color:CanvasText;color:CanvasText;background:Canvas}.dsh-upd[data-theme="d5-paper"] button{border:1px solid ButtonText}.dsh-upd[data-theme="d5-paper"] button[data-primary="1"]{background:ButtonFace;color:ButtonText;border-color:ButtonText}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:none;content:"⚠"}}',
   '@media (prefers-reduced-motion: reduce){.dsh-upd[data-theme="d5-paper"] *{transition:none !important;animation:none !important}}',
 ].join('\n')
 
@@ -893,6 +1053,53 @@ export interface PanelRenderInput extends PanelViewInput {
   copyNotice: string | null
   /** 可选主题：不传即默认（输出与旧版一字不差）；`d5-paper` 切 D5 档案卷。 */
   theme?: UpdatePanelTheme
+  /** 使用范围名（profile）：面板「使用范围」一栏的唯一来源，缺省显示“未知”，不猜。 */
+  profileName?: string | null
+  /** 宿主种类：进诊断文本；缺省显示“未知”。 */
+  hostKind?: string | null
+}
+
+/** 章节骨架（照原型 d5-paper.html:218-245 的 01–05 编号顺序）。 */
+const CHAPTER_TITLES = ['检查与安装', '更新日志', '更新队列', '错误信息', '手工命令'] as const
+
+function chapterOf(index: 1 | 2 | 3 | 4 | 5, inner: string, note = ''): string {
+  const no = String(index).padStart(2, '0')
+  const title = CHAPTER_TITLES[index - 1]
+  return (
+    `<section class="dsh-upd-chapter" data-chapter="${no}">` +
+    `<div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">${no}</span>` +
+    `<h3 class="dsh-upd-chap-title">${escapeHtml(title)}</h3><span class="dsh-upd-chap-rule"></span>${note}</div>` +
+    `${inner}</section>`
+  )
+}
+
+/** 版本条三格（照原型 :216 `.strip`：运行 / 磁盘 / 远端）。 */
+function versionStrip(snapshot: UpdateSnapshot | null): string {
+  const cell = (k: string, v: string | null): string =>
+    `<div><span class="dsh-upd-strip-k">${escapeHtml(k)}</span><span class="dsh-upd-strip-v">${escapeHtml(v ?? '未知')}</span></div>`
+  if (!snapshot) return ''
+  return (
+    `<div class="dsh-upd-strip">` +
+    cell('运行', snapshot.runningVersion) +
+    cell('磁盘', snapshot.installedVersion) +
+    cell('远端', snapshot.latestVersion) +
+    `</div>`
+  )
+}
+
+/** 安装进度条（照原型 :221-222）：只在 installing / verifying 时出现，纯展示，不参与门控。 */
+function progressBar(snapshot: UpdateSnapshot | null): string {
+  const job = snapshot?.job
+  if (!job) return ''
+  const state = String(job.state)
+  if (state !== 'installing' && state !== 'verifying') return ''
+  const width = state === 'installing' ? 60 : 90
+  const text = state === 'installing' ? '正在安装新版…' : '正在校验安装结果…'
+  return (
+    `<div class="dsh-upd-prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${width}">` +
+    `<i class="dsh-upd-prog-bar" style="width:${width}%"></i></div>` +
+    `<div class="dsh-upd-progtxt">${escapeHtml(text)}</div>`
+  )
 }
 
 /** 内核 HTML（双形态行为等价的根：同一视图产出同一内核，只换外层）。 */
@@ -900,86 +1107,197 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   const { snapshot, manual, queue, mode, showOthers, pluginId, copyNotice } = input
   const changelogMarkdown =
     (input as { changelogMarkdown?: unknown }).changelogMarkdown ?? null
+  const profileName =
+    typeof (input as { profileName?: unknown }).profileName === 'string' && (input as { profileName: string }).profileName
+      ? (input as { profileName: string }).profileName
+      : null
   const b = view.banner
+  const seal = view.seal
   const parts: string[] = []
-  parts.push(`<div class="dsh-upd-banner" data-kind="${b.kind}" role="status" aria-live="polite">`)
+  // 卷宗抬头（原型 :195-203 的刊头；主题切换按钮按用户口径去掉——那排按钮不重要）。
+  // 两个主题共用同一份内核 HTML：默认（最小）主题由 CSS 不显示，D5 档案卷才画。
+  parts.push(
+    '<div class="dsh-upd-masthead"><span class="dsh-upd-masthead-kicker">插件更新</span>' +
+      '<span class="dsh-upd-masthead-title">更新档案 <i>卷</i></span></div>',
+  )
+  // 档案头（原型 :208-211 `.filehead`）：插件名 + 使用范围 + profile 牌。
+  // 「使用范围」这一栏是更新落点的展示面：web / desktop 各装一份，装错范围是严重故障，
+  // 所以这里宁可显示「未知」也不猜。
+  parts.push(
+    `<div class="dsh-upd-head"><span class="dsh-upd-name">${escapeHtml(pluginId)}</span>` +
+      `<span class="dsh-upd-meta">使用范围 <b>${escapeHtml(profileName ?? '未知')}</b>` +
+      `<span class="dsh-upd-proftag">profile</span></span></div>`,
+  )
+  // 横幅：状态行 / 待重启横幅（原型 :213-215 restartSlot + 状态行）。
+  // 小印章一字挂在它上面；待重启档不挂印章——那一档的标记是手绘 SVG（原型 :446 只有 SVG）。
+  parts.push(`<div class="dsh-upd-banner" data-kind="${b.kind}" data-mini="${escapeHtml(seal.mini)}" role="status" aria-live="polite">`)
   parts.push(`<div><strong>${escapeHtml(b.title)}</strong></div>`)
   if (b.action) parts.push(`<div>${escapeHtml(b.action)}</div>`)
   parts.push('</div>')
-  parts.push('<div class="dsh-upd-actions">')
-  parts.push(
+  // 版本条（原型 :216 `.strip`）：运行 / 磁盘 / 远端三格。
+  parts.push(versionStrip(snapshot))
+  // —— 01 检查与安装（原型 :218-224）：动作 + 进度条 + 跳过行 ——
+  const actions: string[] = []
+  actions.push('<div class="dsh-upd-actions">')
+  actions.push(
     `<button type="button" data-action="check">查新版</button>` +
       `<button type="button" data-action="install" data-primary="1"${view.installEnabled ? '' : ' disabled'}>${escapeHtml(view.installLabel)}</button>`,
   )
   if (snapshot?.latestVersion && !view.skippedLatest && view.banner.kind === 'update') {
-    parts.push(`<button type="button" data-action="skip">跳过该版本</button>`)
+    actions.push(`<button type="button" data-action="skip">跳过该版本</button>`)
   }
   if (view.showReset && snapshot?.latestVersion) {
-    parts.push(`<button type="button" data-action="reset-skip">恢复（${escapeHtml(snapshot.latestVersion)}）</button>`)
+    actions.push(`<button type="button" data-action="reset-skip">恢复（${escapeHtml(snapshot.latestVersion)}）</button>`)
   }
   if (view.showManual && manual) {
-    parts.push(`<button type="button" data-action="copy-manual">复制手工命令</button>`)
+    actions.push(`<button type="button" data-action="copy-manual">复制手工命令</button>`)
+  }
+  // 原型的待重启横幅右侧有个主动作「重启宿主」（d5-paper.html:448）。
+  // 宿主没有「重启自己」的电话，所以这里只做入口：调用方给了 onRestartRequested 就交给它，
+  // 没给就如实提示「请手动重启」——不假装能重启。
+  if (b.kind === 'restart') {
+    actions.push(`<button type="button" data-action="restart-hint" data-primary="1">重启宿主</button>`)
   }
   if (snapshot) {
-    parts.push(`<button type="button" data-action="copy-diag">复制诊断</button>`)
+    actions.push(`<button type="button" data-action="copy-diag">复制诊断</button>`)
   }
   if (mode === 'dialog') {
-    parts.push(`<button type="button" data-action="close-view">关闭</button>`)
+    actions.push(`<button type="button" data-action="close-view">关闭</button>`)
   }
-  parts.push('</div>')
-  if (view.showManual && manual) {
-    parts.push(`<div class="dsh-upd-manual"><div>手工兜底命令（复制整行执行）：</div><code>${escapeHtml(manual)}</code></div>`)
-  }
-  if (queue && (queue.busy || queue.waiting.length > 0)) {
-    const owner =
-      queue.owner && 'pluginId' in queue.owner && queue.owner.pluginId
-        ? `拥有者：${queue.owner.pluginId === pluginId ? '本插件' : '其他插件'}`
-        : queue.owner
-          ? '拥有者：其他插件（正忙）'
-          : '空闲'
-    const waiting = showOthers
-      ? queue.waiting.map((e) => `${e.pluginId}${e.targetVersion ? `@${e.targetVersion}` : ''}`).join('、') || '无'
-      : queue.waiting.length > 0
-        ? `本插件占位 ${queue.waiting.length} 个`
-        : '无'
-    parts.push(
-      `<div class="dsh-upd-queue"><div>排队：${escapeHtml(owner)}；等待：${escapeHtml(waiting)}。` +
-        `<button type="button" data-action="toggle-queue">${showOthers ? '隐藏他人明细' : '查看全量排队'}</button></div>` +
-        (view.queueNote ? `<div>${escapeHtml(view.queueNote)}</div>` : '') +
-        '</div>',
+  actions.push('</div>')
+  actions.push(progressBar(snapshot))
+  if (view.skippedLatest && snapshot?.latestVersion) {
+    actions.push(
+      `<div class="dsh-upd-skipline"><span class="dsh-upd-tag">已跳过 ${escapeHtml(snapshot.latestVersion)}</span>` +
+        `点「恢复」可撤销，之后这一版还会再提醒。</div>`,
     )
-  } else if (view.queueNote) {
-    parts.push(`<div class="dsh-upd-queue"><div>${escapeHtml(view.queueNote)}</div></div>`)
   }
-  // 更新日志节（#23）：有远端版才画；缺日志中性提示，不挡安装、不写 blockedReason。
-  // 安装门控只跟快照，本节只增 HTML，不碰 view.installEnabled 与 snapshot 形状。
-  if (snapshot && snapshot.latestVersion) {
-    try {
-      const mdText = typeof changelogMarkdown === 'string' ? changelogMarkdown : ''
-      const entries = parseChangelog(mdText)
-      const ranged = changelogForUpdate(
-        entries,
-        snapshot.runningVersion,
-        snapshot.latestVersion,
-        snapshot.installedVersion,
-      )
-      const changelogHTML = renderChangelogHTML(ranged)
-      const fromText = String(snapshot.runningVersion ?? '')
-      const toText = String(snapshot.latestVersion ?? '')
-      const rangeTitle =
-        fromText && toText ? `更新说明（${fromText} → ${toText}）：` : '更新说明：'
+  parts.push(chapterOf(1, actions.join('')))
+  // —— 02 更新日志（原型 :226-229）：章节恒在；缺日志给中性提示，不挡安装、不改门控 ——
+  {
+    let inner = ''
+    if (snapshot && snapshot.latestVersion) {
+      try {
+        const mdText = typeof changelogMarkdown === 'string' ? changelogMarkdown : ''
+        const entries = parseChangelog(mdText)
+        const ranged = changelogForUpdate(
+          entries,
+          snapshot.runningVersion,
+          snapshot.latestVersion,
+          snapshot.installedVersion,
+        )
+        const changelogHTML = renderChangelogHTML(ranged)
+        const fromText = String(snapshot.runningVersion ?? '')
+        const toText = String(snapshot.latestVersion ?? '')
+        const rangeTitle =
+          fromText && toText ? `更新说明（${fromText} → ${toText}）：` : '更新说明：'
+        inner = `<div class="dsh-upd-changelog-wrap"><div>${escapeHtml(rangeTitle)}</div>\n${changelogHTML}\n</div>`
+      } catch {
+        // 日志画坏了也不挡更新：退回中性提示，安装按钮状态不变。
+        inner = ''
+      }
+    }
+    if (!inner) {
+      inner = `<div class="dsh-upd-changelog-wrap"><div class="dsh-upd-changelog-neutral">${escapeHtml(
+        snapshot && snapshot.latestVersion ? '日志读不出来，安装不受影响。' : '还没查到新版；查到后再显示日志。',
+      )}</div></div>`
+    }
+    parts.push(chapterOf(2, inner))
+  }
+  // —— 03 更新队列（原型 :231-235）：章节恒在（没排队也给一句话，编号不许跳）——
+  // 设计定案（2026-10-04，见 03 章设计稿）：正文改成两行键值（正在安装 / 你的顺位），
+  // 开关仍是**按钮**（不是原型的复选框），位置照原型挪到章节标题行右端。
+  {
+    const queued = !!queue && (queue.busy || queue.waiting.length > 0)
+    if (queued && queue) {
+      const busy = queue.busy
+      const ownerRaw = queue.owner
+      // 他人标识只在 showOthers 打开时才露：宿主默认已折过一道，这里再守一道
+      // （调用方直接塞原始队列时，面板也不许把人家的插件名印出来）。
+      const named =
+        ownerRaw && 'pluginId' in ownerRaw && ownerRaw.pluginId ? String(ownerRaw.pluginId) : null
+      const version =
+        ownerRaw && 'targetVersion' in ownerRaw && ownerRaw.targetVersion
+          ? `@${String(ownerRaw.targetVersion)}`
+          : ''
+      const aboutSelf = named !== null && named === pluginId
+      const reveal = showOthers === true
+      const ownerShown = !busy
+        ? '空闲'
+        : named === null
+          ? '其他插件'
+          : aboutSelf
+            ? '本插件'
+            : reveal
+              ? named
+              : '其他插件'
+      const ownerVer = busy && named !== null && (aboutSelf || reveal) ? version : ''
+      const pos = typeof queue.position === 'number' ? queue.position : null
+      const posText = pos === null ? '未排队' : `第 ${pos} 位`
+      const posNote = pos === null ? '' : pos === 1 ? '下一个就是你' : `前方 ${pos - 1} 个`
+      const rows = [
+        '<div class="dsh-upd-qrow">' +
+          `<span class="dsh-upd-qdot" data-tone="${busy ? 'busy' : 'idle'}"></span>` +
+          '<span class="dsh-upd-qk">正在安装</span>' +
+          `<span class="dsh-upd-qv">${escapeHtml(ownerShown + ownerVer)}</span>` +
+          `<span class="dsh-upd-qn">${busy ? '装完自动轮到你' : '同一使用范围一次只装一个'}</span></div>`,
+        '<div class="dsh-upd-qrow">' +
+          '<span class="dsh-upd-qdot" data-tone="you"></span>' +
+          '<span class="dsh-upd-qk">你的顺位</span>' +
+          `<span class="dsh-upd-qv">${escapeHtml(posText)}</span>` +
+          `<span class="dsh-upd-qn">${escapeHtml(posNote)}</span></div>`,
+      ]
+      // 开关打开要有东西可看：给一条排队顺序（否则「显示其他插件」点了跟没点一样）。
+      if (reveal && queue.waiting.length > 0) {
+        const seq = queue.waiting
+          .map((e) => `${e.pluginId}${e.targetVersion ? `@${e.targetVersion}` : ''}`)
+          .join(' → ')
+        rows.push(
+          '<div class="dsh-upd-qrow"><span class="dsh-upd-qdot"></span>' +
+            '<span class="dsh-upd-qk">排队顺序</span>' +
+            `<span class="dsh-upd-qseq">${escapeHtml(seq)}</span></div>`,
+        )
+      }
+      const note =
+        '<span class="dsh-upd-chap-note"><button type="button" data-action="toggle-queue">' +
+        `${reveal ? '隐藏他人明细' : '显示其他插件'}</button></span>`
+      parts.push(chapterOf(3, `<div class="dsh-upd-queue">${rows.join('')}</div>`, note))
+    } else {
       parts.push(
-        `<div class="dsh-upd-changelog-wrap"><div>${escapeHtml(rangeTitle)}</div>\n${changelogHTML}\n</div>`,
+        chapterOf(
+          3,
+          `<div class="dsh-upd-queue"><div class="dsh-upd-changelog-neutral">${escapeHtml(
+            view.queueNote ?? '当前没有排队任务，同一使用范围一次只装一个。',
+          )}</div></div>`,
+        ),
       )
-    } catch {
-      // 日志画坏了也不挡更新：吞掉即可，安装按钮状态不变。
     }
   }
+  // —— 04 错误信息（原型 :237-240）：失败时的稳定码一句话 + 复制诊断 + 日志过滤口径 ——
+  {
+    const errLines: string[] = []
+    if (b.kind === 'failed' || b.kind === 'blocked') {
+      errLines.push(
+        `<div class="dsh-upd-err">稳定码 <code>${escapeHtml(String(b.kind === 'blocked' ? (snapshot?.blockedReason ?? b.kind) : 'install-failed'))}</code>` +
+          `：上一条中文说明就是要用户做的事；要往上游报，用「复制诊断」整段粘（已脱敏）。</div>`,
+      )
+    }
+    errLines.push(
+      `<div class="dsh-upd-log">深挖看日志：按插件标识 <code>${escapeHtml(pluginId)}</code> 过滤 ` +
+        `<code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 三个事件。</div>`,
+    )
+    if (copyNotice) errLines.push(`<div class="dsh-upd-copy" role="status">${escapeHtml(copyNotice)}</div>`)
+    parts.push(chapterOf(4, errLines.join('')))
+  }
+  // —— 05 手工命令（原型 :242-245）：章节恒在；没有可给的手工命令就说清为什么 ——
   parts.push(
-    `<div class="dsh-upd-log">深挖看日志：按插件标识 <code>${escapeHtml(pluginId)}</code> 过滤 ` +
-      `<code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 三个事件。</div>`,
+    chapterOf(
+      5,
+      view.showManual && manual
+        ? `<div class="dsh-upd-manual"><div>手工兜底命令（复制整行执行）：</div><code>${escapeHtml(manual)}</code></div>`
+        : `<div class="dsh-upd-manual"><div class="dsh-upd-changelog-neutral">当前没有可用的手工命令（认不出使用范围或属源码安装时不给）。</div></div>`,
+    ),
   )
-  if (copyNotice) parts.push(`<div class="dsh-upd-copy" role="status">${escapeHtml(copyNotice)}</div>`)
   return parts.join('\n')
 }
 
@@ -991,10 +1309,13 @@ export function renderUpdatePanelHTML(input: PanelRenderInput): string {
   // `d5-paper` 才在根上挂 data-theme 并追加 D5 串；内核 HTML 两边同一份。
   const d5 = input.theme === 'd5-paper'
   const attr = d5 ? ' data-theme="d5-paper"' : ''
+  // 印章走属性带到根上：D5 用 CSS `content:attr(...)` 画成大印章，默认主题只当属性带着不画，
+  // 两个主题的 DOM 仍逐字同一份（主题只换肤这条不变量不破）。
+  const sealAttr = ` data-seal="${escapeHtml(view.seal.text)}" data-seal-tone="${view.seal.tone}"`
   const body =
     input.mode === 'dialog'
-      ? `<div class="dsh-upd-overlay" data-mode="dialog"><div class="dsh-upd" data-mode="dialog" data-plugin="${escapeHtml(input.pluginId)}"${attr}>\n${kernel}\n</div></div>`
-      : `<div class="dsh-upd" data-mode="embedded" data-plugin="${escapeHtml(input.pluginId)}"${attr}>\n${kernel}\n</div>`
+      ? `<div class="dsh-upd-overlay" data-mode="dialog"><div class="dsh-upd" data-mode="dialog" data-plugin="${escapeHtml(input.pluginId)}"${sealAttr}${attr}>\n${kernel}\n</div></div>`
+      : `<div class="dsh-upd" data-mode="embedded" data-plugin="${escapeHtml(input.pluginId)}"${sealAttr}${attr}>\n${kernel}\n</div>`
   const css = d5 ? `${UPDATE_PANEL_CSS}\n${UPDATE_PANEL_D5_CSS}` : UPDATE_PANEL_CSS
   return `<style>${css}</style>\n${body}`
 }
@@ -1099,9 +1420,13 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   }
   let showOthers = options.showOthers === true
   const call = options.call
+  const onRestartRequested = options.onRestartRequested
   const copyText = options.copyText ?? defaultCopyText
   const skipStore = options.skipStore ?? createBrowserSkipStore(pluginId)
   const hostKind = typeof options.hostKind === 'string' && options.hostKind ? options.hostKind : null
+  // 使用范围（profile）：宿主经 includeEnv 回真值，调用方也能显式覆盖。
+  // 这一栏是「更新装到哪个范围」的唯一展示面——web / desktop 各装一份，必须让人看见自己点的是哪个。
+  const profileNameOption = typeof options.profileName === 'string' && options.profileName ? options.profileName : null
   const diagCopyFormat: DiagCopyFormat = options.diagCopyFormat === 'line' ? 'line' : 'block'
   let changelogMarkdown: string | null =
     typeof options.changelogMarkdown === 'string' ? options.changelogMarkdown : null
@@ -1116,9 +1441,13 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   let lastDiag: unknown = null
   let copyNotice: string | null = null
   let mounted = true
+  // 宿主 includeEnv 回的使用范围与宿主种类（调用方显式传的优先，见 render）。
+  let envProfileName: string | null = null
+  let envHostKind: string | null = null
 
   function queueArgs(): Record<string, unknown> {
-    return { includeQueue: true, showOthers, ...(requestId ? { requestId } : {}) }
+    // includeEnv：要宿主把「装到哪个使用范围」一并回给我们（老调用不带，回包形状不变）。
+    return { includeQueue: true, includeEnv: true, showOthers, ...(requestId ? { requestId } : {}) }
   }
 
   function render(): void {
@@ -1138,6 +1467,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       pluginId,
       copyNotice,
       theme,
+      // 使用范围与宿主种类：调用方显式传的优先，否则用宿主回的真值。
+      profileName: profileNameOption ?? envProfileName,
+      hostKind: hostKind ?? envHostKind,
     })
   }
 
@@ -1152,6 +1484,13 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       }
       const q = asQueue(reply['queue'])
       if (q) queue = q
+      const env = reply['env']
+      if (isObject(env)) {
+        const pn = env['profileName']
+        const hk = env['environmentKind']
+        if (typeof pn === 'string' && pn) envProfileName = pn
+        if (typeof hk === 'string' && hk) envHostKind = hk
+      }
       lastError = null
       lastErrorKind = null
       lastDiag = Object.prototype.hasOwnProperty.call(reply, 'diag') ? (reply as Record<string, unknown>)['diag'] : null
@@ -1298,6 +1637,22 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       case 'toggle-queue': {
         showOthers = !showOthers
         await refresh()
+        return
+      }
+      // 「重启宿主」：宿主没有重启自己的电话，所以只做入口——
+      // 调用方给了 onRestartRequested 就交给它；没给就如实说“请手动重启”，不假装。
+      case 'restart-hint': {
+        try {
+          if (typeof onRestartRequested === 'function') {
+            await onRestartRequested()
+            copyNotice = '已按调用方的重启流程处理；重启后新版生效。'
+          } else {
+            copyNotice = '本宿主未提供重启入口：请手动重启宿主，重启后新版生效。'
+          }
+        } catch {
+          copyNotice = '重启入口调用失败：请手动重启宿主，重启后新版生效。'
+        }
+        render()
         return
       }
       case 'close-view': {

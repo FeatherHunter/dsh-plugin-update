@@ -8,3 +8,10 @@ dist/
 .tmp-publish-status.json
 .tmp-publish-*.log
 tests/.tmp/
+
+# 会话临时件与视觉工具产物
+.scratch/
+.dsh-vision-router/
+
+# 体验场的单文件成品：由 demo/build-showcase.mjs 生成，不入库
+demo/showcase*.html

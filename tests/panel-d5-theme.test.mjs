@@ -56,6 +56,8 @@ function inputFor(viewOverrides = {}, renderOverrides = {}) {
     pluginId: 'p',
     copyNotice: null,
     mode: 'embedded',
+    // 两个参数都真的并进来（此前第一个参数被忽略，用它会静默拿到默认快照）。
+    ...viewOverrides,
     ...renderOverrides,
   }
 }
@@ -117,11 +119,13 @@ test('双形态与主题正交：同形态下换肤内核不变', () => {
 
 // ---------- D5 七要素只换肤 ----------
 
-test('D5 七要素：印章一字 + profile 牌 + 衬线横幅 + SVG + 折叠 + 双主题全在串里', () => {
+test('D5 七要素：印章取属性 + profile 牌 + 衬线横幅 + SVG + 折叠 + 双主题全在串里', () => {
   const css = UPDATE_PANEL_D5_CSS
-  for (const ch of ['"查"', '"装"', '"启"', '"阻"', '"定"']) {
-    assert.ok(css.includes(`content:${ch}`), `迷你印章须含 ${ch}`)
-  }
+  // 印章（原型 :206 大印章 / :215 小印章）：内容从根属性取，CSS 里不再写死五个字。
+  assert.ok(css.includes('content:attr(data-seal)'), '大印章须读 data-seal')
+  assert.ok(css.includes('content:attr(data-mini)'), '小印章须读 data-mini')
+  assert.ok(css.includes('rotate(-7deg)'), '大印章须旋转 -7°（原型 .seal）')
+  assert.ok(css.includes('[data-seal-tone="green"]'), '大印章须按色调分档上色')
   assert.ok(css.includes('.dsh-upd-log code'), 'profile 牌须落在现有日志 code 上')
   assert.ok(css.includes('--d5-serif'), '须有衬线变量')
   assert.ok(css.includes('Noto Serif CJK SC'), '衬线栈须含 CJK 回退（无 Songti/SimSun 的环境不许回退成等线）')
@@ -133,6 +137,72 @@ test('D5 七要素：印章一字 + profile 牌 + 衬线横幅 + SVG + 折叠 + 
   assert.ok(css.includes('text-overflow:ellipsis'), '优先级折叠走 CSS 省略号逐字折叠')
   assert.ok(css.includes('@media (prefers-color-scheme: dark)'), '浅深双主题须跟随系统')
   assert.ok(css.includes('#f7f3ea') && css.includes('#141210'), '浅深纸色须各就其位')
+})
+
+test('待重启横幅只有一个标记：不画印章，标记是手绘 SVG（原型 :446）', () => {
+  const css = UPDATE_PANEL_D5_CSS
+  // 印章选择器列表里不许出现 restart（否则「启」章与 SVG 三角两个标记打架——现场就是这个问题）。
+  const sealRule = css.slice(css.indexOf('content:attr(data-mini)'))
+  const selectorHead = sealRule.slice(0, sealRule.indexOf('{'))
+  assert.ok(!selectorHead.includes('data-kind="restart"'), '待重启横幅不得挂迷你印章')
+  assert.ok(
+    !/\[data-kind="restart"\]::before\{content:/.test(css),
+    '待重启横幅不得有 content 规则（标记只能是 SVG）',
+  )
+  assert.ok(
+    css.includes('[data-kind="restart"]>div:first-child{display:flex'),
+    '待重启标记须是独立 flex 标记（不许用行内背景把句子劈开）',
+  )
+  assert.ok(css.includes('[data-kind="restart"]>div:first-child::before{content:""'), '标记走 ::before 占位，不挤正文')
+})
+
+test('印章走属性带在根上：两个主题的内核逐字同一份，默认主题不画', () => {
+  const restartInput = inputFor({
+    snapshot: baseSnapshot({ canInstall: false, blockedReason: 'pending-restart', latestVersion: '1.1.0', installedVersion: '1.1.0' }),
+  })
+  const def = renderUpdatePanelHTML(restartInput)
+  const d5 = renderUpdatePanelHTML({ ...restartInput, theme: 'd5-paper' })
+  assert.ok(def.includes('data-seal="待重启"'), '根上须带大印章文字')
+  assert.ok(def.includes('data-seal-tone="yellow"'), '待重启印章色调应为黄')
+  assert.ok(def.includes('data-mini="启"'), '横幅须带小印章一字')
+  assert.equal(kernelOf(d5), kernelOf(def), '换肤不得改内核')
+  assert.ok(!UPDATE_PANEL_CSS.includes('attr(data-seal)'), '默认主题不许画印章（内容只在 D5 串里读）')
+})
+
+test('待重启文案照原型：不带 emoji，且给「重启宿主」入口', () => {
+  const html = renderUpdatePanelHTML(
+    inputFor({ snapshot: baseSnapshot({ canInstall: false, blockedReason: 'pending-restart', latestVersion: '1.1.0', installedVersion: '1.1.0' }) }),
+  )
+  assert.ok(html.includes('新版 1.1.0 已安装，重启宿主后生效。'), '文案须照原型')
+  assert.ok(!html.includes('⚠'), '标题里不得再有 emoji（标记由 SVG 承担）')
+  assert.ok(html.includes('data-action="restart-hint"'), '须给「重启宿主」入口')
+  assert.ok(html.includes('>重启宿主<'), '按钮文字须是「重启宿主」')
+})
+
+test('「重启宿主」入口：没给回调如实提示手动重启，给了回调就交给调用方', async () => {
+  const restart = baseSnapshot({ canInstall: false, blockedReason: 'pending-restart', latestVersion: '1.1.0', installedVersion: '1.1.0' })
+  const boxA = fakeContainer()
+  const panelA = mountUpdatePanel(boxA, { pluginId: 'p', call: fakeCall(restart), pollMs: 60000 })
+  await panelA.refresh()
+  await panelA.act('restart-hint')
+  assert.ok(boxA.innerHTML.includes('请手动重启宿主'), '没给回调须如实提示，不假装能重启')
+  panelA.unmount()
+
+  let called = 0
+  const boxB = fakeContainer()
+  const panelB = mountUpdatePanel(boxB, {
+    pluginId: 'p',
+    call: fakeCall(restart),
+    pollMs: 60000,
+    onRestartRequested: () => {
+      called += 1
+    },
+  })
+  await panelB.refresh()
+  await panelB.act('restart-hint')
+  assert.equal(called, 1, '给了回调须调用它')
+  assert.ok(boxB.innerHTML.includes('已按调用方的重启流程处理'), '须如实回执')
+  panelB.unmount()
 })
 
 test('复制诊断永不隐藏：D5 串不对复制入口写 display:none', () => {

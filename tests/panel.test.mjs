@@ -211,7 +211,7 @@ test('排队可见开关：默认藏他人明细，显式才看全量，位置�
   const panel = mountUpdatePanel(box, { pluginId: 'p', call, pollMs: 60000 })
   await panel.refresh()
   assert.ok(!box.innerHTML.includes('other-plugin'), '默认不露他人标识')
-  assert.match(box.innerHTML, /排第 1 位/, '位置照给')
+  assert.match(box.innerHTML, /第 1 位/, '位置照给（新队列设计：你的顺位一行）')
   await panel.act('toggle-queue')
   const lastStatus = log.filter((e) => e.name.endsWith('.updateStatus')).pop()
   assert.equal(lastStatus.args.showOthers, true, '切换后重查带 showOthers')

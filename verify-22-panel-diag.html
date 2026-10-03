@@ -1,0 +1,46 @@
+<!doctype html><meta charset=utf-8><title>#22 first-principles fix verification</title><body><h1>#22 第一性修正验证（手册为准+码→摘要→来源→怎么办+缺省省略+queuePos忽略）</h1><h3>unknown-profile</h3><p>使用范围或插件位置认不出 / 重开宿主再查一次；一直这样就把版本号与日志交给插件作者；这种情形不给手工命令</p><pre>[update-diag] unknown-profile — 使用范围或插件位置认不出
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：重开宿主再查一次；一直这样就把版本号与日志交给插件作者；这种情形不给手工命令</pre><pre>[update-diag] code=unknown-profile · 使用范围或插件位置认不出 · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=重开宿主再查一次；一直这样就把版本号与日志交给插件作者；这种情形不给手工命令</pre><h3>source-install</h3><p>当前是从源码装的，不是按版本号装的 / 这种情形不给手工命令；想走更新先按版本号重装一次</p><pre>[update-diag] source-install — 当前是从源码装的，不是按版本号装的
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：这种情形不给手工命令；想走更新先按版本号重装一次</pre><pre>[update-diag] code=source-install · 当前是从源码装的，不是按版本号装的 · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=这种情形不给手工命令；想走更新先按版本号重装一次</pre><h3>invalid-installation</h3><p>已装的包不完整（名字对不上、版本非法、入口文件缺失） / 重装当前版本，修好已装目录再查更新</p><pre>[update-diag] invalid-installation — 已装的包不完整（名字对不上、版本非法、入口文件缺失）
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：重装当前版本，修好已装目录再查更新</pre><pre>[update-diag] code=invalid-installation · 已装的包不完整（名字对不上、版本非法、入口文件缺失） · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=重装当前版本，修好已装目录再查更新</pre><h3>installation-changed</h3><p>安装位置在使用中途变了（换了目录或换了包） / 重新打开宿主再查一次；还出现就重装</p><pre>[update-diag] installation-changed — 安装位置在使用中途变了（换了目录或换了包）
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：重新打开宿主再查一次；还出现就重装</pre><pre>[update-diag] code=installation-changed · 安装位置在使用中途变了（换了目录或换了包） · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=重新打开宿主再查一次；还出现就重装</pre><h3>pending-restart</h3><p>新版已装到磁盘，正在跑的还是旧版 / 重启宿主，让新版跑起来；这是正常终态，不是失败</p><pre>[update-diag] pending-restart — 新版已装到磁盘，正在跑的还是旧版
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：重启宿主，让新版跑起来；这是正常终态，不是失败</pre><pre>[update-diag] code=pending-restart · 新版已装到磁盘，正在跑的还是旧版 · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=重启宿主，让新版跑起来；这是正常终态，不是失败</pre><h3>registry-conflict</h3><p>本地声明的版本与磁盘实际版本互相矛盾 / 打开使用范围的清单文件，把目标包名那一行改成版本号再试</p><pre>[update-diag] registry-conflict — 本地声明的版本与磁盘实际版本互相矛盾
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：打开使用范围的清单文件，把目标包名那一行改成版本号再试</pre><pre>[update-diag] code=registry-conflict · 本地声明的版本与磁盘实际版本互相矛盾 · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=打开使用范围的清单文件，把目标包名那一行改成版本号再试</pre><h3>incompatible-node</h3><p>新版要求的 Node 与当前运行的对不上 / 先升级 Node 到 22 或更高，再查更新</p><pre>[update-diag] incompatible-node — 新版要求的 Node 与当前运行的对不上
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：先升级 Node 到 22 或更高，再查更新</pre><pre>[update-diag] code=incompatible-node · 新版要求的 Node 与当前运行的对不上 · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=先升级 Node 到 22 或更高，再查更新</pre><h3>recovery-required</h3><p>上次安装被打断，留下一个半截任务 / 重新点一次安装；一直出现就按第 6 节排错</p><pre>[update-diag] recovery-required — 上次安装被打断，留下一个半截任务
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：重新点一次安装；一直出现就按第 6 节排错</pre><pre>[update-diag] code=recovery-required · 上次安装被打断，留下一个半截任务 · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=重新点一次安装；一直出现就按第 6 节排错</pre><h3>check-failed</h3><p>查新版没成功（联网、源、限流都可能） / 过一会儿再查一次；一直失败就把复制诊断交给插件作者</p><pre>[update-diag] check-failed — 查新版没成功（联网、源、限流都可能）
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：过一会儿再查一次；一直失败就把复制诊断交给插件作者</pre><pre>[update-diag] code=check-failed · 查新版没成功（联网、源、限流都可能） · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=过一会儿再查一次；一直失败就把复制诊断交给插件作者</pre><h3>invalid-release</h3><p>拿到的发布信息不合法（版本号非法或内容对不上） / 检查清单文件里的包名与版本写法，再查一次</p><pre>[update-diag] invalid-release — 拿到的发布信息不合法（版本号非法或内容对不上）
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：检查清单文件里的包名与版本写法，再查一次</pre><pre>[update-diag] code=invalid-release · 拿到的发布信息不合法（版本号非法或内容对不上） · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=检查清单文件里的包名与版本写法，再查一次</pre><h3>check-expired</h3><p>凭证过期了，安装请求被拒 / 重新查一次新版再点安装，不要重试旧编号</p><pre>[update-diag] check-expired — 凭证过期了，安装请求被拒
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：重新查一次新版再点安装，不要重试旧编号</pre><pre>[update-diag] code=check-expired · 凭证过期了，安装请求被拒 · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=重新查一次新版再点安装，不要重试旧编号</pre><h3>update-busy</h3><p>同一使用范围正在装另一个 / 等当前任务离开 installing/verifying 再点；排队中去查状态看位置</p><pre>[update-diag] update-busy — 同一使用范围正在装另一个
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：等当前任务离开 installing/verifying 再点；排队中去查状态看位置</pre><pre>[update-diag] code=update-busy · 同一使用范围正在装另一个 · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=等当前任务离开 installing/verifying 再点；排队中去查状态看位置</pre><h3>install-failed</h3><p>装不上（详见诊断摘要） / 先看复制诊断；官方桌面版把这段交给插件作者</p><pre>[update-diag] install-failed — 装不上（详见诊断摘要）
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：先看复制诊断；官方桌面版把这段交给插件作者</pre><pre>[update-diag] code=install-failed · 装不上（详见诊断摘要） · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=先看复制诊断；官方桌面版把这段交给插件作者</pre><h3>internal</h3><p>出了点问题，认不出具体原因 / 先重试一次；一直这样就把复制诊断交给插件作者</p><pre>[update-diag] internal — 出了点问题，认不出具体原因
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：先重试一次；一直这样就把复制诊断交给插件作者</pre><pre>[update-diag] code=internal · 出了点问题，认不出具体原因 · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=先重试一次；一直这样就把复制诊断交给插件作者</pre><h3>quota-exceeded</h3><p>出了点问题，认不出具体原因 / 先重试一次；一直这样就把复制诊断交给插件作者（带上你看到的码）</p><pre>[update-diag] quota-exceeded — 出了点问题，认不出具体原因
+  摘要：示例摘要
+  来源：插件=demo-plugin · 版本=1.2.2→1.2.2 · 宿主=cli · 路由=registry · 阶段=fetch-release · 方法=https · HTTP=429 · 源=未知（非官方源时省略本身即信息） · 建议=retry · 请求=req-demo · 检查=chk-demo · 队列=排队第 1 位
+  怎么办：先重试一次；一直这样就把复制诊断交给插件作者（带上你看到的码）</pre><pre>[update-diag] code=quota-exceeded · 出了点问题，认不出具体原因 · 摘要=示例摘要 · 插件=demo-plugin · 版本=?→? · 宿主=未知 · 源=未知（非官方源时省略本身即信息） · 队列=不在队列里 · 怎么办=先重试一次；一直这样就把复制诊断交给插件作者（带上你看到的码）</pre></body>

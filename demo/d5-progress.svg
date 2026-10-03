@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="1010" viewBox="0 0 1240 1010" font-family="Georgia,'Songti SC','SimSun',serif">
+  <rect width="1240" height="1010" fill="#f7f3ea"/>
+  <rect x="18" y="18" width="1204" height="974" fill="none" stroke="#c4b896" stroke-width="1.5"/>
+
+  <!-- 标题 -->
+  <text x="46" y="62" font-size="27" font-weight="700" fill="#1a1a1a">更新面板 · D5 移植进度</text>
+  <text x="46" y="88" font-size="14" fill="#6f675a">2026-10-03 · 全量 358 项测试 / 357 过 / 0 失败 · 发布演练 36 文件 · 改动未提交</text>
+  <text x="1194" y="62" font-size="13" fill="#c8402a" text-anchor="end" letter-spacing="2">待重启 · 阶段一已完成</text>
+
+  <!-- 本次已修 -->
+  <rect x="40" y="108" width="1160" height="96" fill="#fffdf6" stroke="#e3d9c4"/>
+  <text x="58" y="134" font-size="13" letter-spacing="2" fill="#6f675a">本次已修（你报的两处 + 顺带两处）</text>
+  <g font-size="13.5" fill="#1a1a1a">
+    <text x="58" y="162">✓ 删掉标题里的 ⚠️ emoji，文案照原型</text>
+    <text x="58" y="186" fill="#6f675a">  改前：印章 + emoji + SVG 三重标记 → 改后：只留 SVG</text>
+    <text x="420" y="162">✓ 待重启横幅不再叠印章</text>
+    <text x="420" y="186" fill="#6f675a">  徽记归 SVG，印章归状态位，各司其职</text>
+    <text x="782" y="162">✓ 深色下横幅白底浅字</text>
+    <text x="782" y="186" fill="#6f675a">  底色改走变量 + 深色覆盖，对比度 ≥ 4.5 有门禁</text>
+  </g>
+  <text x="58" y="212" font-size="13" fill="#1a1a1a">✓ 加「重启宿主」入口：默认提示手动重启，调用方可传 onRestartRequested 接管</text>
+  <text x="560" y="212" font-size="13" fill="#6f675a">· 顺带修：测试助手 inputFor 第一个参数被忽略（断言会静默拿默认快照）</text>
+
+  <!-- 两列标题 -->
+  <text x="46" y="262" font-size="15" font-weight="700" fill="#1a1a1a">原型骨架 · prototype/redesign/d5-paper.html</text>
+  <text x="656" y="262" font-size="15" font-weight="700" fill="#1a1a1a">当前实现 · src/panel.ts 渲染出来的</text>
+
+  <!-- 左列 -->
+  <g font-size="13.5">
+    <rect x="40" y="276" width="570" height="40" fill="#fffdf6" stroke="#e3d9c4"/>
+    <text x="56" y="301" fill="#1a1a1a">大印章 88px 旋转 -7°（:206）</text>
+    <text x="582" y="301" fill="#1a7f37" text-anchor="end">✓</text>
+
+    <rect x="40" y="322" width="570" height="40" fill="#fffdf6" stroke="#e3d9c4"/>
+    <text x="56" y="347" fill="#1a1a1a">filehead：插件名 + 使用范围 + profile 牌（:208-211）</text>
+    <text x="582" y="347" fill="#b3261e" text-anchor="end">○</text>
+
+    <rect x="40" y="368" width="570" height="40" fill="#fffdf6" stroke="#e3d9c4"/>
+    <text x="56" y="393" fill="#1a1a1a">待重启横幅：SVG 标 + 文案 + 重启按钮（:446-448）</text>
+    <text x="582" y="393" fill="#1a7f37" text-anchor="end">✓</text>
+
+    <rect x="40" y="414" width="570" height="40" fill="#fffdf6" stroke="#e3d9c4"/>
+    <text x="56" y="439" fill="#1a1a1a">状态行：小印章一字 + 一行话（:215）</text>
+    <text x="582" y="439" fill="#1a7f37" text-anchor="end">✓</text>
+
+    <rect x="40" y="460" width="570" height="40" fill="#fffdf6" stroke="#e3d9c4"/>
+    <text x="56" y="485" fill="#1a1a1a">版本条 strip：运行 / 磁盘 / 远端（:216）</text>
+    <text x="582" y="485" fill="#8a5a00" text-anchor="end">△</text>
+
+    <rect x="40" y="506" width="570" height="40" fill="#fffdf6" stroke="#e3d9c4"/>
+    <text x="56" y="531" fill="#1a1a1a">01 检查与安装 · 章节编号 + 细线（:218-224）</text>
+    <text x="582" y="531" fill="#8a5a00" text-anchor="end">△</text>
+
+    <rect x="40" y="552" width="570" height="40" fill="#fffdf6" stroke="#e3d9c4"/>
+    <text x="56" y="577" fill="#1a1a1a">02 更新日志（:226-229）</text>
+    <text x="582" y="577" fill="#8a5a00" text-anchor="end">△</text>
+
+    <rect x="40" y="598" width="570" height="40" fill="#fffdf6" stroke="#e3d9c4"/>
+    <text x="56" y="623" fill="#1a1a1a">03 更新队列（:231-235）</text>
+    <text x="582" y="623" fill="#8a5a00" text-anchor="end">△</text>
+
+    <rect x="40" y="644" width="570" height="40" fill="#fffdf6" stroke="#e3d9c4"/>
+    <text x="56" y="669" fill="#1a1a1a">04 错误信息（:237-240）</text>
+    <text x="582" y="669" fill="#8a5a00" text-anchor="end">△</text>
+
+    <rect x="40" y="690" width="570" height="40" fill="#fffdf6" stroke="#e3d9c4"/>
+    <text x="56" y="715" fill="#1a1a1a">05 手工命令（:242-245）</text>
+    <text x="582" y="715" fill="#8a5a00" text-anchor="end">△</text>
+
+    <rect x="40" y="736" width="570" height="40" fill="#fffdf6" stroke="#e3d9c4"/>
+    <text x="56" y="761" fill="#1a1a1a">安装进度条 · 跳过行虚框 tag（:221-223）</text>
+    <text x="582" y="761" fill="#8a5a00" text-anchor="end">△</text>
+  </g>
+
+  <!-- 右列 -->
+  <g font-size="13.5">
+    <rect x="650" y="276" width="550" height="40" fill="#e9f4ea" stroke="#1a7f37" stroke-dasharray="4 3"/>
+    <text x="666" y="301" fill="#1a1a1a">根元素带 data-seal，CSS 在右上画出 88px 大章</text>
+
+    <rect x="650" y="322" width="550" height="40" fill="#fbe9e5" stroke="#b3261e" stroke-dasharray="4 3"/>
+    <text x="666" y="347" fill="#1a1a1a">没有「使用范围」这一行（面板拿不到 profileName）</text>
+
+    <rect x="650" y="368" width="550" height="40" fill="#e9f4ea" stroke="#1a7f37" stroke-dasharray="4 3"/>
+    <text x="666" y="393" fill="#1a1a1a">横幅[data-kind=restart]：SVG 标 + 照原型文案 + 重启宿主按钮</text>
+
+    <rect x="650" y="414" width="550" height="40" fill="#e9f4ea" stroke="#1a7f37" stroke-dasharray="4 3"/>
+    <text x="666" y="439" fill="#1a1a1a">横幅兼任状态行，小印章走 attr(data-mini)</text>
+
+    <rect x="650" y="460" width="550" height="40" fill="#fbf0d0" stroke="#8a5a00" stroke-dasharray="4 3"/>
+    <text x="666" y="485" fill="#1a1a1a">三个版本号散在文案里，没有成条</text>
+
+    <rect x="650" y="506" width="550" height="40" fill="#fbf0d0" stroke="#8a5a00" stroke-dasharray="4 3"/>
+    <text x="666" y="531" fill="#1a1a1a">动作按钮平铺，没有编号与章节细线</text>
+
+    <rect x="650" y="552" width="550" height="40" fill="#fbf0d0" stroke="#8a5a00" stroke-dasharray="4 3"/>
+    <text x="666" y="577" fill="#1a1a1a">日志块在，没编号</text>
+
+    <rect x="650" y="598" width="550" height="40" fill="#fbf0d0" stroke="#8a5a00" stroke-dasharray="4 3"/>
+    <text x="666" y="623" fill="#1a1a1a">队列块在，没编号</text>
+
+    <rect x="650" y="644" width="550" height="40" fill="#fbf0d0" stroke="#8a5a00" stroke-dasharray="4 3"/>
+    <text x="666" y="669" fill="#1a1a1a">失败信息在横幅与复制诊断里，没有独立章节</text>
+
+    <rect x="650" y="690" width="550" height="40" fill="#fbf0d0" stroke="#8a5a00" stroke-dasharray="4 3"/>
+    <text x="666" y="715" fill="#1a1a1a">手工命令块在，没编号</text>
+
+    <rect x="650" y="736" width="550" height="40" fill="#fbf0d0" stroke="#8a5a00" stroke-dasharray="4 3"/>
+    <text x="666" y="761" fill="#1a1a1a">安装只有文字状态，无进度条；跳过无虚框 tag</text>
+  </g>
+
+  <!-- 图例 -->
+  <text x="46" y="806" font-size="13" fill="#1a7f37">✓ 已还原（4 项）</text>
+  <text x="206" y="806" font-size="13" fill="#8a5a00">△ 内容在、骨架没搬（6 项）</text>
+  <text x="466" y="806" font-size="13" fill="#b3261e">○ 缺数据（1 项，要新增可选参数）</text>
+
+  <!-- 决策区 -->
+  <rect x="40" y="824" width="1160" height="146" fill="#fffdf6" stroke="#c8402a" stroke-width="2"/>
+  <text x="60" y="854" font-size="17" font-weight="700" fill="#c8402a">需要你确定的一件事：阶段二做不做</text>
+  <text x="60" y="880" font-size="13.5" fill="#1a1a1a">阶段二 = 把原型的骨架搬过来（动内核 DOM，会连带改 22 条面板测试 + 8 种横幅用例）：</text>
+  <text x="60" y="906" font-size="13.5" fill="#1a1a1a">① 编号章节 01–05 + 章节细线　② 版本条　③ 使用范围 + profile 牌（需加 profileName 参数）　④ 安装进度条　⑤ 跳过行虚框</text>
+  <text x="60" y="932" font-size="13.5" fill="#6f675a">选项 A：五项全做（最像原型）　B：只做 ①②，③④⑤ 留后　C：到此为止（标记已对，骨架保持现状）</text>
+  <text x="60" y="956" font-size="13.5" fill="#6f675a">另外两件顺带的：改完要不要我提交推送？体验场 demo/ 与集成文档要不要一起入库？</text>
+</svg>

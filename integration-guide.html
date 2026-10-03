@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>更新系统集成（一页纸）</title>
+<style>
+body{font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;max-width:760px;margin:32px auto;padding:0 20px;line-height:1.7;color:#1a1a1a}
+h1{font-size:24px}h2{font-size:18px;margin-top:28px;border-bottom:1px solid #eee;padding-bottom:6px}
+pre{background:#f6f6f6;padding:12px 14px;border-radius:6px;overflow:auto;font-size:13px}
+code{font-family:ui-monospace,Consolas,monospace}
+.note{background:#fbf0d0;border:1px solid #e3d9c4;border-radius:6px;padding:10px 14px;font-size:14px}
+.ok{color:#1a7f37}.muted{color:#666;font-size:14px}
+</style>
+</head>
+<body>
+<h1>给插件接上“检查更新 / 安装更新”（一页纸）</h1>
+<p class="muted">要求 Node 22+，零运行依赖。你只写 <b>6 行 + 1 条命令</b>，剩下的（轮询、门控、中文提示、重启横幅、排队、跳过、诊断复制）全在组件里。</p>
+
+<h2>第 1 步：装包</h2>
+<pre><code>npm install dsh-plugin-update</code></pre>
+
+<h2>第 2 步：宿主接线（4 行）</h2>
+<pre><code>import { createHostUpdate } from 'dsh-plugin-update'
+
+const update = createHostUpdate({ ctx, logCtx }, {
+  pluginId: 'my-notes-plugin',   // 换成你的插件名
+  prefix: 'notes',                // 换成你的前缀，多插件靠它隔离
+  targetPackageName: 'my-notes-plugin',
+})
+for (const [name, handler] of Object.entries(update.handlers))
+  registry.set(name, handler)    // 得到 notes.updateStatus / Check / Install</code></pre>
+<p class="muted">升级本包以后这里不用改代码，只升版本号。</p>
+
+<h2>第 3 步：面板挂载（2 行 + 1 条命令）</h2>
+<p>先生成电话名（prefix 改了就重跑一次）：</p>
+<pre><code>node node_modules/dsh-plugin-update/derive-client-values.mjs --prefix notes --out scripts/generated/updateClient.derived.js</code></pre>
+<p>再放一个挂载点：</p>
+<pre><code>import { mountUpdatePanel } from 'dsh-plugin-update/panel'
+
+const panel = mountUpdatePanel(document.getElementById('update-slot'), {
+  pluginId: 'my-notes-plugin',
+  prefix: 'notes',   // 必须和宿主侧一致
+  call: (name, args) =&gt; host.call(name, args),
+})
+// 离开时 panel.unmount()：只停轮询，安装在宿主侧继续跑；重开 1 秒内恢复显示</code></pre>
+
+<h2>到手的效果</h2>
+<ul>
+<li><span class="ok">有新版</span> → 横幅提示 → 点安装 → 关面板也不停</li>
+<li>装不上 → 中文一句话 + 可复制的手工命令；旁边“复制诊断”一键给出脱敏文本</li>
+<li>排队默认只看自己的；“已跳过 X.Y.Z · 恢复”在同一行，不藏设置</li>
+<li>更新说明读包内 <code>CHANGELOG.md</code>（Added/Fixed/Changed），没有就中性提示，不挡安装</li>
+</ul>
+
+<div class="note">只要一种接法：<b>整组件就是默认</b>。直接调三个电话属于无界面/自绘面板的高级用法，契约冻结可用，但新插件不用学。换肤加 <code>theme: 'd5-paper'</code> 即 D5 档案卷，不传即最小默认。</div>
+
+<h2>卡住了看这里</h2>
+<ul>
+<li>电话名对不上 → 两边的 <code>prefix</code> 是否一致，派生是否重跑</li>
+<li>轮询报错 &lt; 250ms → 调到 250 或更大</li>
+<li>私镜装不上 → 用面板给的手工命令，源按你配的原样拼</li>
+</ul>
+</body>
+</html>
