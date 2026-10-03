@@ -42,6 +42,27 @@ export {
 } from './queue.js'
 export type { QueuedEntry, QueueOwner, UpdateQueueState, VisibleQueue, VisibleQueueOwner } from './queue.js'
 
+// 多目标批量更新的会话账本（#25）：纯函数，无 Node 专属能力，可进浏览器闭包。
+// 面板凭它渲染批量进度（第几家在装、哪几家要重启、哪几家失败），宿主凭它落盘续跑。
+export {
+  BATCH_SESSION_VERSION,
+  batchEntryOf,
+  batchProgress,
+  batchRequestId,
+  createBatchSession,
+  emptyBatchSession,
+  failedKeys,
+  isBatchFinished,
+  isTerminalPhase,
+  markBatchEntry,
+  needsRestartKeys,
+  nextBatchKey,
+  normalizeBatchSession,
+  orderTargets,
+  resumeBatchSession,
+} from './batch.js'
+export type { BatchEntry, BatchPhase, BatchProgress, BatchSession } from './batch.js'
+
 // 更新日志纯函数（#23：面板闭包同缝，零依赖；取数在宿主 Node 侧按需调用）。
 export {
   CHANGELOG_FILENAME,

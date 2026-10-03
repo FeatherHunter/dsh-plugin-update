@@ -32,6 +32,8 @@ const UNITS = [
   { ts: 'reader.ts', js: 'reader.js' },
   { ts: 'gate.ts', js: 'gate.js' },
   { ts: 'queue.ts', js: 'queue.js' },
+  { ts: 'batch.ts', js: 'batch.js' },
+  { ts: 'batch-run.ts', js: 'batch-run.js' },
   { ts: 'host.ts', js: 'host.js' },
   { ts: 'client.ts', js: 'client.js' },
   { ts: 'panel.ts', js: 'panel.js' },
