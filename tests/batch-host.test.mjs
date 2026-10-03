@@ -637,6 +637,16 @@ describe('忙时入队：驱动进行中也能加人（#25 排队语义）', () 
     )
     assert.equal(first.rows[0].queue.position, 2, '行上能读到队列位置（前方 1 个）')
 
+    // 面板「取消排队」依赖的宿主契约：showOthers=false 时 waiting 只有自己那条，requestId 能取到；
+    // 撤占位走单插件 updateInstall({cancelQueued})，不碰整轮账本（batchCancel 才清整轮）。
+    const waiting = first.rows[0].queue.waiting
+    assert.equal(waiting.length, 1, '只看得到自己那条占位')
+    const cancelled = await host.handlers['p-a.updateInstall']({ cancelQueued: true, requestId: waiting[0].requestId })
+    assert.equal(cancelled.ok, true)
+    const afterCancel = await host.handlers['life.batchStatus']({})
+    assert.equal(afterCancel.rows[0].queue.position, null, '撤了占位，位置读数为空')
+    assert.equal(entryOf(afterCancel.session, 'a').phase, 'ready', '账本相位不动：取消的是排队占位，不是这一行')
+
     // 别家收尾、队列让开后再推：从 ready 直接装，不重查
     queue = { version: 1, owner: null, waiting: [] }
     const second = await host.handlers['life.batchInstall']({})
