@@ -4,12 +4,14 @@
 
 要求 Node 22 或更高，零运行时依赖。当前版本 `0.2.0`。
 
-装上它你会拿到四样东西：
+装上它你会拿到六样东西：
 
 - **三个电话**：查状态（只读本地）、查新版（用户点了才联网一次）、装更新（拿凭证提交）。电话指宿主对外提供的方法。
 - **一套落盘**：任务状态、安装锁、回滚凭据，按「插件标识 + 使用范围」隔离，多插件互不干扰。
 - **面板要的派生取值**：电话名与轮询间隔，构建期从本包生成，面板里不写死。
 - **一个现成整组件**：默认内嵌、可切弹窗，调用者传参指定；轮询、安装门控、中文一句话、待重启横幅、手工命令展示与复制、排队可见开关、跳过与恢复、诊断一键复制全在组件内部消化。
+- **一个更新入口件**：配置页一行挂上就是「检查更新」按钮（或只给状态点的徽标、或整块内嵌），按钮文案随状态自己变；见第 2.5 节。
+- **一套多目标批量更新**：一个插件管 N 个插件的更新（总账 + 明细 + 动作，一家收尾才起下一家，会话落盘可断点续跑）；见第 2.6 节。
 
 ## 1. 安装
 
@@ -141,6 +143,98 @@ mountUpdatePanel(slot, { pluginId: 'my-notes-plugin', prefix: 'notes', call: hos
 可选专业主题（D5 档案卷，不替换默认）：挂载时加 `theme: 'd5-paper'` 即换肤（右上大印章「待查/可装/安装中/待重启/受阻/已最新」+ 横幅小印章一字 + profile 牌 + 待重启衬线横幅配手绘 SVG 标 + 窄屏印章固定 + 省略号逐字折叠 + 浅深双主题跟随系统），内核 DOM 顺序不动、复制诊断常在；不传即最小可用默认样式。运行时用 `panel.setTheme('d5-paper' | 'default')` 可切。
 
 类型定义随包分发（`dsh-plugin-update/panel` 的 `.d.ts`），不用自编译；面板离线可读，与包版本绑定。
+
+### 第 2.5 节：更新入口件（配置页上那一颗按钮）
+
+目标只有一句：**让用户不用点开就知道有没有事。** 一行挂上：
+
+```js
+import { mountUpdateEntry } from 'dsh-plugin-update/entry'
+
+const entry = mountUpdateEntry(document.getElementById('upd-entry'), {
+  pluginId: 'my-notes-plugin',
+  prefix: 'notes',
+  call: (name, args) => host.call(name, args),
+})
+```
+
+三个自由度，默认值都选好了：
+
+| 自由度 | 取值 | 默认 | 说明 |
+|---|---|---|---|
+| 摆什么 | `button` / `badge` / `inline` | `button` | 按钮；只给一个状态点；面板本体直接嵌进来 |
+| 什么时候查 | `mount` / `never` | `mount` | 进页面静默查一次（**只调 `.updateStatus`，只读**）；`never` 则只在点击时查 |
+| 点了做什么 | `has-update` / `always` / `manual` | `has-update` | 有新版才开面板；总是开；交给 `onActivate` 自己跳 |
+
+按钮文案随状态自己变：`检查更新` / `有新版 1.1.0` / `正在安装…` / `待重启` / `更新失败，点此查看`。
+
+**一条铁律：检查是只读、安装是写入，两者不许合并成一个动作。** 入口件永远只做「查 + 打开面板」，
+任何路径都不自动安装；用户必须在面板里明确点「安装」。想让点击交给自己（例如你已有自己的更新页）：
+
+```js
+mountUpdateEntry(el, { pluginId: 'p', prefix: 'notes', call, variant: 'badge',
+  onActivate: ({ hasUpdate, latestVersion }) => { /* 自己跳自己的页面 */ } })
+```
+
+### 第 2.6 节：多目标批量更新（一个插件管 N 个插件的更新）
+
+一个插件替自己**和另外几个插件**管更新时，别把 N 个面板并排——用户在那块界面上只问三件事：
+**有没有事 / 是哪几家 / 我要做什么**。所以这套东西是「总账 + 明细 + 动作」三层，一行只回答一个问题。
+
+宿主侧：
+
+```js
+import { createMultiHostUpdate } from 'dsh-plugin-update/batch'
+
+const multi = createMultiHostUpdate({ ctx, logCtx }, {
+  prefix: 'life',                       // 批量电话前缀
+  selfKey: 'life-pack',                 // 「自己」：排序时排最后（自更新安全）
+  targets: [
+    { key: 'bill',    title: '记账',   packageName: 'dsh-bill-ilife',    prefix: 'ilife-bill' },
+    { key: 'calorie', title: '卡路里', packageName: 'dsh-calorie',       prefix: 'ilife-calorie' },
+    { key: 'life-pack', title: '爱生活', packageName: 'dsh-life-pack',   prefix: 'ilife-life-pack' },
+  ],
+  // drain: true,                       // 宿主侧定时推进（默认关：自动装是行为跃迁，显式开）
+})
+for (const [name, handler] of Object.entries(multi.handlers)) registry.set(name, handler)
+```
+
+五个批量电话（`<prefix>` 即上面的 `life`）：`batchStatus` / `batchCheck` / `batchInstall` / `batchResume` / `batchCancel`；
+每个目标的三个单插件电话照旧以**各自前缀**暴露（`ilife-bill.updateStatus` 等）。
+
+回包形状（成功恰好四项，失败只有三项）：
+
+```js
+{ ok: true, session, rows, progress }      // rows 一行一家：key/title/phase/targetVersion/restartRequired/error/snapshot
+{ ok: false, error, errorKind }            // 跨使用范围混目标会回 cross-scope，不抢锁、不写盘
+```
+
+面板侧：
+
+```js
+import { mountUpdateBatchPanel } from 'dsh-plugin-update/panel-batch'
+
+const panel = mountUpdateBatchPanel(el, {
+  prefix: 'life',
+  call: (name, args) => host.call(name, args),
+  theme: 'd5-paper',       // 与单插件面板同一套皮肤
+})
+```
+
+三条硬约束（都在实现里）：**一行只回答一个问题**（这家的下一步是什么，状态词全中文可执行）；
+**行内动作只作用于该行**，「全部更新」是宏而不是第二个状态机；**待重启与失败常驻横幅**，不藏进展开里。
+点任意一行展开该家详情，用的是**单插件那套五章内核**（同一份渲染，不另写）。
+
+**耐久（这是这套东西存在的理由）**：批量会话落在
+`<家目录>/update-queue/<使用范围短指纹>/batch.json`，每一步都写盘。所以关面板、重载页面、
+甚至进程重启都不怕——`batchResume` 读回来接着推：**已完成的不重装**（编号恒等、幂等），
+没做完的重新查一次再装。这就是「更新自己时 UI 消失、剩下几家永不启动」那个病的正解。
+
+**自更新安全**：`selfKey` 指定的那家默认排到最后。承载更新界面的那个包若第一个被替换掉，
+界面与推进它的循环会一起消失——排最后则前面几家早已落盘收尾。
+
+**跨使用范围如实拒绝**：`web` 与 `desktop` 各自排队（装的是不同落点），混在一起的目标会回
+`cross-scope`，本包不会替你跨范围抢锁。
 
 ### 升级本包（已经接入过的项目）
 

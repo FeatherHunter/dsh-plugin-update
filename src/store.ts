@@ -22,6 +22,7 @@ import { mkdir, open, readFile, rename, realpath, stat, unlink, writeFile } from
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { installRecipe } from './commands.js'
 import { BACKUP_FILE, LEGACY_PLUGIN_ID, LOCK_FILE, SKIPPED_FILE, STATE_FILE } from './config.js'
+import { emptyBatchSession, normalizeBatchSession, type BatchSession } from './batch.js'
 import { normalizeQueueState, type UpdateQueueState } from './queue.js'
 import { validReleaseVersion } from './service.js'
 import { sanitizeDetail } from './redaction.js'
@@ -379,6 +380,96 @@ export function createUpdateQueuePorts(
     } catch {}
   }
   return { paths, readQueue, writeQueue, tryAcquireGlobalLock, releaseGlobalLock }
+}
+
+/** 批量会话账本的共享落盘（#25，与队列同一目录：同一使用范围一份，跨插件共用）。
+ *
+ * 归属：按使用范围共享（与跨插件队列同一套目录派生：`update-queue/<使用范围短指纹>`），
+ * 不同使用范围各用各的。文件只有一份 `batch.json` —— 「这一轮批量更新走到哪了」是全范围唯一的一份，
+ * 与按插件隔离的 `updates/<插件标识>/...` 那棵树完全分开（父目录不同，任何插件标识都撞不上）。
+ * 纪律与队列同一套：读坏自愈为空会话（缺文件、超大、JSON 坏掉、读失败都回空，绝不因账本坏掉挡住更新）；
+ * 写走原子整写（临时文件 + rename，写完删临时件）；清空写一份空会话（不是删文件，避免与并发读打架）。
+ */
+export const BATCH_FILE = 'batch.json'
+/** 账本读入上限：1 MiB，超了当坏账本（正常一份几百字节）。 */
+export const BATCH_FILE_MAX_BYTES = 1024 * 1024
+
+export interface UpdateBatchPaths {
+  directory: string
+  file: string
+}
+
+/**
+ * 批量账本路径：与队列同一目录（`update-queue/<短指纹>/batch.json`）。
+ * 入参非法返回 null，调用方按「账本不可落盘」处理（诚实说明，绝不猜目录）。
+ */
+export function batchPathsForUpdate(homeDir: string, profileDir: string): UpdateBatchPaths | null {
+  const queue = queuePathsForUpdate(homeDir, profileDir)
+  if (!queue) return null
+  return { directory: queue.directory, file: join(queue.directory, BATCH_FILE) }
+}
+
+export interface BatchPortsDeps {
+  readFileImpl?: (filename: string, encoding: string) => Promise<string>
+  statImpl?: (filename: string) => Promise<{ size: number }>
+}
+
+function batchFail(): Error & { code: string } {
+  // 批量账本自身的错另起一个码（与队列的 queue-unavailable 同风格）：账本写不进去要能一眼认出来，
+  // 不冒充 install-failed —— 安装成败的归类不因账本故障改变。
+  return Object.assign(new Error('batch-unavailable'), { code: 'batch-unavailable' })
+}
+
+/**
+ * 建批量账本存取：调用方按当前使用范围建一份（与插件标识无关），转交批量宿主入口。
+ * 读走单读自愈为空会话；写原子整写；清空写空会话。路径算不出来时不抛错（读回空、写抛 batch-unavailable）。
+ */
+export function createBatchDiskPorts(
+  homeDir: string,
+  profileDir: string,
+  deps: BatchPortsDeps = {}
+): {
+  paths: UpdateBatchPaths | null
+  readBatch: () => Promise<BatchSession>
+  writeBatch: (session: BatchSession) => Promise<void>
+  clearBatch: () => Promise<void>
+} {
+  const paths = batchPathsForUpdate(homeDir, profileDir)
+  const readText = deps.readFileImpl ?? ((filename: string, encoding: string) => readFile(filename, encoding))
+  const statFile = deps.statImpl ?? ((filename: string) => stat(filename))
+  async function readBatch(): Promise<BatchSession> {
+    if (!paths) return emptyBatchSession()
+    try {
+      if ((await statFile(paths.file)).size > BATCH_FILE_MAX_BYTES) return emptyBatchSession()
+      return normalizeBatchSession(JSON.parse(await readText(paths.file, 'utf8')))
+    } catch {
+      // 自愈为空会话：缺文件、超大、JSON 坏掉、读失败都回空，坏账本不能挡更新（与队列同一纪律）。
+      return emptyBatchSession()
+    }
+  }
+  async function writeBatch(session: BatchSession): Promise<void> {
+    if (!paths) throw batchFail()
+    const normalized = normalizeBatchSession(session)
+    try {
+      await mkdir(paths.directory, { recursive: true, mode: 0o700 })
+      const temporary = `${paths.file}.${randomUUID()}.tmp`
+      try {
+        await writeFile(temporary, `${JSON.stringify(normalized, null, 2)}\n`, { mode: 0o600, flag: 'wx' })
+        await rename(temporary, paths.file)
+      } catch {
+        throw batchFail()
+      } finally {
+        await unlink(temporary).catch(() => {})
+      }
+    } catch (error) {
+      throw error && (error as { code?: string }).code ? error : batchFail()
+    }
+  }
+  async function clearBatch(): Promise<void> {
+    if (!paths) return
+    await writeBatch(emptyBatchSession())
+  }
+  return { paths, readBatch, writeBatch, clearBatch }
 }
 
 /** 按插件 + 版本持久化的跳过记录（#16，与三冻结落盘名并存的第四文件，不碰旧树）。

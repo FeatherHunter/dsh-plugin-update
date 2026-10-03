@@ -26,6 +26,18 @@
       "types": "./dist/client.d.ts",
       "default": "./dist/client.js"
     },
+    "./batch": {
+      "types": "./dist/host-batch.d.ts",
+      "default": "./dist/host-batch.js"
+    },
+    "./panel-batch": {
+      "types": "./dist/panel-batch.d.ts",
+      "default": "./dist/panel-batch.js"
+    },
+    "./entry": {
+      "types": "./dist/entry.d.ts",
+      "default": "./dist/entry.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

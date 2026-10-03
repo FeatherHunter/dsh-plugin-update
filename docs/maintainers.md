@@ -56,7 +56,9 @@ npm publish
 
 ## 发布白名单
 
-`package.json` 的 `files` 共 6 项：`dist`、`derive-client-values.mjs`、`event-list.template.json`、`README.md`、`CHANGELOG.md`、`LICENSE`（另加隐含的 `package.json`；`dist` 下 12 个 JS 全带上，另加同名 `.d.ts` 类型定义）。
+`package.json` 的 `files` 共 6 项：`dist`、`derive-client-values.mjs`、`event-list.template.json`、`README.md`、`CHANGELOG.md`、`LICENSE`（另加隐含的 `package.json`；`dist` 是目录，**src 下每个 TS 都会带上对应 JS 与 `.d.ts`**——加模块不必改白名单，但要跑一次 `npm publish --dry-run` 核对文件数）。
+
+包出口共 7 个子路径：`.`（宿主侧）、`./panel`、`./client`、`./batch`（多目标批量宿主入口）、`./panel-batch`（批量面板）、`./entry`（更新入口件）、`./package.json`。新增能力一律**新开子路径**，不改既有入口的形状。
 加新文件进包时同步改 `files`，并重跑 `npm publish --dry-run` 确认文件数。
 
 ## 本包门禁

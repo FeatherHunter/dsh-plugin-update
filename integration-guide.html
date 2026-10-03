@@ -55,6 +55,38 @@ const panel = mountUpdatePanel(document.getElementById('update-slot'), {
 
 <div class="note">只要一种接法：<b>整组件就是默认</b>。直接调三个电话属于无界面/自绘面板的高级用法，契约冻结可用，但新插件不用学。换肤加 <code>theme: 'd5-paper'</code> 即 D5 档案卷，不传即最小默认。</div>
 
+<h2>只要一颗按钮（入口件）</h2>
+<pre><code>import { mountUpdateEntry } from 'dsh-plugin-update/entry'
+mountUpdateEntry(document.getElementById('upd-entry'), {
+  pluginId: 'my-notes-plugin', prefix: 'notes', call: (n, a) =&gt; host.call(n, a),
+})
+// 按钮文案自己变：检查更新 / 有新版 1.1.0 / 正在安装… / 待重启 / 更新失败，点此查看</code></pre>
+<ul>
+<li>默认进页面静默查一次（<b>只读</b>，不联网签凭证），<b>有新版才</b>弹面板；没新版只在原地给一句「已是最新 X.Y.Z」</li>
+<li>三种形态：<code>variant:'button'</code>（默认）/ <code>'badge'</code>（只给状态点）/ <code>'inline'</code>（面板直接嵌进来）</li>
+<li>已有自己的更新页：<code>openOn:'manual'</code> + <code>onActivate({hasUpdate, latestVersion})</code>，跳转你自己做</li>
+<li><b>铁律</b>：入口件只做「查 + 打开面板」，任何路径都不自动安装——装必须用户自己点</li>
+</ul>
+
+<h2>一个插件管 N 个插件（批量）</h2>
+<pre><code>import { createMultiHostUpdate } from 'dsh-plugin-update/batch'
+import { mountUpdateBatchPanel } from 'dsh-plugin-update/panel-batch'
+
+const multi = createMultiHostUpdate({ ctx, logCtx }, {
+  prefix: 'life',
+  selfKey: 'life-pack',            // 「自己」排最后：自更新安全
+  targets: [{ key, title, packageName, prefix }, …],
+})
+for (const [name, h] of Object.entries(multi.handlers)) registry.set(name, h)
+
+mountUpdateBatchPanel(el, { prefix: 'life', call: (n, a) =&gt; host.call(n, a) })</code></pre>
+<ul>
+<li>界面是「总账 + 明细 + 动作」三层：一行一家、一行只回答「这家的下一步」；点开某家复用单插件五章内核</li>
+<li>「检查更新」一次查 N 家；「全部更新」<b>一家收尾才起下一家</b>，一家失败默认继续</li>
+<li>会话落盘 <code>batch.json</code>：关面板 / 重载 / 进程重启都不怕——<code>batchResume</code> 接着推，<b>已完成的不重装</b></li>
+<li>跨使用范围混目标回 <code>cross-scope</code>，不替你跨范围抢锁；<code>drain</code> 默认关，要宿主自动推进得显式开</li>
+</ul>
+
 <h2>卡住了看这里</h2>
 <ul>
 <li>电话名对不上 → 两边的 <code>prefix</code> 是否一致，派生是否重跑</li>

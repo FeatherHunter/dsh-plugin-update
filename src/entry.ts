@@ -1,0 +1,474 @@
+// src/entry.ts —— 更新入口件：按钮 / 徽标 / 内嵌三态（#25）。
+//
+// 第一性（为什么它该由本包提供，而不是接入方自己拼）：
+//   接入方真正要回答的问题只有一句——「用户在这个页面上，怎么知道我这儿有更新、怎么走到更新界面」。
+//   这件事的形状与插件无关，只有三个自由度：**摆什么**（按钮/徽标/内嵌）、**什么时候查**（进来就查/
+//   只手工查）、**点了做什么**（有新版才开面板 / 总是开 / 只回调给接入方自己跳）。
+//   所以本包把它做成一件：接入方一行挂上，状态文案由我们从快照推出来，接入方不写状态机。
+//
+// 一条铁律：**检查是只读、安装是写入，两者不许合并成一个动作**。
+//   入口件永远只做「查 + 打开面板」，绝不自动装；用户必须在面板里明确点「安装」。
+//   落实在本文件：只调 <前缀>.updateStatus（只读本地）与 <前缀>.updateCheck（联网、只读），
+//   源码里不出现安装电话；安装只发生在 src/panel.ts 的「安装」按钮被用户点下时。
+//
+// 契约（#25 实现）：
+//   variant='button'（默认）：一个按钮，文案随状态；点下去先查一次，再按 openOn 决定去向；
+//   variant='badge' ：只有一个小圆点（接入方自己排版、自己接管点击 → 走 onActivate 回调）；
+//   variant='inline'：面板本体直接嵌进来（等价 mountUpdatePanel 的 embedded，状态文案读 entryLabelFor）；
+//   打开面板 = 以 mode:'dialog' 挂单插件面板（复用 src/panel.ts，不另写界面）。
+//   容器只有一个要求：有 innerHTML（与 panel 同口径）。入口件自己在容器里画按钮；面板开着时容器
+//   暂时归面板所有（经转发件写同一个容器），关闭即还原按钮——接入方不用给第二个挂载点。
+//
+// 文案不写状态机：只由 entryLabelFor(快照 + 失败码) 推出来，接入方读 label() 做自定义排版。
+
+import { DEFAULT_PREFIX, MIN_PANEL_POLL_MS, buildPhoneNames } from './config.js'
+import {
+  failureCodeOf,
+  mountUpdatePanel,
+  type UpdatePanelContainer,
+  type UpdatePanelController,
+  type UpdatePanelMode,
+  type UpdatePanelTheme,
+} from './panel.js'
+import type { UpdateSnapshot } from './ports.js'
+
+// ---------- 公开类型 ----------
+
+/** 入口件的形态。 */
+export type EntryVariant = 'button' | 'badge' | 'inline'
+
+/** 什么时候主动查一次（只读，联网一次）。 */
+export type EntryAutoCheck = 'mount' | 'never'
+
+/** 用户点下去之后做什么。 */
+export type EntryOpenOn = 'has-update' | 'always' | 'manual'
+
+/** 入口件主题（与面板同一套取值，切换即换肤）。 */
+export type EntryTheme = UpdatePanelTheme
+
+/** 入口件的状态档：只用来算文案与 data-state，不另立状态机。 */
+export type EntryStateKind = 'idle' | 'update' | 'busy' | 'restart' | 'failed'
+
+/** 算文案要的全部输入：一份快照 + 最近一次通话的失败稳定码（没查过、没失败为 null）。 */
+export interface UpdateEntryState {
+  snapshot: UpdateSnapshot | null
+  error: string | null
+}
+
+export interface UpdateEntryOptions {
+  pluginId: string
+  /** 单插件电话前缀（与宿主侧一致）。 */
+  prefix: string
+  /** 调宿主电话：(phoneName, args) => Promise<reply>。 */
+  call: (name: string, args: Record<string, unknown>) => Promise<unknown>
+  variant?: EntryVariant
+  theme?: 'default' | 'd5-paper'
+  /** 缺省 'mount'：进页面静默查一次（只读）。'never' 则只在用户点击时查。 */
+  autoCheck?: EntryAutoCheck
+  /** 缺省 'has-update'：有新版才开面板，没有就只在原地给一句提示。 */
+  openOn?: EntryOpenOn
+  /** 覆盖默认按钮文案（不传就用状态联动文案）。 */
+  label?: string
+  profileName?: string
+  pollMs?: number
+  /** variant='badge' 或 openOn='manual' 时，点击交给接入方（自己跳自己的页面）。 */
+  onActivate?: (state: { hasUpdate: boolean; latestVersion: string | null }) => void
+}
+
+export interface UpdateEntryController {
+  /** 立刻查一次并把状态刷到界面上（只读）。 */
+  refresh(): Promise<void>
+  /** 打开更新面板（dialog 形态）。 */
+  open(): void
+  /** 关掉更新面板。 */
+  close(): void
+  /** 当前按钮上的状态文案（接入方做自定义排版时读它）。 */
+  label(): string
+  setTheme(theme: 'default' | 'd5-paper'): void
+  unmount(): void
+}
+
+// ---------- 状态 → 文案（纯函数：同一份快照永远算出同一句话，接入方不用写状态机） ----------
+//
+// 文案是可执行的话，不是稳定码：用户读到的是「待重启」而不是 pending-restart。
+// 五档与票面口径一一对应：无新版/未查→检查更新；有新版→有新版 X.Y.Z；安装中→正在安装…；
+// 待重启→待重启；失败→更新失败，点此查看。
+
+const LABEL_IDLE = '检查更新'
+const LABEL_FAILED = '更新失败，点此查看'
+const LABEL_BUSY = '正在安装…'
+const LABEL_RESTART = '待重启'
+
+/** 有没有新版：远端版本存在且与运行版本不同（能不能装是面板的事，入口件只如实说「有」）。 */
+function hasUpdateOf(snapshot: UpdateSnapshot | null): boolean {
+  if (!snapshot) return false
+  const latest = snapshot.latestVersion
+  if (typeof latest !== 'string' || !latest.trim()) return false
+  return latest.trim() !== snapshot.runningVersion
+}
+
+/**
+ * 状态档：快照六字段 + 失败码推出，顺序固定（活任务 > 待重启 > 失败 > 有新版 > 待查）。
+ * 待重启是正常终态（不是失败），所以排在失败前面；正在装的任务比一条陈旧的失败码更可信。
+ */
+export function entryStateKind(state: UpdateEntryState | null | undefined): EntryStateKind {
+  const snapshot = state?.snapshot ?? null
+  const job = snapshot?.job ?? null
+  if (job && (job.state === 'installing' || job.state === 'verifying')) return 'busy'
+  if (snapshot && (snapshot.blockedReason === 'pending-restart' || job?.state === 'restart-required')) {
+    return 'restart'
+  }
+  if ((state && state.error) || (job && (job.state === 'failed' || job.state === 'interrupted'))) {
+    return 'failed'
+  }
+  if (hasUpdateOf(snapshot)) return 'update'
+  return 'idle'
+}
+
+/** 入口件文案（唯一出处：测试与接入方都读它，不各写一份）。 */
+export function entryLabelFor(state: UpdateEntryState | null | undefined): string {
+  switch (entryStateKind(state)) {
+    case 'busy':
+      return LABEL_BUSY
+    case 'restart':
+      return LABEL_RESTART
+    case 'failed':
+      return LABEL_FAILED
+    case 'update': {
+      const latest = state?.snapshot?.latestVersion
+      return typeof latest === 'string' && latest.trim() ? `有新版 ${latest.trim()}` : LABEL_IDLE
+    }
+    default:
+      return LABEL_IDLE
+  }
+}
+
+// ---------- 入口件自己的最小样式（面板本体仍由 src/panel.ts 提供，这里只画按钮/圆点/提示） ----------
+
+export const UPDATE_ENTRY_CSS = [
+  '.dsh-upd-entry{display:inline-flex;align-items:center;gap:8px;font:13px/1.6 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-upd-fg,#1f2937)}',
+  '.dsh-upd-entry-btn{font:inherit;border:1px solid var(--dsh-upd-line,#d1d5db);border-radius:6px;',
+  'background:var(--dsh-upd-btn,#f9fafb);color:inherit;padding:4px 12px;cursor:pointer}',
+  '.dsh-upd-entry-btn:hover{border-color:var(--dsh-upd-primary,#2563eb)}',
+  '.dsh-upd-entry-btn:focus-visible,.dsh-upd-entry-dot:focus-visible{outline:2px solid var(--dsh-upd-focus,#2563eb);outline-offset:1px}',
+  '.dsh-upd-entry[data-state="update"] .dsh-upd-entry-btn{border-color:var(--dsh-upd-ok-line,#059669);color:var(--dsh-upd-ok-line,#059669)}',
+  '.dsh-upd-entry[data-state="restart"] .dsh-upd-entry-btn{border-color:var(--dsh-upd-warn-line,#d97706);color:var(--dsh-upd-warn-line,#d97706)}',
+  '.dsh-upd-entry[data-state="failed"] .dsh-upd-entry-btn{border-color:var(--dsh-upd-bad-line,#dc2626);color:var(--dsh-upd-bad-line,#dc2626)}',
+  '.dsh-upd-entry-dot{width:10px;height:10px;padding:0;border:0;border-radius:50%;background:var(--dsh-upd-line,#9ca3af);cursor:pointer}',
+  '.dsh-upd-entry[data-state="update"] .dsh-upd-entry-dot{background:var(--dsh-upd-ok-line,#059669)}',
+  '.dsh-upd-entry[data-state="busy"] .dsh-upd-entry-dot,.dsh-upd-entry[data-state="restart"] .dsh-upd-entry-dot{background:var(--dsh-upd-warn-line,#d97706)}',
+  '.dsh-upd-entry[data-state="failed"] .dsh-upd-entry-dot{background:var(--dsh-upd-bad-line,#dc2626)}',
+  '.dsh-upd-entry-note{font-size:12.5px;opacity:.75}',
+  '.dsh-upd-entry[data-theme="d5-paper"]{font-family:Georgia,"Songti SC","STSong","SimSun",serif;color:#1a1a1a}',
+  '.dsh-upd-entry[data-theme="d5-paper"] .dsh-upd-entry-btn{border-color:#c4b896;background:transparent;border-radius:3px}',
+  '.dsh-upd-entry[data-theme="d5-paper"] .dsh-upd-entry-btn:hover{border-color:#c8402a;color:#c8402a}',
+  '@media (prefers-color-scheme: dark){.dsh-upd-entry{color:#e5e7eb}',
+  '.dsh-upd-entry-btn{--dsh-upd-btn:#1f2937;--dsh-upd-line:#374151}}',
+].join('\n')
+
+// ---------- 内部小件 ----------
+
+const ENTRY_ATTR = 'data-dsh-upd-entry'
+const ENTRY_SELECTOR = '[data-dsh-upd-entry]'
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+/** 宽容读快照：形状不对就当没查到（不猜、不抛）。 */
+function asSnapshot(value: unknown): UpdateSnapshot | null {
+  if (!isObject(value)) return null
+  if (typeof value['runningVersion'] !== 'string') return null
+  if (typeof value['canInstall'] !== 'boolean') return null
+  return value as unknown as UpdateSnapshot
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+// ---------- 挂载（接入方一行挂上；查是只读、装只能用户在面板里点） ----------
+
+export function mountUpdateEntry(container: UpdatePanelContainer, options: UpdateEntryOptions): UpdateEntryController {
+  if (!container || typeof container.innerHTML !== 'string') {
+    throw new Error('[dsh-plugin-update] 挂更新入口件需要一个有 innerHTML 的容器')
+  }
+  if (!options || typeof options !== 'object') {
+    throw new Error('[dsh-plugin-update] 挂更新入口件缺少配置：插件标识 pluginId 必填')
+  }
+  const pluginId = options.pluginId
+  if (typeof pluginId !== 'string' || !pluginId) {
+    throw new Error(`[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ${JSON.stringify(pluginId)}）`)
+  }
+  if (typeof options.call !== 'function') {
+    throw new Error('[dsh-plugin-update] 挂更新入口件需要传输函数 call（入口件调宿主电话的唯一接触面）')
+  }
+  // 电话名只从前缀派生（与宿主侧同一套拼法，不写字面量）。
+  const rawPrefix = (options as { prefix?: unknown }).prefix
+  const prefix = rawPrefix === undefined ? DEFAULT_PREFIX : (rawPrefix as string)
+  const phoneNames = buildPhoneNames(prefix)
+
+  const variant: EntryVariant = options.variant ?? 'button'
+  if (variant !== 'button' && variant !== 'badge' && variant !== 'inline') {
+    throw new Error(`[dsh-plugin-update] 入口件形态非法：只收 button / badge / inline（收到 ${JSON.stringify(options.variant)}）`)
+  }
+  const autoCheck: EntryAutoCheck = options.autoCheck ?? 'mount'
+  if (autoCheck !== 'mount' && autoCheck !== 'never') {
+    throw new Error(`[dsh-plugin-update] 自动检查时机非法：只收 mount 或 never（收到 ${JSON.stringify(options.autoCheck)}）`)
+  }
+  const openOn: EntryOpenOn = options.openOn ?? 'has-update'
+  if (openOn !== 'has-update' && openOn !== 'always' && openOn !== 'manual') {
+    throw new Error(`[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual（收到 ${JSON.stringify(options.openOn)}）`)
+  }
+  let theme: UpdatePanelTheme = options.theme ?? 'default'
+  if (theme !== 'default' && theme !== 'd5-paper') {
+    throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 d5-paper（收到 ${JSON.stringify(options.theme)}）`)
+  }
+  const pollMs = options.pollMs
+  if (pollMs !== undefined && (typeof pollMs !== 'number' || !Number.isFinite(pollMs) || pollMs < MIN_PANEL_POLL_MS)) {
+    throw new Error(`[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ${JSON.stringify(options.pollMs)}）`)
+  }
+  const labelOverride = typeof options.label === 'string' && options.label ? options.label : null
+  const profileName = typeof options.profileName === 'string' && options.profileName ? options.profileName : null
+  const onActivate = typeof options.onActivate === 'function' ? options.onActivate : null
+  const call = options.call
+
+  let snapshot: UpdateSnapshot | null = null
+  let error: string | null = null
+  let note: string | null = null
+  let mounted = true
+  let panel: UpdatePanelController | null = null
+  let panelMode: UpdatePanelMode | null = null
+
+  // 面板与入口件共用同一个容器：面板经这个转发件写 innerHTML、挂监听，接入方不用给第二个挂载点。
+  const panelHost: UpdatePanelContainer = {
+    get innerHTML(): string {
+      return container.innerHTML
+    },
+    set innerHTML(value: string) {
+      container.innerHTML = value
+    },
+    addEventListener(type, listener) {
+      container.addEventListener?.(type, listener)
+    },
+    removeEventListener(type, listener) {
+      container.removeEventListener?.(type, listener)
+    },
+  }
+
+  async function panelCall(name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const reply = await call(name, args)
+    return isObject(reply) ? reply : {}
+  }
+
+  function stateOf(): UpdateEntryState {
+    return { snapshot, error }
+  }
+
+  function currentLabel(): string {
+    return labelOverride ?? entryLabelFor(stateOf())
+  }
+
+  function hasUpdate(): boolean {
+    return hasUpdateOf(snapshot)
+  }
+
+  /** 入口件自己那些电话的参数：只要快照，不带队列/环境（入口件不展示它们，少传少错）。 */
+  function phoneArgs(): Record<string, unknown> {
+    return {}
+  }
+
+  function entryHTML(): string {
+    const kind = entryStateKind(stateOf())
+    const text = currentLabel()
+    const themeAttr = theme === 'd5-paper' ? ' data-theme="d5-paper"' : ''
+    const control =
+      variant === 'badge'
+        ? `<button type="button" class="dsh-upd-entry-dot" ${ENTRY_ATTR}="activate" title="${escapeHtml(text)}" aria-label="${escapeHtml(text)}"></button>`
+        : `<button type="button" class="dsh-upd-entry-btn" ${ENTRY_ATTR}="activate">${escapeHtml(text)}</button>`
+    const noteHTML = note
+      ? `<span class="dsh-upd-entry-note" data-dsh-upd-note="1">${escapeHtml(note)}</span>`
+      : ''
+    return (
+      `<style>${UPDATE_ENTRY_CSS}</style>\n` +
+      `<span class="dsh-upd-entry" data-variant="${variant}" data-state="${kind}"${themeAttr}>` +
+      `${control}${noteHTML}</span>`
+    )
+  }
+
+  /** 重绘入口件本身；面板在容器里时容器归面板（关掉再还原）。 */
+  function render(): void {
+    if (!mounted) return
+    if (panelMode !== null) return
+    container.innerHTML = entryHTML()
+  }
+
+  function applyReply(reply: unknown): void {
+    if (!isObject(reply) || reply['ok'] !== true) {
+      // 失败（或回包形状不认）：记稳定码，文案给「更新失败，点此查看」。
+      error = failureCodeOf(isObject(reply) ? reply : null, 'check-failed')
+      return
+    }
+    const next = asSnapshot(reply['snapshot'])
+    if (next) snapshot = next
+    error = null
+  }
+
+  async function refresh(): Promise<void> {
+    if (!mounted) return
+    try {
+      const reply = await call(phoneNames.updateStatus, phoneArgs())
+      if (!mounted) return
+      applyReply(reply)
+    } catch {
+      if (!mounted) return
+      error = 'check-failed'
+    }
+    render()
+  }
+
+  /** 用户点击带来的那一次查新版（联网、只读；入口件唯一的联网点）。 */
+  async function checkNow(): Promise<void> {
+    try {
+      const reply = await call(phoneNames.updateCheck, phoneArgs())
+      if (!mounted) return
+      applyReply(reply)
+    } catch {
+      if (!mounted) return
+      error = 'check-failed'
+    }
+  }
+
+  /** 把面板挂进容器（复用 src/panel.ts 的整组件，不另写界面）。 */
+  function mountPanel(mode: UpdatePanelMode): void {
+    if (!mounted || panelMode !== null) return
+    panel = mountUpdatePanel(panelHost, {
+      pluginId,
+      prefix,
+      mode,
+      theme,
+      pollMs,
+      profileName,
+      call: panelCall,
+    })
+    panelMode = mode
+  }
+
+  function openDialog(): void {
+    mountPanel('dialog')
+  }
+
+  function open(): void {
+    if (!mounted || panelMode !== null) return
+    // inline 的面板在挂载时就已经是容器本体；再 open 一次没有第二个可开的东西。
+    if (variant === 'inline') return
+    openDialog()
+  }
+
+  function close(): void {
+    // 只收 dialog：inline 的面板是容器本体，收掉它等于把入口件拆了。
+    if (!mounted || panelMode !== 'dialog' || !panel) return
+    const opened = panel
+    panel = null
+    panelMode = null
+    try {
+      opened.unmount()
+    } catch {
+      // 停不掉也不挡还原按钮。
+    }
+    render()
+    // 面板里可能刚装过：关掉后立刻只读查一次，让按钮文案如实（updateStatus 只读本地、不联网）。
+    void refresh()
+  }
+
+  /**
+   * 点下去：先查一次（只读），再按 openOn / variant 决定去向。
+   * 任何分支都不会走到安装——安装只在面板里的「安装」按钮被用户点下时发生。
+   */
+  async function activate(): Promise<void> {
+    if (!mounted || panelMode !== null) return
+    note = null
+    render()
+    await checkNow()
+    if (!mounted) return
+    // badge 与 manual 都是「点击交给接入方」：把刚查到的结论递出去，自己不开面板。
+    if (variant === 'badge' || openOn === 'manual') {
+      if (onActivate) onActivate({ hasUpdate: hasUpdate(), latestVersion: snapshot?.latestVersion ?? null })
+      // 没给回调就没有别的去处：退回默认去向（开面板），总比点不动的死件强。
+      else openDialog()
+      render()
+      return
+    }
+    // 有新版必开；查不出来（没快照或出错）也开——让用户看到为什么，而不是把失败咽掉。
+    if (openOn === 'always' || hasUpdate() || !snapshot || error) {
+      openDialog()
+      return
+    }
+    // 确知没有新版：不开面板，只在原地给一句话。
+    note = `已是最新 ${snapshot.runningVersion}`
+    render()
+  }
+
+  function setTheme(next: UpdatePanelTheme): void {
+    if (next !== 'default' && next !== 'd5-paper') {
+      throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 d5-paper（收到 ${JSON.stringify(next)}）`)
+    }
+    theme = next
+    if (panel) void panel.setTheme(next)
+    else render()
+  }
+
+  function onClick(ev: unknown): void {
+    if (!mounted) return
+    try {
+      const target = (ev as { target?: unknown } | null | undefined)?.target as
+        | { closest?: (selector: string) => unknown }
+        | undefined
+      const closest = target && typeof target.closest === 'function' ? target.closest.bind(target) : null
+      if (!closest) return
+      if (closest(ENTRY_SELECTOR)) {
+        void activate()
+        return
+      }
+      // 弹窗里的「关闭」：面板自己只停轮询、不还原入口件，收起浮层由入口件做。
+      if (panelMode === 'dialog' && closest('[data-action="close-view"]')) close()
+    } catch {
+      // 点坏了也不挡更新。
+    }
+  }
+
+  function unmount(): void {
+    if (!mounted) return
+    mounted = false
+    const opened = panel
+    panel = null
+    panelMode = null
+    try {
+      opened?.unmount()
+    } catch {
+      // 停不掉也无妨。
+    }
+    try {
+      container.removeEventListener?.('click', onClick)
+    } catch {
+      // 拆不掉也不挡。
+    }
+    // 卸载只停轮询与监听：绝不调安装/取消电话，也不动容器内容（与 panel.unmount 同口径）。
+  }
+
+  try {
+    container.addEventListener?.('click', onClick)
+  } catch {
+    // 没有事件能力的容器也能用（controller.open/refresh 直达）。
+  }
+  if (variant === 'inline') mountPanel('embedded')
+  else render()
+  // autoCheck='mount'：进页面静默查一次状态（只读、不联网）。'never' 就等用户点击。
+  if (autoCheck === 'mount') void refresh()
+
+  return { refresh, open, close, label: currentLabel, setTheme, unmount }
+}
