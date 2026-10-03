@@ -300,9 +300,18 @@ interface RowCache {
   queue: unknown
   profileName: string | null
   error: string | null
+  /** 最近一次回包带的失败诊断（#21 的 diag；成功回包恒不带，所以成功即清空，不留陈旧诊断）。 */
+  diag: unknown
 }
 
-const EMPTY_CACHE: RowCache = { snapshot: null, manual: null, queue: null, profileName: null, error: null }
+const EMPTY_CACHE: RowCache = {
+  snapshot: null,
+  manual: null,
+  queue: null,
+  profileName: null,
+  error: null,
+  diag: null,
+}
 
 interface TargetScope {
   homeDir: string
@@ -343,7 +352,10 @@ async function skippedVersionsOf(rt: TargetRuntime): Promise<unknown[]> {
   }
 }
 
-/** 打一通单插件电话，并把成功回包里的快照/手工命令/队列读数收进缓存（失败不清旧读数）。 */
+/**
+ * 打一通单插件电话，把回包读数收进缓存：成功收快照/手工命令/队列读数并清掉诊断，
+ * 失败收失败诊断（#21 的 diag，可能没有）——旧快照读数保留，只有诊断随成败换手。
+ */
 async function callPhone(rt: TargetRuntime, name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
   const handler = rt.host.handlers[name]
   if (typeof handler !== 'function') return { ok: false, error: 'check-failed', errorKind: 'internal' }
@@ -354,15 +366,20 @@ async function callPhone(rt: TargetRuntime, name: string, args: Record<string, u
     return { ok: false, ...errorPayloadOf(error) }
   }
   const value = asRecord(reply)
+  const next: RowCache = { ...rt.cache }
   if (value['ok'] === true) {
-    const next: RowCache = { ...rt.cache }
     if ('snapshot' in value) next.snapshot = value['snapshot'] ?? null
     if ('manual' in value) next.manual = firstText(value['manual'])
     if ('queue' in value) next.queue = value['queue'] ?? null
     if ('env' in value) next.profileName = firstText(asRecord(value['env'])['profileName'])
     next.error = null
-    rt.cache = next
+    // 成功回包永不带 diag（#21 冻结）：成功即清空，旧诊断不留成陈旧证据。
+    next.diag = null
+  } else {
+    // 失败回包才可能带 diag（status / check / install 三电话同一套 #21 契约），有就收下。
+    next.diag = 'diag' in value ? (value['diag'] ?? null) : null
   }
+  rt.cache = next
   return value
 }
 
@@ -606,6 +623,9 @@ export function createMultiHostUpdate(
         queue: rt.cache.queue,
         profileName: rt.cache.profileName,
         phoneNames: rt.host.phoneNames,
+        // 新增两格（#25 解法三，只增不改）：该目标的宿主插件标识，与最近一次失败回包的诊断。
+        pluginId: rt.pluginId,
+        diag: rt.cache.diag,
       })
     }
     return rows

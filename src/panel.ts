@@ -287,6 +287,8 @@ export interface PanelDiagnosticInput {
   installedVersion?: string | null
   latestVersion?: string | null
   hostKind?: string | null
+  /** 使用范围名：装到哪个 profile 是排错第一信息；不传则那一段不出现（输出与旧版一字不差）。 */
+  profileName?: string | null
   queuePosition?: number | null
   requestId?: string | null
   manual?: string | null
@@ -315,7 +317,11 @@ export function buildDiagnosticText(input: PanelDiagnosticInput): string {
       : typeof input.queuePosition === 'number'
         ? `排队第 ${input.queuePosition} 位`
         : '不在队列里'
-  lines.push(`宿主：${input.hostKind ?? '未知'} / 队列：${queue}${input.requestId ? ` / 请求编号：${input.requestId}` : ''}`)
+  // 使用范围只在给了的时候出现：不给就与旧输出一字不差（诊断文本是给人粘工单的，不掺空字段）。
+  const hostLine = [`宿主：${input.hostKind ?? '未知'}`]
+  if (typeof input.profileName === 'string' && input.profileName) hostLine.push(`使用范围：${input.profileName}`)
+  hostLine.push(`队列：${queue}`)
+  lines.push(hostLine.join(' / ') + (input.requestId ? ` / 请求编号：${input.requestId}` : ''))
   const manual = redactForCopy(input.manual ?? '')
   if (manual) lines.push(`手工命令：${manual}`)
   return redactForCopy(lines.join('\n'))
@@ -1057,6 +1063,12 @@ export interface PanelRenderInput extends PanelViewInput {
   profileName?: string | null
   /** 宿主种类：进诊断文本；缺省显示“未知”。 */
   hostKind?: string | null
+  /**
+   * 动作面归谁：`default`（缺省）由内核画动作按钮；`none` 只画内容、不画按钮。
+   * 给「调用方自己提供动作面」的场景（如批量面板的详情：动作由批量面板经自己的通道提供）。
+   * 只读渲染下五章内容、进度条、「已跳过」提示一字不减，只是没有动作按钮。
+   */
+  actions?: 'default' | 'none'
 }
 
 /** 章节骨架（照原型 d5-paper.html:218-245 的 01–05 编号顺序）。 */
@@ -1137,7 +1149,11 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   // 版本条（原型 :216 `.strip`）：运行 / 磁盘 / 远端三格。
   parts.push(versionStrip(snapshot))
   // —— 01 检查与安装（原型 :218-224）：动作 + 进度条 + 跳过行 ——
+  // 只读渲染（`actions: 'none'`）：调用方自己提供动作面时用（批量面板的详情就是这种）。
+  // 五章内容、进度条、「已跳过」提示照画，唯独不画动作按钮——免得出现「可点却没人接」的死按钮。
+  const showActions = input.actions !== 'none'
   const actions: string[] = []
+  if (showActions) {
   actions.push('<div class="dsh-upd-actions">')
   actions.push(
     `<button type="button" data-action="check">查新版</button>` +
@@ -1165,6 +1181,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
     actions.push(`<button type="button" data-action="close-view">关闭</button>`)
   }
   actions.push('</div>')
+  }
   actions.push(progressBar(snapshot))
   if (view.skippedLatest && snapshot?.latestVersion) {
     actions.push(
@@ -1258,9 +1275,13 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
             `<span class="dsh-upd-qseq">${escapeHtml(seq)}</span></div>`,
         )
       }
-      const note =
-        '<span class="dsh-upd-chap-note"><button type="button" data-action="toggle-queue">' +
-        `${reveal ? '隐藏他人明细' : '显示其他插件'}</button></span>`
+      // 队列开关也是动作面：只读渲染（actions:'none'）下同样不画——
+      // 否则「内核不画按钮」这条缝会漏掉 03 章这一颗（现场实测：忙队列时它照样渲染，成了新的死按钮）。
+      // 只读渲染下队列内容照画，看不看他人明细由调用方传的 showOthers 决定。
+      const note = showActions
+        ? '<span class="dsh-upd-chap-note"><button type="button" data-action="toggle-queue">' +
+          `${reveal ? '隐藏他人明细' : '显示其他插件'}</button></span>`
+        : ''
       parts.push(chapterOf(3, `<div class="dsh-upd-queue">${rows.join('')}</div>`, note))
     } else {
       parts.push(

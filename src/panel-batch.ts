@@ -24,9 +24,10 @@
 //
 // 忙守卫：任一行 installing（或本面板正有一次电话在飞）→「检查更新」「全部更新」一起置灰，
 //   与单插件面板同一口径（同一使用范围一次只装一个，禁止并发提交）。
-// 详情：复用单插件内核 renderUpdatePanelHTML（embedded 形态），不另写一套；详情是**只读视图**
-//   （容器契约只有 innerHTML + 事件，重绘即整体替换，内核里的按钮不接电话——要动就用行内动作），
-//   并且不嵌套滚动（CSS 显式中和 overlay 的 max-height/overflow）。
+// 详情：复用单插件内核 renderUpdatePanelHTML（embedded + actions:'none' 只读渲染，内核不画动作按钮）；
+//   动作行由批量面板自己出（data-act，与行内同一通道：装／重试、跳过／恢复、复制手工命令、复制诊断）。
+//   内核里残留的 data-action 控件（03 章队列开关不在 actions 缝里）整颗摘掉——详情里绝不留「可点没人接」的死按钮。
+//   详情不嵌套滚动（CSS 显式中和 overlay 的 max-height/overflow）。
 // 卸载：只停轮询、只拆监听，绝不发安装/取消电话（安装在宿主进程内继续跑）。
 //
 // 本文件零 Node 专属能力（不读盘、不起进程、不拼 shell）：Node 宿主与浏览器闭包两边都跑得动；
@@ -42,8 +43,12 @@ import {
 import {
   UPDATE_PANEL_CSS,
   UPDATE_PANEL_D5_CSS,
+  buildDiagnosticText,
+  createBrowserSkipStore,
   failureCopy,
   renderUpdatePanelHTML,
+  type PanelDiagnosticInput,
+  type PanelSkipStore,
   type UpdatePanelTheme,
 } from './panel.js'
 import type { UpdateSnapshot } from './ports.js'
@@ -65,6 +70,12 @@ export interface BatchRowView {
   manual?: string | null
   queue?: unknown
   profileName?: string | null
+  /** 该行的插件标识（跳过存储与诊断文本用；缺省用 key）。宿主侧后补字段，缺了照样跑。 */
+  pluginId?: string | null
+  /** 该行的诊断详情（宿主给就带上；没有就不带）。 */
+  diag?: unknown
+  /** 宿主种类（进诊断文本；缺省说人话）。 */
+  hostKind?: string | null
 }
 
 /** 摆放形态：默认内嵌，切弹窗走同一参数（与单插件面板同一套写法）。 */
@@ -88,6 +99,8 @@ export interface BatchPanelOptions {
    * 「重启宿主」的落地（与单插件面板同一口径）：不传就只提示手动重启，不假装能重启。
    */
   onRestartRequested?: () => void | Promise<void>
+  /** 复制文本的出口（与单插件面板同一口径）：不传即试浏览器剪贴板，都没有也不抛错。 */
+  copyText?: (text: string) => void | Promise<void>
 }
 
 /** 面板可点的动作（HTML 上 data-act 一一对应；测试走同一条路）。 */
@@ -97,6 +110,10 @@ export type BatchPanelActionKind =
   | 'resume'
   | 'cancel'
   | 'row-install'
+  | 'row-skip'
+  | 'row-resume-skip'
+  | 'row-copy-manual'
+  | 'row-copy-diag'
   | 'toggle-details'
   | 'restart'
   | 'close'
@@ -207,7 +224,9 @@ export function batchLedgerText(counts: BatchLedgerCounts): string {
  * 一行的状态词：只回答一个问题——这家的**下一步**是什么。
  * 中文可执行，不写相位英文（相位只留在 data-phase 属性上，给人看的这句永远是动作）。
  */
-export function batchRowStatus(row: BatchRowView): string {
+export function batchRowStatus(row: BatchRowView, skippedVersion?: string | null): string {
+  const skipped = typeof skippedVersion === 'string' && skippedVersion ? skippedVersion : null
+  if (skipped !== null && asBatchPhase(row.phase) === 'ready') return '已跳过 ' + skipped
   switch (asBatchPhase(row.phase)) {
     case 'pending':
       return '等它，轮到就自动查新版'
@@ -247,6 +266,10 @@ export interface BatchPanelRenderInput {
   /** 是否已经拿到过第一次回包（决定总账那句是不是「正在读取…」）。 */
   loaded?: boolean
   titles?: Record<string, string>
+  /** 键 -> 该家被跳过的版本（挂载侧从跳过存储读出；纯渲染函数不读存储）。 */
+  skippedVersions?: Record<string, string | null>
+  /** notice 归哪一家：等于某行键时那条回执画在该家详情里（否则画在面板底部）。 */
+  noticeKey?: string | null
 }
 
 interface RowRenderContext {
@@ -254,6 +277,10 @@ interface RowRenderContext {
   busy: boolean
   theme: UpdatePanelTheme
   titles: Record<string, string>
+  /** 这一家被跳过的版本（null = 没跳过）。 */
+  skipped: string | null
+  /** 展开时挂在详情里的那条回执（复制/跳过之类）；不展开不画。 */
+  notice: string | null
 }
 
 /** 整面板 HTML（含样式；重绘即整体替换 innerHTML，故每次都带 style 也只留一份）。 */
@@ -262,6 +289,8 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   const theme: UpdatePanelTheme = input.theme === 'd5-paper' ? 'd5-paper' : 'default'
   const mode: BatchPanelMode = input.mode === 'dialog' ? 'dialog' : 'embedded'
   const titles = input.titles && typeof input.titles === 'object' ? input.titles : {}
+  const skippedVersions =
+    input.skippedVersions && typeof input.skippedVersions === 'object' ? input.skippedVersions : {}
   const expandedKey = typeof input.expandedKey === 'string' && input.expandedKey ? input.expandedKey : null
   const lastError = typeof input.lastError === 'string' && input.lastError ? input.lastError : null
   const loaded = input.loaded === undefined ? rows.length > 0 : input.loaded === true
@@ -277,7 +306,11 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
       return phase === 'installing' || phase === 'checking'
     })
   const disabled = busy ? ' disabled' : ''
-  const ctx: RowRenderContext = { expanded: false, busy, theme, titles }
+  const notice = typeof input.notice === 'string' && input.notice ? input.notice : null
+  const noticeKey = typeof input.noticeKey === 'string' && input.noticeKey ? input.noticeKey : null
+  // 回执挂在该家详情里（那家正展开才算数）；否则落回面板底部那条。
+  const detailNoticeKey = notice !== null && noticeKey !== null && noticeKey === expandedKey ? noticeKey : null
+  const ctx: RowRenderContext = { expanded: false, busy, theme, titles, skipped: null, notice: null }
   const parts: string[] = []
 
   // 顶部一行：卷宗抬头 + 两件宏（忙守卫：任一行安装中，两个批量入口一起置灰）。
@@ -302,7 +335,17 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   // 明细：一行一家。
   parts.push('<div class="dsh-upd-btable">')
   for (const row of rows) {
-    parts.push(rowSetHTML(row, { ...ctx, expanded: row.key === expandedKey }))
+    const raw = skippedVersions[row.key]
+    const skipped = typeof raw === 'string' && raw ? raw : null
+    const expanded = row.key === expandedKey
+    parts.push(
+      rowSetHTML(row, {
+        ...ctx,
+        expanded,
+        skipped,
+        notice: expanded && row.key === detailNoticeKey ? notice : null,
+      }),
+    )
   }
   parts.push('</div>')
 
@@ -319,8 +362,8 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
     more.push('<button type="button" data-act="cancel"' + disabled + '>取消这一批</button>')
     parts.push('<div class="dsh-upd-batch-more">' + more.join('') + '</div>')
   }
-  if (input.notice) {
-    parts.push('<div class="dsh-upd-batch-notice" role="status">' + escapeHtml(String(input.notice)) + '</div>')
+  if (notice !== null && detailNoticeKey === null) {
+    parts.push('<div class="dsh-upd-batch-notice" role="status">' + escapeHtml(notice) + '</div>')
   }
 
   const kernel = parts.join(String.fromCharCode(10))
@@ -410,6 +453,7 @@ function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, strin
 function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const phase = asBatchPhase(row.phase)
   const keyAttr = escapeHtml(row.key)
+  const skipped = ctx.skipped
   const current = currentVersionOf(row)
   const version = row.targetVersion
     ? (current === null ? '?' : current) + ' → ' + row.targetVersion
@@ -417,10 +461,16 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
       ? ''
       : current
   const actions: string[] = []
-  if (phase === 'ready') {
+  if (phase === 'ready' && skipped === null) {
     actions.push(
       '<button type="button" data-act="row-install" data-key="' + keyAttr + '" data-primary="1"' +
         (ctx.busy ? ' disabled' : '') + '>装这家</button>',
+    )
+  } else if (phase === 'ready' && skipped !== null) {
+    // 跳过后这一版的下一步是「恢复」：与单插件面板同一套本地跳过语义（按插件 + 版本记）。
+    actions.push(
+      '<button type="button" data-act="row-resume-skip" data-key="' + keyAttr + '"' +
+        (ctx.busy ? ' disabled' : '') + '>恢复（' + escapeHtml(skipped) + '）</button>',
     )
   } else if (phase === 'failed') {
     actions.push(
@@ -444,14 +494,20 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const main =
     '<button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="' + keyAttr +
     '" aria-expanded="' + (ctx.expanded ? 'true' : 'false') + '">' +
-    '<span class="dsh-upd-updot" data-tone="' + dotToneOf(row, phase) + '"></span>' +
+    '<span class="dsh-upd-updot" data-tone="' + dotToneOf(row, phase, skipped) + '"></span>' +
     '<span class="dsh-upd-bname">' + escapeHtml(titleOf(row, ctx.titles)) + '</span>' +
     (version ? '<span class="dsh-upd-bver">' + escapeHtml(version) + '</span>' : '') +
-    '<span class="dsh-upd-bstat">' + escapeHtml(batchRowStatus(row)) + '</span>' +
+    '<span class="dsh-upd-bstat">' + escapeHtml(batchRowStatus(row, skipped)) + '</span>' +
     failLine +
     '</button>'
   const detail = ctx.expanded
-    ? '<div class="dsh-upd-bdetail" data-key="' + keyAttr + '">' + detailHTML(row, ctx) + '</div>'
+    ? '<div class="dsh-upd-bdetail" data-key="' + keyAttr + '">' +
+      detailActionsHTML(row, ctx) +
+      (ctx.notice !== null
+        ? '<div class="dsh-upd-bdetail-notice" role="status">' + escapeHtml(ctx.notice) + '</div>'
+        : '') +
+      detailHTML(row, ctx) +
+      '</div>'
     : ''
   return (
     '<div class="dsh-upd-brow-set" data-key="' + keyAttr + '">' +
@@ -466,30 +522,88 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
 
 /**
  * 该家的详情 = 单插件内核原样（renderUpdatePanelHTML），不另写一套。
- * 只读视图：容器契约只有 innerHTML + 事件，重绘即整体替换，内核里的按钮不接电话。
+ * 只读渲染（`actions: 'none'`）：内核不画动作按钮，动作行由批量面板自己出（见 detailActionsHTML）。
  */
 function detailHTML(row: BatchRowView, ctx: RowRenderContext): string {
-  return renderUpdatePanelHTML({
+  const html = renderUpdatePanelHTML({
     snapshot: asSnapshotLike(row.snapshot),
     manual: typeof row.manual === 'string' ? row.manual : null,
     queue: asQueueLike(row.queue),
-    skippedLatest: false,
+    // 跳过是面板本地记录（与单插件面板同一套语义）：内核按「已跳过」画 tag 与提示行，
+    // 恢复按钮由上面的动作行提供，措辞与内核提示里的「恢复」对得上。
+    skippedLatest: ctx.skipped !== null,
     lastError: row.error,
     errorKind: row.error,
     mode: 'embedded',
     showOthers: false,
-    pluginId: titleOf(row, ctx.titles),
+    pluginId: pluginIdOf(row),
     copyNotice: null,
     theme: ctx.theme,
     profileName: typeof row.profileName === 'string' && row.profileName ? row.profileName : null,
+    actions: 'none',
   })
+  return stripActionButtons(html)
 }
 
-function dotToneOf(row: BatchRowView, phase: BatchPhase): 'idle' | 'todo' | 'busy' | 'warn' | 'bad' | 'ok' {
+/**
+ * 详情里由批量面板自己出的动作行：全部带 data-act，与行内同一通道，点了真能用。
+ * 忙守卫与行内同一判据（任一行装东西时一起置灰）。
+ */
+function detailActionsHTML(row: BatchRowView, ctx: RowRenderContext): string {
+  const phase = asBatchPhase(row.phase)
+  const keyAttr = escapeHtml(row.key)
+  const version = latestVersionOf(row)
+  const disabled = ctx.busy ? ' disabled' : ''
+  const buttons: string[] = []
+  if (phase === 'failed') {
+    buttons.push(
+      '<button type="button" data-act="row-install" data-key="' + keyAttr + '"' + disabled + '>重试</button>',
+    )
+  } else if (phase === 'ready' && ctx.skipped === null) {
+    buttons.push(
+      '<button type="button" data-act="row-install" data-key="' + keyAttr + '" data-primary="1"' + disabled +
+        '>装 ' + escapeHtml(version ?? '新版') + '</button>',
+    )
+  }
+  if (phase === 'ready' && ctx.skipped === null && version !== null) {
+    buttons.push(
+      '<button type="button" data-act="row-skip" data-key="' + keyAttr + '"' + disabled + '>跳过这一版</button>',
+    )
+  }
+  if (ctx.skipped !== null) {
+    buttons.push(
+      '<button type="button" data-act="row-resume-skip" data-key="' + keyAttr + '"' + disabled +
+        '>恢复（' + escapeHtml(ctx.skipped) + '）</button>',
+    )
+  }
+  if (typeof row.manual === 'string' && row.manual) {
+    buttons.push(
+      '<button type="button" data-act="row-copy-manual" data-key="' + keyAttr + '"' + disabled + '>复制手工命令</button>',
+    )
+  }
+  buttons.push('<button type="button" data-act="row-copy-diag" data-key="' + keyAttr + '"' + disabled + '>复制诊断</button>')
+  return '<span class="dsh-upd-bdetail-actions">' + buttons.join('') + '</span>'
+}
+
+/**
+ * 详情走只读渲染后，内核里只该剩内容、不该剩控件：`actions: 'none'` 关掉了动作行，
+ * 但 03 章的「显示其他插件」开关不在那一块里，仍是可点、没人接的死按钮。
+ * 批量面板的详情不接内核的动作通道，所以这里把残留的 data-action 按钮整颗摘掉（章节内容照留）。
+ * panel.ts 日后若把队列开关也纳入只读开关，这里自然变成空操作。
+ */
+function stripActionButtons(html: string): string {
+  return html.replace(/<button\b[^>]*data-action=[^>]*>[\s\S]*?<\/button>/g, '')
+}
+
+function dotToneOf(
+  row: BatchRowView,
+  phase: BatchPhase,
+  skipped: string | null,
+): 'idle' | 'todo' | 'busy' | 'warn' | 'bad' | 'ok' {
   if (phase === 'failed') return 'bad'
   if (phase === 'installing' || phase === 'checking') return 'busy'
   if (row.restartRequired === true) return 'warn'
-  if (phase === 'ready') return 'todo'
+  if (phase === 'ready') return skipped === null ? 'todo' : 'idle'
   if (phase === 'current' || phase === 'done') return 'ok'
   return 'idle'
 }
@@ -527,6 +641,9 @@ export const UPDATE_BATCH_PANEL_CSS = [
   '.dsh-upd-batch-more{margin-top:6px}',
   '.dsh-upd-batch-more button{font-size:12px}',
   '.dsh-upd-batch-notice{margin-top:6px;font-size:12.5px;opacity:.85}',
+  '.dsh-upd-bdetail-actions{margin:0 0 6px}',
+  '.dsh-upd .dsh-upd-bdetail-actions button{font-size:12.5px}',
+  '.dsh-upd-bdetail-notice{margin:0 0 6px;font-size:12.5px;opacity:.85}',
   '/* 详情复用单插件内核：不许嵌套滚动——中性化 overlay 的 max-height/overflow，自身也不给 overflow。 */',
   '.dsh-upd-bdetail{margin:2px 0 10px;overflow:visible}',
   '.dsh-upd .dsh-upd-bdetail .dsh-upd{max-width:none}',
@@ -602,6 +719,37 @@ function titleOf(row: BatchRowView, titles: Record<string, string>): string {
   return row.title || row.key
 }
 
+/** 该行的插件标识：宿主给了用宿主的，没给用稳定键（跳过存储与诊断文本都认它）。 */
+function pluginIdOf(row: BatchRowView): string {
+  return typeof row.pluginId === 'string' && row.pluginId ? row.pluginId : row.key
+}
+
+/** 这一版是哪个版本：会话账本的远端版优先，退回快照里的远端版；都没有给 null（不猜）。 */
+function latestVersionOf(row: BatchRowView): string | null {
+  if (typeof row.targetVersion === 'string' && row.targetVersion) return row.targetVersion
+  const snapshot = row.snapshot
+  if (!isObject(snapshot)) return null
+  const latest = snapshot['latestVersion']
+  return typeof latest === 'string' && latest ? latest : null
+}
+
+/** 复制文本的默认出口（与单插件面板同一套写法）：剪贴板不可用时静默返回，绝不抛错挡更新。 */
+async function defaultCopyText(text: string): Promise<void> {
+  try {
+    const holder = (globalThis as Record<string, unknown>)['navigator'] as
+      | { clipboard?: { writeText?: (t: string) => Promise<void> } }
+      | undefined
+    const clip = holder?.clipboard
+    const write = clip?.writeText
+    if (clip && typeof write === 'function') {
+      await write.call(clip, text)
+      return
+    }
+  } catch {
+    // 剪贴板不可用即留提示，不抛错（复制失败不能挡更新）。
+  }
+}
+
 /** 当前版本（运行版优先，退回磁盘版）；读不到给 null，不猜。 */
 function currentVersionOf(row: BatchRowView): string | null {
   const snapshot = row.snapshot
@@ -611,6 +759,33 @@ function currentVersionOf(row: BatchRowView): string | null {
   const installed = snapshot['installedVersion']
   if (typeof installed === 'string' && installed) return installed
   return null
+}
+
+/**
+ * 该行的诊断文本：逐字出自单插件面板那套 buildDiagnosticText（稳定码 + 脱敏详情 + 版本 + 宿主 + 队列）。
+ * 本函数只负责把行字段填进去，缺的给 null、不猜；profileName 一并透传（当前入参类型还没声明它，
+ * 多传不影响既有输出）。复制出去前已由 redactForCopy 收干净（绝对路径 → <路径>）。
+ */
+function diagTextOf(row: BatchRowView): string {
+  const snapshot = isObject(row.snapshot) ? row.snapshot : null
+  const queue = isObject(row.queue) ? row.queue : null
+  const diag = isObject(row.diag) ? row.diag : null
+  const text = (value: unknown): string | null => (typeof value === 'string' && value ? value : null)
+  const input = {
+    pluginId: pluginIdOf(row),
+    code: row.error || 'check-failed',
+    // 诊断摘要：宿主给的 diag.detail 优先；没有就不带，buildDiagnosticText 自会说人话。
+    detail: diag ? text(diag['detail']) : null,
+    runningVersion: text(snapshot ? snapshot['runningVersion'] : null),
+    installedVersion: text(snapshot ? snapshot['installedVersion'] : null),
+    latestVersion: text(snapshot ? snapshot['latestVersion'] : null),
+    hostKind: text(row.hostKind),
+    queuePosition: queue && typeof queue['position'] === 'number' ? (queue['position'] as number) : null,
+    manual: text(row.manual),
+    diag: row.diag ?? null,
+    profileName: text(row.profileName),
+  } as PanelDiagnosticInput
+  return buildDiagnosticText(input)
 }
 
 /** 宿主回包 rows -> 行视图（坏行丢弃：没有稳定键就没法指认哪一家）。 */
@@ -636,6 +811,9 @@ function readRows(value: unknown): BatchRowView[] {
       queue: item['queue'] === undefined ? null : item['queue'],
       profileName:
         typeof item['profileName'] === 'string' && item['profileName'] ? item['profileName'] : null,
+      pluginId: typeof item['pluginId'] === 'string' && item['pluginId'] ? item['pluginId'] : null,
+      diag: item['diag'] === undefined ? null : item['diag'],
+      hostKind: typeof item['hostKind'] === 'string' && item['hostKind'] ? item['hostKind'] : null,
     })
   }
   return out
@@ -715,11 +893,15 @@ export function mountUpdateBatchPanel(
   const titles: Record<string, string> =
     options.titles && typeof options.titles === 'object' ? options.titles : {}
   const onRestartRequested = options.onRestartRequested
+  const copyText = options.copyText ?? defaultCopyText
+  // 跳过存储按插件标识各一份（浏览器 localStorage 优先，没有退内存；与单插件面板同一套语义）。
+  const skipStores = new Map<string, PanelSkipStore>()
 
   let rows: BatchRowView[] = []
   let expandedKey: string | null = null
   let lastError: string | null = null
   let notice: string | null = null
+  let noticeKey: string | null = null
   let inFlight = false
   let loaded = false
   let refreshing = false
@@ -734,10 +916,65 @@ export function mountUpdateBatchPanel(
       expandedKey,
       lastError,
       notice,
+      noticeKey,
+      skippedVersions: skippedVersionsOf(),
       inFlight,
       loaded,
       titles,
     })
+  }
+
+  function rowOfKey(key: string): BatchRowView | null {
+    return rows.find((row) => row.key === key) ?? null
+  }
+
+  function skipStoreFor(pluginId: string): PanelSkipStore {
+    let store = skipStores.get(pluginId)
+    if (!store) {
+      store = createBrowserSkipStore(pluginId)
+      skipStores.set(pluginId, store)
+    }
+    return store
+  }
+
+  /** 这一家被跳过的版本：只在「有可装新版」的行上算数（与单插件面板同一口径）。 */
+  function skippedVersionOf(row: BatchRowView): string | null {
+    if (asBatchPhase(row.phase) !== 'ready') return null
+    const version = latestVersionOf(row)
+    if (!version) return null
+    try {
+      return skipStoreFor(pluginIdOf(row)).has(version) ? version : null
+    } catch {
+      return null
+    }
+  }
+
+  function skippedVersionsOf(): Record<string, string | null> {
+    const out: Record<string, string | null> = {}
+    for (const row of rows) out[row.key] = skippedVersionOf(row)
+    return out
+  }
+
+  /** 记一条回执：带 key 就挂在该家详情里，不带就落面板底部。 */
+  function say(text: string, key: string | null = null): void {
+    notice = text
+    noticeKey = key
+  }
+
+  function clearNotice(): void {
+    notice = null
+    noticeKey = null
+  }
+
+  /** 复制一段文本，并按同一套措辞给回执（复制失败不抛错，只提示手动选）。 */
+  async function copyWith(text: string, okNotice: string, key: string): Promise<void> {
+    try {
+      await copyText(text)
+      say(okNotice, key)
+    } catch {
+      say('复制失败，请手动选中上面的信息。', key)
+    }
+    render()
   }
 
   /** 把一次回包吃进状态：ok 认账本与行，不 ok 只记稳定码（表照旧留着，别让人丢视图）。 */
@@ -780,7 +1017,7 @@ export function mountUpdateBatchPanel(
   async function phone(name: string, args: Record<string, unknown>): Promise<void> {
     if (!mounted || inFlight) return
     inFlight = true
-    notice = null
+    clearNotice()
     render()
     try {
       const reply = await call(name, args)
@@ -811,15 +1048,55 @@ export function mountUpdateBatchPanel(
       case 'resume': {
         await phone(phones.resume, {})
         if (!mounted) return
-        notice = '已接着上次的会话推进一步。'
+        say('已接着上次的会话推进一步。')
         render()
         return
       }
       case 'cancel': {
         await phone(phones.cancel, {})
         if (!mounted) return
-        notice = '已取消这一批：剩下的不再推进；要重来点「检查更新」。'
+        say('已取消这一批：剩下的不再推进；要重来点「检查更新」。')
         render()
+        return
+      }
+      // —— 详情里的动作行（与行内同一通道：都走 row-install / row-skip 这些 data-act）——
+      case 'row-skip': {
+        const row = typeof key === 'string' && key ? rowOfKey(key) : null
+        const version = row ? latestVersionOf(row) : null
+        if (!row || !version) return
+        try {
+          skipStoreFor(pluginIdOf(row)).skip(version)
+        } catch {
+          // 跳记不进去也不挡更新，只是不免打扰（版本号非法时同此）。
+        }
+        say('已跳过 ' + version + '：这一版不再提醒；点「恢复」可撤销。', row.key)
+        render()
+        return
+      }
+      case 'row-resume-skip': {
+        const row = typeof key === 'string' && key ? rowOfKey(key) : null
+        if (!row) return
+        const version = latestVersionOf(row)
+        try {
+          skipStoreFor(pluginIdOf(row)).reset(version ?? undefined)
+        } catch {
+          // 同上：清不掉也不挡更新。
+        }
+        say(version ? '已恢复 ' + version + '：这一版会照常提醒。' : '已恢复跳过提醒。', row.key)
+        render()
+        return
+      }
+      case 'row-copy-manual': {
+        const row = typeof key === 'string' && key ? rowOfKey(key) : null
+        const manual = row && typeof row.manual === 'string' ? row.manual : ''
+        if (!row || !manual) return
+        await copyWith(manual, '手工命令已复制，粘到终端整行执行即可。', row.key)
+        return
+      }
+      case 'row-copy-diag': {
+        const row = typeof key === 'string' && key ? rowOfKey(key) : null
+        if (!row) return
+        await copyWith(diagTextOf(row), '诊断已复制，直接粘给插件作者即可（已脱敏）。', row.key)
         return
       }
       case 'toggle-details': {
@@ -834,12 +1111,12 @@ export function mountUpdateBatchPanel(
         try {
           if (typeof onRestartRequested === 'function') {
             await onRestartRequested()
-            notice = '已按调用方的重启流程处理；重启后新版生效。'
+            say('已按调用方的重启流程处理；重启后新版生效。')
           } else {
-            notice = '本宿主未提供重启入口：请手动重启宿主，重启后新版生效。'
+            say('本宿主未提供重启入口：请手动重启宿主，重启后新版生效。')
           }
         } catch {
-          notice = '重启入口调用失败：请手动重启宿主，重启后新版生效。'
+          say('重启入口调用失败：请手动重启宿主，重启后新版生效。')
         }
         render()
         return

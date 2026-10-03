@@ -500,6 +500,145 @@ describe('drain：默认关，显式开了也要能停干净', () => {
   })
 })
 
+describe('rows 新增 pluginId 与 diag（只增不改）', () => {
+  it('每行都带 pluginId：显式的用显式，缺省的按「批量前缀-键」', async () => {
+    const { scope } = await tempScope()
+    const { transport } = fakeTransport()
+    const targets = [target('a'), target('b', { pluginId: 'custom-b' })]
+    const host = createMultiHostUpdate({ scope, transport }, { prefix: 'life', targets })
+    const reply = await host.handlers['life.batchStatus']({})
+    assert.equal(reply.ok, true)
+    const rowOf = Object.fromEntries(reply.rows.map((row) => [row.key, row]))
+    assert.equal(rowOf.a.pluginId, 'life-a')
+    assert.equal(rowOf.b.pluginId, 'custom-b')
+    assert.deepEqual(
+      Object.keys(rowOf.a).sort(),
+      [
+        'diag', 'error', 'key', 'manual', 'phase', 'phoneNames', 'pluginId',
+        'profileName', 'queue', 'restartRequired', 'snapshot', 'targetVersion', 'title',
+      ],
+      '既有字段一个没动，只加了 pluginId 与 diag',
+    )
+    host.dispose()
+  })
+
+  it('某一家 status 回包带 diag：该行与之一致，别家为 null', async () => {
+    const { dir, scope } = await tempScope()
+    const goodOverrides = {
+      runningVersion: '1.0.0',
+      profileDir: dir,
+      homeDir: dir,
+      profileName: 'web',
+      readInstalled: async () => ({
+        profileName: 'web',
+        environmentKind: 'cli',
+        homeDir: dir,
+        profileDir: dir,
+        installedVersion: '1.0.0',
+        packageValid: true,
+        sourceInstall: false,
+        blockedReason: null,
+        installationKey: 'key-1',
+        eligible: true,
+      }),
+      readJob: async () => null,
+      writeJob: async () => {},
+    }
+    const host = createMultiHostUpdate(
+      { scope, readerOverridesFor: (spec) => (spec.key === 'bad' ? undefined : goodOverrides) },
+      { prefix: 'life', targets: [target('bad'), target('good')] },
+    )
+    const args = { includeEnv: true, includeQueue: true }
+    const phone = await host.handlers['p-bad.updateStatus'](args)
+    assert.equal(phone.ok, false)
+    assert.ok(phone.diag, '真件失败回包自带 diag（#21）')
+    const reply = await host.handlers['life.batchStatus']({})
+    const rowOf = Object.fromEntries(reply.rows.map((row) => [row.key, row]))
+    assert.ok(rowOf.bad.diag, '失败那家的 diag 带出来了')
+    assert.equal(rowOf.good.diag, null, '成功那家为 null')
+    const strip = (diag) => {
+      const copy = { ...diag }
+      delete copy.latencyMs
+      return copy
+    }
+    assert.deepEqual(strip(rowOf.bad.diag), strip(phone.diag), '与同一失败路径的回包一致（只差耗时）')
+    host.dispose()
+  })
+
+  it('一家失败后（error 有值）仍带 diag；成功那家为 null', async () => {
+    const { dir, scope } = await tempScope()
+    const registry = 'https://registry.npmjs.org/'
+    const targetName = 'pkg-good'
+    let installed = '1.0.0'
+    let job = null
+    let clock = 1000000
+    const fetchImpl = async () => ({
+      ok: true,
+      headers: { get: () => null },
+      text: async () =>
+        JSON.stringify({
+          name: targetName,
+          version: '2.0.0',
+          engines: { node: '>=22' },
+          dist: {
+            tarball: registry + targetName + '/-/' + targetName + '-2.0.0.tgz',
+            integrity: 'sha512-' + 'A'.repeat(86) + '==',
+          },
+        }),
+    })
+    const goodOverrides = {
+      runningVersion: '1.0.0',
+      profileDir: dir,
+      homeDir: dir,
+      profileName: 'web',
+      environmentKind: 'cli',
+      nodeVersion: '22.0.0',
+      targetPackageName: targetName,
+      fetchImpl,
+      now: () => (clock += 10),
+      randomId: (() => {
+        let n = 0
+        return () => 'id-' + (n += 1)
+      })(),
+      readInstalled: async () => ({
+        profileName: 'web',
+        environmentKind: 'cli',
+        homeDir: dir,
+        profileDir: dir,
+        installedVersion: installed,
+        packageValid: true,
+        sourceInstall: false,
+        blockedReason: null,
+        installationKey: 'key-1',
+        eligible: true,
+      }),
+      readJob: async () => job,
+      writeJob: async (value) => {
+        job = value
+      },
+      tryAcquireLock: async () => true,
+      releaseLock: async () => {},
+      backupJob: async () => {},
+      runInstall: async () => {
+        installed = '2.0.0'
+      },
+    }
+    const host = createMultiHostUpdate(
+      { scope, installPollMs: 5, readerOverridesFor: (spec) => (spec.key === 'bad' ? undefined : goodOverrides) },
+      { prefix: 'life', targets: [target('bad'), target('good')] },
+    )
+    const reply = await host.handlers['life.batchInstall']({})
+    assert.equal(reply.ok, true)
+    const rowOf = Object.fromEntries(reply.rows.map((row) => [row.key, row]))
+    assert.equal(rowOf.bad.phase, 'failed')
+    assert.equal(rowOf.bad.error, 'unknown-profile')
+    assert.ok(rowOf.bad.diag, '失败那家仍能带出 diag')
+    assert.equal(rowOf.good.phase, 'done')
+    assert.equal(rowOf.good.diag, null, '成功那家为 null')
+    host.dispose()
+  })
+})
+
 describe('真路径：单插件电话 -> 驱动器', () => {
   it('一家真装：查电话拿凭证、装电话后台收尾、账本记 done + restartRequired', async () => {
     const { dir, scope } = await tempScope()

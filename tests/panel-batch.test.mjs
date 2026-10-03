@@ -383,10 +383,11 @@ describe('详情：复用单插件内核，且只读', () => {
       ['01', '02', '03', '04', '05'],
       '详情就是单插件内核那五章',
     )
-    assert.ok(detail.includes('data-plugin="甲插件"'), '详情指向该家')
-    assert.ok(detail.includes('data-action="copy-diag"'), '内核的复制诊断也在')
+    assert.ok(detail.includes('data-plugin="a"'), '详情按插件标识指向该家')
+    assert.ok(detail.includes('data-act="row-copy-diag"'), '复制诊断改由批量面板自己出（真能点）')
+    assert.ok(!/\bdata-action=/.test(detail), '只读内核里不许再有 data-action 按钮')
     const before = log.length
-    clickAct(box, null) // 点到内核按钮（data-action）：批量面板不接这条线，详情只读
+    clickAct(box, null) // 点到没有 data-act 的空处：批量面板不接这条线
     assert.equal(log.length, before)
     await panel.act('toggle-details', 'a')
     assert.ok(!box.innerHTML.includes('<div class="dsh-upd-bdetail"'), '再点收起')
@@ -414,6 +415,207 @@ describe('详情：复用单插件内核，且只读', () => {
       UPDATE_BATCH_PANEL_CSS.includes('.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd{max-height:none;overflow:visible}'),
       'overlay 里的详情要中性化 max-height/overflow',
     )
+  })
+})
+
+// ---------- 解法三：详情只读内核 + 批量面板自己的动作行 ----------
+
+describe('死按钮门禁：面板里每个可点按钮都得有人接', () => {
+  /** 盘一遍所有按钮标签：不许 data-action（内核通道），可点的必须带 data-act 或 disabled。 */
+  function assertNoDeadButtons(html, where) {
+    const buttons = [...html.matchAll(/<button\b[^>]*>/g)].map((m) => m[0])
+    assert.ok(buttons.length > 0, where + '：总该有按钮')
+    for (const tag of buttons) {
+      assert.ok(!/\bdata-action=/.test(tag), where + '：不许出现内核 data-action 按钮 —— ' + tag)
+      assert.ok(
+        tag.includes('data-act=') || tag.includes('disabled'),
+        where + '：可点的按钮必须带 data-act 或 disabled（可点没人接即失败）—— ' + tag,
+      )
+    }
+    return buttons.length
+  }
+
+  it('各种状态组合下：没有 data-action 按钮，也没有「可点没人接」的按钮', async () => {
+    // 覆盖：忙队列（内核 03 章本来会画 data-action 的队列开关）+ 手工命令 + 失败 + 待重启。
+    const busyQueue = {
+      busy: true,
+      owner: null,
+      waiting: [{ pluginId: 'other', requestId: 'r', targetVersion: '9.9.9', enqueuedAt: 1 }],
+      position: 2,
+    }
+    const rows = [
+      rowOf({
+        key: 'a',
+        pluginId: 'dead-button-probe',
+        title: '甲插件',
+        manual: 'npm i -g demo@1.2.0',
+        queue: busyQueue,
+      }),
+      rowOf({ key: 'b', title: '乙插件', phase: 'installing' }),
+      rowOf({ key: 'c', title: '丙插件', phase: 'failed', error: 'install-failed', manual: 'npm i -g c@2' }),
+      rowOf({ key: 'd', title: '丁插件', phase: 'done', restartRequired: true }),
+    ]
+    const box = fakeContainer()
+    const { panel } = mountPanel(box, rows)
+    await settled()
+    let count = assertNoDeadButtons(box.innerHTML, '收起态')
+    for (const key of ['a', 'b', 'c', 'd']) {
+      await panel.act('toggle-details', key)
+      count += assertNoDeadButtons(box.innerHTML, '展开 ' + key)
+      await panel.act('toggle-details', key)
+    }
+    await panel.act('row-skip', 'a')
+    count += assertNoDeadButtons(box.innerHTML, '跳过后')
+    await panel.act('toggle-details', 'a')
+    count += assertNoDeadButtons(box.innerHTML, '跳过后展开')
+    assert.ok(count > 8, '按钮盘点要真的跑过多轮，实到 ' + count)
+    panel.unmount()
+  })
+
+  it('忙队列那行的详情里，内核的队列开关被摘掉（章节内容照留）', async () => {
+    const busyQueue = {
+      busy: true,
+      owner: null,
+      waiting: [{ pluginId: 'other', requestId: 'r', targetVersion: '9.9.9', enqueuedAt: 1 }],
+      position: 2,
+    }
+    const box = fakeContainer()
+    const { panel } = mountPanel(box, [rowOf({ key: 'a', queue: busyQueue })])
+    await settled()
+    await panel.act('toggle-details', 'a')
+    const html = box.innerHTML
+    assert.ok(!html.includes('toggle-queue'), '内核队列开关要摘掉（可点没人接）')
+    assert.ok(html.includes('>正在安装<'), '队列章节的内容照留')
+    panel.unmount()
+  })
+})
+
+describe('详情动作行：与行内同一通道', () => {
+  it('详情里「装 X.Y.Z」与行内「装这家」打到同一个电话、同一个 key', async () => {
+    const rows = [rowOf({ key: 'a', title: '甲插件', targetVersion: '2.4.0' })]
+    const box = fakeContainer()
+    const { panel, log } = mountPanel(box, rows)
+    await settled()
+    await panel.act('toggle-details', 'a')
+    const html = box.innerHTML
+    const rowButton = html.match(/<button type="button" data-act="row-install" data-key="a"[^>]*>装这家<\/button>/)
+    const detailButton = html.match(/<button type="button" data-act="row-install" data-key="a"[^>]*>装 2\.4\.0<\/button>/)
+    assert.ok(rowButton, '行内要有「装这家」')
+    assert.ok(detailButton, '详情里要有「装 2.4.0」')
+    const attrsOf = (tag) => tag.slice(0, tag.indexOf('>'))
+    assert.equal(attrsOf(detailButton[0]), attrsOf(rowButton[0]), '两颗按钮走的同一条通道（属性逐字相同）')
+    log.length = 0
+    clickAct(box, 'row-install', 'a')
+    await settled()
+    assert.equal(log.length, 1)
+    assert.equal(log[0].name, 'life.batchInstall')
+    assert.deepEqual(log[0].args, { keys: ['a'] }, '同一个 key：只推这一家')
+    panel.unmount()
+  })
+
+  it('失败行的详情给「重试」；没手工命令就不画那颗「复制手工命令」', async () => {
+    const box = fakeContainer()
+    const { panel } = mountPanel(box, [rowOf({ key: 'a', phase: 'failed', error: 'check-failed' })])
+    await settled()
+    await panel.act('toggle-details', 'a')
+    const start = box.innerHTML.indexOf('<span class="dsh-upd-bdetail-actions"')
+    const actions = box.innerHTML.slice(start, box.innerHTML.indexOf('</span>', start))
+    assert.ok(actions.includes('>重试</button>'), '失败行的详情给重试')
+    assert.ok(!actions.includes('row-copy-manual'), '没有手工命令就不画复制手工命令')
+    assert.ok(actions.includes('data-act="row-copy-diag"'), '复制诊断恒在')
+    panel.unmount()
+  })
+
+  it('任一行 installing 时，详情里的动作与行内一起置灰', async () => {
+    const rows = [rowOf({ key: 'a' }), rowOf({ key: 'b', phase: 'installing' })]
+    const box = fakeContainer()
+    const { panel } = mountPanel(box, rows)
+    await settled()
+    await panel.act('toggle-details', 'a')
+    const start = box.innerHTML.indexOf('<span class="dsh-upd-bdetail-actions"')
+    const actions = box.innerHTML.slice(start, box.innerHTML.indexOf('</span>', start))
+    assert.ok(actions.includes('data-act="row-install"'), '详情里有装这家')
+    assert.match(actions, /data-act="row-install"[^>]*disabled/, '详情动作要置灰')
+    assert.match(actions, /data-act="row-skip"[^>]*disabled/, '跳过也要置灰')
+    assert.match(actions, /data-act="row-copy-diag"[^>]*disabled/, '复制诊断也要置灰')
+    panel.unmount()
+  })
+
+  it('复制手工命令逐字相同；复制诊断含稳定码且已脱敏', async () => {
+    const copied = []
+    const manual = 'npm i -g demo@2.0.0 --registry https://registry.npmjs.org/'
+    const rows = [
+      rowOf({
+        key: 'a',
+        pluginId: 'demo',
+        phase: 'failed',
+        error: 'install-failed',
+        manual,
+        diag: { v: 1, stage: 'exec', detail: '失败在 /home/me/.dsh/profile 里' },
+      }),
+    ]
+    const box = fakeContainer()
+    const { call } = fakeCall(rows)
+    const panel = mountUpdateBatchPanel(box, {
+      prefix: 'life',
+      call,
+      pollMs: 60000,
+      copyText: (text) => {
+        copied.push(text)
+      },
+    })
+    await settled()
+    await panel.act('toggle-details', 'a')
+    await panel.act('row-copy-manual', 'a')
+    assert.equal(copied.length, 1)
+    assert.equal(copied[0], manual, '手工命令逐字复制')
+    await panel.act('row-copy-diag', 'a')
+    assert.equal(copied.length, 2)
+    assert.ok(copied[1].includes('install-failed'), '诊断带稳定码')
+    assert.ok(copied[1].includes('demo'), '诊断带插件标识')
+    assert.ok(copied[1].includes('<路径>'), '本机路径要换成占位符')
+    assert.ok(!copied[1].includes('/home/me'), '诊断不许带本机路径')
+    assert.ok(box.innerHTML.includes('诊断已复制'), '复制后在该家详情里给回执')
+    panel.unmount()
+  })
+})
+
+describe('跳过语义：与单插件面板同一套（按插件 + 版本）', () => {
+  const statOf = (html) => {
+    const at = html.indexOf('class="dsh-upd-bstat">')
+    return html.slice(at + 'class="dsh-upd-bstat">'.length, html.indexOf('</span>', at))
+  }
+
+  it('跳过 → 状态词变「已跳过 X.Y.Z」并给恢复；恢复后回原状', async () => {
+    const rows = [rowOf({ key: 'a', pluginId: 'skip-probe', title: '甲插件', targetVersion: '2.4.0' })]
+    const box = fakeContainer()
+    const { panel } = mountPanel(box, rows)
+    await settled()
+    assert.equal(statOf(box.innerHTML), '点「装这家」装 2.4.0')
+    await panel.act('row-skip', 'a')
+    assert.equal(statOf(box.innerHTML), '已跳过 2.4.0', '跳过后状态词要说已跳过')
+    assert.match(box.innerHTML, /data-act="row-resume-skip"[^>]*>恢复（2\.4\.0）</, '跳过后要给恢复入口')
+    assert.ok(!box.innerHTML.includes('>装这家</button>'), '跳过后行内不再给装这家')
+    await panel.act('toggle-details', 'a')
+    assert.ok(box.innerHTML.includes('data-chapter="01"'), '详情照画五章')
+    assert.ok(box.innerHTML.includes('data-act="row-resume-skip"'), '详情里也给恢复')
+    assert.ok(!box.innerHTML.includes('data-act="row-skip"'), '跳过后详情里不再给跳过')
+    await panel.act('row-resume-skip', 'a')
+    assert.equal(statOf(box.innerHTML), '点「装这家」装 2.4.0', '恢复后回原状')
+    panel.unmount()
+  })
+
+  it('跳过按 (插件, 版本) 记：同一家换个新版本照样提醒', async () => {
+    const rows = [rowOf({ key: 'a', pluginId: 'skip-probe-2', targetVersion: '2.4.0' })]
+    const box = fakeContainer()
+    const { panel } = mountPanel(box, rows)
+    await settled()
+    await panel.act('row-skip', 'a')
+    assert.equal(statOf(box.innerHTML), '已跳过 2.4.0')
+    rows[0].targetVersion = '3.0.0'
+    await panel.refresh()
+    assert.equal(statOf(box.innerHTML), '点「装这家」装 3.0.0', '换一版即重新提醒')
+    panel.unmount()
   })
 })
 

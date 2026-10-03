@@ -339,6 +339,24 @@ test('诊断文本自包含：稳定码 + 脱敏详情 + 版本 + 宿主 + 队�
   assert.ok(!text.includes('<tmp'), '占位符未被切开')
 })
 
+test('诊断文本带上使用范围：装错 profile 时这是第一信息；不给就跟旧输出一字不差', () => {
+  const base = {
+    pluginId: 'my-plugin',
+    code: 'install-failed',
+    runningVersion: '1.0.0',
+    installedVersion: '1.0.0',
+    latestVersion: '1.1.0',
+    hostKind: 'cli',
+    queuePosition: null,
+  }
+  const withProfile = buildDiagnosticText({ ...base, profileName: 'desktop' })
+  assert.match(withProfile, /使用范围：desktop/, '给了使用范围就要出现在宿主那一行')
+  assert.match(withProfile, /宿主：cli \/ 使用范围：desktop \/ 队列：不在队列里/, '位置在宿主与队列之间')
+  const without = buildDiagnosticText(base)
+  assert.ok(!without.includes('使用范围'), '不给就一个字都不多')
+  assert.match(without, /宿主：cli \/ 队列：不在队列里/, '旧格式原样')
+})
+
 // ---------- 双形态行为等价 ----------
 
 test('双形态只测行为等价：同一起始状态，内核展示同一快照与按钮', () => {

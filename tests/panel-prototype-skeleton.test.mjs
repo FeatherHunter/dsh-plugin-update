@@ -316,3 +316,52 @@ describe('队列定案：两行键值 + 开关挪到 03 章标题行右端', () 
     assert.ok(html.includes('当前没有排队任务'), '空闲须给中性提示')
   })
 })
+
+// ---------- 只读渲染（actions: 'none'）：给「调用方自己提供动作面」的场景 ----------
+
+describe('只读渲染：内容一字不减，动作按钮一个不留', () => {
+  it('actions:none 时不出现任何 data-action 按钮', () => {
+    const html = renderUpdatePanelHTML(inputFor({}, { actions: 'none' }))
+    assert.ok(!html.includes('data-action='), '只读渲染不许出现任何动作按钮（死按钮的根治手段）')
+    assert.ok(!html.includes('<button'), '只读渲染下不该有 button 元素')
+  })
+
+  it('actions:none 时五章与版本条照画（内容一字不减）', () => {
+    const html = renderUpdatePanelHTML(inputFor({}, { actions: 'none' }))
+    const found = [...html.matchAll(/data-chapter="(\d\d)"/g)].map((m) => m[1])
+    assert.deepEqual(found, ['01', '02', '03', '04', '05'], '五章仍须齐且按序')
+    for (const k of ['运行', '磁盘', '远端']) assert.ok(html.includes('>' + k + '</span>'), '版本条缺「' + k + '」')
+    assert.ok(html.includes('检查与安装'), '章节标题仍在')
+  })
+
+  it('不传 actions 即现状（动作行照画，老调用一字不动）', () => {
+    const html = renderUpdatePanelHTML(inputFor())
+    assert.ok(html.includes('data-action="check"'), '默认仍画查新版')
+    assert.ok(html.includes('data-action="install"'), '默认仍画安装')
+    assert.ok(html.includes('data-action="copy-diag"'), '默认仍画复制诊断')
+  })
+
+  it('只读渲染连队列开关一起摘掉（动作面一处都不许漏）', () => {
+    const busyQueue = {
+      busy: true,
+      owner: { pluginId: null, busy: true },
+      waiting: [{ pluginId: 'p', requestId: 'mine', targetVersion: '1.1.0', enqueuedAt: 1 }],
+      position: 2,
+    }
+    const html = renderUpdatePanelHTML(inputFor({ queue: busyQueue }, { actions: 'none' }))
+    assert.ok(!html.includes('data-action='), '忙队列下也不许漏出 toggle-queue 按钮（实测漏过一次）')
+    assert.ok(!html.includes('<button'), '只读渲染下不该有 button 元素')
+    assert.ok(html.includes('你的顺位'), '队列内容照画')
+    const normal = renderUpdatePanelHTML(inputFor({ queue: busyQueue }))
+    assert.ok(normal.includes('data-action="toggle-queue"'), '默认渲染仍给队列开关')
+  })
+
+  it('只读渲染下进度条与「已跳过」提示照画（它们不是动作）', () => {
+    const installing = renderUpdatePanelHTML(
+      inputFor({ snapshot: baseSnapshot({ canInstall: false, job: { id: 'j', state: 'installing', targetVersion: '1.1.0', message: null, requestId: 'r' } }) }, { actions: 'none' }),
+    )
+    assert.ok(installing.includes('role="progressbar"'), '进度条须照画')
+    const skipped = renderUpdatePanelHTML(inputFor({ skippedLatest: true }, { actions: 'none' }))
+    assert.ok(skipped.includes('已跳过 1.1.0'), '已跳过提示须照画')
+  })
+})
