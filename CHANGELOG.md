@@ -2,9 +2,14 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
-## [Unreleased]
+## [0.3.0] - 2026-10-04
 
 ### Added
+- **多目标批量更新**（`dsh-plugin-update/batch` + `/panel-batch`）：一次接线管 N 个插件——五个批量电话（status/check/install/resume/cancel）＋ 总账/明细/动作三层面板；一家收尾才起下一家，失败一家继续下一家（可配停）。
+- **耐久会话账本**：批量会话落盘 `update-queue/<使用范围短指纹>/batch.json`，断点续跑（进程重启/前端重载后 `batchResume` 接着走），幂等编号恒等（已完成不重装），`selfKey` 默认把自己排最后（自更新安全）。
+- **排队语义**：忙时也能「加入队列」——`batchInstall` 在驱动进行中不再回 `update-busy`，改成并入会话 + 单飞推进；单插件回 `update-busy` 映射成 `queued`（相位退 `ready`，**不是失败**），排队行给「取消排队」（打该家自己的安装电话 `cancelQueued`）。
+- **更新入口件**（`dsh-plugin-update/entry`）：`button`/`badge`/`inline` 三形态 ＋ 状态联动文案（检查更新/有新版 X.Y.Z/正在安装…/待重启/更新失败，点此查看）；`autoCheck` 与 `openOn` 两个策略。**铁律**：只做「查 + 打开面板」，任何路径都不自动安装。
+- 只读渲染开关 `renderUpdatePanelHTML({ actions: 'none' })`：五章内容照画、动作按钮一个不画（给「调用方自己提供动作面」的场景）。
 - 跨插件单队列串行：同范围 `queue.json` + `global.lock`，FIFO 取号、仅撤自己，`includeQueue/showOthers` 开关，默认只看自己。
 - 跳过按插件+版本持久化：`skipped.json`（50 条封顶、坏文件自愈），同一横幅行「已跳过 X.Y.Z · 恢复」。
 - 版本通道：`releaseChannel` 默认 `stable`，显式 `prerelease` 才收预发布，全通道精确版锁定。
@@ -13,7 +18,15 @@
 - 后台安装不中断：关面板不中断，重开读盘 1 秒内恢复，仅进程关判中断。
 - D5 档案卷可选主题：`theme: 'd5-paper'`（`mountUpdatePanel` + `setTheme`，默认不动），迷你印章 + profile 牌 + 待重启衬线横幅 + 手绘 SVG 标 + 窄屏印章固定 + 省略号逐字折叠 + 浅深双主题，DOM 冻结、复制诊断常在。
 
+### Fixed
+- **死按钮根治**：批量面板的详情曾把单插件内核 markup 原样搬入而不接管行为，里面 5 颗按钮可点却无反应。现在详情的内核走**只读渲染**（`actions:'none'`，连队列章的 `toggle-queue` 一起摘），动作行由批量面板自己提供（与行内同一 `act` 通道、同一忙守卫）。
+- **后台失败行的诊断**：安装超时/后台收尾失败那种没有结构化 `diag` 的行，改用 `job.message` 正文并标注「来源：后台任务收尾记录」——拿真内容，不编造。
+- **锁陈旧判据单源**：显式注入的抢锁口子现在也收到 `{ timeoutMs: installTimeoutMs }`，不再各自拍阈值（默认行为不变）。真卡死时队列按安装时限回收，不再白等 15 分钟。
+- **账本事实优先**：账本记 `failed` 而实时快照显示该家已装到目标版时，相位纠成 `done`（`restartRequired` 按待重启判），`error` 留痕不抹——只在刷新路径、只纠 `failed`、版本精确匹配才动手。
+
 ### Changed
+- 面板文案全称化：「安装这家」「安装 X.Y.Z」不再简写成「装这家」「装 X.Y.Z」（负向门禁锁死）。
+- 批量面板详情里的动作**归属批量面板**：详情是只读视图，操作统一走行内与详情那排 `data-act` 按钮。
 - 请求编号收紧为不透明串 `[A-Za-z0-9._~-]{1,128}` 且拒绝令牌前缀，`req-1`/`id-N`/UUID 不受影响（公开契约变更，用 UUID/不透明串，不要把秘密当编号传）。
 - 失败详情 300 字落刀改空白边界（不断占位符），长度不变，切分位置可见变化。
 
