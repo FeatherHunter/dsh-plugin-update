@@ -33,11 +33,13 @@
 
 import { homedir } from 'node:os'
 import {
+  batchEntryOf,
   batchProgress,
   batchRequestId,
   createBatchSession,
   emptyBatchSession,
   isBatchFinished,
+  markBatchEntry,
   orderTargets,
   resumeBatchSession,
   type BatchEntry,
@@ -599,8 +601,13 @@ export function createMultiHostUpdate(
     baseOverrides.readQueue = () => queue.readQueue()
     baseOverrides.writeQueue = (state) => queue.writeQueue(state)
     if (typeof baseOverrides.tryAcquireGlobalLock !== 'function') {
-      baseOverrides.tryAcquireGlobalLock = (lockId: string, pluginId: string) =>
-        queue.tryAcquireGlobalLock(lockId, pluginId, {})
+      // 陈旧判据单源（#27 ①）：宿主把安装时限作为第三参递进来（host.ts 的抢锁口子），
+      // 这里原样转发给队列端口，不再自己写死空对象让窗口退回默认 15 分钟。
+      baseOverrides.tryAcquireGlobalLock = (
+        lockId: string,
+        pluginId: string,
+        opts?: { timeoutMs?: number },
+      ) => queue.tryAcquireGlobalLock(lockId, pluginId, opts ?? {})
     }
     if (typeof baseOverrides.releaseGlobalLock !== 'function') {
       baseOverrides.releaseGlobalLock = (lockId: string) => queue.releaseGlobalLock(lockId)
@@ -696,16 +703,59 @@ export function createMultiHostUpdate(
     return { total, done: 0, failed: 0, skipped: 0, current: 0, pending: total, finished: false }
   }
 
+  /**
+   * 事实优先（#27 ②）：账本记 failed，但该家实时快照显示磁盘上已经是目标版 —— 那次装后来其实
+   * 装上了（超时收场、包随后落盘）。把这一行纠成 done，error 留着当痕迹（先失败、后来装上了）。
+   * 只纠 failed；只走「重读最新会话 → 改这一行 → 写回」；驱动进行中不走这条路（调用点已守住）。
+   */
+  async function reconcileFailed(
+    rt: TargetRuntime,
+    entry: BatchEntry,
+  ): Promise<{ session: BatchSession; entry: BatchEntry } | null> {
+    if (entry.phase !== 'failed' || !entry.targetVersion) return null
+    const snapshot = asRecord(rt.cache.snapshot)
+    const installed = firstText(snapshot['installedVersion'])
+    if (!installed || installed !== entry.targetVersion) return null
+    try {
+      const latest = await readSession()
+      const current = batchEntryOf(latest, entry.key)
+      if (!current || current.phase !== 'failed') return null
+      const marked = markBatchEntry(
+        latest,
+        entry.key,
+        { phase: 'done', restartRequired: snapshot['blockedReason'] === 'pending-restart' },
+        now(),
+      )
+      if (!marked.changed) return null
+      await saveSession(marked.session)
+      const corrected = batchEntryOf(marked.session, entry.key)
+      return corrected ? { session: marked.session, entry: corrected } : null
+    } catch {
+      // 纠正失败不挡状态读取：账本仍是那一行 failed，下次刷新再试。
+      return null
+    }
+  }
+
   /** 全表行：相位/版本/失败码来自账本，快照来自各目标电话（推进中一律用缓存，见注释）。 */
-  async function buildRows(session: BatchSession, refresh: boolean): Promise<Record<string, unknown>[]> {
-    const entryOf = new Map(session.entries.map((entry) => [entry.key, entry]))
+  async function buildRows(
+    session: BatchSession,
+    refresh: boolean,
+  ): Promise<{ rows: Record<string, unknown>[]; session: BatchSession }> {
+    let current = session
     const rows: Record<string, unknown>[] = []
     for (const rt of runtimes) {
-      const entry = entryOf.get(rt.spec.key) ?? null
+      let entry = batchEntryOf(current, rt.spec.key)
       // 推进中不打单插件电话：宿主读取器是单槽缓存，换键会丢掉正在装那家的活动任务编号，
       // 把「在装」误读成「中断」。推进中的行给缓存快照，相位仍从盘上账本实时读。
       if (refresh && !driveActive) {
         await callPhone(rt, rt.host.phoneNames.updateStatus, { includeEnv: true, includeQueue: true })
+        if (entry) {
+          const corrected = await reconcileFailed(rt, entry)
+          if (corrected) {
+            current = corrected.session
+            entry = corrected.entry
+          }
+        }
       }
       const phase: BatchPhase = entry ? entry.phase : 'pending'
       rows.push({
@@ -725,12 +775,12 @@ export function createMultiHostUpdate(
         diag: rt.cache.diag,
       })
     }
-    return rows
+    return { rows, session: current }
   }
 
   async function table(session: BatchSession, refresh = true): Promise<Record<string, unknown>> {
-    const rows = await buildRows(session, refresh)
-    return { ok: true, session, rows, progress: progressOf(session) }
+    const built = await buildRows(session, refresh)
+    return { ok: true, session: built.session, rows: built.rows, progress: progressOf(built.session) }
   }
 
   function denied(): Record<string, unknown> | null {

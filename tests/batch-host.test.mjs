@@ -7,13 +7,14 @@
  */
 import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createMultiHostUpdate, phoneRequestIdOf } from '../dist/host-batch.js'
 import { __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import { createBatchSession } from '../dist/batch.js'
-import { batchPathsForUpdate } from '../dist/store.js'
+import { createBatchSession, markBatchEntry } from '../dist/batch.js'
+import { batchPathsForUpdate, queuePathsForUpdate } from '../dist/store.js'
 
 beforeEach(() => {
   __resetSharedUpdateReaderForTests()
@@ -818,6 +819,223 @@ describe('rows 新增 pluginId 与 diag（只增不改）', () => {
     assert.ok(rowOf.bad.diag, '失败那家仍能带出 diag')
     assert.equal(rowOf.good.phase, 'done')
     assert.equal(rowOf.good.diag, null, '成功那家为 null')
+    host.dispose()
+  })
+})
+
+/** 读一个小 JSON（锁文件、会话文件）。 */
+async function readJson(file) {
+  return JSON.parse(await readFile(file, 'utf8'))
+}
+
+/** 真路径假读侧：让一家真走到装（装完把已装版本改到目标版）。 */
+function installableOverrides(dir, targetName) {
+  const registry = 'https://registry.npmjs.org/'
+  let installed = '1.0.0'
+  let job = null
+  let clock = 1000000
+  return {
+    runningVersion: '1.0.0',
+    profileDir: dir,
+    homeDir: dir,
+    profileName: 'web',
+    environmentKind: 'cli',
+    nodeVersion: '22.0.0',
+    targetPackageName: targetName,
+    fetchImpl: async () => ({
+      ok: true,
+      headers: { get: () => null },
+      text: async () =>
+        JSON.stringify({
+          name: targetName,
+          version: '2.0.0',
+          engines: { node: '>=22' },
+          dist: {
+            tarball: registry + targetName + '/-/' + targetName + '-2.0.0.tgz',
+            integrity: 'sha512-' + 'A'.repeat(86) + '==',
+          },
+        }),
+    }),
+    now: () => (clock += 10),
+    randomId: (() => {
+      let n = 0
+      return () => 'id-' + (n += 1)
+    })(),
+    readInstalled: async () => ({
+      profileName: 'web',
+      environmentKind: 'cli',
+      homeDir: dir,
+      profileDir: dir,
+      installedVersion: installed,
+      packageValid: true,
+      sourceInstall: false,
+      blockedReason: null,
+      installationKey: 'key-1',
+      eligible: true,
+    }),
+    readJob: async () => job,
+    writeJob: async (value) => {
+      job = value
+    },
+    tryAcquireLock: async () => true,
+    releaseLock: async () => {},
+    backupJob: async () => {},
+    runInstall: async () => {
+      installed = '2.0.0'
+    },
+  }
+}
+
+/** 只读假读侧：快照里的已装版本由参数定（造「账本说 failed、盘上其实已装到目标版」用）。 */
+function snapshotOverrides(dir, installedVersion) {
+  let clock = 1000000
+  return {
+    runningVersion: '1.0.0',
+    profileDir: dir,
+    homeDir: dir,
+    profileName: 'web',
+    environmentKind: 'cli',
+    readInstalled: async () => ({
+      profileName: 'web',
+      environmentKind: 'cli',
+      homeDir: dir,
+      profileDir: dir,
+      installedVersion,
+      packageValid: true,
+      sourceInstall: false,
+      blockedReason: null,
+      installationKey: 'key-1',
+      eligible: true,
+    }),
+    readJob: async () => null,
+    writeJob: async () => {},
+    now: () => (clock += 10),
+    randomId: () => 'id-1',
+  }
+}
+
+describe('锁陈旧判据单源（#27 ①）', () => {
+  const STALE_MS = 60000
+
+  /** 手写一把「一分钟前」的陈旧全局锁（真文件，真队列目录）。 */
+  async function scopeWithStaleLock() {
+    const { dir, scope } = await tempScope()
+    const paths = queuePathsForUpdate(dir, dir)
+    await mkdir(dirname(paths.lock), { recursive: true })
+    await writeFile(
+      paths.lock,
+      JSON.stringify({ id: 'stale-lock', pluginId: 'other-plugin', pid: 999999, startedAt: Date.now() - STALE_MS }),
+      'utf8',
+    )
+    return { dir, scope, paths }
+  }
+
+  it('阈值小于陈旧量：批量路径回收陈旧锁并装完', async () => {
+    const { dir, scope, paths } = await scopeWithStaleLock()
+    const host = createMultiHostUpdate(
+      { scope, installPollMs: 5, config: { installTimeoutMs: 1000 }, readerOverrides: installableOverrides(dir, 'pkg-a') },
+      { prefix: 'life', targets: [{ key: 'a', title: '甲', packageName: 'pkg-a', prefix: 'p-a' }] },
+    )
+    const reply = await host.handlers['life.batchInstall']({})
+    assert.equal(reply.ok, true)
+    assert.equal(phaseOf(reply.session, 'a'), 'done', '1 分钟陈旧量 > 1 秒阈值 → 锁该被回收，装照走')
+    assert.equal(existsSync(paths.lock), false, '装完把（回收来的）锁放掉')
+    host.dispose()
+  })
+
+  it('阈值大于陈旧量：不回收，排上队等（不是 failed）', async () => {
+    const { dir, scope, paths } = await scopeWithStaleLock()
+    const host = createMultiHostUpdate(
+      { scope, installPollMs: 5, config: { installTimeoutMs: 600000 }, readerOverrides: installableOverrides(dir, 'pkg-a') },
+      { prefix: 'life', targets: [{ key: 'a', title: '甲', packageName: 'pkg-a', prefix: 'p-a' }] },
+    )
+    const reply = await host.handlers['life.batchInstall']({})
+    assert.equal(reply.ok, true)
+    assert.equal(phaseOf(reply.session, 'a'), 'ready', '10 分钟阈值 > 1 分钟陈旧量 → 不回收，排上队')
+    assert.equal(entryOf(reply.session, 'a').error, null)
+    assert.equal(host.lastRun.stoppedBecause, 'queued')
+    assert.equal((await readJson(paths.lock)).id, 'stale-lock', '那把陈旧锁没被动过')
+    host.dispose()
+  })
+})
+
+describe('事实优先：账本 failed 但盘上已装到目标版（#27 ②）', () => {
+  /** 种一份「某行记 failed（带目标版）」的盘上会话。 */
+  async function seedFailedSession(dir, keys, key) {
+    const paths = batchPathsForUpdate(dir, dir)
+    await mkdir(dirname(paths.file), { recursive: true })
+    const seeded = createBatchSession({ id: 'seed-fact', keys, now: 1000 })
+    const marked = markBatchEntry(seeded, key, { phase: 'failed', error: 'install-failed', targetVersion: '2.0.0' }, 1100)
+    await writeFile(paths.file, JSON.stringify(marked.session), 'utf8')
+    return paths
+  }
+
+  it('failed + 盘上已是目标版：一次 batchStatus 纠成 done，error 留痕、盘上账本也变', async () => {
+    const { dir, scope } = await tempScope()
+    const paths = await seedFailedSession(dir, ['a'], 'a')
+    const host = createMultiHostUpdate(
+      { scope, readerOverrides: snapshotOverrides(dir, '2.0.0') },
+      { prefix: 'life', targets: [{ key: 'a', title: '甲', packageName: 'pkg-a', prefix: 'p-a' }] },
+    )
+    const reply = await host.handlers['life.batchStatus']({})
+    assert.equal(reply.ok, true)
+    assert.equal(reply.rows[0].phase, 'done', '事实优先：盘上已是目标版')
+    assert.equal(reply.rows[0].restartRequired, true, '运行版还是旧的 → 待重启')
+    assert.equal(reply.rows[0].error, 'install-failed', 'error 留着当痕迹（先失败、后来装上了）')
+    assert.equal(entryOf(reply.session, 'a').phase, 'done')
+    assert.equal(reply.progress.done, 1)
+    assert.equal(reply.progress.failed, 0)
+    const onDisk = await readJson(paths.file)
+    assert.equal(phaseOf(onDisk, 'a'), 'done', '盘上账本也变了（不只是显示层）')
+    assert.equal(entryOf(onDisk, 'a').error, 'install-failed')
+    assert.equal(entryOf(onDisk, 'a').restartRequired, true)
+    host.dispose()
+  })
+
+  it('failed 且盘上仍是旧版：保持 failed（不误纠）', async () => {
+    const { dir, scope } = await tempScope()
+    const paths = await seedFailedSession(dir, ['a'], 'a')
+    const host = createMultiHostUpdate(
+      { scope, readerOverrides: snapshotOverrides(dir, '1.0.0') },
+      { prefix: 'life', targets: [{ key: 'a', title: '甲', packageName: 'pkg-a', prefix: 'p-a' }] },
+    )
+    const reply = await host.handlers['life.batchStatus']({})
+    assert.equal(reply.rows[0].phase, 'failed')
+    assert.equal(reply.rows[0].error, 'install-failed')
+    assert.equal(phaseOf(await readJson(paths.file), 'a'), 'failed', '盘上没被动')
+    host.dispose()
+  })
+
+  it('驱动进行中调 batchStatus：不纠账本（不跟驱动器打架）', async () => {
+    const { dir, scope } = await tempScope()
+    const paths = await seedFailedSession(dir, ['a', 'b'], 'a')
+    let duringDrive = null
+    let duringDisk = null
+    const transport = {
+      check: async (key) => {
+        if (key === 'b' && !duringDrive) {
+          duringDrive = await host.handlers['life.batchStatus']({})
+          duringDisk = await readJson(paths.file)
+        }
+        return { kind: 'update', version: '2.0.0' }
+      },
+      install: async () => ({ kind: 'done', restartRequired: false }),
+    }
+    const host = createMultiHostUpdate(
+      {
+        scope,
+        transport,
+        readerOverridesFor: (spec) => snapshotOverrides(dir, spec.key === 'a' ? '2.0.0' : '1.0.0'),
+      },
+      { prefix: 'life', targets: ['a', 'b'].map((key) => target(key)) },
+    )
+    const reply = await host.handlers['life.batchInstall']({ keys: ['b'] })
+    assert.equal(reply.ok, true)
+    assert.ok(duringDrive, '驱动中那次 batchStatus 回来了')
+    assert.equal(duringDrive.rows.find((row) => row.key === 'a').phase, 'failed', '驱动进行中不纠')
+    assert.equal(phaseOf(duringDisk, 'a'), 'failed', '驱动进行中不写账本')
+    assert.equal(phaseOf(reply.session, 'a'), 'done', '驱动收尾后的那次刷新才纠（事实优先照旧生效）')
+    assert.equal(entryOf(reply.session, 'a').error, 'install-failed', '痕迹一直在')
     host.dispose()
   })
 })

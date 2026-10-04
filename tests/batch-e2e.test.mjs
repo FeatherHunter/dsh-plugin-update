@@ -145,9 +145,11 @@ function buildBatch(scope, specs, plan = {}, options = {}) {
         }
       },
       now,
+      // 每家的编号必须全局唯一：队列 owner 账本按 jobId 认人（host.ts 的镜像），
+      // 各家都从 'id-1' 起会撞成同一个 id，把 owner 记串（夹具问题，不是产品路径）。
       randomId: (() => {
         let n = 0
-        return () => 'id-' + (n += 1)
+        return () => 'id-' + spec.key + '-' + (n += 1)
       })(),
       runInstall: async (args) => {
         installs.push(spec.key)
@@ -300,7 +302,7 @@ describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执
     host.dispose()
   })
 
-  it('E3b 装还在跑时批量超时：下一家先排队（不算失败），那家真收尾后重推即装上', async () => {
+  it('E3b 执行器真卡死：下一家靠锁陈旧窗口回收并装完，账本按事实纠成 done', async () => {
     __resetSharedUpdateReaderForTests()
     const scope = await makeScope(['pkg-a', 'pkg-b'])
     const queueFile = queuePathsForUpdate(scope.home, scope.profile).file
@@ -314,7 +316,7 @@ describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执
       specsOf(['pkg-a', 'pkg-b']),
       {
         a: {
-          // 执行器永不返回（真卡死）：宿主没有取消在跑安装的路，锁与 owner 都还在它手里。
+          // 执行器永不返回（真卡死）：A 自己那次装没有任何取消路径。
           runInstall: async (args) => {
             await blockedA
             await writeVersion(scope.dirs['pkg-a'], 'pkg-a', args.version)
@@ -325,28 +327,28 @@ describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执
     )
     const first = await host.handlers['life.batchInstall']({})
     assert.equal(first.ok, true)
-    assert.deepEqual(installs, ['a'], 'A 卡住时 B 不再往下走')
+    assert.deepEqual(installs, ['a', 'b'], 'A 卡死超时后，B 靠锁陈旧窗口回收并起步（#27 ①：阈值=installTimeoutMs）')
     assert.equal(phaseOf(first.session, 'a'), 'failed', '批量超时按失败收（诚实失败）')
     assert.equal(entryOf(first.session, 'a').error, 'install-failed')
-    assert.equal(phaseOf(first.session, 'b'), 'ready', 'B 排上队：不是 failed，远端版本留着')
+    assert.equal(phaseOf(first.session, 'b'), 'done', 'B 回收了陈旧锁并装完（不是 failed，也不是干等）')
     assert.equal(entryOf(first.session, 'b').error, null)
-    assert.equal(host.lastRun.stoppedBecause, 'queued', '驱动器停在排队处，不继续推')
-    assert.equal((await readJson(queueFile)).owner.pluginId, 'life-a', 'owner 仍在卡住那家手里')
-    assert.equal(existsSync(lockFile), true, '全局锁也还在它手里（15 分钟陈旧窗口远未到）')
+    assert.equal(host.lastRun.stoppedBecause, 'finished', '整轮收尾：A 失败与 B 装完都进了终态')
+    assert.equal((await readJson(queueFile)).owner, null, '收尾后 owner 为空')
+    assert.equal(existsSync(lockFile), false, '收尾后 global.lock 不存在（陈旧那把被回收、新那把被放掉）')
 
-    // 卡住那家真收尾（解除阻塞）→ 正常释放；再推 B 就装上
+    // 卡住那家后来真收尾（解除阻塞）→ 再推一次：账本按事实把 failed 纠成 done（#27 ②）
     unblockA()
-    await waitFor(async () => (await readJson(queueFile)).owner === null, 'A 收尾并摘牌')
+    await waitFor(
+      async () => (await readJson(join(scope.dirs['pkg-a'], 'package.json'))).version === TARGET_VERSION,
+      'A 那次装真落盘',
+    )
     const second = await host.handlers['life.batchInstall']({ keys: ['b'] })
     assert.equal(second.ok, true)
-    assert.deepEqual(installs, ['a', 'b'])
-    assert.equal(phaseOf(second.session, 'b'), 'done', '解除阻塞后 B 立刻能装上')
-    assert.equal(phaseOf(second.session, 'a'), 'failed', '账本仍记那次超时（不因它后来装完就改写）')
-    assert.equal(
-      (await readJson(join(scope.dirs['pkg-a'], 'package.json'))).version,
-      TARGET_VERSION,
-      '那次装后来真的落盘了：批量超时取消不了在跑的安装，这条限制在这里留证',
-    )
+    assert.deepEqual(installs, ['a', 'b'], '第二次不再重复装（B 已 done）')
+    assert.equal(phaseOf(second.session, 'b'), 'done')
+    assert.equal(phaseOf(second.session, 'a'), 'done', '账本按事实纠正：盘上已是目标版（#27 ②）')
+    assert.equal(entryOf(second.session, 'a').error, 'install-failed', 'error 留着当痕迹（先失败、后来装上了）')
+    assert.equal(entryOf(second.session, 'a').restartRequired, true, '运行版还是旧的 → 待重启')
     assert.equal((await readJson(queueFile)).owner, null)
     assert.equal(existsSync(lockFile), false)
     host.dispose()

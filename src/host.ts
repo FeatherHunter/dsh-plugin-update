@@ -295,6 +295,12 @@ export interface ReaderOverrides {
   ctx?: unknown
   fetchImpl?: (url: string, init?: Record<string, unknown>) => Promise<never>
   now?: () => number
+  /**
+   * 编号发生器（测试与特殊宿主可换）。
+   * **契约：同一个使用范围（同一队列文件）内，注入值必须全局唯一** —— 队列的拥有者账本按
+   * (pluginId, jobId) 认人；若给多个目标注入同一个编号，会被记串（#27 里一个夹具就这么撞过）。
+   * 生产走 randomUUID，不会撞；写测试夹具时请按目标派生（如 'id-' + key + '-' + n）。
+   */
   randomId?: () => string
   nodeVersion?: string
   targetPackageName?: string
