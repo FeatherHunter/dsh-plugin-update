@@ -309,7 +309,12 @@ export interface ReaderOverrides {
   /** 跨插件队列的显式假件（测试用；给了 readQueue + writeQueue 即不走真实队列目录，#15）。 */
   readQueue?: () => UpdateQueueState | Promise<UpdateQueueState>
   writeQueue?: (state: UpdateQueueState) => void | Promise<void>
-  tryAcquireGlobalLock?: (lockId: string, pluginId: string) => boolean | Promise<boolean>
+  /**
+   * 抢全局锁的显式覆盖（测试与特殊宿主用）。
+   * 第三参是**锁陈旧判据的时限**，与安装时限同源——阈值只由这一处决定，别再让覆盖实现自己拍一个；
+   * 不接这个参数的旧实现行为一字不变（TS 允许少接参数）。
+   */
+  tryAcquireGlobalLock?: (lockId: string, pluginId: string, opts?: { timeoutMs?: number }) => boolean | Promise<boolean>
   releaseGlobalLock?: (lockId: string) => void | Promise<void>
   readInstalled?: () => Promise<import('./ports.js').EnvironmentView>
   readJob?: () => Promise<import('./ports.js').UpdateJob | null>
@@ -402,8 +407,11 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   // 无全局可用时退化为自家锁（与改造前一字不差，老单测走这条）。
   const baseTryAcquire = overrides.tryAcquireLock ?? disk?.tryAcquireLock
   const baseRelease = overrides.releaseLock ?? disk?.releaseLock
+  // 阈值单源：两条路（显式覆盖 / 内置端口）拿到**同一个** installTimeoutMs。
+  // 覆盖实现不接第三参就还是它自己的口径（行为不变），接了就跟安装时限对齐——批量路径原先自己传 {}，
+  // 陈旧阈值落回 QUEUE_LOCK_STALE_MS，改过 installTimeoutMs 就会与这条分叉（#26 照出来的）。
   const globalTryAcquire: ((lockId: string) => boolean | Promise<boolean>) | undefined = overrides.tryAcquireGlobalLock
-    ? (lockId: string) => (overrides.tryAcquireGlobalLock as (id: string, pid: string) => boolean | Promise<boolean>)(lockId, pluginId)
+    ? (lockId: string) => overrides.tryAcquireGlobalLock!(lockId, pluginId, { timeoutMs: installTimeoutMs })
     : queueDisk
       ? (lockId: string) => queueDisk.tryAcquireGlobalLock(lockId, pluginId, { timeoutMs: installTimeoutMs })
       : undefined
