@@ -2,7 +2,7 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
-## [Unreleased]
+## [0.5.1] - 2026-10-06
 
 ### Added
 - 入口件 `openOn: 'direct'`：点开即弹窗、不预查（面板挂载即自查；徽标形态仍走回调口径）。
