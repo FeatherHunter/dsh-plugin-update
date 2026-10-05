@@ -69,7 +69,7 @@ createHostUpdate(
 
 本包是 ESM（`"type": "module"`）：ESM 插件直接 `import`；CJS 插件用 `await import('dsh-plugin-update')`。
 
-### 三个电话的入参与回参
+### 四个电话的入参与回参
 
 面板与宿主两侧共用这一份契约（`…` 是你的前缀）：
 
@@ -216,7 +216,7 @@ for (const [name, handler] of Object.entries(multi.handlers)) registry.set(name,
 ```
 
 五个批量电话（`<prefix>` 即上面的 `life`）：`batchStatus` / `batchCheck` / `batchInstall` / `batchResume` / `batchCancel`；
-每个目标的三个单插件电话照旧以**各自前缀**暴露（`ilife-bill.updateStatus` 等）。
+每个目标的四个单插件电话照旧以**各自前缀**暴露（`ilife-bill.updateStatus` 等）。
 
 回包形状（成功恰好四项，失败只有三项）：
 
@@ -474,7 +474,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 
 照第 2 节把名字换成自己的之后，逐条打勾：
 
-1. 宿主启动不报错，`update.phoneNames` 读到自家前缀的三个电话名，查状态返回六字段快照。
+1. 宿主启动不报错，`update.phoneNames` 读到自家前缀的四个电话名，查状态返回六字段快照。
 2. 面板按间隔轮询到快照，能展示第 5.2 节的原因文案；有新版时安装按钮可用，无新版与待重启时按钮状态正确。
 3. 模拟一次 `pending-restart` 能看到第 5.4 节的横幅，模拟一次自动装失败能看到第 5.3 节的命令可复制执行。
 4. 第二家同机隔离与串行：两家各传自己的插件标识与电话名前缀，电话名、落盘目录、锁文件逐个不同；安装执行跨插件串行——同范围撞上时后到者报 `update-busy`，凭队列位置（第 5.7 节）重试。
