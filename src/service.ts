@@ -335,6 +335,81 @@ export async function fetchNpmRelease(
   }
 }
 
+/**
+ * 按版本号取发行信息（#38 更新日志电话用：面板说要哪版就取哪版）。
+ *
+ * 与 fetchNpmRelease 同一信任根：只接受名字对得上、版本与请求完全一致且发行合法、
+ * 包地址与完整性校验全合规的返回，否则按版本信息无效处理。通道门禁同样复用
+ * （stable 只要纯三段，prerelease 才收预发布）。取的是版本文档（与 latest 文档同量级），
+ * 不是全量包元数据。
+ */
+export async function fetchNpmVersionRelease(
+  fetchImpl: FetchImpl,
+  timeoutMs: number = CHECK_TIMEOUT_MS,
+  opts: { targetPackageName?: string; registryUrl?: string; releaseChannel?: ReleaseChannel; version: string },
+): Promise<ReleaseInfo> {
+  const targetName = opts?.targetPackageName ?? PACKAGE_NAME
+  const registry = opts?.registryUrl ?? NPM_REGISTRY
+  const channel: ReleaseChannel = opts?.releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
+  const version = opts?.version
+  if (typeof version !== 'string' || !validReleaseVersion(version) || !isVersionAllowedInChannel(version, channel)) {
+    throw updateError('invalid-release')
+  }
+  let response: MinimalResponse | null = null
+  try {
+    response = await fetchImpl(`${registry}${encodeURIComponent(targetName)}/${encodeURIComponent(version)}`, {
+      headers: { accept: 'application/json' },
+      redirect: 'error',
+      signal: timeoutSignal(timeoutMs),
+    })
+  } catch {
+    throw updateError('check-failed')
+  }
+  try {
+    if (!response.ok) throw checkFailedWithStatus(response)
+    const declared = Number(response.headers.get('content-length'))
+    if (Number.isFinite(declared) && declared > MAX_METADATA_BYTES) throw updateError('invalid-release')
+    const text = await response.text()
+    if (byteLength(text) > MAX_METADATA_BYTES) throw updateError('invalid-release')
+    const value = JSON.parse(text) as {
+      name?: unknown
+      version?: unknown
+      engines?: { node?: unknown }
+      dist?: { tarball?: unknown; integrity?: unknown }
+    }
+    if (value.name !== targetName || value.version !== version || !isVersionAllowedInChannel(value.version, channel)) {
+      throw updateError('invalid-release')
+    }
+    const nodeRange = value.engines?.node
+    if (nodeRange !== undefined && typeof nodeRange !== 'string') throw updateError('invalid-release')
+    const tarballText = value.dist?.tarball
+    const integrity = value.dist?.integrity
+    let tarball: URL
+    try {
+      tarball = new URL(String(tarballText))
+    } catch {
+      throw updateError('invalid-release')
+    }
+    const registryOrigin = new URL(registry).origin
+    const shapeOk =
+      tarball.origin === registryOrigin &&
+      !tarball.username &&
+      !tarball.password &&
+      !tarball.search &&
+      !tarball.hash &&
+      tarball.pathname === `/${targetName}/-/${targetName}-${version}.tgz` &&
+      typeof integrity === 'string' &&
+      new RegExp(INTEGRITY_PATTERN).test(integrity)
+    if (!shapeOk) throw updateError('invalid-release')
+    return { version, nodeRange: typeof nodeRange === 'string' ? nodeRange : '*', integrity, tarball: tarball.href }
+  } catch (error) {
+    if ((error as { code?: unknown })?.code === 'check-failed') throw error
+    if ((error as { code?: unknown })?.code === 'invalid-release') throw error
+    if (response !== null && response.ok) throw updateError('invalid-release')
+    throw checkFailedWithStatus(response)
+  }
+}
+
 // ---------- 核心工厂（记得规矩，不动手装） ----------
 
 interface CheckedState {

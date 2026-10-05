@@ -101,15 +101,14 @@ beforeEach(() => {
 })
 
 describe('宿主接线三电话的入参与回参', () => {
-  it('默认前缀下三名字与现状一字不差', () => {
+  it('默认前缀下三名字与现状一字不差（#38 另加更新日志电话）', () => {
     const fires = []
     const host = makeHost({ pluginId: 'dsh-mattpocock-skills-deck', fires })
-    assert.deepEqual(host.phoneNames, {
-      updateStatus: 'wf.updateStatus',
-      updateCheck: 'wf.updateCheck',
-      updateInstall: 'wf.updateInstall',
-    })
-    assert.deepEqual(Object.keys(host.handlers).sort(), ['wf.updateCheck', 'wf.updateInstall', 'wf.updateStatus'])
+    assert.equal(host.phoneNames.updateStatus, 'wf.updateStatus')
+    assert.equal(host.phoneNames.updateCheck, 'wf.updateCheck')
+    assert.equal(host.phoneNames.updateInstall, 'wf.updateInstall')
+    assert.equal(host.phoneNames.updateChangelog, 'wf.updateChangelog')
+    assert.deepEqual(Object.keys(host.handlers).sort(), ['wf.updateChangelog', 'wf.updateCheck', 'wf.updateInstall', 'wf.updateStatus'])
   })
 
   it('新插件传自己的前缀即隔离（电话名互不相撞）', () => {

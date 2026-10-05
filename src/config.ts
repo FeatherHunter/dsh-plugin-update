@@ -13,6 +13,9 @@ export const DEFAULT_PREFIX = 'wf'
 // 三个电话的动作名（冻结：改任一名字即破冰）。
 export const PHONE_ACTIONS = ['updateStatus', 'updateCheck', 'updateInstall'] as const
 export type PhoneAction = (typeof PHONE_ACTIONS)[number]
+// 更新日志电话的动作名（#38 加法扩展：三个旧动作名一字不动，另起一个新动作）。
+export const CHANGELOG_PHONE_ACTION = 'updateChangelog' as const
+export type ChangelogPhoneAction = typeof CHANGELOG_PHONE_ACTION
 
 // 默认目标包名：要检查更新的那个包是谁（当前插件的旧包名，冻结默认值）。
 export const DEFAULT_TARGET_PACKAGE = 'dsh-mattpocock-skills-deck'
@@ -146,14 +149,20 @@ export function resolveUpdateConfig(input: UpdateConfigInput): ResolvedUpdateCon
   return { pluginId, prefix, targetPackageName, registryUrl, homeDir, checkTimeoutMs, confirmationTtlMs, installTimeoutMs, panelPollMs, releaseChannel }
 }
 
-// 三个电话名拼法（冻结：默认 wf 下与现状一字不差）。
-export function buildPhoneNames(prefix: string): Record<PhoneAction, string> {
+// 四个电话名拼法（#38：三个旧名一字不动，另加更新日志电话；只读旧三键的调用逐字不变）。
+export function buildPhoneNames(prefix: string): Record<PhoneAction, string> & Record<ChangelogPhoneAction, string> {
   const checked = assertPrefix(prefix, '电话名前缀 prefix')
   return {
     updateStatus: checked + '.updateStatus',
     updateCheck: checked + '.updateCheck',
     updateInstall: checked + '.updateInstall',
+    updateChangelog: checked + '.updateChangelog',
   }
+}
+
+// 更新日志电话名单个拼法（面板/批量/HTTP 复用，不写字面量）。
+export function buildChangelogPhoneName(prefix: string): string {
+  return buildPhoneNames(prefix).updateChangelog
 }
 
 // 单个电话名拼法（供门禁与面板复用）。

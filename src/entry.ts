@@ -71,6 +71,12 @@ export interface UpdateEntryOptions {
   label?: string
   profileName?: string
   pollMs?: number
+  /**
+   * 更新日志自动/手动（#38）：透传给面板（dialog 与 inline 同走 mountPanel），默认自动；
+   * 显式文本仍赢，false 退回手动。入口件自己不取数。
+   */
+  autoChangelog?: boolean
+  changelogMarkdown?: string | null
   /** variant='badge' 或 openOn='manual' 时，点击交给接入方（自己跳自己的页面）。 */
   onActivate?: (state: { hasUpdate: boolean; latestVersion: string | null }) => void
 }
@@ -150,6 +156,13 @@ export const UPDATE_ENTRY_CSS = [
   '.dsh-upd-entry-btn{font:inherit;border:1px solid var(--dsh-upd-line,#d1d5db);border-radius:6px;',
   'background:var(--dsh-upd-btn,#f9fafb);color:inherit;padding:4px 12px;cursor:pointer}',
   '.dsh-upd-entry-btn:hover{border-color:var(--dsh-upd-primary,#2563eb)}',
+  '.dsh-upd-entry-btn,.dsh-upd-entry-dot{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}',
+  '.dsh-upd-entry-btn:active:not(:disabled){transform:translateY(1px)}',
+  '.dsh-upd-entry-btn:disabled,.dsh-upd-entry-dot:disabled{opacity:.55;cursor:wait}',
+  '.dsh-upd-entry-btn[aria-busy="true"]::after{content:"";display:inline-block;width:10px;height:10px;margin-left:7px;vertical-align:-1px;',
+  'border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:dsh-upd-entry-spin .8s linear infinite}',
+  '@keyframes dsh-upd-entry-spin{to{transform:rotate(360deg)}}',
+  '@media (prefers-reduced-motion: reduce){.dsh-upd-entry-btn,.dsh-upd-entry-dot{transition:none}.dsh-upd-entry-btn[aria-busy="true"]::after{animation:none}}',
   '.dsh-upd-entry-btn:focus-visible,.dsh-upd-entry-dot:focus-visible{outline:2px solid var(--dsh-upd-focus,#2563eb);outline-offset:1px}',
   '.dsh-upd-entry[data-state="update"] .dsh-upd-entry-btn{border-color:var(--dsh-upd-ok-line,#059669);color:var(--dsh-upd-ok-line,#059669)}',
   '.dsh-upd-entry[data-state="restart"] .dsh-upd-entry-btn{border-color:var(--dsh-upd-warn-line,#d97706);color:var(--dsh-upd-warn-line,#d97706)}',
@@ -240,6 +253,8 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
   let snapshot: UpdateSnapshot | null = null
   let error: string | null = null
   let note: string | null = null
+  // 在途查新版（#36）：点下到回包前的那一帧，按钮置忙 + 并发连点只认第一次。
+  let activating = false
   let mounted = true
   let panel: UpdatePanelController | null = null
   let panelMode: UpdatePanelMode | null = null
@@ -284,12 +299,13 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
 
   function entryHTML(): string {
     const kind = entryStateKind(stateOf())
-    const text = currentLabel()
+    const text = activating ? '正在查新版…' : currentLabel()
+    const busyAttr = activating ? ' disabled aria-busy="true"' : ''
     const themeAttr = theme === 'd5-paper' ? ' data-theme="d5-paper"' : ''
     const control =
       variant === 'badge'
-        ? `<button type="button" class="dsh-upd-entry-dot" ${ENTRY_ATTR}="activate" title="${escapeHtml(text)}" aria-label="${escapeHtml(text)}"></button>`
-        : `<button type="button" class="dsh-upd-entry-btn" ${ENTRY_ATTR}="activate">${escapeHtml(text)}</button>`
+        ? `<button type="button" class="dsh-upd-entry-dot" ${ENTRY_ATTR}="activate" title="${escapeHtml(text)}" aria-label="${escapeHtml(text)}"${busyAttr}></button>`
+        : `<button type="button" class="dsh-upd-entry-btn" ${ENTRY_ATTR}="activate"${busyAttr}>${escapeHtml(text)}</button>`
     const noteHTML = note
       ? `<span class="dsh-upd-entry-note" data-dsh-upd-note="1">${escapeHtml(note)}</span>`
       : ''
@@ -353,6 +369,8 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
       theme,
       pollMs,
       profileName,
+      autoChangelog: options.autoChangelog,
+      changelogMarkdown: options.changelogMarkdown ?? null,
       call: panelCall,
     })
     panelMode = mode
@@ -390,10 +408,15 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
    * 任何分支都不会走到安装——安装只在面板里的「安装」按钮被用户点下时发生。
    */
   async function activate(): Promise<void> {
-    if (!mounted || panelMode !== null) return
+    if (!mounted || panelMode !== null || activating) return
+    activating = true
     note = null
     render()
-    await checkNow()
+    try {
+      await checkNow()
+    } finally {
+      activating = false
+    }
     if (!mounted) return
     // badge 与 manual 都是「点击交给接入方」：把刚查到的结论递出去，自己不开面板。
     if (variant === 'badge' || openOn === 'manual') {
@@ -441,6 +464,16 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
     }
   }
 
+  function onKeyDown(ev: unknown): void {
+    try {
+      const e = ev as { key?: unknown } | null | undefined
+      if (!mounted || panelMode !== 'dialog' || !e || e.key !== 'Escape') return
+      close()
+    } catch {
+      // 按坏了也不挡更新。
+    }
+  }
+
   function unmount(): void {
     if (!mounted) return
     mounted = false
@@ -457,6 +490,11 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
     } catch {
       // 拆不掉也不挡。
     }
+    try {
+      container.removeEventListener?.('keydown', onKeyDown)
+    } catch {
+      // 拆不掉也不挡。
+    }
     // 卸载只停轮询与监听：绝不调安装/取消电话，也不动容器内容（与 panel.unmount 同口径）。
   }
 
@@ -464,6 +502,11 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
     container.addEventListener?.('click', onClick)
   } catch {
     // 没有事件能力的容器也能用（controller.open/refresh 直达）。
+  }
+  try {
+    container.addEventListener?.('keydown', onKeyDown)
+  } catch {
+    // 没有键盘事件能力的容器忽略（Esc 关弹窗是渐进增强）。
   }
   if (variant === 'inline') mountPanel('embedded')
   else render()

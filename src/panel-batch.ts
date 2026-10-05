@@ -34,6 +34,7 @@
 // DOM 只在 mountUpdateBatchPanel 被调用时经容器与 globalThis 现取，模块顶层不碰。
 
 import { assertPrefix, MIN_PANEL_POLL_MS } from './config.js'
+import { validReleaseVersion } from './service.js'
 import {
   isTerminalPhase,
   normalizeBatchSession,
@@ -104,6 +105,11 @@ export interface BatchPanelOptions {
   onRestartRequested?: () => void | Promise<void>
   /** 复制文本的出口（与单插件面板同一口径）：不传即试浏览器剪贴板，都没有也不抛错。 */
   copyText?: (text: string) => void | Promise<void>
+  /**
+   * 详情行自动取日志（#38）：默认开。展开行有新版时调该行自己的更新日志电话按需取；
+   * 老宿主没给行电话名即回中性提示；false 关闭。
+   */
+  autoChangelog?: boolean
 }
 
 /** 面板可点的动作（HTML 上 data-act 一一对应；测试走同一条路）。 */
@@ -283,6 +289,8 @@ export interface BatchPanelRenderInput {
   notice?: string | null
   /** 面板正有一次电话在飞（本地忙守卫的一半）。 */
   inFlight?: boolean
+  /** 「取消这一批」已点过一次：按钮换确认文案，再点一次才真取消（防误触）。 */
+  confirmCancel?: boolean
   /** 是否已经拿到过第一次回包（决定总账那句是不是「正在读取…」）。 */
   loaded?: boolean
   titles?: Record<string, string>
@@ -290,6 +298,8 @@ export interface BatchPanelRenderInput {
   skippedVersions?: Record<string, string | null>
   /** notice 归哪一家：等于某行键时那条回执画在该家详情里（否则画在面板底部）。 */
   noticeKey?: string | null
+  /** 键 -> 该行已取到的日志全文（只传有文本的；取不到与没展开即中性提示，不挡安装）。 */
+  changelogs?: Record<string, string | null>
 }
 
 interface RowRenderContext {
@@ -304,6 +314,8 @@ interface RowRenderContext {
   skipped: string | null
   /** 展开时挂在详情里的那条回执（复制/跳过之类）；不展开不画。 */
   notice: string | null
+  /** 该行已取到的日志全文（null 即中性提示）。 */
+  changelogMarkdown: string | null
 }
 
 /** 整面板 HTML（含样式；重绘即整体替换 innerHTML，故每次都带 style 也只留一份）。 */
@@ -335,6 +347,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   const noticeKey = typeof input.noticeKey === 'string' && input.noticeKey ? input.noticeKey : null
   // 回执挂在该家详情里（那家正展开才算数）；否则落回面板底部那条。
   const detailNoticeKey = notice !== null && noticeKey !== null && noticeKey === expandedKey ? noticeKey : null
+  const changelogs = input.changelogs && typeof input.changelogs === 'object' ? input.changelogs : {}
   const ctx: RowRenderContext = {
     expanded: false,
     busy: installing,
@@ -343,6 +356,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
     titles,
     skipped: null,
     notice: null,
+    changelogMarkdown: null,
   }
   const parts: string[] = []
 
@@ -350,9 +364,9 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   parts.push('<div class="dsh-upd-batch-head">')
   parts.push('<div class="dsh-upd-batch-title">更新档案 · <i>总账</i></div>')
   parts.push('<div class="dsh-upd-batch-macros">')
-  parts.push('<button type="button" data-act="check"' + disabled + '>检查更新</button>')
-  parts.push('<button type="button" data-act="install" data-primary="1"' + disabled + '>全部更新</button>')
-  if (mode === 'dialog') parts.push('<button type="button" data-act="close">关闭</button>')
+  parts.push('<button type="button" data-act="check"' + disabled + ' title="重新读取批量状态（只读）">检查更新</button>')
+  parts.push('<button type="button" data-act="install" data-primary="1"' + disabled + ' title="把有新版的几家一次提交；同一会话同一幂等编号">全部更新</button>')
+  if (mode === 'dialog') parts.push('<button type="button" data-act="close" title="关闭面板（批量推进在宿主侧继续跑）">关闭</button>')
   parts.push('</div>')
   parts.push('</div>')
 
@@ -377,6 +391,8 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
         expanded,
         skipped,
         notice: expanded && row.key === detailNoticeKey ? notice : null,
+        changelogMarkdown:
+          expanded && typeof changelogs[row.key] === 'string' ? (changelogs[row.key] as string) : null,
       }),
     )
   }
@@ -392,7 +408,15 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
     const more: string[] = []
     if (stalled) more.push('<button type="button" data-act="resume">接着上次</button>')
     // 忙守卫同理：安装中「取消」停不了正在跑的那一家（宿主侧取消只清会话），别给人假动作。
-    more.push('<button type="button" data-act="cancel"' + disabled + '>取消这一批</button>')
+    // 两步确认：第一次只上膛（红框 + 换文案），第二次才真取消；点别的按钮自动卸膛。
+    const confirmCancel = input.confirmCancel === true
+    more.push(
+      '<button type="button" data-act="cancel"' + disabled +
+        (confirmCancel
+          ? ' data-confirm="1" title="再点一次确认取消"'
+          : ' title="取消这一批（要点两次确认，防误触）"') +
+        '>' + (confirmCancel ? '确认取消这一批' : '取消这一批') + '</button>',
+    )
     parts.push('<div class="dsh-upd-batch-more">' + more.join('') + '</div>')
   }
   if (notice !== null && detailNoticeKey === null) {
@@ -591,6 +615,7 @@ function detailHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const html = renderUpdatePanelHTML({
     snapshot: asSnapshotLike(row.snapshot),
     manual: typeof row.manual === 'string' ? row.manual : null,
+    changelogMarkdown: typeof ctx.changelogMarkdown === 'string' ? ctx.changelogMarkdown : null,
     queue: asQueueLike(row.queue),
     // 跳过是面板本地记录（与单插件面板同一套语义）：内核按「已跳过」画 tag 与提示行，
     // 恢复按钮由上面的动作行提供，措辞与内核提示里的「恢复」对得上。
@@ -716,6 +741,8 @@ export const UPDATE_BATCH_PANEL_CSS = [
   '.dsh-upd-batch-ledger{margin:8px 0 0;font-size:13px;opacity:.85}',
   '.dsh-upd-batch-more{margin-top:6px}',
   '.dsh-upd-batch-more button{font-size:12px}',
+  // 确认态：红框红字，与「关闭」等中性按钮一眼区分；disabled 照旧置灰。
+  '.dsh-upd-batch-more button[data-confirm="1"]{border-color:var(--dsh-upd-bad-line,#dc2626);color:var(--dsh-upd-bad-line,#dc2626)}',
   '.dsh-upd-batch-notice{margin-top:6px;font-size:12.5px;opacity:.85}',
   '.dsh-upd-bdetail-actions{margin:0 0 6px}',
   '.dsh-upd .dsh-upd-bdetail-actions button{font-size:12.5px}',
@@ -1061,6 +1088,14 @@ export function mountUpdateBatchPanel(
   const copyText = options.copyText ?? defaultCopyText
   // 跳过存储按插件标识各一份（浏览器 localStorage 优先，没有退内存；与单插件面板同一套语义）。
   const skipStores = new Map<string, PanelSkipStore>()
+  // 详情行自动日志（#38）：默认开；按“行 key + 版本”记住结果（含取不到也记住），传输失败的不记。
+  const autoChangelogEnabled = options.autoChangelog !== false
+  const rowChangelog = new Map<string, { version: string; markdown: string | null }>()
+  const rowInflight = new Set<string>()
+  // 失败退避（#38 对抗补记）：同行同版本失败只记一次，轮询与反复展开不再重问；
+  // 换版、批量查一次、重开面板即忘。
+  const rowFailed = new Map<string, string>()
+  let rowAutoSeq = 0
 
   let rows: BatchRowView[] = []
   let expandedKey: string | null = null
@@ -1070,7 +1105,70 @@ export function mountUpdateBatchPanel(
   let inFlight = false
   let loaded = false
   let refreshing = false
+  // 两步确认（#37）：「取消这一批」点一次只上膛，点别的按钮自动卸膛。
+  let confirmCancelArmed = false
   let mounted = true
+
+  /** 当前可画的各行日志：只给版本对得上且有文本的（其余即中性提示）。 */
+  function changelogView(): Record<string, string | null> {
+    const out: Record<string, string | null> = {}
+    for (const row of rows) {
+      const cached = rowChangelog.get(row.key)
+      if (!cached || typeof cached.markdown !== 'string') continue
+      if (latestVersionOf(row) !== cached.version) continue
+      out[row.key] = cached.markdown
+    }
+    return out
+  }
+
+  /** 该行详情要用的更新日志电话名：行里没带（老宿主）即回 null，外层按取不到处理。 */
+  function changelogPhoneOf(row: BatchRowView): string | null {
+    const phones = isObject(row.phoneNames) ? (row.phoneNames as Record<string, unknown>) : null
+    if (!phones) return null
+    const name = phones['updateChangelog']
+    return typeof name === 'string' && name ? name : null
+  }
+
+  /** 展开行有新版即调该行自己的电话取一次；单行失败只影响该行，绝不碰别家。 */
+  function maybeAutoRowChangelog(key: string | null): void {
+    if (!autoChangelogEnabled || !mounted || !key) return
+    const row = rowOfKey(key)
+    if (!row || asBatchPhase(row.phase) !== 'ready') return
+    const version = latestVersionOf(row)
+    if (!version || !validReleaseVersion(version)) return
+    try {
+      if (skipStoreFor(pluginIdOf(row)).has(version)) return
+    } catch {
+      // 跳过存储读不到即当没跳过，不挡日志。
+    }
+    const cached = rowChangelog.get(key)
+    if (cached && cached.version === version) return
+    if (rowInflight.has(key)) return
+    if (rowFailed.get(key) === version) return
+    const phone = changelogPhoneOf(row)
+    if (!phone) return
+    rowInflight.add(key)
+    const seq = rowAutoSeq
+    void Promise.resolve()
+      .then(() => call(phone, { version }))
+      .then(
+        (reply) => {
+          rowInflight.delete(key)
+          if (!mounted || seq !== rowAutoSeq) return
+          if (!isObject(reply) || reply['ok'] !== true) {
+            rowFailed.set(key, version)
+            return
+          }
+          const md = (reply as Record<string, unknown>)['markdown']
+          rowChangelog.set(key, { version, markdown: typeof md === 'string' ? md : null })
+          if (typeof md === 'string') render()
+        },
+        () => {
+          rowInflight.delete(key)
+          if (mounted && seq === rowAutoSeq) rowFailed.set(key, version)
+        },
+      )
+  }
 
   function render(): void {
     if (!mounted) return
@@ -1086,6 +1184,8 @@ export function mountUpdateBatchPanel(
       inFlight,
       loaded,
       titles,
+      confirmCancel: confirmCancelArmed,
+      changelogs: changelogView(),
     })
   }
 
@@ -1176,6 +1276,7 @@ export function mountUpdateBatchPanel(
       refreshing = false
     }
     render()
+    maybeAutoRowChangelog(expandedKey)
   }
 
   /**
@@ -1196,6 +1297,8 @@ export function mountUpdateBatchPanel(
         return
       }
       applyReply(reply)
+      // 批量查/装一次是明确意图：清掉各行失败退避，下面的按行链路可再问一次。
+      rowFailed.clear()
     } catch {
       if (!mounted) return
       lastError = 'check-failed'
@@ -1203,10 +1306,16 @@ export function mountUpdateBatchPanel(
       inFlight = false
       if (mounted) render()
     }
+    maybeAutoRowChangelog(expandedKey)
   }
 
   async function act(kind: BatchPanelActionKind, key?: string): Promise<void> {
     if (!mounted) return
+    // 点别的按钮，上膛的取消确认自动撤销（当即重绘，不等人）。
+    if (kind !== 'cancel' && confirmCancelArmed) {
+      confirmCancelArmed = false
+      render()
+    }
     switch (kind) {
       case 'check':
         return phone(phones.check, {})
@@ -1225,7 +1334,10 @@ export function mountUpdateBatchPanel(
         render()
         return
       }
+      // 程序调用（controller.act）即执行：调它就是明确意图，不上膛。
+      // 鼠标误触的防护在 onClick 那一层（第一次点击只上膛）。
       case 'cancel': {
+        confirmCancelArmed = false
         await phone(phones.cancel, {})
         if (!mounted) return
         say('已取消这一批：剩下的不再推进；要重来点「检查更新」。')
@@ -1304,6 +1416,7 @@ export function mountUpdateBatchPanel(
         if (typeof key !== 'string' || !key) return
         expandedKey = expandedKey === key ? null : key
         render()
+        maybeAutoRowChangelog(expandedKey)
         return
       }
       // 「重启宿主」：宿主没有重启自己的电话，只做入口——调用方给了 onRestartRequested 就交给它，
@@ -1331,6 +1444,17 @@ export function mountUpdateBatchPanel(
     }
   }
 
+  function onKeyDown(ev: unknown): void {
+    // Esc 关弹窗：与「关闭」按钮同口径（只停轮询，不动宿主侧推进）。
+    try {
+      const e = ev as { key?: unknown } | null | undefined
+      if (!mounted || mode !== 'dialog' || !e || e.key !== 'Escape') return
+      unmount()
+    } catch {
+      // 按坏了也不挡更新。
+    }
+  }
+
   function setTheme(next: UpdatePanelTheme): void {
     if (next !== 'default' && next !== 'd5-paper') {
       throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 d5-paper（收到 ' + JSON.stringify(next) + '）')
@@ -1355,6 +1479,15 @@ export function mountUpdateBatchPanel(
       const btn = t?.target && typeof t.target.closest === 'function' ? t.target.closest('[data-act]') : null
       const kind = btn?.getAttribute ? btn.getAttribute('data-act') : null
       if (!kind) return
+      // 鼠标路径的两步确认：第一次只上膛（红框 + 换文案），第二次才真取消。
+      // 程序调 controller.act('cancel') 不走这里，仍是一次即执行。
+      if (kind === 'cancel' && !confirmCancelArmed) {
+        confirmCancelArmed = true
+        say('再点一次「确认取消这一批」才真的取消；点别的按钮可撤销这次确认。')
+        render()
+        return
+      }
+      if (kind === 'cancel') confirmCancelArmed = false
       const key = btn?.getAttribute ? btn.getAttribute('data-key') : null
       void act(kind as BatchPanelActionKind, key === null ? undefined : key)
     } catch {
@@ -1365,6 +1498,9 @@ export function mountUpdateBatchPanel(
   function unmount(): void {
     if (!mounted) return
     mounted = false
+    // 过期回包丢弃（#38）：序号加一 + 在途集合清空，在飞的取数回来即丢。
+    rowAutoSeq++
+    rowInflight.clear()
     try {
       timer.clear(handle)
     } catch {
@@ -1372,6 +1508,11 @@ export function mountUpdateBatchPanel(
     }
     try {
       container.removeEventListener?.('click', onClick)
+    } catch {
+      // 拆不掉也不挡。
+    }
+    try {
+      container.removeEventListener?.('keydown', onKeyDown)
     } catch {
       // 拆不掉也不挡。
     }
@@ -1384,6 +1525,11 @@ export function mountUpdateBatchPanel(
     container.addEventListener?.('click', onClick)
   } catch {
     // 没有事件能力的容器也能看（按钮走 controller.act）。
+  }
+  try {
+    container.addEventListener?.('keydown', onKeyDown)
+  } catch {
+    // 没有键盘事件能力的容器忽略（Esc 关弹窗是渐进增强）。
   }
   const timer = getTimer()
   const handle = timer.set(() => {

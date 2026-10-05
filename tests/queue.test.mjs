@@ -365,7 +365,7 @@ describe('宿主接线：老形状冻结与队列开关', () => {
     assert.equal(out.ok, true)
     assert.ok(!('queue' in out))
     assert.deepEqual(Object.keys(out.snapshot).sort(), ['blockedReason', 'canInstall', 'installedVersion', 'job', 'latestVersion', 'runningVersion'])
-    assert.deepEqual(Object.keys(host.phoneNames).sort(), ['updateCheck', 'updateInstall', 'updateStatus'])
+    assert.deepEqual(Object.keys(host.phoneNames).sort(), ['updateChangelog', 'updateCheck', 'updateInstall', 'updateStatus'])
   })
 
   it('查状态显式要才带队列：默认藏他人，显式给全量', async () => {

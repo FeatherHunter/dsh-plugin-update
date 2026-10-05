@@ -25,8 +25,8 @@ export const DEFAULT_HTTP_CHECK_TIMEOUT_MS = 15_000
 export const DEFAULT_HTTP_INSTALL_TIMEOUT_MS = 16 * 60_000
 export const DEFAULT_HTTP_STATUS_TIMEOUT_MS = 15_000
 
-/** 单插件三电话动作名（与 src/config.ts PHONE_ACTIONS 同字面，不另起字面）。 */
-export const HTTP_PHONE_ACTIONS = ['updateStatus', 'updateCheck', 'updateInstall'] as const
+/** 单插件电话动作名（旧三电话与 src/config.ts PHONE_ACTIONS 同字面，不另起字面；#38 加 updateChangelog）。 */
+export const HTTP_PHONE_ACTIONS = ['updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog'] as const
 export type HttpPhoneAction = (typeof HTTP_PHONE_ACTIONS)[number]
 
 /** 批量五电话动作名（与 src/panel-batch.ts buildBatchPhoneNames 同字面，不另起字面；同一内核）。 */
@@ -102,6 +102,9 @@ function allowedRouteKeys(prefix: string, batchPrefix?: string): Set<string> {
       out.add(batchPrefix + "." + a)
     }
   }
+  // 更新日志短动作名全局放行（#38）：批量详情行调的是各行自己的前缀（如 ilife-bill.updateChangelog），
+  // 覆写表里用短名即可一次覆盖全行；默认路径（baseUrl + 全电话名）本来就不经此表，直接可用。
+  out.add('updateChangelog')
   return out
 }
 
@@ -204,7 +207,7 @@ function timeoutForPhone(phoneName: string, timeout: number | HttpTimeouts | und
     if (typeof t.installMs === "number" && Number.isFinite(t.installMs) && t.installMs > 0) return t.installMs
     return DEFAULT_HTTP_INSTALL_TIMEOUT_MS
   }
-  if (phoneName.endsWith(".updateCheck") || phoneName.endsWith(".batchCheck")) {
+  if (phoneName.endsWith(".updateCheck") || phoneName.endsWith(".batchCheck") || phoneName.endsWith(".updateChangelog")) {
     if (typeof t.checkMs === "number" && Number.isFinite(t.checkMs) && t.checkMs > 0) return t.checkMs
     return DEFAULT_HTTP_CHECK_TIMEOUT_MS
   }

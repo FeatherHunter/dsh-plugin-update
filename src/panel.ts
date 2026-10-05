@@ -17,7 +17,7 @@
 // 与错误架构子地图的分工：回包形状由子地图定，本组件只承诺“有、够、已脱敏”——
 // 平时一句话、旁边常驻复制诊断；复制文本经 redactForCopy 收干净后再交出去。
 
-import { buildPhoneNames, DEFAULT_PANEL_POLL_MS, MIN_PANEL_POLL_MS } from './config.js'
+import { buildChangelogPhoneName, buildPhoneNames, DEFAULT_PANEL_POLL_MS, MIN_PANEL_POLL_MS } from './config.js'
 import { COPY_BUDGET_CHARS, sanitizeForCopy } from './redaction.js'
 import { validReleaseVersion } from './service.js'
 import {
@@ -90,9 +90,15 @@ export interface UpdatePanelOptions {
   /**
    * 更新日志 Markdown（#23 包内 CHANGELOG 展示）：
    * 调用方按“已装版离线读、新版按需取 tarball”备好后传入（取不到传 null/空串即中性提示）；
-   * 面板只渲染不取数，缺日志永不挡安装、不写 blockedReason。
+   * 缺日志永不挡安装、不写 blockedReason。
+   * 显式传入即赢：自动链路（见 autoChangelog）永不覆盖它。
    */
   changelogMarkdown?: string | null
+  /**
+   * 自动取日志（#38）：默认开。有新版时面板按 latestVersion 调一次宿主更新日志电话，
+   * 回来经内部通道换日志节；显式传过 changelogMarkdown 或传 false 即退回手动模式。
+   */
+  autoChangelog?: boolean
 }
 
 /** 挂载点：只要有 innerHTML 的容器即可（浏览器元素或测试替身都行）。 */
@@ -910,8 +916,25 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-upd-primary,#2563eb);transition:width .3s}',
   '.dsh-upd-progtxt{font-size:12.5px;opacity:.75}',
   '.dsh-upd-skipline{font-size:13px;margin-top:8px}',
+  // 骨架微光：只在首帧 loading 出现；reduced-motion 下静止占位，不断语义。
+  '.dsh-upd-skv{display:inline-block;min-width:64px;border-radius:3px;color:transparent !important;user-select:none;',
+  'background:linear-gradient(90deg,var(--dsh-upd-line,#e5e7eb) 25%,var(--dsh-upd-soft,#f3f4f6) 50%,var(--dsh-upd-line,#e5e7eb) 75%);',
+  'background-size:200% 100%;animation:dsh-upd-shimmer 1.2s linear infinite}',
+  '@keyframes dsh-upd-shimmer{to{background-position:-200% 0}}',
   '.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:12px}',
   '.dsh-upd-err{font-size:13px;margin:0 0 6px}',
+  // —— 全按钮交互反馈（#36：悬停/按下/过渡/在途忙态；浅深双主题通用写法，不碰上面的既有串）——
+  '.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}',
+  '.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-upd-focus,#2563eb)}',
+  '.dsh-upd button[data-primary="1"]:hover:not(:disabled){filter:brightness(.93)}',
+  '.dsh-upd button:active:not(:disabled){transform:translateY(1px)}',
+  '.dsh-upd button[aria-busy="true"]{cursor:wait;animation:dsh-upd-pulse 1s ease-in-out infinite}',
+  '@keyframes dsh-upd-pulse{0%,100%{opacity:1}50%{opacity:.55}}',
+  // 在途转圈：纯 CSS ::after，不加 DOM 节点（内核 DOM 冻结）；转的是边框缺口，不是 emoji。
+  '.dsh-upd button[aria-busy="true"]::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;vertical-align:-1px;',
+  'border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:dsh-upd-spin .8s linear infinite}',
+  '@keyframes dsh-upd-spin{to{transform:rotate(360deg)}}',
+  '@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}}',
   '@media (prefers-color-scheme: dark){.dsh-upd{--dsh-upd-fg:#e5e7eb;--dsh-upd-bg:#111827;--dsh-upd-line:#374151;',
   '--dsh-upd-btn:#1f2937;--dsh-upd-soft:#1f2937;--dsh-upd-primary:#3b82f6;--dsh-upd-focus:#93c5fd;',
   // 横幅深色覆盖：底色用低透明度同色系（不是浅色原值），边线提亮，保证「深底浅字」可读。
@@ -1064,6 +1087,11 @@ export interface PanelRenderInput extends PanelViewInput {
   /** 宿主种类：进诊断文本；缺省显示“未知”。 */
   hostKind?: string | null
   /**
+   * 在途动作（仅挂载态内部用：点下查新版/安装到回包前的那一帧，按钮置忙）。
+   * 缺省即静默（输出与旧版一字不差）；只在挂载器置忙的那次 render 里传。
+   */
+  busyAct?: 'check' | 'install' | null
+  /**
    * 动作面归谁：`default`（缺省）由内核画动作按钮；`none` 只画内容、不画按钮。
    * 给「调用方自己提供动作面」的场景（如批量面板的详情：动作由批量面板经自己的通道提供）。
    * 只读渲染下五章内容、进度条、「已跳过」提示一字不减，只是没有动作按钮。
@@ -1083,6 +1111,15 @@ function chapterOf(index: 1 | 2 | 3 | 4 | 5, inner: string, note = ''): string {
     `<h3 class="dsh-upd-chap-title">${escapeHtml(title)}</h3><span class="dsh-upd-chap-rule"></span>${note}</div>` +
     `${inner}</section>`
   )
+}
+
+/** 首帧骨架：快照没到之前占住版本条的位置，纯 CSS 微光（aria-hidden，不进语义）。 */
+function skeletonStrip(loading: boolean): string {
+  if (!loading) return ''
+  const cell = (k: string): string =>
+    `<div><span class="dsh-upd-strip-k">${escapeHtml(k)}</span>` +
+    `<span class="dsh-upd-strip-v dsh-upd-skv" aria-hidden="true">…</span></div>`
+  return `<div class="dsh-upd-strip" aria-hidden="true">` + cell('运行') + cell('磁盘') + cell('远端') + `</div>`
 }
 
 /** 版本条三格（照原型 :216 `.strip`：运行 / 磁盘 / 远端）。 */
@@ -1147,38 +1184,48 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   if (b.action) parts.push(`<div>${escapeHtml(b.action)}</div>`)
   parts.push('</div>')
   // 版本条（原型 :216 `.strip`）：运行 / 磁盘 / 远端三格。
-  parts.push(versionStrip(snapshot))
+  // 首帧无快照：画骨架占位（纯 CSS 微光，不加语义节点；快照一到即换真格）。
+  parts.push(snapshot ? versionStrip(snapshot) : skeletonStrip(view.banner.kind === 'loading'))
   // —— 01 检查与安装（原型 :218-224）：动作 + 进度条 + 跳过行 ——
   // 只读渲染（`actions: 'none'`）：调用方自己提供动作面时用（批量面板的详情就是这种）。
   // 五章内容、进度条、「已跳过」提示照画，唯独不画动作按钮——免得出现「可点却没人接」的死按钮。
   const showActions = input.actions !== 'none'
   const actions: string[] = []
   if (showActions) {
+  const busyAct = (input as { busyAct?: unknown }).busyAct
+  const checkBusy = busyAct === 'check'
+  const installBusy = busyAct === 'install'
   actions.push('<div class="dsh-upd-actions">')
+  // 在途那一帧：按钮禁用 + 文案切换 + aria-busy（静默时输出与旧版一字不差）。
+  // title 是零成本原生 tooltip：不引入浮层组件，只给悬停一句话说明。
   actions.push(
-    `<button type="button" data-action="check">查新版</button>` +
-      `<button type="button" data-action="install" data-primary="1"${view.installEnabled ? '' : ' disabled'}>${escapeHtml(view.installLabel)}</button>`,
+    (checkBusy
+      ? `<button type="button" data-action="check" disabled aria-busy="true" title="正在向官方源查询，请稍候">正在查新版…</button>`
+      : `<button type="button" data-action="check" title="重新向官方源查一次新版（只读，不安装）">查新版</button>`) +
+      (installBusy
+        ? `<button type="button" data-action="install" data-primary="1" disabled aria-busy="true" title="正在安装，请稍候">正在安装…</button>`
+        : `<button type="button" data-action="install" data-primary="1" title="用精确版本安装；同一使用范围同时只装一个"${view.installEnabled ? '' : ' disabled'}>${escapeHtml(view.installLabel)}</button>`),
   )
   if (snapshot?.latestVersion && !view.skippedLatest && view.banner.kind === 'update') {
-    actions.push(`<button type="button" data-action="skip">跳过该版本</button>`)
+    actions.push(`<button type="button" data-action="skip" title="该版本不再提醒；有更新的新版本照常提醒">跳过该版本</button>`)
   }
   if (view.showReset && snapshot?.latestVersion) {
-    actions.push(`<button type="button" data-action="reset-skip">恢复（${escapeHtml(snapshot.latestVersion)}）</button>`)
+    actions.push(`<button type="button" data-action="reset-skip" title="撤销跳过，该版本重新提醒">恢复（${escapeHtml(snapshot.latestVersion)}）</button>`)
   }
   if (view.showManual && manual) {
-    actions.push(`<button type="button" data-action="copy-manual">复制手工命令</button>`)
+    actions.push(`<button type="button" data-action="copy-manual" title="复制手工命令，粘到终端整行执行">复制手工命令</button>`)
   }
   // 原型的待重启横幅右侧有个主动作「重启宿主」（d5-paper.html:448）。
   // 宿主没有「重启自己」的电话，所以这里只做入口：调用方给了 onRestartRequested 就交给它，
   // 没给就如实提示「请手动重启」——不假装能重启。
   if (b.kind === 'restart') {
-    actions.push(`<button type="button" data-action="restart-hint" data-primary="1">重启宿主</button>`)
+    actions.push(`<button type="button" data-action="restart-hint" data-primary="1" title="宿主没有自重启电话：请手动重启宿主">重启宿主</button>`)
   }
   if (snapshot) {
-    actions.push(`<button type="button" data-action="copy-diag">复制诊断</button>`)
+    actions.push(`<button type="button" data-action="copy-diag" title="复制已脱敏诊断，直接粘给插件作者">复制诊断</button>`)
   }
   if (mode === 'dialog') {
-    actions.push(`<button type="button" data-action="close-view">关闭</button>`)
+    actions.push(`<button type="button" data-action="close-view" title="关闭面板（安装在宿主侧继续跑，可重开恢复显示）">关闭</button>`)
   }
   actions.push('</div>')
   }
@@ -1426,6 +1473,17 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   }
   const prefix = options.prefix === undefined ? 'wf' : options.prefix
   const phoneNames = buildPhoneNames(prefix)
+  const changelogPhone = buildChangelogPhoneName(prefix)
+  // 自动日志（#38）：默认开；显式传过 changelogMarkdown 或显式关即退回手动。
+  const autoChangelogEnabled = typeof options.changelogMarkdown !== 'string' && options.autoChangelog !== false
+  let manualChangelogOverride = typeof options.changelogMarkdown === 'string'
+  // 按版本记住结果（含取不到也记住；传输失败的不记，下次轮询重问）。
+  const changelogCache = new Map<string, string | null>()
+  const changelogInflight = new Set<string>()
+  // 失败退避（#38 对抗补记）：同版本失败只记一次，不在轮询里每秒重问；
+  // 换版、手动点查新版、重开面板即忘，下次照常问。
+  const changelogFailed = new Set<string>()
+  let autoSeq = 0
   const pollMs =
     options.pollMs === undefined ? DEFAULT_PANEL_POLL_MS : options.pollMs
   if (typeof pollMs !== 'number' || !Number.isFinite(pollMs) || pollMs < MIN_PANEL_POLL_MS) {
@@ -1461,10 +1519,23 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   let lastErrorKind: string | null = null
   let lastDiag: unknown = null
   let copyNotice: string | null = null
+  let noticeExpiresAt = 0
+  // 在途动作（#36）：点下查新版/安装到回包前的那一帧，按钮置忙 + 并发连点只认第一次。
+  let busyAct: 'check' | 'install' | null = null
   let mounted = true
   // 宿主 includeEnv 回的使用范围与宿主种类（调用方显式传的优先，见 render）。
   let envProfileName: string | null = null
   let envHostKind: string | null = null
+
+  /** 记一条 transient 回执：5 秒后过期（toast 语义），下次点击不清它、时间到才清。 */
+  function sayCopy(text: string): void {
+    copyNotice = text
+    try {
+      noticeExpiresAt = Date.now() + 5000
+    } catch {
+      noticeExpiresAt = 0
+    }
+  }
 
   function queueArgs(): Record<string, unknown> {
     // includeEnv：要宿主把「装到哪个使用范围」一并回给我们（老调用不带，回包形状不变）。
@@ -1473,12 +1544,20 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
 
   function render(): void {
     if (!mounted) return
+    // Toast 过期（#37）：transient 提示只活 5 秒；戳在赋值点打（sayCopy），轮询重绘不续命。
+    // busy 在途提示由 finally 清，这里只管过期。
+    if (!copyNotice) noticeExpiresAt = 0
+    else if (noticeExpiresAt && Date.now() > noticeExpiresAt) {
+      copyNotice = null
+      noticeExpiresAt = 0
+    }
     const latest = snapshot?.latestVersion ?? null
     const skippedLatest = !!latest && validReleaseVersion(latest) && skipStore.has(latest)
     container.innerHTML = renderUpdatePanelHTML({
       snapshot,
       manual,
       queue,
+      busyAct,
       skippedLatest,
       lastError,
       errorKind: lastErrorKind,
@@ -1522,6 +1601,51 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     }
   }
 
+  /** 自动取日志的触发条件（#38）：仅有新版可装、未跳过该版、没记过该版时才问一次。 */
+  function pendingAutoChangelogVersion(): string | null {
+    if (!autoChangelogEnabled || manualChangelogOverride || !mounted) return null
+    const v = snapshot?.latestVersion ?? null
+    if (typeof v !== 'string' || !validReleaseVersion(v)) return null
+    if (!snapshot || snapshot.canInstall !== true) return null
+    try {
+      if (skipStore.has(v)) return null
+    } catch {
+      // 跳过存储读不到即当没跳过，不挡日志。
+    }
+    if (changelogCache.has(v) || changelogInflight.has(v) || changelogFailed.has(v)) return null
+    return v
+  }
+
+  /** 有新版即按 latestVersion 调一次宿主电话，回来经内部通道换日志节；过期回包直接丢。 */
+  function maybeAutoChangelog(): void {
+    const v = pendingAutoChangelogVersion()
+    if (v === null) return
+    changelogInflight.add(v)
+    const seq = autoSeq
+    void Promise.resolve()
+      .then(() => call(changelogPhone, { version: v }))
+      .then(
+        (reply) => {
+          changelogInflight.delete(v)
+          if (!mounted || seq !== autoSeq) return
+          if (!reply || typeof reply !== 'object' || (reply as Record<string, unknown>)['ok'] !== true) {
+            changelogFailed.add(v)
+            return
+          }
+          const md = (reply as Record<string, unknown>)['markdown']
+          changelogCache.set(v, typeof md === 'string' ? md : null)
+          if (typeof md === 'string') {
+            changelogMarkdown = md
+            render()
+          }
+        },
+        () => {
+          changelogInflight.delete(v)
+          if (mounted && seq === autoSeq) changelogFailed.add(v)
+        },
+      )
+  }
+
   async function refresh(): Promise<void> {
     if (!mounted) return
     try {
@@ -1535,6 +1659,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       lastDiag = null
     }
     render()
+    maybeAutoChangelog()
   }
 
   async function act(kind: UpdatePanelActionKind, arg?: string): Promise<void> {
@@ -1542,20 +1667,34 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     copyNotice = null
     switch (kind) {
       case 'check': {
+        if (busyAct) return
+        busyAct = 'check'
+        copyNotice = '正在查新版…'
+        render()
         try {
           const reply = await call(phoneNames.updateCheck, queueArgs())
           if (!mounted) return
           applyStatusReply(reply)
+          // 手动查新版是明确意图：清掉失败退避，下面的自动链路可再问一次。
+          changelogFailed.clear()
         } catch {
           if (!mounted) return
           lastError = 'check-failed'
           lastErrorKind = null
           lastDiag = null
+        } finally {
+          busyAct = null
+          if (copyNotice === '正在查新版…') copyNotice = null
         }
         render()
+        maybeAutoChangelog()
         return
       }
       case 'install': {
+        if (busyAct) return
+        busyAct = 'install'
+        copyNotice = '正在安装…'
+        render()
         try {
           if (!receipt) {
             const checked = await call(phoneNames.updateCheck, queueArgs())
@@ -1583,8 +1722,12 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           lastError = 'check-failed'
           lastErrorKind = null
           lastDiag = null
+        } finally {
+          busyAct = null
+          if (copyNotice === '正在安装…') copyNotice = null
         }
         render()
+        maybeAutoChangelog()
         return
       }
       case 'skip': {
@@ -1612,9 +1755,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         if (manual) {
           try {
             await copyText(manual)
-            copyNotice = '手工命令已复制，粘到终端整行执行即可。'
+            sayCopy('手工命令已复制，粘到终端整行执行即可。')
           } catch {
-            copyNotice = '复制失败，请手动选中上面的命令。'
+            sayCopy('复制失败，请手动选中上面的命令。')
           }
         }
         render()
@@ -1648,9 +1791,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         })
         try {
           await copyText(text)
-          copyNotice = '诊断已复制，直接粘给插件作者即可（已脱敏）。'
+          sayCopy('诊断已复制，直接粘给插件作者即可（已脱敏）。')
         } catch {
-          copyNotice = '复制失败，请手动选中上面的信息。'
+          sayCopy('复制失败，请手动选中上面的信息。')
         }
         render()
         return
@@ -1666,12 +1809,12 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         try {
           if (typeof onRestartRequested === 'function') {
             await onRestartRequested()
-            copyNotice = '已按调用方的重启流程处理；重启后新版生效。'
+            sayCopy('已按调用方的重启流程处理；重启后新版生效。')
           } else {
-            copyNotice = '本宿主未提供重启入口：请手动重启宿主，重启后新版生效。'
+            sayCopy('本宿主未提供重启入口：请手动重启宿主，重启后新版生效。')
           }
         } catch {
-          copyNotice = '重启入口调用失败：请手动重启宿主，重启后新版生效。'
+          sayCopy('重启入口调用失败：请手动重启宿主，重启后新版生效。')
         }
         render()
         return
@@ -1718,14 +1861,30 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     }
   }
 
+  function onKeyDown(ev: unknown): void {
+    // Esc 关弹窗：焦点在面板内时按键冒泡到容器；只停轮询（与「关闭」按钮同口径，不动宿主）。
+    try {
+      const e = ev as { key?: unknown } | null | undefined
+      if (!mounted || mode !== 'dialog' || !e || e.key !== 'Escape') return
+      unmount()
+    } catch {
+      // 按坏了也不挡更新。
+    }
+  }
+
   function setChangelogMarkdown(markdown: string | null): void {
     changelogMarkdown = typeof markdown === 'string' ? markdown : null
+    // 显式 wins（#38）：手动给过文本后自动链路不再覆盖（同版本只问一次，本来也不会再问）。
+    if (typeof markdown === 'string') manualChangelogOverride = true
     render()
   }
 
   function unmount(): void {
     if (!mounted) return
     mounted = false
+    // 过期回包丢弃（#38）：序号加一 + 在途集合清空，在飞的取数回来即丢，不写已拆的面板。
+    autoSeq++
+    changelogInflight.clear()
     try {
       timer.clear(handle)
     } catch {
@@ -1733,6 +1892,11 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     }
     try {
       container.removeEventListener?.('click', onClick)
+    } catch {
+      // 拆不掉也不挡。
+    }
+    try {
+      container.removeEventListener?.('keydown', onKeyDown)
     } catch {
       // 拆不掉也不挡。
     }
@@ -1745,6 +1909,11 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     container.addEventListener?.('click', onClick)
   } catch {
     // 没有事件能力的容器也能看（按钮调 controller.act）。
+  }
+  try {
+    container.addEventListener?.('keydown', onKeyDown)
+  } catch {
+    // 没有键盘事件能力的容器忽略（Esc 关弹窗是渐进增强）。
   }
   const timer = getTimer()
   const handle = timer.set(() => {
@@ -1766,6 +1935,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
 
 export { buildPhoneNames as buildPanelPhoneNames } from './config.js'
 export type { PhoneAction as PanelPhoneAction } from './config.js'
+export { buildChangelogPhoneName as buildPanelChangelogPhoneName } from './config.js'
+export type { ChangelogPhoneAction as PanelChangelogPhoneAction } from './config.js'
 
 /** 面板轮询口径（默认 1 秒、下限 250 毫秒，与宿主侧同一套）。 */
 export const PANEL_POLL = {

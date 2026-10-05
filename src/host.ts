@@ -20,12 +20,14 @@ import {
   DEFAULT_INSTALL_TIMEOUT_MS,
   buildPhoneNames,
   resolveUpdateConfig,
+  type ChangelogPhoneAction,
   type PhoneAction,
   type UpdateConfigInput,
 } from './config.js'
 import { manualCommand } from './commands.js'
+import { fetchReleaseChangelogText } from './changelog-io.js'
 import { buildDiag } from './diag.js'
-import { isVersionAllowedInChannel, validRequestId } from './service.js'
+import { fetchNpmVersionRelease, isVersionAllowedInChannel, updateError, validReleaseVersion, validRequestId } from './service.js'
 import { createUpdateDiskPorts, createUpdateExecutor, createUpdateQueuePorts } from './store.js'
 import { createUpdateReader, defaultHomeDir, resolveProfileName, resolveTargetPackage } from './reader.js'
 import type { EnvironmentKind, ReleaseChannel } from './ports.js'
@@ -45,8 +47,8 @@ import {
   type VisibleQueue,
 } from './queue.js'
 
-export { buildPhoneName, buildPhoneNames, resolveUpdateConfig } from './config.js'
-export type { PhoneAction, UpdateConfigInput } from './config.js'
+export { buildChangelogPhoneName, buildPhoneName, buildPhoneNames, resolveUpdateConfig } from './config.js'
+export type { ChangelogPhoneAction, PhoneAction, UpdateConfigInput } from './config.js'
 // 门禁模板检查器（#584，对象形式，更新包不读盘；经包根转出口，第二家可达）。
 export { parseEventListManifest, checkEventFields, checkEventCounts } from './gate.js'
 export type {
@@ -735,8 +737,63 @@ function loggedPhone(
   }
 }
 
+/**
+ * 更新日志电话的包边（#38）：成功只回 version + markdown（无路径、无快照），
+ * 失败复用 error / errorKind 体系 + 可选 diag；日志沿用 host.call / host.call.fail 基线。
+ */
+function loggedChangelogPhone(
+  method: string,
+  pluginId: string,
+  fn: (args: Record<string, unknown>) => Promise<{ version: string; markdown: string | null }>,
+  diagCtx?: {
+    config: ReturnType<typeof resolveUpdateConfig>
+    readerOverrides: ReaderOverrides
+  },
+): (args: Record<string, unknown>) => Promise<Record<string, unknown>> {
+  return async function (args: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const t0 = Date.now()
+    const emit = (level: string, event: string, fields: Record<string, unknown>): void => {
+      try {
+        if (phoneLogCtx && typeof phoneLogCtx.fire === 'function') phoneLogCtx.fire(level, event, fields)
+      } catch {}
+    }
+    const safeArgs = args && typeof args === 'object' ? (args as Record<string, unknown>) : {}
+    try {
+      const out = await fn(safeArgs)
+      emit('info', 'host.call', { method, latencyMs: Date.now() - t0, ok: true, kind: 'update-changelog', pluginId })
+      return { ok: true, version: out.version, markdown: out.markdown }
+    } catch (error) {
+      const payload = toUpdateErrorPayload(error)
+      emit('warn', 'host.call.fail', { method, kind: 'update-changelog', errorHash: hash8(String((error as Error)?.message || payload.error)), pluginId })
+      let diag: Record<string, unknown> | undefined
+      try {
+        const cfg = diagCtx?.config
+        const overrides = diagCtx?.readerOverrides ?? {}
+        const envRaw = (overrides as ReaderOverrides)?.environmentKind
+        const runningRaw = (overrides as ReaderOverrides)?.runningVersion
+        const built = buildDiag({
+          errorCode: payload.error,
+          phoneKind: 'update-changelog',
+          error,
+          args: safeArgs,
+          targetPackageName: cfg?.targetPackageName,
+          registryUrl: cfg?.registryUrl,
+          runningVersion: typeof runningRaw === 'string' ? runningRaw : undefined,
+          latestVersion: undefined,
+          environmentKind: typeof envRaw === 'string' ? envRaw : undefined,
+          latencyMs: Date.now() - t0,
+        })
+        if (built && typeof built === 'object') diag = built as unknown as Record<string, unknown>
+      } catch {
+        diag = undefined
+      }
+      return { ok: false, ...payload, ...(diag ? { diag } : {}) }
+    }
+  }
+}
+
 export interface HostUpdate {
-  phoneNames: Record<PhoneAction, string>
+  phoneNames: Record<PhoneAction, string> & Record<ChangelogPhoneAction, string>
   handlers: Record<string, (args: Record<string, unknown>) => Promise<Record<string, unknown>>>
 }
 
@@ -754,6 +811,29 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktop
   else watchDesktopPnpm(ctx)
   const readerOverrides = { ...(deps.readerOverrides ?? {}), ctx, ...(deps.pluginManager ? { pluginManager: deps.pluginManager } : {}) } as ReaderOverrides
   const phoneNames = buildPhoneNames(config.prefix)
+  // 更新日志按版本记住结果（含取不到也记住；抛错的不记，下次重查）。
+  const changelogCache = new Map<string, string | null>()
+  async function readChangelog(args: Record<string, unknown>): Promise<{ version: string; markdown: string | null }> {
+    const raw = args ? (args as Record<string, unknown>)['version'] : undefined
+    if (!validReleaseVersion(raw)) throw updateError('invalid-release')
+    const version = raw as string
+    if (!isVersionAllowedInChannel(version, config.releaseChannel)) throw updateError('invalid-release')
+    if (changelogCache.has(version)) return { version, markdown: changelogCache.get(version) ?? null }
+    const fetchImpl = (readerOverrides as { fetchImpl?: unknown }).fetchImpl ?? (globalThis as unknown as { fetch?: unknown }).fetch
+    const release = await fetchNpmVersionRelease(fetchImpl as never, config.checkTimeoutMs, {
+      targetPackageName: config.targetPackageName,
+      registryUrl: config.registryUrl,
+      releaseChannel: config.releaseChannel,
+      version,
+    })
+    const markdown = await fetchReleaseChangelogText(
+      fetchImpl,
+      { tarball: release.tarball, integrity: release.integrity, version },
+      { targetPackageName: config.targetPackageName, registryUrl: config.registryUrl, timeoutMs: config.checkTimeoutMs },
+    )
+    changelogCache.set(version, markdown)
+    return { version, markdown }
+  }
   async function readStatus(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; env?: PhoneEnvView | null; queue?: VisibleQueue | null }> {
     const reader = await getSharedReader(pluginId, config, {
       ...readerOverrides,
@@ -855,6 +935,10 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktop
       readerOverrides,
     }),
     [phoneNames.updateInstall]: loggedPhone(phoneNames.updateInstall, 'update-install', pluginId, runInstall, {
+      config,
+      readerOverrides,
+    }),
+    [phoneNames.updateChangelog]: loggedChangelogPhone(phoneNames.updateChangelog, pluginId, readChangelog, {
       config,
       readerOverrides,
     }),

@@ -6,10 +6,10 @@
 
 装上它你会拿到六样东西：
 
-- **三个电话**：查状态（只读本地）、查新版（用户点了才联网一次）、装更新（拿凭证提交）。电话指宿主对外提供的方法。
+- **四个电话**：查状态（只读本地）、查新版（用户点了才联网一次）、装更新（拿凭证提交）、取日志（按版取更新日志，全文或空）。电话指宿主对外提供的方法。
 - **一套落盘**：任务状态、安装锁、回滚凭据，按「插件标识 + 使用范围」隔离，多插件互不干扰。
 - **面板要的派生取值**：电话名与轮询间隔，构建期从本包生成，面板里不写死。
-- **一个现成整组件**：默认内嵌、可切弹窗，调用者传参指定；轮询、安装门控、中文一句话、待重启横幅、手工命令展示与复制、排队可见开关、跳过与恢复、诊断一键复制全在组件内部消化。
+- **一个现成整组件**：默认内嵌、可切弹窗，调用者传参指定；轮询、安装门控、中文一句话、待重启横幅、手工命令展示与复制、排队可见开关、跳过与恢复、诊断一键复制、**更新日志自动展示**全在组件内部消化。
 - **一个更新入口件**：配置页一行挂上就是「检查更新」按钮（或只给状态点的徽标、或整块内嵌），按钮文案随状态自己变；见第 2.5 节。
 - **一套多目标批量更新**：一个插件管 N 个插件的更新（总账 + 明细 + 动作，一家收尾才起下一家，会话落盘可断点续跑）；见第 2.6 节。
 
@@ -52,7 +52,7 @@ for (const [name, handler] of Object.entries(update.handlers)) {
 }
 ```
 
-这一步得到三个电话名：`notes.updateStatus`、`notes.updateCheck`、`notes.updateInstall`。
+这一步得到四个电话名：`notes.updateStatus`、`notes.updateCheck`、`notes.updateInstall`、`notes.updateChangelog`（取日志：给版本号，回该版 tarball 里的更新日志全文，取不到回空）。
 
 `pluginId` 必填（非空字符串，不含路径分隔符）。单例复用键强制含插件标识，多插件不串内存状态与锁。
 除 `pluginId` 之外的配置都可选并带默认值，不传即走默认（见第 3 节）。
@@ -78,6 +78,7 @@ createHostUpdate(
 | `….updateStatus` | `{}` | `{ ok: true, snapshot, manual, receipt: null }` | `{ ok: false, error, errorKind, diag? }` |
 | `….updateCheck` | `{}` | `{ ok: true, snapshot, manual, receipt }` | 同上 |
 | `….updateInstall` | `{ checkId, requestId }` | `{ ok: true, snapshot, manual, receipt: null }` | 同上 |
+| `….updateChangelog` | `{ version }` | `{ ok: true, version, markdown: string \| null }` | 同上 |
 
 - `snapshot` 恒为第 5.1 节那六个字段；`manual` 是第 5.3 节那条手工命令（能给则给，不能给为 `null`）。
 - `receipt` 只有查新版给（`{ checkId, checkedAt, expiresAt }`）；装更新时把 `checkId` 原样带回来，`requestId` 由面板自己生成（同一个编号重复提交直接返回旧结果）。
@@ -252,7 +253,7 @@ mountUpdateBatchPanelHttp(document.querySelector('#batch'), {
 三条硬约束（都在实现里）：**一行只回答一个问题**（这家的下一步是什么，状态词全中文可执行）；
 **行内动作只作用于该行**，「全部更新」是宏而不是第二个状态机；**待重启与失败常驻横幅**，不藏进展开里。
 
-点任意一行展开该家详情：**内容是单插件那套五章内核的只读渲染，动作由批量面板自己提供**。
+点任意一行展开该家详情：**内容是单插件那套五章内核的只读渲染，动作由批量面板自己提供**。第 02 章日志由批量面板按行自动取该行自己的 `updateChangelog` 电话（按行+版本记住结果，取不到即中性提示，不挡安装；`autoChangelog: false` 可关）。
 内核渲染时传 `actions: 'none'`——五章内容、进度条、「已跳过」提示一字不减，**动作按钮一个都不画**
 （内核里那些按钮带的是 `data-action`，批量面板只认 `data-act`；照搬 markup 而不接管行为，
 就会得到「可点却没反应」的死按钮——这条缝现在由渲染开关焊死）。详情里的动作行是批量面板自己的：
@@ -274,11 +275,33 @@ mountUpdateBatchPanelHttp(document.querySelector('#batch'), {
 **跨使用范围如实拒绝**：`web` 与 `desktop` 各自排队（装的是不同落点），混在一起的目标会回
 `cross-scope`，本包不会替你跨范围抢锁。
 
+### 第 2.7 节：更新日志自动展示（告诉用户更新了什么）
+
+任何插件的升级能力都是两件事：**① 给一套面板**（上面第 4 步 / 2.5 / 2.6，挂载一行即跑）；**② 告诉用户这次更新了什么**（本节，写 md 即显示，零新增代码）。
+
+```js
+import { mountUpdatePanel } from 'dsh-plugin-update/panel'
+
+// 与第 4 步同一行，不用加任何参数：有新版时第 02 章“更新日志”自动出现
+const panel = mountUpdatePanel(document.getElementById('update-slot'), {
+  pluginId: 'my-notes-plugin',
+  prefix: 'notes',
+  call: (name, args) => host.call(name, args),
+})
+```
+
+作者侧只写文件，不写代码（发布后用户自动看到）：
+
+1. 包根放 `CHANGELOG.md`（文件名全大写，小写视为没有），版本节形如 `## [1.2.0] - 2026-10-05`（最新在前），分类用 `### Added/Fixed/Changed`（面板展开；`Deprecated/Removed/Security` 折叠；`Unreleased` 与空节忽略）。
+2. `package.json` 的 `files` 白名单加上 `CHANGELOG.md`（否则发出去的包里没有它，面板永远读不到），发布前跑一次 `npm publish --dry-run` 核对。
+
+行为：有新版时面板按新版号自动取一次该版 tarball 里的全文（复用官方源 + `integrity` 校验，同一版本只取一次）；删了文件或取不到即中性提示，**安装永远不受影响**。想自己接管就传 `autoChangelog: false` 退回手动（备好文本后 `mountUpdatePanel({ changelogMarkdown })` 或 `setChangelogMarkdown` 传入，显式文本永不被覆盖）。入口件与批量面板同样自动：前者透传，后者展开行按行取。细节与边界见第 5.8 节。
+
 ### 升级本包（已经接入过的项目）
 
 宿主种类与安装出口都由本包自己探测和选择，**升级依赖即可，宿主侧与面板侧都不用改代码**：
 
-1. 依赖版本提到 `^0.3.1`。
+1. 依赖版本提到 `^0.4.0`。
 2. 重新装 / 发一版你自己的插件，让新依赖进当前使用范围（运行时用的是 `node_modules` 里那份）。
 3. 如果你自己接过一版宿主安装出口，把它删掉——它会挡在本包的路由前面。
 
@@ -426,7 +449,8 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 
 - 有新版时面板在横幅下方展示“更新说明（当前版 → 新版）：”，按目标包内 `CHANGELOG.md`（Keep-a-Changelog 子集）渲染：`Added/Fixed/Changed` 展开，`Deprecated/Removed/Security` 折叠，`Unreleased` 与空节不展示。
 - 作者未提供说明时显示“作者未提供更新说明，安装不受影响。”——缺日志永不挡安装，不改变 `canInstall` 与 `blockedReason`。
-- 说明文本由集成方备好后传入：已装版离线读本机 `node_modules/<目标包>/CHANGELOG.md`，新版按需取新版 tarball 内同名文件（复用官方源与 `integrity` 校验，取不到即回落中性提示；参考包根导出的 `readInstalledChangelogText` / `fetchReleaseChangelogText`），经 `mountUpdatePanel({ changelogMarkdown })` 或 `setChangelogMarkdown` 交给面板。
+- 默认自动：面板看到有新版即按新版号调一次 `….updateChangelog`，回来自己填进第 02 章；同一版本只取一次，取不到即中性提示。作者侧只要写好包根 `CHANGELOG.md` 并随包发布，零新增代码。
+- 手动模式（老用法照旧）：传 `autoChangelog: false` 即退回手动——已装版离线读本机 `node_modules/<目标包>/CHANGELOG.md`，新版按需取新版 tarball 内同名文件（复用官方源与 `integrity` 校验，取不到即回落中性提示；参考包根导出的 `readInstalledChangelogText` / `fetchReleaseChangelogText`），经 `mountUpdatePanel({ changelogMarkdown })` 或 `setChangelogMarkdown` 交给面板；显式传过的文本自动链路永不覆盖。
 
 ## 6. 排错
 
@@ -465,6 +489,25 @@ import { mountUpdatePanel } from 'dsh-plugin-update/panel'
 
 mountUpdatePanel(slot, { pluginId: 'notes', prefix: 'notes', call: host.call })
 ```
+
+**更新日志自动**（#38：写 md 即显示，零新增代码）：
+
+```js
+// 宿主侧：createHostUpdate 顺手注册第 4 个电话，无新增配置
+//   入参 { version }（发行版号，先验 validReleaseVersion + 通道门禁）
+//   成功 { ok: true, version, markdown: string | null }（取不到即 null，中性提示）
+//   失败复用 error / errorKind 体系；回包无路径、无快照；按版本记住结果
+import { buildChangelogPhoneName } from 'dsh-plugin-update'
+
+buildChangelogPhoneName('notes')  // 'notes.updateChangelog'，与宿主侧同一套拼法
+
+// 面板侧：默认自动，有新版调一次；显式文本仍赢，false 退回手动
+mountUpdatePanel(slot, { pluginId: 'my-notes-plugin', prefix: 'notes', call: host.call })
+// mountUpdatePanel(slot, { pluginId, prefix, call, autoChangelog: false })
+// mountUpdatePanel(slot, { pluginId, prefix, call, changelogMarkdown })  // 手动模式
+```
+
+- 入口件（`dsh-plugin-update/entry`）把 `autoChangelog / changelogMarkdown` 透传给面板 dialog/inline；批量面板（`dsh-plugin-update/panel-batch`）展开行自动调该行自己的 `updateChangelog`（无新增批量电话，`autoChangelog: false` 可关整批）；HTTP 版（`dsh-plugin-update/http`）白名单已放行，默认路径即达。
 
 **客户端入口**（`dist/client.js`，构建期打包用）：
 
@@ -506,6 +549,6 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 在装，1..n = 顺�
 
 ## 9. 兼容与稳定性
 
-这些形状稳定，可以放心依赖：三个电话名与入参回参、快照六字段、任务公开形状、配置只经函数入参注入、安装配方五键、日志事件字段基线（三个事件各带必填 `pluginId`）、历史落盘路径。
+这些形状稳定，可以放心依赖：四个电话名与入参回参（老三电话一字不动，`updateChangelog` 是新增）、快照六字段、任务公开形状、配置只经函数入参注入、安装配方五键、日志事件字段基线（三个事件各带必填 `pluginId`）、历史落盘路径。
 
 向后兼容的扩展：新增可选配置键、新增可选 `readerOverrides`（如 `targetPackageDir`）、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。

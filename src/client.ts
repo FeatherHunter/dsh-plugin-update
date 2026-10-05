@@ -18,11 +18,11 @@
 //
 // 未新增日志事件：本文件不发日志，三个旧事件的标识字段由宿主入口发出。
 
-import { buildPhoneNames, DEFAULT_PANEL_POLL_MS, MIN_PANEL_POLL_MS, type PhoneAction } from './config.js'
+import { buildPhoneNames, DEFAULT_PANEL_POLL_MS, MIN_PANEL_POLL_MS, type ChangelogPhoneAction, type PhoneAction } from './config.js'
 import { manualCommand } from './commands.js'
 
-export { buildPhoneName, buildPhoneNames } from './config.js'
-export type { PhoneAction } from './config.js'
+export { buildChangelogPhoneName, buildPhoneName, buildPhoneNames } from './config.js'
+export type { ChangelogPhoneAction, PhoneAction } from './config.js'
 export { manualCommand } from './commands.js'
 // 跨插件队列的面板侧形状（#15）：纯函数，无 Node 专属能力，可进浏览器闭包。
 // 面板凭电话可选参数（includeQueue/showOthers）拿队列视图，用这里的同名函数再做展示裁剪。
@@ -80,8 +80,8 @@ export const CLIENT_POLL = {
   minMs: MIN_PANEL_POLL_MS,
 } as const
 
-// 客户端调用三个电话要用的电话名（与宿主注册名同一套拼法，调用方传入同一前缀）。
-export function buildClientPhoneNames(prefix: string): Record<PhoneAction, string> {
+// 客户端调用电话要用的电话名（与宿主注册名同一套拼法，调用方传入同一前缀；#38 起四个）。
+export function buildClientPhoneNames(prefix: string): Record<PhoneAction, string> & Record<ChangelogPhoneAction, string> {
   return buildPhoneNames(prefix)
 }
 

@@ -339,7 +339,7 @@ test('铁律：三种形态整个生命周期里只打只读电话，绝不出�
     await settled()
     const names = [...new Set(log.map((e) => e.name))]
     assert.ok(
-      names.every((n) => n === 'p.updateStatus' || n === 'p.updateCheck'),
+      names.every((n) => n === 'p.updateStatus' || n === 'p.updateCheck' || n === 'p.updateChangelog'),
       variant + '：只许打只读电话，实际=' + JSON.stringify(names),
     )
     assert.ok(!log.some((e) => e.name.endsWith('.updateInstall')), variant + '：全生命周期不许自动安装')

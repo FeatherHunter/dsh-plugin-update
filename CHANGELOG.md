@@ -2,6 +2,17 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [Unreleased]
+
+### Added
+- 更新日志无脑接入（#38）：宿主新增 `updateChangelog` 电话（入参版本号，回该版 tarball 内全文，取不到回空；同源 + 精确路径 + `integrity` + 三墙复用，按版本记住结果）；面板 `autoChangelog` 默认自动展示（有新版调一次，显式文本仍赢，`false` 退回手动）；入口件透传跟上；批量详情行按行自动取（无新增批量电话，单行失败只影响该行）；HTTP 版白名单放行，老三电话形状不变。
+- 按钮交互反馈：查新版/安装在途置忙（禁用 + 文案 + `aria-busy` + 纯 CSS 转圈，并发连点只认第一次）；默认主题补 hover / 按下下沉 / 过渡；busy 脉冲与 `prefers-reduced-motion` 关闭。
+- 原生 `title` 说明：单面板全部动作按钮、批量宏按钮带悬停一句话（零成本 tooltip，不引入浮层组件）。
+- Toast 语义：复制/重启类回执 5 秒后自动过期，不靠下次点击才消失。
+- 首帧骨架：快照没到之前版本条画微光占位（`aria-hidden`，不进语义）。
+- 批量「取消这一批」鼠标两步确认（第一次上膛红框，点别的自动卸膛；程序调 `act('cancel')` 仍一次即执行）。
+- Esc 关弹窗：单面板 / 批量面板 dialog 与入口件 dialog 均支持（容器契约内，只用 innerHTML + 事件）。
+
 ## [0.3.1] - 2026-10-05
 
 ### Added

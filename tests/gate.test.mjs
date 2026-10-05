@@ -167,7 +167,8 @@ describe('门禁模板：双前缀串扰（两家同机不串电话名目录锁�
     assert.deepEqual(first, {
       updateStatus: 'wf.updateStatus',
       updateCheck: 'wf.updateCheck',
-      updateInstall: 'wf.updateInstall'
+      updateInstall: 'wf.updateInstall',
+      updateChangelog: 'wf.updateChangelog'
     })
   })
 

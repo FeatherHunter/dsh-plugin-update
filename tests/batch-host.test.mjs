@@ -81,7 +81,7 @@ async function waitFor(check, label) {
 }
 
 describe('注册与命名', () => {
-  it('五个批量电话与每个目标的三个单插件电话都注册，前缀互不相同', async () => {
+  it('五个批量电话与每个目标的四个单插件电话都注册，前缀互不相同', async () => {
     const { scope } = await tempScope()
     const keys = ['a', 'b', 'c', 'd', 'e', 'f', 'self']
     const targets = keys.map((key) => target(key))
@@ -94,12 +94,12 @@ describe('注册与命名', () => {
       cancel: 'life.batchCancel',
     })
     const names = Object.keys(host.handlers)
-    assert.equal(names.length, 5 + keys.length * 3)
+    assert.equal(names.length, 5 + keys.length * 4)
     for (const name of Object.values(host.phoneNames)) assert.ok(names.includes(name), name)
     const prefixes = new Set()
     for (const one of targets) {
       prefixes.add(one.prefix)
-      for (const action of ['updateStatus', 'updateCheck', 'updateInstall']) {
+      for (const action of ['updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog']) {
         assert.ok(names.includes(one.prefix + '.' + action), one.prefix + '.' + action)
       }
     }
