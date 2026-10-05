@@ -2,7 +2,7 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
-## [Unreleased]
+## [0.4.0] - 2026-10-05
 
 ### Added
 - 更新日志无脑接入（#38）：宿主新增 `updateChangelog` 电话（入参版本号，回该版 tarball 内全文，取不到回空；同源 + 精确路径 + `integrity` + 三墙复用，按版本记住结果）；面板 `autoChangelog` 默认自动展示（有新版调一次，显式文本仍赢，`false` 退回手动）；入口件透传跟上；批量详情行按行自动取（无新增批量电话，单行失败只影响该行）；HTTP 版白名单放行，老三电话形状不变。
