@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#31 单插件 HTTP 原型 · 抛弃式（PROTOTYPE — wipe me）</title>
+<!--
+  Question: 只传 pluginId + prefix + baseUrl/routes 能不能跑通检查/安装/待重启/失败四态？无 host.call 环境行不行？
+  Branch: LOGIC（逻辑/状态模型是否顺畅 -> 单文件可分享 HTML）。不是 UI 长相问题，所以不用多变体。
+  Assumption: 按 #30 结论 7 行冻结 + #35 规格实现 stub；批量五电话复用同一内核，本原型只演示单插件三电话。
+  Run: 双击本文件即开，无构建、无依赖、无持久化（内存 stub fetch），不进包 files，无测试。
+-->
+<style>
+  :root{ --accent:#2563eb; --ok:#15803d; --warn:#b45309; --bad:#b91c1c; --ink:#111827; --mut:#6b7280;
+         --line:#d1d5db; --bg:#f8fafc; --card:#ffffff; --proto:#fef08a; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif; color:var(--ink); background:var(--bg); padding-bottom:60px; }
+  .proto-banner{ background:var(--proto); border-bottom:2px dashed #a16207; padding:10px 16px; font-size:13px; }
+  .proto-banner b{ background:#111827; color:#fef08a; padding:1px 8px; border-radius:4px; margin-right:8px; }
+  header.q{ padding:16px; max-width:1060px; margin:0 auto; }
+  header.q h1{ font-size:20px; margin:6px 0; }
+  header.q p{ font-size:13px; color:#374151; margin:4px 0; }
+  header.q .branch{ background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; padding:8px 12px; font-size:13px; margin-top:8px; }
+  main{ max-width:1060px; margin:0 auto; padding:0 16px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; }
+  .card h2{ font-size:15px; margin:0 0 8px; }
+  .card h3{ font-size:13px; margin:12px 0 6px; color:#374151; }
+  .muted{ color:var(--mut); font-size:12px; }
+  .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  button{ font-size:13px; padding:6px 12px; border-radius:6px; border:1px solid var(--line); background:#fff; cursor:pointer; }
+  button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.done{ border-color:var(--ok); color:var(--ok); }
+  button:disabled{ opacity:.45; cursor:not-allowed; }
+  input[type=text], input[type=number], textarea, select{ font-size:13px; padding:5px 8px; border:1px solid var(--line); border-radius:6px; }
+  input[type=text]{ width:230px; }
+  textarea{ width:100%; font-family:ui-monospace,Consolas,monospace; font-size:12px; }
+  label.f{ font-size:13px; display:inline-flex; gap:6px; align-items:center; }
+  table.s{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.s th, table.s td{ border:1px solid var(--line); padding:6px 8px; text-align:left; }
+  table.s th{ background:#f3f4f6; }
+  .phase{ display:inline-block; font-size:13px; font-weight:700; padding:2px 12px; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe; }
+  .phase.ok{ background:#f0fdf4; border-color:#86efac; color:var(--ok); }
+  .phase.warn{ background:#fffbeb; border-color:#fcd34d; color:var(--warn); }
+  .phase.bad{ background:#fef2f2; border-color:#fecaca; color:var(--bad); }
+  .oneliner{ font-size:16px; font-weight:600; margin:8px 0; }
+  .banner-restart{ background:#fffbeb; border:2px solid var(--warn); color:#92400e; border-radius:8px; padding:10px 14px; font-size:14px; margin:10px 0; }
+  .errbox{ background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 14px; font-size:13px; margin:8px 0; }
+  .okline{ background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 14px; font-size:13px; margin:8px 0; }
+  .change{ background:#fffbeb; border:1px dashed var(--warn); border-radius:8px; padding:8px 12px; font-size:13px; margin:8px 0; }
+  code.cmd{ display:block; background:#111827; color:#e5e7eb; font-size:12px; padding:10px 12px; border-radius:8px; overflow-x:auto; white-space:pre-wrap; word-break:break-all; }
+  pre.draft{ background:#111827; color:#d1fae5; font-size:12px; padding:12px 14px; border-radius:8px; overflow-x:auto; white-space:pre-wrap; }
+  .tabs{ display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
+  .tabs button.on{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .stepbtn{ margin:3px 6px 3px 0; }
+  details{ border:1px solid var(--line); border-radius:8px; margin:8px 0; background:#fff; }
+  details summary{ padding:8px 12px; font-size:13px; cursor:pointer; font-weight:600; }
+  details .body{ padding:0 12px 12px; font-size:13px; }
+  .kv{ font-size:13px; margin:3px 0; }
+  .kv b{ display:inline-block; min-width:130px; color:#374151; }
+</style>
+</head>
+<body>
+<div class="proto-banner"><b>PROTOTYPE</b>抛弃式原型（#31）：双击即开 · 内存 stub · 无持久化 · 回答“只传三样即跑”是否顺畅。结论未验证前不进实现。</div>
+<header class="q">
+  <h1>单插件 HTTP 万能插头：只传三样即跑？</h1>
+  <p>设计问题：第三方插件只传 <b>pluginId + prefix + baseUrl/routes</b>，能不能跑通<b>检查 / 安装 / 待重启 / 失败</b>四态？无 host.call（浏览器面板）环境行不行？传输失败会不会混进面板分支码？入口件会不会误打出安装电话？</p>
+  <div class="branch">分支判定：<b>LOGIC</b>（状态/逻辑模型是否顺畅 → 单文件可分享 HTML，自由试按钮 + 分步走）／ 依据：#30 七行冻结 + #35 规格；批量五电话复用同一内核，本原型只演示单插件三电话（updateStatus / updateCheck / updateInstall）。用户不可达时的假设已写在本段与文件头注释。</div>
+</header>
+<main>
+  <div class="card" style="border:2px solid var(--accent)"><b>第一次来？</b>第 1、2 节不用动，第 3 节是开发者乱点区（已折叠），<b>直接拉到第 5 节</b>，点“<b>一键跑完 6 题并判分</b>”——程序自动跑 21 步并逐项打 ✓/✗。你只需要看两件事：是不是全绿、这 6 道题是不是你在乎的事。</div>
+  <section class="card">
+    <h2>1 · 接入配置（三样 + 可选覆写）</h2>
+    <div class="row">
+      <label class="f">pluginId <input type="text" id="cfgPluginId" value="demo-plugin"></label>
+      <label class="f">prefix <input type="text" id="cfgPrefix" value="demo" style="width:110px"></label>
+      <label class="f">baseUrl <input type="text" id="cfgBaseUrl" value="https://host.local:3000/upd"></label>
+      <label class="f">pollMs <input type="number" id="cfgPollMs" value="1000" style="width:90px"></label>
+    </div>
+    <h3>routes 覆写表（电话级，可空；未知键应被拒绝）</h3>
+    <textarea id="cfgRoutes" rows="3" placeholder='例如 {"demo.updateInstall": "https://dedicated.local/install"}'></textarea>
+    <h3>stub 宿主场景（内存假宿主，不联网）</h3>
+    <div class="row">
+      <select id="cfgScenario">
+        <option value="has-update">有新版可装（1.3.0 → 1.4.0）</option>
+        <option value="no-update">已是最新（无新版）</option>
+        <option value="restart">待重启（已装到磁盘）</option>
+        <option value="fail-install">安装失败（带 16 键 diag）</option>
+        <option value="transport-offline">传输失败：断网</option>
+        <option value="http-500">传输失败：非 2xx</option>
+        <option value="bad-json">传输失败：非法 JSON</option>
+        <option value="diagnostic-leak">回包混入 diagnostic 原话 + 绝对路径（应被丢/脱敏）</option>
+      </select>
+      <button class="primary" id="btnApply">应用配置</button>
+      <button id="btnDefault">恢复默认三样</button>
+      <span class="muted">全程只走 stub fetch，从不碰 host.call（页面里根本没有宿主对象）。</span>
+    </div>
+  </section>
+  <section class="card">
+    <h2>2 · 解析出的电话 → 路径（状态外显）</h2>
+    <table class="s"><thead><tr><th>电话名（prefix.动作）</th><th>POST 路径</th><th>来源</th></tr></thead>
+    <tbody id="pathRows"></tbody></table>
+    <div class="kv" id="routesNote"></div>
+  </section>
+  <details class="card"><summary style="font-size:15px;cursor:pointer"><b>3 · 自由试（开发者乱点区，不判分可跳过，点开即用）</b></summary><div>
+    <h3>面板三电话（走 HTTP helper）</h3>
+    <div class="row">
+      <button data-fn="callStatus">打 updateStatus（只读本地）</button>
+      <button data-fn="callCheck">打 updateCheck（联网查一次）</button>
+      <button data-fn="callInstall" class="primary">打 updateInstall（提交安装）</button>
+    </div>
+    <h3>入口件（只读铁律）</h3>
+    <div class="row">
+      <button data-fn="entryRefresh">入口刷新（只读：status+check）</button>
+      <button data-fn="entryInstallIllegal">入口打 install（应被禁）</button>
+    </div>
+    <h3>轮询下限 / 中止语义</h3>
+    <div class="row">
+      <button data-fn="pollBad">轮询 100ms（应同步抛错）</button>
+      <button data-fn="pollOk">轮询 1000ms（通过）</button>
+      <button data-fn="abortWait">中止等待（不等了，服务端照跑）</button>
+      <button data-fn="reopenPanel">重开面板（1s 内恢复进度）</button>
+    </div>
+    <h3>复制出口</h3>
+    <div class="row">
+      <button data-fn="copyManual">复制手工命令</button>
+      <button data-fn="copyDiag">复制诊断（含 diag，不含原话）</button>
+      <span class="muted" id="copyHint"></span>
+    </div>
+  </section>
+  </div></details>
+  <section class="card">
+    <h2>4 · 当前状态（每次动作后重绘）</h2>
+    <div><span class="phase" id="stPhase">idle</span></div>
+    <div class="oneliner" id="stOneLiner">还没查过</div>
+    <div id="stRestart"></div>
+    <div id="stFail"></div>
+    <div id="stTransport"></div>
+    <div class="change" id="stChange">刚初始化：改配置、切场景、点按钮，状态都在这里外显。</div>
+    <div class="kv" id="stQueue"></div>
+    <div class="kv" id="stEnv"></div>
+    <div class="kv" id="stPoll"></div>
+    <h3>手工命令</h3>
+    <code class="cmd" id="stManual">（查出新版后出现）</code>
+    <details open><summary>最近一次请求 / 回包（含透传键是否丢失）</summary><div class="body" id="stWire"></div></details>
+    <details><summary>完整状态 JSON</summary><div class="body"><code class="cmd" id="stJson">{}</code></div></details>
+  </section>
+  <section class="card">
+    <h2>5 · 分步走（每个标签一种难搞情形；点开即重置到已知起点）</h2>
+    <div class="row"><button class="primary" id="btnAuto">一键跑完 6 题并判分</button><span class="muted">程序代你点 21 步、代你对照答案；手动一步步点已不需要（仍保留）。</span></div>
+    <div id="autoResult" style="margin:8px 0;font-size:13px"></div>
+    <div class="tabs" id="walkTabs"></div>
+    <p class="muted" id="walkDesc"></p>
+    <div class="row" id="walkSteps"></div>
+    <div class="muted" id="walkProg"></div>
+  </section>
+  <section class="card">
+    <h2>6 · 带出的草稿（#31 要求：README 10 行 + CHANGELOG Added）</h2>
+    <h3>README 整组件 http 版 10 行示例（草稿）</h3>
+    <pre class="draft" id="readmeDraft"></pre>
+    <h3>CHANGELOG Added 草稿</h3>
+    <pre class="draft" id="changelogDraft"></pre>
+  </section>
+  <section class="card">
+    <h2>7 · 当前 verdict（原型跑完后由人确认）</h2>
+    <div class="okline" id="verdictBox"></div>
+    <p class="muted">确认方式：把 6 个分步走全部点一遍；凡出现“这不该可能 / 我以为会不一样”，就是模型里的 bug，回 #32 修规格实现，本文件不进 main。</p>
+  </section>
+</main>
+<script>
+'use strict';
+/* ============================================================
+ * 纯逻辑模块 HttpPlugLogic（可整体搬入 src/http.ts 的候选形状）
+ * 无 DOM / 无 document / 无按钮引用。页面只是薄壳。
+ * 对应 #30 冻结 7 行 + #35 Implementation Decisions（单插件部分）。
+ * ============================================================ */
+var HttpPlugLogic = (function () {
+  var PHONE_ACTIONS = ['updateStatus', 'updateCheck', 'updateInstall'];
+  var DIAG_KEYS_16 = ['v', 'stage', 'route', 'method', 'httpStatus', 'exitCode', 'latencyMs',
+    'detail', 'targetPackageName', 'runningVersion', 'latestVersion', 'environmentKind',
+    'requestId', 'checkId', 'registryHost', 'action'];
+  var POLL_MIN_MS = 250;
+  var POLL_MSG = '[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒';
+
+  function assertPrefix(prefix) {
+    if (typeof prefix !== 'string' || prefix.length === 0) throw new Error('[dsh-plugin-update] 电话名前缀 prefix 非法：须为非空字符串');
+    if (prefix.indexOf('.') !== -1 || prefix.indexOf('/') !== -1 || prefix.indexOf('\\') !== -1 || /\s/.test(prefix)) {
+      throw new Error('[dsh-plugin-update] 电话名前缀 prefix 非法：不得含有点、路径分隔符或空白');
+    }
+    return prefix;
+  }
+  function buildPhoneName(prefix, action) {
+    if (PHONE_ACTIONS.indexOf(action) === -1) throw new Error('[dsh-plugin-update] 未知电话动作: ' + String(action));
+    return assertPrefix(prefix) + '.' + action;
+  }
+  function isAbsoluteUrl(s) { return /^https?:\/\//i.test(s); }
+  function stripRightSlash(s) { return String(s).replace(/\/+$/, ''); }
+  function joinBase(baseUrl, rel) {
+    var b = stripRightSlash(baseUrl || '');
+    var r = String(rel || '');
+    if (!r) return b;
+    if (r.charAt(0) !== '/') r = '/' + r;
+    return b + r;
+  }
+  /* routes 未知键拒绝 + 电话级优先 + 缺键回落 + 斜杠归一 */
+  function resolvePath(cfg, phone) {
+    if (PHONE_ACTIONS.indexOf(phone) === -1) throw new Error('[dsh-plugin-update] 未知电话动作: ' + String(phone));
+    var routes = cfg.routes || {};
+    var keys = Object.keys(routes);
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      var isPhoneKey = false;
+      for (var j = 0; j < PHONE_ACTIONS.length; j++) {
+        if (k === cfg.prefix + '.' + PHONE_ACTIONS[j] || k === PHONE_ACTIONS[j]) { isPhoneKey = true; break; }
+      }
+      if (!isPhoneKey) throw new Error('[dsh-plugin-update] routes 未知键拒绝: ' + k);
+    }
+    var phoneName = buildPhoneName(cfg.prefix, phone);
+    var hit = routes[phoneName] !== undefined ? routes[phoneName] : routes[phone];
+    if (hit !== undefined) {
+      if (typeof hit !== 'string' || !hit) throw new Error('[dsh-plugin-update] routes 值非法: ' + phoneName);
+      if (isAbsoluteUrl(hit)) return hit;
+      return joinBase(cfg.baseUrl, hit);
+    }
+    return joinBase(cfg.baseUrl, phoneName);
+  }
+  function resolveAllPaths(cfg) {
+    var out = [];
+    for (var i = 0; i < PHONE_ACTIONS.length; i++) {
+      var phoneName = buildPhoneName(cfg.prefix, PHONE_ACTIONS[i]);
+      var url, src = 'baseUrl 默认拼接', err = null;
+      try {
+        url = resolvePath(cfg, PHONE_ACTIONS[i]);
+        var routes = cfg.routes || {};
+        if (routes[phoneName] !== undefined || routes[PHONE_ACTIONS[i]] !== undefined) src = 'routes 覆写优先';
+      } catch (e) { url = '—'; err = e.message; src = '拒绝'; }
+      out.push({ phone: PHONE_ACTIONS[i], phoneName: phoneName, url: url, src: src, err: err });
+    }
+    return out;
+  }
+  /* 轮询口径复用：同文案同步抛 */
+  function assertPollInterval(ms) {
+    if (typeof ms !== 'number' || !isFinite(ms) || ms < POLL_MIN_MS) {
+      throw new Error(POLL_MSG + '（收到 ' + JSON.stringify(ms) + '）');
+    }
+    return ms;
+  }
+  /* 入口件铁律：源码级禁安装电话 */
+  function entryGuard(phone) {
+    if (phone === 'updateInstall') {
+      throw new Error('[dsh-plugin-update] 入口件只允许只读电话，updateInstall 禁止（源码级）');
+    }
+  }
+  /* 人话格：永远字符串，压平空白，绝对路径占位，300 字封顶 */
+  function sanitizeDetail(s) {
+    var t = String(s === undefined || s === null ? '' : s);
+    t = t.replace(/\s+/g, ' ').trim();
+    t = t.replace(/[A-Za-z]:\\[^\s]*/g, '<路径>');
+    t = t.replace(/\/(Users|home|tmp|var|etc)\/[^\s]*/g, '<路径>');
+    if (t.length > 300) t = t.slice(0, 300);
+    return t;
+  }
+  /* diag 宽容读：只留 16 键；diagnostic 原话直接丢 */
+  function pickDiag(raw) {
+    if (!raw || typeof raw !== 'object') return undefined;
+    var out = {};
+    var kept = 0;
+    for (var i = 0; i < DIAG_KEYS_16.length; i++) {
+      var k = DIAG_KEYS_16[i];
+      if (raw[k] !== undefined && (typeof raw[k] === 'string' || typeof raw[k] === 'number')) {
+        out[k] = k === 'detail' ? sanitizeDetail(raw[k]) : raw[k];
+        kept++;
+      }
+    }
+    return kept ? out : undefined;
+  }
+  /* 回包拆包：面板内核用的四键拿走，其余（queue/env/session/rows/progress/diag）原样透传 */
+  function splitReply(reply) {
+    return {
+      snapshot: reply.snapshot || null,
+      manual: reply.manual || null,
+      receipt: reply.receipt || null,
+      error: reply.error || null,
+      passthrough: {
+        queue: reply.queue !== undefined ? reply.queue : undefined,
+        env: reply.env !== undefined ? reply.env : undefined,
+        diag: pickDiag(reply.diag),
+        extraKeys: Object.keys(reply).filter(function (k) {
+          return ['snapshot', 'manual', 'receipt', 'error', 'queue', 'env', 'diag', 'diagnostic'].indexOf(k) === -1;
+        })
+      },
+      droppedDiagnostic: reply.diagnostic !== undefined
+    };
+  }
+  /* ---- 内存 stub 宿主：按场景回包，不联网；落盘记忆安装（装完重查仍是待重启） ---- */
+  var stubDisk = { installedVersion: '1.3.0' };
+  function resetStub() { stubDisk.installedVersion = '1.3.0'; }
+  function baseSnapshot(scenario) {
+    var running = '1.3.0';
+    if (scenario === 'no-update') {
+      return { runningVersion: running, installedVersion: running, latestVersion: running, canInstall: false, blockedReason: null, job: null };
+    }
+    if (scenario === 'restart' || stubDisk.installedVersion === '1.4.0') {
+      return { runningVersion: running, installedVersion: '1.4.0', latestVersion: '1.4.0', canInstall: false, blockedReason: 'pending-restart', job: { id: 'job-7', state: 'restart-required', targetVersion: '1.4.0', message: null, requestId: 'req-7' } };
+    }
+    return { runningVersion: running, installedVersion: stubDisk.installedVersion, latestVersion: '1.4.0', canInstall: true, blockedReason: null, job: null };
+  }
+  function stubReply(phone, args, scenario) {
+    if (phone === 'updateInstall' && scenario !== 'fail-install' && scenario !== 'diagnostic-leak') stubDisk.installedVersion = '1.4.0';
+    if (scenario === 'fail-install' && phone === 'updateInstall') {
+      return {
+        snapshot: { runningVersion: '1.3.0', installedVersion: '1.3.0', latestVersion: '1.4.0', canInstall: false, blockedReason: null,
+          job: { id: 'job-9', state: 'failed', targetVersion: '1.4.0', message: 'install-failed', requestId: (args && args.requestId) || 'req-9' } },
+        error: 'install-failed',
+        manual: 'npm install --save-exact dsh-mattpocock-skills-deck@1.4.0 --registry=https://registry.npmjs.org/',
+        queue: { busy: false, position: 0, visible: [] },
+        env: { hostKind: 'cli', profileName: 'default', includeEnv: true },
+        diag: { v: 1, stage: 'exec', route: 'cli-process', method: 'POST', exitCode: 1, latencyMs: 812,
+          detail: 'pnpm 出错，请重试', targetPackageName: 'dsh-mattpocock-skills-deck',
+          runningVersion: '1.3.0', latestVersion: '1.4.0', environmentKind: 'cli',
+          requestId: (args && args.requestId) || 'req-9', registryHost: 'registry.npmjs.org', action: 'manual' }
+      };
+    }
+    if (scenario === 'diagnostic-leak') {
+      return {
+        snapshot: { runningVersion: '1.3.0', installedVersion: '1.3.0', latestVersion: '1.4.0', canInstall: false, blockedReason: null,
+          job: { id: 'job-3', state: 'failed', targetVersion: '1.4.0', message: 'install-failed', requestId: 'req-3' } },
+        error: 'install-failed',
+        manual: 'npm install --save-exact dsh-mattpocock-skills-deck@1.4.0 --registry=https://registry.npmjs.org/',
+        queue: { busy: true, position: 2, visible: [{ owner: 'someone-else', busy: true }] },
+        env: { hostKind: 'cli', profileName: 'default' },
+        diagnostic: 'vista 内核爆了，原始堆栈 C:\\Users\\秘密\\AppData 不能外泄',
+        diag: { v: 1, stage: 'exec', route: 'cli-process', method: 'POST',
+          detail: '  失败了  路径 C:\\Users\\秘密\\log.txt  ',
+          requestId: 'req-3', registryHost: 'registry.npmjs.org', action: 'contact', extraKey: 'should-be-ignored' }
+      };
+    }
+    var snap = baseSnapshot(scenario);
+    var out = { snapshot: snap, receipt: phone === 'updateCheck' ? { checkId: 'chk-1', checkedAt: 1, expiresAt: 2 } : null };
+    if (scenario === 'has-update' || scenario === 'diagnostic-leak' || scenario === 'fail-install') {
+      out.manual = 'npm install --save-exact dsh-mattpocock-skills-deck@1.4.0 --registry=https://registry.npmjs.org/';
+    }
+    out.queue = { busy: scenario === 'has-update', position: scenario === 'has-update' ? 1 : 0, showOthers: !!(args && args.showOthers), includeQueue: !!(args && args.includeQueue) };
+    out.env = { hostKind: 'cli', profileName: 'default', includeEnv: true };
+    if (scenario === 'restart') out.error = null;
+    return out;
+  }
+  /* 传输层：断网 / 非 2xx / 非法 JSON -> 抛 http-transport-failed（永不进稳定码分支） */
+  function transportFailed(reason, detail) {
+    var e = new Error('[dsh-plugin-update] http-transport-failed: ' + reason);
+    e.code = 'http-transport-failed';
+    e.detail = sanitizeDetail(detail || reason);
+    return e;
+  }
+  function stubFetch(url, body, scenario) {
+    return new Promise(function (resolve, reject) {
+      if (scenario === 'transport-offline') { reject(transportFailed('断网', 'fetch failed: 断网')); return; }
+      if (scenario === 'http-500') { resolve({ ok: false, status: 500, text: 'Internal Server Error' }); return; }
+      if (scenario === 'bad-json') { resolve({ ok: true, status: 200, text: '{not-json!!!' }); return; }
+      resolve({ ok: true, status: 200, text: JSON.stringify(stubReply(body && body.phone, body && body.args, scenario)) });
+    });
+  }
+  function httpCall(cfg, phone, args, scenario) {
+    var url = resolvePath(cfg, phone); /* 未知键/前缀非法：同步抛（非法尝试类） */
+    return stubFetch(url, { phone: phone, args: args || {} }, scenario).then(function (res) {
+      if (!res.ok) throw transportFailed('非 2xx（' + res.status + '）', 'HTTP ' + res.status + ': ' + res.text);
+      var data;
+      try { data = JSON.parse(res.text); }
+      catch (e) { throw transportFailed('JSON 非法', String(res.text).slice(0, 120)); }
+      var parts = splitReply(data);
+      return { url: url, phone: phone, args: args || {}, raw: data, parts: parts };
+    });
+  }
+  return {
+    PHONE_ACTIONS: PHONE_ACTIONS, DIAG_KEYS_16: DIAG_KEYS_16, POLL_MIN_MS: POLL_MIN_MS,
+    buildPhoneName: buildPhoneName, resolvePath: resolvePath, resolveAllPaths: resolveAllPaths,
+    assertPollInterval: assertPollInterval, entryGuard: entryGuard,
+    sanitizeDetail: sanitizeDetail, pickDiag: pickDiag, splitReply: splitReply,
+    httpCall: httpCall, transportFailed: transportFailed, baseSnapshot: baseSnapshot, resetStub: resetStub
+  };
+})();
+</script>
+<script>
+'use strict';
+var L = HttpPlugLogic;
+function $(id) { return document.getElementById(id); }
+function freshState() { return { phase: 'idle', oneLiner: '还没查过', snapshot: null, receipt: null, manual: null, error: null, transportError: null, illegal: null, queue: null, env: null, diag: null, droppedDiagnostic: false, extraKeys: [], lastRequest: null, lastUrl: null, aborted: false, pollNote: '', lastChange: '初始化' }; }
+var S = freshState();
+var CFG = { pluginId: 'demo-plugin', prefix: 'demo', baseUrl: 'https://host.local:3000/upd', routes: {}, pollMs: 1000 };
+function readConfig() {
+  var routes = {};
+  var raw = $('cfgRoutes').value.trim();
+  if (raw) { try { routes = JSON.parse(raw); } catch (e) { S.illegal = 'routes JSON 解析失败：' + e.message; render(); throw e; } }
+  CFG = { pluginId: $('cfgPluginId').value.trim() || 'demo-plugin', prefix: $('cfgPrefix').value.trim() || 'demo', baseUrl: $('cfgBaseUrl').value.trim(), routes: routes, pollMs: Number($('cfgPollMs').value) || 1000 };
+  S.illegal = null;
+  S.lastChange = '配置已应用：' + CFG.pluginId + ' / ' + CFG.prefix + ' / ' + CFG.baseUrl;
+  renderPaths(); render();
+}
+function scenario() { return $('cfgScenario').value; }
+function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+function renderPaths() {
+  var rows = ''; var note = ''; try {
+    var all = L.resolveAllPaths(CFG);
+    for (var i = 0; i < all.length; i++) rows += '<tr><td>' + esc(all[i].phoneName) + '</td><td>' + esc(all[i].url) + '</td><td>' + esc(all[i].src) + '</td></tr>';
+    note = Object.keys(CFG.routes).length ? 'routes 有覆写，走覆写优先、缺键回落；绝对 URL 直用、相对拼 baseUrl。' : '全部走 baseUrl 默认拼接（首尾斜杠归一，全电话名保留前缀）。';
+  } catch (e) { rows = '<tr><td colspan=3>解析失败：' + esc(e.message) + '</td></tr>'; }
+  $('pathRows').innerHTML = rows; $('routesNote').textContent = note;
+}
+function phaseClass(ph) { if (ph === 'has-update' || ph === 'no-update') return 'ok'; if (ph === 'restart-required') return 'warn'; if (ph === 'failed' || ph === 'transport-error') return 'bad'; return ''; }
+function oneLinerFor() {
+  var snap = S.snapshot;
+  if (S.transportError) return '传输失败，面板分支不动';
+  if (!snap) return '还没查过';
+  var job = snap.job;
+  if (job && (job.state === 'installing' || job.state === 'verifying')) return '正在安装…';
+  if (snap.blockedReason === 'pending-restart' || (job && job.state === 'restart-required')) return '待重启：新版已装到磁盘';
+  if (S.error || (job && (job.state === 'failed' || job.state === 'interrupted'))) return '更新失败，点此查看';
+  if (snap.latestVersion && snap.latestVersion !== snap.runningVersion) return '有新版 ' + snap.latestVersion;
+  return '已是最新';
+}
+function render() {
+  var ph = $('stPhase'); ph.textContent = S.phase; ph.className = 'phase ' + phaseClass(S.phase);
+  $('stOneLiner').textContent = S.oneLiner;
+  var rs = (S.snapshot && (S.snapshot.blockedReason === 'pending-restart' || (S.snapshot.job && S.snapshot.job.state === 'restart-required')));
+  $('stRestart').innerHTML = rs ? '<div class=banner-restart>重启宿主让新版跑起来；这是正常终态，不是失败。</div>' : '';
+  var fb = '';
+  if (S.error) { fb = '<div class=errbox><b>装不了的一句话（稳定码 ' + esc(S.error) + '）</b>';
+    fb += S.diag ? '<br>diag 透传 ' + S.diag.kept + ' 键：' + esc(S.diag.keptKeys.join(', ')) : '<br>无 diag（旧载荷缺省即省略）';
+    if (S.droppedDiagnostic) fb += '<br>宿主原话 diagnostic 已丢弃（永不过边界）。';
+    fb += '</div>'; }
+  $('stFail').innerHTML = fb;
+  var tb = '';
+  if (S.transportError) tb = '<div class=errbox><b>传输失败</b> ' + esc(S.transportError.code) + '：' + esc(S.transportError.detail) + '<br>走异常通道，永不进稳定码分支。</div>';
+  if (S.illegal) tb += '<div class=errbox><b>非法尝试被挡住</b>：' + esc(S.illegal) + '</div>';
+  $('stTransport').innerHTML = tb;
+  $('stChange').textContent = '刚变化的是：' + S.lastChange;
+  $('stQueue').innerHTML = '<b>排队透传 queue</b>：' + esc(S.queue ? JSON.stringify(S.queue) : '（未拿到）');
+  $('stEnv').innerHTML = '<b>范围透传 env</b>：' + esc(S.env ? JSON.stringify(S.env) : '（未拿到）');
+  $('stPoll').innerHTML = '<b>轮询</b>：' + esc(S.pollNote || ('pollMs=' + CFG.pollMs + '（下限 250ms）'));
+  $('stManual').textContent = S.manual || '（查出新版后出现）';
+  var wire = '';
+  if (S.lastRequest) { wire += '<div class=kv><b>POST</b> ' + esc(S.lastUrl) + '</div>'; wire += '<div class=kv><b>请求体</b> = args 原样：' + esc(JSON.stringify(S.lastRequest)) + '</div>'; }
+  if (S.diag) wire += '<div class=kv><b>diag 实收</b>：' + esc(S.diag.keptKeys.join(', ')) + '</div>';
+  if (S.extraKeys && S.extraKeys.length) wire += '<div class=kv><b>未知键忽略但不丢</b>：' + esc(S.extraKeys.join(', ')) + '</div>';
+  if (!wire) wire = '还没打过电话。';
+  $('stWire').innerHTML = wire;
+  $('stJson').textContent = JSON.stringify({ phase: S.phase, error: S.error, tErr: S.transportError && S.transportError.code, snapshot: S.snapshot, receipt: S.receipt, queue: S.queue, env: S.env, diagKeys: S.diag && S.diag.keptKeys, aborted: S.aborted }, null, 2);
+}
+function afterCall(res, phone) {
+  var parts = res.parts;
+  S.lastRequest = res.args; S.lastUrl = res.url;
+  S.transportError = null; S.illegal = null; S.aborted = false;
+  S.snapshot = parts.snapshot; S.receipt = parts.receipt; S.manual = parts.manual;
+  S.error = parts.error; S.queue = parts.passthrough.queue; S.env = parts.passthrough.env;
+  S.droppedDiagnostic = parts.droppedDiagnostic;
+  var d = parts.passthrough.diag;
+  S.diag = d ? { keptKeys: Object.keys(d), kept: Object.keys(d).length } : null;
+  S.extraKeys = parts.passthrough.extraKeys || [];
+  if (phone === 'updateInstall' && !parts.error && scenario() !== 'diagnostic-leak') { S.snapshot = L.baseSnapshot('restart'); S.phase = 'restart-required'; S.lastChange = '安装已提交，stub 宿主跑完 installing→verifying→待重启（同步演示）'; }
+  else if (parts.error) { S.phase = 'failed'; S.lastChange = phone + ' 业务失败，稳定码 ' + parts.error + '，透传键都在'; }
+  else if (phone === 'updateCheck') { var has = S.snapshot && S.snapshot.latestVersion && S.snapshot.latestVersion !== S.snapshot.runningVersion; S.phase = has ? 'has-update' : 'no-update'; S.lastChange = '查完新版，有新版=' + (!!has) + '，receipt 另交'; }
+  else {
+    var jb = S.snapshot && S.snapshot.job;
+    if (S.snapshot && (S.snapshot.blockedReason === 'pending-restart' || (jb && jb.state === 'restart-required'))) S.phase = 'restart-required';
+    else if (S.error) S.phase = 'failed';
+    else if (S.snapshot && S.snapshot.latestVersion && S.snapshot.latestVersion !== S.snapshot.runningVersion) S.phase = 'has-update';
+    else S.phase = 'idle';
+    S.lastChange = phone + ' 只读成功（视图由快照推导）';
+  }
+  S.oneLiner = oneLinerFor(); render();
+}
+function doCall(phone, viaEntry) {
+  if (viaEntry) { try { L.entryGuard(phone); } catch (e) { S.illegal = e.message; S.lastChange = '入口件打 ' + phone + ' 被源码级禁止'; render(); return Promise.resolve(); } }
+  var args = { pluginId: CFG.pluginId, showOthers: true, includeQueue: true, requestId: 'req-9' };
+  return L.httpCall(CFG, phone, args, scenario()).then(function (res) { afterCall(res, phone); }, function (e) {
+    if (e && e.code === 'http-transport-failed') { S.transportError = { code: e.code, detail: e.detail }; S.phase = 'transport-error'; S.lastChange = phone + ' 传输失败，error 保持为 ' + String(S.error); S.oneLiner = oneLinerFor(); }
+    else { S.illegal = (e && e.message) || String(e); S.lastChange = phone + ' 路径解析被拒绝'; }
+    render();
+  });
+}
+var FNS = {
+  callStatus: function () { S.phase = 'checking'; S.oneLiner = '查询中…'; render(); return doCall('updateStatus', false); },
+  callCheck: function () { S.phase = 'checking'; S.oneLiner = '查询中…'; render(); return doCall('updateCheck', false); },
+  callInstall: function () { S.phase = 'checking'; S.oneLiner = '提交安装…'; render(); return doCall('updateInstall', false); },
+  entryRefresh: function () { S.lastChange = '入口件刷新：只调只读电话'; render(); return doCall('updateStatus', true); },
+  entryInstallIllegal: function () { return doCall('updateInstall', true); },
+  pollBad: function () { try { L.assertPollInterval(100); S.pollNote = '100ms 竟然通过了！（模型 bug）'; } catch (e) { S.pollNote = '100ms 被同步同文案抛错：' + e.message; S.illegal = e.message; } S.lastChange = '轮询下限探针 100ms'; render(); return Promise.resolve(); },
+  pollOk: function () { try { L.assertPollInterval(CFG.pollMs); S.pollNote = CFG.pollMs + 'ms 通过下限断言'; S.illegal = null; } catch (e) { S.pollNote = e.message; S.illegal = e.message; } S.lastChange = '轮询下限探针通过'; render(); return Promise.resolve(); },
+  abortWait: function () { S.aborted = true; S.oneLiner = '已中止等待：不等了，服务端照跑'; S.lastChange = 'abort = 不等了，服务端照跑，重开即恢复'; render(); return Promise.resolve(); },
+  reopenPanel: function () { S.aborted = false; S.lastChange = '重开面板：默认 1s 轮询即恢复进度'; render(); return doCall('updateStatus', false); },
+  copyManual: function () { copyText($('stManual').textContent); $('copyHint').textContent = '手工命令已生成，剪贴板拿不到时请手动复制'; S.lastChange = '复制手工命令'; render(); return Promise.resolve(); },
+  copyDiag: function () { var t = S.diag ? ('diag[' + S.diag.keptKeys.join(',') + '] error=' + S.error) : '无 diag'; copyText(t); $('copyHint').textContent = '诊断已生成（已脱敏，不含宿主原话）'; S.lastChange = '复制诊断'; render(); return Promise.resolve(); },
+  assertNoHost: function () { var h = (typeof window.host !== 'undefined'); S.lastChange = h ? '警告：页面里竟有 window.host！' : '已验证：页内无 host 对象，全程只走 stub fetch'; if (h) S.illegal = 'window.host 存在，无 host.call 验证失败'; render(); return Promise.resolve(); },
+  setRoutesOverride: function () { $('cfgRoutes').value = '{"demo.updateCheck": "/special/check", "demo.updateInstall": "https://dedicated.local/install"}'; readConfig(); S.lastChange = 'routes 覆写：相对拼 baseUrl + 绝对直用'; render(); return Promise.resolve(); },
+  setRoutesBadKey: function () { $('cfgRoutes').value = '{"demo.unknownPhone": "https://evil.local/x"}'; var bad = false; try { readConfig(); var all = L.resolveAllPaths(CFG); for (var i = 0; i < all.length; i++) if (all[i].err) bad = true; } catch (e) { bad = true; S.illegal = e.message; } S.lastChange = bad ? 'routes 未知键被拒绝' : 'routes 未知键竟然通过了！（模型 bug）'; render(); return Promise.resolve(); },
+  clearRoutes: function () { $('cfgRoutes').value = ''; readConfig(); return Promise.resolve(); }
+};
+function copyText(t) { try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t); } catch (e) {} }
+var WALKS = [
+  { id: 't1', title: 'T1 快乐路', sc: 'has-update', exp: '正确的 contracted 顺序：第 1 步后状态=有新版 1.4.0 且出现手工命令；第 2 步后状态=待重启并跳出黄色横幅；第 3 步仍是待重启。若第 2 步后是失败或无变化，就是错。', desc: '默认三样，查出 1.4.0，提交安装，待重启横幅。看点：电话名全从 prefix 算出，路径全是 baseUrl 默认拼接。', steps: [['查一次', 'callCheck'], ['提交安装', 'callInstall'], ['再查一次（待重启横幅）', 'callStatus']] },
+  { id: 't2', title: 'T2 失败路', sc: 'fail-install', exp: '正确：第 1 步后状态=更新失败，稳定码 install-failed，diag 透传多个键；点复制诊断后提示已脱敏、不含宿主原话。若看不到 diag 或 error 为空，就是错。', desc: '安装失败：一句话 + 手工命令 + 复制诊断。看点：queue/env/diag 全透传，不丢键。', steps: [['在失败宿主上安装', 'callInstall'], ['复制诊断（已脱敏）', 'copyDiag'], ['复制手工命令', 'copyManual']] },
+  { id: 't3', title: 'T3 传输失败vs业务失败', sc: 'transport-offline', exp: '正确：两步失败后都出现红色传输失败盒，且面板 error 保持 null（证明没混进稳定码分支）；第 3 步切回正常后状态=有新版 1.4.0。若 error 变了，就是错。', desc: '断网 / 非 2xx 抛 http-transport-failed，面板 error 不变，永不进稳定码分支。', steps: [['断网下查一次', 'callCheck'], ['换非 2xx 再查', 'T3B'], ['切回正常并恢复', 'T3C']] },
+  { id: 't4', title: 'T4 非法尝试', sc: 'has-update', exp: '正确：三步每一步都在红色盒里被挡住（轮询同步抛错、入口 install 被禁、routes 未知键被拒），面板主状态不漂移。第 4 步清掉覆写表后红色盒消失。若有一步没被挡住，就是错。', desc: '三件不该可能的事：100ms 轮询同步抛、入口打 install 被禁、routes 未知键被拒。', steps: [['轮询 100ms', 'pollBad'], ['入口打 install', 'entryInstallIllegal'], ['routes 写未知键', 'setRoutesBadKey'], ['清掉覆写表', 'clearRoutes']] },
+  { id: 't5', title: 'T5 覆写路', sc: 'has-update', exp: '正确：第 1 步后第 2 节路径表出现 2 行覆写来源；第 2 步请求的 URL 是相对拼出的专线地址；第 3 步是绝对专线地址；第 4 步清掉后回到默认拼接。若 URL 没变，就是错。', desc: '电话级 routes 优先：相对拼 baseUrl、绝对直用、缺键回落 baseUrl、首尾斜杠归一。', steps: [['写入覆写表', 'setRoutesOverride'], ['打 check（走相对覆写）', 'callCheck'], ['打 install（走绝对专线）', 'callInstall'], ['清掉覆写表', 'clearRoutes']] },
+  { id: 't6', title: 'T6 无 host.call 跑四态', sc: 'has-update', exp: '正确：第 1 步显示已验证无 host 对象；第 2-4 步依次出现有新版、待重启、更新失败。若第 1 步报 window.host 存在，就是错。', desc: '全程 stub fetch：先断言页内无 host 对象，再依次跑通检查 / 安装 / 待重启 / 失败。', steps: [['断言无 host 对象', 'assertNoHost'], ['检查（有新版）', 'callCheck'], ['安装到待重启', 'callInstall'], ['失败一次', 'T6B']] }
+];
+var curWalk = 0, curStep = 0;
+function applyPreset(w) { S = freshState(); L.resetStub(); $('cfgPluginId').value = 'demo-plugin'; $('cfgPrefix').value = 'demo'; $('cfgBaseUrl').value = 'https://host.local:3000/upd/'; $('cfgPollMs').value = '1000'; $('cfgRoutes').value = ''; $('cfgScenario').value = w.sc; readConfig(); }
+function renderWalk() {
+  var tabs = ''; for (var i = 0; i < WALKS.length; i++) tabs += '<button data-w=' + i + (i === curWalk ? ' class=on' : '') + '>' + WALKS[i].title + '</button>';
+  $('walkTabs').innerHTML = tabs;
+  var btns = document.querySelectorAll('#walkTabs button');
+  for (var k = 0; k < btns.length; k++) { (function (idx) { btns[idx].onclick = function () { curWalk = idx; curStep = 0; applyPreset(WALKS[idx]); renderWalk(); }; })(k); }
+  var w = WALKS[curWalk]; $('walkDesc').textContent = w.desc;
+  $('walkProg').textContent = '';
+  var html = '';
+  for (var s = 0; s < w.steps.length; s++) html += '<button class=stepbtn data-s=' + s + (s !== curStep ? ' disabled' : '') + '>' + (s + 1) + '. ' + w.steps[s][0] + '</button>';
+  $('walkSteps').innerHTML = html;
+  var sb = document.querySelectorAll('#walkSteps button');
+  for (var q = 0; q < sb.length; q++) { (function (idx) { sb[idx].onclick = function () { runStep(idx); }; })(q); }
+  $('walkProg').textContent = (curStep >= w.steps.length ? '本标签走完了：上面的“当前状态”就是证据。' : ('第 ' + (curStep + 1) + ' 步 / 共 ' + w.steps.length + ' 步')) + '\n本题正确答案：' + w.exp;
+}
+function runStep(idx) {
+  var w = WALKS[curWalk]; var key = w.steps[idx][1]; var p;
+  if (key === 'T3B') { $('cfgScenario').value = 'http-500'; p = FNS.callCheck(); }
+  else if (key === 'T3C') { $('cfgScenario').value = 'has-update'; p = FNS.callCheck(); }
+  else if (key === 'T6B') { $('cfgScenario').value = 'fail-install'; p = FNS.callInstall(); }
+  else { p = FNS[key](); }
+  p.then(function () { curStep++; renderWalk(); });
+}
+function mk(ok, msg) { return { ok: !!ok, msg: msg }; }
+var AUTO_CHECKS = {
+  t1: [function () { return mk(S.phase === 'has-update' && !!S.manual, '期望有新版+手工命令，实际 phase=' + S.phase); },
+       function () { return mk(S.phase === 'restart-required', '期望待重启，实际 phase=' + S.phase); },
+       function () { return mk(S.phase === 'restart-required' && (S.snapshot.blockedReason === 'pending-restart' || (S.snapshot.job && S.snapshot.job.state === 'restart-required')), '期望待重启横幅条件成立'); }],
+  t2: [function () { return mk(S.phase === 'failed' && S.error === 'install-failed', '期望失败+稳定码，实际 phase=' + S.phase + ' error=' + S.error); },
+       function () { return mk(!!(S.diag && S.diag.kept > 0), '期望 diag 透传非空'); },
+       function () { return mk(!!S.manual, '期望手工命令存在'); }],
+  t3: [function () { return mk(!!(S.transportError && S.transportError.code === 'http-transport-failed') && S.error === null, '期望传输失败且 error 保持 null'); },
+       function () { return mk(!!(S.transportError && S.transportError.code === 'http-transport-failed') && S.error === null, '期望非 2xx 同样走异常通道'); },
+       function () { return mk(S.phase === 'has-update' && S.transportError === null, '期望恢复有新版，实际 phase=' + S.phase); }],
+  t4: [function () { return mk(!!(S.illegal && S.illegal.indexOf('250') !== -1), '期望 250ms 下限抛错'); },
+       function () { return mk(!!(S.illegal && S.illegal.indexOf('禁止') !== -1), '期望入口 install 被禁'); },
+       function () { var bad = false; try { var a = L.resolveAllPaths(CFG); for (var i = 0; i < a.length; i++) if (a[i].err) bad = true; } catch (e) { bad = true; } return mk(bad, '期望未知键被拒'); },
+       function () { return mk(S.illegal === null, '期望清空后恢复干净'); }],
+  t5: [function () { var a = L.resolveAllPaths(CFG); var n = 0; for (var i = 0; i < a.length; i++) if (a[i].src.indexOf('覆写') !== -1) n++; return mk(n === 2, '期望 2 行覆写来源，实际 ' + n); },
+       function () { return mk(S.lastUrl === 'https://host.local:3000/upd/special/check', '期望相对拼出专线，实际 ' + S.lastUrl); },
+       function () { return mk(S.lastUrl === 'https://dedicated.local/install', '期望绝对直用，实际 ' + S.lastUrl); },
+       function () { var a = L.resolveAllPaths(CFG); var n = 0; for (var i = 0; i < a.length; i++) if (a[i].src.indexOf('覆写') !== -1) n++; return mk(n === 0, '期望回到默认拼接'); }],
+  t6: [function () { return mk(S.illegal === null, '期望无 host 对象'); },
+       function () { return mk(S.phase === 'has-update', '期望检查出新版，实际 ' + S.phase); },
+       function () { return mk(S.phase === 'restart-required', '期望安装到待重启，实际 ' + S.phase); },
+       function () { return mk(S.phase === 'failed' && S.error === 'install-failed', '期望失败态，实际 ' + S.phase); }]
+};
+function renderAuto(out, done) {
+  var html = ''; var pass = 0;
+  for (var i = 0; i < out.length; i++) { html += '<div>' + (out[i].ok ? '✓' : '✗') + ' ' + out[i].walk + ' / ' + out[i].step + (out[i].ok ? '' : ' —— ' + out[i].msg) + '</div>'; if (out[i].ok) pass++; }
+  if (done) html += '<div style="margin-top:6px"><b>' + (pass === out.length ? ('全部通过（' + pass + '/' + out.length + '）：模型自洽，可 close #31 放行 #32') : ('有不通过（' + pass + '/' + out.length + '）：先别关票，把✗贴给我')) + '</b></div>';
+  $('autoResult').innerHTML = html;
+}
+function runAutoWalk(w, out) {
+  applyPreset(w);
+  var chain = Promise.resolve();
+  w.steps.forEach(function (st, i) {
+    chain = chain.then(function () {
+      var key = st[1]; var q;
+      if (key === 'T3B') { $('cfgScenario').value = 'http-500'; q = FNS.callCheck(); }
+      else if (key === 'T3C') { $('cfgScenario').value = 'has-update'; q = FNS.callCheck(); }
+      else if (key === 'T6B') { $('cfgScenario').value = 'fail-install'; q = FNS.callInstall(); }
+      else { q = FNS[key](); }
+      return q.then(function () { var c = AUTO_CHECKS[w.id][i](); out.push({ walk: w.title, step: st[0], ok: c.ok, msg: c.msg }); renderAuto(out, false); });
+    });
+  });
+  return chain;
+}
+function autoAll() {
+  var out = []; $('autoResult').textContent = '跑步中…';
+  var chain = Promise.resolve();
+  for (var i = 0; i < WALKS.length; i++) { (function (w) { chain = chain.then(function () { return runAutoWalk(w, out); }); })(WALKS[i]); }
+  chain.then(function () { renderAuto(out, true); curWalk = 0; curStep = 0; applyPreset(WALKS[0]); renderWalk(); });
+}
+var README_DRAFT = ["import { mountUpdatePanelHttp } from 'dsh-plugin-update/http';", "", "mountUpdatePanelHttp(document.querySelector('#upd'), {", "  pluginId: 'my-plugin',", "  prefix: 'myplug',", "  baseUrl: 'https://host.local:3000/upd',", "  pollMs: 1000,", "});"].join("\n");
+var CHANGELOG_DRAFT = ["## [Unreleased]", "### Added", "- 新增 `dsh-plugin-update/http`: createHttpCall + mountUpdatePanelHttp/mountUpdateEntryHttp,只传 pluginId + prefix + baseUrl/routes 即跑通检查/安装/待重启/失败。", "  queue/env/diag 全透传，传输失败走 http-transport-failed 异常通道。(#31 原型验证, #32 萭地)"].join("\n");
+var VERDICT = "该原型验证：只传三样即跑模型顺畅(T1/T5)；四态+无host.call成立(T6)；传输失败走异常通道(T3)；入口禁装/poll下限/routes拒绝(T4)；queue/env/diag全透传(T2)。转#32条件：6标签全绿且无这不该可能。超时默认值留#32单测锁死。";
+document.querySelectorAll('[data-fn]').forEach(function (b) { b.addEventListener('click', function () { FNS[b.getAttribute('data-fn')](); }); });
+$('btnApply').addEventListener('click', readConfig);
+$('btnDefault').addEventListener('click', function () { $('cfgPluginId').value = 'demo-plugin'; $('cfgPrefix').value = 'demo'; $('cfgBaseUrl').value = 'https://host.local:3000/upd'; $('cfgPollMs').value = '1000'; $('cfgRoutes').value = ''; readConfig(); });
+$('btnAuto').addEventListener('click', autoAll);
+$('readmeDraft').textContent = README_DRAFT;
+$('changelogDraft').textContent = CHANGELOG_DRAFT;
+$('verdictBox').textContent = VERDICT;
+readConfig();
+applyPreset(WALKS[0]); curStep = 0; renderWalk();
+</script>
+</body>
+</html>

@@ -2,6 +2,11 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [0.3.1] - 2026-10-05
+
+### Added
+- 新增 `dsh-plugin-update/http`：`createHttpCall`（单三电话 + 批量五电话同一内核，`batchPrefix` 独立）+ `mountUpdatePanelHttp`/`mountUpdateEntryHttp`/`mountUpdateBatchPanelHttp`，只传 pluginId + prefix/batchPrefix + baseUrl/routes 即跑通检查/安装/待重启/失败与批量总账/明细/动作；queue/env/session/rows/progress/diag 全透传，传输失败走 `http-transport-failed` 异常通道，取消整批走 `batchCancel` 电话。
+
 ## [0.3.0] - 2026-10-04
 
 ### Added

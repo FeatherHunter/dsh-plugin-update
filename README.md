@@ -2,7 +2,7 @@
 
 给 DSH 插件加「检查更新 / 安装更新」能力的 npm 包。宿主侧一段接线，面板侧挂一个现成组件，装不上时给用户一条可复制的手工命令。
 
-要求 Node 22 或更高，零运行时依赖。当前版本 `0.3.0`。
+要求 Node 22 或更高，零运行时依赖。当前版本 `0.3.1`。
 
 装上它你会拿到六样东西：
 
@@ -144,6 +144,21 @@ mountUpdatePanel(slot, { pluginId: 'my-notes-plugin', prefix: 'notes', call: hos
 
 类型定义随包分发（`dsh-plugin-update/panel` 的 `.d.ts`），不用自编译；面板离线可读，与包版本绑定。
 
+整组件 HTTP 版（无 `host.call` 环境即跑：浏览器面板经 HTTP POST 直达宿主网关，只传三样）：
+
+```js
+import { mountUpdatePanelHttp } from 'dsh-plugin-update/http'
+
+mountUpdatePanelHttp(document.querySelector('#upd'), {
+  pluginId: 'my-plugin',
+  prefix: 'myplug',
+  baseUrl: 'https://host.local:3000/upd',
+  showOthers: false,
+  pollMs: 1000,
+})
+// 离开时 panel.unmount()：只停轮询，安装在宿主侧继续跑。
+```
+
 ### 第 2.5 节：更新入口件（配置页上那一颗按钮）
 
 目标只有一句：**让用户不用点开就知道有没有事。** 一行挂上：
@@ -221,6 +236,19 @@ const panel = mountUpdateBatchPanel(el, {
 })
 ```
 
+批量面板 HTTP 版（无 `host.call` 环境即跑：同一传输内核，五电话走同一映射，取消走 `batchCancel`）：
+
+```js
+import { mountUpdateBatchPanelHttp } from 'dsh-plugin-update/http'
+
+mountUpdateBatchPanelHttp(document.querySelector('#batch'), {
+  batchPrefix: 'life',
+  baseUrl: 'https://host.local:3000/upd',
+  pollMs: 1500,
+})
+// 取消整批走 batchCancel 电话；unmount 只停轮询，宿主侧照跑。
+```
+
 三条硬约束（都在实现里）：**一行只回答一个问题**（这家的下一步是什么，状态词全中文可执行）；
 **行内动作只作用于该行**，「全部更新」是宏而不是第二个状态机；**待重启与失败常驻横幅**，不藏进展开里。
 
@@ -250,7 +278,7 @@ const panel = mountUpdateBatchPanel(el, {
 
 宿主种类与安装出口都由本包自己探测和选择，**升级依赖即可，宿主侧与面板侧都不用改代码**：
 
-1. 依赖版本提到 `^0.3.0`。
+1. 依赖版本提到 `^0.3.1`。
 2. 重新装 / 发一版你自己的插件，让新依赖进当前使用范围（运行时用的是 `node_modules` 里那份）。
 3. 如果你自己接过一版宿主安装出口，把它删掉——它会挡在本包的路由前面。
 
