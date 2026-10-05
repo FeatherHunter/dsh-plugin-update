@@ -42,7 +42,11 @@ export type EntryVariant = 'button' | 'badge' | 'inline'
 export type EntryAutoCheck = 'mount' | 'never'
 
 /** 用户点下去之后做什么。 */
-export type EntryOpenOn = 'has-update' | 'always' | 'manual'
+/**
+ * 点下去之后做什么：`has-update` 有新版才开面板（无事只给一句小字）；`always` 检查完总是开；
+ * `manual` 交给 onActivate；`direct` 点开即弹窗、不预查（面板挂载即自查；badge 仍走回调口径）。
+ */
+export type EntryOpenOn = 'has-update' | 'always' | 'manual' | 'direct'
 
 /** 入口件主题（与面板同一套取值，切换即换肤）。 */
 export type EntryTheme = UpdatePanelTheme
@@ -173,10 +177,15 @@ export const UPDATE_ENTRY_CSS = [
   '.dsh-upd-entry[data-state="update"] .dsh-upd-entry-dot{background:var(--dsh-upd-ok-line,#059669)}',
   '.dsh-upd-entry[data-state="busy"] .dsh-upd-entry-dot,.dsh-upd-entry[data-state="restart"] .dsh-upd-entry-dot{background:var(--dsh-upd-warn-line,#d97706)}',
   '.dsh-upd-entry[data-state="failed"] .dsh-upd-entry-dot{background:var(--dsh-upd-bad-line,#dc2626)}',
-  '.dsh-upd-entry-note{font-size:12.5px;opacity:.75}',
-  '.dsh-upd-entry[data-theme="d5-paper"]{font-family:Georgia,"Songti SC","STSong","SimSun",serif;color:#1a1a1a}',
-  '.dsh-upd-entry[data-theme="d5-paper"] .dsh-upd-entry-btn{border-color:#c4b896;background:transparent;border-radius:3px}',
-  '.dsh-upd-entry[data-theme="d5-paper"] .dsh-upd-entry-btn:hover{border-color:#c8402a;color:#c8402a}',
+  // 小字自带底（深色宿主 + 浅色变量时也读得出；浅底宿主上只是多一圈细线，不抢戏）。
+  '.dsh-upd-entry-note{font-size:12.5px;opacity:.9;background:var(--dsh-upd-bg,#ffffff);border:1px solid var(--dsh-upd-line,#e5e7eb);border-radius:4px;padding:1px 8px}',
+  '.dsh-upd-entry[data-theme="d5-paper"] .dsh-upd-entry-note{background:var(--d5-card);border-color:var(--d5-line-strong);color:var(--d5-ink)}',
+  '.dsh-upd-entry[data-theme="d5-paper"]{--d5-ink:#1a1a1a;--d5-muted:#6f675a;--d5-line-strong:#c4b896;--d5-accent:#c8402a;--d5-card:#fffdf6;',
+  'font-family:Georgia,"Songti SC","STSong","SimSun",serif;color:var(--d5-ink)}',
+  // 按钮脸自己不透明（深色宿主 + 浅色系统变量时也读得出；hover 红在深浅底上都可见）。
+  '.dsh-upd-entry[data-theme="d5-paper"] .dsh-upd-entry-btn{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink);border-radius:3px}',
+  '.dsh-upd-entry[data-theme="d5-paper"] .dsh-upd-entry-btn:hover{border-color:var(--d5-accent);color:var(--d5-accent)}',
+  '@media (prefers-color-scheme: dark){.dsh-upd-entry[data-theme="d5-paper"]{--d5-ink:#ece5d3;--d5-muted:#a89c83;--d5-line-strong:#5c4e3b;--d5-accent:#e0684e;--d5-card:#1e1a15}}',
   '@media (prefers-color-scheme: dark){.dsh-upd-entry{color:#e5e7eb}',
   '.dsh-upd-entry-btn{--dsh-upd-btn:#1f2937;--dsh-upd-line:#374151}}',
 ].join('\n')
@@ -236,8 +245,8 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
     throw new Error(`[dsh-plugin-update] 自动检查时机非法：只收 mount 或 never（收到 ${JSON.stringify(options.autoCheck)}）`)
   }
   const openOn: EntryOpenOn = options.openOn ?? 'has-update'
-  if (openOn !== 'has-update' && openOn !== 'always' && openOn !== 'manual') {
-    throw new Error(`[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual（收到 ${JSON.stringify(options.openOn)}）`)
+  if (openOn !== 'has-update' && openOn !== 'always' && openOn !== 'manual' && openOn !== 'direct') {
+    throw new Error(`[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual / direct（收到 ${JSON.stringify(options.openOn)}）`)
   }
   if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive' && options.theme !== 'd5-paper') {
     throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ${JSON.stringify(options.theme)}）`)
@@ -413,6 +422,11 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
    */
   async function activate(): Promise<void> {
     if (!mounted || panelMode !== null || activating) return
+    // direct：点开即弹窗，不预查（面板挂载即自查，快照自己跟上；badge 仍走回调口径，不替接入方开面板）。
+    if (openOn === 'direct' && variant === 'button') {
+      openDialog()
+      return
+    }
     activating = true
     note = null
     render()
@@ -461,8 +475,7 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
         void activate()
         return
       }
-      // 弹窗里的「关闭」：面板自己只停轮询、不还原入口件，收起浮层由入口件做。
-      if (panelMode === 'dialog' && closest('[data-action="close-view"]')) close()
+      // 弹窗里的「关闭」走面板的 onCloseRequested 落地（挂载 dialog 时已接为 close()），这里不再重复收一次。
     } catch {
       // 点坏了也不挡更新。
     }

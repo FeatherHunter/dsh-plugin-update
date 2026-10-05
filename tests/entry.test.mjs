@@ -268,6 +268,40 @@ test("openOn='manual'：点击不开面板，改调 onActivate({hasUpdate, lates
   entry.unmount()
 })
 
+test("openOn='direct'：点开即弹窗，不预查（面板挂载即自查）", async () => {
+  const { call, log } = fakeCall({ status: statusReply(UP_TO_DATE), check: checkReply(UP_TO_DATE) })
+  const box = fakeContainer()
+  const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 'p', call, openOn: 'direct', pollMs: 60000 })
+  await settled()
+  log.length = 0
+  box.click(CLICK_ENTRY)
+  await settled()
+  assert.ok(!log.some((e) => e.name.endsWith('.updateCheck')), '不预查，直开')
+  assert.match(box.innerHTML, /data-mode="dialog"/, '点开即弹窗')
+  entry.unmount()
+})
+
+test("openOn='direct' + badge：仍走回调口径，不替接入方开面板", async () => {
+  const seen = []
+  const { call } = fakeCall({ status: statusReply(UP_TO_DATE), check: checkReply(UP_TO_DATE) })
+  const box = fakeContainer()
+  const entry = mountUpdateEntry(box, {
+    pluginId: 'p',
+    prefix: 'p',
+    call,
+    variant: 'badge',
+    openOn: 'direct',
+    onActivate: (s) => seen.push(s),
+    pollMs: 60000,
+  })
+  await settled()
+  box.click(CLICK_ENTRY)
+  await settled()
+  assert.equal(seen.length, 1, '徽标点击仍交给接入方')
+  assert.ok(!box.innerHTML.includes('data-mode="dialog"'), '徽标不自己开面板')
+  entry.unmount()
+})
+
 // ---------- 另外两态：badge 与 inline ----------
 
 test('variant=badge：只有一个小圆点，点击走 onActivate 不开面板', async () => {

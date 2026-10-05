@@ -87,7 +87,7 @@ function baseInput(overrides = {}) {
 
 // ---------- 解析器：纯函数、零依赖 ----------
 
-test('解析：Added/Fixed/Changed 进必显，Deprecated/Removed/Security 进折叠类', () => {
+test('解析：Added/Fixed/Changed/Security 进必显（#41 终裁），Deprecated/Removed 进折叠类', () => {
   const entries = parseChangelog(SAMPLE)
   const v110 = entries.find((e) => e.version === '1.1.0')
   assert.ok(v110, '应解析出 1.1.0')
@@ -205,14 +205,19 @@ test('区间便捷口：已是最新即空，由渲染层给中性提示', () =>
 
 // ---------- 渲染 ----------
 
-test('渲染：必显展开、折叠进 details、Unreleased 不见', () => {
+test('渲染：必显展开（含 Security）、折叠进 details、Unreleased 不见（#41 终裁）', () => {
   const entries = parseChangelog(SAMPLE)
-  const html = renderChangelogHTML(entries, { from: '1.0.0', to: '1.1.0' })
-  assert.match(html, /Added/, '必显类标题在')
-  assert.match(html, /新功能 A/, '必显条目展开')
-  assert.match(html, /<details/, '折叠类用 details')
-  assert.match(html, /Security/, 'Security 透传不丢')
-  assert.ok(!html.includes('还没发的东西'), 'Unreleased 不渲染')
+  const html110 = renderChangelogHTML(entries, { from: '1.0.0', to: '1.1.0' })
+  assert.match(html110, /Added/, '必显类标题在')
+  assert.match(html110, /新功能 A/, '必显条目展开')
+  assert.match(html110, /Security/, 'Security 必显不丢')
+  assert.match(html110, /data-cat="Security"/, 'Security 进必显集合')
+  assert.ok(!html110.includes('data-cat="Security"') || !/<details[^>]*data-cat="Security"/.test(html110), 'Security 不再进折叠 details')
+  assert.ok(!html110.includes('还没发的东西'), 'Unreleased 不渲染')
+  const htmlAll = renderChangelogHTML(entries)
+  assert.match(htmlAll, /<details/, '折叠类（Deprecated/Removed）用 details')
+  assert.match(htmlAll, /data-cat="Deprecated"/, 'Deprecated 仍折叠')
+  assert.match(htmlAll, /data-cat="Removed"/, 'Removed 仍折叠')
 })
 
 test('渲染：缺日志一律中性提示', () => {

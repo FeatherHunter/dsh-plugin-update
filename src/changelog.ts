@@ -9,14 +9,16 @@
  * 解析只做字符串切分，不读盘、不联网；版本语义与核心同口径
  * （validReleaseVersion / compareReleaseVersions，stable 纯三段、prerelease 显式）。
  *
- * 面板约定（Question 原文逐字落实）：
- * - `Added/Fixed/Changed` 必显；`Deprecated/Removed/Security` 透传折叠；
+ * 面板约定（#23 原文 + #41 四处优化终裁）：
+ * - `Added/Fixed/Changed/Security` 必显展开；`Deprecated/Removed` 透传折叠；
  * - `Unreleased` 与空节忽略；
  * - 缺日志中性提示，不挡安装、不写 blockedReason、不动快照六字段
  *   （本模块不碰快照，面板只增一节 HTML，安装门控只跟快照）；
  * - 已装版离线读、新版按需取 tarball 同名文件复用官方源 integrity
  *   （I/O 在 `src/changelog-io.ts` Node 侧，取不到回落中性提示）；
- * - 零依赖纯函数解析器（本文件零导入）。
+ * - 纯函数解析器（仅复用版本语义，不碰 Node 专属；新增 validate 与策略函数零新增导入）。
+ * - 截断数值不动（100 节/每类 200 条/单条 500 字/全文 64K），解析附计数元数据只记数字；
+ *   超限类标计数小字，Security 超限进内折叠；BREAKING 前缀识别 + 行首徽标；yanked 横幅只看 to 版。
  */
 
 import { compareReleaseVersions, validReleaseVersion } from './service.js'
@@ -51,9 +53,9 @@ export const CHANGELOG_ALL_CATEGORIES = [
 export type ChangelogCategory = (typeof CHANGELOG_ALL_CATEGORIES)[number]
 
 /** 必显三类（面板展开渲染）。 */
-export const CHANGELOG_MUST_SHOW: readonly ChangelogCategory[] = ['Added', 'Fixed', 'Changed']
+export const CHANGELOG_MUST_SHOW: readonly ChangelogCategory[] = ['Added', 'Fixed', 'Changed', 'Security']
 /** 透传折叠三类（原样展示、不解析、不参与“有无新版”判断）。 */
-export const CHANGELOG_FOLDED: readonly ChangelogCategory[] = ['Deprecated', 'Removed', 'Security']
+export const CHANGELOG_FOLDED: readonly ChangelogCategory[] = ['Deprecated', 'Removed']
 
 /** 六类中文名（面板双语标题用，顺序与英文一一对应）。 */
 export const CHANGELOG_CATEGORY_ZH: Record<ChangelogCategory, string> = {
@@ -78,10 +80,16 @@ export interface ChangelogEntry {
   yanked: boolean
   /** 六类各自的条目（空类为空数组，空节忽略由渲染层执行）。 */
   sections: Record<ChangelogCategory, string[]>
+  /** 每类原始条数（截断前计数，只记数字不留文本；缺省视为与 sections 等长）。 */
+  counts?: Record<ChangelogCategory, number>
 }
 
 function emptySections(): Record<ChangelogCategory, string[]> {
   return { Added: [], Fixed: [], Changed: [], Deprecated: [], Removed: [], Security: [] }
+}
+
+function emptyCounts(): Record<ChangelogCategory, number> {
+  return { Added: 0, Fixed: 0, Changed: 0, Deprecated: 0, Removed: 0, Security: 0 }
 }
 
 function isCategoryName(v: string): v is ChangelogCategory {
@@ -130,6 +138,108 @@ function truncateBullet(text: string): string {
  * 非字符串/空串回 []；超长截断后解析；未知版本标题与其下条目一律丢弃；
  * 全空节版本直接丢弃（空节忽略）；Unreleased 保留（渲染与区间时忽略）。
  */
+/** 共享扫描仪（parse 与 validate 同一套，不许第二套正则）。 */
+export const RE_VERSION_HEADING = /^##(?!#)\s*(.+?)\s*$/;
+export const RE_CATEGORY_HEADING = /^###\s*(.+?)\s*$/;
+export const RE_BULLET = /^\s*[-*+]\s+(.+?)\s*$/;
+export const RE_FENCE_TOGGLE = new RegExp('^\\s*(' + String.fromCharCode(96).repeat(3) + '|~~~)');
+export const RE_VERSION_NUM = /(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)/;
+export const RE_VERSION_DATE = /(\d{4}-\d{2}-\d{2})/;
+export const RE_YANKED = /\[YANKED\]/i;
+export const RE_UNRELEASED = /unreleased/i;
+
+export function matchVersionHeading(line: unknown): string | null {
+  try {
+    const s = String(line !== null && line !== undefined ? line : '');
+    const m = s.match(RE_VERSION_HEADING);
+    if (!m) return null;
+    return String(m[1] !== undefined && m[1] !== null ? m[1] : '').trim();
+  } catch { return null; }
+}
+
+export function matchCategoryHeading(line: unknown): string | null {
+  try {
+    const s = String(line !== null && line !== undefined ? line : '');
+    const m = s.match(RE_CATEGORY_HEADING);
+    if (!m) return null;
+    return String(m[1] !== undefined && m[1] !== null ? m[1] : '').trim();
+  } catch { return null; }
+}
+
+export function matchBulletBody(line: unknown): string | null {
+  try {
+    const s = String(line !== null && line !== undefined ? line : '');
+    const m = s.match(RE_BULLET);
+    if (!m) return null;
+    return String(m[1] !== undefined && m[1] !== null ? m[1] : '');
+  } catch { return null; }
+}
+
+export function isFenceToggle(line: unknown): boolean {
+  try { return RE_FENCE_TOGGLE.test(String(line !== null && line !== undefined ? line : '')); }
+  catch { return false; }
+}
+
+/** 破坏标记徽标文案（中文 UI 一致，原文前缀另行加粗保留）。 */
+export const BREAKING_BADGE_TEXT = '不兼容';
+
+/** 剥行首 markdown 装饰（加粗/引用/前后空白），只为识别，渲染保留原文一字不动。 */
+export function stripBreakingDecorations(s: unknown): string {
+  try {
+    let t = String(s !== null && s !== undefined ? s : '').trim();
+    let changed = true;
+    while (changed) {
+      changed = false;
+      if (t.charAt(0) === '>') { t = t.slice(1).trim(); changed = true; continue; }
+      if (t.slice(0, 2) === '**' || t.slice(0, 2) === '__') { t = t.slice(2).trim(); changed = true; continue; }
+      if (t.charAt(0) === '*' || t.charAt(0) === '_') { t = t.slice(1).trim(); changed = true; continue; }
+    }
+    return t;
+  } catch { return ''; }
+}
+
+/** 条目是否为破坏标记（去饰后开头匹配，大小写不敏感，中英文冒号皆可）。 */
+export function isBreakingChangelogItem(item: unknown): boolean {
+  try {
+    if (typeof item !== 'string') return false;
+    const t = stripBreakingDecorations(item);
+    if (!t) return false;
+    return /^(breaking|不兼容)\s*[:：]/i.test(t);
+  } catch { return false; }
+}
+
+/** 拆出破坏前缀（保留原文拼写与冒号），命中才回，否则 null。 */
+export function splitBreakingPrefix(item: string): { head: string; prefix: string; rest: string } | null {
+  try {
+    const s = String(item !== null && item !== undefined ? item : '');
+    const m = s.match(/^(\s*(?:>\s*|\*\*\s*|__\s*|\*\s*|_\s*)*)(breaking|不兼容)(\s*[:：])/i);
+    if (!m) return null;
+    const head = String(m[1] !== undefined && m[1] !== null ? m[1] : '');
+    const core = String(m[2] !== undefined && m[2] !== null ? m[2] : '');
+    const colon = String(m[3] !== undefined && m[3] !== null ? m[3] : '');
+    const prefix = core + colon;
+    const rest = s.slice(m[0].length);
+    return { head: head, prefix: prefix, rest: rest };
+  } catch { return null; }
+}
+
+/** 轮询退避（毫秒）：传输失败后轮询按此退避，手动/换版/重开立即重问。 */
+export const CHANGELOG_POLL_BACKOFF_MS = 30 * 1000;
+
+/** 三处共用（宿主电话/单面板/批量按行，各存各的）：成功与取不到已记住即不再问。 */
+export function shouldFetchChangelog(opts: { hasCache: boolean; failedAt: number | null; now: number; isManual: boolean; backoffMs?: number }): boolean {
+  try {
+    const o = opts as { hasCache?: unknown; failedAt?: unknown; now?: unknown; isManual?: unknown; backoffMs?: unknown };
+    if (o.hasCache === true) return false;
+    if (o.isManual === true) return true;
+    const now = typeof o.now === 'number' && Number.isFinite(o.now) ? o.now : Date.now();
+    const failedAt = typeof o.failedAt === 'number' && Number.isFinite(o.failedAt) ? o.failedAt : null;
+    if (failedAt === null) return true;
+    const backoff = typeof o.backoffMs === 'number' && Number.isFinite(o.backoffMs) && o.backoffMs > 0 ? Math.floor(o.backoffMs) : CHANGELOG_POLL_BACKOFF_MS;
+    return now - failedAt >= backoff;
+  } catch { return true; }
+}
+
 export function parseChangelog(markdown: unknown): ChangelogEntry[] {
   try {
     if (typeof markdown !== 'string' || !markdown.trim()) return []
@@ -160,7 +270,7 @@ export function parseChangelog(markdown: unknown): ChangelogEntry[] {
     for (const rawLine of lines) {
       const line = String(rawLine ?? '')
       // 围栏开关行本身不进条目。
-      if (/^\s*(```|~~~)/.test(line)) {
+      if (isFenceToggle(line)) {
         inFence = !inFence
         continue
       }
@@ -168,29 +278,29 @@ export function parseChangelog(markdown: unknown): ChangelogEntry[] {
       // 版本标题：`## ` 开头但非 `###`（三级是分类标题）。
       // 对抗复查收紧：`##` 后空格可选（`##[1.1.0]` 也是合法标题；此前漏收还会把下属条目
       // 错挂到上一个版本——归因污染比漏收更坏）。
-      const versionHeading = line.match(/^##(?!#)\s*(.+?)\s*$/)
-      if (versionHeading) {
+      const versionTitle = matchVersionHeading(line)
+      if (versionTitle !== null) {
         pushCurrent()
         cur = null
         curCat = null
-        const title = (versionHeading[1] ?? '').trim()
+        const title = versionTitle
         const { version, date, yanked } = extractVersionDateAndYanked(title)
         if (!version) continue
-        cur = { version, date, yanked, sections: emptySections() }
+        cur = { version, date, yanked, sections: emptySections(), counts: emptyCounts() }
         continue
       }
       // 分类标题：`### Added` 等六类（大小写不敏感，`##` 后空格同样可选），其余三级标题直接无视。
-      const catMatch = line.match(/^###\s*(.+?)\s*$/)
-      if (catMatch) {
-        const cat = normalizeCategory(catMatch[1] ?? '')
+      const catTitle = matchCategoryHeading(line)
+      if (catTitle !== null) {
+        const cat = normalizeCategory(catTitle)
         curCat = cur && cat && isCategoryName(cat) ? cat : null
         continue
       }
       // 条目：`- `/`* `/`+ ` 开头。
-      const bullet = line.match(/^\s*[-*+]\s+(.+?)\s*$/)
-      if (bullet && cur && curCat) {
-        const item = truncateBullet(bullet[1] ?? '')
-        if (item) cur.sections[curCat].push(item)
+      const bulletBody = matchBulletBody(line)
+      if (bulletBody !== null && cur && curCat) {
+        const item = truncateBullet(bulletBody)
+        if (item) { cur.sections[curCat].push(item); try { if (cur.counts) cur.counts[curCat] += 1; } catch {} }
         continue
       }
       // 续行（#23 对抗复查收紧，此前太贪把顶格段落拼进上一条，直接改写条目原文）：
@@ -307,49 +417,115 @@ function escapeChangelogHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
+/** 计数元数据取值（缺省视为与 sections 等长，只记数字）。 */
+export function countsOf(entry: ChangelogEntry | null | undefined): Record<ChangelogCategory, number> {
+  try {
+    const out: Record<ChangelogCategory, number> = { Added: 0, Fixed: 0, Changed: 0, Deprecated: 0, Removed: 0, Security: 0 };
+    if (!entry || typeof entry !== 'object') return out;
+    for (const c of CHANGELOG_ALL_CATEGORIES) {
+      const n = (entry as { counts?: unknown }).counts as Record<string, unknown> | undefined;
+      const v = n && typeof n[c] === 'number' && Number.isFinite(n[c] as number) ? Math.floor(n[c] as number) : null;
+      if (v !== null && v >= 0) { out[c] = v; continue; }
+      const list = (entry as { sections?: unknown }).sections as Record<string, unknown> | undefined;
+      const arr = list ? list[c] : null;
+      out[c] = Array.isArray(arr) ? arr.length : 0;
+    }
+    return out;
+  } catch { return { Added: 0, Fixed: 0, Changed: 0, Deprecated: 0, Removed: 0, Security: 0 }; }
+}
+
+/** 超限小字（诚实截断）：共 M 条，仅显示前 N 条。 */
+export function truncatedNoteHTML(total: number, shown: number): string {
+  try {
+    const m = Math.floor(total);
+    const n = Math.floor(shown);
+    return '<div class="dsh-upd-changelog-count">共 ' + String(m) + ' 条，仅显示前 ' + String(n) + ' 条</div>';
+  } catch { return ''; }
+}
+
+/** 撤回横幅（只看 to 版，纯展示，不挡安装，文案冻结）。 */
+export function yankedBannerHTML(version: unknown): string {
+  try {
+    const v = typeof version === 'string' ? version.trim() : '';
+    if (!v) return '';
+    return '<div class="dsh-upd-changelog-yanked" role="alert">目标版本 ' + escapeChangelogHtml(v) + ' 已被作者撤回（yanked），安装不受影响，继续前请确认。</div>';
+  } catch { return ''; }
+}
+
+/** 单条目 HTML（含破坏标记徽标与前缀加粗，正文一字不动）。 */
+export function renderChangelogItem(item: string): string {
+  try {
+    const s = String(item !== null && item !== undefined ? item : '');
+    if (!s) return '';
+    const split = splitBreakingPrefix(s);
+    if (!split) return '<li>' + escapeChangelogHtml(s) + '</li>';
+    const head = escapeChangelogHtml(split.head);
+    const prefix = escapeChangelogHtml(split.prefix);
+    const rest = escapeChangelogHtml(split.rest);
+    const badge = '<span class="dsh-upd-breaking-badge" role="img" aria-label="破坏性变更">' + BREAKING_BADGE_TEXT + '</span> ';
+    return '<li>' + head + badge + '<strong>' + prefix + '</strong>' + rest + '</li>';
+  } catch { return ''; }
+}
+
 /** 单节 HTML（调用方保证已过滤 Unreleased 与空节，本函数再兜底一次）。 */
 export function renderChangelogSection(entry: ChangelogEntry): string {
   try {
-    if (!entry || typeof entry !== 'object') return ''
-    const version = String((entry as { version?: unknown }).version ?? '').trim()
-    if (!version || isUnreleasedVersion(version)) return ''
-    if (!hasVisibleSections(entry)) return ''
-    const date = typeof (entry as { date?: unknown }).date === 'string' ? String((entry as { date: string }).date) : ''
-    const yankedSuffix = (entry as { yanked?: unknown }).yanked === true ? ' · 已撤回' : ''
-    const title = (date ? `${version} · ${date}` : version) + yankedSuffix
-    const parts: string[] = []
-    parts.push(`<div class="dsh-upd-changelog-version" data-version="${escapeChangelogHtml(version)}">`)
-    parts.push(`<div class="dsh-upd-changelog-title">${escapeChangelogHtml(title)}</div>`)
+    if (!entry || typeof entry !== 'object') return '';
+    const version = String((entry as { version?: unknown }).version !== undefined && (entry as { version?: unknown }).version !== null ? String((entry as { version?: unknown }).version) : '').trim();
+    if (!version || isUnreleasedVersion(version)) return '';
+    if (!hasVisibleSections(entry)) return '';
+    const dateRaw = (entry as { date?: unknown }).date;
+    const date = typeof dateRaw === 'string' ? dateRaw : '';
+    const yankedFlag = (entry as { yanked?: unknown }).yanked === true;
+    const yankedSuffix = yankedFlag ? ' · 已撤回' : '';
+    const title = (date ? version + ' · ' + date : version) + yankedSuffix;
+    const counts = countsOf(entry);
+    const parts: string[] = [];
+    parts.push('<div class="dsh-upd-changelog-version" data-version="' + escapeChangelogHtml(version) + '">');
+    parts.push('<div class="dsh-upd-changelog-title">' + escapeChangelogHtml(title) + '</div>');
     for (const cat of CHANGELOG_MUST_SHOW) {
-      const items = Array.isArray(entry.sections?.[cat]) ? entry.sections[cat] : []
-      if (items.length === 0) continue
-      const label = `${cat} · ${CHANGELOG_CATEGORY_ZH[cat]}`
-      parts.push(`<div class="dsh-upd-changelog-cat" data-cat="${cat}">`)
-      parts.push(`<div class="dsh-upd-changelog-catname">${escapeChangelogHtml(label)}</div>`)
-      parts.push('<ul>')
+      const items = Array.isArray((entry as { sections?: unknown }).sections ? (entry.sections as Record<string, unknown>)[cat] as unknown : null) ? (entry.sections as Record<string, string[]>)[cat] : [];
+      if (!items || items.length === 0) continue;
+      const label = cat + ' · ' + CHANGELOG_CATEGORY_ZH[cat];
+      parts.push('<div class="dsh-upd-changelog-cat" data-cat="' + cat + '">');
+      parts.push('<div class="dsh-upd-changelog-catname">' + escapeChangelogHtml(label) + '</div>');
+      const total = counts[cat];
+      const shown = items.length;
+      if (total > shown) { parts.push(truncatedNoteHTML(total, shown)); }
+      parts.push('<ul>');
       for (const item of items) {
-        if (!item) continue
-        parts.push(`<li>${escapeChangelogHtml(item)}</li>`)
+        if (!item) continue;
+        const li = renderChangelogItem(item);
+        if (li) parts.push(li);
       }
-      parts.push('</ul></div>')
+      parts.push('</ul>');
+      if (cat === 'Security' && total > shown) {
+        const restCount = total - shown;
+        parts.push('<details class="dsh-upd-changelog-security-more"><summary>其余 ' + String(restCount) + ' 条</summary><div class="dsh-upd-changelog-more-note">为保持面板性能，其余条目已折叠，可查看原文。</div></details>');
+      }
+      parts.push('</div>');
     }
     for (const cat of CHANGELOG_FOLDED) {
-      const items = Array.isArray(entry.sections?.[cat]) ? entry.sections[cat] : []
-      if (items.length === 0) continue
-      const label = `${cat} · ${CHANGELOG_CATEGORY_ZH[cat]}（${items.length}）`
-      parts.push(`<details class="dsh-upd-changelog-fold" data-cat="${cat}">`)
-      parts.push(`<summary>${escapeChangelogHtml(label)}</summary>`)
-      parts.push('<ul>')
+      const items = Array.isArray((entry as { sections?: unknown }).sections ? (entry.sections as Record<string, unknown>)[cat] as unknown : null) ? (entry.sections as Record<string, string[]>)[cat] : [];
+      if (!items || items.length === 0) continue;
+      const label = cat + ' · ' + CHANGELOG_CATEGORY_ZH[cat] + '（' + String(items.length) + '）';
+      parts.push('<details class="dsh-upd-changelog-fold" data-cat="' + cat + '">');
+      parts.push('<summary>' + escapeChangelogHtml(label) + '</summary>');
+      const total = counts[cat];
+      const shown = items.length;
+      if (total > shown) { parts.push(truncatedNoteHTML(total, shown)); }
+      parts.push('<ul>');
       for (const item of items) {
-        if (!item) continue
-        parts.push(`<li>${escapeChangelogHtml(item)}</li>`)
+        if (!item) continue;
+        const li = renderChangelogItem(item);
+        if (li) parts.push(li);
       }
-      parts.push('</ul></details>')
+      parts.push('</ul></details>');
     }
-    parts.push('</div>')
-    return parts.join('\n')
+    parts.push('</div>');
+    return parts.join(String.fromCharCode(10));
   } catch {
-    return ''
+    return '';
   }
 }
 
@@ -392,3 +568,146 @@ export function renderChangelogHTML(
     return renderChangelogNeutral()
   }
 }
+/** 校验诊断（一行一码，行号为原文件 1-based，诊断按行号排序）。 */
+export interface ChangelogDiagnostic {
+  line: number;
+  code: string;
+  hint: string;
+}
+
+export interface ChangelogValidation {
+  ok: boolean;
+  diagnostics: ChangelogDiagnostic[];
+}
+
+/** 校验提示文（与终裁码表一字对应，仅 CI/发布前用，运行时永不调用）。 */
+export const CHANGELOG_VALIDATE_HINTS: Record<string, string> = {
+  E_VERSION_TITLE: '该标题不是合法版本号，其下条目已被忽略，请改成 ## [x.y.z] 形态',
+  E_CATEGORY: '未知分类，其下条目已被忽略，仅收 Added/Fixed/Changed/Deprecated/Removed/Security',
+  E_BULLET_ORPHAN: '该条目不在版本节与分类下，已被忽略',
+  W_BREAKING_MAYBE: '疑似破坏标记误写（缺冒号/拼写接近/位置疑似放错），请检查是否想写 BREAKING:/不兼容:',
+  W_YANKED: '该版本已被标记撤回（yanked），安装不受影响，继续前请确认',
+  W_TRUNCATED: '该类共 M 条，仅显示前 N 条',
+  W_TRUNCATED_FILE: '文件超 64K，仅校验前 64K',
+  W_EMPTY: '未解析到任何版本节，面板将显示中性提示',
+};
+
+/** 疑似破坏误写（仅行首可疑，不报正文中间散文）。 */
+export function isMaybeBreakingMisuse(bulletBody: unknown): boolean {
+  try {
+    if (typeof bulletBody !== 'string') return false;
+    const t = stripBreakingDecorations(bulletBody);
+    if (!t) return false;
+    if (isBreakingChangelogItem(bulletBody)) return false;
+    if (/^breaking\s*$/i.test(t)) return true;
+    if (/^breaking\s+[^:：]/i.test(t)) return true;
+    if (/^breaking[^:：\s\w]/i.test(t)) return true;
+    if (/^不兼容\s*$/i.test(t)) return true;
+    if (/^不兼容\s*[^:：]/i.test(t)) return true;
+    if (/^(braking|breking|breakign|brekaing|braeking|breakingg)\b/i.test(t)) return true;
+    if (/^break[^i:：\s]/i.test(t)) return true;
+    return false;
+  } catch { return false; }
+}
+
+/** 纯校验（零新增导入，与 parse 共享扫描仪，永不抛错，仅 CI/发布前用）。 */
+export function validateChangelog(markdown: unknown): ChangelogValidation {
+  try {
+    if (typeof markdown !== 'string' || !markdown.trim()) {
+      return { ok: true, diagnostics: [{ line: 1, code: 'W_EMPTY', hint: CHANGELOG_VALIDATE_HINTS.W_EMPTY }] };
+    }
+    let raw = String(markdown).replace(/\r\n/g, String.fromCharCode(10));
+    let fileTruncated = false;
+    if (raw.length > CHANGELOG_MAX_CHARS) { fileTruncated = true; raw = raw.slice(0, CHANGELOG_MAX_CHARS); }
+    const lines = raw.split(String.fromCharCode(10));
+    const diags: ChangelogDiagnostic[] = [];
+    let inFence = false;
+    let curValid = false;
+    let curCat: string | null = null;
+    let catLineByCat: Record<string, number> = {};
+    let countByCat: Record<string, number> = {};
+    let hasVisibleVersion = false;
+    const flushCounts = function(): void {
+      try {
+        for (const k of Object.keys(countByCat)) {
+          const n = countByCat[k];
+          if (n > CHANGELOG_MAX_BULLETS_PER_SECTION) {
+            const lineNo = catLineByCat[k] ? catLineByCat[k] : lines.length;
+            const hint = '分类 ' + k + ' 共 ' + String(n) + ' 条，仅显示前 ' + String(CHANGELOG_MAX_BULLETS_PER_SECTION) + ' 条';
+            diags.push({ line: lineNo, code: 'W_TRUNCATED', hint: hint });
+          }
+        }
+      } catch { }
+    };
+    for (let i = 0; i < lines.length; i++) {
+      const lineNo = i + 1;
+      const line = String(lines[i] !== undefined && lines[i] !== null ? lines[i] : '');
+      if (isFenceToggle(line)) { inFence = !inFence; continue; }
+      if (inFence) continue;
+      const vTitle = matchVersionHeading(line);
+      if (vTitle !== null) {
+        flushCounts();
+        catLineByCat = {};
+        countByCat = {};
+        curValid = false;
+        curCat = null;
+        const info = extractVersionDateAndYanked(vTitle);
+        if (!info.version) {
+          diags.push({ line: lineNo, code: 'E_VERSION_TITLE', hint: CHANGELOG_VALIDATE_HINTS.E_VERSION_TITLE });
+          continue;
+        }
+        if (isUnreleasedVersion(info.version)) {
+          curValid = false;
+          continue;
+        }
+        curValid = true;
+        hasVisibleVersion = true;
+        if (info.yanked) { diags.push({ line: lineNo, code: 'W_YANKED', hint: CHANGELOG_VALIDATE_HINTS.W_YANKED }); }
+        continue;
+      }
+      const cTitle = matchCategoryHeading(line);
+      if (cTitle !== null) {
+        const cat = normalizeCategory(cTitle);
+        if (!cat) {
+          curCat = null;
+          diags.push({ line: lineNo, code: 'E_CATEGORY', hint: CHANGELOG_VALIDATE_HINTS.E_CATEGORY });
+          continue;
+        }
+        if (!curValid) { curCat = null; continue; }
+        curCat = cat;
+        catLineByCat[cat] = lineNo;
+        if (countByCat[cat] === undefined) countByCat[cat] = 0;
+        continue;
+      }
+      const body = matchBulletBody(line);
+      if (body !== null) {
+        if (!curValid || !curCat) {
+          diags.push({ line: lineNo, code: 'E_BULLET_ORPHAN', hint: CHANGELOG_VALIDATE_HINTS.E_BULLET_ORPHAN });
+          continue;
+        }
+        countByCat[curCat] = (countByCat[curCat] ? countByCat[curCat] : 0) + 1;
+        if (isMaybeBreakingMisuse(body)) {
+          diags.push({ line: lineNo, code: 'W_BREAKING_MAYBE', hint: CHANGELOG_VALIDATE_HINTS.W_BREAKING_MAYBE });
+        }
+        continue;
+      }
+    }
+    flushCounts();
+    if (fileTruncated) { diags.push({ line: lines.length, code: 'W_TRUNCATED_FILE', hint: CHANGELOG_VALIDATE_HINTS.W_TRUNCATED_FILE }); }
+    if (!hasVisibleVersion) {
+      let anyVisible = false;
+      try {
+        const parsed = parseChangelog(markdown);
+        for (const e of parsed) { if (e && !isUnreleasedVersion((e as { version?: unknown }).version) && hasVisibleSections(e)) { anyVisible = true; break; } }
+      } catch { anyVisible = false; }
+      if (!anyVisible) { diags.push({ line: lines.length, code: 'W_EMPTY', hint: CHANGELOG_VALIDATE_HINTS.W_EMPTY }); }
+    }
+    diags.sort(function(a, b) { return a.line - b.line; });
+    let ok = true;
+    for (const d of diags) { if (d.code.charAt(0) === 'E') { ok = false; break; } }
+    return { ok: ok, diagnostics: diags };
+  } catch {
+    return { ok: false, diagnostics: [] };
+  }
+}
+

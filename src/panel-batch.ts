@@ -35,6 +35,7 @@
 
 import { assertPrefix, MIN_PANEL_POLL_MS } from './config.js'
 import { validReleaseVersion } from './service.js'
+import { shouldFetchChangelog } from './changelog.js'
 import {
   isTerminalPhase,
   normalizeBatchSession,
@@ -1089,13 +1090,14 @@ export function mountUpdateBatchPanel(
   const copyText = options.copyText ?? defaultCopyText
   // 跳过存储按插件标识各一份（浏览器 localStorage 优先，没有退内存；与单插件面板同一套语义）。
   const skipStores = new Map<string, PanelSkipStore>()
-  // 详情行自动日志（#38）：默认开；按“行 key + 版本”记住结果（含取不到也记住），传输失败的不记。
+  // 详情行自动日志（#41 终裁）：默认开；按“行 key + 版本”记住结果（成功与取不到永久记，不落盘）；
+  // 传输失败不进缓存，换版/批量查一次/重开立即重问，轮询按退避问（三处共用 shouldFetchChangelog，各存各的）。
   const autoChangelogEnabled = options.autoChangelog !== false
   const rowChangelog = new Map<string, { version: string; markdown: string | null }>()
   const rowInflight = new Set<string>()
-  // 失败退避（#38 对抗补记）：同行同版本失败只记一次，轮询与反复展开不再重问；
-  // 换版、批量查一次、重开面板即忘。
-  const rowFailed = new Map<string, string>()
+  // 失败退避时间戳（行 key + 版本 -> 失败时刻毫秒）：轮询按退避问，反复展开不再每秒重问；
+  // 换版（新 key）、批量查一次、重开面板即忘。
+  const rowFailedAt = new Map<string, number>()
   let rowAutoSeq = 0
 
   let rows: BatchRowView[] = []
@@ -1145,7 +1147,14 @@ export function mountUpdateBatchPanel(
     const cached = rowChangelog.get(key)
     if (cached && cached.version === version) return
     if (rowInflight.has(key)) return
-    if (rowFailed.get(key) === version) return
+    try {
+      const failKey = key + '\0' + version
+      const hasCache = false
+      const failedAt = rowFailedAt.has(failKey) ? (rowFailedAt.get(failKey) as number) : null
+      let nowMs = 0
+      try { nowMs = Date.now(); } catch { nowMs = 0; }
+      if (!shouldFetchChangelog({ hasCache: hasCache, failedAt: failedAt, now: nowMs, isManual: false })) return
+    } catch { }
     const phone = changelogPhoneOf(row)
     if (!phone) return
     rowInflight.add(key)
@@ -1157,7 +1166,7 @@ export function mountUpdateBatchPanel(
           rowInflight.delete(key)
           if (!mounted || seq !== rowAutoSeq) return
           if (!isObject(reply) || reply['ok'] !== true) {
-            rowFailed.set(key, version)
+            try { rowFailedAt.set(key + '\0' + version, Date.now()); } catch { try { rowFailedAt.set(key + '\0' + version, 0); } catch {} }
             return
           }
           const md = (reply as Record<string, unknown>)['markdown']
@@ -1166,7 +1175,7 @@ export function mountUpdateBatchPanel(
         },
         () => {
           rowInflight.delete(key)
-          if (mounted && seq === rowAutoSeq) rowFailed.set(key, version)
+          if (mounted && seq === rowAutoSeq) { try { rowFailedAt.set(key + '\0' + version, Date.now()); } catch { try { rowFailedAt.set(key + '\0' + version, 0); } catch {} } }
         },
       )
   }
@@ -1305,7 +1314,7 @@ export function mountUpdateBatchPanel(
       }
       applyReply(reply)
       // 批量查/装一次是明确意图：清掉各行失败退避，下面的按行链路可再问一次。
-      rowFailed.clear()
+      rowFailedAt.clear()
     } catch {
       if (!mounted) return
       lastError = 'check-failed'

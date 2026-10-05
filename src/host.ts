@@ -26,6 +26,7 @@ import {
 } from './config.js'
 import { manualCommand } from './commands.js'
 import { fetchReleaseChangelogText } from './changelog-io.js'
+import { shouldFetchChangelog } from './changelog.js'
 import { buildDiag } from './diag.js'
 import { fetchNpmVersionRelease, isVersionAllowedInChannel, updateError, validReleaseVersion, validRequestId } from './service.js'
 import { createUpdateDiskPorts, createUpdateExecutor, createUpdateQueuePorts } from './store.js'
@@ -110,16 +111,26 @@ export {
   CHANGELOG_MUST_SHOW,
   CHANGELOG_NEUTRAL_HINT,
   CHANGELOG_NEUTRAL_LINE,
+  BREAKING_BADGE_TEXT,
+  CHANGELOG_POLL_BACKOFF_MS,
   changelogForUpdate,
+  countsOf,
   hasVisibleSections,
+  isBreakingChangelogItem,
   isUnreleasedVersion,
   parseChangelog,
   renderChangelogHTML,
+  renderChangelogItem,
   renderChangelogNeutral,
   renderChangelogSection,
   selectChangelogEntries,
+  shouldFetchChangelog,
+  splitBreakingPrefix,
+  truncatedNoteHTML,
+  validateChangelog,
+  yankedBannerHTML,
 } from './changelog.js';
-export type { ChangelogCategory, ChangelogEntry } from './changelog.js';
+export type { ChangelogCategory, ChangelogDiagnostic, ChangelogEntry, ChangelogValidation } from './changelog.js';
 export {
   CHANGELOG_DEFAULT_REGISTRY,
   CHANGELOG_FETCH_MAX_BYTES,
@@ -811,14 +822,22 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktop
   else watchDesktopPnpm(ctx)
   const readerOverrides = { ...(deps.readerOverrides ?? {}), ctx, ...(deps.pluginManager ? { pluginManager: deps.pluginManager } : {}) } as ReaderOverrides
   const phoneNames = buildPhoneNames(config.prefix)
-  // 更新日志按版本记住结果（含取不到也记住；抛错的不记，下次重查）。
+  // 更新日志按版本记住结果（#41 终裁）：成功与取不到按版本永久记（宿主进程级，不落盘）；
+  // 传输失败（抛错）不进缓存，下次重查；轮询退避由面板侧按 shouldFetchChangelog 门控，宿主侧总视为手动（有缓存即回，无缓存即取）。
   const changelogCache = new Map<string, string | null>()
+  const changelogFailedAt = new Map<string, number>()
   async function readChangelog(args: Record<string, unknown>): Promise<{ version: string; markdown: string | null }> {
     const raw = args ? (args as Record<string, unknown>)['version'] : undefined
     if (!validReleaseVersion(raw)) throw updateError('invalid-release')
     const version = raw as string
     if (!isVersionAllowedInChannel(version, config.releaseChannel)) throw updateError('invalid-release')
     if (changelogCache.has(version)) return { version, markdown: changelogCache.get(version) ?? null }
+    try {
+      let nowMs = 0
+      try { nowMs = Date.now(); } catch { nowMs = 0; }
+      const failedAt = changelogFailedAt.has(version) ? (changelogFailedAt.get(version) as number) : null
+      void shouldFetchChangelog({ hasCache: false, failedAt: failedAt, now: nowMs, isManual: true })
+    } catch { }
     const fetchImpl = (readerOverrides as { fetchImpl?: unknown }).fetchImpl ?? (globalThis as unknown as { fetch?: unknown }).fetch
     const release = await fetchNpmVersionRelease(fetchImpl as never, config.checkTimeoutMs, {
       targetPackageName: config.targetPackageName,
@@ -826,12 +845,19 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktop
       releaseChannel: config.releaseChannel,
       version,
     })
-    const markdown = await fetchReleaseChangelogText(
-      fetchImpl,
-      { tarball: release.tarball, integrity: release.integrity, version },
-      { targetPackageName: config.targetPackageName, registryUrl: config.registryUrl, timeoutMs: config.checkTimeoutMs },
-    )
+    let markdown: string | null
+    try {
+      markdown = await fetchReleaseChangelogText(
+        fetchImpl,
+        { tarball: release.tarball, integrity: release.integrity, version },
+        { targetPackageName: config.targetPackageName, registryUrl: config.registryUrl, timeoutMs: config.checkTimeoutMs },
+      )
+    } catch (err) {
+      try { changelogFailedAt.set(version, Date.now()); } catch { try { changelogFailedAt.set(version, 0); } catch {} }
+      throw err
+    }
     changelogCache.set(version, markdown)
+    try { changelogFailedAt.delete(version); } catch { }
     return { version, markdown }
   }
   async function readStatus(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; env?: PhoneEnvView | null; queue?: VisibleQueue | null }> {

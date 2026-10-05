@@ -9,6 +9,11 @@
  * - 已装版离线读：`node_modules/<目标包>/CHANGELOG.md`（与版本 pin 绑定，零新增联网）；
  * - 新版按需取：新版 tarball 内同名文件，复用官方源 + integrity 校验；
  * 取不到一律回 null（调用方渲染中性提示，不挡安装、不写 blockedReason）。
+ *
+ * 记住策略（#41 终裁，三墙不动，只澄清注释）：成功与取不到（null）按版本永久记
+ * （面板内存会话级 + 宿主进程级，不落盘，显式文本永不覆盖）；传输失败不进缓存，
+ * 手动查新版/换版/重开面板立即重问，轮询按退避问（三处共用 shouldFetchChangelog，各存各的）。
+ * 三墙（8MB 压缩态/32MB 解压后/64K 日志文本）一字不动，超限回 null 由调用方按取不到记住。
  */
 
 import { readFile } from 'node:fs/promises'

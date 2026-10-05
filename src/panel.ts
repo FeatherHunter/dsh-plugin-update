@@ -24,6 +24,8 @@ import {
   changelogForUpdate,
   parseChangelog,
   renderChangelogHTML,
+  shouldFetchChangelog,
+  yankedBannerHTML,
 } from './changelog.js'
 import { visibleQueueFor, type UpdateQueueState, type VisibleQueue } from './queue.js'
 import type { BlockedReason, UpdateSnapshot } from './ports.js'
@@ -33,7 +35,7 @@ import type { BlockedReason, UpdateSnapshot } from './ports.js'
 /** 摆放形态：默认内嵌，切弹窗走同一参数。 */
 export type UpdatePanelMode = 'embedded' | 'dialog'
 
-/** 面板主题：默认最小可用样式；`d5-paper` 为可选 D5 档案卷专业主题（只换肤，不换 DOM 顺序）。 */
+/** 面板主题：默认最小可用样式；`archive` 为档案卷纸面浅色（只换肤，不换 DOM 顺序；`d5-paper` 为旧别名）。 */
 /**
  * 面板主题：`default` 最小可用深色；`archive` 档案卷纸面浅色（原型敲定的案卷风格，只换肤）。
  * `d5-paper` 是 archive 的旧别名（历史取值），仍可用，渲染逐字相同。
@@ -76,7 +78,7 @@ export interface UpdatePanelOptions {
   prefix?: string
   /** 摆放形态：默认内嵌。 */
   mode?: UpdatePanelMode
-  /** 面板主题：默认 `default`（最小可用样式，一字不动）；传 `d5-paper` 切 D5 档案卷可选主题。 */
+  /** 面板主题：默认 `default`（最小可用样式，一字不动）；传 `archive` 切档案卷（`d5-paper` 为旧别名）。 */
   theme?: UpdatePanelTheme
   /** 是否看他人排队明细：默认只看自己的（他人仅露正忙占位，位置照给）。 */
   showOthers?: boolean
@@ -895,6 +897,12 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-changelog li{margin:2px 0}',
   '.dsh-upd-changelog-fold{margin:4px 0}',
   '.dsh-upd-changelog-fold>summary{cursor:pointer}',
+  '.dsh-upd-changelog-count{font-size:12px;opacity:.7;margin:2px 0 4px}',
+  '.dsh-upd-changelog-yanked{border-left:4px solid var(--dsh-upd-warn-line,#d97706);background:var(--dsh-upd-warn-bg,#fffbeb);padding:6px 10px;margin:6px 0;font-size:13px}',
+  '.dsh-upd-breaking-badge{display:inline-block;font-size:11px;font-weight:700;border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:baseline}',
+  '.dsh-upd-changelog-security-more{margin:4px 0 6px}',
+  '.dsh-upd-changelog-security-more>summary{cursor:pointer;font-size:12px;opacity:.8}',
+  '.dsh-upd-changelog-more-note{font-size:12px;opacity:.7;margin:2px 0 4px}',
   '.dsh-upd-changelog-neutral{color:inherit;opacity:.8}',
   '.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}',
   '.dsh-upd-overlay .dsh-upd{background:var(--dsh-upd-bg,#ffffff);max-height:85vh;overflow:auto}',
@@ -988,7 +996,8 @@ export const UPDATE_PANEL_D5_CSS = [
   '--d5-shadow:0 1px 2px rgba(60,40,20,.08),0 12px 32px rgba(60,40,20,.10);',
   'font-family:var(--d5-sans);color:var(--d5-ink);background:var(--d5-card);',
   'border:1px solid var(--d5-line-strong);border-radius:4px;box-shadow:var(--d5-shadow)}',
-  '.dsh-upd[data-theme="d5-paper"] button{border-color:var(--d5-line-strong);background:transparent;color:var(--d5-ink);border-radius:3px;font-family:var(--d5-sans)}',
+  // 按钮脸自己不透明（宿主底色未知时也读得出；卡片上渲染与 transparent 逐字同色）。
+  '.dsh-upd[data-theme="d5-paper"] button{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink);border-radius:3px;font-family:var(--d5-sans)}',
   '.dsh-upd[data-theme="d5-paper"] button:hover:not(:disabled){border-color:var(--d5-accent);color:var(--d5-accent)}',
   '.dsh-upd[data-theme="d5-paper"] button[data-primary="1"]{background:var(--d5-accent);border-color:var(--d5-accent);color:#fff}',
   '.dsh-upd[data-theme="d5-paper"] button[data-primary="1"]:hover:not(:disabled){background:var(--d5-accent-deep);color:#fff}',
@@ -999,6 +1008,10 @@ export const UPDATE_PANEL_D5_CSS = [
   '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]{border-color:var(--d5-warn);background:var(--d5-warn-bg);font-family:var(--d5-serif);border-width:2px}',
   '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="failed"],.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="blocked"]{border-color:var(--d5-bad);background:var(--d5-bad-bg)}',
   '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="done"]{border-color:var(--d5-ok);background:var(--d5-ok-bg)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-changelog-yanked{border-color:var(--d5-warn);background:var(--d5-warn-bg);color:var(--d5-ink)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-breaking-badge{color:var(--d5-accent);border-color:var(--d5-accent)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-changelog-count{color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-changelog-more-note{color:var(--d5-muted)}',
   // —— 大印章（原型 :206 `.seal`：右上 88px、旋转 -7°、双细框；内容与色调来自根属性，不加节点）——
   '.dsh-upd[data-theme="d5-paper"]{position:relative;padding:22px 26px 20px}',
   '.dsh-upd[data-theme="d5-paper"]::before{content:attr(data-seal);position:absolute;top:20px;right:24px;width:88px;height:88px;',
@@ -1272,7 +1285,12 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         const toText = String(snapshot.latestVersion ?? '')
         const rangeTitle =
           fromText && toText ? `更新说明（${fromText} → ${toText}）：` : '更新说明：'
-        inner = `<div class="dsh-upd-changelog-wrap"><div>${escapeHtml(rangeTitle)}</div>\n${changelogHTML}\n</div>`
+        let yankedBanner = ''
+        try {
+          const toEntry = Array.isArray(ranged) ? ranged.find(function(e) { try { return e && e.version === toText; } catch { return false; } }) : null
+          if (toEntry && (toEntry as { yanked?: unknown }).yanked === true && toText) { yankedBanner = yankedBannerHTML(toText); }
+        } catch { yankedBanner = ''; }
+        inner = `<div class="dsh-upd-changelog-wrap"><div>${escapeHtml(rangeTitle)}</div>${yankedBanner}\n${changelogHTML}\n</div>`
       } catch {
         // 日志画坏了也不挡更新：退回中性提示，安装按钮状态不变。
         inner = ''
@@ -1494,12 +1512,12 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   // 自动日志（#38）：默认开；显式传过 changelogMarkdown 或显式关即退回手动。
   const autoChangelogEnabled = typeof options.changelogMarkdown !== 'string' && options.autoChangelog !== false
   let manualChangelogOverride = typeof options.changelogMarkdown === 'string'
-  // 按版本记住结果（含取不到也记住；传输失败的不记，下次轮询重问）。
+  // 按版本记住结果（#41 终裁）：成功与取不到按版本永久记（面板内存会话级，不落盘，显式文本永不覆盖）；
+  // 传输失败不进缓存，手动查新版/换版/重开立即重问，轮询按退避问（三处共用 shouldFetchChangelog，各存各的）。
   const changelogCache = new Map<string, string | null>()
   const changelogInflight = new Set<string>()
-  // 失败退避（#38 对抗补记）：同版本失败只记一次，不在轮询里每秒重问；
-  // 换版、手动点查新版、重开面板即忘，下次照常问。
-  const changelogFailed = new Set<string>()
+  // 失败退避时间戳（版本 -> 失败时刻毫秒）：轮询按退避问，手动/换版/重开立即忘，下次照常问。
+  const changelogFailedAt = new Map<string, number>()
   let autoSeq = 0
   const pollMs =
     options.pollMs === undefined ? DEFAULT_PANEL_POLL_MS : options.pollMs
@@ -1627,7 +1645,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     }
   }
 
-  /** 自动取日志的触发条件（#38）：仅有新版可装、未跳过该版、没记过该版时才问一次。 */
+  /** 自动取日志的触发条件（#41 终裁）：仅有新版可装、未跳过该版时按退避问一次。 */
   function pendingAutoChangelogVersion(): string | null {
     if (!autoChangelogEnabled || manualChangelogOverride || !mounted) return null
     const v = snapshot?.latestVersion ?? null
@@ -1638,7 +1656,12 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     } catch {
       // 跳过存储读不到即当没跳过，不挡日志。
     }
-    if (changelogCache.has(v) || changelogInflight.has(v) || changelogFailed.has(v)) return null
+    if (changelogInflight.has(v)) return null
+    const hasCache = changelogCache.has(v)
+    const failedAt = changelogFailedAt.has(v) ? (changelogFailedAt.get(v) as number) : null
+    let nowMs = 0
+    try { nowMs = Date.now(); } catch { nowMs = 0; }
+    if (!shouldFetchChangelog({ hasCache: hasCache, failedAt: failedAt, now: nowMs, isManual: false })) return null
     return v
   }
 
@@ -1655,7 +1678,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           changelogInflight.delete(v)
           if (!mounted || seq !== autoSeq) return
           if (!reply || typeof reply !== 'object' || (reply as Record<string, unknown>)['ok'] !== true) {
-            changelogFailed.add(v)
+            try { changelogFailedAt.set(v, Date.now()); } catch { try { changelogFailedAt.set(v, 0); } catch {} }
             return
           }
           const md = (reply as Record<string, unknown>)['markdown']
@@ -1667,7 +1690,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         },
         () => {
           changelogInflight.delete(v)
-          if (mounted && seq === autoSeq) changelogFailed.add(v)
+          if (mounted && seq === autoSeq) { try { changelogFailedAt.set(v, Date.now()); } catch { try { changelogFailedAt.set(v, 0); } catch {} } }
         },
       )
   }
@@ -1702,7 +1725,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           if (!mounted) return
           applyStatusReply(reply)
           // 手动查新版是明确意图：清掉失败退避，下面的自动链路可再问一次。
-          changelogFailed.clear()
+          changelogFailedAt.clear()
         } catch {
           if (!mounted) return
           lastError = 'check-failed'

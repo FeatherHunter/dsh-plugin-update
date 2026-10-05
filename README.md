@@ -181,9 +181,11 @@ const entry = mountUpdateEntry(document.getElementById('upd-entry'), {
 |---|---|---|---|
 | 摆什么 | `button` / `badge` / `inline` | `button` | 按钮；只给一个状态点；面板本体直接嵌进来 |
 | 什么时候查 | `mount` / `never` | `mount` | 进页面静默查一次（**只调 `.updateStatus`，只读**）；`never` 则只在点击时查 |
-| 点了做什么 | `has-update` / `always` / `manual` | `has-update` | 有新版才开面板；总是开；交给 `onActivate` 自己跳 |
+| 点了做什么 | `has-update` / `always` / `manual` / `direct` | `has-update` | 有新版才开面板；检查完总是开；交给 `onActivate` 自己跳；点开即弹窗、不预查 |
 
 按钮文案随状态自己变：`检查更新` / `有新版 1.1.0` / `正在安装…` / `待重启` / `更新失败，点此查看`。
+
+无新版时原地那句小字（`已是最新 X.Y.Z`）只在 `has-update` 下出现：不想看它就用 `openOn: 'always'`（检查完总是开弹窗，无新版在弹窗里看“已是最新”）或 `openOn: 'direct'`（点开即弹窗，连预查都省了，面板挂载即自查；徽标形态仍走回调口径）。
 
 **一条铁律：检查是只读、安装是写入，两者不许合并成一个动作。** 入口件永远只做「查 + 打开面板」，
 任何路径都不自动安装；用户必须在面板里明确点「安装」。想让点击交给自己（例如你已有自己的更新页）：
