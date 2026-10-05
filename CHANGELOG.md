@@ -2,7 +2,7 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
-## [Unreleased]
+## [0.5.0] - 2026-10-05
 
 ### Added
 - 主题首选名 `archive`（档案卷纸面浅色）：`d5-paper` 为旧别名仍可用，渲染逐字相同；入口件与批量面板同一套取值。
