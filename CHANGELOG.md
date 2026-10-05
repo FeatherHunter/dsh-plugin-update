@@ -2,6 +2,16 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [Unreleased]
+
+### Added
+- 主题首选名 `archive`（档案卷纸面浅色）：`d5-paper` 为旧别名仍可用，渲染逐字相同；入口件与批量面板同一套取值。
+- 弹窗关闭落地 `onCloseRequested`：dialog 下点「关闭」/按 Esc 先交调用方撤 DOM 再停轮询；入口件打开的 dialog 已内置（收 dialog + 还原按钮 + 重查一次）。
+
+### Fixed
+- 弹窗点「关闭」没反应：此前只停轮询不撤 DOM（入口件打开的 dialog 还会卡死），现走关闭落地。
+- 悬停/聚焦闪烁：轮询每秒整树重写 innerHTML 打断 hover/focus，现输出逐字相同时不碰 DOM（状态变化仍即时重绘；单面板与批量面板同口径）。
+
 ## [0.4.0] - 2026-10-05
 
 ### Added

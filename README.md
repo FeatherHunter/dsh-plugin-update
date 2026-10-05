@@ -128,6 +128,7 @@ const panel = mountUpdatePanel(document.getElementById('update-slot'), {
   call: (name, args) => host.call(name, args),
 })
 // 离开时 panel.unmount()：只停轮询，安装在宿主侧继续跑；重开面板立刻重查，1 秒内恢复显示。
+// 弹窗版想让「关闭」按钮真把弹窗撤掉：传 onCloseRequested（面板点关闭/Esc 时先调它撤 DOM，再停轮询；入口件打开的 dialog 已内置）。
 ```
 
 组件内部消化的事（调用者不再写）：按 `panelPollMs` 轮询查状态（下限 250 毫秒）；安装按钮状态跟随快照的 `canInstall`，不另写门控规则；装不了的原因按第 5.2 节展示中文一句话；`pending-restart` 单独横幅加重启指引，不再给安装按钮；手工命令展示与复制；排队位置展示与 `showOthers` 开关；跳过按版本记（“已跳过 X.Y.Z · 恢复”在同一行，不藏进设置页）；失败时旁边的“复制诊断”一键给出脱敏后的自包含文本（稳定码、版本、宿主、队列位置），深挖仍看日志（组件里留着第 6 节第 11 条的过滤口径）。
@@ -141,7 +142,7 @@ mountUpdatePanel(slot, { pluginId: 'my-notes-plugin', prefix: 'notes', call: hos
 
 面板画成档案五章：**01 检查与安装、02 更新日志、03 更新队列、04 错误信息、05 手工命令**（五章恒在，缺内容给中性提示，不跳号）。档案头一行是「插件名 + 使用范围 + `profile` 牌」：使用范围由面板自动向宿主索取（电话入参 `includeEnv`，宿主只回**范围名与宿主种类**、不回任何路径），显示的就是更新要落到的那个 profile——`web` 与 `desktop` 各装一份，装错范围是严重故障，所以这一栏宁可显示“未知”也不猜。调用方知道得更准时可以用 `profileName` 显式覆盖。
 
-可选专业主题（D5 档案卷，不替换默认）：挂载时加 `theme: 'd5-paper'` 即换肤（右上大印章「待查/可装/安装中/待重启/受阻/已最新」+ 横幅小印章一字 + profile 牌 + 待重启衬线横幅配手绘 SVG 标 + 窄屏印章固定 + 省略号逐字折叠 + 浅深双主题跟随系统），内核 DOM 顺序不动、复制诊断常在；不传即最小可用默认样式。运行时用 `panel.setTheme('d5-paper' | 'default')` 可切。
+可选档案卷主题（纸面浅色案卷风，不替换默认）：挂载时加 `theme: 'archive'` 即换肤（右上大印章「待查/可装/安装中/待重启/受阻/已最新」+ 横幅小印章一字 + profile 牌 + 待重启衬线横幅配手绘 SVG 标 + 窄屏印章固定 + 省略号逐字折叠 + 浅深双主题跟随系统），内核 DOM 顺序不动、复制诊断常在；不传即最小可用默认深色样式。运行时用 `panel.setTheme('archive' | 'default')` 可切。旧值 `theme: 'd5-paper'` 仍可用（同一套渲染）。入口件与批量面板是同一个 `theme` 参数，取值同一套。
 
 类型定义随包分发（`dsh-plugin-update/panel` 的 `.d.ts`），不用自编译；面板离线可读，与包版本绑定。
 
@@ -233,7 +234,7 @@ import { mountUpdateBatchPanel } from 'dsh-plugin-update/panel-batch'
 const panel = mountUpdateBatchPanel(el, {
   prefix: 'life',
   call: (name, args) => host.call(name, args),
-  theme: 'd5-paper',       // 与单插件面板同一套皮肤
+  theme: 'archive',          // 与单插件面板同一套皮肤（archive = 档案卷，旧值 d5-paper 仍可用）
 })
 ```
 

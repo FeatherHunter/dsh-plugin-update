@@ -25,6 +25,7 @@ import { DEFAULT_PREFIX, MIN_PANEL_POLL_MS, buildPhoneNames } from './config.js'
 import {
   failureCodeOf,
   mountUpdatePanel,
+  normalizePanelTheme,
   type UpdatePanelContainer,
   type UpdatePanelController,
   type UpdatePanelMode,
@@ -62,7 +63,8 @@ export interface UpdateEntryOptions {
   /** 调宿主电话：(phoneName, args) => Promise<reply>。 */
   call: (name: string, args: Record<string, unknown>) => Promise<unknown>
   variant?: EntryVariant
-  theme?: 'default' | 'd5-paper'
+  /** 主题：`default` 最小可用深色，`archive` 档案卷纸面浅色（`d5-paper` 为旧别名仍可用）。 */
+  theme?: UpdatePanelTheme
   /** 缺省 'mount'：进页面静默查一次（只读）。'never' 则只在用户点击时查。 */
   autoCheck?: EntryAutoCheck
   /** 缺省 'has-update'：有新版才开面板，没有就只在原地给一句提示。 */
@@ -90,7 +92,7 @@ export interface UpdateEntryController {
   close(): void
   /** 当前按钮上的状态文案（接入方做自定义排版时读它）。 */
   label(): string
-  setTheme(theme: 'default' | 'd5-paper'): void
+  setTheme(theme: UpdatePanelTheme): void
   unmount(): void
 }
 
@@ -237,10 +239,10 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
   if (openOn !== 'has-update' && openOn !== 'always' && openOn !== 'manual') {
     throw new Error(`[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual（收到 ${JSON.stringify(options.openOn)}）`)
   }
-  let theme: UpdatePanelTheme = options.theme ?? 'default'
-  if (theme !== 'default' && theme !== 'd5-paper') {
-    throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 d5-paper（收到 ${JSON.stringify(options.theme)}）`)
+  if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive' && options.theme !== 'd5-paper') {
+    throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ${JSON.stringify(options.theme)}）`)
   }
+  let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
   const pollMs = options.pollMs
   if (pollMs !== undefined && (typeof pollMs !== 'number' || !Number.isFinite(pollMs) || pollMs < MIN_PANEL_POLL_MS)) {
     throw new Error(`[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ${JSON.stringify(options.pollMs)}）`)
@@ -371,6 +373,8 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
       profileName,
       autoChangelog: options.autoChangelog,
       changelogMarkdown: options.changelogMarkdown ?? null,
+      // 面板点「关闭」即走入口件的完整关闭（收 dialog + 还原按钮 + 重查一次），不再是面板自己停轮询。
+      onCloseRequested: () => close(),
       call: panelCall,
     })
     panelMode = mode
@@ -437,11 +441,11 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
   }
 
   function setTheme(next: UpdatePanelTheme): void {
-    if (next !== 'default' && next !== 'd5-paper') {
-      throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 d5-paper（收到 ${JSON.stringify(next)}）`)
+    if (next !== 'default' && next !== 'archive' && next !== 'd5-paper') {
+      throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ${JSON.stringify(next)}）`)
     }
-    theme = next
-    if (panel) void panel.setTheme(next)
+    theme = normalizePanelTheme(next)
+    if (panel) void panel.setTheme(theme)
     else render()
   }
 

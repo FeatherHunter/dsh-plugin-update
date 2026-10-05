@@ -48,6 +48,7 @@ import {
   createBrowserSkipStore,
   failureCopy,
   isKnownFailureCode,
+  normalizePanelTheme,
   renderUpdatePanelHTML,
   type PanelDiagnosticInput,
   type PanelSkipStore,
@@ -321,7 +322,7 @@ interface RowRenderContext {
 /** 整面板 HTML（含样式；重绘即整体替换 innerHTML，故每次都带 style 也只留一份）。 */
 export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   const rows: readonly BatchRowView[] = Array.isArray(input.rows) ? input.rows : []
-  const theme: UpdatePanelTheme = input.theme === 'd5-paper' ? 'd5-paper' : 'default'
+  const theme: UpdatePanelTheme = normalizePanelTheme(input.theme)
   const mode: BatchPanelMode = input.mode === 'dialog' ? 'dialog' : 'embedded'
   const titles = input.titles && typeof input.titles === 'object' ? input.titles : {}
   const skippedVersions =
@@ -425,7 +426,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
 
   const kernel = parts.join(String.fromCharCode(10))
   // 主题只换肤：默认不带 data-theme、不带 D5 串；d5-paper 才挂属性并追加两份 D5 皮肤。
-  const d5 = theme === 'd5-paper'
+  const d5 = normalizePanelTheme(theme) === 'd5-paper'
   const attr = d5 ? ' data-theme="d5-paper"' : ''
   const seal = batchSealOf(counts)
   const root =
@@ -1077,10 +1078,10 @@ export function mountUpdateBatchPanel(
   if (mode !== 'embedded' && mode !== 'dialog') {
     throw new Error('[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ' + JSON.stringify(options.mode) + '）')
   }
-  let theme: UpdatePanelTheme = options.theme === undefined ? 'default' : options.theme
-  if (theme !== 'default' && theme !== 'd5-paper') {
-    throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 d5-paper（收到 ' + JSON.stringify(options.theme) + '）')
+  if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive' && options.theme !== 'd5-paper') {
+    throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ' + JSON.stringify(options.theme) + '）')
   }
+  let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
   const call = options.call
   const titles: Record<string, string> =
     options.titles && typeof options.titles === 'object' ? options.titles : {}
@@ -1170,9 +1171,11 @@ export function mountUpdateBatchPanel(
       )
   }
 
+  // 上次落盘的 HTML：逐字相同即跳过赋值（与单插件面板同一闪烁根治口径）。
+  let lastHTML = ''
   function render(): void {
     if (!mounted) return
-    container.innerHTML = renderBatchPanelHTML({
+    const nextHTML = renderBatchPanelHTML({
       rows,
       theme,
       mode,
@@ -1187,6 +1190,10 @@ export function mountUpdateBatchPanel(
       confirmCancel: confirmCancelArmed,
       changelogs: changelogView(),
     })
+    if (nextHTML !== lastHTML) {
+      lastHTML = nextHTML
+      container.innerHTML = nextHTML
+    }
   }
 
   function rowOfKey(key: string): BatchRowView | null {

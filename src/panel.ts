@@ -34,7 +34,19 @@ import type { BlockedReason, UpdateSnapshot } from './ports.js'
 export type UpdatePanelMode = 'embedded' | 'dialog'
 
 /** 面板主题：默认最小可用样式；`d5-paper` 为可选 D5 档案卷专业主题（只换肤，不换 DOM 顺序）。 */
-export type UpdatePanelTheme = 'default' | 'd5-paper'
+/**
+ * 面板主题：`default` 最小可用深色；`archive` 档案卷纸面浅色（原型敲定的案卷风格，只换肤）。
+ * `d5-paper` 是 archive 的旧别名（历史取值），仍可用，渲染逐字相同。
+ */
+export type UpdatePanelTheme = 'default' | 'archive' | 'd5-paper'
+
+/**
+ * 主题归一：archive 与旧别名 d5-paper 走同一套渲染（DOM 属性仍为 d5-paper，既有覆盖样式不断）；
+ * 其余一律回 default（纯渲染函数永不抛；挂载/setTheme 的非法值另行抛错）。
+ */
+export function normalizePanelTheme(value: unknown): 'default' | 'd5-paper' {
+  return value === 'd5-paper' || value === 'archive' ? 'd5-paper' : 'default'
+}
 
 /** 与宿主通话的传输函数：面板只认这个签名，不认任何宿主对象的具体形状。 */
 export type UpdatePanelCall = (
@@ -99,6 +111,11 @@ export interface UpdatePanelOptions {
    * 回来经内部通道换日志节；显式传过 changelogMarkdown 或传 false 即退回手动模式。
    */
   autoChangelog?: boolean
+  /**
+   * 弹窗关闭的落地：只在 dialog 下点「关闭」/按 Esc 时调用；调用方在此撤掉弹窗 DOM。
+   * 不传则回退为只停轮询（unmount），DOM 留给调用方处理。入口件打开的 dialog 已内置（收 dialog + 还原按钮）。
+   */
+  onCloseRequested?: () => void | Promise<void>
 }
 
 /** 挂载点：只要有 innerHTML 的容器即可（浏览器元素或测试替身都行）。 */
@@ -1374,8 +1391,8 @@ export function renderUpdatePanelHTML(input: PanelRenderInput): string {
   const view = panelViewModel(input)
   const kernel = renderUpdatePanelKernel(input, view)
   // 主题只换肤：默认主题输出与旧版一字不差（无 data-theme、不带 D5 串）；
-  // `d5-paper` 才在根上挂 data-theme 并追加 D5 串；内核 HTML 两边同一份。
-  const d5 = input.theme === 'd5-paper'
+  // 档案卷（archive / 旧别名 d5-paper）才在根上挂 data-theme 并追加 D5 串；内核 HTML 两边同一份。
+  const d5 = normalizePanelTheme(input.theme) === 'd5-paper'
   const attr = d5 ? ' data-theme="d5-paper"' : ''
   // 印章走属性带到根上：D5 用 CSS `content:attr(...)` 画成大印章，默认主题只当属性带着不画，
   // 两个主题的 DOM 仍逐字同一份（主题只换肤这条不变量不破）。
@@ -1493,13 +1510,16 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   if (mode !== 'embedded' && mode !== 'dialog') {
     throw new Error(`[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ${JSON.stringify(options.mode)}）`)
   }
-  let theme: UpdatePanelTheme = options.theme ?? 'default'
-  if (theme !== 'default' && theme !== 'd5-paper') {
-    throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 d5-paper（收到 ${JSON.stringify(options.theme)}）`)
+  if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive' && options.theme !== 'd5-paper') {
+    throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ${JSON.stringify(options.theme)}）`)
   }
+  let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
   let showOthers = options.showOthers === true
   const call = options.call
   const onRestartRequested = options.onRestartRequested
+  const onCloseRequested = typeof options.onCloseRequested === 'function' ? options.onCloseRequested : null
+  // 上次落盘的 HTML：逐字相同即跳过赋值（闪烁根治的比较基线）。
+  let lastHTML = ''
   const copyText = options.copyText ?? defaultCopyText
   const skipStore = options.skipStore ?? createBrowserSkipStore(pluginId)
   const hostKind = typeof options.hostKind === 'string' && options.hostKind ? options.hostKind : null
@@ -1553,7 +1573,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     }
     const latest = snapshot?.latestVersion ?? null
     const skippedLatest = !!latest && validReleaseVersion(latest) && skipStore.has(latest)
-    container.innerHTML = renderUpdatePanelHTML({
+    // 渲染只在变化时落盘（闪烁根治）：轮询每秒重算，但输出逐字相同时不碰 DOM，
+    // 悬停/focus 状态不再被整树替换打断；状态变化仍即时重绘。
+    const nextHTML = renderUpdatePanelHTML({
       snapshot,
       manual,
       queue,
@@ -1571,6 +1593,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       profileName: profileNameOption ?? envProfileName,
       hostKind: hostKind ?? envHostKind,
     })
+    if (nextHTML !== lastHTML) {
+      lastHTML = nextHTML
+      container.innerHTML = nextHTML
+    }
   }
 
   function applyStatusReply(reply: Record<string, unknown>): void {
@@ -1820,7 +1846,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         return
       }
       case 'close-view': {
-        if (mode === 'dialog') unmount()
+        await requestDialogClose()
         return
       }
     }
@@ -1835,10 +1861,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   }
 
   async function setTheme(next: UpdatePanelTheme): Promise<void> {
-    if (next !== 'default' && next !== 'd5-paper') {
-      throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 d5-paper（收到 ${JSON.stringify(next)}）`)
+    if (next !== 'default' && next !== 'archive' && next !== 'd5-paper') {
+      throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ${JSON.stringify(next)}）`)
     }
-    theme = next
+    theme = normalizePanelTheme(next)
     render()
   }
 
@@ -1861,12 +1887,25 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     }
   }
 
+  /** 弹窗关闭：dialog 下点「关闭」/按 Esc 走这里；有落地回调先交调用方撤 DOM，再停轮询。 */
+  async function requestDialogClose(): Promise<void> {
+    if (!mounted || mode !== 'dialog') return
+    if (onCloseRequested) {
+      try {
+        await onCloseRequested()
+      } catch {
+        // 调用方撤 DOM 失败也不挡停轮询。
+      }
+    }
+    unmount()
+  }
+
   function onKeyDown(ev: unknown): void {
-    // Esc 关弹窗：焦点在面板内时按键冒泡到容器；只停轮询（与「关闭」按钮同口径，不动宿主）。
+    // Esc 关弹窗：焦点在面板内时按键冒泡到容器；与「关闭」按钮同口径（可配落地，不动宿主）。
     try {
       const e = ev as { key?: unknown } | null | undefined
       if (!mounted || mode !== 'dialog' || !e || e.key !== 'Escape') return
-      unmount()
+      void requestDialogClose()
     } catch {
       // 按坏了也不挡更新。
     }
