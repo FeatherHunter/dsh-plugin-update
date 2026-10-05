@@ -2,6 +2,17 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [0.5.2] - 2026-10-06
+
+### Added
+- Security 必显：`### Security` 与 `Added/Fixed/Changed` 同级展开（页面查找可命中）；单类超 200 条时前 200 条展开、其余收进该类内部折叠并标计数（64K/单条 500 字墙保留）。
+- 诚实截断计数：超限类标题下加小字“共 M 条，仅显示前 N 条”（M 该版该类原始条数、N 实际渲染数，多版本各自标；未超限不打扰）。
+- 撤回警告：目标版本标题含 `[YANKED]` 时第 02 章区间标题下方加警告横幅（`role=alert`）：“目标版本 X.Y.Z 已被作者撤回（yanked），安装不受影响，继续前请确认。”；中间版本只保留标题后缀，不挡安装、不碰快照门控。
+- 破坏标记：条目开头 `BREAKING:`/`不兼容:`（大小写不敏感，中英文冒号皆可，匹配前剥行首加粗/引用装饰）行首挂徽标（`role=img`）+ 前缀加粗，正文一字不动；正文中间散文永不误标。
+- `validateChangelog(markdown)` 纯函数（零导入、永不抛错，与 parse 共享扫描仪）：回 `{ ok, diagnostics: { line, code, hint }[] }`（line 原文件 1-based 行号，按行号排序）；码表 `E_VERSION_TITLE`/`E_CATEGORY`/`E_BULLET_ORPHAN`（Error，会丢内容）与 `W_BREAKING_MAYBE`/`W_YANKED`/`W_TRUNCATED`/`W_TRUNCATED_FILE`/`W_EMPTY`（Warning）；仅 CI/发布前用，运行时永不调用。
+- 记住语义澄清：成功与取不到（null）按版本永久记（面板内存会话级 + 宿主进程级，不落盘；显式文本永不覆盖）；传输失败不进缓存，手动查/换版/重开立即重试，轮询按退避问（`shouldFetchChangelog` 纯策略三处共用）；`autoChangelog: false` 关闭整链。
+- 文档：README §2.7/§5.8 同步必显/计数/横幅/标记/校验/记住的用户做法（只加 MUST/SHOULD，不放设计 rationale，详见 ADR-0002）。
+
 ## [0.5.1] - 2026-10-06
 
 ### Added

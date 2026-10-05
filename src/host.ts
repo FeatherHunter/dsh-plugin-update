@@ -743,7 +743,44 @@ function loggedPhone(
       } catch {
         diag = undefined
       }
-      return { ok: false, ...payload, ...(diag ? { diag } : {}) }
+      // 失败也带使用范围与队列（#45：调用方显式要才带，老调用形状不变；best-effort，读不到即省略）。
+      // 读数只取一次：取不到则 env 与 queue 一并省略（两者消费互相独立，互不挡路）。
+      let failReader: Awaited<ReturnType<typeof getSharedReader>> | null = null
+      try {
+        const failConfig = diagCtx?.config
+        const failOverrides = (diagCtx?.readerOverrides ?? {}) as ReaderOverrides
+        if (failConfig && (wantsEnv(safeArgs) || queueArgsOf(safeArgs).includeQueue)) {
+          failReader = await getSharedReader(pluginId, failConfig, {
+            ...failOverrides,
+            profileDir:
+              safeArgs && safeArgs.profileDir ? String(safeArgs.profileDir) : failOverrides.profileDir,
+          })
+        }
+      } catch {
+        failReader = null
+      }
+      let envPatch: Record<string, unknown> = {}
+      try {
+        if (failReader && wantsEnv(safeArgs)) {
+          const env = await readEnvForPanel(failReader)
+          if (env) envPatch = { env }
+        }
+      } catch {
+        envPatch = {}
+      }
+      let queuePatch: Record<string, unknown> = {}
+      try {
+        const { includeQueue, showOthers } = queueArgsOf(safeArgs)
+        if (failReader && includeQueue) {
+          const requestIdForQueue =
+            safeArgs && typeof safeArgs.requestId === 'string' ? String(safeArgs.requestId) : undefined
+          const q = visibleQueueFor(await failReader.readQueuePruned(), pluginId, showOthers, requestIdForQueue)
+          if (q) queuePatch = { queue: q }
+        }
+      } catch {
+        queuePatch = {}
+      }
+      return { ok: false, ...payload, ...(diag ? { diag } : {}), ...envPatch, ...queuePatch }
     }
   }
 }

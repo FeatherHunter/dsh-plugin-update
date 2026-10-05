@@ -2,7 +2,7 @@
 
 给 DSH 插件加「检查更新 / 安装更新」能力的 npm 包。宿主侧一段接线，面板侧挂一个现成组件，装不上时给用户一条可复制的手工命令。
 
-要求 Node 22 或更高，零运行时依赖。当前版本 `0.5.1`。
+要求 Node 22 或更高，零运行时依赖。当前版本 `0.5.2`。
 
 装上它你会拿到六样东西：
 
@@ -295,16 +295,18 @@ const panel = mountUpdatePanel(document.getElementById('update-slot'), {
 
 作者侧只写文件，不写代码（发布后用户自动看到）：
 
-1. 包根放 `CHANGELOG.md`（文件名全大写，小写视为没有），版本节形如 `## [1.2.0] - 2026-10-05`（最新在前），分类用 `### Added/Fixed/Changed`（面板展开；`Deprecated/Removed/Security` 折叠；`Unreleased` 与空节忽略）。
+1. 包根放 `CHANGELOG.md`（文件名全大写，小写视为没有），版本节形如 `## [1.2.0] - 2026-10-05`（最新在前），分类用 `### Added/Fixed/Changed/Security`（面板必显展开；`Deprecated/Removed` 折叠；`Unreleased` 与空节忽略）。
 2. `package.json` 的 `files` 白名单加上 `CHANGELOG.md`（否则发出去的包里没有它，面板永远读不到），发布前跑一次 `npm publish --dry-run` 核对。
 
 行为：有新版时面板按新版号自动取一次该版 tarball 里的全文（复用官方源 + `integrity` 校验，同一版本只取一次）；删了文件或取不到即中性提示，**安装永远不受影响**。想自己接管就传 `autoChangelog: false` 退回手动（备好文本后 `mountUpdatePanel({ changelogMarkdown })` 或 `setChangelogMarkdown` 传入，显式文本永不被覆盖）。入口件与批量面板同样自动：前者透传，后者展开行按行取。细节与边界见第 5.8 节。
+
+安全事项必显：`### Security` 与 `Added/Fixed/Changed` 同级展开。单类超 200 条时前 200 条展开、其余收进该类内部折叠并标计数。目标版本被撤回（标题含 `[YANKED]`）时，第 02 章顶部加一条警告横幅，安装不受影响。条目开头写 `BREAKING:` 或 `不兼容:`（大小写不敏感，中英文冒号皆可）即挂破坏标记，正文不动。同一版本日志只取一次；取不到显示中性提示，安装不受影响。
 
 ### 升级本包（已经接入过的项目）
 
 宿主种类与安装出口都由本包自己探测和选择，**升级依赖即可，宿主侧与面板侧都不用改代码**：
 
-1. 依赖版本提到 `^0.5.1`。
+1. 依赖版本提到 `^0.5.2`。
 2. 重新装 / 发一版你自己的插件，让新依赖进当前使用范围（运行时用的是 `node_modules` 里那份）。
 3. 如果你自己接过一版宿主安装出口，把它删掉——它会挡在本包的路由前面。
 
@@ -450,10 +452,15 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 
 ### 5.8 更新说明
 
-- 有新版时面板在横幅下方展示“更新说明（当前版 → 新版）：”，按目标包内 `CHANGELOG.md`（Keep-a-Changelog 子集）渲染：`Added/Fixed/Changed` 展开，`Deprecated/Removed/Security` 折叠，`Unreleased` 与空节不展示。
+- 有新版时面板在横幅下方展示“更新说明（当前版 → 新版）：”，按目标包内 `CHANGELOG.md`（Keep-a-Changelog 子集）渲染：`Added/Fixed/Changed/Security` 必显展开，`Deprecated/Removed` 折叠，`Unreleased` 与空节不展示。
 - 作者未提供说明时显示“作者未提供更新说明，安装不受影响。”——缺日志永不挡安装，不改变 `canInstall` 与 `blockedReason`。
 - 默认自动：面板看到有新版即按新版号调一次 `….updateChangelog`，回来自己填进第 02 章；同一版本只取一次，取不到即中性提示。作者侧只要写好包根 `CHANGELOG.md` 并随包发布，零新增代码。
 - 手动模式（老用法照旧）：传 `autoChangelog: false` 即退回手动——已装版离线读本机 `node_modules/<目标包>/CHANGELOG.md`，新版按需取新版 tarball 内同名文件（复用官方源与 `integrity` 校验，取不到即回落中性提示；参考包根导出的 `readInstalledChangelogText` / `fetchReleaseChangelogText`），经 `mountUpdatePanel({ changelogMarkdown })` 或 `setChangelogMarkdown` 交给面板；显式传过的文本自动链路永不覆盖。
+- Security 必显；超限进内折叠。截断计数按类标注“共 M 条，仅显示前 N 条”（M 原始条数、N 显示数）。
+- to 版 yanked 时 02 章顶部横幅：“目标版本 X.Y.Z 已被作者撤回（yanked），安装不受影响，继续前请确认。”；中间版本只保留标题后缀。
+- `BREAKING:`/`不兼容:` 只认条目开头，badge + 前缀加粗；疑似误写由 validate 报 warning。
+- `validateChangelog(markdown)` 为纯函数（零导入、永不抛错），回 `{ ok, diagnostics: { line, code, hint }[] }`，line 为原文件行号；仅 CI/发布前用。
+- memo：成功与取不到（null）按版本永久记；传输失败不记，手动查/换版/重开立即重试，轮询按退避问；`autoChangelog: false` 关闭整链。
 
 ## 6. 排错
 

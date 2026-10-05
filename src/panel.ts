@@ -312,7 +312,7 @@ export interface PanelDiagnosticInput {
   installedVersion?: string | null
   latestVersion?: string | null
   hostKind?: string | null
-  /** 使用范围名：装到哪个 profile 是排错第一信息；不传则那一段不出现（输出与旧版一字不差）。 */
+  /** 使用范围名：装到哪个 profile 是排错第一信息；旧复制不传则该段不出现，新复制块恒显（缺省为未知）。 */
   profileName?: string | null
   queuePosition?: number | null
   requestId?: string | null
@@ -462,7 +462,7 @@ function queueTextOf(queuePosition: number | null | undefined, _diagQueuePos?: u
  * 组出 [update-diag] 复制块（双形态同序；调用方直接拿去粘工单/issue，已脱敏）。
  * 第一性：顺序码→摘要→来源（#18 定），怎么办是面板页脚放最后，不插断三元组；
  * 缺省即省略（#18）：路由/请求/检查/阶段等缺失即不出现，不占位“未知”；
- * 插件/版本/宿主/队列恒显（面板侧显式值兜底），摘要缺省给人话，源缺省给人话（省略本身即信息，人读不懂所以必须说）。
+ * 插件/版本/宿主/使用范围/队列恒显（面板侧显式值兜底），摘要缺省给人话，源缺省给人话（省略本身即信息，人读不懂所以必须说）。
  */
 export function buildUpdateDiagCopy(input: UpdateDiagCopyInput): string {
   const rawCode = String((input as { code?: unknown }).code ?? '').trim() || 'internal'
@@ -478,9 +478,11 @@ export function buildUpdateDiagCopy(input: UpdateDiagCopyInput): string {
   const requestRaw = (diag.requestId ?? input.requestId) as unknown
   const checkRaw = (diag.checkId ?? (input as { checkId?: unknown }).checkId) as unknown
   const queue = queueTextOf(input.queuePosition ?? null)
-  // 来源顺序固定：插件 → 版本 → 宿主 → 路由 → 阶段 → 方法 → HTTP/exit/耗时 → 源 → 建议 → 请求/检查 → 队列
-  // 缺省即省略：路由/请求/检查等无值即不出现；插件/版本/宿主/队列恒显；源缺省给人话。
+  // 来源顺序固定：插件 → 版本 → 宿主 → 使用范围 → 路由 → 阶段 → 方法 → HTTP/exit/耗时 → 源 → 建议 → 请求/检查 → 队列
+  // 缺省即省略：路由/请求/检查等无值即不出现；插件/版本/宿主/使用范围/队列恒显；源缺省给人话。
   const prov: string[] = [`插件=${pluginName}`, `版本=${runVer}→${instVer}`, `宿主=${host}`]
+  // #45：使用范围恒显（排错第一信息；未知也不猜，与表头口径一致，diag 无此键故只看显式值）。
+  prov.push(`使用范围=${pickText((input as { profileName?: unknown }).profileName, '未知')}`)
   if (typeof routeRaw === 'string' && routeRaw.trim()) prov.push(`路由=${routeRaw.trim()}`)
   if (diag.stage) prov.push(`阶段=${diag.stage}`)
   if (diag.method) prov.push(`方法=${diag.method}`)
@@ -1632,8 +1634,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       if (isObject(env)) {
         const pn = env['profileName']
         const hk = env['environmentKind']
-        if (typeof pn === 'string' && pn) envProfileName = pn
-        if (typeof hk === 'string' && hk) envHostKind = hk
+        if (typeof pn === 'string' && pn.trim()) envProfileName = pn.trim()
+        if (typeof hk === 'string' && hk.trim()) envHostKind = hk.trim()
       }
       lastError = null
       lastErrorKind = null
@@ -1642,6 +1644,24 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       lastError = typeof reply['error'] === 'string' ? (reply['error'] as string) : 'check-failed'
       lastErrorKind = typeof reply['errorKind'] === 'string' && (reply['errorKind'] as string).trim() ? ((reply['errorKind'] as string).trim()) : null
       lastDiag = Object.prototype.hasOwnProperty.call(reply, 'diag') ? (reply as Record<string, unknown>)['diag'] : null
+      // #45：失败也收使用范围与队列（快照/凭证不动；best-effort，形状不对即忽略）。
+      try {
+        const env = (reply as Record<string, unknown>)['env']
+        if (isObject(env)) {
+          const pn = env['profileName']
+          const hk = env['environmentKind']
+          if (typeof pn === 'string' && pn.trim()) envProfileName = pn.trim()
+          if (typeof hk === 'string' && hk.trim()) envHostKind = hk.trim()
+        }
+      } catch {
+        // 忽略：失败回包的环境栏是选填。
+      }
+      try {
+        const q = asQueue((reply as Record<string, unknown>)['queue'])
+        if (q) queue = q
+      } catch {
+        // 忽略：失败回包的队列视图是选填。
+      }
     }
   }
 
@@ -1829,7 +1849,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           runningVersion: snapshot?.runningVersion ?? null,
           installedVersion: snapshot?.installedVersion ?? null,
           latestVersion: snapshot?.latestVersion ?? null,
-          hostKind,
+          hostKind: hostKind ?? envHostKind,
+          profileName: profileNameOption ?? envProfileName,
           queuePosition: queue?.position ?? null,
           requestId,
           checkId: receipt?.checkId ?? null,
