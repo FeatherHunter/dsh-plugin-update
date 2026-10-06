@@ -2,6 +2,12 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [0.5.4] - 2026-10-06
+
+### Added
+- 批量感知入口件（#49）：新子路径 `dsh-plugin-update/entry-batch`，一颗按钮看 N 家聚合（button/badge/inline；openOn 缺省 always，autoCheck 缺省 mount；只调 batchStatus/batchCheck，绝不自动装；聚合与批量总账同一份数法，忙失败占位翻回可更新）。
+- 批量 dialog 关闭落地与单面板同口径（#50）：`BatchPanelOptions` 新增可选 `onCloseRequested`，点关闭/Esc 先交调用方撤 DOM 再停轮询；入口件打开的 dialog 已内置；不传回退只停轮询；HTTP 直挂透传。
+
 ## [0.5.3] - 2026-10-06
 
 ### Added
