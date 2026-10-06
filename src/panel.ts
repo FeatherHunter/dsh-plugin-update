@@ -70,6 +70,7 @@ export type UpdatePanelActionKind =
   | 'toggle-queue'
   | 'restart-hint'
   | 'close-view'
+  | 'dismiss-failure'
 
 export interface UpdatePanelOptions {
   /** 插件标识：必填，与宿主侧 createHostUpdate 传的 pluginId 一致。 */
@@ -1260,6 +1261,9 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   if (b.kind === 'restart') {
     actions.push(`<button type="button" data-action="restart-hint" data-primary="1" title="宿主没有自重启电话：请手动重启宿主">重启宿主</button>`)
   }
+  if (b.kind === 'failed') {
+    actions.push(`<button type="button" data-action="dismiss-failure" title="确认已知晓该失败：回到可装页，下次查/装将重新评估">知道了</button>`)
+  }
   if (snapshot) {
     actions.push(`<button type="button" data-action="copy-diag" title="复制已脱敏诊断，直接粘给插件作者">复制诊断</button>`)
   }
@@ -1388,8 +1392,14 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   {
     const errLines: string[] = []
     if (b.kind === 'failed' || b.kind === 'blocked') {
+      const shownCode =
+        b.kind === 'blocked'
+          ? (snapshot?.blockedReason ?? b.kind)
+          : typeof (input as { lastError?: unknown }).lastError === 'string' && ((input as { lastError: string }).lastError).trim()
+            ? (input as { lastError: string }).lastError
+            : 'install-failed'
       errLines.push(
-        `<div class="dsh-upd-err">稳定码 <code>${escapeHtml(String(b.kind === 'blocked' ? (snapshot?.blockedReason ?? b.kind) : 'install-failed'))}</code>` +
+        `<div class="dsh-upd-err">稳定码 <code>${escapeHtml(String(shownCode))}</code>` +
           `：上一条中文说明就是要用户做的事；要往上游报，用「复制诊断」整段粘（已脱敏）。</div>`,
       )
     }
@@ -1439,6 +1449,32 @@ export function renderUpdatePanelHTML(input: PanelRenderInput): string {
   const css = d5 ? `${UPDATE_PANEL_CSS}\n${UPDATE_PANEL_D5_CSS}` : UPDATE_PANEL_CSS
   return `<style>${css}</style>\n${body}`
 }
+
+// ---------- 失败锁存（#58：安装/查失败常驻，复制诊断锁定致命回包） ----------
+//
+// 只读轮询（updateStatus）与用户主动动作（查/装）在失败证据上分权：
+// - 用户动作的失败回包冻结成锁存；成功的状态轮询永不清除非瞬态锁存。
+// - 瞬态（传输抛错）锁存记 volatile，下一次成功读数即清，不留死结。
+// - update-busy 永不进锁存（排队态走队列视图实时渲染）。
+// - 跨重挂按“插件 + 使用范围”在模块级存活（宿主进程内），进程重启即忘。
+interface FailureLatch {
+  code: string
+  kind: string | null
+  detail: string | null
+  diag: unknown
+  requestId: string | null
+  checkId: string | null
+  runningVersion: string | null
+  installedVersion: string | null
+  latestVersion: string | null
+  hostKind: string | null
+  profileName: string | null
+  source: 'check' | 'install'
+  volatile: boolean
+  jobId: string | null
+}
+
+const PANEL_FAILURE_LATCHES = new Map<string, FailureLatch>()
 
 // ---------- 挂载（单组件入口：调用者只传标识与摆放参数） ----------
 
@@ -1587,9 +1623,127 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   let queue: VisibleQueue | null = null
   let receipt: { checkId: string } | null = null
   let requestId: string | null = null
-  let lastError: string | null = null
-  let lastErrorKind: string | null = null
-  let lastDiag: unknown = null
+  // 失败锁存（#58）：用户主动动作的失败证据在此冻结；只读轮询无权清除非瞬态锁存。
+  const latchKey = `${pluginId}${profileNameOption ?? ''}`
+  let latch: FailureLatch | null = null
+  try {
+    latch = PANEL_FAILURE_LATCHES.get(latchKey) ?? null
+  } catch {
+    latch = null
+  }
+  function saveLatch(): void {
+    try {
+      if (latch) PANEL_FAILURE_LATCHES.set(latchKey, latch)
+      else PANEL_FAILURE_LATCHES.delete(latchKey)
+    } catch {
+      // 锁存落盘失败不挡更新
+    }
+  }
+  function setLatch(next: FailureLatch): void {
+    latch = next
+    saveLatch()
+  }
+  function clearLatch(): void {
+    if (!latch) return
+    latch = null
+    saveLatch()
+  }
+  function currentEnvPair(): { hostKind: string | null; profileName: string | null } {
+    return { hostKind: hostKind ?? envHostKind, profileName: profileNameOption ?? envProfileName }
+  }
+  function latchFromReply(reply: Record<string, unknown>, source: 'check' | 'install'): FailureLatch {
+    const env = currentEnvPair()
+    return {
+      code: failureCodeOf(
+        { error: reply['error'], errorKind: reply['errorKind'] },
+        source === 'install' ? 'install-failed' : 'check-failed',
+      ),
+      kind:
+        typeof reply['errorKind'] === 'string' && (reply['errorKind'] as string).trim()
+          ? (reply['errorKind'] as string).trim()
+          : null,
+      detail: null,
+      diag: Object.prototype.hasOwnProperty.call(reply, 'diag') ? (reply as Record<string, unknown>)['diag'] : null,
+      requestId,
+      checkId: receipt?.checkId ?? null,
+      runningVersion: snapshot?.runningVersion ?? null,
+      installedVersion: snapshot?.installedVersion ?? null,
+      latestVersion: snapshot?.latestVersion ?? null,
+      hostKind: env.hostKind,
+      profileName: env.profileName,
+      source,
+      volatile: false,
+      jobId: null,
+    }
+  }
+  function latchFromJob(job: NonNullable<UpdateSnapshot['job']>, snap: UpdateSnapshot | null): FailureLatch {
+    const env = currentEnvPair()
+    const message = typeof job.message === 'string' ? job.message : null
+    const detail = message && message.includes(':') ? message.slice(message.indexOf(':') + 1).trim() || null : message
+    return {
+      code: messageCodeOf(message) || 'install-failed',
+      kind: null,
+      detail,
+      // 快照里没有 diag：保留锁存里既有的（多半是致命安装回包自带的），没有即缺省说人话
+      diag: latch?.diag ?? null,
+      requestId: job.requestId ?? latch?.requestId ?? requestId,
+      checkId: receipt?.checkId ?? latch?.checkId ?? null,
+      runningVersion: snap?.runningVersion ?? snapshot?.runningVersion ?? null,
+      installedVersion: snap?.installedVersion ?? snapshot?.installedVersion ?? null,
+      latestVersion: snap?.latestVersion ?? snapshot?.latestVersion ?? null,
+      hostKind: env.hostKind ?? latch?.hostKind ?? null,
+      profileName: env.profileName ?? latch?.profileName ?? null,
+      source: 'install',
+      volatile: false,
+      jobId: typeof job.id === 'string' ? job.id : null,
+    }
+  }
+  function volatileLatch(source: 'check' | 'install'): FailureLatch {
+    const env = currentEnvPair()
+    return {
+      code: 'check-failed',
+      kind: null,
+      detail: null,
+      diag: null,
+      requestId,
+      checkId: receipt?.checkId ?? null,
+      runningVersion: snapshot?.runningVersion ?? null,
+      installedVersion: snapshot?.installedVersion ?? null,
+      latestVersion: snapshot?.latestVersion ?? null,
+      hostKind: env.hostKind,
+      profileName: env.profileName,
+      source,
+      volatile: true,
+      jobId: null,
+    }
+  }
+  function backfillLatch(s: UpdateSnapshot): void {
+    if (!latch) return
+    let touched = false
+    if (latch.runningVersion === null && s.runningVersion) {
+      latch.runningVersion = s.runningVersion
+      touched = true
+    }
+    if (latch.installedVersion === null && s.installedVersion) {
+      latch.installedVersion = s.installedVersion
+      touched = true
+    }
+    if (latch.latestVersion === null && s.latestVersion) {
+      latch.latestVersion = s.latestVersion
+      touched = true
+    }
+    if (touched) saveLatch()
+  }
+  function tripleChanged(s: UpdateSnapshot): boolean {
+    if (!latch) return false
+    backfillLatch(s)
+    const pairs: [string | null, string | null][] = [
+      [latch.runningVersion, s.runningVersion ?? null],
+      [latch.installedVersion, s.installedVersion ?? null],
+      [latch.latestVersion, s.latestVersion ?? null],
+    ]
+    return pairs.some(([a, b]) => a !== null && b !== null && a !== b)
+  }
   let copyNotice: string | null = null
   let noticeExpiresAt = 0
   // 在途动作（#36）：点下查新版/安装到回包前的那一帧，按钮置忙 + 并发连点只认第一次。
@@ -1633,8 +1787,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       queue,
       busyAct,
       skippedLatest,
-      lastError,
-      errorKind: lastErrorKind,
+      lastError: latch?.code ?? null,
+      errorKind: latch?.kind ?? null,
       changelogMarkdown,
       mode,
       showOthers,
@@ -1651,7 +1805,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     }
   }
 
-  function applyStatusReply(reply: Record<string, unknown>): void {
+  function applyStatusReply(reply: Record<string, unknown>, via: 'refresh' | 'check' | 'install'): void {
     if (!isObject(reply)) return
     if (reply['ok'] === true) {
       const s = asSnapshot(reply['snapshot'])
@@ -1669,13 +1823,38 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         if (typeof pn === 'string' && pn.trim()) envProfileName = pn.trim()
         if (typeof hk === 'string' && hk.trim()) envHostKind = hk.trim()
       }
-      lastError = null
-      lastErrorKind = null
-      lastDiag = Object.prototype.hasOwnProperty.call(reply, 'diag') ? (reply as Record<string, unknown>)['diag'] : null
+      // 成功回包的锁存规则（#58）：只读轮询永不清除非瞬态锁存；diag 不覆写既有证据。
+      const jobState = snapshot?.job?.state ?? null
+      if (jobState === 'installing' || jobState === 'verifying') {
+        // 新一轮在途：旧失败让位
+        clearLatch()
+      } else if (jobState === 'completed' || jobState === 'restart-required') {
+        // 成功终态：旧失败已无意义
+        clearLatch()
+      } else if ((jobState === 'failed' || jobState === 'interrupted') && snapshot?.job) {
+        // 后台结局到达：单调置入（只允许从无到有或同源更新，永不由轮询清除）
+        setLatch(latchFromJob(snapshot.job, snapshot))
+      } else if (via === 'install') {
+        // 安装调用成功且无任务态：新一轮已被接受，旧失败让位
+        clearLatch()
+      } else if (snapshot && tripleChanged(snapshot)) {
+        // 版本三元组变化：旧失败的上下文已被新信息替代
+        clearLatch()
+      } else if (via === 'check' && latch?.source === 'check') {
+        // 用户主动查成功：查失败解除；装失败保留（查成功不证明装会成功）
+        clearLatch()
+      } else if (latch?.volatile) {
+        // 瞬态读失败被一次成功读数治愈（用户查与轮询同权）
+        clearLatch()
+      }
     } else {
-      lastError = typeof reply['error'] === 'string' ? (reply['error'] as string) : 'check-failed'
-      lastErrorKind = typeof reply['errorKind'] === 'string' && (reply['errorKind'] as string).trim() ? ((reply['errorKind'] as string).trim()) : null
-      lastDiag = Object.prototype.hasOwnProperty.call(reply, 'diag') ? (reply as Record<string, unknown>)['diag'] : null
+      const errText = typeof reply['error'] === 'string' ? reply['error'].trim() : ''
+      const kindText = typeof reply['errorKind'] === 'string' ? reply['errorKind'].trim() : ''
+      if ((kindText || errText) === 'update-busy') {
+        // 忙是瞬态排队态：不锁存、不清除（位置走队列视图实时渲染）
+      } else {
+        setLatch(latchFromReply(reply, via === 'install' ? 'install' : 'check'))
+      }
       // #45：失败也收使用范围与队列（快照/凭证不动；best-effort，形状不对即忽略）。
       try {
         const env = (reply as Record<string, unknown>)['env']
@@ -1752,12 +1931,11 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     try {
       const reply = await call(phoneNames.updateStatus, queueArgs())
       if (!mounted) return
-      applyStatusReply(reply)
+      applyStatusReply(reply, 'refresh')
     } catch {
       if (!mounted) return
-      lastError = 'check-failed'
-      lastErrorKind = null
-      lastDiag = null
+      // 读数传输失败是瞬态：记 volatile 锁存，下一次成功读数即清，不留死结
+      setLatch(volatileLatch('check'))
     }
     render()
     maybeAutoChangelog()
@@ -1775,14 +1953,12 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         try {
           const reply = await call(phoneNames.updateCheck, queueArgs())
           if (!mounted) return
-          applyStatusReply(reply)
+          applyStatusReply(reply, 'check')
           // 手动查新版是明确意图：清掉失败退避，下面的自动链路可再问一次。
           changelogFailedAt.clear()
         } catch {
           if (!mounted) return
-          lastError = 'check-failed'
-          lastErrorKind = null
-          lastDiag = null
+          setLatch(volatileLatch('check'))
         } finally {
           busyAct = null
           if (copyNotice === '正在查新版…') copyNotice = null
@@ -1800,13 +1976,27 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           if (!receipt) {
             const checked = await call(phoneNames.updateCheck, queueArgs())
             if (!mounted) return
-            applyStatusReply(checked)
+            applyStatusReply(checked, 'check')
           }
           if (!mounted) return
           if (!receipt) {
-            lastError = 'check-expired'
-            lastErrorKind = 'check-expired'
-            lastDiag = null
+            const expiredEnv = currentEnvPair()
+            setLatch({
+              code: 'check-expired',
+              kind: 'check-expired',
+              detail: null,
+              diag: null,
+              requestId,
+              checkId: null,
+              runningVersion: snapshot?.runningVersion ?? null,
+              installedVersion: snapshot?.installedVersion ?? null,
+              latestVersion: snapshot?.latestVersion ?? null,
+              hostKind: expiredEnv.hostKind,
+              profileName: expiredEnv.profileName,
+              source: 'install',
+              volatile: false,
+              jobId: null,
+            })
             render()
             return
           }
@@ -1817,12 +2007,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
             ...queueArgs(),
           })
           if (!mounted) return
-          applyStatusReply(reply)
+          applyStatusReply(reply, 'install')
         } catch {
           if (!mounted) return
-          lastError = 'check-failed'
-          lastErrorKind = null
-          lastDiag = null
+          setLatch(volatileLatch('install'))
         } finally {
           busyAct = null
           if (copyNotice === '正在安装…') copyNotice = null
@@ -1866,28 +2054,28 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       }
       case 'copy-diag': {
         const jobCode = snapshot?.job?.state === 'failed' ? messageCodeOf(snapshot.job.message) || 'install-failed' : ''
-        const code = failureCodeOf(
-          { error: lastError, errorKind: lastErrorKind },
-          jobCode || snapshot?.blockedReason || 'check-failed',
-        )
+        // #58：锁存存在即锁定致命回包的 frozen 证据；只有无锁存才走旧的实时回退链。
+        const frozen = latch
+        const code = frozen?.code ?? failureCodeOf({ error: null, errorKind: null }, jobCode || snapshot?.blockedReason || 'check-failed')
         const detail =
-          snapshot?.job?.message && snapshot.job.message.includes(':')
+          frozen?.detail ??
+          (snapshot?.job?.message && snapshot.job.message.includes(':')
             ? snapshot.job.message.slice(snapshot.job.message.indexOf(':') + 1)
-            : snapshot?.job?.message
+            : snapshot?.job?.message)
         const text = buildUpdateDiagCopy({
           pluginId,
           code,
           detail,
-          runningVersion: snapshot?.runningVersion ?? null,
-          installedVersion: snapshot?.installedVersion ?? null,
-          latestVersion: snapshot?.latestVersion ?? null,
-          hostKind: hostKind ?? envHostKind,
-          profileName: profileNameOption ?? envProfileName,
+          runningVersion: frozen?.runningVersion ?? snapshot?.runningVersion ?? null,
+          installedVersion: frozen?.installedVersion ?? snapshot?.installedVersion ?? null,
+          latestVersion: frozen?.latestVersion ?? snapshot?.latestVersion ?? null,
+          hostKind: frozen?.hostKind ?? hostKind ?? envHostKind,
+          profileName: frozen?.profileName ?? profileNameOption ?? envProfileName,
           queuePosition: queue?.position ?? null,
-          requestId,
-          checkId: receipt?.checkId ?? null,
+          requestId: frozen?.requestId ?? requestId,
+          checkId: frozen?.checkId ?? receipt?.checkId ?? null,
           route: null,
-          diag: lastDiag,
+          diag: frozen?.diag ?? null,
           manual,
           format: diagCopyFormat,
         })
@@ -1897,6 +2085,13 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         } catch {
           sayCopy('复制失败，请手动选中上面的信息。')
         }
+        render()
+        return
+      }
+      case 'dismiss-failure': {
+        // 显式确认（#58）：只清面板锁存，不调电话、不写跳过；下次查/装将重新评估。
+        clearLatch()
+        sayCopy('已确认该失败提示；下次查新版或安装将重新评估。')
         render()
         return
       }
