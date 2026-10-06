@@ -2054,6 +2054,36 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       }
       case 'copy-diag': {
         const jobCode = snapshot?.job?.state === 'failed' ? messageCodeOf(snapshot.job.message) || 'install-failed' : ''
+        // 健康态诚实复制（#58）：没有失败就不伪造失败码，只给当前状态快照。
+        if (!latch && !jobCode && !snapshot?.blockedReason && snapshot) {
+          const stateLine =
+            snapshot.canInstall && snapshot.latestVersion
+              ? `有新版 ${snapshot.latestVersion} 可装（当前 ${snapshot.runningVersion}）`
+              : '已是最新，无需更新。'
+          const queueName = queueTextOf(queue?.position ?? null)
+          const envBits = [
+            `插件=${pluginId}`,
+            `宿主=${hostKind ?? envHostKind ?? '未知'}`,
+            `使用范围=${profileNameOption ?? envProfileName ?? '未知'}`,
+            `队列=${queueName}`,
+          ]
+          if (requestId) envBits.push(`请求=${requestId}`)
+          if (receipt?.checkId) envBits.push(`检查=${receipt.checkId}`)
+          const segs = [
+            `[update-diag] 当前无失败：${stateLine}`,
+            `版本：运行 ${snapshot.runningVersion}／磁盘 ${snapshot.installedVersion ?? '未知'}／远端 ${snapshot.latestVersion ?? '未查过'}`,
+            `来源：${envBits.join(' · ')}`,
+          ].map((s) => redactForCopy(s))
+          const text = diagCopyFormat === 'line' ? segs.join(' · ') : segs.join('\n')
+          try {
+            await copyText(text)
+            sayCopy('已复制当前状态（无失败），直接粘给插件作者即可（已脱敏）。')
+          } catch {
+            sayCopy('复制失败，请手动选中上面的信息。')
+          }
+          render()
+          return
+        }
         // #58：锁存存在即锁定致命回包的 frozen 证据；只有无锁存才走旧的实时回退链。
         const frozen = latch
         const code = frozen?.code ?? failureCodeOf({ error: null, errorKind: null }, jobCode || snapshot?.blockedReason || 'check-failed')

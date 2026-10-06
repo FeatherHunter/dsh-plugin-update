@@ -306,3 +306,39 @@ test('#58 跨重挂存活：重开面板后装失败仍在，自动查不清除�
   assert.match(second.box.innerHTML, /更新失败/, '重开面板后装失败仍应存在（自动查不清除）')
   second.panel.unmount()
 });
+
+// ---------- 11. 健康可装页复制诚实：不伪造失败码 ----------
+
+test('#58 健康可装页复制：无失败即报状态快照，不编 check-failed', async () => {
+  const { panel, texts } = mountFor('latch-11', {
+    status: okStatus,
+    check: okCheck,
+    install: () => ({ ok: false, error: 'install-failed', errorKind: 'install-failed' }),
+  })
+  await settled()
+  await settled()
+  await panel.act('copy-diag')
+  await settled()
+  const last = texts.at(-1) ?? ''
+  assert.match(last, /当前无失败/, '健康态复制应声明无失败')
+  assert.match(last, /远端.*0\.4\.2/, '应带远端版本，实际=' + JSON.stringify(last))
+  assert.doesNotMatch(last, /check-failed/, '不得伪造查失败码')
+  assert.doesNotMatch(last, /install-failed/, '不得伪造安装失败码')
+  panel.unmount()
+});
+
+// ---------- 12. 健康已最新页复制诚实 ----------
+
+test('#58 健康已最新页复制：同样诚实无码', async () => {
+  const upToDate = () => ({ ok: true, snapshot: baseSnapshot({ latestVersion: '0.4.1', canInstall: false }), manual: null, receipt: null, queue: baseQueue() })
+  const { panel, texts } = mountFor('latch-12', { status: upToDate, check: upToDate, install: () => ({ ok: false, error: 'x', errorKind: 'x' }) })
+  await settled()
+  await settled()
+  await panel.act('copy-diag')
+  await settled()
+  const last = texts.at(-1) ?? ''
+  assert.match(last, /当前无失败/, '应声明无失败')
+  assert.match(last, /已是最新/, '应报已是最新')
+  assert.doesNotMatch(last, /check-failed/, '不得伪造失败码')
+  panel.unmount()
+});
