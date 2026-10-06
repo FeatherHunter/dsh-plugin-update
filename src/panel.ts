@@ -41,7 +41,6 @@ export type UpdatePanelMode = 'embedded' | 'dialog'
 /** 面板主题：默认最小可用样式；`archive` 为档案卷纸面浅色（只换肤，不换 DOM 顺序）。 */
 /**
  * 面板主题：`default` 最小可用深色；`archive` 档案卷纸面浅色（原型敲定的案卷风格，只换肤）。
- * `archive` 是 archive 的旧别名（历史取值），仍可用，渲染逐字相同。
  */
 export type UpdatePanelTheme = 'default' | 'archive'
 
@@ -51,6 +50,109 @@ export type UpdatePanelTheme = 'default' | 'archive'
  */
 export function normalizePanelTheme(value: unknown): 'default' | 'archive' {
   return value === 'archive' ? 'archive' : 'default'
+}
+
+// ---------- 主题变量覆盖（第三方换肤的一等口径） ----------
+//
+// 口径只有一套：与样式表里的 `--dsh-update-*` 变量逐一对应；`themeTokens` 只是把同一套变量
+// 以内联方式写到面板根上，手写 CSS 变量同样生效。内联写在根元素，变量天然继承：单面板、
+// 批量面板（含展开的详情行）、入口件打开的 dialog 全生效；两个主题通用。
+// 被覆盖的 token 不再跟随深色媒体查询（内联赢过媒体块，即固定值，调用方自己保证深色可读）。
+// 非法即抛（未知键、空串、注入字符、非正有限 entryScale 都不收），与 theme/sizing 同口径。
+
+/** 第三方主题变量覆盖：键为语义名；颜色收 hex（#rgb/#rrggbb/#rrggbbaa）或英文名单词；其余收安全 CSS 值；缺省即主题默认值，零回归。 */
+export interface UpdateThemeTokens {
+  text?: string; textMuted?: string; bg?: string; bgSoft?: string;
+  border?: string; borderStrong?: string; buttonBg?: string;
+  primary?: string; primaryDeep?: string; focus?: string;
+  okBg?: string; okBorder?: string; okText?: string;
+  warnBg?: string; warnBorder?: string; warnText?: string;
+  badBg?: string; badBorder?: string; badText?: string;
+  busyBg?: string; busyBorder?: string; busyText?: string;
+  fontSans?: string; fontSerif?: string; fontMono?: string; shadow?: string;
+  radiusPanel?: string; radiusButton?: string; radiusBadge?: string;
+  entryFontSize?: string; entryPadding?: string; entryBorderRadius?: string;
+  /** 入口件整体缩放（对应 CSS `zoom`），须为大于 0 的有限数。 */
+  entryScale?: number;
+}
+
+/** 语义键 → CSS 变量（顺序即序列化顺序，输出稳定可测）。 */
+const THEME_TOKEN_VARS: { [K in keyof UpdateThemeTokens]-?: string } = {
+  text: '--dsh-update-text', textMuted: '--dsh-update-text-muted',
+  bg: '--dsh-update-bg', bgSoft: '--dsh-update-bg-soft',
+  border: '--dsh-update-border', borderStrong: '--dsh-update-border-strong',
+  buttonBg: '--dsh-update-button-bg',
+  primary: '--dsh-update-primary', primaryDeep: '--dsh-update-primary-deep',
+  focus: '--dsh-update-focus',
+  okBg: '--dsh-update-ok-bg', okBorder: '--dsh-update-ok-border', okText: '--dsh-update-ok-text',
+  warnBg: '--dsh-update-warn-bg', warnBorder: '--dsh-update-warn-border', warnText: '--dsh-update-warn-text',
+  badBg: '--dsh-update-bad-bg', badBorder: '--dsh-update-bad-border', badText: '--dsh-update-bad-text',
+  busyBg: '--dsh-update-busy-bg', busyBorder: '--dsh-update-busy-border', busyText: '--dsh-update-busy-text',
+  fontSans: '--dsh-update-font-sans', fontSerif: '--dsh-update-font-serif',
+  fontMono: '--dsh-update-font-mono', shadow: '--dsh-update-shadow',
+  radiusPanel: '--dsh-update-radius-panel', radiusButton: '--dsh-update-radius-button',
+  radiusBadge: '--dsh-update-radius-badge',
+  entryFontSize: '--dsh-update-entry-font-size', entryPadding: '--dsh-update-entry-padding',
+  entryBorderRadius: '--dsh-update-entry-border-radius', entryScale: '--dsh-update-entry-scale',
+};
+
+/** 颜色键集合：只收 hex 或英文名单词（含 transparent/currentColor）。 */
+const THEME_TOKEN_COLOR_KEYS: ReadonlySet<string> = new Set([
+  'text', 'textMuted', 'bg', 'bgSoft', 'border', 'borderStrong', 'buttonBg',
+  'primary', 'primaryDeep', 'focus',
+  'okBg', 'okBorder', 'okText', 'warnBg', 'warnBorder', 'warnText',
+  'badBg', 'badBorder', 'badText', 'busyBg', 'busyBorder', 'busyText',
+]);
+
+function themeTokensError(raw: unknown): Error {
+  return new Error(`[dsh-plugin-update] 主题参数 themeTokens 非法：只收已知 token 键（颜色用 hex 或英文名，字体/圆角/阴影/尺寸为安全 CSS 值，entryScale 为大于 0 的有限数）（收到 ${JSON.stringify(raw ?? null)})`)
+}
+
+/** CSS 值最小安全检查（与入口件 sizing 同口径）：放 style 属性前先拦掉注入。 */
+export function isSafeThemeCssValue(value: string): boolean {
+  const v = value.trim()
+  if (!v || v.length > 200) return false
+  if (/[;"'<>\`{}!&]/.test(v)) return false
+  if (/url\s*\(/i.test(v)) return false
+  if (/expression\s*\(/i.test(v)) return false
+  if (/javascript\s*:/i.test(v)) return false
+  return true
+}
+
+/** 颜色值检查：hex（#rgb/#rrggbb/#rrggbbaa）或英文名单词，不接受函数写法（rgb()/color-mix() 请换算成 hex）。 */
+function isThemeColorValue(value: string): boolean {
+  const v = value.trim()
+  if (!v || v.length > 100) return false
+  return /^(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|[a-zA-Z]+)$/.test(v)
+}
+
+/**
+ * `themeTokens` → 根 style 属性体（纯函数：同一输入永远算出同一串；空/缺省回空串，即不写 style）。
+ * 非法即抛（未知键、空串、注入字符、颜色形状不对、非正有限 entryScale 都不收）。
+ */
+export function themeTokensStyleFor(tokens: UpdateThemeTokens | null | undefined): string {
+  if (tokens === undefined || tokens === null) return ''
+  if (typeof tokens !== 'object' || Array.isArray(tokens)) throw themeTokensError(tokens)
+  for (const key of Object.keys(tokens)) {
+    if (!Object.prototype.hasOwnProperty.call(THEME_TOKEN_VARS, key)) throw themeTokensError(tokens)
+  }
+  const parts: string[] = []
+  for (const key of Object.keys(THEME_TOKEN_VARS) as (keyof UpdateThemeTokens)[]) {
+    const value = (tokens as Record<string, unknown>)[key]
+    if (value === undefined) continue
+    if (key === 'entryScale') {
+      if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) throw themeTokensError(tokens)
+      parts.push(THEME_TOKEN_VARS[key] + ':' + String(value))
+      continue
+    }
+    if (typeof value !== 'string') throw themeTokensError(tokens)
+    const text = value.trim()
+    if (THEME_TOKEN_COLOR_KEYS.has(key)) {
+      if (!isThemeColorValue(text)) throw themeTokensError(tokens)
+    } else if (!isSafeThemeCssValue(text)) throw themeTokensError(tokens)
+    parts.push(THEME_TOKEN_VARS[key] + ':' + text)
+  }
+  return parts.join(';')
 }
 
 /** 与宿主通话的传输函数：面板只认这个签名，不认任何宿主对象的具体形状。 */
@@ -85,6 +187,8 @@ export interface UpdatePanelOptions {
   mode?: UpdatePanelMode
   /** 面板主题：默认 `default`（最小可用样式，一字不动）；传 `archive` 切档案卷。 */
   theme?: UpdatePanelTheme
+  /** 主题变量覆盖：见 UpdateThemeTokens；两个主题通用，不传即零回归。 */
+  themeTokens?: UpdateThemeTokens
   /** 是否看他人排队明细：默认只看自己的（他人仅露正忙占位，位置照给）。 */
   showOthers?: boolean
   /** 是否显示深挖日志指引：默认显示；面向纯终端用户的嵌入可关（失败证据行不受影响）。 */
@@ -148,6 +252,8 @@ export interface UpdatePanelController {
   setMode(mode: UpdatePanelMode): Promise<void>
   /** 切换主题（同一内核重绘，只换肤；默认主题输出与旧版一字不差）。 */
   setTheme(theme: UpdatePanelTheme): Promise<void>
+  /** 换一套主题变量（同一内核重绘，只换变量；传 undefined 即清掉覆盖，回主题默认）。 */
+  setThemeTokens(tokens: UpdateThemeTokens | undefined): Promise<void>
   /** 切换排队可见性（重查一次，位置口径不变）。 */
   setShowOthers(show: boolean): Promise<void>
   /** 收起/展开更新日志（纯视图态，不调电话；轮询与换肤不丢）。 */
@@ -1153,6 +1259,8 @@ export interface PanelRenderInput extends PanelViewInput {
   lang?: AppLang | string | null
   /** 可选主题：不传即默认（输出与旧版一字不差）；`archive` 切档案卷。 */
   theme?: UpdatePanelTheme
+  /** 主题变量覆盖：见 UpdateThemeTokens；写到面板根上，不传即无 style 属性。 */
+  themeTokens?: UpdateThemeTokens
   /** 使用范围名（profile）：面板「使用范围」一栏的唯一来源，缺省显示“未知”，不猜。 */
   profileName?: string | null
   /** 宿主种类：进诊断文本；缺省显示“未知”。 */
@@ -1580,13 +1688,15 @@ export function renderUpdatePanelHTML(input: PanelRenderInput, lang?: AppLang | 
   // 档案卷才在根上挂 data-theme 并追加 Archive 串；内核 HTML 两边同一份。
   const archive = normalizePanelTheme(input.theme) === 'archive'
   const attr = archive ? ' data-theme="archive"' : ''
+  const tokensStyle = themeTokensStyleFor((input as { themeTokens?: UpdateThemeTokens }).themeTokens ?? undefined)
+  const tokensAttr = tokensStyle ? ` style="${tokensStyle}"` : ''
   // 印章走属性带到根上：Archive 用 CSS `content:attr(...)` 画成大印章，默认主题只当属性带着不画，
   // 两个主题的 DOM 仍逐字同一份（主题只换肤这条不变量不破）。
   const sealAttr = ` data-seal="${escapeHtml(view.seal.text)}" data-seal-tone="${view.seal.tone}"`
   const body =
     input.mode === 'dialog'
-      ? `<div class="dsh-upd-overlay" data-mode="dialog"><div class="dsh-upd" data-mode="dialog" data-plugin="${escapeHtml(input.pluginId)}"${sealAttr}${attr}>\n${kernel}\n</div></div>`
-      : `<div class="dsh-upd" data-mode="embedded" data-plugin="${escapeHtml(input.pluginId)}"${sealAttr}${attr}>\n${kernel}\n</div>`
+      ? `<div class="dsh-upd-overlay" data-mode="dialog"><div class="dsh-upd" data-mode="dialog" data-plugin="${escapeHtml(input.pluginId)}"${sealAttr}${attr}${tokensAttr}>\n${kernel}\n</div></div>`
+      : `<div class="dsh-upd" data-mode="embedded" data-plugin="${escapeHtml(input.pluginId)}"${sealAttr}${attr}${tokensAttr}>\n${kernel}\n</div>`
   const css = archive ? `${UPDATE_PANEL_CSS}\n${UPDATE_PANEL_ARCHIVE_CSS}` : UPDATE_PANEL_CSS
   return `<style>${css}</style>\n${body}`
 }
@@ -1744,6 +1854,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ${JSON.stringify(options.theme)}）`)
   }
   let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
+  // 主题变量覆盖：挂载时校验（非法即抛，与 theme 同口径）；合法存下，每次 render 拼到根上。
+  themeTokensStyleFor(options.themeTokens ?? undefined)
+  let themeTokens: UpdateThemeTokens | undefined = options.themeTokens
   const localeOpt: LocaleOption = (options as { locale?: LocaleOption }).locale ?? undefined
   if (localeOpt !== undefined && localeOpt !== null) {
     const isStr = typeof localeOpt === 'string'
@@ -2078,6 +2191,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       pluginId,
       copyNotice,
       theme,
+      themeTokens,
       // 使用范围与宿主种类：调用方显式传的优先，否则用宿主回的真值。
       profileName: profileNameOption ?? envProfileName,
       hostKind: hostKind ?? envHostKind,
@@ -2478,6 +2592,12 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     render()
   }
 
+  async function setThemeTokens(next: UpdateThemeTokens | undefined): Promise<void> {
+    themeTokensStyleFor(next ?? undefined)
+    themeTokens = next ?? undefined
+    render()
+  }
+
   async function setShowOthers(show: boolean): Promise<void> {
     showOthers = show === true
     await refresh()
@@ -2602,7 +2722,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     }
   })()
 
-  return { refresh, act, setMode, setTheme, setShowOthers, setChangelogCollapsed, setChangelogMarkdown, unmount }
+  return { refresh, act, setMode, setTheme, setThemeTokens, setShowOthers, setChangelogCollapsed, setChangelogMarkdown, unmount }
 }
 
 // ---------- 面板侧电话名与轮询口径（与派生工具同一源，不写字面量） ----------

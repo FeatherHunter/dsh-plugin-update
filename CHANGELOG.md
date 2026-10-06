@@ -2,6 +2,10 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [0.7.0] - 2026-10-06
+
+### Added
+- 主题变量覆盖 `themeTokens`（第三方换肤一等口径）：单面板、批量面板、入口件、批量入口件四个挂载口同收同语义（35 个语义键对 `--dsh-update-*` 变量，颜色收 hex 或英文名，其余走注入检查，非法挂载即抛）；内联写根、变量继承，入口件打开的 dialog 同步透传，批量展开的详情行经继承生效；控制器同步新增 `setThemeTokens`（传 `undefined` 即清掉覆盖）；被覆盖的 token 不再跟随深色媒体查询。README 补换肤章节与键表。
 ## [0.6.0] - 2026-10-06
 
 ### Changed

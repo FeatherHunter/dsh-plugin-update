@@ -142,7 +142,29 @@ mountUpdatePanel(slot, { pluginId: 'my-notes-plugin', prefix: 'notes', call: hos
 
 面板画成档案五章：**01 检查与安装、02 更新日志、03 更新队列、04 错误信息、05 手工命令**（五章恒在，缺内容给中性提示，不跳号）。档案头一行是「插件名 + 使用范围 + `profile` 牌」：使用范围由面板自动向宿主索取（电话入参 `includeEnv`，宿主只回**范围名与宿主种类**、不回任何路径），显示的就是更新要落到的那个 profile——`web` 与 `desktop` 各装一份，装错范围是严重故障，所以这一栏宁可显示“未知”也不猜。调用方知道得更准时可以用 `profileName` 显式覆盖。
 
-可选档案卷主题（纸面浅色案卷风，不替换默认）：挂载时加 `theme: 'archive'` 即换肤（右上大印章「待查/可装/安装中/待重启/受阻/已最新」+ 横幅小印章一字 + profile 牌 + 待重启衬线横幅配手绘 SVG 标 + 窄屏印章固定 + 省略号逐字折叠 + 浅深双主题跟随系统），内核 DOM 顺序不动、复制诊断常在；不传即最小可用默认深色样式。运行时用 `panel.setTheme('archive' | 'default')` 可切。旧值 `theme: 'archive'` 仍可用（同一套渲染）。入口件与批量面板是同一个 `theme` 参数，取值同一套。
+可选档案卷主题（纸面浅色案卷风，不替换默认）：挂载时加 `theme: 'archive'` 即换肤（右上大印章「待查/可装/安装中/待重启/受阻/已最新」+ 横幅小印章一字 + profile 牌 + 待重启衬线横幅配手绘 SVG 标 + 窄屏印章固定 + 省略号逐字折叠 + 浅深双主题跟随系统），内核 DOM 顺序不动、复制诊断常在；不传即最小可用默认深色样式。运行时用 `panel.setTheme('archive' | 'default')` 可切。入口件与批量面板是同一个 `theme` 参数，取值同一套。
+
+主题变量覆盖（第三方换肤）：四个 UI 口（单面板、批量面板、入口件、批量入口件）都收 `themeTokens`，键为语义名，一次传入即换肤，不传即零回归。入口件打开的 dialog 面板同步透传；运行时用 `setThemeTokens({...})` 即时换肤，传 `undefined` 即清掉覆盖：
+
+```js
+mountUpdatePanel(el, { pluginId: 'p', prefix: 'notes', call,
+  theme: 'archive',
+  themeTokens: { primary: '#c8402a', bg: '#fffdf6', radiusButton: '3px' },
+})
+```
+
+键与样式表里的 `--dsh-update-*` 变量一一对应（括号里是变量名），手写 CSS 变量等价生效：
+
+| 组 | 键（变量） |
+|---|---|
+| 文字背景边线 | `text`、`textMuted`、`bg`、`bgSoft`、`border`、`borderStrong`、`buttonBg` |
+| 主色焦点 | `primary`、`primaryDeep`、`focus` |
+| 状态四组 | `okBg / okBorder / okText`、`warnBg / warnBorder / warnText`、`badBg / badBorder / badText`、`busyBg / busyBorder / busyText` |
+| 字体阴影 | `fontSans`、`fontSerif`、`fontMono`、`shadow` |
+| 圆角 | `radiusPanel`、`radiusButton`、`radiusBadge` |
+| 入口件尺寸 | `entryFontSize`、`entryPadding`、`entryBorderRadius`、`entryScale`（数字，大于 0） |
+
+三条约束：颜色只收 hex（`#rgb`／`#rrggbb`／`#rrggbbaa`）或英文名单词（含 `transparent`），`rgb()`／`color-mix()` 请自行换算成 hex；其余值走注入检查（分号引号括号等不许过，见 `sizing` 同口径）；未知键与非法值挂载即抛错，不静默吞掉。被覆盖的 token 不再跟随深色模式（内联值固定，调用方自己保证深浅可读）。
 
 类型定义随包分发（`dsh-plugin-update/panel` 的 `.d.ts`），不用自编译；面板离线可读，与包版本绑定。
 

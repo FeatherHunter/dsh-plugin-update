@@ -145,6 +145,7 @@
     ],
     "src/panel.ts": [
       "/* Archive 档案卷可选主题：只换颜色/字体/间距；内核 DOM 顺序一字不动，不断复制诊断。 */",
+      "[dsh-plugin-update] 主题参数 themeTokens 非法：只收已知 token 键（颜色用 hex 或英文名，字体/圆角/阴影/尺寸为安全 CSS 值，entryScale 为大于 0 的有限数）（收到 )",
       "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ）",
       "[dsh-plugin-update] 挂载面板缺少配置：插件标识 pluginId 必填",
       "[dsh-plugin-update] 挂载面板需要一个有 innerHTML 的容器",

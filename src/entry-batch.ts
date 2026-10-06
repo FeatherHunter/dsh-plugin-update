@@ -51,7 +51,9 @@ import {
 import {
   failureCodeOf,
   normalizePanelTheme,
+  themeTokensStyleFor,
   type UpdatePanelTheme,
+  type UpdateThemeTokens,
 } from './panel.js'
 
 // ---------- 公开类型 ----------
@@ -102,6 +104,8 @@ export interface UpdateBatchEntryOptions {
   variant?: BatchEntryVariant
   /** 主题：与单入口/面板同一套（default/archive）。 */
   theme?: UpdatePanelTheme
+  /** 主题变量覆盖：见 panel 的 UpdateThemeTokens；批量入口根 + 打开的批量面板同步生效，不传即零回归。 */
+  themeTokens?: UpdateThemeTokens
   /** 缺省 'mount'：进页面静默查一次（只调 .batchStatus，只读）。'never' 则只在用户点击时查。 */
   autoCheck?: BatchEntryAutoCheck
   /** 打开面板自动查（#59 D3，透传给批量面板）：缺省 true；面板按用户偏好 > 本选项 > 缺省，并与入口预查共用知识时间戳去重（一击只查一次）。 */
@@ -143,6 +147,8 @@ export interface UpdateBatchEntryController {
   /** 当前聚合读数（含七档计数，接入方排版与 onActivate 共用）。 */
   summary(): BatchEntrySummary
   setTheme(theme: UpdatePanelTheme): void
+  /** 换一套主题变量（重绘；打开的批量面板同步；传 undefined 即清掉覆盖）。 */
+  setThemeTokens(tokens: UpdateThemeTokens | undefined): void
   unmount(): void
 }
 
@@ -320,6 +326,9 @@ export function mountUpdateBatchEntry(
     throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ' + JSON.stringify(options.theme) + '）')
   }
   let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
+  // 主题变量覆盖：挂载时校验（非法即抛）；合法存下，每次 entryHTML 拼到根上。
+  themeTokensStyleFor((options as { themeTokens?: UpdateThemeTokens }).themeTokens ?? undefined)
+  let themeTokens: UpdateThemeTokens | undefined = (options as { themeTokens?: UpdateThemeTokens }).themeTokens
   const pollMs = options.pollMs
   if (pollMs !== undefined && (typeof pollMs !== 'number' || !Number.isFinite(pollMs) || pollMs < MIN_PANEL_POLL_MS)) {
     throw new Error('[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ' + JSON.stringify(options.pollMs) + '）')
@@ -407,6 +416,8 @@ export function mountUpdateBatchEntry(
     const labelText = labelOverride ?? (activating ? copyText('batch-entry.action.checking', lang) : copyText(batchEntryBilingualKeyFor(stateOf()), lang, batchEntryBilingualValuesFor(stateOf())))
     const busyAttr = activating ? ' disabled aria-busy="true"' : ''
     const themeAttr = theme === 'archive' ? ' data-theme="archive"' : ''
+    const tokensStyle = themeTokensStyleFor(themeTokens ?? undefined)
+    const tokensAttr = tokensStyle ? ' style="' + tokensStyle + '"' : ''
     const control =
       variant === 'badge'
         ? '<button type="button" class="dsh-upd-entry-dot" ' + ENTRY_ATTR + '="activate" title="' + escapeHtml(labelText) + '" aria-label="' + escapeHtml(labelText) + '"' + busyAttr + '></button>'
@@ -416,7 +427,7 @@ export function mountUpdateBatchEntry(
       : ''
     return (
       '<style>' + UPDATE_ENTRY_CSS + '\n' + BILINGUAL_CSS + '</style>\n' +
-      '<span class="dsh-upd-entry" data-variant="' + variant + '" data-state="' + summary.kind + '"' + themeAttr + '>' +
+      '<span class="dsh-upd-entry" data-variant="' + variant + '" data-state="' + summary.kind + '"' + themeAttr + tokensAttr + '>' +
       control + noteHTML + '</span>'
     )
   }
@@ -472,6 +483,7 @@ export function mountUpdateBatchEntry(
       prefix: options.prefix,
       mode,
       theme,
+      themeTokens,
       pollMs,
       titles,
       onRestartRequested: options.onRestartRequested,
@@ -571,6 +583,13 @@ export function mountUpdateBatchEntry(
     else render()
   }
 
+  function setThemeTokens(next: UpdateThemeTokens | undefined): void {
+    themeTokensStyleFor(next ?? undefined)
+    themeTokens = next ?? undefined
+    if (panel) void panel.setThemeTokens(themeTokens)
+    else render()
+  }
+
   function onClick(ev: unknown): void {
     if (!mounted) return
     try {
@@ -646,5 +665,5 @@ export function mountUpdateBatchEntry(
   // autoCheck='mount'：进页面静默查一次全表（只调 .batchStatus，只读）。'never' 就等用户点击。
   if (autoCheck === 'mount') void refresh()
 
-  return { refresh, open, close, label: currentLabel, summary: summaryOf, setTheme, unmount }
+  return { refresh, open, close, label: currentLabel, summary: summaryOf, setTheme, setThemeTokens, unmount }
 }

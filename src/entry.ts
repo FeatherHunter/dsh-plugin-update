@@ -26,10 +26,12 @@ import {
   failureCodeOf,
   mountUpdatePanel,
   normalizePanelTheme,
+  themeTokensStyleFor,
   type UpdatePanelContainer,
   type UpdatePanelController,
   type UpdatePanelMode,
   type UpdatePanelTheme,
+  type UpdateThemeTokens,
 } from './panel.js'
 import type { UpdateSnapshot } from './ports.js'
 import { BILINGUAL_CSS, copyHTML, copyText, type BilingualKey } from './bilingual.js'
@@ -65,7 +67,7 @@ export interface UpdateEntryState {
 /**
  * 入口件按钮尺寸覆盖（#69）：只影响 button 本体（字号/内边距/圆角/整体缩放），不碰 dialog 面板。
  * 缺省（不传）保持现状、零回归；badge 圆点与 inline 内嵌不读这些变量，天然不受影响。
- * 实现口径与现有 `--dsh-upd-*` 颜色变量一致：本选项只是把同样的 CSS 变量以内联方式写到容器上，
+ * 实现口径与现有 `--dsh-update-*` 颜色变量一致：本选项只是把同样的 CSS 变量以内联方式写到容器上，
  * 手写 CSS 变量（`--dsh-update-entry-font-size` / `--dsh-update-entry-padding` /
  * `--dsh-update-entry-border-radius` / `--dsh-update-entry-scale`）同样生效，两者等价。
  * `scale` 即宿主临时方案里容器 `zoom: 1` 开关的正式形态：改一个数即缩放（默认 1）。
@@ -88,7 +90,7 @@ export interface UpdateEntryOptions {
   /** 调宿主电话：(phoneName, args) => Promise<reply>。 */
   call: (name: string, args: Record<string, unknown>) => Promise<unknown>
   variant?: EntryVariant
-  /** 主题：`default` 最小可用深色，`archive` 档案卷纸面浅色（仍可用）。 */
+  /** 主题：与面板同一套（`default` 最小可用，`archive` 档案卷纸面浅色）。 */
   theme?: UpdatePanelTheme
   /** 缺省 'mount'：进页面静默查一次（只读）。'never' 则只在用户点击时查。 */
   autoCheck?: EntryAutoCheck
@@ -98,6 +100,8 @@ export interface UpdateEntryOptions {
   label?: string
   /** 按钮尺寸覆盖（#69）：见 EntrySizing；不传即零回归，badge/inline 不受影响。 */
   sizing?: EntrySizing
+  /** 主题变量覆盖：见 panel 的 UpdateThemeTokens；入口件根 + 打开的 dialog 面板同步生效，不传即零回归。 */
+  themeTokens?: UpdateThemeTokens
   /** 语言覆盖（#60 v2）：'zh' | 'en' | { getActive(): string; subscribe?(cb): () => void }，不传即跟随 html[lang] > navigator > zh。 */
   locale?: LocaleOption
   profileName?: string
@@ -122,6 +126,8 @@ export interface UpdateEntryController {
   /** 当前按钮上的状态文案（接入方做自定义排版时读它）。 */
   label(): string
   setTheme(theme: UpdatePanelTheme): void
+  /** 换一套主题变量（重绘；打开的 dialog 面板同步；传 undefined 即清掉覆盖）。 */
+  setThemeTokens(tokens: UpdateThemeTokens | undefined): void
   unmount(): void
 }
 
@@ -368,7 +374,9 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
   const labelOverride = typeof options.label === 'string' && options.label ? options.label : null
   // 尺寸覆盖（#69）：非法即抛（挂载时校验，与 variant/theme 同口径）；合法则拼成容器 style，缺省为空（不写 style，零回归）。
   const sizingStyle = entrySizingStyleFor((options as { sizing?: EntrySizing }).sizing ?? undefined)
-  const sizingAttr = sizingStyle ? ` style="${sizingStyle}"` : ''
+  // 主题变量覆盖：挂载时校验（非法即抛）；合法存下，每次 entryHTML 与 style 合并拼到根上。
+  themeTokensStyleFor((options as { themeTokens?: UpdateThemeTokens }).themeTokens ?? undefined)
+  let themeTokens: UpdateThemeTokens | undefined = (options as { themeTokens?: UpdateThemeTokens }).themeTokens
   const localeOpt: LocaleOption = (options as { locale?: LocaleOption }).locale ?? undefined
   if (localeOpt !== undefined && localeOpt !== null) {
     const isStr = typeof localeOpt === 'string'
@@ -447,6 +455,9 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
     const labelText = labelOverride ?? (activating ? copyText('entry.action.checking', lang) : copyText(entryBilingualKeyFor(stateOf()), lang, entryBilingualValuesFor(stateOf())))
     const busyAttr = activating ? ' disabled aria-busy="true"' : ''
     const themeAttr = theme === 'archive' ? ' data-theme="archive"' : ''
+    const tokensStyle = themeTokensStyleFor(themeTokens ?? undefined)
+    const styleBody = [sizingStyle, tokensStyle].filter((part) => part).join(';')
+    const styleAttr = styleBody ? ` style="${styleBody}"` : ''
     const control =
       variant === 'badge'
         ? `<button type="button" class="dsh-upd-entry-dot" ${ENTRY_ATTR}="activate" title="${escapeHtml(labelText)}" aria-label="${escapeHtml(labelText)}"${busyAttr}></button>`
@@ -456,7 +467,7 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
       : ''
     return (
       `<style>${UPDATE_ENTRY_CSS}\n${BILINGUAL_CSS}</style>\n` +
-      `<span class="dsh-upd-entry" data-variant="${variant}" data-state="${kind}"${themeAttr}${sizingAttr}>` +
+      `<span class="dsh-upd-entry" data-variant="${variant}" data-state="${kind}"${themeAttr}${styleAttr}>` +
       `${control}${noteHTML}</span>`
     )
   }
@@ -512,6 +523,7 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
       prefix,
       mode,
       theme,
+      themeTokens,
       pollMs,
       profileName,
       autoChangelog: options.autoChangelog,
@@ -598,6 +610,13 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
     else render()
   }
 
+  function setThemeTokens(next: UpdateThemeTokens | undefined): void {
+    themeTokensStyleFor(next ?? undefined)
+    themeTokens = next ?? undefined
+    if (panel) void panel.setThemeTokens(themeTokens)
+    else render()
+  }
+
   function onClick(ev: unknown): void {
     if (!mounted) return
     try {
@@ -674,5 +693,5 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
   // autoCheck='mount'：进页面静默查一次状态（只读、不联网）。'never' 就等用户点击。
   if (autoCheck === 'mount') void refresh()
 
-  return { refresh, open, close, label: currentLabel, setTheme, unmount }
+  return { refresh, open, close, label: currentLabel, setTheme, setThemeTokens, unmount }
 }

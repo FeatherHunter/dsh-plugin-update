@@ -53,9 +53,11 @@ import {
   isKnownFailureCode,
   normalizePanelTheme,
   renderUpdatePanelHTML,
+  themeTokensStyleFor,
   type PanelDiagnosticInput,
   type PanelSkipStore,
   type UpdatePanelTheme,
+  type UpdateThemeTokens,
 } from './panel.js'
 import type { UpdateSnapshot } from './ports.js'
 import type { VisibleQueue } from './queue.js'
@@ -97,6 +99,8 @@ export interface BatchPanelOptions {
   call: (name: string, args: Record<string, unknown>) => Promise<unknown>
   /** 主题：与单插件面板同一套（缺省 default）。 */
   theme?: UpdatePanelTheme
+  /** 主题变量覆盖：见 panel 的 UpdateThemeTokens；批量根 + 展开详情行全继承，不传即零回归。 */
+  themeTokens?: UpdateThemeTokens
   /** 摆放形态：内嵌或弹窗（缺省 embedded）。 */
   mode?: BatchPanelMode
   /** 轮询间隔（毫秒，缺省 1500，下限 250）。 */
@@ -164,6 +168,8 @@ export interface BatchPanelController {
   refresh(): Promise<void>
   act(action: BatchPanelActionKind, key?: string): Promise<void>
   setTheme(theme: UpdatePanelTheme): void
+  /** 换一套主题变量（重绘；传 undefined 即清掉覆盖，回主题默认）。 */
+  setThemeTokens(tokens: UpdateThemeTokens | undefined): void
   setMode(mode: BatchPanelMode): void
   unmount(): void
 }
@@ -407,6 +413,8 @@ export function batchRowKnowledgeText(row: BatchRowView, entry: BatchKnowledgeEn
 export interface BatchPanelRenderInput {
   rows?: readonly BatchRowView[]
   theme?: UpdatePanelTheme
+  /** 主题变量覆盖：见 panel 的 UpdateThemeTokens；写到批量根上，详情行经继承生效。 */
+  themeTokens?: UpdateThemeTokens
   mode?: BatchPanelMode
   /** 当前展开的那一家（键）；null 即全部收起。 */
   expandedKey?: string | null
@@ -444,6 +452,7 @@ interface RowRenderContext {
   /** 本面板正有一次电话在飞：行内动作短暂置灰，防连点。 */
   inFlight: boolean
   theme: UpdatePanelTheme
+  themeTokens: UpdateThemeTokens | undefined
   titles: Record<string, string>
   /** 这一家被跳过的版本（null = 没跳过）。 */
   skipped: string | null
@@ -488,6 +497,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
     busy: installing,
     inFlight: input.inFlight === true,
     theme,
+    themeTokens: (input as { themeTokens?: UpdateThemeTokens }).themeTokens ?? undefined,
     titles,
     skipped: null,
     notice: null,
@@ -603,10 +613,12 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   // 主题只换肤：默认不带 data-theme、不带 Archive 串；archive 才挂属性并追加两份 Archive 皮肤。
   const archive = normalizePanelTheme(theme) === 'archive'
   const attr = archive ? ' data-theme="archive"' : ''
+  const tokensStyle = themeTokensStyleFor((input as { themeTokens?: UpdateThemeTokens }).themeTokens ?? undefined)
+  const tokensAttr = tokensStyle ? ' style="' + tokensStyle + '"' : ''
   const seal = batchSealOf(counts, lang)
   const root =
     '<div class="dsh-upd dsh-upd-batch" data-mode="' + mode + '" data-seal="' + escapeHtml(seal.text) +
-    '" data-seal-tone="' + seal.tone + '"' + attr + '>\n' + kernel + '\n</div>'
+    '" data-seal-tone="' + seal.tone + '"' + attr + tokensAttr + '>\n' + kernel + '\n</div>'
   const body = mode === 'dialog' ? '<div class="dsh-upd-overlay" data-mode="dialog">' + root + '</div>' : root
   const css = archive
     ? [UPDATE_PANEL_CSS, UPDATE_BATCH_PANEL_CSS, UPDATE_PANEL_ARCHIVE_CSS, UPDATE_BATCH_PANEL_ARCHIVE_CSS].join(String.fromCharCode(10))
@@ -816,6 +828,7 @@ function detailHTML(row: BatchRowView, ctx: RowRenderContext): string {
     pluginId: pluginIdOf(row),
     copyNotice: null,
     theme: ctx.theme,
+    themeTokens: ctx.themeTokens,
     profileName: typeof row.profileName === 'string' && row.profileName ? row.profileName : null,
     actions: 'none',
   }, ctx.lang)
@@ -1281,6 +1294,9 @@ export function mountUpdateBatchPanel(
     throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ' + JSON.stringify(options.theme) + '）')
   }
   let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
+  // 主题变量覆盖：挂载时校验（非法即抛），合法存下，每次 render 拼到根上（详情行经继承生效）。
+  themeTokensStyleFor(options.themeTokens ?? undefined)
+  let themeTokens: UpdateThemeTokens | undefined = options.themeTokens
   const call = options.call
   const titles: Record<string, string> =
     options.titles && typeof options.titles === 'object' ? options.titles : {}
@@ -1458,6 +1474,7 @@ export function mountUpdateBatchPanel(
     const nextHTML = renderBatchPanelHTML({
       rows,
       theme,
+      themeTokens,
       mode,
       expandedKey,
       lastError,
@@ -1818,6 +1835,12 @@ export function mountUpdateBatchPanel(
     render()
   }
 
+  function setThemeTokens(next: UpdateThemeTokens | undefined): void {
+    themeTokensStyleFor(next ?? undefined)
+    themeTokens = next ?? undefined
+    render()
+  }
+
   function setMode(next: BatchPanelMode): void {
     if (next !== 'embedded' && next !== 'dialog') {
       throw new Error('[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ' + JSON.stringify(next) + '）')
@@ -1964,5 +1987,5 @@ export function mountUpdateBatchPanel(
     void autoOnce()
   })
 
-  return { refresh, act, setTheme, setMode, unmount }
+  return { refresh, act, setTheme, setThemeTokens, setMode, unmount }
 }
