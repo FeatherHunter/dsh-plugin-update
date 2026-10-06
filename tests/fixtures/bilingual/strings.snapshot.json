@@ -1,0 +1,41 @@
+{
+  "note": "字典快照（#56 门禁）：每个 key 的 en/zh/draft 冻结在此。改文案必须同步本文件（diff 里看得见），改文案不换 key；增删 key 同样要同步。--update-snapshot 重算。",
+  "dictVersion": "2026-10-06-pin53",
+  "keys": {
+    "entry.action.checking": {
+      "en": "Checking for updates…",
+      "zh": "正在查新版…",
+      "draft": true
+    },
+    "entry.label.busy": {
+      "en": "Installing…",
+      "zh": "正在安装…",
+      "draft": true
+    },
+    "entry.label.failed": {
+      "en": "Update failed — View details",
+      "zh": "更新失败，点此查看",
+      "draft": true
+    },
+    "entry.label.has-update": {
+      "en": "Update available {version}",
+      "zh": "有新版 {version}",
+      "draft": true
+    },
+    "entry.label.idle": {
+      "en": "Check for updates",
+      "zh": "检查更新",
+      "draft": true
+    },
+    "entry.label.restart": {
+      "en": "Restart required",
+      "zh": "待重启",
+      "draft": true
+    },
+    "entry.note.up-to-date": {
+      "en": "Up to date {version}",
+      "zh": "已是最新 {version}",
+      "draft": true
+    }
+  }
+}

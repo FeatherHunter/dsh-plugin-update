@@ -69,6 +69,30 @@ npm publish
 node --test tests/*.test.mjs
 ```
 
+### 双语门禁（#56）
+
+用户可见文案的双语化（英文在前中文在后）另有一道防倒退门禁，**改文案、改面板/入口/诊断渲染时必跑**；
+它不进发布产物（`scripts/` 不在 files 白名单），只在本仓用：
+
+```sh
+npm run gate:bilingual            # 三道硬门禁：文案源 grep + 字典快照 + 14 码与诊断解析契约
+npm run gate:bilingual:release    # 再加第四道：零 draft 放行（合入主分支/发版条件，见 #57）
+```
+
+- **文案源 grep**：`src/` 里的中文字符串字面量只许出现在文案源 `src/bilingual.ts`；其余位置按冻结基线
+  `tests/fixtures/bilingual/copy-baseline.json` 逐条放行——**只许减，不许增，而且要减干净**。日志/抛错等冻结中文要
+  新增或改词，必须 `node scripts/bilingual-gate.mjs --update-baseline` 重算基线、并在评审 diff 里看见；
+  源里已消失的条目（迁移删掉了）必须同一次改动里收紧，别留僵尸放行（`npm test` 会盯着，CLI 加 `--strict-baseline` 也拦）。
+  注释与正则不入账：门禁只数字符串字面量。
+- **字典快照**：每键 en/zh 非空、英文无汉字、中文有汉字、具名槽中英同名同数、渲染英文在前；
+  全量快照在 `tests/fixtures/bilingual/strings.snapshot.json`，改文案必须同步快照（**改文案不换 key**）。
+- **14 码与诊断解析契约**：8 阻塞 + 5 电话 + internal 各有文案且只按稳定码分支；诊断两种复制形态
+  （三行块 / 单行）都能解析回同一组字段，顺序冻结（码 → 摘要 → 来源 → 怎么办）。
+- **零 draft 放行**：字典里还有 `draft: true` 就红——母语 + 域内双签转正才放行合入/发版（#53 立约，见 #57）。
+  现在 7 个 entry key 仍是 draft，所以 `--release` 是**如实红**，不是坏门禁。
+- 失败可复现：`tests/bilingual-gate.test.mjs` 随 `npm test` 跑，它既断言本仓现在三道硬门禁全绿，
+  也在临时目录里造违规，断言门禁红在哪一行（新散落中文、空英文、槽位不齐、顺序反了、解析不回字段都会红）。
+
 下面这几道是**消费方仓库**（本包原来的家 `dsh-mattpocock-skills-deck`）里的门禁，不在本仓，要跑得切到那边：
 
 ```sh
