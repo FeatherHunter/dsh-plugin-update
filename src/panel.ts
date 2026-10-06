@@ -981,7 +981,7 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
 // ---------- 渲染（纯函数：同一视图 → 同一内核 HTML；内外摆放只差外层包裹） ----------
 
 export const UPDATE_PANEL_CSS = [
-  '.dsh-upd{font:14px/1.6 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);',
+  '.dsh-upd{font:14px/1.75 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);',
   'background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;',
   // 横幅配色走变量（浅色默认 + 深色覆盖，见下方 dark 媒体块）：硬编码浅色会让深色下
   // 「浅底 + 浅字」读不出来（现场回归：默认主题深色模式更新横幅白底浅字）。
@@ -989,7 +989,7 @@ export const UPDATE_PANEL_CSS = [
   '--dsh-update-bad-bg:#fef2f2;--dsh-update-bad-border:#dc2626;--dsh-update-busy-bg:#eff6ff;--dsh-update-busy-border:#2563eb}',
   '.dsh-upd *{box-sizing:border-box}',
   '.dsh-upd button{font:inherit;border:1px solid var(--dsh-update-border-strong,#d1d5db);border-radius:var(--dsh-update-radius-button,6px);background:var(--dsh-update-button-bg,#f9fafb);',
-  'color:inherit;padding:4px 12px;cursor:pointer;margin:2px 6px 2px 0}',
+  'color:inherit;padding:7px 14px;cursor:pointer;margin:2px 6px 2px 0}',
   '.dsh-upd button:disabled{opacity:.45;cursor:not-allowed}',
   '.dsh-upd button:focus-visible{outline:2px solid var(--dsh-update-focus,#2563eb);outline-offset:1px}',
   '.dsh-upd button[data-primary="1"]{background:var(--dsh-update-primary,#2563eb);border-color:var(--dsh-update-primary,#2563eb);color:#fff}',
@@ -1019,7 +1019,8 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-overlay .dsh-upd{background:var(--dsh-update-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}',
   // —— 弹窗分栏滚动：头（抬头/档案头/横幅/版本条）与尾固定，只有 01–05 章节区滚动 ——
   '.dsh-upd-body{min-height:0}',
-  '.dsh-upd-overlay .dsh-upd-body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsh-update-border,#e5e7eb) transparent}',
+  '.dsh-upd-body *{min-width:0}',
+  '.dsh-upd-overlay .dsh-upd-body{flex:1 1 auto;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsh-update-border,#e5e7eb) transparent}',
   '.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar{width:8px}',
   '.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-update-border,#e5e7eb);border-radius:4px}',
   '.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-track{background:transparent}',
@@ -1034,11 +1035,11 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-meta{font-size:12.5px;opacity:.75}',
   '.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:11px;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}',
   '.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;font-size:12.5px}',
-  '.dsh-upd-strip>div{flex:1 1 110px;padding:6px 10px;border-left:1px solid var(--dsh-update-border,#e5e7eb)}',
+  '.dsh-upd-strip>div{flex:1 1 110px;min-width:0;padding:6px 10px;border-left:1px solid var(--dsh-update-border,#e5e7eb)}',
   '.dsh-upd-strip>div:first-child{border-left:0}',
   '.dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.14em;opacity:.7}',
-  '.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px}',
-  '.dsh-upd-chapter{margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}',
+  '.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px;word-break:break-all}',
+  '.dsh-upd-chapter{margin-top:18px;padding-top:14px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}',
   // 右下角独立 footer 区（#47 定案 A）：与第一章 actions 脱钩，右对齐，一次找到。
   '.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}',
   '.dsh-upd-foot-note{margin-right:auto;font-size:12px;opacity:.7}',
@@ -1051,7 +1052,7 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}',
   '.dsh-upd-chap-note button{margin:0}',
   // 更新队列两行键值（用户定案的设计）：结构两主题共用，皮肤各自收敛。
-  '.dsh-upd-qrow{display:flex;align-items:baseline;gap:10px;padding:6px 0}',
+  '.dsh-upd-qrow{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;padding:6px 0;min-width:0}',
   '.dsh-upd-qrow+.dsh-upd-qrow{border-top:1px solid var(--dsh-update-border,#e5e7eb)}',
   '.dsh-upd-qdot{width:8px;height:8px;border-radius:50%;flex:none;align-self:center;background:currentColor;opacity:.5}',
   '.dsh-upd-qdot[data-tone="busy"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}',

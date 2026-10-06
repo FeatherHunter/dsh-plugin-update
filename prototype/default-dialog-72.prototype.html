@@ -1,0 +1,569 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PROTOTYPE — default弹窗真实渲染 · 4方向（票72 v2）</title><style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,PingFang SC,Microsoft YaHei,sans-serif;background:#0f172a;color:#111827;padding-bottom:120px}.proto-banner{background:#fef08a;border-bottom:2px dashed #a16207;padding:10px 16px;font-size:13px;color:#422006}.proto-banner b{background:#111827;color:#fef08a;padding:1px 8px;border-radius:4px;margin-right:8px}header.q{max-width:1100px;margin:0 auto;padding:18px 16px 6px;color:#e5e7eb}header.q h1{font-size:20px;margin:6px 0}header.q p{font-size:13px;color:#cbd5e1;margin:4px 0;line-height:1.7}header.q code{background:#1e293b;padding:1px 6px;border-radius:4px;font-size:12px}main{max-width:1100px;margin:0 auto;padding:0 16px}section.variant{display:none}section.variant.active{display:block}.variant-intro{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 14px;margin:12px 0;color:#e2e8f0;font-size:13px;line-height:1.7}.variant-intro b{color:#fde047}.variant-intro code{background:#0f172a;padding:1px 6px;border-radius:4px;font-size:12px}.stage{background:rgba(0,0,0,.35);border-radius:12px;padding:28px 16px;display:flex;justify-content:center}.proto-host{width:100%;display:flex;justify-content:center}.proto-host .dsh-upd-overlay{position:static !important;display:block !important;background:transparent !important;padding:0 !important;z-index:auto !important}.proto-host .dsh-upd-overlay .dsh-upd{margin:0 auto;max-height:none !important}.proto-host .dsh-upd-body{max-height:60vh}#vA .proto-host .dsh-upd-overlay .dsh-upd-body{overflow-x:hidden !important}#vA .proto-host .dsh-upd-body *,#vA .proto-host .dsh-upd-strip>div,#vA .proto-host .dsh-upd-qrow{min-width:0 !important}#vA .proto-host .dsh-upd{line-height:1.75}#vA .proto-host .dsh-upd-chapter{margin-top:18px !important;padding-top:14px !important}#vA .proto-host .dsh-upd button{padding:7px 14px !important}#vA .proto-host .dsh-upd-qrow{flex-wrap:wrap !important}#vA .proto-host .dsh-upd-qn{margin-left:0 !important}#vB .proto-host .dsh-upd{max-width:640px !important;line-height:1.8}#vB .proto-host .dsh-upd-overlay .dsh-upd-body{overflow-x:hidden !important;background:#f3f4f6 !important;padding:14px !important}#vB .proto-host .dsh-upd-body *,#vB .proto-host .dsh-upd-qrow{min-width:0 !important}#vB .proto-host .dsh-upd-chapter{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px !important;margin:12px 0 !important}#vB .proto-host .dsh-upd button{padding:8px 16px !important}#vB .proto-host .dsh-upd-qrow{flex-wrap:wrap !important}#vC .proto-host .dsh-upd{max-width:620px !important;line-height:1.8}#vC .proto-host .dsh-upd-overlay .dsh-upd-body{overflow-x:hidden !important}#vC .proto-host .dsh-upd-body *{min-width:0 !important}#vC .cbar{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}#vC .cbar button{flex:1 1 90px;font-size:12px;padding:8px 4px;border-radius:8px;border:1px solid #cbd5e1;background:#f1f5f9;cursor:pointer}#vC .cbar button.on{background:#2563eb;border-color:#2563eb;color:#fff;font-weight:700}#vC .cbar button.done{background:#dcfce7;border-color:#86efac;color:#15803d}#vC .cpager{display:flex;gap:8px;margin-top:12px}#vC .cpager button{font-size:13px;padding:7px 16px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;cursor:pointer}#vC .cpager button.primary{background:#2563eb;color:#fff;border-color:#2563eb}#vD .dwrap{display:flex;gap:0;width:100%;max-width:780px;background:#fff;border-radius:10px;overflow:hidden}#vD .dnav{flex:none;width:150px;background:#f8fafc;border-right:1px solid #e5e7eb;padding:12px 8px;display:flex;flex-direction:column;gap:2px}#vD .dnav button{text-align:left;font-size:13px;padding:9px 10px;border:1px solid transparent;background:transparent;border-radius:8px;cursor:pointer}#vD .dnav button.on{background:#fff;border-color:#e5e7eb;font-weight:700}#vD .dcol{flex:1 1 auto;min-width:0}#vD .proto-host .dsh-upd{max-width:none !important;border:0 !important}#vD .proto-host .dsh-upd-overlay .dsh-upd-body{overflow-x:hidden !important;line-height:1.8}#vD .proto-host .dsh-upd-body *{min-width:0 !important}#switcher{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:50;background:#111827;color:#fff;border-radius:999px;padding:8px 10px;display:flex;gap:10px;align-items:center;border:1px solid #fde047}#switcher button{background:#374151;color:#fff;border:none;font-size:16px;padding:4px 12px;border-radius:999px;cursor:pointer}#switcher .lbl{min-width:230px;text-align:center}#switcher .lbl small{display:block;font-size:10px;color:#9ca3af}</style></head><body><div class="proto-banner"><b>PROTOTYPE</b>抛弃式原型 v2 · 真实内核渲染 · 真实文案 · 不进包 · 双击即开 · ?variant=A|B|C|D 切换</div><header class="q"><h1>default 弹窗 01~05：真实渲染真实文案 · 4 个方向（v2）</h1><p>下面 4 变体是同一份 renderUpdatePanelHTML 真实输出（mode dialog，theme default；快照 1.0.0 到 1.1.0，真实 changelog + 真实队列 + 真实手工命令），内核 DOM 一字不动。</p></header><main><section class="variant" id="vA"><div class="variant-intro"><b>A — 最小修复</b>：只加 overflow-x hidden + 全链 min-width 0 + qrow 换行，放宽行高章间距按钮。</div><div class="stage"><div class="proto-host"><style>.dsh-upd{font:14px/1.6 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);
+background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;
+--dsh-update-ok-bg:#ecfdf5;--dsh-update-ok-border:#059669;--dsh-update-warn-bg:#fffbeb;--dsh-update-warn-border:#d97706;
+--dsh-update-bad-bg:#fef2f2;--dsh-update-bad-border:#dc2626;--dsh-update-busy-bg:#eff6ff;--dsh-update-busy-border:#2563eb}
+.dsh-upd *{box-sizing:border-box}
+.dsh-upd button{font:inherit;border:1px solid var(--dsh-update-border-strong,#d1d5db);border-radius:var(--dsh-update-radius-button,6px);background:var(--dsh-update-button-bg,#f9fafb);
+color:inherit;padding:4px 12px;cursor:pointer;margin:2px 6px 2px 0}
+.dsh-upd button:disabled{opacity:.45;cursor:not-allowed}
+.dsh-upd button:focus-visible{outline:2px solid var(--dsh-update-focus,#2563eb);outline-offset:1px}
+.dsh-upd button[data-primary="1"]{background:var(--dsh-update-primary,#2563eb);border-color:var(--dsh-update-primary,#2563eb);color:#fff}
+.dsh-upd-banner{border-left:4px solid var(--dsh-update-border,#9ca3af);padding:6px 10px;margin:0 0 8px;background:var(--dsh-update-bg-soft,#f3f4f6)}
+.dsh-upd-banner[data-kind="restart"]{border-color:var(--dsh-update-warn-border);background:var(--dsh-update-warn-bg)}
+.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-update-bad-border);background:var(--dsh-update-bad-bg)}
+.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}
+.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-update-busy-border);background:var(--dsh-update-busy-bg)}
+.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:4px 0;font-size:13px}
+.dsh-upd-changelog-wrap{margin:4px 0 0;font-size:13px}
+.dsh-upd-changelog-title{font-weight:700;margin:0 0 4px}
+.dsh-upd-changelog-version{margin:6px 0}
+.dsh-upd-changelog-catname{font-weight:600;margin:6px 0 2px}
+.dsh-upd-changelog ul{margin:2px 0 6px 20px;padding:0}
+.dsh-upd-changelog li{margin:2px 0}
+.dsh-upd-changelog-fold{margin:4px 0}
+.dsh-upd-changelog-fold>summary{cursor:pointer}
+.dsh-upd-changelog-count{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-yanked{border-left:4px solid var(--dsh-update-warn-border,#d97706);background:var(--dsh-update-warn-bg,#fffbeb);padding:6px 10px;margin:6px 0;font-size:13px}
+.dsh-upd-breaking-badge{display:inline-block;font-size:11px;font-weight:700;border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:baseline}
+.dsh-upd-changelog-security-more{margin:4px 0 6px}
+.dsh-upd-changelog-security-more>summary{cursor:pointer;font-size:12px;opacity:.8}
+.dsh-upd-changelog-more-note{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-neutral{color:inherit;opacity:.8}
+.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}
+.dsh-upd-overlay .dsh-upd{background:var(--dsh-update-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.dsh-upd-body{min-height:0}
+.dsh-upd-overlay .dsh-upd-body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsh-update-border,#e5e7eb) transparent}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar{width:8px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-update-border,#e5e7eb);border-radius:4px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-track{background:transparent}
+.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{position:sticky;top:0;z-index:1;background:var(--dsh-update-bg,#ffffff);padding-top:2px}
+.dsh-upd-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.dsh-upd-masthead{display:none}
+.dsh-upd-name{font-weight:700}
+.dsh-upd-meta{font-size:12.5px;opacity:.75}
+.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:11px;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}
+.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;font-size:12.5px}
+.dsh-upd-strip>div{flex:1 1 110px;padding:6px 10px;border-left:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-strip>div:first-child{border-left:0}
+.dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.14em;opacity:.7}
+.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px}
+.dsh-upd-chapter{margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-foot-note{margin-right:auto;font-size:12px;opacity:.7}
+.dsh-upd-footer button{margin:0}
+.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}
+.dsh-upd-chap-title{font-size:14px;margin:0}
+.dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}
+.dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}
+.dsh-upd-chap-note button{margin:0}
+.dsh-upd-qrow{display:flex;align-items:baseline;gap:10px;padding:6px 0}
+.dsh-upd-qrow+.dsh-upd-qrow{border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-qdot{width:8px;height:8px;border-radius:50%;flex:none;align-self:center;background:currentColor;opacity:.5}
+.dsh-upd-qdot[data-tone="busy"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}
+.dsh-upd-qdot[data-tone="you"]{background:var(--dsh-update-primary,#2563eb);opacity:1}
+.dsh-upd-qk{flex:none;width:5.5em;font-size:12px;opacity:.7}
+.dsh-upd-qv{font-weight:600}
+.dsh-upd-qn{margin-left:auto;font-size:12px;opacity:.7}
+.dsh-upd-qseq{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-prog{height:8px;background:var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;margin:10px 0 4px}
+.dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary,#2563eb);transition:width .3s}
+.dsh-upd-progtxt{font-size:12.5px;opacity:.75}
+.dsh-upd-skipline{font-size:13px;margin-top:8px}
+.dsh-upd-skv{display:inline-block;min-width:64px;border-radius:3px;color:transparent !important;user-select:none;
+background:linear-gradient(90deg,var(--dsh-update-border,#e5e7eb) 25%,var(--dsh-update-bg-soft,#f3f4f6) 50%,var(--dsh-update-border,#e5e7eb) 75%);
+background-size:200% 100%;animation:dsh-upd-shimmer 1.2s linear infinite}
+@keyframes dsh-upd-shimmer{to{background-position:-200% 0}}
+.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:12px}
+.dsh-upd-err{font-size:13px;margin:0 0 6px}
+.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}
+.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-update-focus,#2563eb)}
+.dsh-upd button[data-primary="1"]:hover:not(:disabled){filter:brightness(.93)}
+.dsh-upd button:active:not(:disabled){transform:translateY(1px)}
+.dsh-upd button[aria-busy="true"]{cursor:wait;animation:dsh-upd-pulse 1s ease-in-out infinite}
+@keyframes dsh-upd-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.dsh-upd-banner{animation:dsh-upd-fadein .22s ease}
+@keyframes dsh-upd-fadein{from{opacity:.35;transform:translateY(2px)}}
+.dsh-upd-changelog-foldbox{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .22s ease,opacity .18s ease}
+.dsh-upd-changelog-foldbox-inner{min-height:0;overflow:hidden}
+.dsh-upd-changelog-foldbox[data-open="0"]{grid-template-rows:0fr;opacity:0}
+.dsh-upd button[aria-busy="true"]::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;vertical-align:-1px;
+border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:dsh-upd-spin .8s linear infinite}
+@keyframes dsh-upd-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}.dsh-upd-banner{animation:none}.dsh-upd-changelog-foldbox{transition:none}}
+@media (forced-colors: active){.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{background:Canvas}}
+.dsh-upd{overflow-anchor:none}
+.dsh-upd-body{overflow-anchor:none}
+.dsh-upd-actions{display:flex;flex-wrap:wrap;align-items:center;min-height:34px}
+.dsh-upd-actions button:first-child{min-width:8em;text-align:center}
+.dsh-upd-actions button[data-primary="1"]{min-width:7em;text-align:center}
+.dsh-upd-actions button:first-child:not([aria-busy="true"])::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;visibility:hidden}
+.dsh-upd-banner{min-height:1.2em}
+.dsh-upd-strip{min-height:48px}
+@media (prefers-color-scheme: dark){.dsh-upd{--dsh-update-text:#e5e7eb;--dsh-update-bg:#111827;--dsh-update-border:#374151;
+--dsh-update-button-bg:#1f2937;--dsh-update-bg-soft:#1f2937;--dsh-update-primary:#3b82f6;--dsh-update-focus:#93c5fd;
+--dsh-update-ok-bg:rgba(16,185,129,.14);--dsh-update-ok-border:#34d399;
+--dsh-update-warn-bg:rgba(245,158,11,.16);--dsh-update-warn-border:#fbbf24;
+--dsh-update-bad-bg:rgba(239,68,68,.16);--dsh-update-bad-border:#f87171;
+--dsh-update-busy-bg:rgba(59,130,246,.16);--dsh-update-busy-border:#60a5fa}}</style>
+<div class="dsh-upd-overlay" data-mode="dialog"><div class="dsh-upd" data-mode="dialog" data-plugin="my-notes-plugin" data-seal="可装" data-seal-tone="green">
+<div class="dsh-upd-masthead"><span class="dsh-upd-masthead-kicker">插件更新</span><span class="dsh-upd-masthead-title">更新档案 <i>卷</i></span></div>
+<div class="dsh-upd-head"><span class="dsh-upd-name">my-notes-plugin</span><span class="dsh-upd-meta">使用范围 <b>desktop</b><span class="dsh-upd-proftag">profile</span></span></div>
+<div class="dsh-upd-banner" data-kind="update" data-mini="装" role="status" aria-live="polite">
+<div><strong>有新版 1.1.0 可装（当前 1.0.0）。</strong></div>
+<div>点安装即走精确版本安装；同一使用范围同时只装一个。</div>
+</div>
+<div class="dsh-upd-strip"><div><span class="dsh-upd-strip-k">运行</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">磁盘</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">远端</span><span class="dsh-upd-strip-v">1.1.0</span></div></div>
+<div class="dsh-upd-body"><section class="dsh-upd-chapter" data-chapter="01"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">01</span><h3 class="dsh-upd-chap-title">检查与安装</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-actions"><button type="button" data-action="check" title="重新向官方源查一次新版（只读，不安装）">查新版</button><button type="button" data-action="install" data-primary="1" title="用精确版本安装；同一使用范围同时只装一个">安装 1.1.0</button><button type="button" data-action="skip" title="该版本不再提醒；有更新的新版本照常提醒">跳过该版本</button><button type="button" data-action="copy-manual" title="复制手工命令，粘到终端整行执行">复制手工命令</button><button type="button" data-action="copy-diag" title="复制已脱敏诊断，直接粘给插件作者">复制诊断</button></div></section>
+<section class="dsh-upd-chapter" data-chapter="02"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">02</span><h3 class="dsh-upd-chap-title">更新日志</h3><span class="dsh-upd-chap-rule"></span><span class="dsh-upd-chap-note"><button type="button" data-action="toggle-changelog" title="展开或收起更新日志">收起更新日志</button></span></div><div class="dsh-upd-changelog-wrap"><div>更新说明（1.0.0 → 1.1.0）：</div><div class="dsh-upd-changelog-foldbox" data-open="1"><div class="dsh-upd-changelog-foldbox-inner">
+<div class="dsh-upd-changelog">
+<div class="dsh-upd-changelog-version" data-version="1.1.0">
+<div class="dsh-upd-changelog-title">1.1.0 · 2026-10-06</div>
+<div class="dsh-upd-changelog-cat" data-cat="Added">
+<div class="dsh-upd-changelog-catname">新增（Added）</div>
+<ul>
+<li>主题变量覆盖 themeTokens：四个挂载口同收同语义，非法挂载即抛；控制器新增 setThemeTokens。</li>
+<li>入口件聚合口径与批量总账同一份数法。</li>
+</ul>
+</div>
+<div class="dsh-upd-changelog-cat" data-cat="Fixed">
+<div class="dsh-upd-changelog-catname">修复（Fixed）</div>
+<ul>
+<li>深色下横幅白底浅字回归修复。</li>
+</ul>
+</div>
+</div>
+</div>
+</div></div></div></section>
+<section class="dsh-upd-chapter" data-chapter="03"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">03</span><h3 class="dsh-upd-chap-title">更新队列</h3><span class="dsh-upd-chap-rule"></span><span class="dsh-upd-chap-note"><button type="button" data-action="toggle-queue">隐藏他人明细</button></span></div><div class="dsh-upd-queue"><div class="dsh-upd-qrow"><span class="dsh-upd-qdot" data-tone="busy"></span><span class="dsh-upd-qk">正在安装</span><span class="dsh-upd-qv">本插件@1.1.0</span><span class="dsh-upd-qn">装完自动轮到你</span></div><div class="dsh-upd-qrow"><span class="dsh-upd-qdot" data-tone="you"></span><span class="dsh-upd-qk">你的顺位</span><span class="dsh-upd-qv">第 2 位</span><span class="dsh-upd-qn">前方 1 个</span></div><div class="dsh-upd-qrow"><span class="dsh-upd-qdot"></span><span class="dsh-upd-qk">排队顺序</span><span class="dsh-upd-qseq">alpha-notes@1.2.3 → beta-notes@2.0.0</span></div></div></section>
+<section class="dsh-upd-chapter" data-chapter="04"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">04</span><h3 class="dsh-upd-chap-title">错误信息</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断给出的是当前状态快照。</div><div class="dsh-upd-log">深挖看日志：按插件标识 <code>my-notes-plugin</code> 过滤 <code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 三个事件。</div></section>
+<section class="dsh-upd-chapter" data-chapter="05"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">05</span><h3 class="dsh-upd-chap-title">手工命令</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-manual"><div>手工兜底命令（复制整行执行）：</div><code>dsh plugin --profile desktop add --save-exact my-notes-plugin@1.1.0 --registry=https://registry.npmjs.org/</code></div></section></div>
+<div class="dsh-upd-footer"><span class="dsh-upd-foot-note">关闭不影响更新，可随时回来查看</span><button type="button" data-action="close-view" title="关闭窗口，更新不受影响">关闭</button></div>
+</div></div></div></div></section><section class="variant" id="vB"><div class="variant-intro"><b>B — 呼吸卡片</b>：到 640，body 灰底、每章白卡。</div><div class="stage"><div class="proto-host"><style>.dsh-upd{font:14px/1.6 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);
+background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;
+--dsh-update-ok-bg:#ecfdf5;--dsh-update-ok-border:#059669;--dsh-update-warn-bg:#fffbeb;--dsh-update-warn-border:#d97706;
+--dsh-update-bad-bg:#fef2f2;--dsh-update-bad-border:#dc2626;--dsh-update-busy-bg:#eff6ff;--dsh-update-busy-border:#2563eb}
+.dsh-upd *{box-sizing:border-box}
+.dsh-upd button{font:inherit;border:1px solid var(--dsh-update-border-strong,#d1d5db);border-radius:var(--dsh-update-radius-button,6px);background:var(--dsh-update-button-bg,#f9fafb);
+color:inherit;padding:4px 12px;cursor:pointer;margin:2px 6px 2px 0}
+.dsh-upd button:disabled{opacity:.45;cursor:not-allowed}
+.dsh-upd button:focus-visible{outline:2px solid var(--dsh-update-focus,#2563eb);outline-offset:1px}
+.dsh-upd button[data-primary="1"]{background:var(--dsh-update-primary,#2563eb);border-color:var(--dsh-update-primary,#2563eb);color:#fff}
+.dsh-upd-banner{border-left:4px solid var(--dsh-update-border,#9ca3af);padding:6px 10px;margin:0 0 8px;background:var(--dsh-update-bg-soft,#f3f4f6)}
+.dsh-upd-banner[data-kind="restart"]{border-color:var(--dsh-update-warn-border);background:var(--dsh-update-warn-bg)}
+.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-update-bad-border);background:var(--dsh-update-bad-bg)}
+.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}
+.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-update-busy-border);background:var(--dsh-update-busy-bg)}
+.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:4px 0;font-size:13px}
+.dsh-upd-changelog-wrap{margin:4px 0 0;font-size:13px}
+.dsh-upd-changelog-title{font-weight:700;margin:0 0 4px}
+.dsh-upd-changelog-version{margin:6px 0}
+.dsh-upd-changelog-catname{font-weight:600;margin:6px 0 2px}
+.dsh-upd-changelog ul{margin:2px 0 6px 20px;padding:0}
+.dsh-upd-changelog li{margin:2px 0}
+.dsh-upd-changelog-fold{margin:4px 0}
+.dsh-upd-changelog-fold>summary{cursor:pointer}
+.dsh-upd-changelog-count{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-yanked{border-left:4px solid var(--dsh-update-warn-border,#d97706);background:var(--dsh-update-warn-bg,#fffbeb);padding:6px 10px;margin:6px 0;font-size:13px}
+.dsh-upd-breaking-badge{display:inline-block;font-size:11px;font-weight:700;border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:baseline}
+.dsh-upd-changelog-security-more{margin:4px 0 6px}
+.dsh-upd-changelog-security-more>summary{cursor:pointer;font-size:12px;opacity:.8}
+.dsh-upd-changelog-more-note{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-neutral{color:inherit;opacity:.8}
+.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}
+.dsh-upd-overlay .dsh-upd{background:var(--dsh-update-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.dsh-upd-body{min-height:0}
+.dsh-upd-overlay .dsh-upd-body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsh-update-border,#e5e7eb) transparent}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar{width:8px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-update-border,#e5e7eb);border-radius:4px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-track{background:transparent}
+.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{position:sticky;top:0;z-index:1;background:var(--dsh-update-bg,#ffffff);padding-top:2px}
+.dsh-upd-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.dsh-upd-masthead{display:none}
+.dsh-upd-name{font-weight:700}
+.dsh-upd-meta{font-size:12.5px;opacity:.75}
+.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:11px;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}
+.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;font-size:12.5px}
+.dsh-upd-strip>div{flex:1 1 110px;padding:6px 10px;border-left:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-strip>div:first-child{border-left:0}
+.dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.14em;opacity:.7}
+.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px}
+.dsh-upd-chapter{margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-foot-note{margin-right:auto;font-size:12px;opacity:.7}
+.dsh-upd-footer button{margin:0}
+.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}
+.dsh-upd-chap-title{font-size:14px;margin:0}
+.dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}
+.dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}
+.dsh-upd-chap-note button{margin:0}
+.dsh-upd-qrow{display:flex;align-items:baseline;gap:10px;padding:6px 0}
+.dsh-upd-qrow+.dsh-upd-qrow{border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-qdot{width:8px;height:8px;border-radius:50%;flex:none;align-self:center;background:currentColor;opacity:.5}
+.dsh-upd-qdot[data-tone="busy"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}
+.dsh-upd-qdot[data-tone="you"]{background:var(--dsh-update-primary,#2563eb);opacity:1}
+.dsh-upd-qk{flex:none;width:5.5em;font-size:12px;opacity:.7}
+.dsh-upd-qv{font-weight:600}
+.dsh-upd-qn{margin-left:auto;font-size:12px;opacity:.7}
+.dsh-upd-qseq{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-prog{height:8px;background:var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;margin:10px 0 4px}
+.dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary,#2563eb);transition:width .3s}
+.dsh-upd-progtxt{font-size:12.5px;opacity:.75}
+.dsh-upd-skipline{font-size:13px;margin-top:8px}
+.dsh-upd-skv{display:inline-block;min-width:64px;border-radius:3px;color:transparent !important;user-select:none;
+background:linear-gradient(90deg,var(--dsh-update-border,#e5e7eb) 25%,var(--dsh-update-bg-soft,#f3f4f6) 50%,var(--dsh-update-border,#e5e7eb) 75%);
+background-size:200% 100%;animation:dsh-upd-shimmer 1.2s linear infinite}
+@keyframes dsh-upd-shimmer{to{background-position:-200% 0}}
+.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:12px}
+.dsh-upd-err{font-size:13px;margin:0 0 6px}
+.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}
+.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-update-focus,#2563eb)}
+.dsh-upd button[data-primary="1"]:hover:not(:disabled){filter:brightness(.93)}
+.dsh-upd button:active:not(:disabled){transform:translateY(1px)}
+.dsh-upd button[aria-busy="true"]{cursor:wait;animation:dsh-upd-pulse 1s ease-in-out infinite}
+@keyframes dsh-upd-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.dsh-upd-banner{animation:dsh-upd-fadein .22s ease}
+@keyframes dsh-upd-fadein{from{opacity:.35;transform:translateY(2px)}}
+.dsh-upd-changelog-foldbox{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .22s ease,opacity .18s ease}
+.dsh-upd-changelog-foldbox-inner{min-height:0;overflow:hidden}
+.dsh-upd-changelog-foldbox[data-open="0"]{grid-template-rows:0fr;opacity:0}
+.dsh-upd button[aria-busy="true"]::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;vertical-align:-1px;
+border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:dsh-upd-spin .8s linear infinite}
+@keyframes dsh-upd-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}.dsh-upd-banner{animation:none}.dsh-upd-changelog-foldbox{transition:none}}
+@media (forced-colors: active){.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{background:Canvas}}
+.dsh-upd{overflow-anchor:none}
+.dsh-upd-body{overflow-anchor:none}
+.dsh-upd-actions{display:flex;flex-wrap:wrap;align-items:center;min-height:34px}
+.dsh-upd-actions button:first-child{min-width:8em;text-align:center}
+.dsh-upd-actions button[data-primary="1"]{min-width:7em;text-align:center}
+.dsh-upd-actions button:first-child:not([aria-busy="true"])::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;visibility:hidden}
+.dsh-upd-banner{min-height:1.2em}
+.dsh-upd-strip{min-height:48px}
+@media (prefers-color-scheme: dark){.dsh-upd{--dsh-update-text:#e5e7eb;--dsh-update-bg:#111827;--dsh-update-border:#374151;
+--dsh-update-button-bg:#1f2937;--dsh-update-bg-soft:#1f2937;--dsh-update-primary:#3b82f6;--dsh-update-focus:#93c5fd;
+--dsh-update-ok-bg:rgba(16,185,129,.14);--dsh-update-ok-border:#34d399;
+--dsh-update-warn-bg:rgba(245,158,11,.16);--dsh-update-warn-border:#fbbf24;
+--dsh-update-bad-bg:rgba(239,68,68,.16);--dsh-update-bad-border:#f87171;
+--dsh-update-busy-bg:rgba(59,130,246,.16);--dsh-update-busy-border:#60a5fa}}</style>
+<div class="dsh-upd-overlay" data-mode="dialog"><div class="dsh-upd" data-mode="dialog" data-plugin="my-notes-plugin" data-seal="可装" data-seal-tone="green">
+<div class="dsh-upd-masthead"><span class="dsh-upd-masthead-kicker">插件更新</span><span class="dsh-upd-masthead-title">更新档案 <i>卷</i></span></div>
+<div class="dsh-upd-head"><span class="dsh-upd-name">my-notes-plugin</span><span class="dsh-upd-meta">使用范围 <b>desktop</b><span class="dsh-upd-proftag">profile</span></span></div>
+<div class="dsh-upd-banner" data-kind="update" data-mini="装" role="status" aria-live="polite">
+<div><strong>有新版 1.1.0 可装（当前 1.0.0）。</strong></div>
+<div>点安装即走精确版本安装；同一使用范围同时只装一个。</div>
+</div>
+<div class="dsh-upd-strip"><div><span class="dsh-upd-strip-k">运行</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">磁盘</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">远端</span><span class="dsh-upd-strip-v">1.1.0</span></div></div>
+<div class="dsh-upd-body"><section class="dsh-upd-chapter" data-chapter="01"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">01</span><h3 class="dsh-upd-chap-title">检查与安装</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-actions"><button type="button" data-action="check" title="重新向官方源查一次新版（只读，不安装）">查新版</button><button type="button" data-action="install" data-primary="1" title="用精确版本安装；同一使用范围同时只装一个">安装 1.1.0</button><button type="button" data-action="skip" title="该版本不再提醒；有更新的新版本照常提醒">跳过该版本</button><button type="button" data-action="copy-manual" title="复制手工命令，粘到终端整行执行">复制手工命令</button><button type="button" data-action="copy-diag" title="复制已脱敏诊断，直接粘给插件作者">复制诊断</button></div></section>
+<section class="dsh-upd-chapter" data-chapter="02"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">02</span><h3 class="dsh-upd-chap-title">更新日志</h3><span class="dsh-upd-chap-rule"></span><span class="dsh-upd-chap-note"><button type="button" data-action="toggle-changelog" title="展开或收起更新日志">收起更新日志</button></span></div><div class="dsh-upd-changelog-wrap"><div>更新说明（1.0.0 → 1.1.0）：</div><div class="dsh-upd-changelog-foldbox" data-open="1"><div class="dsh-upd-changelog-foldbox-inner">
+<div class="dsh-upd-changelog">
+<div class="dsh-upd-changelog-version" data-version="1.1.0">
+<div class="dsh-upd-changelog-title">1.1.0 · 2026-10-06</div>
+<div class="dsh-upd-changelog-cat" data-cat="Added">
+<div class="dsh-upd-changelog-catname">新增（Added）</div>
+<ul>
+<li>主题变量覆盖 themeTokens：四个挂载口同收同语义，非法挂载即抛；控制器新增 setThemeTokens。</li>
+<li>入口件聚合口径与批量总账同一份数法。</li>
+</ul>
+</div>
+<div class="dsh-upd-changelog-cat" data-cat="Fixed">
+<div class="dsh-upd-changelog-catname">修复（Fixed）</div>
+<ul>
+<li>深色下横幅白底浅字回归修复。</li>
+</ul>
+</div>
+</div>
+</div>
+</div></div></div></section>
+<section class="dsh-upd-chapter" data-chapter="03"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">03</span><h3 class="dsh-upd-chap-title">更新队列</h3><span class="dsh-upd-chap-rule"></span><span class="dsh-upd-chap-note"><button type="button" data-action="toggle-queue">隐藏他人明细</button></span></div><div class="dsh-upd-queue"><div class="dsh-upd-qrow"><span class="dsh-upd-qdot" data-tone="busy"></span><span class="dsh-upd-qk">正在安装</span><span class="dsh-upd-qv">本插件@1.1.0</span><span class="dsh-upd-qn">装完自动轮到你</span></div><div class="dsh-upd-qrow"><span class="dsh-upd-qdot" data-tone="you"></span><span class="dsh-upd-qk">你的顺位</span><span class="dsh-upd-qv">第 2 位</span><span class="dsh-upd-qn">前方 1 个</span></div><div class="dsh-upd-qrow"><span class="dsh-upd-qdot"></span><span class="dsh-upd-qk">排队顺序</span><span class="dsh-upd-qseq">alpha-notes@1.2.3 → beta-notes@2.0.0</span></div></div></section>
+<section class="dsh-upd-chapter" data-chapter="04"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">04</span><h3 class="dsh-upd-chap-title">错误信息</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断给出的是当前状态快照。</div><div class="dsh-upd-log">深挖看日志：按插件标识 <code>my-notes-plugin</code> 过滤 <code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 三个事件。</div></section>
+<section class="dsh-upd-chapter" data-chapter="05"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">05</span><h3 class="dsh-upd-chap-title">手工命令</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-manual"><div>手工兜底命令（复制整行执行）：</div><code>dsh plugin --profile desktop add --save-exact my-notes-plugin@1.1.0 --registry=https://registry.npmjs.org/</code></div></section></div>
+<div class="dsh-upd-footer"><span class="dsh-upd-foot-note">关闭不影响更新，可随时回来查看</span><button type="button" data-action="close-view" title="关闭窗口，更新不受影响">关闭</button></div>
+</div></div></div></div></section><section class="variant" id="vC"><div class="variant-intro"><b>C — 聚焦一次一章</b>：顶部步骤条由真实 5 章标题生成，一次一章。</div><div class="stage"><div style="width:100%;display:flex;justify-content:center"><div style="width:100%;max-width:620px;background:#fff;border-radius:10px;padding:14px 16px;"><div class="cbar" id="cbar"></div><div class="proto-host"><style>.dsh-upd{font:14px/1.6 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);
+background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;
+--dsh-update-ok-bg:#ecfdf5;--dsh-update-ok-border:#059669;--dsh-update-warn-bg:#fffbeb;--dsh-update-warn-border:#d97706;
+--dsh-update-bad-bg:#fef2f2;--dsh-update-bad-border:#dc2626;--dsh-update-busy-bg:#eff6ff;--dsh-update-busy-border:#2563eb}
+.dsh-upd *{box-sizing:border-box}
+.dsh-upd button{font:inherit;border:1px solid var(--dsh-update-border-strong,#d1d5db);border-radius:var(--dsh-update-radius-button,6px);background:var(--dsh-update-button-bg,#f9fafb);
+color:inherit;padding:4px 12px;cursor:pointer;margin:2px 6px 2px 0}
+.dsh-upd button:disabled{opacity:.45;cursor:not-allowed}
+.dsh-upd button:focus-visible{outline:2px solid var(--dsh-update-focus,#2563eb);outline-offset:1px}
+.dsh-upd button[data-primary="1"]{background:var(--dsh-update-primary,#2563eb);border-color:var(--dsh-update-primary,#2563eb);color:#fff}
+.dsh-upd-banner{border-left:4px solid var(--dsh-update-border,#9ca3af);padding:6px 10px;margin:0 0 8px;background:var(--dsh-update-bg-soft,#f3f4f6)}
+.dsh-upd-banner[data-kind="restart"]{border-color:var(--dsh-update-warn-border);background:var(--dsh-update-warn-bg)}
+.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-update-bad-border);background:var(--dsh-update-bad-bg)}
+.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}
+.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-update-busy-border);background:var(--dsh-update-busy-bg)}
+.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:4px 0;font-size:13px}
+.dsh-upd-changelog-wrap{margin:4px 0 0;font-size:13px}
+.dsh-upd-changelog-title{font-weight:700;margin:0 0 4px}
+.dsh-upd-changelog-version{margin:6px 0}
+.dsh-upd-changelog-catname{font-weight:600;margin:6px 0 2px}
+.dsh-upd-changelog ul{margin:2px 0 6px 20px;padding:0}
+.dsh-upd-changelog li{margin:2px 0}
+.dsh-upd-changelog-fold{margin:4px 0}
+.dsh-upd-changelog-fold>summary{cursor:pointer}
+.dsh-upd-changelog-count{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-yanked{border-left:4px solid var(--dsh-update-warn-border,#d97706);background:var(--dsh-update-warn-bg,#fffbeb);padding:6px 10px;margin:6px 0;font-size:13px}
+.dsh-upd-breaking-badge{display:inline-block;font-size:11px;font-weight:700;border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:baseline}
+.dsh-upd-changelog-security-more{margin:4px 0 6px}
+.dsh-upd-changelog-security-more>summary{cursor:pointer;font-size:12px;opacity:.8}
+.dsh-upd-changelog-more-note{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-neutral{color:inherit;opacity:.8}
+.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}
+.dsh-upd-overlay .dsh-upd{background:var(--dsh-update-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.dsh-upd-body{min-height:0}
+.dsh-upd-overlay .dsh-upd-body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsh-update-border,#e5e7eb) transparent}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar{width:8px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-update-border,#e5e7eb);border-radius:4px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-track{background:transparent}
+.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{position:sticky;top:0;z-index:1;background:var(--dsh-update-bg,#ffffff);padding-top:2px}
+.dsh-upd-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.dsh-upd-masthead{display:none}
+.dsh-upd-name{font-weight:700}
+.dsh-upd-meta{font-size:12.5px;opacity:.75}
+.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:11px;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}
+.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;font-size:12.5px}
+.dsh-upd-strip>div{flex:1 1 110px;padding:6px 10px;border-left:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-strip>div:first-child{border-left:0}
+.dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.14em;opacity:.7}
+.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px}
+.dsh-upd-chapter{margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-foot-note{margin-right:auto;font-size:12px;opacity:.7}
+.dsh-upd-footer button{margin:0}
+.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}
+.dsh-upd-chap-title{font-size:14px;margin:0}
+.dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}
+.dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}
+.dsh-upd-chap-note button{margin:0}
+.dsh-upd-qrow{display:flex;align-items:baseline;gap:10px;padding:6px 0}
+.dsh-upd-qrow+.dsh-upd-qrow{border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-qdot{width:8px;height:8px;border-radius:50%;flex:none;align-self:center;background:currentColor;opacity:.5}
+.dsh-upd-qdot[data-tone="busy"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}
+.dsh-upd-qdot[data-tone="you"]{background:var(--dsh-update-primary,#2563eb);opacity:1}
+.dsh-upd-qk{flex:none;width:5.5em;font-size:12px;opacity:.7}
+.dsh-upd-qv{font-weight:600}
+.dsh-upd-qn{margin-left:auto;font-size:12px;opacity:.7}
+.dsh-upd-qseq{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-prog{height:8px;background:var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;margin:10px 0 4px}
+.dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary,#2563eb);transition:width .3s}
+.dsh-upd-progtxt{font-size:12.5px;opacity:.75}
+.dsh-upd-skipline{font-size:13px;margin-top:8px}
+.dsh-upd-skv{display:inline-block;min-width:64px;border-radius:3px;color:transparent !important;user-select:none;
+background:linear-gradient(90deg,var(--dsh-update-border,#e5e7eb) 25%,var(--dsh-update-bg-soft,#f3f4f6) 50%,var(--dsh-update-border,#e5e7eb) 75%);
+background-size:200% 100%;animation:dsh-upd-shimmer 1.2s linear infinite}
+@keyframes dsh-upd-shimmer{to{background-position:-200% 0}}
+.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:12px}
+.dsh-upd-err{font-size:13px;margin:0 0 6px}
+.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}
+.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-update-focus,#2563eb)}
+.dsh-upd button[data-primary="1"]:hover:not(:disabled){filter:brightness(.93)}
+.dsh-upd button:active:not(:disabled){transform:translateY(1px)}
+.dsh-upd button[aria-busy="true"]{cursor:wait;animation:dsh-upd-pulse 1s ease-in-out infinite}
+@keyframes dsh-upd-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.dsh-upd-banner{animation:dsh-upd-fadein .22s ease}
+@keyframes dsh-upd-fadein{from{opacity:.35;transform:translateY(2px)}}
+.dsh-upd-changelog-foldbox{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .22s ease,opacity .18s ease}
+.dsh-upd-changelog-foldbox-inner{min-height:0;overflow:hidden}
+.dsh-upd-changelog-foldbox[data-open="0"]{grid-template-rows:0fr;opacity:0}
+.dsh-upd button[aria-busy="true"]::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;vertical-align:-1px;
+border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:dsh-upd-spin .8s linear infinite}
+@keyframes dsh-upd-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}.dsh-upd-banner{animation:none}.dsh-upd-changelog-foldbox{transition:none}}
+@media (forced-colors: active){.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{background:Canvas}}
+.dsh-upd{overflow-anchor:none}
+.dsh-upd-body{overflow-anchor:none}
+.dsh-upd-actions{display:flex;flex-wrap:wrap;align-items:center;min-height:34px}
+.dsh-upd-actions button:first-child{min-width:8em;text-align:center}
+.dsh-upd-actions button[data-primary="1"]{min-width:7em;text-align:center}
+.dsh-upd-actions button:first-child:not([aria-busy="true"])::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;visibility:hidden}
+.dsh-upd-banner{min-height:1.2em}
+.dsh-upd-strip{min-height:48px}
+@media (prefers-color-scheme: dark){.dsh-upd{--dsh-update-text:#e5e7eb;--dsh-update-bg:#111827;--dsh-update-border:#374151;
+--dsh-update-button-bg:#1f2937;--dsh-update-bg-soft:#1f2937;--dsh-update-primary:#3b82f6;--dsh-update-focus:#93c5fd;
+--dsh-update-ok-bg:rgba(16,185,129,.14);--dsh-update-ok-border:#34d399;
+--dsh-update-warn-bg:rgba(245,158,11,.16);--dsh-update-warn-border:#fbbf24;
+--dsh-update-bad-bg:rgba(239,68,68,.16);--dsh-update-bad-border:#f87171;
+--dsh-update-busy-bg:rgba(59,130,246,.16);--dsh-update-busy-border:#60a5fa}}</style>
+<div class="dsh-upd-overlay" data-mode="dialog"><div class="dsh-upd" data-mode="dialog" data-plugin="my-notes-plugin" data-seal="可装" data-seal-tone="green">
+<div class="dsh-upd-masthead"><span class="dsh-upd-masthead-kicker">插件更新</span><span class="dsh-upd-masthead-title">更新档案 <i>卷</i></span></div>
+<div class="dsh-upd-head"><span class="dsh-upd-name">my-notes-plugin</span><span class="dsh-upd-meta">使用范围 <b>desktop</b><span class="dsh-upd-proftag">profile</span></span></div>
+<div class="dsh-upd-banner" data-kind="update" data-mini="装" role="status" aria-live="polite">
+<div><strong>有新版 1.1.0 可装（当前 1.0.0）。</strong></div>
+<div>点安装即走精确版本安装；同一使用范围同时只装一个。</div>
+</div>
+<div class="dsh-upd-strip"><div><span class="dsh-upd-strip-k">运行</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">磁盘</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">远端</span><span class="dsh-upd-strip-v">1.1.0</span></div></div>
+<div class="dsh-upd-body"><section class="dsh-upd-chapter" data-chapter="01"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">01</span><h3 class="dsh-upd-chap-title">检查与安装</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-actions"><button type="button" data-action="check" title="重新向官方源查一次新版（只读，不安装）">查新版</button><button type="button" data-action="install" data-primary="1" title="用精确版本安装；同一使用范围同时只装一个">安装 1.1.0</button><button type="button" data-action="skip" title="该版本不再提醒；有更新的新版本照常提醒">跳过该版本</button><button type="button" data-action="copy-manual" title="复制手工命令，粘到终端整行执行">复制手工命令</button><button type="button" data-action="copy-diag" title="复制已脱敏诊断，直接粘给插件作者">复制诊断</button></div></section>
+<section class="dsh-upd-chapter" data-chapter="02"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">02</span><h3 class="dsh-upd-chap-title">更新日志</h3><span class="dsh-upd-chap-rule"></span><span class="dsh-upd-chap-note"><button type="button" data-action="toggle-changelog" title="展开或收起更新日志">收起更新日志</button></span></div><div class="dsh-upd-changelog-wrap"><div>更新说明（1.0.0 → 1.1.0）：</div><div class="dsh-upd-changelog-foldbox" data-open="1"><div class="dsh-upd-changelog-foldbox-inner">
+<div class="dsh-upd-changelog">
+<div class="dsh-upd-changelog-version" data-version="1.1.0">
+<div class="dsh-upd-changelog-title">1.1.0 · 2026-10-06</div>
+<div class="dsh-upd-changelog-cat" data-cat="Added">
+<div class="dsh-upd-changelog-catname">新增（Added）</div>
+<ul>
+<li>主题变量覆盖 themeTokens：四个挂载口同收同语义，非法挂载即抛；控制器新增 setThemeTokens。</li>
+<li>入口件聚合口径与批量总账同一份数法。</li>
+</ul>
+</div>
+<div class="dsh-upd-changelog-cat" data-cat="Fixed">
+<div class="dsh-upd-changelog-catname">修复（Fixed）</div>
+<ul>
+<li>深色下横幅白底浅字回归修复。</li>
+</ul>
+</div>
+</div>
+</div>
+</div></div></div></section>
+<section class="dsh-upd-chapter" data-chapter="03"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">03</span><h3 class="dsh-upd-chap-title">更新队列</h3><span class="dsh-upd-chap-rule"></span><span class="dsh-upd-chap-note"><button type="button" data-action="toggle-queue">隐藏他人明细</button></span></div><div class="dsh-upd-queue"><div class="dsh-upd-qrow"><span class="dsh-upd-qdot" data-tone="busy"></span><span class="dsh-upd-qk">正在安装</span><span class="dsh-upd-qv">本插件@1.1.0</span><span class="dsh-upd-qn">装完自动轮到你</span></div><div class="dsh-upd-qrow"><span class="dsh-upd-qdot" data-tone="you"></span><span class="dsh-upd-qk">你的顺位</span><span class="dsh-upd-qv">第 2 位</span><span class="dsh-upd-qn">前方 1 个</span></div><div class="dsh-upd-qrow"><span class="dsh-upd-qdot"></span><span class="dsh-upd-qk">排队顺序</span><span class="dsh-upd-qseq">alpha-notes@1.2.3 → beta-notes@2.0.0</span></div></div></section>
+<section class="dsh-upd-chapter" data-chapter="04"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">04</span><h3 class="dsh-upd-chap-title">错误信息</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断给出的是当前状态快照。</div><div class="dsh-upd-log">深挖看日志：按插件标识 <code>my-notes-plugin</code> 过滤 <code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 三个事件。</div></section>
+<section class="dsh-upd-chapter" data-chapter="05"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">05</span><h3 class="dsh-upd-chap-title">手工命令</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-manual"><div>手工兜底命令（复制整行执行）：</div><code>dsh plugin --profile desktop add --save-exact my-notes-plugin@1.1.0 --registry=https://registry.npmjs.org/</code></div></section></div>
+<div class="dsh-upd-footer"><span class="dsh-upd-foot-note">关闭不影响更新，可随时回来查看</span><button type="button" data-action="close-view" title="关闭窗口，更新不受影响">关闭</button></div>
+</div></div></div><div class="cpager"><button id="cprev">上一步</button><button class="primary" id="cnext">下一步</button></div></div></div></div></section><section class="variant" id="vD"><div class="variant-intro"><b>D — 锚点导航</b>：780 宽、左锚点、右真实内容。</div><div class="stage"><div class="dwrap"><div class="dnav" id="dnav"></div><div class="dcol"><div class="proto-host"><style>.dsh-upd{font:14px/1.6 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);
+background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;
+--dsh-update-ok-bg:#ecfdf5;--dsh-update-ok-border:#059669;--dsh-update-warn-bg:#fffbeb;--dsh-update-warn-border:#d97706;
+--dsh-update-bad-bg:#fef2f2;--dsh-update-bad-border:#dc2626;--dsh-update-busy-bg:#eff6ff;--dsh-update-busy-border:#2563eb}
+.dsh-upd *{box-sizing:border-box}
+.dsh-upd button{font:inherit;border:1px solid var(--dsh-update-border-strong,#d1d5db);border-radius:var(--dsh-update-radius-button,6px);background:var(--dsh-update-button-bg,#f9fafb);
+color:inherit;padding:4px 12px;cursor:pointer;margin:2px 6px 2px 0}
+.dsh-upd button:disabled{opacity:.45;cursor:not-allowed}
+.dsh-upd button:focus-visible{outline:2px solid var(--dsh-update-focus,#2563eb);outline-offset:1px}
+.dsh-upd button[data-primary="1"]{background:var(--dsh-update-primary,#2563eb);border-color:var(--dsh-update-primary,#2563eb);color:#fff}
+.dsh-upd-banner{border-left:4px solid var(--dsh-update-border,#9ca3af);padding:6px 10px;margin:0 0 8px;background:var(--dsh-update-bg-soft,#f3f4f6)}
+.dsh-upd-banner[data-kind="restart"]{border-color:var(--dsh-update-warn-border);background:var(--dsh-update-warn-bg)}
+.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-update-bad-border);background:var(--dsh-update-bad-bg)}
+.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}
+.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-update-busy-border);background:var(--dsh-update-busy-bg)}
+.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:4px 0;font-size:13px}
+.dsh-upd-changelog-wrap{margin:4px 0 0;font-size:13px}
+.dsh-upd-changelog-title{font-weight:700;margin:0 0 4px}
+.dsh-upd-changelog-version{margin:6px 0}
+.dsh-upd-changelog-catname{font-weight:600;margin:6px 0 2px}
+.dsh-upd-changelog ul{margin:2px 0 6px 20px;padding:0}
+.dsh-upd-changelog li{margin:2px 0}
+.dsh-upd-changelog-fold{margin:4px 0}
+.dsh-upd-changelog-fold>summary{cursor:pointer}
+.dsh-upd-changelog-count{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-yanked{border-left:4px solid var(--dsh-update-warn-border,#d97706);background:var(--dsh-update-warn-bg,#fffbeb);padding:6px 10px;margin:6px 0;font-size:13px}
+.dsh-upd-breaking-badge{display:inline-block;font-size:11px;font-weight:700;border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:baseline}
+.dsh-upd-changelog-security-more{margin:4px 0 6px}
+.dsh-upd-changelog-security-more>summary{cursor:pointer;font-size:12px;opacity:.8}
+.dsh-upd-changelog-more-note{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-neutral{color:inherit;opacity:.8}
+.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}
+.dsh-upd-overlay .dsh-upd{background:var(--dsh-update-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.dsh-upd-body{min-height:0}
+.dsh-upd-overlay .dsh-upd-body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsh-update-border,#e5e7eb) transparent}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar{width:8px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-update-border,#e5e7eb);border-radius:4px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-track{background:transparent}
+.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{position:sticky;top:0;z-index:1;background:var(--dsh-update-bg,#ffffff);padding-top:2px}
+.dsh-upd-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.dsh-upd-masthead{display:none}
+.dsh-upd-name{font-weight:700}
+.dsh-upd-meta{font-size:12.5px;opacity:.75}
+.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:11px;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}
+.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;font-size:12.5px}
+.dsh-upd-strip>div{flex:1 1 110px;padding:6px 10px;border-left:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-strip>div:first-child{border-left:0}
+.dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.14em;opacity:.7}
+.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px}
+.dsh-upd-chapter{margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-foot-note{margin-right:auto;font-size:12px;opacity:.7}
+.dsh-upd-footer button{margin:0}
+.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}
+.dsh-upd-chap-title{font-size:14px;margin:0}
+.dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}
+.dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}
+.dsh-upd-chap-note button{margin:0}
+.dsh-upd-qrow{display:flex;align-items:baseline;gap:10px;padding:6px 0}
+.dsh-upd-qrow+.dsh-upd-qrow{border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-qdot{width:8px;height:8px;border-radius:50%;flex:none;align-self:center;background:currentColor;opacity:.5}
+.dsh-upd-qdot[data-tone="busy"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}
+.dsh-upd-qdot[data-tone="you"]{background:var(--dsh-update-primary,#2563eb);opacity:1}
+.dsh-upd-qk{flex:none;width:5.5em;font-size:12px;opacity:.7}
+.dsh-upd-qv{font-weight:600}
+.dsh-upd-qn{margin-left:auto;font-size:12px;opacity:.7}
+.dsh-upd-qseq{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-prog{height:8px;background:var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;margin:10px 0 4px}
+.dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary,#2563eb);transition:width .3s}
+.dsh-upd-progtxt{font-size:12.5px;opacity:.75}
+.dsh-upd-skipline{font-size:13px;margin-top:8px}
+.dsh-upd-skv{display:inline-block;min-width:64px;border-radius:3px;color:transparent !important;user-select:none;
+background:linear-gradient(90deg,var(--dsh-update-border,#e5e7eb) 25%,var(--dsh-update-bg-soft,#f3f4f6) 50%,var(--dsh-update-border,#e5e7eb) 75%);
+background-size:200% 100%;animation:dsh-upd-shimmer 1.2s linear infinite}
+@keyframes dsh-upd-shimmer{to{background-position:-200% 0}}
+.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:12px}
+.dsh-upd-err{font-size:13px;margin:0 0 6px}
+.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}
+.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-update-focus,#2563eb)}
+.dsh-upd button[data-primary="1"]:hover:not(:disabled){filter:brightness(.93)}
+.dsh-upd button:active:not(:disabled){transform:translateY(1px)}
+.dsh-upd button[aria-busy="true"]{cursor:wait;animation:dsh-upd-pulse 1s ease-in-out infinite}
+@keyframes dsh-upd-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.dsh-upd-banner{animation:dsh-upd-fadein .22s ease}
+@keyframes dsh-upd-fadein{from{opacity:.35;transform:translateY(2px)}}
+.dsh-upd-changelog-foldbox{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .22s ease,opacity .18s ease}
+.dsh-upd-changelog-foldbox-inner{min-height:0;overflow:hidden}
+.dsh-upd-changelog-foldbox[data-open="0"]{grid-template-rows:0fr;opacity:0}
+.dsh-upd button[aria-busy="true"]::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;vertical-align:-1px;
+border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:dsh-upd-spin .8s linear infinite}
+@keyframes dsh-upd-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}.dsh-upd-banner{animation:none}.dsh-upd-changelog-foldbox{transition:none}}
+@media (forced-colors: active){.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{background:Canvas}}
+.dsh-upd{overflow-anchor:none}
+.dsh-upd-body{overflow-anchor:none}
+.dsh-upd-actions{display:flex;flex-wrap:wrap;align-items:center;min-height:34px}
+.dsh-upd-actions button:first-child{min-width:8em;text-align:center}
+.dsh-upd-actions button[data-primary="1"]{min-width:7em;text-align:center}
+.dsh-upd-actions button:first-child:not([aria-busy="true"])::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;visibility:hidden}
+.dsh-upd-banner{min-height:1.2em}
+.dsh-upd-strip{min-height:48px}
+@media (prefers-color-scheme: dark){.dsh-upd{--dsh-update-text:#e5e7eb;--dsh-update-bg:#111827;--dsh-update-border:#374151;
+--dsh-update-button-bg:#1f2937;--dsh-update-bg-soft:#1f2937;--dsh-update-primary:#3b82f6;--dsh-update-focus:#93c5fd;
+--dsh-update-ok-bg:rgba(16,185,129,.14);--dsh-update-ok-border:#34d399;
+--dsh-update-warn-bg:rgba(245,158,11,.16);--dsh-update-warn-border:#fbbf24;
+--dsh-update-bad-bg:rgba(239,68,68,.16);--dsh-update-bad-border:#f87171;
+--dsh-update-busy-bg:rgba(59,130,246,.16);--dsh-update-busy-border:#60a5fa}}</style>
+<div class="dsh-upd-overlay" data-mode="dialog"><div class="dsh-upd" data-mode="dialog" data-plugin="my-notes-plugin" data-seal="可装" data-seal-tone="green">
+<div class="dsh-upd-masthead"><span class="dsh-upd-masthead-kicker">插件更新</span><span class="dsh-upd-masthead-title">更新档案 <i>卷</i></span></div>
+<div class="dsh-upd-head"><span class="dsh-upd-name">my-notes-plugin</span><span class="dsh-upd-meta">使用范围 <b>desktop</b><span class="dsh-upd-proftag">profile</span></span></div>
+<div class="dsh-upd-banner" data-kind="update" data-mini="装" role="status" aria-live="polite">
+<div><strong>有新版 1.1.0 可装（当前 1.0.0）。</strong></div>
+<div>点安装即走精确版本安装；同一使用范围同时只装一个。</div>
+</div>
+<div class="dsh-upd-strip"><div><span class="dsh-upd-strip-k">运行</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">磁盘</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">远端</span><span class="dsh-upd-strip-v">1.1.0</span></div></div>
+<div class="dsh-upd-body"><section class="dsh-upd-chapter" data-chapter="01"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">01</span><h3 class="dsh-upd-chap-title">检查与安装</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-actions"><button type="button" data-action="check" title="重新向官方源查一次新版（只读，不安装）">查新版</button><button type="button" data-action="install" data-primary="1" title="用精确版本安装；同一使用范围同时只装一个">安装 1.1.0</button><button type="button" data-action="skip" title="该版本不再提醒；有更新的新版本照常提醒">跳过该版本</button><button type="button" data-action="copy-manual" title="复制手工命令，粘到终端整行执行">复制手工命令</button><button type="button" data-action="copy-diag" title="复制已脱敏诊断，直接粘给插件作者">复制诊断</button></div></section>
+<section class="dsh-upd-chapter" data-chapter="02"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">02</span><h3 class="dsh-upd-chap-title">更新日志</h3><span class="dsh-upd-chap-rule"></span><span class="dsh-upd-chap-note"><button type="button" data-action="toggle-changelog" title="展开或收起更新日志">收起更新日志</button></span></div><div class="dsh-upd-changelog-wrap"><div>更新说明（1.0.0 → 1.1.0）：</div><div class="dsh-upd-changelog-foldbox" data-open="1"><div class="dsh-upd-changelog-foldbox-inner">
+<div class="dsh-upd-changelog">
+<div class="dsh-upd-changelog-version" data-version="1.1.0">
+<div class="dsh-upd-changelog-title">1.1.0 · 2026-10-06</div>
+<div class="dsh-upd-changelog-cat" data-cat="Added">
+<div class="dsh-upd-changelog-catname">新增（Added）</div>
+<ul>
+<li>主题变量覆盖 themeTokens：四个挂载口同收同语义，非法挂载即抛；控制器新增 setThemeTokens。</li>
+<li>入口件聚合口径与批量总账同一份数法。</li>
+</ul>
+</div>
+<div class="dsh-upd-changelog-cat" data-cat="Fixed">
+<div class="dsh-upd-changelog-catname">修复（Fixed）</div>
+<ul>
+<li>深色下横幅白底浅字回归修复。</li>
+</ul>
+</div>
+</div>
+</div>
+</div></div></div></section>
+<section class="dsh-upd-chapter" data-chapter="03"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">03</span><h3 class="dsh-upd-chap-title">更新队列</h3><span class="dsh-upd-chap-rule"></span><span class="dsh-upd-chap-note"><button type="button" data-action="toggle-queue">隐藏他人明细</button></span></div><div class="dsh-upd-queue"><div class="dsh-upd-qrow"><span class="dsh-upd-qdot" data-tone="busy"></span><span class="dsh-upd-qk">正在安装</span><span class="dsh-upd-qv">本插件@1.1.0</span><span class="dsh-upd-qn">装完自动轮到你</span></div><div class="dsh-upd-qrow"><span class="dsh-upd-qdot" data-tone="you"></span><span class="dsh-upd-qk">你的顺位</span><span class="dsh-upd-qv">第 2 位</span><span class="dsh-upd-qn">前方 1 个</span></div><div class="dsh-upd-qrow"><span class="dsh-upd-qdot"></span><span class="dsh-upd-qk">排队顺序</span><span class="dsh-upd-qseq">alpha-notes@1.2.3 → beta-notes@2.0.0</span></div></div></section>
+<section class="dsh-upd-chapter" data-chapter="04"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">04</span><h3 class="dsh-upd-chap-title">错误信息</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断给出的是当前状态快照。</div><div class="dsh-upd-log">深挖看日志：按插件标识 <code>my-notes-plugin</code> 过滤 <code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 三个事件。</div></section>
+<section class="dsh-upd-chapter" data-chapter="05"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">05</span><h3 class="dsh-upd-chap-title">手工命令</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-manual"><div>手工兜底命令（复制整行执行）：</div><code>dsh plugin --profile desktop add --save-exact my-notes-plugin@1.1.0 --registry=https://registry.npmjs.org/</code></div></section></div>
+<div class="dsh-upd-footer"><span class="dsh-upd-foot-note">关闭不影响更新，可随时回来查看</span><button type="button" data-action="close-view" title="关闭窗口，更新不受影响">关闭</button></div>
+</div></div></div></div></div></div></section></main><div id="switcher"><button id="prev">L</button><div class="lbl"><span id="cur">A</span><small id="sub"></small></div><button id="next">R</button></div><script>(function(){var names={A:"A 最小修复",B:"B 呼吸卡片",C:"C 聚焦一次一章",D:"D 锚点导航"};var order=["A","B","C","D"];function cur(){var m=new URLSearchParams(location.search).get("variant");m=(m||"A").toUpperCase();return names[m]?m:"A";}function show(k){order.forEach(function(key){var el=document.getElementById("v"+key);if(el)el.classList.toggle("active",key===k);});document.getElementById("cur").textContent=names[k];document.getElementById("sub").textContent="?variant="+k+" 可分享";var u=new URL(location.href);u.searchParams.set("variant",k);history.replaceState(null,"",u);}document.getElementById("prev").onclick=function(){var i=order.indexOf(cur());show(order[(i+order.length-1)%order.length]);};document.getElementById("next").onclick=function(){var i=order.indexOf(cur());show(order[(i+1)%order.length]);};show(cur());try{var chaps=document.querySelectorAll("#vC .dsh-upd-chapter");var bar=document.getElementById("cbar");var idx=0;chaps.forEach(function(ch,i){var t=ch.querySelector(".dsh-upd-chap-title");var label=t?t.textContent.trim():("0"+(i+1));var b=document.createElement("button");b.textContent=("0"+(i+1)+" "+label).slice(0,14);b.onclick=function(){cgo(i);};bar.appendChild(b);});var btns=bar.querySelectorAll("button");function cgo(i){idx=i;chaps.forEach(function(ch,j){ch.style.display=j===i?"":"none";});btns.forEach(function(b,j){b.classList.toggle("on",j===i);b.classList.toggle("done",j<i);});}document.getElementById("cprev").onclick=function(){cgo((idx+chaps.length-1)%chaps.length);};document.getElementById("cnext").onclick=function(){cgo((idx+1)%chaps.length);};cgo(0);}catch(e){}try{var dchaps=document.querySelectorAll("#vD .dsh-upd-chapter");var nav=document.getElementById("dnav");dchaps.forEach(function(ch,i){var t=ch.querySelector(".dsh-upd-chap-title");var label=t?t.textContent.trim():("0"+(i+1));var b=document.createElement("button");b.textContent=("0"+(i+1)+" "+label).slice(0,12);if(i===0)b.classList.add("on");b.onclick=function(){nav.querySelectorAll("button").forEach(function(x){x.classList.remove("on");});b.classList.add("on");ch.scrollIntoView({behavior:"smooth",block:"start"});};nav.appendChild(b);});}catch(e){}})();</script></body></html>
