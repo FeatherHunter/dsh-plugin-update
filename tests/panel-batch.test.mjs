@@ -186,8 +186,11 @@ describe('明细：一行一家', () => {
     const html = box.innerHTML
     assert.equal((html.match(/class="dsh-upd-brow"/g) || []).length, 3, '一行一家，恰好 N 行')
     assert.ok(html.includes('甲插件') && html.includes('乙插件') && html.includes('丙插件'))
-    assert.ok(html.includes('1.0.0 → 1.2.0'), '当前版本 → 远端版本要照给')
-    assert.ok(html.includes('1.5.0 → 2.0.0'), '当前版本取该家自己的运行版')
+    assert.ok(html.includes('dsh-upd-bver-cur">1.0.0'), '当前版本要照给（#71 三段式老版本）')
+    assert.ok(html.includes('dsh-upd-bver-new">1.2.0'), '远端新版要照给且走专用红（#71 只红新版）')
+    assert.ok(html.includes('dsh-upd-bver-arrow'), '箭头中性段保留（#71 第二信号之外）')
+    assert.ok(html.includes('dsh-upd-bver-cur">1.5.0'), '当前版本取该家自己的运行版')
+    assert.ok(html.includes('dsh-upd-bver-new">2.0.0'), '该家自己的远端版同样三段式')
     assert.ok(html.includes('<span class="dsh-upd-updot" data-tone="todo">'), '可更新那家的灯')
     assert.ok(html.includes('data-act="row-install"'), '可更新那家有行内动作')
     panel.unmount()
@@ -195,7 +198,7 @@ describe('明细：一行一家', () => {
 
   it('每行一句可执行的状态词：来自 phase、是中文、不是相位英文', () => {
     const cases = {
-      pending: '等它，轮到就自动查新版',
+      pending: '还没查过',
       checking: '正在查新版，稍等',
       ready: '点「安装这家」安装 1.2.0',
       installing: '正在安装，别动',
@@ -212,8 +215,14 @@ describe('明细：一行一家', () => {
       const got = html.slice(at + marker.length, html.indexOf('</span>', at))
       assert.equal(got, word, phase + ' 的状态词')
       assert.ok(!got.includes(phase), phase + ' 不许把相位英文写给人看')
-      assert.equal(batchRowStatus(rowOf({ phase })), word)
+      if (phase !== 'pending') assert.equal(batchRowStatus(rowOf({ phase })), word)
     }
+    // #71 Q3：无轮次 pending 不再误显示 wait-turn；有轮次才走执行态。
+    assert.equal(batchRowStatus(rowOf({ phase: 'pending' })), '等它，轮到就自动查新版', 'batchRowStatus 语义冻结，旧快照不动')
+    const inRoundSession = { version: 1, id: 's', selfKey: null, stopOnFailure: false, order: ['a'], entries: [{ key: 'a', phase: 'pending', requestId: 'r', targetVersion: null, restartRequired: false, error: null, updatedAt: 0 }], createdAt: 0, updatedAt: 0 }
+    const inRound = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase: 'pending' })], session: inRoundSession, lang: 'zh' })
+    assert.ok(inRound.includes('等它，轮到就自动查新版'), '有轮次未做完仍走执行态')
+    assert.ok(inRound.includes('上一批没做完'), '轮次事实小标记保留')
     const restart = renderBatchPanelHTML({ rows: [rowOf({ phase: 'done', restartRequired: true })] })
     assert.ok(restart.includes('安装好了，重启宿主才生效'), '待重启要说清下一步是重启')
   })

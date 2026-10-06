@@ -408,6 +408,63 @@ export function batchRowKnowledgeText(row: BatchRowView, entry: BatchKnowledgeEn
   return batchText('batch.row.never', lang)
 }
 
+/**
+ * 一行的版本展示（#71 Q3：永远显示当前版；有新版才 `当前 → 最新`）。
+ * latest 只做展示，不参与安装决策：会话目标版优先（安装语义），无会话目标时才看知识最新版。
+ * - 会话有目标版：current（快照运行版优先）→ 会话目标（current 缺失时占位 `?`，与旧口径一致）。
+ * - 会话无目标：current（快照优先，缺失退知识 installedVersion）→ 知识 latest（仅当两者皆有且不等；相等即已是最新，只显当前）。
+ * - 两者皆无：current 为 null、latest 为 null、hasUpdate 为 false（调用方不画版本 span）。
+ */
+export interface BatchRowVersionParts {
+  current: string | null
+  latest: string | null
+  hasUpdate: boolean
+}
+
+export function batchRowVersionParts(row: BatchRowView, knowledge: BatchKnowledgeEntry | null): BatchRowVersionParts {
+  const sessionTarget = typeof row.targetVersion === 'string' && row.targetVersion ? row.targetVersion : null
+  if (sessionTarget) {
+    const current = currentVersionOf(row)
+    if (current === null) return { current: null, latest: sessionTarget, hasUpdate: true }
+    if (current === sessionTarget) return { current, latest: null, hasUpdate: false }
+    return { current, latest: sessionTarget, hasUpdate: true }
+  }
+  const snapshotCurrent = currentVersionOf(row)
+  const current = snapshotCurrent ?? (knowledge && typeof knowledge.installedVersion === 'string' && knowledge.installedVersion ? knowledge.installedVersion : null)
+  const latest = knowledge && typeof knowledge.latestVersion === 'string' && knowledge.latestVersion ? knowledge.latestVersion : null
+  if (current && latest && latest !== current) return { current, latest, hasUpdate: true }
+  if (current) return { current, latest: null, hasUpdate: false }
+  if (latest) return { current: latest, latest: null, hasUpdate: false }
+  return { current: null, latest: null, hasUpdate: false }
+}
+
+/**
+ * 版本列 HTML（#71 Q1：只红新版本号，老版本弱化，箭头中性；红为第二信号，`→` + 加粗 + 状态词保留）。
+ * 有新版：`<cur> → <new>` 三段式（new 加粗 + 专用红 token）；无新版：只显当前；皆无：空串（调用方不画 span）。
+ */
+function batchRowVersionHTML(row: BatchRowView, knowledge: BatchKnowledgeEntry | null): string {
+  const parts = batchRowVersionParts(row, knowledge)
+  if (parts.hasUpdate && parts.latest) {
+    const cur = parts.current ?? '?'
+    return '<span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">' + escapeHtml(cur) + '</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">' + escapeHtml(parts.latest) + '</span></span>'
+  }
+  if (parts.current) return '<span class="dsh-upd-bver">' + escapeHtml(parts.current) + '</span>'
+  return ''
+}
+
+/**
+ * 无轮次 pending 行的状态词（#71 Q3 四态：有新版 / 已是最新 / 还没查过 / 查失败）。
+ * 有知识走知识分支；无知识（inventory 缺失或该家无条目）回「还没查过」，不再误显示 wait-turn。
+ * 有轮次未做完（inRound）仍走执行态，由调用方按旧口径显示 wait-turn + 未终态标记。
+ */
+export function batchRowPendingStatus(row: BatchRowView, knowledge: BatchKnowledgeEntry | null, lang?: unknown): string | null {
+  if (asBatchPhase(row.phase) !== 'pending') return null
+  const known = batchRowKnowledgeText(row, knowledge, lang)
+  if (known !== null) return known
+  if (!knowledge) return batchText('batch.row.never', lang)
+  return null
+}
+
 // ---------- 渲染（纯函数：同一输入 → 同一份 HTML） ----------
 
 export interface BatchPanelRenderInput {
@@ -720,12 +777,12 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const skipped = ctx.skipped
   const queued = isQueuedRow(row)
   const position = queued ? queuePositionOf(row) : null
-  const current = currentVersionOf(row)
-  const version = row.targetVersion
-    ? (current === null ? '?' : current) + ' → ' + row.targetVersion
-    : current === null
-      ? ''
-      : current
+  const versionHTML = batchRowVersionHTML(row, ctx.knowledge)
+  const rowStatusText = queued
+    ? batchQueuedStatus(position, ctx.lang)
+    : ctx.inRound
+      ? (batchRowKnowledgeText(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))
+      : (batchRowPendingStatus(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))
   const actions: string[] = []
   // 忙守卫按行：正在装的那一行禁自己（不许重复提交）；**别的行不灰**——点下去是「加入队列」。
   const off = ctx.inFlight ? ' disabled' : ''
@@ -783,8 +840,8 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
     '" aria-expanded="' + (ctx.expanded ? 'true' : 'false') + '">' +
     '<span class="dsh-upd-updot" data-tone="' + dotToneOf(row, phase, skipped, queued) + '"></span>' +
     '<span class="dsh-upd-bname">' + escapeHtml(titleOf(row, ctx.titles)) + '</span>' +
-    (version ? '<span class="dsh-upd-bver">' + escapeHtml(version) + '</span>' : '') +
-    '<span class="dsh-upd-bstat">' + escapeHtml(queued ? batchQueuedStatus(position, ctx.lang) : (batchRowKnowledgeText(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))) + (ctx.inRound && !queued ? '（' + escapeHtml(batchText('batch.row.unfinished-tag', ctx.lang)) + '）' : '') + '</span>' +
+    versionHTML +
+    '<span class="dsh-upd-bstat">' + escapeHtml(rowStatusText) + (ctx.inRound && !queued ? '（' + escapeHtml(batchText('batch.row.unfinished-tag', ctx.lang)) + '）' : '') + '</span>' +
     failLine +
     '</button>'
   const detail = ctx.expanded
@@ -924,7 +981,7 @@ export const UPDATE_BATCH_PANEL_CSS = [
   '.dsh-upd-brow-set{border-top:1px solid var(--dsh-update-border,#e5e7eb)}',
   '.dsh-upd-brow-set:first-child{border-top:0}',
   '.dsh-upd-brow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0}',
-  '.dsh-upd .dsh-upd-brow-main{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1 1 260px;min-width:0;',
+  '.dsh-upd .dsh-upd-brow-main{display:grid;grid-template-columns:auto minmax(5em,max-content) minmax(18ch,max-content) minmax(0,1fr);align-items:baseline;column-gap:8px;row-gap:2px;flex:1 1 260px;min-width:0;',
   'text-align:left;cursor:pointer;color:inherit;font:inherit;background:transparent;border:0;padding:2px 0;margin:0}',
   '.dsh-upd .dsh-upd-brow-main:hover{color:var(--dsh-update-primary,#2563eb)}',
   '.dsh-upd-brow-actions{flex:none;margin-left:auto}',
@@ -935,10 +992,16 @@ export const UPDATE_BATCH_PANEL_CSS = [
   '.dsh-upd-updot[data-tone="busy"]{background:var(--dsh-update-busy-border,#2563eb);opacity:1}',
   '.dsh-upd-updot[data-tone="warn"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}',
   '.dsh-upd-updot[data-tone="bad"]{background:var(--dsh-update-bad-border,#dc2626);opacity:1}',
-  '.dsh-upd-bname{font-weight:700;flex:none}',
-  '.dsh-upd-bver{font-family:Consolas,Menlo,monospace;font-size:12px;opacity:.8;flex:none}',
-  '.dsh-upd-bstat{font-size:12.5px;opacity:.9}',
-  '.dsh-upd-bfail{flex:1 1 100%;display:block;font-size:12.5px;color:var(--dsh-update-bad-border,#dc2626)}',
+  '.dsh-upd-bname{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+  '.dsh-upd-bver{font-family:Consolas,Menlo,monospace;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums;min-width:0}',
+  '.dsh-upd-bver-cur{opacity:.65}',
+  '.dsh-upd-bver-arrow{opacity:.6}',
+  '.dsh-upd-bver-new{color:var(--dsh-update-new-text,#dc2626);font-weight:700}',
+  '.dsh-upd-bstat{font-size:12.5px;opacity:.9;min-width:0;overflow-wrap:anywhere}',
+  '.dsh-upd-bfail{grid-column:1/-1;display:block;font-size:12.5px;color:var(--dsh-update-bad-border,#dc2626)}',
+  '.dsh-upd-batch{--dsh-update-new-text:#dc2626}',
+  '@media (prefers-color-scheme: dark){.dsh-upd-batch{--dsh-update-new-text:#f87171}}',
+  '@media (forced-colors: active){.dsh-upd-bver-new{color:CanvasText}}',
   '.dsh-upd-blist{font-size:12.5px;margin-top:2px}',
   '.dsh-upd-batch-ledger{margin:8px 0 0;font-size:13px;opacity:.85}',
   '.dsh-upd-batch-more{margin-top:6px}',
@@ -979,6 +1042,10 @@ export const UPDATE_BATCH_PANEL_ARCHIVE_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-brow-main:hover{color:var(--dsh-update-primary)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-bname{font-family:var(--dsh-update-font-serif)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-bver{font-family:var(--dsh-update-font-mono);color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-bver-cur{opacity:.75}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-bver-new{color:var(--dsh-update-new-text,#b3261e)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch{--dsh-update-new-text:#b3261e}',
+  '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] .dsh-upd-batch{--dsh-update-new-text:#ef8a7d}}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-batch-ledger{color:var(--dsh-update-text-muted)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-batch-sum{color:var(--dsh-update-text)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-brow-set{border-top-color:var(--dsh-update-border)}',
