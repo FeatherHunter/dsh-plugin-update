@@ -62,6 +62,25 @@ export interface UpdateEntryState {
   error: string | null
 }
 
+/**
+ * 入口件按钮尺寸覆盖（#69）：只影响 button 本体（字号/内边距/圆角/整体缩放），不碰 dialog 面板。
+ * 缺省（不传）保持现状、零回归；badge 圆点与 inline 内嵌不读这些变量，天然不受影响。
+ * 实现口径与现有 `--dsh-upd-*` 颜色变量一致：本选项只是把同样的 CSS 变量以内联方式写到容器上，
+ * 手写 CSS 变量（`--dsh-upd-entry-font-size` / `--dsh-upd-entry-padding` /
+ * `--dsh-upd-entry-border-radius` / `--dsh-upd-entry-scale`）同样生效，两者等价。
+ * `scale` 即宿主临时方案里容器 `zoom: 1` 开关的正式形态：改一个数即缩放（默认 1）。
+ */
+export interface EntrySizing {
+  /** 按钮字号（CSS font-size 值，如 '12px'），不传即 13px 默认。 */
+  fontSize?: string
+  /** 按钮内边距（CSS padding 值，如 '2px 8px'），不传即 '4px 12px' 默认。 */
+  padding?: string
+  /** 按钮圆角（CSS border-radius 值，如 '8px'），不传即默认主题 6px / archive 主题 3px。 */
+  borderRadius?: string
+  /** 整体缩放（对应 CSS `zoom`，如 1.2 放大、0.9 缩小），须为大于 0 的有限数，不传即 1。 */
+  scale?: number
+}
+
 export interface UpdateEntryOptions {
   pluginId: string
   /** 单插件电话前缀（与宿主侧一致）。 */
@@ -77,6 +96,8 @@ export interface UpdateEntryOptions {
   openOn?: EntryOpenOn
   /** 覆盖默认按钮文案（不传就用状态联动文案）。 */
   label?: string
+  /** 按钮尺寸覆盖（#69）：见 EntrySizing；不传即零回归，badge/inline 不受影响。 */
+  sizing?: EntrySizing
   /** 语言覆盖（#60 v2）：'zh' | 'en' | { getActive(): string; subscribe?(cb): () => void }，不传即跟随 html[lang] > navigator > zh。 */
   locale?: LocaleOption
   profileName?: string
@@ -187,12 +208,67 @@ export function entryLabelFor(state: UpdateEntryState | null | undefined, lang?:
   return copyText(entryBilingualKeyFor(state), l, entryBilingualValuesFor(state))
 }
 
+// ---------- 按钮尺寸覆盖（#69：sizing 选项 + CSS 变量同一口径） ----------
+//
+// 口径只有一套：CSS 以变量读（`--dsh-upd-entry-font-size` / `--dsh-upd-entry-padding` /
+// `--dsh-upd-entry-border-radius` / `--dsh-upd-entry-scale`，缺省即旧硬编码值，零回归）；
+// `sizing` 选项只是把同一套变量以内联方式写到容器上，手写 CSS 变量同样生效。
+// 圆点（badge）与内嵌（inline）不读这些变量，天然不受影响——即“只影响按钮本体”。
+
+function entrySizingError(raw: unknown): Error {
+  return new Error(`[dsh-plugin-update] 入口件尺寸参数 sizing 非法：只收 fontSize / padding / borderRadius（非空 CSS 值）与 scale（大于 0 的有限数）（收到 ${JSON.stringify(raw ?? null)})`)
+}
+
+/** CSS 值最小安全检查：放 style 属性前先拦掉注入（分号/引号/括号函数/协议头都不许过）。 */
+function isSafeEntryCssValue(value: string): boolean {
+  const v = value.trim()
+  if (!v || v.length > 200) return false
+  if (/[;"'<>`{}!&]/.test(v)) return false
+  if (/url\s*\(/i.test(v)) return false
+  if (/expression\s*\(/i.test(v)) return false
+  if (/javascript\s*:/i.test(v)) return false
+  return true
+}
+
+/**
+ * `sizing` → 容器 style 属性体（纯函数：同一输入永远算出同一串；空/缺省回空串，即不写 style）。
+ * 非法即抛（未知键、空串、注入字符、非正有限 scale 都不收）。
+ */
+export function entrySizingStyleFor(sizing: EntrySizing | null | undefined): string {
+  if (sizing === undefined || sizing === null) return ''
+  if (typeof sizing !== 'object' || Array.isArray(sizing)) throw entrySizingError(sizing)
+  for (const key of Object.keys(sizing)) {
+    if (key !== 'fontSize' && key !== 'padding' && key !== 'borderRadius' && key !== 'scale') {
+      throw entrySizingError(sizing)
+    }
+  }
+  const parts: string[] = []
+  const { fontSize, padding, borderRadius, scale } = sizing
+  if (fontSize !== undefined) {
+    if (typeof fontSize !== 'string' || !isSafeEntryCssValue(fontSize)) throw entrySizingError(sizing)
+    parts.push(`--dsh-upd-entry-font-size:${fontSize.trim()}`)
+  }
+  if (padding !== undefined) {
+    if (typeof padding !== 'string' || !isSafeEntryCssValue(padding)) throw entrySizingError(sizing)
+    parts.push(`--dsh-upd-entry-padding:${padding.trim()}`)
+  }
+  if (borderRadius !== undefined) {
+    if (typeof borderRadius !== 'string' || !isSafeEntryCssValue(borderRadius)) throw entrySizingError(sizing)
+    parts.push(`--dsh-upd-entry-border-radius:${borderRadius.trim()}`)
+  }
+  if (scale !== undefined) {
+    if (typeof scale !== 'number' || !Number.isFinite(scale) || scale <= 0) throw entrySizingError(sizing)
+    parts.push(`--dsh-upd-entry-scale:${String(scale)}`)
+  }
+  return parts.join(';')
+}
+
 // ---------- 入口件自己的最小样式（面板本体仍由 src/panel.ts 提供，这里只画按钮/圆点/提示） ----------
 
 export const UPDATE_ENTRY_CSS = [
-  '.dsh-upd-entry{display:inline-flex;align-items:center;gap:8px;font:13px/1.6 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-upd-fg,#1f2937)}',
-  '.dsh-upd-entry-btn{font:inherit;border:1px solid var(--dsh-upd-line,#d1d5db);border-radius:6px;',
-  'background:var(--dsh-upd-btn,#f9fafb);color:inherit;padding:4px 12px;cursor:pointer}',
+  '.dsh-upd-entry{display:inline-flex;align-items:center;gap:8px;font:13px/1.6 system-ui,"Microsoft YaHei",sans-serif;font-size:var(--dsh-upd-entry-font-size,13px);color:var(--dsh-upd-fg,#1f2937)}',
+  '.dsh-upd-entry-btn{font:inherit;border:1px solid var(--dsh-upd-line,#d1d5db);border-radius:var(--dsh-upd-entry-border-radius,6px);',
+  'background:var(--dsh-upd-btn,#f9fafb);color:inherit;padding:var(--dsh-upd-entry-padding,4px 12px);zoom:var(--dsh-upd-entry-scale,1);cursor:pointer}',
   '.dsh-upd-entry-btn:hover{border-color:var(--dsh-upd-primary,#2563eb)}',
   '.dsh-upd-entry-btn,.dsh-upd-entry-dot{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}',
   '.dsh-upd-entry-btn:active:not(:disabled){transform:translateY(1px)}',
@@ -215,7 +291,7 @@ export const UPDATE_ENTRY_CSS = [
   '.dsh-upd-entry[data-theme="archive"]{--d5-ink:#1a1a1a;--d5-muted:#6f675a;--d5-line-strong:#c4b896;--d5-accent:#c8402a;--d5-card:#fffdf6;',
   'font-family:Georgia,"Songti SC","STSong","SimSun",serif;color:var(--d5-ink)}',
   // 按钮脸自己不透明（深色宿主 + 浅色系统变量时也读得出；hover 红在深浅底上都可见）。
-  '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink);border-radius:3px}',
+  '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink);border-radius:var(--dsh-upd-entry-border-radius,3px)}',
   '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn:hover{border-color:var(--d5-accent);color:var(--d5-accent)}',
   '@media (prefers-color-scheme: dark){.dsh-upd-entry[data-theme="archive"]{--d5-ink:#ece5d3;--d5-muted:#a89c83;--d5-line-strong:#5c4e3b;--d5-accent:#e0684e;--d5-card:#1e1a15}}',
   '@media (prefers-color-scheme: dark){.dsh-upd-entry{color:#e5e7eb}',
@@ -289,6 +365,9 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
     throw new Error(`[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ${JSON.stringify(options.pollMs)}）`)
   }
   const labelOverride = typeof options.label === 'string' && options.label ? options.label : null
+  // 尺寸覆盖（#69）：非法即抛（挂载时校验，与 variant/theme 同口径）；合法则拼成容器 style，缺省为空（不写 style，零回归）。
+  const sizingStyle = entrySizingStyleFor((options as { sizing?: EntrySizing }).sizing ?? undefined)
+  const sizingAttr = sizingStyle ? ` style="${sizingStyle}"` : ''
   const localeOpt: LocaleOption = (options as { locale?: LocaleOption }).locale ?? undefined
   if (localeOpt !== undefined && localeOpt !== null) {
     const isStr = typeof localeOpt === 'string'
@@ -376,7 +455,7 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
       : ''
     return (
       `<style>${UPDATE_ENTRY_CSS}\n${BILINGUAL_CSS}</style>\n` +
-      `<span class="dsh-upd-entry" data-variant="${variant}" data-state="${kind}"${themeAttr}>` +
+      `<span class="dsh-upd-entry" data-variant="${variant}" data-state="${kind}"${themeAttr}${sizingAttr}>` +
       `${control}${noteHTML}</span>`
     )
   }

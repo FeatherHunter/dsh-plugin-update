@@ -34,6 +34,8 @@
 // DOM 只在 mountUpdateBatchPanel 被调用时经容器与 globalThis 现取，模块顶层不碰。
 
 import { assertPrefix, MIN_PANEL_POLL_MS } from './config.js'
+import { copyText as bilingualText, type BilingualKey } from './bilingual.js'
+import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
 import { validReleaseVersion } from './service.js'
 import { shouldFetchChangelog } from './changelog.js'
 import {
@@ -118,10 +120,19 @@ export interface BatchPanelOptions {
    */
   onCloseRequested?: () => void | Promise<void>
   /**
-   * 语言覆盖（#60 窗口期占位：本票只加选项不消费，传了暂不生效，消费留给 #61-#66）。
+   * 语言覆盖（#59 起消费：新文案走集中字典单语渲染；既有散落文案保持基线不变）。
    * 形态与入口件一致：'zh' | 'en' | { getActive(): string; subscribe?(cb): () => void }。
    */
   locale?: unknown
+  /**
+   * 打开面板自动查（#59 D3）：缺省 true。false 即手动挡（行为回今天，只修文案）。
+   * 优先级：用户偏好（prefs.json）> 本选项 > 缺省。
+   */
+  checkOnOpen?: boolean
+  /**
+   * 自动继续未终态轮次（#59 Q3：与显式按钮并存，常开）。false 可关（测试与特殊集成用）。
+   */
+  autoResume?: boolean
 }
 
 /** 面板可点的动作（HTML 上 data-act 一一对应；测试走同一条路）。 */
@@ -139,6 +150,7 @@ export type BatchPanelActionKind =
   | 'toggle-details'
   | 'restart'
   | 'close'
+  | 'toggle-check-on-open'
 
 /** 挂载点：只要有 innerHTML 的容器即可（浏览器元素或测试替身都行）。 */
 export interface BatchPanelContainer {
@@ -156,13 +168,15 @@ export interface BatchPanelController {
   unmount(): void
 }
 
-/** 批量五个电话名（与宿主侧 MultiHostUpdate.phoneNames 同一形状）。 */
+/** 批量七个电话名（与宿主侧 MultiHostUpdate.phoneNames 同一形状）。 */
 export interface BatchPhoneNames {
   status: string
   check: string
   install: string
   resume: string
   cancel: string
+  prefs: string
+  prefsSave: string
 }
 
 /** 批量面板轮询口径（默认 1.5 秒、下限 250 毫秒，与单插件面板同一套下限）。 */
@@ -171,7 +185,7 @@ export const BATCH_PANEL_POLL = {
   minMs: MIN_PANEL_POLL_MS,
 } as const
 
-/** 批量电话名拼法：前缀 + 五个固定动作名（前缀形状校验与单插件面板同一套）。 */
+/** 批量电话名拼法：前缀 + 七个固定动作名（前缀形状校验与单插件面板同一套）。 */
 export function buildBatchPhoneNames(prefix: string): BatchPhoneNames {
   const p = assertPrefix(prefix, '批量电话前缀 prefix')
   return {
@@ -180,6 +194,8 @@ export function buildBatchPhoneNames(prefix: string): BatchPhoneNames {
     install: p + '.batchInstall',
     resume: p + '.batchResume',
     cancel: p + '.batchCancel',
+    prefs: p + '.batchPrefs',
+    prefsSave: p + '.batchPrefsSave',
   }
 }
 
@@ -232,17 +248,18 @@ export function batchLedgerCounts(rows: readonly BatchRowView[]): BatchLedgerCou
   return counts
 }
 
-/** 分类计数 → 一句话总账（只出现非零档，顺序固定：可更新 · 安装中 · 待查 · 待重启 · 失败 · 已跳过 · 已最新）。 */
-export function batchLedgerText(counts: BatchLedgerCounts): string {
+/** 分类计数 → 一句话总账（只出现非零档，顺序固定：可更新 · 安装中 · 待查 · 待重启 · 失败 · 已跳过 · 已最新；#64 单语：缺省 zh 零回归）。 */
+export function batchLedgerText(counts: BatchLedgerCounts, lang?: unknown): string {
+  const l = langOf(lang)
   const parts: string[] = []
-  if (counts.updatable > 0) parts.push(counts.updatable + ' 家可更新')
-  if (counts.installing > 0) parts.push(counts.installing + ' 家安装中')
-  if (counts.pending > 0) parts.push(counts.pending + ' 家待查')
-  if (counts.restart > 0) parts.push(counts.restart + ' 家待重启')
-  if (counts.failed > 0) parts.push(counts.failed + ' 家失败')
-  if (counts.skipped > 0) parts.push(counts.skipped + ' 家已跳过')
-  if (counts.settled > 0) parts.push(counts.settled + ' 家已最新')
-  return parts.length > 0 ? parts.join(' · ') : '还没有目标'
+  if (counts.updatable > 0) parts.push(batchText('batch.summary.updatable', l, { n: String(counts.updatable) }))
+  if (counts.installing > 0) parts.push(batchText('batch.summary.installing', l, { n: String(counts.installing) }))
+  if (counts.pending > 0) parts.push(batchText('batch.summary.pending', l, { n: String(counts.pending) }))
+  if (counts.restart > 0) parts.push(batchText('batch.summary.restart', l, { n: String(counts.restart) }))
+  if (counts.failed > 0) parts.push(batchText('batch.summary.failed', l, { n: String(counts.failed) }))
+  if (counts.skipped > 0) parts.push(batchText('batch.summary.skipped', l, { n: String(counts.skipped) }))
+  if (counts.settled > 0) parts.push(batchText('batch.summary.settled', l, { n: String(counts.settled) }))
+  return parts.length > 0 ? parts.join(' · ') : batchText('batch.summary.empty', l)
 }
 
 /**
@@ -256,9 +273,85 @@ export function batchQueuedStatus(position: number | null): string {
   return '已排队 · 前方 ' + position + ' 个'
 }
 
+/** 知识账本里的一行（只做展示，不参与安装决策）。 */
+export interface BatchKnowledgeEntry {
+  lastCheckedAt: number
+  installedVersion: string | null
+  latestVersion: string | null
+  canInstall: boolean | null
+  error: string | null
+}
+
+function knowledgeEntryOf(inventory: unknown, key: string): BatchKnowledgeEntry | null {
+  if (!isObject(inventory)) return null
+  const entries = (inventory as Record<string, unknown>)['entries']
+  if (!isObject(entries)) return null
+  const item = (entries as Record<string, unknown>)[key]
+  if (!isObject(item)) return null
+  const e = item as Record<string, unknown>
+  const canInstallRaw = e['canInstall']
+  return {
+    lastCheckedAt: typeof e['lastCheckedAt'] === 'number' ? (e['lastCheckedAt'] as number) : 0,
+    installedVersion: typeof e['installedVersion'] === 'string' ? (e['installedVersion'] as string) : null,
+    latestVersion: typeof e['latestVersion'] === 'string' ? (e['latestVersion'] as string) : null,
+    canInstall: typeof canInstallRaw === 'boolean' ? canInstallRaw : null,
+    error: typeof e['error'] === 'string' ? (e['error'] as string) : null,
+  }
+}
+
+function langOf(lang: unknown): AppLang {
+  try {
+    return normalizeLangTag(typeof lang === 'string' ? lang : resolveLang(lang as LocaleOption))
+  } catch {
+    return 'zh'
+  }
+}
+
+function batchText(key: BilingualKey, lang: unknown, values?: Record<string, unknown>): string {
+  try {
+    return bilingualText(key, langOf(lang), values)
+  } catch {
+    return ''
+  }
+}
+
+/** 有未终态行（控制区出现条件：盘上有没做完的一轮）。 */
+export function hasUnfinishedRows(rows: readonly BatchRowView[], session?: unknown): boolean {
+  if (isObject(session)) {
+    const entries = (session as Record<string, unknown>)['entries']
+    if (Array.isArray(entries)) {
+      for (const item of entries) {
+        if (!isObject(item)) continue
+        const phase = (item as Record<string, unknown>)['phase']
+        if (typeof phase === 'string' && !isTerminalPhase(asBatchPhase(phase))) return true
+      }
+      return false
+    }
+  }
+  if (rows.length === 0) return false
+  return !rows.every((row) => isTerminalPhase(asBatchPhase(row.phase)))
+}
+
+export function unfinishedCount(rows: readonly BatchRowView[], session?: unknown): number {
+  if (isObject(session)) {
+    const entries = (session as Record<string, unknown>)['entries']
+    if (Array.isArray(entries)) {
+      let n = 0
+      for (const item of entries) {
+        if (!isObject(item)) continue
+        const phase = (item as Record<string, unknown>)['phase']
+        if (typeof phase === 'string' && !isTerminalPhase(asBatchPhase(phase))) n += 1
+      }
+      return n
+    }
+  }
+  return rows.filter((row) => !isTerminalPhase(asBatchPhase(row.phase))).length
+}
+
 /**
  * 一行的状态词：只回答一个问题——这家的**下一步**是什么。
  * 中文可执行，不写相位英文（相位只留在 data-phase 属性上，给人看的这句永远是动作）。
+ * （#59 D2：调用方在无轮次 + 有知识时优先用 batchRowKnowledgeText；本函数语义冻结，旧快照不动。）
  */
 export function batchRowStatus(row: BatchRowView, skippedVersion?: string | null): string {
   const skipped = typeof skippedVersion === 'string' && skippedVersion ? skippedVersion : null
@@ -287,6 +380,26 @@ export function batchRowStatus(row: BatchRowView, skippedVersion?: string | null
   }
 }
 
+/**
+ * 无轮次时的知识行（#59 D2）：pending + 有知识即按知识展示；有轮次未做完仍走执行态。
+ * 无知识（从没查过）回 null，调用方回退旧 pending 文案。
+ */
+export function batchRowKnowledgeText(row: BatchRowView, entry: BatchKnowledgeEntry | null, lang?: unknown): string | null {
+  if (asBatchPhase(row.phase) !== 'pending' || !entry) return null
+  if (entry.error) return batchText('batch.row.failed', lang)
+  if (entry.latestVersion && entry.installedVersion && entry.latestVersion !== entry.installedVersion) {
+    return batchText('batch.row.update', lang, { version: entry.latestVersion })
+  }
+  if (entry.latestVersion && entry.installedVersion && entry.latestVersion === entry.installedVersion) {
+    return batchText('batch.row.current', lang)
+  }
+  if (entry.latestVersion && !entry.installedVersion) {
+    return batchText('batch.row.update', lang, { version: entry.latestVersion })
+  }
+  if (entry.lastCheckedAt > 0) return batchText('batch.row.current', lang)
+  return batchText('batch.row.never', lang)
+}
+
 // ---------- 渲染（纯函数：同一输入 → 同一份 HTML） ----------
 
 export interface BatchPanelRenderInput {
@@ -312,6 +425,14 @@ export interface BatchPanelRenderInput {
   noticeKey?: string | null
   /** 键 -> 该行已取到的日志全文（只传有文本的；取不到与没展开即中性提示，不挡安装）。 */
   changelogs?: Record<string, string | null>
+  /** 轮次会话（有未终态行才画控制区；不传按行相位回退旧口径，兼容旧快照）。 */
+  session?: unknown
+  /** 知识账本（无轮次时行按知识展示；只做展示，不参与安装决策）。 */
+  inventory?: unknown
+  /** 偏好（底部勾选的受控状态；不传不画勾选）。 */
+  prefs?: unknown
+  /** 语言（单语渲染新文案用；不传跟随全局信号）。 */
+  lang?: unknown
 }
 
 interface RowRenderContext {
@@ -328,6 +449,12 @@ interface RowRenderContext {
   notice: string | null
   /** 该行已取到的日志全文（null 即中性提示）。 */
   changelogMarkdown: string | null
+  /** 单语（新文案渲染用）。 */
+  lang: AppLang
+  /** 该行的知识条目（无轮次 pending 行按知识展示）。 */
+  knowledge: BatchKnowledgeEntry | null
+  /** 该行是否在没做完的一轮里（轮次事实小标记用，不改写下一步）。 */
+  inRound: boolean
 }
 
 /** 整面板 HTML（含样式；重绘即整体替换 innerHTML，故每次都带 style 也只留一份）。 */
@@ -346,20 +473,14 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   const installing = counts.installing > 0
   const macroBusy = input.inFlight === true || installing
   const total = rows.length
-  const terminal = total > 0 && rows.every((row) => isTerminalPhase(asBatchPhase(row.phase)))
-  const stalled =
-    total > 0 &&
-    !terminal &&
-    !rows.some((row) => {
-      const phase = asBatchPhase(row.phase)
-      return phase === 'installing' || phase === 'checking'
-    })
   const disabled = macroBusy ? ' disabled' : ''
   const notice = typeof input.notice === 'string' && input.notice ? input.notice : null
   const noticeKey = typeof input.noticeKey === 'string' && input.noticeKey ? input.noticeKey : null
   // 回执挂在该家详情里（那家正展开才算数）；否则落回面板底部那条。
   const detailNoticeKey = notice !== null && noticeKey !== null && noticeKey === expandedKey ? noticeKey : null
   const changelogs = input.changelogs && typeof input.changelogs === 'object' ? input.changelogs : {}
+  // #64 单语：渲染语言提前解出，头部宏/总账/横幅/分类账/印章同语言（不传跟随全局信号，缺省 zh）。
+  const lang = langOf((input as Record<string, unknown>)['lang'])
   const ctx: RowRenderContext = {
     expanded: false,
     busy: installing,
@@ -369,27 +490,47 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
     skipped: null,
     notice: null,
     changelogMarkdown: null,
+    lang,
+    knowledge: null,
+    inRound: false,
   }
   const parts: string[] = []
 
   // 顶部一行：卷宗抬头 + 两件宏（忙守卫：任一行安装中，两个批量入口一起置灰）。
   parts.push('<div class="dsh-upd-batch-head">')
-  parts.push('<div class="dsh-upd-batch-title">更新档案 · <i>总账</i></div>')
+  parts.push('<div class="dsh-upd-batch-title">' + escapeHtml(batchText('batch.header.title', lang)) + ' · <i>' + escapeHtml(batchText('batch.seal.ledger', lang)) + '</i></div>')
   parts.push('<div class="dsh-upd-batch-macros">')
-  parts.push('<button type="button" data-act="check"' + disabled + ' title="重新读取批量状态（只读）">检查更新</button>')
-  parts.push('<button type="button" data-act="install" data-primary="1"' + disabled + ' title="把有新版的几家一次提交；同一会话同一幂等编号">全部更新</button>')
-  if (mode === 'dialog') parts.push('<button type="button" data-act="close" title="关闭窗口，批量更新不受影响">关闭</button>')
+  parts.push('<button type="button" data-act="check"' + disabled + ' title="' + escapeHtml(batchText('batch.action.check-title', lang)) + '">' + escapeHtml(batchText('batch.action.check', lang)) + '</button>')
+  parts.push('<button type="button" data-act="install" data-primary="1"' + disabled + ' title="' + escapeHtml(batchText('batch.action.install-all-title', lang)) + '">' + escapeHtml(batchText('batch.action.install-all', lang)) + '</button>')
+  if (mode === 'dialog') parts.push('<button type="button" data-act="close" title="' + escapeHtml(batchText('batch.action.close-title', lang)) + '">' + escapeHtml(batchText('batch.action.close', lang)) + '</button>')
   parts.push('</div>')
   parts.push('</div>')
 
   // 一句话总账（有没有事）。
   const summary = loaded
-    ? batchSummaryText(counts, rows, total, installing, lastError !== null)
-    : '正在读取批量更新状态…'
+    ? batchSummaryText(counts, rows, total, installing, lastError !== null, lang)
+    : batchText('batch.banner.loading', lang)
   parts.push('<div class="dsh-upd-batch-sum" role="status" aria-live="polite">' + escapeHtml(summary) + '</div>')
 
   // 常驻横幅：失败与待重启不藏进抽屉。
-  parts.push(bannersHTML(rows, titles, lastError))
+  parts.push(bannersHTML(rows, titles, lastError, lang))
+  const session = isObject(input.session) ? (input.session as Record<string, unknown>) : null
+  const unfinished = unfinishedCount(rows, session ?? undefined)
+  const showControls = total > 0 && hasUnfinishedRows(rows, session ?? undefined)
+  const prefs = isObject(input.prefs) ? (input.prefs as Record<string, unknown>) : null
+  const checkOnOpen = prefs === null ? null : (prefs['checkOnOpen'] === false ? false : true)
+
+  function roundEntryPhase(key: string): string | null {
+    if (!session) return null
+    const entries = (session as Record<string, unknown>)['entries']
+    if (!Array.isArray(entries)) return null
+    for (const item of entries) {
+      if (!isObject(item)) continue
+      const e = item as Record<string, unknown>
+      if (e['key'] === key && typeof e['phase'] === 'string') return e['phase'] as string
+    }
+    return null
+  }
 
   // 明细：一行一家。
   parts.push('<div class="dsh-upd-btable">')
@@ -397,6 +538,8 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
     const raw = skippedVersions[row.key]
     const skipped = typeof raw === 'string' && raw ? raw : null
     const expanded = row.key === expandedKey
+    const entryPhase = roundEntryPhase(row.key)
+    const inRound = entryPhase !== null && !isTerminalPhase(asBatchPhase(entryPhase))
     parts.push(
       rowSetHTML(row, {
         ...ctx,
@@ -405,6 +548,9 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
         notice: expanded && row.key === detailNoticeKey ? notice : null,
         changelogMarkdown:
           expanded && typeof changelogs[row.key] === 'string' ? (changelogs[row.key] as string) : null,
+        lang,
+        knowledge: asBatchPhase(row.phase) === 'pending' && !inRound ? knowledgeEntryOf(input.inventory, row.key) : null,
+        inRound,
       }),
     )
   }
@@ -412,24 +558,40 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
 
   // 表下一行分类总账。
   if (total > 0) {
-    parts.push('<div class="dsh-upd-batch-ledger">' + escapeHtml(batchLedgerText(counts)) + '</div>')
+    parts.push('<div class="dsh-upd-batch-ledger">' + escapeHtml(batchLedgerText(counts, lang)) + '</div>')
   }
 
-  // 断点续跑与取消（会话没进终态才有意义；不与顶部两件宏抢位）。
-  if (total > 0 && !terminal) {
+  // 断点续跑与取消（有没做完的一轮才有意义；不与顶部两件宏抢位）。
+  if (showControls) {
     const more: string[] = []
-    if (stalled) more.push('<button type="button" data-act="resume">接着上次</button>')
+    more.push(
+      '<button type="button" data-act="resume">' +
+        escapeHtml(batchText('batch.action.resume', lang, { count: String(unfinished) })) + '</button>',
+    )
     // 忙守卫同理：安装中「取消」停不了正在跑的那一家（宿主侧取消只清会话），别给人假动作。
     // 两步确认：第一次只上膛（红框 + 换文案），第二次才真取消；点别的按钮自动卸膛。
     const confirmCancel = input.confirmCancel === true
+    const discardLabel = confirmCancel
+      ? batchText('batch.action.confirm-discard', lang)
+      : batchText('batch.action.discard', lang)
     more.push(
       '<button type="button" data-act="cancel"' + disabled +
         (confirmCancel
-          ? ' data-confirm="1" title="再点一次确认取消"'
-          : ' title="取消这一批（要点两次确认，防误触）"') +
-        '>' + (confirmCancel ? '确认取消这一批' : '取消这一批') + '</button>',
+          ? ' data-confirm="1" title="' + escapeHtml(batchText('batch.notice.cancel-confirm', lang)) + '"'
+          : ' title="' + escapeHtml(batchText('batch.action.discard', lang)) + '"') +
+        '>' + escapeHtml(discardLabel) + '</button>',
     )
     parts.push('<div class="dsh-upd-batch-more">' + more.join('') + '</div>')
+    parts.push('<div class="dsh-upd-batch-fact" role="note">' + escapeHtml(batchText('batch.fact.close-safe', lang)) + '</div>')
+    if (macroBusy) {
+      parts.push('<div class="dsh-upd-batch-fact" role="note">' + escapeHtml(batchText('batch.notice.busy-cancel', lang)) + '</div>')
+    }
+  }
+  if (prefs !== null && checkOnOpen !== null) {
+    parts.push(
+      '<div class="dsh-upd-batch-prefs"><button type="button" data-act="toggle-check-on-open" aria-pressed="' + (checkOnOpen ? 'true' : 'false') + '">' +
+        escapeHtml((checkOnOpen ? '[x] ' : '[ ] ') + batchText('batch.setting.check-on-open', lang)) + '</button></div>',
+    )
   }
   if (notice !== null && detailNoticeKey === null) {
     parts.push('<div class="dsh-upd-batch-notice" role="status">' + escapeHtml(notice) + '</div>')
@@ -439,7 +601,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   // 主题只换肤：默认不带 data-theme、不带 D5 串；d5-paper 才挂属性并追加两份 D5 皮肤。
   const d5 = normalizePanelTheme(theme) === 'archive'
   const attr = d5 ? ' data-theme="archive"' : ''
-  const seal = batchSealOf(counts)
+  const seal = batchSealOf(counts, lang)
   const root =
     '<div class="dsh-upd dsh-upd-batch" data-mode="' + mode + '" data-seal="' + escapeHtml(seal.text) +
     '" data-seal-tone="' + seal.tone + '"' + attr + '>\n' + kernel + '\n</div>'
@@ -450,49 +612,54 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   return '<style>' + css + '</style>\n' + body
 }
 
-/** 一句话总账：先答「有没有事」。 */
+/** 一句话总账：先答「有没有事」（#64 单语：缺省 zh 零回归）。 */
 function batchSummaryText(
   counts: BatchLedgerCounts,
   rows: readonly BatchRowView[],
   total: number,
   installing: boolean,
   hasError: boolean,
+  lang?: unknown,
 ): string {
-  if (hasError) return '刚才那次没成功：看下面的红条，照它说的做一次。'
-  if (total === 0) return '还没有目标：点「检查更新」看看哪几家有新版。'
+  const l = langOf(lang)
+  if (hasError) return batchText('batch.hint.error', l)
+  if (total === 0) return batchText('batch.hint.empty', l)
   if (installing) {
     // 忙不等于别的家不能动：可以排队（入队不算失败），所以这里说的是「还能怎么加进来」。
     const canQueue = rows.filter((row) => asBatchPhase(row.phase) === 'ready' && !isQueuedRow(row)).length
     return canQueue > 0
-      ? '正在安装 ' + counts.installing + ' 家；还有 ' + canQueue + ' 家可以点「加入队列」排队等。'
-      : '正在安装 ' + counts.installing + ' 家，安装完自动下一家。'
+      ? batchText('batch.hint.installing-queueable', l, { a: String(counts.installing), b: String(canQueue) })
+      : batchText('batch.hint.installing-auto', l, { a: String(counts.installing) })
   }
-  if (counts.failed > 0) return counts.failed + ' 家安装失败；照下面的失败提示逐家重试。'
+  if (counts.failed > 0) return batchText('batch.hint.failed', l, { n: String(counts.failed) })
   if (counts.updatable > 0)
-    return counts.updatable + ' 家可更新；点「全部更新」一次安装完，也可以逐家点「安装这家」。'
-  if (counts.restart > 0) return counts.restart + ' 家已安装好，重启宿主后生效。'
-  if (counts.pending > 0) return counts.pending + ' 家还没查过；点「检查更新」查一轮。'
-  return '全部已最新，没有要做的。'
+    return batchText('batch.hint.updatable', l, { n: String(counts.updatable) })
+  if (counts.restart > 0) return batchText('batch.hint.restart', l, { n: String(counts.restart) })
+  if (counts.pending > 0) return batchText('batch.hint.pending', l, { n: String(counts.pending) })
+  return batchText('batch.hint.done', l)
 }
 
-/** 印章（D5 才画）：色调按总账里最重的一档走。 */
-function batchSealOf(counts: BatchLedgerCounts): { text: string; tone: 'ink' | 'green' | 'yellow' | 'red' } {
-  if (counts.failed > 0) return { text: '总账', tone: 'red' }
-  if (counts.installing > 0 || counts.restart > 0) return { text: '总账', tone: 'yellow' }
-  if (counts.updatable > 0) return { text: '总账', tone: 'green' }
-  return { text: '总账', tone: 'ink' }
+/** 印章（D5 才画）：色调按总账里最重的一档走；文字跟随语言（#64 单语，tone 不入 key）。 */
+function batchSealOf(counts: BatchLedgerCounts, lang?: unknown): { text: string; tone: 'ink' | 'green' | 'yellow' | 'red' } {
+  const text = batchText('batch.seal.ledger', langOf(lang))
+  if (counts.failed > 0) return { text, tone: 'red' }
+  if (counts.installing > 0 || counts.restart > 0) return { text, tone: 'yellow' }
+  if (counts.updatable > 0) return { text, tone: 'green' }
+  return { text, tone: 'ink' }
 }
 
-/** 常驻横幅：批量电话失败 / 有失败行 / 有待重启行（都不许藏进抽屉）。 */
-function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, string>, lastError: string | null): string {
+/** 常驻横幅：批量电话失败 / 有失败行 / 有待重启行（都不许藏进抽屉；#64 单语：缺省 zh；data-mini 冻结待 #67 仲裁）。 */
+function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, string>, lastError: string | null, lang?: unknown): string {
+  const l = langOf(lang)
   const parts: string[] = []
   if (lastError) {
-    const copy = failureCopy(lastError)
+    const copy = failureCopy(lastError, l)
+    const detail = copy?.zh ?? failureCopy('unknown', l)?.zh ?? ''
+    const act = copy?.act ?? batchText('batch.banner.error-action-fallback', l)
     parts.push(
       '<div class="dsh-upd-banner" data-kind="failed" data-mini="阻" role="status">' +
-        '<div><strong>这次没成功（' + escapeHtml(lastError) + '）：' +
-        escapeHtml(copy ? copy.zh : '认不出具体原因') + '。</strong></div>' +
-        '<div>' + escapeHtml(copy ? copy.act : '先重试一次；一直这样就把复制诊断交给插件作者。') + '</div>' +
+        '<div><strong>' + escapeHtml(batchText('batch.banner.error-title', l, { code: lastError, detail })) + '</strong></div>' +
+        '<div>' + escapeHtml(act) + '</div>' +
         '</div>',
     )
   }
@@ -502,17 +669,17 @@ function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, strin
     const lines = failed
       .map((row) => {
         const code = row.error || 'install-failed'
-        const copy = failureCopy(code)
+        const copy = failureCopy(code, l)
         return (
           '<div>' + escapeHtml(titleOf(row, titles)) + '：<code>' + escapeHtml(code) + '</code> ' +
-          escapeHtml(copy ? copy.zh : '认不出具体原因') + '</div>'
+          escapeHtml(copy?.zh ?? failureCopy('unknown', l)?.zh ?? '') + '</div>'
         )
       })
       .join('')
     parts.push(
       '<div class="dsh-upd-banner" data-kind="failed" data-mini="阻" role="status">' +
-        '<div><strong>' + failed.length + ' 家安装失败。</strong></div>' +
-        '<div>逐家点行内「重试」再来一次；一直失败就把复制诊断交给插件作者。</div>' +
+        '<div><strong>' + escapeHtml(batchText('batch.banner.failed-title', l, { n: String(failed.length) })) + '</strong></div>' +
+        '<div>' + escapeHtml(batchText('batch.banner.failed-action', l)) + '</div>' +
         '<div class="dsh-upd-blist">' + lines + '</div>' +
         '</div>',
     )
@@ -521,11 +688,11 @@ function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, strin
   if (restart.length > 0) {
     parts.push(
       '<div class="dsh-upd-banner" data-kind="restart" role="status">' +
-        '<div><strong>' + restart.length + ' 家已安装好，重启宿主后生效。</strong></div>' +
-        // 措辞与单插件面板 BLOCKED_COPY['pending-restart'] 同一句：正常终态，不是失败。
-        '<div>重启宿主，让新版跑起来；这是正常终态，不是失败。</div>' +
+        '<div><strong>' + escapeHtml(batchText('batch.banner.restart-title', l, { n: String(restart.length) })) + '</strong></div>' +
+        // 措辞与单插件面板 panel.blocked.pending-restart.action 同一句（#64 按清单独立成 batch.banner.restart-action 键，英文可独立调优）。
+        '<div>' + escapeHtml(batchText('batch.banner.restart-action', l)) + '</div>' +
         '<div class="dsh-upd-blist">' + restart.map((row) => escapeHtml(titleOf(row, titles))).join('、') + '</div>' +
-        '<div><button type="button" data-act="restart" data-primary="1">重启宿主</button></div>' +
+        '<div><button type="button" data-act="restart" data-primary="1">' + escapeHtml(batchText('batch.banner.restart-button', l)) + '</button></div>' +
         '</div>',
     )
   }
@@ -595,7 +762,7 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
     '<span class="dsh-upd-updot" data-tone="' + dotToneOf(row, phase, skipped, queued) + '"></span>' +
     '<span class="dsh-upd-bname">' + escapeHtml(titleOf(row, ctx.titles)) + '</span>' +
     (version ? '<span class="dsh-upd-bver">' + escapeHtml(version) + '</span>' : '') +
-    '<span class="dsh-upd-bstat">' + escapeHtml(queued ? batchQueuedStatus(position) : batchRowStatus(row, skipped)) + '</span>' +
+    '<span class="dsh-upd-bstat">' + escapeHtml(queued ? batchQueuedStatus(position) : (batchRowKnowledgeText(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped))) + (ctx.inRound && !queued ? '（' + escapeHtml(batchText('batch.row.unfinished-tag', ctx.lang)) + '）' : '') + '</span>' +
     failLine +
     '</button>'
   const detail = ctx.expanded
@@ -767,6 +934,13 @@ export const UPDATE_BATCH_PANEL_CSS = [
   '.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body .dsh-upd-chap-head{position:static}',
   '@media (prefers-color-scheme: dark){.dsh-upd-batch-title i{color:var(--dsh-upd-focus,#93c5fd)}}',
   '@media (prefers-reduced-motion: reduce){.dsh-upd-batch *{transition:none !important;animation:none !important}}',
+  // Batch check layout stability: reserve macro width + rows/summary heights + no scroll anchoring jumps.
+  '.dsh-upd-batch{overflow-anchor:none}',
+  '.dsh-upd-btable{overflow-anchor:none}',
+  '.dsh-upd-batch-macros{display:flex;flex-wrap:wrap;align-items:center;gap:0}',
+  '.dsh-upd-batch-macros button:first-child,.dsh-upd-batch-macros button[data-primary="1"]{min-width:6em;text-align:center}',
+  '.dsh-upd-batch-sum,.dsh-upd-batch-ledger{min-height:1.6em}',
+  '.dsh-upd-brow{min-height:28px}',
 ].join(String.fromCharCode(10))
 
 /**
@@ -956,7 +1130,7 @@ function jobFailureOf(row: BatchRowView): { code: string | null; detail: string 
  * 使用范围（profileName）与宿主种类一并透传：诊断里能看出更新安装到了哪个范围。
  * 复制出去前已由 redactForCopy 收干净（绝对路径 → <路径>）。
  */
-function diagTextOf(row: BatchRowView): string {
+function diagTextOf(row: BatchRowView, lang?: string | null): string {
   const snapshot = isObject(row.snapshot) ? row.snapshot : null
   const queue = isObject(row.queue) ? row.queue : null
   const diag = isObject(row.diag) ? row.diag : null
@@ -981,6 +1155,8 @@ function diagTextOf(row: BatchRowView): string {
     manual: text(row.manual),
     diag: row.diag ?? null,
     profileName: text(row.profileName),
+    // #63 透传语言（批量 en 跟随在 #64/#65 落；此处缺省 zh 零回归）。
+    lang: lang ?? 'zh',
   }
   return buildDiagnosticText(input)
 }
@@ -1124,6 +1300,19 @@ export function mountUpdateBatchPanel(
   // 两步确认（#37）：「取消这一批」点一次只上膛，点别的按钮自动卸膛。
   let confirmCancelArmed = false
   let mounted = true
+  // #64 v2 语言跟随：显式 locale 覆盖或全局信号；切换即时重绘，unmount 后停订（与单插件面板同一口径）。
+  const localeOpt = (options as unknown as Record<string, unknown>)['locale'] as LocaleOption
+  function currentLang(): AppLang {
+    return langOf(localeOpt)
+  }
+  const checkOnOpenOption = (options as unknown as Record<string, unknown>)['checkOnOpen'] !== false
+  const autoResumeOption = (options as unknown as Record<string, unknown>)['autoResume'] !== false
+  let lastSession: unknown = null
+  let lastInventory: unknown = null
+  let lastPrefs: unknown = null
+  let lastCheckedAt = 0
+  let autoCheckDone = false
+  let autoResumeDone = false
 
   /** 当前可画的各行日志：只给版本对得上且有文本的（其余即中性提示）。 */
   function changelogView(): Record<string, string | null> {
@@ -1193,6 +1382,65 @@ export function mountUpdateBatchPanel(
       )
   }
 
+  function setStableHTML(target: BatchPanelContainer, html: string): void {
+    try {
+      const g = globalThis as unknown as Record<string, unknown>
+      const doc = g['document'] as unknown as {
+        activeElement?: { getAttribute?: (n: string) => string | null } | null
+      } | null | undefined
+      const el = target as unknown as {
+        querySelectorAll?: (sel: string) => ArrayLike<{ scrollTop?: unknown }> | null
+        querySelector?: (sel: string) => { focus?: (o?: unknown) => void } | null
+      }
+      if (!doc || typeof el.querySelectorAll !== 'function') {
+        target.innerHTML = html
+        return
+      }
+      let focusAct: string | null = null
+      let focusKey: string | null = null
+      try {
+        const active = doc.activeElement
+        if (active && typeof active.getAttribute === 'function') {
+          focusAct = active.getAttribute('data-act')
+          focusKey = active.getAttribute('data-key')
+        }
+      } catch { focusAct = null; focusKey = null }
+      let scrolls: number[] = []
+      try {
+        const nodes = el.querySelectorAll('.dsh-upd-btable')
+        if (nodes) {
+          for (let i = 0; i < nodes.length; i++) {
+            const n = nodes[i] as unknown as { scrollTop?: unknown }
+            scrolls.push(typeof n.scrollTop === 'number' ? (n.scrollTop as number) : 0)
+          }
+        }
+      } catch { scrolls = [] }
+      target.innerHTML = html
+      try {
+        const bodies = el.querySelectorAll('.dsh-upd-btable')
+        if (bodies) {
+          for (let i = 0; i < bodies.length && i < scrolls.length; i++) {
+            const n = bodies[i] as unknown as { scrollTop?: unknown }
+            try { (n as { scrollTop: number }).scrollTop = scrolls[i] } catch { /* keep */ }
+          }
+        }
+      } catch { /* keep */ }
+      try {
+        if (focusAct && typeof el.querySelector === 'function') {
+          const sel = focusKey ? '[data-act="' + focusAct + '"][data-key="' + focusKey + '"]' : '[data-act="' + focusAct + '"]'
+          const next = el.querySelector(sel)
+          if (next && typeof next.focus === 'function') {
+            try { (next.focus as (o?: unknown) => void).call(next, { preventScroll: true }) } catch {
+              try { (next.focus as () => void).call(next) } catch { /* keep */ }
+            }
+          }
+        }
+      } catch { /* keep */ }
+    } catch {
+      try { target.innerHTML = html } catch { /* keep */ }
+    }
+  }
+
   // 上次落盘的 HTML：逐字相同即跳过赋值（与单插件面板同一闪烁根治口径）。
   let lastHTML = ''
   function render(): void {
@@ -1211,10 +1459,14 @@ export function mountUpdateBatchPanel(
       titles,
       confirmCancel: confirmCancelArmed,
       changelogs: changelogView(),
+      session: lastSession,
+      inventory: lastInventory,
+      prefs: lastPrefs,
+      lang: currentLang(),
     })
     if (nextHTML !== lastHTML) {
       lastHTML = nextHTML
-      container.innerHTML = nextHTML
+      setStableHTML(container, nextHTML)
     }
   }
 
@@ -1281,6 +1533,13 @@ export function mountUpdateBatchPanel(
       const session = normalizeBatchSession(reply['session'])
       const parsed = readRows(reply['rows'])
       rows = parsed.length > 0 ? parsed : rowsFromSession(session)
+      lastSession = session
+      if (isObject(reply['inventory'])) {
+        lastInventory = reply['inventory']
+        const at = (reply['inventory'] as Record<string, unknown>)['updatedAt']
+        if (typeof at === 'number' && Number.isFinite(at) && at > 0) lastCheckedAt = at
+      }
+      if (isObject(reply['prefs'])) lastPrefs = reply['prefs']
       loaded = true
       lastError = null
       if (expandedKey !== null && !rows.some((row) => row.key === expandedKey)) expandedKey = null
@@ -1311,31 +1570,57 @@ export function mountUpdateBatchPanel(
   /**
    * 打一次批量电话：飞之前先置忙（两个宏一起灰），回来后重绘。
    * busyRowKey 给「只推这一家」那条路：回包说忙时只给一句排队回执，绝不记成失败。
+   * 回包原样返回（调用方按 resumed 等事实决定回执，杜绝空话成功）。
    */
-  async function phone(name: string, args: Record<string, unknown>, busyRowKey: string | null = null): Promise<void> {
-    if (!mounted || inFlight) return
+  async function phone(name: string, args: Record<string, unknown>, busyRowKey: string | null = null): Promise<Record<string, unknown> | null> {
+    if (!mounted || inFlight) return null
     inFlight = true
     clearNotice()
     render()
+    let out: Record<string, unknown> | null = null
     try {
       const reply = await call(name, args)
-      if (!mounted) return
+      if (!mounted) return null
       if (busyRowKey !== null && isBusyReply(reply)) {
         // 老宿主还没接住这次入队：如实说「没排上，等它装完再点」，不画失败横幅、不把行记成失败。
         say('前面还在装：这一家还没排上，等那家装完再点一次。', busyRowKey)
-        return
+        return null
       }
       applyReply(reply)
       // 批量查/装一次是明确意图：清掉各行失败退避，下面的按行链路可再问一次。
       rowFailedAt.clear()
+      out = isObject(reply) ? (reply as Record<string, unknown>) : null
     } catch {
-      if (!mounted) return
+      if (!mounted) return null
       lastError = 'check-failed'
+      out = null
     } finally {
       inFlight = false
       if (mounted) render()
     }
     maybeAutoRowChangelog(expandedKey)
+    return out
+  }
+
+  function remainingCount(): number {
+    return unfinishedCount(rows, lastSession ?? undefined)
+  }
+
+  function checkOnOpenEffective(): boolean {
+    if (isObject(lastPrefs)) {
+      const v = (lastPrefs as Record<string, unknown>)['checkOnOpen']
+      if (v === false) return false
+      if (v === true) return true
+    }
+    return checkOnOpenOption
+  }
+
+  function nowMs(): number {
+    try {
+      return Date.now()
+    } catch {
+      return 0
+    }
   }
 
   async function act(kind: BatchPanelActionKind, key?: string): Promise<void> {
@@ -1347,19 +1632,28 @@ export function mountUpdateBatchPanel(
     }
     switch (kind) {
       case 'check':
-        return phone(phones.check, {})
+        await phone(phones.check, {})
+        return
       case 'install':
         // 不点 keys 即「全部提交」：会话与推进由宿主驱动器保证。
-        return phone(phones.install, {})
+        await phone(phones.install, {})
+        return
       case 'row-install': {
         if (typeof key !== 'string' || !key) return
         // 行内「安装这家」/「重试」/「加入队列」：只推这一家（同一会话同一幂等编号，重复提交不重复装）。
-        return phone(phones.install, { keys: [key] }, key)
+        await phone(phones.install, { keys: [key] }, key)
+        return
       }
       case 'resume': {
-        await phone(phones.resume, {})
+        const reply = await phone(phones.resume, {})
         if (!mounted) return
-        say('已接着上次的会话推进一步。')
+        if (!reply || reply['ok'] !== true) return
+        if (reply['resumed'] === false) {
+          say(batchText('batch.notice.no-resume', currentLang()))
+          render()
+          return
+        }
+        say(batchText('batch.notice.resumed', currentLang(), { count: String(remainingCount()) }))
         render()
         return
       }
@@ -1367,9 +1661,18 @@ export function mountUpdateBatchPanel(
       // 鼠标误触的防护在 onClick 那一层（第一次点击只上膛）。
       case 'cancel': {
         confirmCancelArmed = false
-        await phone(phones.cancel, {})
+        const reply = await phone(phones.cancel, {})
         if (!mounted) return
-        say('已取消这一批：剩下的不再推进；要重来点「检查更新」。')
+        if (!reply || reply['ok'] !== true) return
+        say(batchText('batch.notice.discarded', currentLang()))
+        render()
+        return
+      }
+      case 'toggle-check-on-open': {
+        const next = !checkOnOpenEffective()
+        const reply = await phone(phones.prefsSave, { checkOnOpen: next })
+        if (!mounted) return
+        if (reply && reply['ok'] === true && isObject(reply['prefs'])) lastPrefs = reply['prefs']
         render()
         return
       }
@@ -1525,7 +1828,7 @@ export function mountUpdateBatchPanel(
       // 程序调 controller.act('cancel') 不走这里，仍是一次即执行。
       if (kind === 'cancel' && !confirmCancelArmed) {
         confirmCancelArmed = true
-        say('再点一次「确认取消这一批」才真的取消；点别的按钮可撤销这次确认。')
+        say(batchText('batch.notice.cancel-confirm', currentLang()))
         render()
         return
       }
@@ -1537,9 +1840,67 @@ export function mountUpdateBatchPanel(
     }
   }
 
+  /** 打开即查/续（#59 D3/Q3）：每挂载最多各一次；自动失败不弹红条，只留行上标记。 */
+  async function autoOnce(): Promise<void> {
+    if (!mounted) return
+    if (autoResumeOption && !autoResumeDone) {
+      autoResumeDone = true
+      if (hasUnfinishedRows(rows, lastSession ?? undefined) && !inFlight && !refreshing) {
+        const before = lastError
+        try {
+          const reply = await call(phones.resume, {})
+          if (!mounted) return
+          if (isObject(reply) && reply['ok'] === true) {
+            applyReply(reply)
+            const r = reply as Record<string, unknown>
+            if (r['resumed'] !== false) {
+              say(batchText('batch.notice.auto-resumed', currentLang(), { count: String(remainingCount()) }))
+              rowFailedAt.clear()
+            }
+            render()
+            maybeAutoRowChangelog(expandedKey)
+            return
+          }
+          lastError = before
+          render()
+        } catch {
+          if (mounted) render()
+        }
+      }
+    }
+    if (!autoCheckDone) {
+      autoCheckDone = true
+      if (!checkOnOpenEffective()) return
+      if (hasUnfinishedRows(rows, lastSession ?? undefined)) return
+      const stale = lastCheckedAt <= 0 || nowMs() - lastCheckedAt >= 60000
+      if (!stale || inFlight || refreshing) return
+      const before = lastError
+      try {
+        const reply = await call(phones.check, {})
+        if (!mounted) return
+        if (isObject(reply) && reply['ok'] === true) {
+          applyReply(reply)
+          rowFailedAt.clear()
+          render()
+          maybeAutoRowChangelog(expandedKey)
+          return
+        }
+        lastError = before
+        render()
+      } catch {
+        if (mounted) render()
+      }
+    }
+  }
+
   function unmount(): void {
     if (!mounted) return
     mounted = false
+    try {
+      unsubLang()
+    } catch {
+      // 停不掉也无妨。
+    }
     // 过期回包丢弃（#38）：序号加一 + 在途集合清空，在飞的取数回来即丢。
     rowAutoSeq++
     rowInflight.clear()
@@ -1561,6 +1922,10 @@ export function mountUpdateBatchPanel(
     // 卸载只停轮询：绝不调安装/取消电话，批量推进在宿主进程内继续跑。
   }
 
+  // #64 v2 语言跟随：已挂载控件即时重绘，unmount 后停订（单例观察者，显式 locale 对象亦经同一出口）。
+  const unsubLang = subscribeLang(() => {
+    render()
+  }, localeOpt)
   // 首绘即「正在读取…」，立刻查一次（重开即恢复进度），再按间隔轮询。
   render()
   try {
@@ -1575,6 +1940,7 @@ export function mountUpdateBatchPanel(
   }
   const timer = getTimer()
   const handle = timer.set(() => {
+    if (inFlight) return
     void refresh()
   }, pollMs)
   try {
@@ -1584,7 +1950,9 @@ export function mountUpdateBatchPanel(
   } catch {
     // 无 unref 的环境（浏览器）忽略。
   }
-  void refresh()
+  void refresh().then(() => {
+    void autoOnce()
+  })
 
   return { refresh, act, setTheme, setMode, unmount }
 }

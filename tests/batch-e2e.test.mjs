@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createMultiHostUpdate } from '../dist/host-batch.js'
 import { __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import { batchPathsForUpdate, pathsForUpdate, queuePathsForUpdate } from '../dist/store.js'
+import { batchPathsForOwner, pathsForUpdate, queuePathsForUpdate } from '../dist/store.js'
 
 const REGISTRY = 'https://registry.npmjs.org/'
 const ENTRIES = ['index.js', 'client.js', 'patch.js']
@@ -180,7 +180,7 @@ describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执
     const scope = await makeScope(['pkg-a', 'pkg-b'])
     const queueFile = queuePathsForUpdate(scope.home, scope.profile).file
     const lockFile = queuePathsForUpdate(scope.home, scope.profile).lock
-    const sessionFile = batchPathsForUpdate(scope.home, scope.profile).file
+    const sessionFile = batchPathsForOwner(scope.home, scope.profile, 'life').batchFile
     const ownerWhileInstalling = []
     let sessionAtBStart = null
     const { host, fetches, installs } = buildBatch(scope, specsOf(['pkg-a', 'pkg-b']), {

@@ -14,7 +14,7 @@ import { dirname, join } from 'node:path'
 import { createMultiHostUpdate, phoneRequestIdOf } from '../dist/host-batch.js'
 import { __resetSharedUpdateReaderForTests } from '../dist/host.js'
 import { createBatchSession, markBatchEntry } from '../dist/batch.js'
-import { batchPathsForUpdate, queuePathsForUpdate } from '../dist/store.js'
+import { batchPathsForOwner, batchPathsForUpdate, queuePathsForUpdate } from '../dist/store.js'
 
 beforeEach(() => {
   __resetSharedUpdateReaderForTests()
@@ -52,8 +52,8 @@ function fakeTransport(plan = {}) {
   return { calls, transport }
 }
 
-async function readDiskSession(dir) {
-  return JSON.parse(await readFile(batchPathsForUpdate(dir, dir).file, 'utf8'))
+async function readDiskSession(dir, owner = 'life') {
+  return JSON.parse(await readFile(batchPathsForOwner(dir, dir, owner).batchFile, 'utf8'))
 }
 
 function entryOf(session, key) {
@@ -81,7 +81,7 @@ async function waitFor(check, label) {
 }
 
 describe('注册与命名', () => {
-  it('五个批量电话与每个目标的四个单插件电话都注册，前缀互不相同', async () => {
+  it('七个批量电话与每个目标的四个单插件电话都注册，前缀互不相同', async () => {
     const { scope } = await tempScope()
     const keys = ['a', 'b', 'c', 'd', 'e', 'f', 'self']
     const targets = keys.map((key) => target(key))
@@ -92,9 +92,11 @@ describe('注册与命名', () => {
       install: 'life.batchInstall',
       resume: 'life.batchResume',
       cancel: 'life.batchCancel',
+      prefs: 'life.batchPrefs',
+      prefsSave: 'life.batchPrefsSave',
     })
     const names = Object.keys(host.handlers)
-    assert.equal(names.length, 5 + keys.length * 4)
+    assert.equal(names.length, 7 + keys.length * 4)
     for (const name of Object.values(host.phoneNames)) assert.ok(names.includes(name), name)
     const prefixes = new Set()
     for (const one of targets) {
@@ -345,9 +347,9 @@ describe('batchCancel 与坏账本', () => {
 
   it('盘上账本坏掉：回空会话，不抛错', async () => {
     const { dir, scope } = await tempScope()
-    const paths = batchPathsForUpdate(dir, dir)
-    await mkdir(dirname(paths.file), { recursive: true })
-    await writeFile(paths.file, '{ 这不是 JSON', 'utf8')
+    const paths = batchPathsForOwner(dir, dir, 'life')
+    await mkdir(dirname(paths.batchFile), { recursive: true })
+    await writeFile(paths.batchFile, '{ 这不是 JSON', 'utf8')
     const { transport } = fakeTransport()
     const host = createMultiHostUpdate({ scope, transport }, { prefix: 'life', targets: [target('a')] })
     const reply = await host.handlers['life.batchStatus']({})
@@ -359,12 +361,12 @@ describe('batchCancel 与坏账本', () => {
 })
 
 describe('跨使用范围如实拒绝', () => {
-  it('目标清单混进别的使用范围：五个电话都回错，且不写任何一家的账本', async () => {
+  it('目标清单混进别的使用范围：七个电话都回错，且不写任何一家的账本', async () => {
     const one = await tempScope()
     const other = await tempScope()
     const targets = [target('a'), target('b', { profileDir: other.dir })]
     const host = createMultiHostUpdate({ scope: one.scope }, { prefix: 'life', targets })
-    for (const action of ['batchStatus', 'batchCheck', 'batchInstall', 'batchResume', 'batchCancel']) {
+    for (const action of ['batchStatus', 'batchCheck', 'batchInstall', 'batchResume', 'batchCancel', 'batchPrefs', 'batchPrefsSave']) {
       const reply = await host.handlers['life.' + action]({})
       assert.equal(reply.ok, false, action)
       assert.equal(reply.error, 'cross-scope', action)
@@ -524,10 +526,10 @@ describe('忙时入队：驱动进行中也能加人（#25 排队语义）', () 
       { prefix: 'life', targets: ['a', 'b', 'self'].map((key) => target(key)), selfKey: 'self' },
     )
     // 先手写一份只含 a/self 的会话（模拟「已经开跑、b 还没进来」）
-    const paths = batchPathsForUpdate(dir, dir)
-    await mkdir(dirname(paths.file), { recursive: true })
+    const paths = batchPathsForOwner(dir, dir, 'life')
+    await mkdir(dirname(paths.batchFile), { recursive: true })
     await writeFile(
-      paths.file,
+      paths.batchFile,
       JSON.stringify(createBatchSession({ id: 'seed-1', keys: ['a', 'self'], selfKey: 'self', now: 1000 })),
       'utf8',
     )
@@ -962,11 +964,11 @@ describe('锁陈旧判据单源（#27 ①）', () => {
 describe('事实优先：账本 failed 但盘上已装到目标版（#27 ②）', () => {
   /** 种一份「某行记 failed（带目标版）」的盘上会话。 */
   async function seedFailedSession(dir, keys, key) {
-    const paths = batchPathsForUpdate(dir, dir)
-    await mkdir(dirname(paths.file), { recursive: true })
+    const paths = batchPathsForOwner(dir, dir, 'life')
+    await mkdir(dirname(paths.batchFile), { recursive: true })
     const seeded = createBatchSession({ id: 'seed-fact', keys, now: 1000 })
     const marked = markBatchEntry(seeded, key, { phase: 'failed', error: 'install-failed', targetVersion: '2.0.0' }, 1100)
-    await writeFile(paths.file, JSON.stringify(marked.session), 'utf8')
+    await writeFile(paths.batchFile, JSON.stringify(marked.session), 'utf8')
     return paths
   }
 
@@ -985,7 +987,7 @@ describe('事实优先：账本 failed 但盘上已装到目标版（#27 ②）'
     assert.equal(entryOf(reply.session, 'a').phase, 'done')
     assert.equal(reply.progress.done, 1)
     assert.equal(reply.progress.failed, 0)
-    const onDisk = await readJson(paths.file)
+    const onDisk = await readJson(paths.batchFile)
     assert.equal(phaseOf(onDisk, 'a'), 'done', '盘上账本也变了（不只是显示层）')
     assert.equal(entryOf(onDisk, 'a').error, 'install-failed')
     assert.equal(entryOf(onDisk, 'a').restartRequired, true)
@@ -1002,7 +1004,7 @@ describe('事实优先：账本 failed 但盘上已装到目标版（#27 ②）'
     const reply = await host.handlers['life.batchStatus']({})
     assert.equal(reply.rows[0].phase, 'failed')
     assert.equal(reply.rows[0].error, 'install-failed')
-    assert.equal(phaseOf(await readJson(paths.file), 'a'), 'failed', '盘上没被动')
+    assert.equal(phaseOf(await readJson(paths.batchFile), 'a'), 'failed', '盘上没被动')
     host.dispose()
   })
 
@@ -1015,7 +1017,7 @@ describe('事实优先：账本 failed 但盘上已装到目标版（#27 ②）'
       check: async (key) => {
         if (key === 'b' && !duringDrive) {
           duringDrive = await host.handlers['life.batchStatus']({})
-          duringDisk = await readJson(paths.file)
+          duringDisk = await readJson(paths.batchFile)
         }
         return { kind: 'update', version: '2.0.0' }
       },
@@ -1138,7 +1140,7 @@ describe('回包形状与编号换算', () => {
       { scope, transport },
       { prefix: 'life', targets: [target('a')] },
     ).handlers['life.batchStatus']({})
-    assert.deepEqual(Object.keys(ok).sort(), ['ok', 'progress', 'rows', 'session'])
+    assert.deepEqual(Object.keys(ok).sort(), ['inventory', 'ok', 'prefs', 'progress', 'rows', 'session'])
     const row = ok.rows[0]
     for (const key of ['key', 'title', 'phase', 'targetVersion', 'restartRequired', 'error', 'snapshot']) {
       assert.ok(key in row, key)

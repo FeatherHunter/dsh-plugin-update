@@ -104,6 +104,10 @@ export interface UpdateBatchEntryOptions {
   theme?: UpdatePanelTheme
   /** 缺省 'mount'：进页面静默查一次（只调 .batchStatus，只读）。'never' 则只在用户点击时查。 */
   autoCheck?: BatchEntryAutoCheck
+  /** 打开面板自动查（#59 D3，透传给批量面板）：缺省 true；面板按用户偏好 > 本选项 > 缺省，并与入口预查共用知识时间戳去重（一击只查一次）。 */
+  checkOnOpen?: boolean
+  /** 自动继续未终态轮次（#59 Q3，透传给批量面板）：缺省 true，与显式按钮并存。 */
+  autoResume?: boolean
   /** 缺省 'always'：查完总是开批量面板（见本类型说明）。 */
   openOn?: BatchEntryOpenOn
   /** 覆盖默认按钮文案（不传就用聚合文案）。 */
@@ -461,7 +465,7 @@ export function mountUpdateBatchEntry(
     }
   }
 
-  /** 把批量面板挂进容器（复用 src/panel-batch.ts 的整组件，不另写界面；#60 窗口期：批量面板暂不消费 locale，透传仅为占位）。 */
+  /** 把批量面板挂进容器（复用 src/panel-batch.ts 的整组件，不另写界面）。 */
   function mountPanel(mode: BatchPanelMode): void {
     if (!mounted || panelMode !== null) return
     panel = mountUpdateBatchPanel(panelHost, {
@@ -474,6 +478,8 @@ export function mountUpdateBatchEntry(
       copyText: options.copyText,
       autoChangelog: options.autoChangelog,
       locale: localeOpt,
+      checkOnOpen: options.checkOnOpen,
+      autoResume: options.autoResume,
       // 面板点「关闭」即走入口件的完整关闭（收 dialog + 还原按钮 + 重查一次），不再是面板自己停轮询。
       onCloseRequested: () => close(),
       call: panelCall,

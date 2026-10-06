@@ -189,6 +189,16 @@ const entry = mountUpdateEntry(document.getElementById('upd-entry'), {
 
 无新版时原地那句小字（`已是最新 X.Y.Z`）只在 `has-update` 下出现：不想看它就用 `openOn: 'always'`（检查完总是开弹窗，无新版在弹窗里看“已是最新”）或 `openOn: 'direct'`（点开即弹窗，连预查都省了，面板挂载即自查；徽标形态仍走回调口径）。
 
+按钮尺寸（跟头行其他控件同高/整体缩放）：传 `sizing` 只改按钮本体，不碰面板；不传即默认外观。`scale` 是整体缩放（默认 `1`，如 `1.2` 放大、`0.9` 缩小），原来写在容器上的 `zoom` 可整体搬进来：
+
+```js
+mountUpdateEntry(el, { pluginId: 'p', prefix: 'notes', call,
+  sizing: { fontSize: '12px', padding: '2px 8px', borderRadius: '8px', scale: 1 },
+})
+```
+
+等价的手写 CSS 变量（与现有 `--dsh-upd-*` 颜色变量同口径，写在容器或祖先元素上即可）：`--dsh-upd-entry-font-size`（默认 `13px`）、`--dsh-upd-entry-padding`（默认 `4px 12px`）、`--dsh-upd-entry-border-radius`（默认 `6px`，`archive` 主题下 `3px`）、`--dsh-upd-entry-scale`（默认 `1`）。`badge` 圆点与 `inline` 内嵌不受影响。
+
 **一条铁律：检查是只读、安装是写入，两者不许合并成一个动作。** 入口件永远只做「查 + 打开面板」，
 任何路径都不自动安装；用户必须在面板里明确点「安装」。想让点击交给自己（例如你已有自己的更新页）：
 
@@ -243,15 +253,17 @@ const multi = createMultiHostUpdate({ ctx, logCtx }, {
 for (const [name, handler] of Object.entries(multi.handlers)) registry.set(name, handler)
 ```
 
-五个批量电话（`<prefix>` 即上面的 `life`）：`batchStatus` / `batchCheck` / `batchInstall` / `batchResume` / `batchCancel`；
+七个批量电话（`<prefix>` 即上面的 `life`，同时是账本属主身份）：`batchStatus` / `batchCheck` / `batchInstall` / `batchResume` / `batchCancel` / `batchPrefs` / `batchPrefsSave`；
 每个目标的四个单插件电话照旧以**各自前缀**暴露（`ilife-bill.updateStatus` 等）。
 
-回包形状（成功恰好四项，失败只有三项）：
+回包形状（成功六项，失败只有三项）：
 
 ```js
-{ ok: true, session, rows, progress }      // rows 一行一家：key/title/phase/targetVersion/restartRequired/error/snapshot
+{ ok: true, session, rows, progress, inventory, prefs }  // rows 一行一家：key/title/phase/targetVersion/restartRequired/error/snapshot
 { ok: false, error, errorKind }            // 跨使用范围混目标会回 cross-scope，不抢锁、不写盘
 ```
+
+`batchResume` 无事可续时回 `resumed: false`（面板不再报空话成功）；`batchPrefsSave` 只收布尔 `checkOnOpen`。
 
 面板侧：
 
@@ -266,7 +278,7 @@ const panel = mountUpdateBatchPanel(el, {
 ```
 // 弹窗版与单面板同口径：传 `onCloseRequested`（点关闭/Esc 时先调它撤 DOM，再停轮询；入口件打开的 dialog 已内置；不传即只停轮询）。
 
-批量面板 HTTP 版（无 `host.call` 环境即跑：同一传输内核，五电话走同一映射，取消走 `batchCancel`）：
+批量面板 HTTP 版（无 `host.call` 环境即跑：同一传输内核，七电话走同一映射，取消走 `batchCancel`）：
 
 ```js
 import { mountUpdateBatchPanelHttp } from 'dsh-plugin-update/http'
@@ -293,10 +305,13 @@ mountUpdateBatchPanelHttp(document.querySelector('#batch'), {
 > 自己写渲染时同理：`renderUpdatePanelHTML(input)` 少传 `actions` 即默认（画动作行）；
 > 传 `actions: 'none'` 就是只读内容——**凡是要复用内核 HTML 的地方，都必须显式接管或摘掉它的动作面**。
 
-**耐久（这是这套东西存在的理由）**：批量会话落在
-`<家目录>/update-queue/<使用范围短指纹>/batch.json`，每一步都写盘。所以关面板、重载页面、
+**耐久（这是这套东西存在的理由）**：批量会话按属主落在
+`<家目录>/update-queue/<使用范围短指纹>/<批量前缀>/batch.json`，每一步都写盘；检查知识（只做展示）落同目录 `inventory.json`，面板偏好落 `prefs.json`。所以关面板、重载页面、
 甚至进程重启都不怕——`batchResume` 读回来接着推：**已完成的不重装**（编号恒等、幂等），
 没做完的重新查一次再装。这就是「更新自己时 UI 消失、剩下几家永不启动」那个病的正解。
+面板打开即按偏好自动查一轮（缺省开，底部可关；60 秒节流 + 在途抑制，入口预查与面板开查一击只查一次），有没做完的一轮自动续一次，显式按钮保留；面板常驻「关掉面板不会中断」一行事实。
+
+**升级说明**：旧版无属主 `batch.json`（根目录那份）不再被读取、不删除、不接管——没跑完的那批重打一次「全部更新」即可（幂等，已完成的秒过不重装）。单队列不变：四家单插件与批量仍共用同一份 `queue.json` + 全局锁，一次只装一个。
 
 **自更新安全**：`selfKey` 指定的那家默认排到最后。承载更新界面的那个包若第一个被替换掉，
 界面与推进它的循环会一起消失——排最后则前面几家早已落盘收尾。

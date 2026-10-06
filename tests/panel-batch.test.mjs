@@ -115,7 +115,7 @@ function fakeCall(rows, reply) {
 
 function mountPanel(box, rows, options = {}) {
   const { call, log } = fakeCall(rows, options.reply)
-  const panel = mountUpdateBatchPanel(box, { prefix: 'life', call, pollMs: 60000, ...options })
+  const panel = mountUpdateBatchPanel(box, { prefix: 'life', call, pollMs: 60000, autoResume: false, checkOnOpen: false, ...options })
   return { panel, log }
 }
 
@@ -134,6 +134,8 @@ describe('挂载与轮询', () => {
       install: 'life.batchInstall',
       resume: 'life.batchResume',
       cancel: 'life.batchCancel',
+      prefs: 'life.batchPrefs',
+      prefsSave: 'life.batchPrefsSave',
     })
     panel.unmount()
   })
@@ -603,9 +605,9 @@ describe('跳过语义：与单插件面板同一套（按插件 + 版本）', (
     const box = fakeContainer()
     const { panel } = mountPanel(box, rows)
     await settled()
-    assert.equal(statOf(box.innerHTML), '点「安装这家」安装 2.4.0')
+    assert.equal(statOf(box.innerHTML), '点「安装这家」安装 2.4.0（上一批没做完）')
     await panel.act('row-skip', 'a')
-    assert.equal(statOf(box.innerHTML), '已跳过 2.4.0', '跳过后状态词要说已跳过')
+    assert.equal(statOf(box.innerHTML), '已跳过 2.4.0（上一批没做完）', '跳过后状态词要说已跳过')
     assert.match(box.innerHTML, /data-act="row-resume-skip"[^>]*>恢复（2\.4\.0）</, '跳过后要给恢复入口')
     assert.ok(!box.innerHTML.includes('>安装这家</button>'), '跳过后行内不再给安装这家')
     await panel.act('toggle-details', 'a')
@@ -613,7 +615,7 @@ describe('跳过语义：与单插件面板同一套（按插件 + 版本）', (
     assert.ok(box.innerHTML.includes('data-act="row-resume-skip"'), '详情里也给恢复')
     assert.ok(!box.innerHTML.includes('data-act="row-skip"'), '跳过后详情里不再给跳过')
     await panel.act('row-resume-skip', 'a')
-    assert.equal(statOf(box.innerHTML), '点「安装这家」安装 2.4.0', '恢复后回原状')
+    assert.equal(statOf(box.innerHTML), '点「安装这家」安装 2.4.0（上一批没做完）', '恢复后回原状')
     panel.unmount()
   })
 
@@ -623,10 +625,10 @@ describe('跳过语义：与单插件面板同一套（按插件 + 版本）', (
     const { panel } = mountPanel(box, rows)
     await settled()
     await panel.act('row-skip', 'a')
-    assert.equal(statOf(box.innerHTML), '已跳过 2.4.0')
+    assert.equal(statOf(box.innerHTML), '已跳过 2.4.0（上一批没做完）')
     rows[0].targetVersion = '3.0.0'
     await panel.refresh()
-    assert.equal(statOf(box.innerHTML), '点「安装这家」安装 3.0.0', '换一版即重新提醒')
+    assert.equal(statOf(box.innerHTML), '点「安装这家」安装 3.0.0（上一批没做完）', '换一版即重新提醒')
     panel.unmount()
   })
 })
@@ -984,7 +986,7 @@ describe('断点续跑、取消与卸载', () => {
     await panel.act('cancel')
     assert.equal(log.length, 1)
     assert.equal(log[0].name, 'life.batchCancel')
-    assert.ok(box.innerHTML.includes('已取消这一批'), '取消后给一句回执')
+    assert.ok(box.innerHTML.includes('已丢弃这批未完成的更新'), '取消后给一句回执')
     panel.unmount()
   })
 
@@ -1056,5 +1058,63 @@ describe('回包宽容读', () => {
     assert.equal((noRows.innerHTML.match(/class="dsh-upd-brow"/g) || []).length, 2, 'rows 缺失按账本补')
     assert.ok(noRows.innerHTML.includes('等它，轮到就自动查新版'), '认不出的相位按 pending 处理')
     second.panel.unmount()
+  })
+})
+
+// ---------- #64 panel-batch 聚合与总账跟随语言（§4.1/4.3/4.4/4.5）：单语渲染 + 语义 lang + 冻结词元 + 按码分支 ----------
+describe('#64 聚合与总账跟随语言', () => {
+  it('分类账 batchLedgerText：zh 纯中文、en 纯英文（缺省 zh 零回归）', () => {
+    const counts = { updatable: 3, installing: 1, pending: 2, restart: 1, failed: 1, skipped: 1, settled: 4 }
+    const zh = batchLedgerText(counts)
+    assert.ok(zh.includes('3 家可更新'), 'zh 可更新')
+    assert.ok(zh.includes('1 家安装中'), 'zh 安装中')
+    assert.ok(zh.includes('2 家待查'), 'zh 待查')
+    assert.ok(!/[A-Za-z]/.test(zh.replace(/ · /g, '')), 'zh 不混英文：' + zh)
+    const en = batchLedgerText(counts, 'en')
+    assert.ok(en.includes('3 updates available'), 'en 可更新')
+    assert.ok(en.includes('1 installing'), 'en 安装中')
+    assert.ok(!(/[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(en)), 'en 不混中文：' + en)
+    assert.equal(batchLedgerText({ updatable: 0, installing: 0, pending: 0, restart: 0, failed: 0, skipped: 0, settled: 0 }), '还没有目标')
+    assert.equal(batchLedgerText({ updatable: 0, installing: 0, pending: 0, restart: 0, failed: 0, skipped: 0, settled: 0 }, 'en'), 'No targets yet')
+  })
+
+  it('头部宏与总账横幅：zh/en 各只出现当前语言，印章文字跟随、色调按档', () => {
+    const rows = [
+      { key: 'a', title: 'A', phase: 'ready', targetVersion: '2.0.0', restartRequired: false, error: null, snapshot: null },
+      { key: 'b', title: 'B', phase: 'failed', targetVersion: null, restartRequired: false, error: 'install-failed', snapshot: null },
+    ]
+    const zh = renderBatchPanelHTML({ rows, loaded: true, lang: 'zh' })
+    assert.ok(zh.includes('更新档案'), 'zh 抬头')
+    assert.ok(zh.includes('检查更新'), 'zh 宏')
+    assert.ok(zh.includes('全部更新'), 'zh 宏')
+    assert.ok(zh.includes('家安装失败'), 'zh 横幅')
+    assert.ok(zh.includes('data-seal="总账"'), 'zh 印章文字')
+    assert.ok(!zh.includes('Check for updates'), 'zh 不见英文宏')
+    assert.ok(!zh.includes('Ledger'), 'zh 不见英文印章')
+    const en = renderBatchPanelHTML({ rows, loaded: true, lang: 'en' })
+    assert.ok(en.includes('Update archive'), 'en 抬头')
+    assert.ok(en.includes('Check for updates'), 'en 宏')
+    assert.ok(en.includes('Update all'), 'en 宏')
+    assert.ok(en.includes('failed to install'), 'en 横幅')
+    assert.ok(en.includes('data-seal="Ledger"'), 'en 印章文字')
+    assert.ok(!en.includes('检查更新'), 'en 不见中文宏')
+    assert.ok(!en.includes('总账'), 'en 不见中文印章')
+    assert.ok(!en.includes('家安装失败'), 'en 不见中文横幅')
+    // 行状态词属 §4.2（#65 范围）：en 下仍中文是预期的增量窗口，不在此断言。
+  })
+
+  it('冻结词元逐字不变、分支只认稳定码：两种语言同一码同档', () => {
+    const rows = [{ key: 'a', title: 'A', phase: 'ready', targetVersion: '9.9.9', restartRequired: false, error: null, snapshot: null }]
+    const zh = renderBatchPanelHTML({ rows, loaded: true, lastError: 'check-failed', lang: 'zh' })
+    const en = renderBatchPanelHTML({ rows, loaded: true, lastError: 'check-failed', lang: 'en' })
+    assert.ok(zh.includes('check-failed'), 'zh 露稳定码')
+    assert.ok(en.includes('check-failed'), 'en 露稳定码逐字同')
+    assert.ok(zh.includes('9.9.9') || zh.includes('A'), 'zh 变量值在位')
+    assert.ok(en.includes('9.9.9') || en.includes('A'), 'en 变量值逐字同')
+    // 同一码换语言不换档：两边都是 failed 横幅（data-kind），只是人话语言不同。
+    assert.ok(zh.includes('data-kind="failed"'), 'zh 失败档')
+    assert.ok(en.includes('data-kind="failed"'), 'en 同码同档')
+    assert.ok(zh.includes('查新版没成功'), 'zh 人话')
+    assert.ok(!en.includes('查新版没成功'), 'en 人话已切换')
   })
 })

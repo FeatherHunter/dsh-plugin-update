@@ -134,25 +134,28 @@ test('批量：取消要点两次，点别的自动卸膛', async () => {
   const rows = [
     { key: 'a', pluginId: 'pa', phase: 'ready', runningVersion: '1.0.0', installedVersion: '1.0.0', latestVersion: '1.0.1' },
   ]
+  const session = { version: 1, id: 's1', selfKey: null, stopOnFailure: false, order: ['a'], entries: [{ key: 'a', phase: 'ready', requestId: 'r', targetVersion: '1.0.1', restartRequired: false, error: null, updatedAt: 0 }], createdAt: 0, updatedAt: 0 }
   const panel = mountUpdateBatchPanel(box, {
     pluginId: 'batch',
     prefix: 'b',
     call: async (phone) => {
       calls.push(phone)
-      return { ok: true, session: { id: 's1' }, rows }
+      return { ok: true, session, rows }
     },
     pollMs: 60000,
+    autoResume: false,
+    checkOnOpen: false,
   })
   await tick()
   await tick()
-  assert.ok(box.innerHTML.includes('取消这一批'), '常态文案')
+  assert.ok(box.innerHTML.includes('丢弃这批未完成的更新'), '常态文案')
   box.click({ 'data-act': 'cancel' })
   await tick()
-  assert.ok(box.innerHTML.includes('确认取消这一批'), '第一次只上膛')
+  assert.ok(box.innerHTML.includes('确认丢弃'), '第一次只上膛')
   assert.ok(!calls.some((c) => c.endsWith('.batchCancel')), '上膛不发取消电话')
   box.click({ 'data-act': 'check' }) // 点别的
   await tick()
-  assert.ok(!box.innerHTML.includes('确认取消这一批'), '点别的自动卸膛')
+  assert.ok(!box.innerHTML.includes('确认丢弃'), '点别的自动卸膛')
   box.click({ 'data-act': 'cancel' })
   await tick()
   box.click({ 'data-act': 'cancel' })

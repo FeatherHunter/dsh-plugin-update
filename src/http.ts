@@ -29,8 +29,8 @@ export const DEFAULT_HTTP_STATUS_TIMEOUT_MS = 15_000
 export const HTTP_PHONE_ACTIONS = ['updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog'] as const
 export type HttpPhoneAction = (typeof HTTP_PHONE_ACTIONS)[number]
 
-/** 批量五电话动作名（与 src/panel-batch.ts buildBatchPhoneNames 同字面，不另起字面；同一内核）。 */
-export const HTTP_BATCH_ACTIONS = ['batchStatus', 'batchCheck', 'batchInstall', 'batchResume', 'batchCancel'] as const
+/** 批量七电话动作名（与 src/panel-batch.ts buildBatchPhoneNames 同字面，不另起字面；同一内核）。 */
+export const HTTP_BATCH_ACTIONS = ['batchStatus', 'batchCheck', 'batchInstall', 'batchResume', 'batchCancel', 'batchPrefs', 'batchPrefsSave'] as const
 export type HttpBatchAction = (typeof HTTP_BATCH_ACTIONS)[number]
 
 /** 逐电话覆写表：键为全电话名（prefix.动作）或短动作名；未知键拒绝。 */

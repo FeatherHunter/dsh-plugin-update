@@ -66,13 +66,14 @@ function fakeLocale(initial = 'zh') {
   }
 }
 
-// ---------- 类型锁死：13 键齐全，版本钉死 ----------
+// ---------- 类型锁死：246 键齐全，版本钉死 ----------
 
-test('字典钉住版本且 13 键齐全（entry 7 + batch-entry 6，缺键即实现未完成）', () => {
+test('字典钉住版本且 246 键齐全（entry 7 + batch-entry 6 + panel 75 + kernel 74 + diag 35 + batch 16 + batch-ledger 33，缺键即实现未完成）', () => {
   __resetLangState()
   assert.equal(BILINGUAL_DICT_VERSION, '2026-10-06-pin53')
   const keys = Object.keys(BILINGUAL_STRINGS).sort()
-  assert.deepEqual(keys, [
+  // #60 底座 13 键必须都在（既有键 en/zh/draft 不动）
+  for (const k of [
     'batch-entry.action.checking',
     'batch-entry.label.busy',
     'batch-entry.label.failed',
@@ -86,7 +87,34 @@ test('字典钉住版本且 13 键齐全（entry 7 + batch-entry 6，缺键即�
     'entry.label.idle',
     'entry.label.restart',
     'entry.note.up-to-date',
-  ])
+  ]) assert.ok(keys.includes(k), k + ' 缺键')
+  // #61 panel 75 键（§3.1 16 + §3.2 14 + §3.5 16 + §3.6 18 + §3.8 11）+ #62 kernel 74（§3.7）+ #63 diag 35（§3.3 13 + §3.4 22）+ #64 batch-ledger 33（§4.1 8 + §4.3 8 + §4.4 10 + §4.5 7）
+  assert.equal(keys.length, 246)
+  assert.ok(keys.includes('batch.action.resume'))
+  assert.ok(keys.includes('batch.fact.close-safe'))
+  assert.ok(keys.includes('batch.setting.check-on-open'))
+  assert.ok(keys.includes('batch.row.update'))
+  assert.ok(keys.includes('panel.blocked.unknown-profile.title'))
+  assert.ok(keys.includes('panel.failure.check-failed.title'))
+  assert.ok(keys.includes('panel.seal.loading.text'))
+  assert.ok(keys.includes('panel.banner.error.title'))
+  assert.ok(keys.includes('panel.toast.checking'))
+  assert.ok(keys.includes('panel.diag.header'))
+  assert.ok(keys.includes('panel.diag.label.human'))
+  assert.ok(keys.includes('panel.diag.copy.no-detail'))
+  assert.ok(keys.includes('panel.diag.copy.field.plugin'))
+  assert.ok(keys.includes('panel.diag.copy.block.summary'))
+  // #64 panel-batch 聚合总账 33 键（§4.1/4.3/4.4/4.5，逐条见 research/52-inventory.md）
+  for (const k of [
+    'batch.summary.updatable', 'batch.summary.installing', 'batch.summary.pending', 'batch.summary.restart',
+    'batch.summary.failed', 'batch.summary.skipped', 'batch.summary.settled', 'batch.summary.empty',
+    'batch.header.title', 'batch.action.check', 'batch.action.check-title', 'batch.action.install-all',
+    'batch.action.install-all-title', 'batch.action.close', 'batch.action.close-title', 'batch.banner.loading',
+    'batch.hint.error', 'batch.hint.empty', 'batch.hint.installing-queueable', 'batch.hint.installing-auto',
+    'batch.hint.failed', 'batch.hint.updatable', 'batch.hint.restart', 'batch.hint.pending', 'batch.hint.done',
+    'batch.seal.ledger', 'batch.banner.error-title', 'batch.banner.error-action-fallback', 'batch.banner.failed-title',
+    'batch.banner.failed-action', 'batch.banner.restart-title', 'batch.banner.restart-action', 'batch.banner.restart-button',
+  ]) assert.ok(keys.includes(k), k + ' 缺键（#64）')
   for (const k of keys) {
     const e = BILINGUAL_STRINGS[k]
     assert.equal(typeof e.en, 'string', k + ' 有英文')
@@ -96,8 +124,8 @@ test('字典钉住版本且 13 键齐全（entry 7 + batch-entry 6，缺键即�
   }
 })
 
-test('draft 诚实态：13 键全 draft，门禁读 draftKeys()（#60 不转正，--release 仍如实红）', () => {
-  assert.equal(draftKeys().length, 13)
+test('draft 诚实态：246 键全 draft，门禁读 draftKeys()（#61/#62/#63/#64 新增亦全 draft，--release 仍如实红）', () => {
+  assert.equal(draftKeys().length, 246)
   assert.ok(draftKeys().includes('entry.label.idle'))
   assert.ok(draftKeys().includes('batch-entry.label.update'))
 })
@@ -151,7 +179,8 @@ test('同一份快照：zh 不见字典英文，en 不见中文（冻结词元�
   for (const k of Object.keys(BILINGUAL_STRINGS)) {
     const zh = copyHTML(k, 'zh', vals)
     const en = copyHTML(k, 'en', vals)
-    const zhText = zh.replace(/<[^>]*>/g, ' ').replace(/9\.9\.9/g, '').replace(/7/g, '')
+    // 冻结词元（#61 #63）：Node / installing / verifying / diag 在 zh 里逐字保留，不算混入。
+    const zhText = zh.replace(/<[^>]*>/g, ' ').replace(/9\.9\.9/g, '').replace(/7/g, '').replace(/Node/g, '').replace(/installing/g, '').replace(/verifying/g, '').replace(/diag/g, '')
     const enText = en.replace(/<[^>]*>/g, ' ').replace(/9\.9\.9/g, '').replace(/7/g, '')
     assert.ok(!/[A-Za-z]/.test(zhText), k + ' zh 混入英文：' + zh)
     assert.ok(!/[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(enText), k + ' en 混入中文：' + en)
@@ -453,9 +482,11 @@ test('面板 dialog 打开期间切换语言不打断轮询与瞬时态（入口
   const dialogHTML = box.innerHTML
   assert.match(dialogHTML, /dsh-upd/, 'dialog 已打开（面板接管容器）')
   assert.ok(!dialogHTML.includes('dsh-upd-entry-btn') || dialogHTML.includes('dsh-upd'), '面板态')
-  // 打开期间切语言：dialog 不被收掉，快照不断
+  // 打开期间切语言：dialog 不被收掉，快照不断；#61 起面板即时重绘为新语言（不再是窗口期占位）。
   locale.set('en')
-  assert.equal(box.innerHTML, dialogHTML, '面板打开期间入口件不抢容器（轮询与瞬时态不断）')
+  assert.match(box.innerHTML, /dsh-upd/, '面板打开期间仍由面板持有容器（轮询与瞬时态不断，未被入口件抢回）')
+  assert.ok(!box.innerHTML.includes('dsh-upd-entry-btn'), '面板态未被入口件按钮替换')
+  assert.match(box.innerHTML, /Update available|Loading update status|Not checked/, '面板已即时重绘为新语言（#61 消费 locale）')
   assert.equal(entry.label(), 'Update available 1.1.0', '第二出口已是新语言（快照未丢）')
   entry.close()
   await new Promise((r) => setTimeout(r, 20))

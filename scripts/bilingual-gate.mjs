@@ -479,7 +479,9 @@ export function checkDictionary(options = {}) {
           violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' en 渲染只许出现当前语言（含 lang="en" 且不含 lang="zh"）' })
         }
         const strip = (h) => String(h ?? '').replace(/<[^>]*>/g, ' ').replace(/&[^;]+;/g, ' ')
-        const zhText = strip(zhHtml).replace(/9\.9\.9/g, '').replace(/7/g, '')
+        // 冻结词元（#61 #63）：产品名与任务态及电话侧对象名在 zh 里逐字保留，不算混入英文（Node / installing / verifying / diag）。
+        const stripFrozen = (s) => String(s ?? '').replace(/Node/g, '').replace(/installing/g, '').replace(/verifying/g, '').replace(/diag/g, '')
+        const zhText = stripFrozen(strip(zhHtml).replace(/9\.9\.9/g, '').replace(/7/g, ''))
         const enText = strip(enHtml).replace(/9\.9\.9/g, '').replace(/7/g, '')
         if (/[A-Za-z]/.test(zhText)) {
           violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' zh 渲染混入英文（冻结词元除外）' })
@@ -506,7 +508,7 @@ export function checkDictionary(options = {}) {
         violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 单语纯文本抛错：' + (e && e.message) })
       }
       if (zhT || enT) {
-        const zhClean = String(zhT).replace(/9\.9\.9/g, '').replace(/7/g, '')
+        const zhClean = String(zhT).replace(/9\.9\.9/g, '').replace(/7/g, '').replace(/Node/g, '').replace(/installing/g, '').replace(/verifying/g, '').replace(/diag/g, '')
         const enClean = String(enT).replace(/9\.9\.9/g, '').replace(/7/g, '')
         if (/[A-Za-z]/.test(zhClean)) violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 纯文本 zh 混入英文' })
         if (CJK.test(enClean)) violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 纯文本 en 混入中文' })

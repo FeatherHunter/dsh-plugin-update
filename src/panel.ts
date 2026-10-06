@@ -30,6 +30,8 @@ import {
 import { visibleQueueFor, type UpdateQueueState, type VisibleQueue } from './queue.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } from './log-events.js'
 import type { BlockedReason, UpdateSnapshot } from './ports.js'
+import { copyText, type BilingualKey } from './bilingual.js'
+import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
 
 // ---------- 公开类型（完整类型定义：公开入口一律有类型，不做源码级复用） ----------
 
@@ -124,10 +126,10 @@ export interface UpdatePanelOptions {
    */
   onCloseRequested?: () => void | Promise<void>
   /**
-   * 语言覆盖（#60 窗口期占位：本票只加选项不消费，传了暂不生效，消费留给 #61-#66）。
-   * 形态与入口件一致：'zh' | 'en' | { getActive(): string; subscribe?(cb): () => void }。
+   * 语言覆盖（#61 起消费：'zh' | 'en' | { getActive(): string; subscribe?(cb): () => void }，不传即跟随全局信号）。
+   * 与入口件同一口径：显式覆盖 > html[lang] > navigator > zh。
    */
-  locale?: unknown
+  locale?: LocaleOption
 }
 
 /** 挂载点：只要有 innerHTML 的容器即可（浏览器元素或测试替身都行）。 */
@@ -167,94 +169,59 @@ export interface PanelSkipStore {
   reset(version?: string): void
 }
 
-// ---------- 中文一句话（README §5.2：面板只展示“用户该做什么”，不只展示英文原因） ----------
+// ---------- 状态与失败文案（#61 起全部出自集中字典，单语渲染；分支只认稳定码） ----------
+//
+// README §5.2：面板只展示“用户该做什么”，不只展示英文原因。
+// zh 逐字等于旧散落文案（兼容既有测试）；en 待母语评审全 draft（见 src/bilingual.ts）。
+// 8 阻塞行复用同一组 key（failureCopy 对阻塞码直接复用 blocked 行，不另起措辞）。
 
 export interface BlockedCopy {
   title: string
   action: string
 }
 
-const BLOCKED_COPY: Record<BlockedReason, BlockedCopy> = {
-  'unknown-profile': {
-    title: '使用范围或插件位置认不出',
-    action: '重开宿主再查一次；一直这样就把版本号与日志交给插件作者；这种情形不给手工命令',
-  },
-  'source-install': {
-    title: '当前是从源码装的，不是按版本号装的',
-    action: '这种情形不给手工命令；想走更新先按版本号重装一次',
-  },
-  'invalid-installation': {
-    title: '已装的包不完整（名字对不上、版本非法、入口文件缺失）',
-    action: '重装当前版本，修好已装目录再查更新',
-  },
-  'installation-changed': {
-    title: '安装位置在使用中途变了（换了目录或换了包）',
-    action: '重新打开宿主再查一次；还出现就重装',
-  },
-  'pending-restart': {
-    title: '新版已装到磁盘，正在跑的还是旧版',
-    action: '重启宿主，让新版跑起来；这是正常终态，不是失败',
-  },
-  'registry-conflict': {
-    title: '本地声明的版本与磁盘实际版本互相矛盾',
-    action: '打开使用范围的清单文件，把目标包名那一行改成版本号再试',
-  },
-  'incompatible-node': {
-    title: '新版要求的 Node 与当前运行的对不上',
-    action: '先升级 Node 到 22 或更高，再查更新',
-  },
-  'recovery-required': {
-    title: '上次安装被打断，留下一个半截任务',
-    action: '重新点一次安装；一直出现就按第 6 节排错',
-  },
+const BLOCKED_KEYS: Record<BlockedReason, { title: BilingualKey; action: BilingualKey }> = {
+  'unknown-profile': { title: 'panel.blocked.unknown-profile.title', action: 'panel.blocked.unknown-profile.action' },
+  'source-install': { title: 'panel.blocked.source-install.title', action: 'panel.blocked.source-install.action' },
+  'invalid-installation': { title: 'panel.blocked.invalid-installation.title', action: 'panel.blocked.invalid-installation.action' },
+  'installation-changed': { title: 'panel.blocked.installation-changed.title', action: 'panel.blocked.installation-changed.action' },
+  'pending-restart': { title: 'panel.blocked.pending-restart.title', action: 'panel.blocked.pending-restart.action' },
+  'registry-conflict': { title: 'panel.blocked.registry-conflict.title', action: 'panel.blocked.registry-conflict.action' },
+  'incompatible-node': { title: 'panel.blocked.incompatible-node.title', action: 'panel.blocked.incompatible-node.action' },
+  'recovery-required': { title: 'panel.blocked.recovery-required.title', action: 'panel.blocked.recovery-required.action' },
 }
 
-/** 装不了的原因 → 中文一句话（能装传 null 即回 null，不猜）。 */
-export function blockedCopy(reason: BlockedReason | null): BlockedCopy | null {
+/** 装不了的原因 → 单语一句话（能装传 null 即回 null，不猜；lang 缺省 zh，零回归）。 */
+export function blockedCopy(reason: BlockedReason | null, lang?: AppLang | string | null): BlockedCopy | null {
   if (reason === null || reason === undefined) return null
-  return BLOCKED_COPY[reason] ?? null
+  const keys = (BLOCKED_KEYS as Record<string, { title: BilingualKey; action: BilingualKey }>)[reason]
+  if (!keys) return null
+  const l = normalizeLangTag(lang ?? 'zh')
+  return { title: copyText(keys.title, l), action: copyText(keys.action, l) }
 }
 
-// ---------- 14 码中文文案（#22：8 行 + 5 电话专属 + internal + 未来兜底） ----------
+// ---------- 14 码单语文案（#22 原型 + #61 入字典：8 阻塞 + 5 电话 + internal + 未来兜底） ----------
 //
-// 8 行以 README §5.2 为准（手册是源，代码逐字跟手册，不自创措辞）；
-// 5 电话专属 + internal 为本票新增（原型 panel-tolerated-reader 起草，措辞只给行动，不推导）；
-// 未来码走兜底（ unknown ），面板只渲染不推导（分支只用稳定码，不碰 diag 明细）。
+// 8 行以 README §5.2 为准（手册是源，字典逐字跟手册，不自创措辞）；
+// 5 电话专属 + internal 为原型 panel-tolerated-reader 起草，措辞只给行动，不推导；
+// 未来码走兜底（unknown），面板只渲染不推导（分支只用稳定码，不碰 diag 明细）。
 export interface FailureCopy {
   zh: string
   act: string
 }
 
-const PHONE_FAILURE_COPY: Record<string, FailureCopy> = {
-  'check-failed': {
-    zh: '查新版没成功（联网、源、限流都可能）',
-    act: '过一会儿再查一次；一直失败就把复制诊断交给插件作者',
-  },
-  'invalid-release': {
-    zh: '拿到的发布信息不合法（版本号非法或内容对不上）',
-    act: '检查清单文件里的包名与版本写法，再查一次',
-  },
-  'check-expired': {
-    zh: '凭证过期了，安装请求被拒',
-    act: '重新查一次新版再点安装，不要重试旧编号',
-  },
-  'update-busy': {
-    zh: '同一使用范围正在装另一个',
-    act: '等当前任务离开 installing/verifying 再点；排队中去查状态看位置',
-  },
-  'install-failed': {
-    zh: '装不上（详见诊断摘要）',
-    act: '先看复制诊断；官方桌面版把这段交给插件作者',
-  },
-  internal: {
-    zh: '出了点问题，认不出具体原因',
-    act: '先重试一次；一直这样就把复制诊断交给插件作者',
-  },
+const PHONE_FAILURE_KEYS: Record<string, { title: BilingualKey; action: BilingualKey }> = {
+  'check-failed': { title: 'panel.failure.check-failed.title', action: 'panel.failure.check-failed.action' },
+  'invalid-release': { title: 'panel.failure.invalid-release.title', action: 'panel.failure.invalid-release.action' },
+  'check-expired': { title: 'panel.failure.check-expired.title', action: 'panel.failure.check-expired.action' },
+  'update-busy': { title: 'panel.failure.update-busy.title', action: 'panel.failure.update-busy.action' },
+  'install-failed': { title: 'panel.failure.install-failed.title', action: 'panel.failure.install-failed.action' },
+  internal: { title: 'panel.failure.internal.title', action: 'panel.failure.internal.action' },
 }
 
-const UNKNOWN_FAILURE_COPY: FailureCopy = {
-  zh: '出了点问题，认不出具体原因',
-  act: '先重试一次；一直这样就把复制诊断交给插件作者（带上你看到的码）',
+const UNKNOWN_FAILURE_KEYS: { title: BilingualKey; action: BilingualKey } = {
+  title: 'panel.failure.unknown.title',
+  action: 'panel.failure.unknown.action',
 }
 
 /** 14 码全表是否包含该码（8 阻塞 + 5 电话 + internal；未来码不在此列，走兜底）。 */
@@ -262,22 +229,23 @@ export function isKnownFailureCode(code: unknown): boolean {
   if (typeof code !== 'string' || !code) return false
   const c = code.trim()
   if (!c) return false
-  return c in BLOCKED_COPY || c in PHONE_FAILURE_COPY
+  return c in BLOCKED_KEYS || c in PHONE_FAILURE_KEYS
 }
 
 /**
- * 稳定码 → 中文一句话（14 码全覆盖；未知码回未来兜底，空码回 null）。
- * 8 阻塞行复用 BLOCKED_COPY 原文，不另起措辞；面板分支只认返回值，不碰 diag。
+ * 稳定码 → 单语一句话（14 码全覆盖；未知码回未来兜底，空码回 null；lang 缺省 zh，零回归）。
+ * 8 阻塞行复用 blocked 行原文，不另起措辞；面板分支只认返回值，不碰 diag。
  */
-export function failureCopy(code: unknown): FailureCopy | null {
+export function failureCopy(code: unknown, lang?: AppLang | string | null): FailureCopy | null {
   if (typeof code !== 'string') return null
   const c = code.trim()
   if (!c) return null
-  const blocked = (BLOCKED_COPY as Record<string, BlockedCopy>)[c]
-  if (blocked) return { zh: blocked.title, act: blocked.action }
-  const phone = PHONE_FAILURE_COPY[c]
-  if (phone) return phone
-  return UNKNOWN_FAILURE_COPY
+  const l = normalizeLangTag(lang ?? 'zh')
+  const blocked = (BLOCKED_KEYS as Record<string, { title: BilingualKey; action: BilingualKey }>)[c]
+  if (blocked) return { zh: copyText(blocked.title, l), act: copyText(blocked.action, l) }
+  const phone = PHONE_FAILURE_KEYS[c]
+  if (phone) return { zh: copyText(phone.title, l), act: copyText(phone.action, l) }
+  return { zh: copyText(UNKNOWN_FAILURE_KEYS.title, l), act: copyText(UNKNOWN_FAILURE_KEYS.action, l) }
 }
 
 /**
@@ -334,33 +302,33 @@ export interface PanelDiagnosticInput {
   /** 显式来源（diag 没有时用；有 diag 时显式优先，缺省仍说人话，不留白）。 */
   route?: string | null
   checkId?: string | null
+  /** 渲染语言（#63 单语：缺省 zh 零回归；挂载态传 currentLang，纯函数直调可显式传 en/zh）。 */
+  lang?: AppLang | string | null
 }
 
-/** 组出一段自包含诊断（调用方直接拿去粘工单/issue；粘之前已脱敏，不必手检）。 */
-export function buildDiagnosticText(input: PanelDiagnosticInput): string {
+/** 组出一段自包含诊断（调用方直接拿去粘工单/issue；粘之前已脱敏，不必手检；#63 入字典单语，lang 缺省 zh 零回归）。 */
+export function buildDiagnosticText(input: PanelDiagnosticInput, langOverride?: AppLang | string | null): string {
+  const l = normalizeLangTag(langOverride ?? (input as { lang?: unknown }).lang ?? 'zh')
+  const unknown = copyText('panel.diag.copy.unknown', l)
   const code = String(input.code || 'check-failed')
-  const lines: string[] = [`[更新诊断] ${String(input.pluginId)} 稳定码：${code}`]
+  const lines: string[] = [copyText('panel.diag.header', l, { pluginId: String(input.pluginId), code })]
   const detail = redactForCopy(input.detail ?? '')
-  lines.push(`人话：${detail || failureCopy(code)?.act || code}`)
+  const fallbackAct = failureCopy(code, l)?.act || code
+  lines.push(copyText('panel.diag.label.human', l, { detail: detail || fallbackAct }))
   const versions = [
-    `运行版：${input.runningVersion ?? '未知'}`,
-    `已装：${input.installedVersion ?? '未知'}`,
-    `远端：${input.latestVersion ?? '未查过'}`,
+    copyText('panel.diag.label.running', l, { version: input.runningVersion ?? unknown }),
+    copyText('panel.diag.label.installed', l, { version: input.installedVersion ?? unknown }),
+    copyText('panel.diag.label.latest', l, { version: input.latestVersion ?? (l === 'en' ? 'Not checked' : '未查过') }),
   ].join(' / ')
   lines.push(versions)
-  const queue =
-    input.queuePosition === 0
-      ? '正在安装'
-      : typeof input.queuePosition === 'number'
-        ? `排队第 ${input.queuePosition} 位`
-        : '不在队列里'
+  const queue = queueTextOf(input.queuePosition ?? null, l)
   // 使用范围只在给了的时候出现：不给就与旧输出一字不差（诊断文本是给人粘工单的，不掺空字段）。
-  const hostLine = [`宿主：${input.hostKind ?? '未知'}`]
-  if (typeof input.profileName === 'string' && input.profileName) hostLine.push(`使用范围：${input.profileName}`)
-  hostLine.push(`队列：${queue}`)
-  lines.push(hostLine.join(' / ') + (input.requestId ? ` / 请求编号：${input.requestId}` : ''))
+  const hostLine = [copyText('panel.diag.label.host', l, { host: input.hostKind ?? unknown })]
+  if (typeof input.profileName === 'string' && input.profileName) hostLine.push(copyText('panel.diag.label.profile', l, { profile: input.profileName }))
+  hostLine.push(copyText('panel.diag.label.queue', l, { queue }))
+  lines.push(hostLine.join(' / ') + (input.requestId ? ` / ${copyText('panel.diag.label.request', l, { requestId: input.requestId })}` : ''))
   const manual = redactForCopy(input.manual ?? '')
-  if (manual) lines.push(`手工命令：${manual}`)
+  if (manual) lines.push(copyText('panel.diag.label.manual', l, { manual }))
   return redactForCopy(lines.join('\n'))
 }
 
@@ -460,14 +428,16 @@ function pickText(value: unknown, fallback: string): string {
   return fallback
 }
 
-function queueTextOf(queuePosition: number | null | undefined, _diagQueuePos?: unknown): string {
+function queueTextOf(queuePosition: number | null | undefined, lang?: AppLang | string | null, _diagQueuePos?: unknown): string {
   // 第一性：queuePos 未转正前面板必须忽略（#18 预留未来键，diag.ts 永不产出，原型按目录外键静默丢）。
   // 排队位置只看队列视图；转正后电话侧按目录给，届时再接线，本函数签名保留占位以免误用。
+  // #63 入字典单语，lang 缺省 zh 零回归。
   void _diagQueuePos
+  const l = normalizeLangTag(lang ?? 'zh')
   const pos = typeof queuePosition === 'number' ? queuePosition : null
-  if (pos === 0) return '正在安装'
-  if (typeof pos === 'number') return `排队第 ${pos} 位`
-  return '不在队列里'
+  if (pos === 0) return copyText('panel.diag.queue.installing', l)
+  if (typeof pos === 'number') return copyText('panel.diag.queue.position', l, { n: pos })
+  return copyText('panel.diag.queue.absent', l)
 }
 
 /**
@@ -475,50 +445,56 @@ function queueTextOf(queuePosition: number | null | undefined, _diagQueuePos?: u
  * 第一性：顺序码→摘要→来源（#18 定），怎么办是面板页脚放最后，不插断三元组；
  * 缺省即省略（#18）：路由/请求/检查/阶段等缺失即不出现，不占位“未知”；
  * 插件/版本/宿主/使用范围/队列恒显（面板侧显式值兜底），摘要缺省给人话，源缺省给人话（省略本身即信息，人读不懂所以必须说）。
+ * #63 入字典单语（§3.4 22 项，队列 3 复用旧块）：标签跟随语言，变量与自由文本、两种复制形态与字段顺序冻结不动；
+ * 机读 tag [update-diag]/code=/·/— 冻结在代码里不进字典（非人类语言），人类标签（摘要/来源/怎么办/插件=…）走字典；
+ * lang 缺省 zh 零回归，detail/变量/占位符不译（v2 非目标，英文界面出现中文正文属正常）。
  */
-export function buildUpdateDiagCopy(input: UpdateDiagCopyInput): string {
+export function buildUpdateDiagCopy(input: UpdateDiagCopyInput, langOverride?: AppLang | string | null): string {
+  const l = normalizeLangTag(langOverride ?? (input as { lang?: unknown }).lang ?? 'zh')
+  const unknown = copyText('panel.diag.copy.unknown', l)
+  const unknownPkg = copyText('panel.diag.copy.unknown-package', l)
   const rawCode = String((input as { code?: unknown }).code ?? '').trim() || 'internal'
-  const copy = failureCopy(rawCode) ?? UNKNOWN_FAILURE_COPY
+  const copy = failureCopy(rawCode, l) ?? failureCopy('unknown', l)!
   const diag = readDiagTolerant((input as { diag?: unknown }).diag)
   const detailRaw = diag.detail ?? input.detail ?? ''
-  const detail = redactForCopy(detailRaw) || '（本回包没有带诊断摘要，等电话侧 diag 落定后补齐）'
-  const pluginName = pickText(diag.targetPackageName ?? input.pluginId, '(未知包)')
+  const detail = redactForCopy(detailRaw) || copyText('panel.diag.copy.no-detail', l)
+  const pluginName = pickText(diag.targetPackageName ?? input.pluginId, unknownPkg)
   const runVer = pickText(diag.runningVersion ?? input.runningVersion, '?')
   const instVer = pickText(input.installedVersion ?? diag.latestVersion, '?')
-  const host = pickText(diag.environmentKind ?? input.hostKind, '未知')
+  const host = pickText(diag.environmentKind ?? input.hostKind, unknown)
   const routeRaw = (diag.route ?? (input as { route?: unknown }).route) as unknown
   const requestRaw = (diag.requestId ?? input.requestId) as unknown
   const checkRaw = (diag.checkId ?? (input as { checkId?: unknown }).checkId) as unknown
-  const queue = queueTextOf(input.queuePosition ?? null)
+  const queue = queueTextOf(input.queuePosition ?? null, l)
   // 来源顺序固定：插件 → 版本 → 宿主 → 使用范围 → 路由 → 阶段 → 方法 → HTTP/exit/耗时 → 源 → 建议 → 请求/检查 → 队列
   // 缺省即省略：路由/请求/检查等无值即不出现；插件/版本/宿主/使用范围/队列恒显；源缺省给人话。
-  const prov: string[] = [`插件=${pluginName}`, `版本=${runVer}→${instVer}`, `宿主=${host}`]
+  const prov: string[] = [copyText('panel.diag.copy.field.plugin', l, { plugin: pluginName }), copyText('panel.diag.copy.field.version', l, { run: runVer, inst: instVer }), copyText('panel.diag.copy.field.host', l, { host })]
   // #45：使用范围恒显（排错第一信息；未知也不猜，与表头口径一致，diag 无此键故只看显式值）。
-  prov.push(`使用范围=${pickText((input as { profileName?: unknown }).profileName, '未知')}`)
-  if (typeof routeRaw === 'string' && routeRaw.trim()) prov.push(`路由=${routeRaw.trim()}`)
-  if (diag.stage) prov.push(`阶段=${diag.stage}`)
-  if (diag.method) prov.push(`方法=${diag.method}`)
+  prov.push(copyText('panel.diag.copy.field.profile', l, { profile: pickText((input as { profileName?: unknown }).profileName, unknown) }))
+  if (typeof routeRaw === 'string' && routeRaw.trim()) prov.push(copyText('panel.diag.copy.field.route', l, { route: routeRaw.trim() }))
+  if (diag.stage) prov.push(copyText('panel.diag.copy.field.stage', l, { stage: diag.stage }))
+  if (diag.method) prov.push(copyText('panel.diag.copy.field.method', l, { method: diag.method }))
   if (typeof diag.httpStatus === 'number') prov.push(`HTTP=${diag.httpStatus}`)
   if (typeof diag.exitCode === 'number') prov.push(`exit=${diag.exitCode}`)
-  if (typeof diag.latencyMs === 'number') prov.push(`耗时=${diag.latencyMs}ms`)
-  if (diag.registryHost) prov.push(`源=${diag.registryHost}`)
-  else prov.push('源=未知（非官方源时省略本身即信息）')
-  if (diag.action) prov.push(`建议=${diag.action}`)
-  if (typeof requestRaw === 'string' && requestRaw.trim()) prov.push(`请求=${requestRaw.trim()}`)
-  if (typeof checkRaw === 'string' && checkRaw.trim()) prov.push(`检查=${checkRaw.trim()}`)
-  prov.push(`队列=${queue}`)
+  if (typeof diag.latencyMs === 'number') prov.push(`${copyText('panel.diag.copy.field.latency', l, { latency: diag.latencyMs })}ms`)
+  if (diag.registryHost) prov.push(copyText('panel.diag.copy.field.registry', l, { host: diag.registryHost }))
+  else prov.push(copyText('panel.diag.copy.field.registry-unknown', l))
+  if (diag.action) prov.push(copyText('panel.diag.copy.field.action', l, { action: diag.action }))
+  if (typeof requestRaw === 'string' && requestRaw.trim()) prov.push(copyText('panel.diag.copy.field.request', l, { request: requestRaw.trim() }))
+  if (typeof checkRaw === 'string' && checkRaw.trim()) prov.push(copyText('panel.diag.copy.field.check', l, { check: checkRaw.trim() }))
+  prov.push(copyText('panel.diag.copy.field.queue', l, { queue }))
   const format: DiagCopyFormat = (input as { format?: unknown }).format === 'line' ? 'line' : 'block'
   const provLine = redactForCopy(prov.join(' · '))
   if (format === 'line') {
-    const line = `[update-diag] code=${rawCode} · ${copy.zh} · 摘要=${detail} · ${provLine} · 怎么办=${copy.act}`
+    const line = `[update-diag] code=${rawCode} · ${copy.zh} · ${copyText('panel.diag.copy.line.summary', l, { summary: detail })} · ${provLine} · ${copyText('panel.diag.copy.line.remedy', l, { remedy: copy.act })}`
     return redactForCopy(line)
   }
   // 块形态保留换行：各段已脱敏，不再整块压平（压平会把三行块变成单行）。
   const block = [
     `[update-diag] ${rawCode} — ${copy.zh}`,
-    `  摘要：${detail}`,
-    `  来源：${provLine}`,
-    `  怎么办：${copy.act}`,
+    `  ${copyText('panel.diag.copy.block.summary', l, { summary: detail })}`,
+    `  ${copyText('panel.diag.copy.block.source', l, { source: provLine })}`,
+    `  ${copyText('panel.diag.copy.block.remedy', l, { remedy: copy.act })}`,
   ].join('\n')
   return block
 }
@@ -680,19 +656,27 @@ export interface PanelSeal {
 }
 
 /**
- * 状态 → 印章（原型映射表，逐条对齐 d5-paper.html:431-432）：
+ * 状态 → 印章（原型映射表，逐条对齐 d5-paper.html:431-432，#61 入字典单语）：
  * 待查=查/ink、可装=装/green、安装中=装/yellow、待重启=启/yellow、受阻=阻/red、已最新=定/green。
+ * 中文印章 blocked/failed 共用“受阻”，英文分流（Blocked — Action needed / Failed — Retry available，见 #53 Q4）。
  * 主题无关：默认主题只把它当属性带着（不画），D5 用 CSS 读出来画成印章，DOM 两边仍同一份。
  */
-const SEAL_BY_KIND: Record<PanelBanner['kind'], PanelSeal> = {
-  loading: { text: '待查', mini: '查', tone: 'ink' },
-  idle: { text: '待查', mini: '查', tone: 'ink' },
-  update: { text: '可装', mini: '装', tone: 'green' },
-  busy: { text: '安装中', mini: '装', tone: 'yellow' },
-  restart: { text: '待重启', mini: '启', tone: 'yellow' },
-  blocked: { text: '受阻', mini: '阻', tone: 'red' },
-  failed: { text: '受阻', mini: '阻', tone: 'red' },
-  done: { text: '已最新', mini: '定', tone: 'green' },
+const SEAL_KEYS: Record<PanelBanner['kind'], { text: BilingualKey; mini: BilingualKey; tone: PanelSealTone }> = {
+  loading: { text: 'panel.seal.loading.text', mini: 'panel.seal.loading.mini', tone: 'ink' },
+  idle: { text: 'panel.seal.idle.text', mini: 'panel.seal.idle.mini', tone: 'ink' },
+  update: { text: 'panel.seal.update.text', mini: 'panel.seal.update.mini', tone: 'green' },
+  busy: { text: 'panel.seal.busy.text', mini: 'panel.seal.busy.mini', tone: 'yellow' },
+  restart: { text: 'panel.seal.restart.text', mini: 'panel.seal.restart.mini', tone: 'yellow' },
+  blocked: { text: 'panel.seal.blocked.text', mini: 'panel.seal.blocked.mini', tone: 'red' },
+  failed: { text: 'panel.seal.failed.text', mini: 'panel.seal.failed.mini', tone: 'red' },
+  done: { text: 'panel.seal.done.text', mini: 'panel.seal.done.mini', tone: 'green' },
+}
+
+/** 状态 → 单语印章（lang 缺省 zh，零回归；tone 与原型同名同义，不入字典）。 */
+export function panelSealFor(kind: PanelBanner['kind'], lang?: AppLang | string | null): PanelSeal {
+  const keys = SEAL_KEYS[kind] ?? SEAL_KEYS.idle
+  const l = normalizeLangTag(lang ?? 'zh')
+  return { text: copyText(keys.text, l), mini: copyText(keys.mini, l), tone: keys.tone }
 }
 
 function messageCodeOf(message: unknown): string {
@@ -716,27 +700,29 @@ export interface PanelViewInput {
   changelogMarkdown?: string | null
 }
 
-export function panelViewModel(input: PanelViewInput): PanelView {
-  const view = panelViewModelCore(input)
-  return { ...view, seal: SEAL_BY_KIND[view.banner.kind] ?? SEAL_BY_KIND.idle }
+export function panelViewModel(input: PanelViewInput, lang?: AppLang | string | null): PanelView {
+  const l = normalizeLangTag(lang ?? (input as { lang?: unknown }).lang ?? 'zh')
+  const view = panelViewModelCore(input, l)
+  return { ...view, seal: panelSealFor(view.banner.kind, l) }
 }
 
-function panelViewModelCore(input: PanelViewInput): Omit<PanelView, 'seal'> {
+function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelView, 'seal'> {
   const { snapshot, manual, queue, skippedLatest, lastError } = input
   const errorKind = (input as { errorKind?: unknown }).errorKind
+  const l = normalizeLangTag(lang ?? 'zh')
   if (!snapshot) {
     const earlyCode =
       (typeof errorKind === 'string' && errorKind.trim()) || lastError || ''
     if (earlyCode) {
-      const copy = failureCopy(earlyCode)
+      const copy = failureCopy(earlyCode, l)
       return {
         banner: {
           kind: 'failed',
-          title: `更新失败（${earlyCode}）：${copy?.zh ?? earlyCode}。`,
-          action: copy?.act || '复制诊断发给插件作者；深挖看日志通道。',
+          title: copyText('panel.banner.error.title', l, { code: earlyCode, detail: copy?.zh ?? earlyCode }),
+          action: copy?.act || copyText('panel.banner.error.action-fallback', l),
         },
         installEnabled: false,
-        installLabel: '重试安装',
+        installLabel: copyText('panel.action.retry-install', l),
         skippedLatest: false,
         showManual: manual ? true : false,
         showReset: false,
@@ -744,9 +730,9 @@ function panelViewModelCore(input: PanelViewInput): Omit<PanelView, 'seal'> {
       }
     }
     return {
-      banner: { kind: 'loading', title: '正在读取更新状态…', action: '' },
+      banner: { kind: 'loading', title: copyText('panel.banner.loading', l), action: '' },
       installEnabled: false,
-      installLabel: '安装更新',
+      installLabel: copyText('panel.action.install', l),
       skippedLatest: false,
       showManual: false,
       showReset: false,
@@ -758,21 +744,21 @@ function panelViewModelCore(input: PanelViewInput): Omit<PanelView, 'seal'> {
   const queueNote =
     queue && queue.busy
       ? queue.position === 0
-        ? '正在安装（本插件在装）。'
+        ? copyText('panel.queue.busy-self', l)
         : typeof queue.position === 'number'
-          ? `前方有安装在进行，本插件排第 ${queue.position} 位，到队首再点安装。`
-          : '前方有其他插件在安装，稍后重试。'
+          ? copyText('panel.queue.busy-queued', l, { n: queue.position })
+          : copyText('panel.queue.busy-other', l)
       : null
   // 跳过即免打扰：新版本恒重新提醒（跳过按版本记），同一行给恢复入口。
   if (skippedLatest && snapshot.latestVersion) {
     return {
       banner: {
         kind: 'idle',
-        title: `已跳过 ${snapshot.latestVersion}`,
-        action: '点“恢复”可重新提醒该版本；有更新的新版本会照常提醒。',
+        title: copyText('panel.skip.skipped-title', l, { latest: snapshot.latestVersion }),
+        action: copyText('panel.skip.skipped-action', l),
       },
       installEnabled: false,
-      installLabel: '安装更新',
+      installLabel: copyText('panel.action.install', l),
       skippedLatest: true,
       showManual: false,
       showReset: true,
@@ -787,11 +773,11 @@ function panelViewModelCore(input: PanelViewInput): Omit<PanelView, 'seal'> {
         kind: 'restart',
         // 文案照原型（d5-paper.html:329）：不带 emoji——警示由横幅左侧的手绘 SVG 标承担，
         // 印章在状态一侧，两者各司其职，不再三重标记。
-        title: `新版 ${latest} 已安装，重启宿主后生效。`,
-        action: BLOCKED_COPY['pending-restart'].action,
+        title: copyText('panel.banner.restart-title', l, { latest }),
+        action: blockedCopy('pending-restart', l)?.action ?? '',
       },
       installEnabled: false,
-      installLabel: '安装更新',
+      installLabel: copyText('panel.action.install', l),
       skippedLatest: false,
       showManual: manual ? true : false,
       showReset: false,
@@ -800,14 +786,18 @@ function panelViewModelCore(input: PanelViewInput): Omit<PanelView, 'seal'> {
   }
   // 安装中：按钮置灰，进度靠轮询恢复（重开面板立刻重查即回进度）。
   if (jobState === 'installing' || jobState === 'verifying') {
+    const ver = typeof job?.targetVersion === 'string' && job.targetVersion.trim() ? job.targetVersion.trim() : ''
+    let installingTitle = copyText('panel.banner.installing-title', l, { version: ver || ' ' })
+    // 空版本时去多余空格，还原旧输出“正在安装…关闭面板不会中断。”（模板带空格是为了有版本号时不断词）
+    if (!ver) installingTitle = installingTitle.replace(' …', '…').replace(' ...', '...')
     return {
       banner: {
         kind: 'busy',
-        title: `正在安装${job?.targetVersion ? ` ${job.targetVersion}` : ''}…关闭面板不会中断。`,
-        action: '进度按轮询自动刷新；重开面板 1 秒内恢复显示。',
+        title: installingTitle,
+        action: copyText('panel.banner.installing-action', l),
       },
       installEnabled: false,
-      installLabel: '安装中…',
+      installLabel: copyText('panel.action.installing', l),
       skippedLatest: false,
       showManual: false,
       showReset: false,
@@ -823,32 +813,33 @@ function panelViewModelCore(input: PanelViewInput): Omit<PanelView, 'seal'> {
     ''
   if (failedCode || jobState === 'failed' || jobState === 'interrupted') {
     const code = failedCode || 'install-failed'
-    const copy = failureCopy(code)
+    const copy = failureCopy(code, l)
     return {
       banner: {
         kind: 'failed',
-        title: `更新失败（${code}）：${copy?.zh ?? code}。`,
-        action: copy?.act || '复制诊断发给插件作者；深挖看日志通道。',
+        title: copyText('panel.banner.error.title', l, { code, detail: copy?.zh ?? code }),
+        action: copy?.act || copyText('panel.banner.error.action-fallback', l),
       },
       installEnabled: snapshot.canInstall,
-      installLabel: '重试安装',
+      installLabel: copyText('panel.action.retry-install', l),
       skippedLatest: false,
       showManual: manual ? true : false,
       showReset: false,
       queueNote,
     }
   }
-  // 装不了（除待重启外）：一句话原因。
+  // 装不了（除待重启外）：一句话原因（句号跟随语言：zh 用。/ en 用.）。
   if (snapshot.blockedReason) {
-    const copy = blockedCopy(snapshot.blockedReason)
+    const copy = blockedCopy(snapshot.blockedReason, l)
+    const stop = l === 'en' ? '.' : '。'
     return {
       banner: {
         kind: 'blocked',
-        title: copy ? `${copy.title}。` : `${snapshot.blockedReason}。`,
+        title: copy ? `${copy.title}${stop}` : `${snapshot.blockedReason}${stop}`,
         action: copy?.action || '',
       },
       installEnabled: false,
-      installLabel: '安装更新',
+      installLabel: copyText('panel.action.install', l),
       skippedLatest: false,
       showManual: manual ? true : false,
       showReset: false,
@@ -859,11 +850,11 @@ function panelViewModelCore(input: PanelViewInput): Omit<PanelView, 'seal'> {
     return {
       banner: {
         kind: 'update',
-        title: `有新版 ${snapshot.latestVersion} 可装（当前 ${snapshot.runningVersion}）。`,
-        action: '点安装即走精确版本安装；同一使用范围同时只装一个。',
+        title: copyText('panel.banner.update-title', l, { latest: snapshot.latestVersion, running: snapshot.runningVersion }),
+        action: copyText('panel.banner.update-action', l),
       },
       installEnabled: true,
-      installLabel: `安装 ${snapshot.latestVersion}`,
+      installLabel: copyText('panel.action.install-version', l, { latest: snapshot.latestVersion }),
       skippedLatest: false,
       showManual: manual ? true : false,
       showReset: false,
@@ -871,9 +862,9 @@ function panelViewModelCore(input: PanelViewInput): Omit<PanelView, 'seal'> {
     }
   }
   return {
-    banner: { kind: 'done', title: '已是最新，无需更新。', action: '' },
+    banner: { kind: 'done', title: copyText('panel.banner.done', l), action: '' },
     installEnabled: false,
-    installLabel: '安装更新',
+    installLabel: copyText('panel.action.install', l),
     skippedLatest: false,
     showManual: false,
     showReset: false,
@@ -993,6 +984,15 @@ export const UPDATE_PANEL_CSS = [
   '@keyframes dsh-upd-spin{to{transform:rotate(360deg)}}',
   '@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}.dsh-upd-banner{animation:none}.dsh-upd-changelog-foldbox{transition:none}}',
   '@media (forced-colors: active){.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{background:Canvas}}',
+  // —— 查新版布局稳定：按钮预留宽度 + 动态区最小高度 + 锚定不漂（只稳布局，不改文案语义）——
+  '.dsh-upd{overflow-anchor:none}',
+  '.dsh-upd-body{overflow-anchor:none}',
+  '.dsh-upd-actions{display:flex;flex-wrap:wrap;align-items:center;min-height:34px}',
+  '.dsh-upd-actions button:first-child{min-width:8em;text-align:center}',
+  '.dsh-upd-actions button[data-primary="1"]{min-width:7em;text-align:center}',
+  '.dsh-upd-actions button:first-child:not([aria-busy="true"])::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;visibility:hidden}',
+  '.dsh-upd-banner{min-height:1.2em}',
+  '.dsh-upd-strip{min-height:48px}',
   '@media (prefers-color-scheme: dark){.dsh-upd{--dsh-upd-fg:#e5e7eb;--dsh-upd-bg:#111827;--dsh-upd-line:#374151;',
   '--dsh-upd-btn:#1f2937;--dsh-upd-soft:#1f2937;--dsh-upd-primary:#3b82f6;--dsh-upd-focus:#93c5fd;',
   // 横幅深色覆盖：底色用低透明度同色系（不是浅色原值），边线提亮，保证「深底浅字」可读。
@@ -1149,6 +1149,8 @@ export interface PanelRenderInput extends PanelViewInput {
   showOthers: boolean
   pluginId: string
   copyNotice: string | null
+  /** 渲染语言（#61 单语：缺省 zh；挂载态传 currentLang，纯函数直调可显式传 en/zh）。 */
+  lang?: AppLang | string | null
   /** 可选主题：不传即默认（输出与旧版一字不差）；`archive` 切档案卷（旧别名 `d5-paper` 仍收）。 */
   theme?: UpdatePanelTheme
   /** 使用范围名（profile）：面板「使用范围」一栏的唯一来源，缺省显示“未知”，不猜。 */
@@ -1177,8 +1179,18 @@ export interface PanelRenderInput extends PanelViewInput {
   changelogCollapsed?: boolean
 }
 
-/** 章节骨架（照原型 d5-paper.html:218-245 的 01–05 编号顺序）。 */
-const CHAPTER_TITLES = ['检查与安装', '更新日志', '更新队列', '错误信息', '手工命令'] as const
+/** 章节骨架（照原型 d5-paper.html:218-245 的 01–05 编号顺序；#62 入字典按 lang 单语）。 */
+const CHAPTER_KEYS = [
+  'panel.chapter.check',
+  'panel.chapter.changelog',
+  'panel.chapter.queue',
+  'panel.chapter.error',
+  'panel.chapter.manual',
+] as const
+function chapterTitle(index: 1 | 2 | 3 | 4 | 5, lang?: AppLang | string | null): string {
+  const l = normalizeLangTag(lang ?? 'zh')
+  return copyText(CHAPTER_KEYS[index - 1] as BilingualKey, l)
+}
 
 /** 内核渲染用的失败引用（只读快照：证据仍在锁存里，这里只传展示键）。 */
 export interface PanelFailureRef {
@@ -1189,20 +1201,31 @@ export interface PanelFailureRef {
   volatile: boolean
 }
 
-/** 锁存时刻 → 本地 HH:MM:SS（失败档案“失败于”用；非法值回 null，不画时间）。 */
-export function formatLatchTime(atMs: unknown): string | null {
+/** 锁存时刻 → 本地 HH:MM:SS（失败档案“失败于”用；非法值回 null，不画时间；#62 跟随宿主 locale）。 */
+export function formatLatchTime(atMs: unknown, lang?: AppLang | string | null): string | null {
   if (typeof atMs !== 'number' || !Number.isFinite(atMs) || atMs <= 0) return null
-  try {
-    const s = new Date(atMs).toLocaleTimeString('zh-CN', { hour12: false })
-    return s ? s : null
-  } catch {
-    return null
+  const raw = typeof lang === 'string' ? lang.trim().replace(/_/g, '-') : ''
+  const l = normalizeLangTag(lang ?? 'zh')
+  const primary = l === 'en' ? 'en-US' : 'zh-CN'
+  const fallback = l === 'en' ? 'zh-CN' : 'en-US'
+  const candidates: string[] = []
+  if (raw && raw !== primary && /^[A-Za-z]{2,3}(-[A-Za-z0-9]+)*$/.test(raw)) candidates.push(raw)
+  candidates.push(primary, fallback)
+  for (const tag of candidates) {
+    try {
+      const s = new Date(atMs).toLocaleTimeString(tag, { hour12: false })
+      if (s) return s
+    } catch {
+      // 非法标签即试下一个，保留既有 try/catch 不抛。
+    }
   }
+  return null
 }
 
-function chapterOf(index: 1 | 2 | 3 | 4 | 5, inner: string, note = ''): string {
+function chapterOf(index: 1 | 2 | 3 | 4 | 5, inner: string, note = '', lang?: AppLang | string | null): string {
   const no = String(index).padStart(2, '0')
-  const title = CHAPTER_TITLES[index - 1]
+  const l = normalizeLangTag(lang ?? 'zh')
+  const title = chapterTitle(index, l)
   return (
     `<section class="dsh-upd-chapter" data-chapter="${no}">` +
     `<div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">${no}</span>` +
@@ -1211,37 +1234,41 @@ function chapterOf(index: 1 | 2 | 3 | 4 | 5, inner: string, note = ''): string {
   )
 }
 
-/** 首帧骨架：快照没到之前占住版本条的位置，纯 CSS 微光（aria-hidden，不进语义）。 */
-function skeletonStrip(loading: boolean): string {
+/** 首帧骨架：快照没到之前占住版本条的位置，纯 CSS 微光（aria-hidden，不进语义；#62 跟随 lang）。 */
+function skeletonStrip(loading: boolean, lang?: AppLang | string | null): string {
   if (!loading) return ''
+  const l = normalizeLangTag(lang ?? 'zh')
   const cell = (k: string): string =>
     `<div><span class="dsh-upd-strip-k">${escapeHtml(k)}</span>` +
     `<span class="dsh-upd-strip-v dsh-upd-skv" aria-hidden="true">…</span></div>`
-  return `<div class="dsh-upd-strip" aria-hidden="true">` + cell('运行') + cell('磁盘') + cell('远端') + `</div>`
+  return `<div class="dsh-upd-strip" aria-hidden="true">` + cell(copyText('panel.strip.running', l)) + cell(copyText('panel.strip.installed', l)) + cell(copyText('panel.strip.latest', l)) + `</div>`
 }
 
-/** 版本条三格（照原型 :216 `.strip`：运行 / 磁盘 / 远端）。 */
-function versionStrip(snapshot: UpdateSnapshot | null): string {
+/** 版本条三格（照原型 :216 `.strip`：运行 / 磁盘 / 远端；#62 跟随 lang，未知走字典）。 */
+function versionStrip(snapshot: UpdateSnapshot | null, lang?: AppLang | string | null): string {
+  const l = normalizeLangTag(lang ?? 'zh')
+  const unknown = copyText('panel.meta.unknown', l)
   const cell = (k: string, v: string | null): string =>
-    `<div><span class="dsh-upd-strip-k">${escapeHtml(k)}</span><span class="dsh-upd-strip-v">${escapeHtml(v ?? '未知')}</span></div>`
+    `<div><span class="dsh-upd-strip-k">${escapeHtml(k)}</span><span class="dsh-upd-strip-v">${escapeHtml(v ?? unknown)}</span></div>`
   if (!snapshot) return ''
   return (
     `<div class="dsh-upd-strip">` +
-    cell('运行', snapshot.runningVersion) +
-    cell('磁盘', snapshot.installedVersion) +
-    cell('远端', snapshot.latestVersion) +
+    cell(copyText('panel.strip.running', l), snapshot.runningVersion) +
+    cell(copyText('panel.strip.installed', l), snapshot.installedVersion) +
+    cell(copyText('panel.strip.latest', l), snapshot.latestVersion) +
     `</div>`
   )
 }
 
-/** 安装进度条（照原型 :221-222）：只在 installing / verifying 时出现，纯展示，不参与门控。 */
-function progressBar(snapshot: UpdateSnapshot | null): string {
+/** 安装进度条（照原型 :221-222）：只在 installing / verifying 时出现，纯展示，不参与门控（#62 跟随 lang）。 */
+function progressBar(snapshot: UpdateSnapshot | null, lang?: AppLang | string | null): string {
   const job = snapshot?.job
   if (!job) return ''
   const state = String(job.state)
   if (state !== 'installing' && state !== 'verifying') return ''
+  const l = normalizeLangTag(lang ?? 'zh')
   const width = state === 'installing' ? 60 : 90
-  const text = state === 'installing' ? '正在安装新版…' : '正在校验安装结果…'
+  const text = state === 'installing' ? copyText('panel.progress.installing', l) : copyText('panel.progress.verifying', l)
   return (
     `<div class="dsh-upd-prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${width}">` +
     `<i class="dsh-upd-prog-bar" style="width:${width}%"></i></div>` +
@@ -1249,9 +1276,10 @@ function progressBar(snapshot: UpdateSnapshot | null): string {
   )
 }
 
-/** 内核 HTML（双形态行为等价的根：同一视图产出同一内核，只换外层）。 */
-export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView): string {
+/** 内核 HTML（双形态行为等价的根：同一视图产出同一内核，只换外层；#62 按 lang 单语，缺省 zh 零回归）。 */
+export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView, lang?: AppLang | string | null): string {
   const { snapshot, manual, queue, mode, showOthers, pluginId, copyNotice } = input
+  const l = normalizeLangTag(lang ?? (input as { lang?: unknown }).lang ?? 'zh')
   const changelogMarkdown =
     (input as { changelogMarkdown?: unknown }).changelogMarkdown ?? null
   const profileName =
@@ -1264,15 +1292,15 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   // 卷宗抬头（原型 :195-203 的刊头；主题切换按钮按用户口径去掉——那排按钮不重要）。
   // 两个主题共用同一份内核 HTML：默认（最小）主题由 CSS 不显示，D5 档案卷才画。
   parts.push(
-    '<div class="dsh-upd-masthead"><span class="dsh-upd-masthead-kicker">插件更新</span>' +
-      '<span class="dsh-upd-masthead-title">更新档案 <i>卷</i></span></div>',
+    '<div class="dsh-upd-masthead"><span class="dsh-upd-masthead-kicker">' + escapeHtml(copyText('panel.masthead.kicker', l)) + '</span>' +
+      '<span class="dsh-upd-masthead-title">' + escapeHtml(copyText('panel.masthead.title', l)) + ' <i>' + escapeHtml(copyText('panel.masthead.volume', l)) + '</i></span></div>',
   )
   // 档案头（原型 :208-211 `.filehead`）：插件名 + 使用范围 + profile 牌。
   // 「使用范围」这一栏是更新落点的展示面：web / desktop 各装一份，装错范围是严重故障，
   // 所以这里宁可显示「未知」也不猜。
   parts.push(
     `<div class="dsh-upd-head"><span class="dsh-upd-name">${escapeHtml(pluginId)}</span>` +
-      `<span class="dsh-upd-meta">使用范围 <b>${escapeHtml(profileName ?? '未知')}</b>` +
+      `<span class="dsh-upd-meta">${escapeHtml(copyText('panel.meta.label', l))} <b>${escapeHtml(profileName ?? copyText('panel.meta.unknown', l))}</b>` +
       `<span class="dsh-upd-proftag">profile</span></span></div>`,
   )
   // 横幅：状态行 / 待重启横幅（原型 :213-215 restartSlot + 状态行）。
@@ -1283,7 +1311,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   parts.push('</div>')
   // 版本条（原型 :216 `.strip`）：运行 / 磁盘 / 远端三格。
   // 首帧无快照：画骨架占位（纯 CSS 微光，不加语义节点；快照一到即换真格）。
-  parts.push(snapshot ? versionStrip(snapshot) : skeletonStrip(view.banner.kind === 'loading'))
+  parts.push(snapshot ? versionStrip(snapshot, l) : skeletonStrip(view.banner.kind === 'loading', l))
   // —— 01 检查与安装（原型 :218-224）：动作 + 进度条 + 跳过行 ——
   // 只读渲染（`actions: 'none'`）：调用方自己提供动作面时用（批量面板的详情就是这种）。
   // 五章内容、进度条、「已跳过」提示照画，唯独不画动作按钮——免得出现「可点却没人接」的死按钮。
@@ -1298,47 +1326,47 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   // title 是零成本原生 tooltip：不引入浮层组件，只给悬停一句话说明。
   actions.push(
     (checkBusy
-      ? `<button type="button" data-action="check" disabled aria-busy="true" title="正在向官方源查询，请稍候">正在查新版…</button>`
-      : `<button type="button" data-action="check" title="重新向官方源查一次新版（只读，不安装）">查新版</button>`) +
+      ? `<button type="button" data-action="check" disabled aria-busy="true" title="${escapeHtml(copyText('panel.action.checking-busy-title', l))}">${escapeHtml(copyText('panel.action.checking-busy', l))}</button>`
+      : `<button type="button" data-action="check" title="${escapeHtml(copyText('panel.action.check-title', l))}">${escapeHtml(copyText('panel.action.check', l))}</button>`) +
       (installBusy
-        ? `<button type="button" data-action="install" data-primary="1" disabled aria-busy="true" title="正在安装，请稍候">正在安装…</button>`
-        : `<button type="button" data-action="install" data-primary="1" title="用精确版本安装；同一使用范围同时只装一个"${view.installEnabled ? '' : ' disabled'}>${escapeHtml(view.installLabel)}</button>`),
+        ? `<button type="button" data-action="install" data-primary="1" disabled aria-busy="true" title="${escapeHtml(copyText('panel.action.installing-busy-title', l))}">${escapeHtml(copyText('panel.action.installing-busy', l))}</button>`
+        : `<button type="button" data-action="install" data-primary="1" title="${escapeHtml(copyText('panel.action.install-title', l))}"${view.installEnabled ? '' : ' disabled'}>${escapeHtml(view.installLabel)}</button>`),
   )
   if (snapshot?.latestVersion && !view.skippedLatest && view.banner.kind === 'update') {
-    actions.push(`<button type="button" data-action="skip" title="该版本不再提醒；有更新的新版本照常提醒">跳过该版本</button>`)
+    actions.push(`<button type="button" data-action="skip" title="${escapeHtml(copyText('panel.action.skip-title', l))}">${escapeHtml(copyText('panel.action.skip', l))}</button>`)
   }
   if (view.showReset && snapshot?.latestVersion) {
-    actions.push(`<button type="button" data-action="reset-skip" title="撤销跳过，该版本重新提醒">恢复（${escapeHtml(snapshot.latestVersion)}）</button>`)
+    actions.push(`<button type="button" data-action="reset-skip" title="${escapeHtml(copyText('panel.action.unskip-title', l))}">${escapeHtml(copyText('panel.action.unskip', l, { version: snapshot.latestVersion }))}</button>`)
   }
   if (view.showManual && manual) {
-    actions.push(`<button type="button" data-action="copy-manual" title="复制手工命令，粘到终端整行执行">复制手工命令</button>`)
+    actions.push(`<button type="button" data-action="copy-manual" title="${escapeHtml(copyText('panel.action.copy-manual-title', l))}">${escapeHtml(copyText('panel.action.copy-manual', l))}</button>`)
   }
   // 原型的待重启横幅右侧有个主动作「重启宿主」（d5-paper.html:448）。
   // 宿主没有「重启自己」的电话，所以这里只做入口：调用方给了 onRestartRequested 就交给它，
   // 没给就如实提示「请手动重启」——不假装能重启。
   if (b.kind === 'restart') {
-    actions.push(`<button type="button" data-action="restart-hint" data-primary="1" title="宿主没有自重启电话：请手动重启宿主">重启宿主</button>`)
+    actions.push(`<button type="button" data-action="restart-hint" data-primary="1" title="${escapeHtml(copyText('panel.action.restart-host-title', l))}">${escapeHtml(copyText('panel.action.restart-host', l))}</button>`)
   }
   if (b.kind === 'failed') {
-    actions.push(`<button type="button" data-action="dismiss-failure" title="确认已知晓该失败：回到可装页，下次查/装将重新评估">知道了</button>`)
+    actions.push(`<button type="button" data-action="dismiss-failure" title="${escapeHtml(copyText('panel.action.dismiss-title', l))}">${escapeHtml(copyText('panel.action.dismiss', l))}</button>`)
   }
   if (snapshot) {
-    actions.push(`<button type="button" data-action="copy-diag" title="复制已脱敏诊断，直接粘给插件作者">复制诊断</button>`)
+    actions.push(`<button type="button" data-action="copy-diag" title="${escapeHtml(copyText('panel.action.copy-diag-title', l))}">${escapeHtml(copyText('panel.action.copy-diag', l))}</button>`)
   }
   // 关闭不住第一章（#47 定案 A）：dialog 的关闭住右下角独立 footer 区（见内核末尾）；
   // embedded 无面板自带关闭（宿主框架自带关），与 requestDialogClose 只认 dialog 同口径。
   actions.push('</div>')
   }
-  actions.push(progressBar(snapshot))
+  actions.push(progressBar(snapshot, l))
   if (view.skippedLatest && snapshot?.latestVersion) {
     actions.push(
-      `<div class="dsh-upd-skipline"><span class="dsh-upd-tag">已跳过 ${escapeHtml(snapshot.latestVersion)}</span>` +
-        `点「恢复」可撤销，之后这一版还会再提醒。</div>`,
+      `<div class="dsh-upd-skipline"><span class="dsh-upd-tag">${escapeHtml(copyText('panel.skip.line-tag', l, { version: snapshot.latestVersion }))}</span>` +
+        `${escapeHtml(copyText('panel.skip.line-note', l))}</div>`,
     )
   }
   // 章节滚动区：01–05 先收进同一组，再包一层可滚动体；头尾留在外面固定。
   const chapters: string[] = []
-  chapters.push(chapterOf(1, actions.join('')))
+  chapters.push(chapterOf(1, actions.join(''), '', l))
   // —— 02 更新日志（原型 :226-229）：章节恒在；缺日志给中性提示，不挡安装、不改门控 ——
   // 折叠只影响展示：默认展开（安全日志必显、可查找）；开关在标题行右端，与 03 章开关同一位置语言。
   {
@@ -1358,7 +1386,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         const fromText = String(snapshot.runningVersion ?? '')
         const toText = String(snapshot.latestVersion ?? '')
         const rangeTitle =
-          fromText && toText ? `更新说明（${fromText} → ${toText}）：` : '更新说明：'
+          fromText && toText ? copyText('panel.changelog.heading-range', l, { from: fromText, to: toText }) : copyText('panel.changelog.heading', l)
         let yankedBanner = ''
         try {
           const toEntry = Array.isArray(ranged) ? ranged.find(function(e) { try { return e && e.version === toText; } catch { return false; } }) : null
@@ -1375,15 +1403,15 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
     }
     if (!inner) {
       inner = `<div class="dsh-upd-changelog-wrap"><div class="dsh-upd-changelog-neutral">${escapeHtml(
-        snapshot && snapshot.latestVersion ? '日志读不出来，安装不受影响。' : '还没查到新版；查到后再显示日志。',
+        snapshot && snapshot.latestVersion ? copyText('panel.changelog.unavailable', l) : copyText('panel.changelog.unavailable-empty', l),
       )}</div></div>`
     }
     const logCollapsed = (input as { changelogCollapsed?: unknown }).changelogCollapsed === true
     const logNote = showActions && hasLog
-      ? '<span class="dsh-upd-chap-note"><button type="button" data-action="toggle-changelog" title="展开或收起更新日志">' +
-        `${logCollapsed ? '展开更新日志' : '收起更新日志'}</button></span>`
+      ? '<span class="dsh-upd-chap-note"><button type="button" data-action="toggle-changelog" title="' + escapeHtml(copyText('panel.changelog.toggle-title', l)) + '">' +
+        `${escapeHtml(logCollapsed ? copyText('panel.changelog.expand', l) : copyText('panel.changelog.collapse', l))}</button></span>`
       : ''
-    chapters.push(chapterOf(2, inner, logNote))
+    chapters.push(chapterOf(2, inner, logNote, l))
   }
   // —— 03 更新队列（原型 :231-235）：章节恒在（没排队也给一句话，编号不许跳）——
   // 设计定案（2026-10-04，见 03 章设计稿）：正文改成两行键值（正在安装 / 你的顺位），
@@ -1404,27 +1432,27 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
       const aboutSelf = named !== null && named === pluginId
       const reveal = showOthers === true
       const ownerShown = !busy
-        ? '空闲'
+        ? copyText('panel.queue.state-idle', l)
         : named === null
-          ? '其他插件'
+          ? copyText('panel.queue.other', l)
           : aboutSelf
-            ? '本插件'
+            ? copyText('panel.queue.self', l)
             : reveal
               ? named
-              : '其他插件'
+              : copyText('panel.queue.other', l)
       const ownerVer = busy && named !== null && (aboutSelf || reveal) ? version : ''
       const pos = typeof queue.position === 'number' ? queue.position : null
-      const posText = pos === null ? '未排队' : `第 ${pos} 位`
-      const posNote = pos === null ? '' : pos === 1 ? '下一个就是你' : `前方 ${pos - 1} 个`
+      const posText = pos === null ? copyText('panel.queue.pos-absent', l) : copyText('panel.queue.pos-n', l, { n: pos })
+      const posNote = pos === null ? '' : pos === 1 ? copyText('panel.queue.pos-next', l) : copyText('panel.queue.pos-ahead', l, { n: pos - 1 })
       const rows = [
         '<div class="dsh-upd-qrow">' +
           `<span class="dsh-upd-qdot" data-tone="${busy ? 'busy' : 'idle'}"></span>` +
-          '<span class="dsh-upd-qk">正在安装</span>' +
+          `<span class="dsh-upd-qk">${escapeHtml(copyText('panel.queue.row-installing', l))}</span>` +
           `<span class="dsh-upd-qv">${escapeHtml(ownerShown + ownerVer)}</span>` +
-          `<span class="dsh-upd-qn">${busy ? '装完自动轮到你' : '同一使用范围一次只装一个'}</span></div>`,
+          `<span class="dsh-upd-qn">${escapeHtml(busy ? copyText('panel.queue.row-installing-note', l) : copyText('panel.queue.row-idle-note', l))}</span></div>`,
         '<div class="dsh-upd-qrow">' +
           '<span class="dsh-upd-qdot" data-tone="you"></span>' +
-          '<span class="dsh-upd-qk">你的顺位</span>' +
+          `<span class="dsh-upd-qk">${escapeHtml(copyText('panel.queue.row-position', l))}</span>` +
           `<span class="dsh-upd-qv">${escapeHtml(posText)}</span>` +
           `<span class="dsh-upd-qn">${escapeHtml(posNote)}</span></div>`,
       ]
@@ -1435,7 +1463,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
           .join(' → ')
         rows.push(
           '<div class="dsh-upd-qrow"><span class="dsh-upd-qdot"></span>' +
-            '<span class="dsh-upd-qk">排队顺序</span>' +
+            `<span class="dsh-upd-qk">${escapeHtml(copyText('panel.queue.row-order', l))}</span>` +
             `<span class="dsh-upd-qseq">${escapeHtml(seq)}</span></div>`,
         )
       }
@@ -1444,16 +1472,18 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
       // 只读渲染下队列内容照画，看不看他人明细由调用方传的 showOthers 决定。
       const note = showActions
         ? '<span class="dsh-upd-chap-note"><button type="button" data-action="toggle-queue">' +
-          `${reveal ? '隐藏他人明细' : '显示其他插件'}</button></span>`
+          `${escapeHtml(reveal ? copyText('panel.queue.toggle-hide', l) : copyText('panel.queue.toggle-show', l))}</button></span>`
         : ''
-      chapters.push(chapterOf(3, `<div class="dsh-upd-queue">${rows.join('')}</div>`, note))
+      chapters.push(chapterOf(3, `<div class="dsh-upd-queue">${rows.join('')}</div>`, note, l))
     } else {
       chapters.push(
         chapterOf(
           3,
           `<div class="dsh-upd-queue"><div class="dsh-upd-changelog-neutral">${escapeHtml(
-            view.queueNote ?? '当前没有排队任务，同一使用范围一次只装一个。',
+            view.queueNote ?? copyText('panel.queue.empty', l),
           )}</div></div>`,
+          '',
+          l,
         ),
       )
     }
@@ -1471,53 +1501,61 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
             ? (input as { lastError: string }).lastError
             : 'install-failed'
       errLines.push(
-        `<div class="dsh-upd-err">稳定码 <code>${escapeHtml(String(shownCode))}</code>` +
-          `：上一条中文说明就是要用户做的事；要往上游报，用「复制诊断」整段粘（已脱敏）。</div>`,
+        `<div class="dsh-upd-err">${escapeHtml(copyText('panel.error.code-label', l))} <code>${escapeHtml(String(shownCode))}</code>${l === 'en' ? ':' : '：'}${escapeHtml(copyText('panel.error.code-note', l))}</div>`,
       )
       if (b.kind === 'failed' && failRef) {
         const keys: string[] = []
-        if (typeof failRef.requestId === 'string' && failRef.requestId) keys.push(`请求 <code>${escapeHtml(failRef.requestId)}</code>`)
-        if (typeof failRef.checkId === 'string' && failRef.checkId) keys.push(`检查 <code>${escapeHtml(failRef.checkId)}</code>`)
-        const at = formatLatchTime(failRef.atMs)
-        if (at) keys.push(`失败于 ${escapeHtml(at)}`)
+        if (typeof failRef.requestId === 'string' && failRef.requestId) keys.push(`${escapeHtml(copyText('panel.error.query-request', l))} <code>${escapeHtml(failRef.requestId)}</code>`)
+        if (typeof failRef.checkId === 'string' && failRef.checkId) keys.push(`${escapeHtml(copyText('panel.error.query-check', l))} <code>${escapeHtml(failRef.checkId)}</code>`)
+        const at = formatLatchTime(failRef.atMs, ((input as { lang?: unknown }).lang as AppLang | string | null) ?? l)
+        if (at) keys.push(`${escapeHtml(copyText('panel.error.failed-at', l, { time: at }))}`)
         if (keys.length > 0) {
-          errLines.push(`<div class="dsh-upd-err">本次查询键：${keys.join(' · ')}（拿着它们去日志里对）。</div>`)
+          errLines.push(`<div class="dsh-upd-err">${copyText('panel.error.query-keys', l, { keys: keys.join(' · ') })}</div>`)
         }
         if (!failRef.volatile) {
           errLines.push(
-            `<div class="dsh-upd-err">证据已冻结：复制诊断里的码、版本、编号都取自失败时刻，不随轮询刷新；下一次查新版或安装会更新它。</div>`,
+            `<div class="dsh-upd-err">${escapeHtml(copyText('panel.error.evidence-frozen', l))}</div>`,
           )
         } else {
           errLines.push(
-            `<div class="dsh-upd-err">读数瞬态失败：下一次成功读数会自动解除；一直出现再按稳定码排查。</div>`,
+            `<div class="dsh-upd-err">${escapeHtml(copyText('panel.error.evidence-transient', l))}</div>`,
           )
         }
       }
     } else {
-      errLines.push(`<div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断给出的是当前状态快照。</div>`)
+      errLines.push(`<div class="dsh-upd-changelog-neutral">${escapeHtml(copyText('panel.error.no-failure', l))}</div>`)
     }
     if ((input as { showLogHint?: unknown }).showLogHint !== false) {
       errLines.push(
-        `<div class="dsh-upd-log">深挖看日志：按插件标识 <code>${escapeHtml(pluginId)}</code> 过滤 ` +
-          `<code>${LOG_EVENT_CALL}</code>、<code>${LOG_EVENT_CALL_FAIL}</code>、<code>${LOG_EVENT_INSTALL_EXEC}</code> 三个事件。</div>`,
+        `<div class="dsh-upd-log">${copyText('panel.error.log-hint', l, {
+          pluginId: `<code>${escapeHtml(pluginId)}</code>`,
+          e1: `<code>${LOG_EVENT_CALL}</code>`,
+          e2: `<code>${LOG_EVENT_CALL_FAIL}</code>`,
+          e3: `<code>${LOG_EVENT_INSTALL_EXEC}</code>`,
+        })}</div>`,
       )
       if (b.kind === 'failed' && failRef && (failRef.requestId || failRef.checkId)) {
         errLines.push(
-          `<div class="dsh-upd-log">凭上面的请求／检查编号在 <code>${LOG_EVENT_CALL_FAIL}</code> 里对上；基线耗时看 ` +
-            `<code>${LOG_EVENT_CALL}</code>，执行结果看 <code>${LOG_EVENT_INSTALL_EXEC}</code>。</div>`,
+          `<div class="dsh-upd-log">${copyText('panel.error.log-follow', l, {
+            eFail: `<code>${LOG_EVENT_CALL_FAIL}</code>`,
+            eCall: `<code>${LOG_EVENT_CALL}</code>`,
+            eExec: `<code>${LOG_EVENT_INSTALL_EXEC}</code>`,
+          })}</div>`,
         )
       }
     }
     if (copyNotice) errLines.push(`<div class="dsh-upd-copy" role="status">${escapeHtml(copyNotice)}</div>`)
-    chapters.push(chapterOf(4, errLines.join('')))
+    chapters.push(chapterOf(4, errLines.join(''), '', l))
   }
   // —— 05 手工命令（原型 :242-245）：章节恒在；没有可给的手工命令就说清为什么 ——
   chapters.push(
     chapterOf(
       5,
       view.showManual && manual
-        ? `<div class="dsh-upd-manual"><div>手工兜底命令（复制整行执行）：</div><code>${escapeHtml(manual)}</code></div>`
-        : `<div class="dsh-upd-manual"><div class="dsh-upd-changelog-neutral">当前没有可用的手工命令（认不出使用范围或属源码安装时不给）。</div></div>`,
+        ? `<div class="dsh-upd-manual"><div>${escapeHtml(copyText('panel.manual.heading', l))}</div><code>${escapeHtml(manual)}</code></div>`
+        : `<div class="dsh-upd-manual"><div class="dsh-upd-changelog-neutral">${escapeHtml(copyText('panel.manual.absent', l))}</div></div>`,
+      '',
+      l,
     ),
   )
   parts.push('<div class="dsh-upd-body">' + chapters.join('\n') + '</div>')
@@ -1526,17 +1564,18 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   // 只读渲染（actions:'none'）下不画（动作面归调用方，免得出现可点却没人接的死按钮）。
   if (showActions && mode === 'dialog') {
     parts.push(
-      '<div class="dsh-upd-footer"><span class="dsh-upd-foot-note">关闭不影响更新，可随时回来查看</span>' +
-        `<button type="button" data-action="close-view" title="关闭窗口，更新不受影响">关闭</button></div>`,
+      '<div class="dsh-upd-footer"><span class="dsh-upd-foot-note">' + escapeHtml(copyText('panel.footer.note', l)) + '</span>' +
+        `<button type="button" data-action="close-view" title="${escapeHtml(copyText('panel.footer.close-title', l))}">${escapeHtml(copyText('panel.footer.close', l))}</button></div>`,
     )
   }
   return parts.join('\n')
 }
 
 /** 整面板 HTML（含样式；重绘即整体替换 innerHTML，故每次都带 style 也只留一份）。 */
-export function renderUpdatePanelHTML(input: PanelRenderInput): string {
-  const view = panelViewModel(input)
-  const kernel = renderUpdatePanelKernel(input, view)
+export function renderUpdatePanelHTML(input: PanelRenderInput, lang?: AppLang | string | null): string {
+  const l = normalizeLangTag(lang ?? (input as { lang?: unknown }).lang ?? 'zh')
+  const view = panelViewModel(input, l)
+  const kernel = renderUpdatePanelKernel(input, view, l)
   // 主题只换肤：默认主题输出与旧版一字不差（无 data-theme、不带 D5 串）；
   // 档案卷（archive / 旧别名 d5-paper）才在根上挂 data-theme 并追加 D5 串；内核 HTML 两边同一份。
   const d5 = normalizePanelTheme(input.theme) === 'archive'
@@ -1705,6 +1744,20 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ${JSON.stringify(options.theme)}）`)
   }
   let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
+  const localeOpt: LocaleOption = (options as { locale?: LocaleOption }).locale ?? undefined
+  if (localeOpt !== undefined && localeOpt !== null) {
+    const isStr = typeof localeOpt === 'string'
+    const isObj = typeof localeOpt === 'object' && typeof (localeOpt as { getActive?: unknown }).getActive === 'function'
+    if (!isStr && !isObj) {
+      throw new Error('[dsh-plugin-update] invalid locale: expected zh / en / BCP47 or { getActive(), subscribe? }')
+    }
+    if (isStr && !(localeOpt as string).trim()) {
+      throw new Error('[dsh-plugin-update] invalid locale: empty string')
+    }
+  }
+  function currentLang(): AppLang {
+    return resolveLang(localeOpt)
+  }
   let showOthers = options.showOthers === true
   // 更新日志折叠（视图态：只影响 02 章展示，不调电话；换肤/轮询不丢）。
   let changelogCollapsed = false
@@ -1713,7 +1766,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   const onCloseRequested = typeof options.onCloseRequested === 'function' ? options.onCloseRequested : null
   // 上次落盘的 HTML：逐字相同即跳过赋值（闪烁根治的比较基线）。
   let lastHTML = ''
-  const copyText = options.copyText ?? defaultCopyText
+  const copyTextOut = options.copyText ?? defaultCopyText
   const skipStore = options.skipStore ?? createBrowserSkipStore(pluginId)
   const hostKind = typeof options.hostKind === 'string' && options.hostKind ? options.hostKind : null
   // 使用范围（profile）：宿主经 includeEnv 回真值，调用方也能显式覆盖。
@@ -1915,10 +1968,74 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   /** 记一条 transient 回执：5 秒后过期（toast 语义），下次点击不清它、时间到才清。 */
   function sayCopy(text: string): void {
     copyNotice = text
+  }
+  function sayCopyKey(key: BilingualKey, values?: Record<string, unknown>): void {
+    try {
+      copyNotice = copyText(key, currentLang(), values)
+    } catch {
+      copyNotice = copyText(key, 'zh', values)
+    }
     try {
       noticeExpiresAt = Date.now() + 5000
     } catch {
       noticeExpiresAt = 0
+    }
+  }
+
+  function setStableHTML(target: UpdatePanelContainer, html: string): void {
+    try {
+      const g = globalThis as unknown as Record<string, unknown>
+      const doc = g['document'] as unknown as {
+        activeElement?: { getAttribute?: (n: string) => string | null } | null
+        querySelector?: (sel: string) => { focus?: (o?: unknown) => void } | null
+      } | null | undefined
+      const el = target as unknown as {
+        querySelectorAll?: (sel: string) => ArrayLike<{ scrollTop?: unknown }> | null
+        querySelector?: (sel: string) => { focus?: (o?: unknown) => void } | null
+      }
+      if (!doc || typeof el.querySelectorAll !== 'function') {
+        target.innerHTML = html
+        return
+      }
+      let focusAction: string | null = null
+      try {
+        const active = doc.activeElement
+        if (active && typeof active.getAttribute === 'function') {
+          focusAction = active.getAttribute('data-action')
+        }
+      } catch { focusAction = null }
+      let scrolls: number[] = []
+      try {
+        const nodes = el.querySelectorAll('.dsh-upd-body')
+        if (nodes) {
+          for (let i = 0; i < nodes.length; i++) {
+            const n = nodes[i] as unknown as { scrollTop?: unknown }
+            scrolls.push(typeof n.scrollTop === 'number' ? (n.scrollTop as number) : 0)
+          }
+        }
+      } catch { scrolls = [] }
+      target.innerHTML = html
+      try {
+        const bodies = el.querySelectorAll('.dsh-upd-body')
+        if (bodies) {
+          for (let i = 0; i < bodies.length && i < scrolls.length; i++) {
+            const n = bodies[i] as unknown as { scrollTop?: unknown }
+            try { (n as { scrollTop: number }).scrollTop = scrolls[i] } catch { /* keep */ }
+          }
+        }
+      } catch { /* keep */ }
+      try {
+        if (focusAction && typeof el.querySelector === 'function') {
+          const next = el.querySelector('[data-action="' + focusAction + '"]')
+          if (next && typeof next.focus === 'function') {
+            try { (next.focus as (o?: unknown) => void).call(next, { preventScroll: true }) } catch {
+              try { (next.focus as () => void).call(next) } catch { /* keep */ }
+            }
+          }
+        }
+      } catch { /* keep */ }
+    } catch {
+      try { target.innerHTML = html } catch { /* keep */ }
     }
   }
 
@@ -1940,11 +2057,13 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     const skippedLatest = !!latest && validReleaseVersion(latest) && skipStore.has(latest)
     // 渲染只在变化时落盘（闪烁根治）：轮询每秒重算，但输出逐字相同时不碰 DOM，
     // 悬停/focus 状态不再被整树替换打断；状态变化仍即时重绘。
+    const langNow = currentLang()
     const nextHTML = renderUpdatePanelHTML({
       snapshot,
       manual,
       queue,
       busyAct,
+      lang: langNow,
       skippedLatest,
       lastError: latch?.code ?? null,
       errorKind: latch?.kind ?? null,
@@ -1965,7 +2084,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     })
     if (nextHTML !== lastHTML) {
       lastHTML = nextHTML
-      container.innerHTML = nextHTML
+      setStableHTML(container, nextHTML)
     }
   }
 
@@ -2112,7 +2231,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       case 'check': {
         if (busyAct) return
         busyAct = 'check'
-        copyNotice = '正在查新版…'
+        copyNotice = copyText('panel.toast.checking', currentLang())
         render()
         try {
           const reply = await call(phoneNames.updateCheck, queueArgs())
@@ -2125,7 +2244,13 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           setLatch(userThrowLatch('check', err))
         } finally {
           busyAct = null
-          if (copyNotice === '正在查新版…') copyNotice = null
+          try {
+            const zh = copyText('panel.toast.checking', 'zh')
+            const en = copyText('panel.toast.checking', 'en')
+            if (copyNotice === zh || copyNotice === en) copyNotice = null
+          } catch {
+            copyNotice = null
+          }
         }
         render()
         maybeAutoChangelog()
@@ -2134,7 +2259,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       case 'install': {
         if (busyAct) return
         busyAct = 'install'
-        copyNotice = '正在安装…'
+        copyNotice = copyText('panel.toast.installing', currentLang())
         render()
         try {
           if (!receipt) {
@@ -2185,7 +2310,13 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           setLatch(userThrowLatch('install', err))
         } finally {
           busyAct = null
-          if (copyNotice === '正在安装…') copyNotice = null
+          try {
+            const zh = copyText('panel.toast.installing', 'zh')
+            const en = copyText('panel.toast.installing', 'en')
+            if (copyNotice === zh || copyNotice === en) copyNotice = null
+          } catch {
+            copyNotice = null
+          }
         }
         render()
         maybeAutoChangelog()
@@ -2215,10 +2346,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       case 'copy-manual': {
         if (manual) {
           try {
-            await copyText(manual)
-            sayCopy('手工命令已复制，粘到终端整行执行即可。')
+            await copyTextOut(manual)
+            sayCopyKey('panel.toast.copy-manual-ok')
           } catch {
-            sayCopy('复制失败，请手动选中上面的命令。')
+            sayCopyKey('panel.toast.copy-manual-fail')
           }
         }
         render()
@@ -2248,10 +2379,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           ].map((s) => redactForCopy(s))
           const text = diagCopyFormat === 'line' ? segs.join(' · ') : segs.join('\n')
           try {
-            await copyText(text)
-            sayCopy('已复制当前状态（无失败），直接粘给插件作者即可（已脱敏）。')
+            await copyTextOut(text)
+            sayCopyKey('panel.toast.copy-state-ok')
           } catch {
-            sayCopy('复制失败，请手动选中上面的信息。')
+            sayCopyKey('panel.toast.copy-diag-fail')
           }
           render()
           return
@@ -2280,12 +2411,13 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           diag: frozen?.diag ?? null,
           manual,
           format: diagCopyFormat,
+          lang: currentLang(),
         })
         try {
-          await copyText(text)
-          sayCopy('诊断已复制，直接粘给插件作者即可（已脱敏）。')
+          await copyTextOut(text)
+          sayCopyKey('panel.toast.copy-diag-ok')
         } catch {
-          sayCopy('复制失败，请手动选中上面的信息。')
+          sayCopyKey('panel.toast.copy-diag-fail')
         }
         render()
         return
@@ -2293,7 +2425,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       case 'dismiss-failure': {
         // 显式确认（#58）：只清面板锁存，不调电话、不写跳过；下次查/装将重新评估。
         clearLatch()
-        sayCopy('已确认该失败提示；下次查新版或安装将重新评估。')
+        sayCopyKey('panel.toast.failure-dismissed')
         render()
         return
       }
@@ -2313,12 +2445,12 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         try {
           if (typeof onRestartRequested === 'function') {
             await onRestartRequested()
-            sayCopy('已按调用方的重启流程处理；重启后新版生效。')
+            sayCopyKey('panel.toast.restart-delegated')
           } else {
-            sayCopy('本宿主未提供重启入口：请手动重启宿主，重启后新版生效。')
+            sayCopyKey('panel.toast.restart-manual')
           }
         } catch {
-          sayCopy('重启入口调用失败：请手动重启宿主，重启后新版生效。')
+          sayCopyKey('panel.toast.restart-failed')
         }
         render()
         return
@@ -2404,6 +2536,11 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   function unmount(): void {
     if (!mounted) return
     mounted = false
+    try {
+      unsubLang()
+    } catch {
+      // 停不掉也无妨。
+    }
     // 过期回包丢弃（#38）：序号加一 + 在途集合清空，在飞的取数回来即丢，不写已拆的面板。
     autoSeq++
     changelogInflight.clear()
@@ -2425,6 +2562,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     // 卸载只停轮询：绝不调安装/取消电话，安装在宿主进程内继续跑。
   }
 
+  // #61 v2 语言跟随：已挂载控件即时重绘，unmount 后停订（单例观察者，显式 locale 对象亦经同一出口）。
+  const unsubLang = subscribeLang(() => {
+    render()
+  }, localeOpt)
   // 首绘即 loading：先做一次只读本地的状态刷新，拿到活体快照后再判定是否自动查一次（#48）。
   // 轮询心跳永远只做只读本地的状态刷新，不触发查新版；自动查复用手动查同一通路（act('check')），
   // 并发只信服务端真相源（busyAct 互斥 + checking 在途复用 + 2 秒复用窗口），卸载靠 mounted 丢弃。
@@ -2441,6 +2582,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   }
   const timer = getTimer()
   const handle = timer.set(() => {
+    if (busyAct) return
     void refresh()
   }, pollMs)
   try {

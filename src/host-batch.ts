@@ -5,13 +5,15 @@
 // 让「关面板/重启进程」之后还能接着推进（resume）。
 //
 // 契约（面板侧按它写，见 src/panel-batch.ts）：
-//   前缀由调用方给（batchPrefix，例 'life'），五个批量电话：
-//     <p>.batchStatus  {}                -> 全表（rows + progress + session）
-//     <p>.batchCheck   {}                -> 查 N 家后同形状
+//   前缀由调用方给（batchPrefix，例 'life'；即属主身份），七个批量电话：
+//     <p>.batchStatus  {}                -> 全表（rows + progress + session + inventory + prefs）
+//     <p>.batchCheck   {}                -> 查 N 家、重写知识账本后同形状（账本不动）
 //     <p>.batchInstall { keys?: string[] }-> 建/续会话并推进：不给 keys 即「全部提交」；
 //                                            给了 keys 只推那几家（行内「装这家」/「重试」用）
-//     <p>.batchResume  {}                -> 读盘上会话，resume 后推进
-//     <p>.batchCancel  {}                -> 清掉盘上会话，回空会话
+//     <p>.batchResume  {}                -> 读盘上会话，resume 后推进（含 resumed 事实）
+//     <p>.batchCancel  {}                -> 只清本属主盘上会话，回空会话（知识不动）
+//     <p>.batchPrefs   {}                -> 读本属主偏好
+//     <p>.batchPrefsSave { checkOnOpen }  -> 写本属主偏好
 //   每行的单插件三电话照旧各自前缀暴露（<target.prefix>.updateStatus 等）。
 //
 // 实现要点（第一性）：
@@ -58,10 +60,15 @@ import { createHostUpdate, type HostUpdate, type ReaderOverrides } from './host.
 import { defaultHomeDir } from './reader.js'
 import { compareReleaseVersions } from './service.js'
 import {
-  createBatchDiskPorts,
+  createBatchOwnerPorts,
   createSkipDiskPorts,
   createUpdateQueuePorts,
+  emptyBatchInventory,
   isVersionSkipped,
+  normalizeBatchInventory,
+  normalizeBatchPrefs,
+  type BatchInventory,
+  type BatchPrefs,
 } from './store.js'
 
 /** 一个批量目标：要更新的那个插件包 + 它在电话表里的前缀。 */
@@ -661,10 +668,13 @@ export function createMultiHostUpdate(
   })
   const runtimeByKey = new Map(runtimes.map((rt) => [rt.spec.key, rt]))
 
-  // 会话账本：有使用范围就落盘（store.ts 的 batch.json），算不出使用范围目录时退化为内存账本。
-  const batchPorts =
-    batchScope && batchScope.profileDir ? createBatchDiskPorts(batchScope.homeDir, batchScope.profileDir) : null
+  // 会话账本按属主隔离（#59 D1/Q2=A：update-queue/<指纹>/<owner>/batch.json；旧无属主 batch.json 永不读写）。
+  // 知识账本与偏好同目录（inventory.json / prefs.json）。算不出范围时退化为内存账本。
+  const ownerPorts =
+    batchScope && batchScope.profileDir ? createBatchOwnerPorts(batchScope.homeDir, batchScope.profileDir, prefix) : null
   let memSession: BatchSession | null = null
+  let memInventory: BatchInventory | null = null
+  let memPrefs: BatchPrefs = {}
   let driveActive = false
   /** 正在被驱动的那份会话（内存里的唯一真相）：忙时入队并进来的行靠它传给正在跑的驱动。 */
   let liveSession: BatchSession | null = null
@@ -674,22 +684,45 @@ export function createMultiHostUpdate(
   let disposed = false
 
   async function readSession(): Promise<BatchSession> {
-    if (batchPorts) return await batchPorts.readBatch()
+    if (ownerPorts) return await ownerPorts.readBatch()
     return memSession ?? emptyBatchSession()
   }
   async function saveSession(session: BatchSession): Promise<void> {
-    if (batchPorts) {
-      await batchPorts.writeBatch(session)
+    if (ownerPorts) {
+      await ownerPorts.writeBatch(session)
       return
     }
     memSession = session
   }
   async function clearSession(): Promise<void> {
-    if (batchPorts) {
-      await batchPorts.clearBatch()
+    if (ownerPorts) {
+      await ownerPorts.clearBatch()
       return
     }
     memSession = emptyBatchSession()
+  }
+  async function readInventory(): Promise<BatchInventory> {
+    if (ownerPorts) return await ownerPorts.readInventory()
+    return memInventory ?? emptyBatchInventory()
+  }
+  async function writeInventory(inventory: BatchInventory): Promise<void> {
+    if (ownerPorts) {
+      await ownerPorts.writeInventory(inventory)
+      return
+    }
+    memInventory = inventory
+  }
+  async function readPrefs(): Promise<BatchPrefs> {
+    if (ownerPorts) return await ownerPorts.readPrefs()
+    return memPrefs
+  }
+  async function writePrefs(prefs: BatchPrefs): Promise<void> {
+    const normalized = normalizeBatchPrefs(prefs)
+    if (ownerPorts) {
+      await ownerPorts.writePrefs(normalized)
+      return
+    }
+    memPrefs = normalized
   }
   function newSessionId(): string {
     const suffix = String(randomId() ?? '').replace(/[^A-Za-z0-9._~-]/g, '').slice(0, 24)
@@ -780,7 +813,19 @@ export function createMultiHostUpdate(
 
   async function table(session: BatchSession, refresh = true): Promise<Record<string, unknown>> {
     const built = await buildRows(session, refresh)
-    return { ok: true, session: built.session, rows: built.rows, progress: progressOf(built.session) }
+    let inventory: BatchInventory = emptyBatchInventory()
+    let prefs: BatchPrefs = {}
+    try {
+      inventory = await readInventory()
+    } catch {
+      inventory = emptyBatchInventory()
+    }
+    try {
+      prefs = await readPrefs()
+    } catch {
+      prefs = {}
+    }
+    return { ok: true, session: built.session, rows: built.rows, progress: progressOf(built.session), inventory, prefs }
   }
 
   function denied(): Record<string, unknown> | null {
@@ -914,13 +959,42 @@ export function createMultiHostUpdate(
     if (refuse) return refuse
     const session = await readSession()
     if (!driveActive) {
+      const at = now()
+      let prev: BatchInventory = emptyBatchInventory()
+      try {
+        prev = await readInventory()
+      } catch {
+        prev = emptyBatchInventory()
+      }
+      const entries: BatchInventory['entries'] = { ...prev.entries }
       for (const rt of runtimes) {
         try {
           const outcome = await rt.check(rt.spec.key, rt.spec)
           rt.cache = { ...rt.cache, error: outcome.kind === 'failed' ? outcome.error : null }
+          const snapshot = asRecord(rt.cache.snapshot)
+          const installed = firstText(snapshot['installedVersion'], snapshot['runningVersion'])
+          const canInstallRaw = snapshot['canInstall']
+          const canInstall = typeof canInstallRaw === 'boolean' ? canInstallRaw : null
+          if (outcome.kind === 'update') {
+            entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: outcome.version, canInstall, error: null }
+          } else if (outcome.kind === 'current') {
+            entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: installed, canInstall: false, error: null }
+          } else if (outcome.kind === 'skipped') {
+            entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: outcome.version, canInstall: false, error: null }
+          } else {
+            entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: firstText(snapshot['latestVersion']), canInstall, error: outcome.error }
+          }
         } catch (error) {
-          rt.cache = { ...rt.cache, error: errorPayloadOf(error).error }
+          const code = errorPayloadOf(error).error
+          rt.cache = { ...rt.cache, error: code }
+          const snapshot = asRecord(rt.cache.snapshot)
+          entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: firstText(snapshot['installedVersion'], snapshot['runningVersion']), latestVersion: firstText(snapshot['latestVersion']), canInstall: typeof snapshot['canInstall'] === 'boolean' ? (snapshot['canInstall'] as boolean) : null, error: code }
         }
+      }
+      try {
+        await writeInventory(normalizeBatchInventory({ version: 1, updatedAt: at, entries }, at))
+      } catch {
+        // 知识落盘失败不挡检查回包（只做展示）。
       }
     }
     return await table(session, false)
@@ -998,11 +1072,12 @@ export function createMultiHostUpdate(
     if (refuse) return refuse
     if (driveActive) return { ok: false, error: 'update-busy', errorKind: 'update-busy' }
     const disk = await readSession()
-    if (disk.entries.length === 0) return await table(disk)
+    const hadUnfinished = disk.entries.length > 0 && !isBatchFinished(disk)
+    if (!hadUnfinished) return { ...(await table(disk)), resumed: false }
     const resumed = resumeBatchSession(disk, now())
     if (resumed !== disk) await saveSession(resumed)
     try {
-      return await table(await drive(resumed, null, Number.POSITIVE_INFINITY))
+      return { ...(await table(await drive(resumed, null, Number.POSITIVE_INFINITY))), resumed: true }
     } catch (error) {
       return { ok: false, ...errorPayloadOf(error) }
     }
@@ -1050,12 +1125,34 @@ export function createMultiHostUpdate(
     }, drainIntervalMs)
   }
 
+  async function prefsPhone(): Promise<Record<string, unknown>> {
+    const refuse = denied()
+    if (refuse) return refuse
+    return { ok: true, prefs: await readPrefs() }
+  }
+
+  async function prefsSavePhone(args: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const refuse = denied()
+    if (refuse) return refuse
+    const current = await readPrefs()
+    const next: BatchPrefs = { ...current }
+    if ('checkOnOpen' in args) {
+      const v = args['checkOnOpen']
+      if (typeof v !== 'boolean') return { ok: false, error: 'check-failed', errorKind: 'check-failed' }
+      next.checkOnOpen = v
+    }
+    await writePrefs(next)
+    return { ok: true, prefs: next }
+  }
+
   const phoneNames = {
     status: prefix + '.batchStatus',
     check: prefix + '.batchCheck',
     install: prefix + '.batchInstall',
     resume: prefix + '.batchResume',
     cancel: prefix + '.batchCancel',
+    prefs: prefix + '.batchPrefs',
+    prefsSave: prefix + '.batchPrefsSave',
   }
   function phone(
     fn: (args: Record<string, unknown>) => Promise<Record<string, unknown>>,
@@ -1074,6 +1171,8 @@ export function createMultiHostUpdate(
   handlers[phoneNames.install] = phone((args) => installPhone(args))
   handlers[phoneNames.resume] = phone(() => resumePhone())
   handlers[phoneNames.cancel] = phone(() => cancelPhone())
+  handlers[phoneNames.prefs] = phone(() => prefsPhone())
+  handlers[phoneNames.prefsSave] = phone((args) => prefsSavePhone(args))
   // 每个目标的单插件三电话照旧各自前缀暴露：批量电话与它们同处一张表，接入方一次登记。
   for (const rt of runtimes) {
     for (const name of Object.keys(rt.host.handlers)) {

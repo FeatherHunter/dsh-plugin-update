@@ -473,6 +473,189 @@ export function createBatchDiskPorts(
   return { paths, readBatch, writeBatch, clearBatch }
 }
 
+/** 批量属主隔离与知识/偏好落盘（#59 D1：知识、一轮、属主各回各家）。 */
+/* Owner identity is the batch prefix (unique per integrator); old owner-less batch.json is never read or written by the new ports (Q2=A). */
+
+export const INVENTORY_FILE = 'inventory.json'
+export const PREFS_FILE = 'prefs.json'
+export const INVENTORY_FILE_MAX_BYTES = 1024 * 1024
+export const PREFS_FILE_MAX_BYTES = 64 * 1024
+
+export function sanitizeBatchOwner(owner: unknown): string | null {
+  if (typeof owner !== 'string' || !owner) return null
+  if (owner.length < 1 || owner.length > 64) return null
+  if (!/^[A-Za-z0-9_-]+$/.test(owner)) return null
+  return owner
+}
+
+export interface BatchOwnerPaths {
+  directory: string
+  batchFile: string
+  inventoryFile: string
+  prefsFile: string
+}
+
+export function batchPathsForOwner(homeDir: string, profileDir: string, owner: unknown): BatchOwnerPaths | null {
+  const clean = sanitizeBatchOwner(owner)
+  if (!clean) return null
+  const queue = queuePathsForUpdate(homeDir, profileDir)
+  if (!queue) return null
+  const directory = join(queue.directory, clean)
+  return { directory, batchFile: join(directory, BATCH_FILE), inventoryFile: join(directory, INVENTORY_FILE), prefsFile: join(directory, PREFS_FILE) }
+}
+
+export interface BatchInventoryEntry {
+  lastCheckedAt: number
+  installedVersion: string | null
+  latestVersion: string | null
+  canInstall: boolean | null
+  error: string | null
+}
+
+export interface BatchInventory {
+  version: 1
+  updatedAt: number
+  entries: Record<string, BatchInventoryEntry>
+}
+
+export function emptyBatchInventory(nowMs?: number): BatchInventory {
+  const at = typeof nowMs === 'number' && Number.isFinite(nowMs) && nowMs >= 0 ? nowMs : 0
+  return { version: 1, updatedAt: at, entries: {} }
+}
+
+function asMillisOrZero(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0
+}
+
+function asNullableText(value: unknown): string | null {
+  return typeof value === 'string' && value ? value : null
+}
+
+export function normalizeBatchInventory(raw: unknown, nowMs?: number): BatchInventory {
+  const fallback = emptyBatchInventory(nowMs)
+  try {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return fallback
+    const input = raw as Record<string, unknown>
+    if (input['version'] !== 1) return fallback
+    const entries: Record<string, BatchInventoryEntry> = {}
+    const rawEntries = input['entries']
+    if (rawEntries && typeof rawEntries === 'object' && !Array.isArray(rawEntries)) {
+      for (const [key, item] of Object.entries(rawEntries as Record<string, unknown>)) {
+        if (!key || typeof item !== 'object' || !item || Array.isArray(item)) continue
+        const e = item as Record<string, unknown>
+        const canInstallRaw = e['canInstall']
+        entries[key] = {
+          lastCheckedAt: asMillisOrZero(e['lastCheckedAt']),
+          installedVersion: asNullableText(e['installedVersion']),
+          latestVersion: asNullableText(e['latestVersion']),
+          canInstall: typeof canInstallRaw === 'boolean' ? canInstallRaw : null,
+          error: asNullableText(e['error']),
+        }
+      }
+    }
+    return { version: 1, updatedAt: asMillisOrZero((input as Record<string, unknown>)['updatedAt']), entries }
+  } catch {
+    return fallback
+  }
+}
+
+export interface BatchPrefs {
+  checkOnOpen?: boolean
+}
+
+export function normalizeBatchPrefs(raw: unknown): BatchPrefs {
+  try {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+    const v = (raw as Record<string, unknown>)['checkOnOpen']
+    if (typeof v === 'boolean') return { checkOnOpen: v }
+    return {}
+  } catch {
+    return {}
+  }
+}
+
+export interface BatchOwnerPorts {
+  paths: BatchOwnerPaths | null
+  readBatch: () => Promise<BatchSession>
+  writeBatch: (session: BatchSession) => Promise<void>
+  clearBatch: () => Promise<void>
+  readInventory: () => Promise<BatchInventory>
+  writeInventory: (inventory: BatchInventory) => Promise<void>
+  readPrefs: () => Promise<BatchPrefs>
+  writePrefs: (prefs: BatchPrefs) => Promise<void>
+}
+
+async function readJsonFile(filename: string, maxBytes: number, readText: (f: string, e: string) => Promise<string>, statFile: (f: string) => Promise<{ size: number }>): Promise<unknown | null> {
+  try {
+    if ((await statFile(filename)).size > maxBytes) return null
+    return JSON.parse(await readText(filename, 'utf8')) as unknown
+  } catch (error) {
+    if (error && (error as { code?: string }).code === 'ENOENT') return null
+    return null
+  }
+}
+
+async function writeJsonFileAtomic(filename: string, value: unknown, directory: string): Promise<void> {
+  await mkdir(directory, { recursive: true, mode: 0o700 })
+  const temporary = filename + '.' + randomUUID() + '.tmp'
+  try {
+    await writeFile(temporary, JSON.stringify(value, null, 2) + '\n', { mode: 0o600, flag: 'wx' })
+    await rename(temporary, filename)
+  } catch {
+    throw batchFail()
+  } finally {
+    await unlink(temporary).catch(() => {})
+  }
+}
+
+export function createBatchOwnerPorts(
+  homeDir: string,
+  profileDir: string,
+  owner: unknown,
+  deps: BatchPortsDeps = {},
+): BatchOwnerPorts {
+  const paths = batchPathsForOwner(homeDir, profileDir, owner)
+  const readText = deps.readFileImpl ?? ((filename: string, encoding: string) => readFile(filename, encoding))
+  const statFile = deps.statImpl ?? ((filename: string) => stat(filename))
+  async function readBatch(): Promise<BatchSession> {
+    if (!paths) return emptyBatchSession()
+    const raw = await readJsonFile(paths.batchFile, BATCH_FILE_MAX_BYTES, readText, statFile)
+    if (raw === null) return emptyBatchSession()
+    return normalizeBatchSession(raw)
+  }
+  async function writeBatch(session: BatchSession): Promise<void> {
+    if (!paths) throw batchFail()
+    await writeJsonFileAtomic(paths.batchFile, normalizeBatchSession(session), paths.directory)
+  }
+  async function clearBatch(): Promise<void> {
+    if (!paths) return
+    await writeBatch(emptyBatchSession())
+  }
+  async function readInventory(): Promise<BatchInventory> {
+    if (!paths) return emptyBatchInventory()
+    const raw = await readJsonFile(paths.inventoryFile, INVENTORY_FILE_MAX_BYTES, readText, statFile)
+    if (raw === null) return emptyBatchInventory()
+    return normalizeBatchInventory(raw)
+  }
+  async function writeInventory(inventory: BatchInventory): Promise<void> {
+    if (!paths) throw batchFail()
+    const normalized = normalizeBatchInventory(inventory, inventory.updatedAt)
+    normalized.updatedAt = asMillisOrZero(inventory.updatedAt)
+    await writeJsonFileAtomic(paths.inventoryFile, normalized, paths.directory)
+  }
+  async function readPrefs(): Promise<BatchPrefs> {
+    if (!paths) return {}
+    const raw = await readJsonFile(paths.prefsFile, PREFS_FILE_MAX_BYTES, readText, statFile)
+    if (raw === null) return {}
+    return normalizeBatchPrefs(raw)
+  }
+  async function writePrefs(prefs: BatchPrefs): Promise<void> {
+    if (!paths) throw batchFail()
+    await writeJsonFileAtomic(paths.prefsFile, normalizeBatchPrefs(prefs), paths.directory)
+  }
+  return { paths, readBatch, writeBatch, clearBatch, readInventory, writeInventory, readPrefs, writePrefs }
+}
+
 /** 按插件 + 版本持久化的跳过记录（#16，与三冻结落盘名并存的第四文件，不碰旧树）。
  *
  * 键：跳过只按「插件标识 + 版本」记——目录已按插件标识隔离（pathsForUpdate），
