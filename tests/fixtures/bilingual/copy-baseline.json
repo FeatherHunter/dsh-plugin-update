@@ -151,7 +151,6 @@
       "[dsh-plugin-update] HTTP 传输缺少抓取函数：请传 fetch 或在有 globalThis.fetch 的环境运行",
       "[dsh-plugin-update] routes 值非法：",
       "[dsh-plugin-update] routes 未知键拒绝：",
-      "[dsh-plugin-update] 入口件只允许只读电话，updateInstall 禁止（源码级）",
       "[dsh-plugin-update] 建 HTTP 传输缺少配置：前缀 prefix 与网关根 baseUrl 必填",
       "[dsh-plugin-update] 挂 HTTP 入口件缺少配置：插件标识 pluginId 与网关根 baseUrl 必填",
       "[dsh-plugin-update] 挂 HTTP 批量面板缺少配置：批量前缀 batchPrefix 与网关根 baseUrl 必填",

@@ -261,10 +261,59 @@ test('入口直挂：生命周期永不打出安装电话', async () => {
   await entry.refresh()
   await new Promise((r) => setTimeout(r, 20))
   const urls = log.map((e) => e.url)
-  assert.ok(!urls.some((u) => u.endsWith('demo.updateInstall')), '入口件不许打 install')
+  assert.ok(!urls.some((u) => u.endsWith('demo.updateInstall')), '入口件自身生命周期不打 install（只查+打开面板）')
   entry.unmount()
 })
 
+
+// ---------- 入口打开面板后安装可达（#58） ----------
+
+function tapContainer() {
+  const listeners = {}
+  return {
+    innerHTML: '',
+    addEventListener(type, fn) {
+      ;(listeners[type] ??= []).push(fn)
+    },
+    removeEventListener() {},
+    fire(type, ev) {
+      for (const fn of listeners[type] ?? []) fn(ev)
+    },
+  }
+}
+
+function installClickEvent() {
+  return {
+    target: {
+      closest: (sel) => (sel === '[data-action]' ? { getAttribute: () => 'install' } : null),
+    },
+  }
+}
+
+test('入口打开面板后安装可达：updateInstall 正常发出，不再通道拒收（#58）', async () => {
+  const { fetch, log } = stubFetch(async (url) => {
+    if (url.endsWith('demo.updateStatus')) return okJson({ ok: true, snapshot: baseSnapshot(), manual: null, receipt: null })
+    if (url.endsWith('demo.updateCheck')) {
+      return okJson({ ok: true, snapshot: baseSnapshot(), manual: null, receipt: { checkId: 'c-entry', checkedAt: 1, expiresAt: 9999999999999 } })
+    }
+    if (url.endsWith('demo.updateInstall')) {
+      return okJson({ ok: true, snapshot: baseSnapshot({ job: { id: 'j-e', state: 'installing', targetVersion: '1.1.0', message: null, requestId: 'req-e' } }), manual: null })
+    }
+    throw new Error('unknown-url:' + url)
+  })
+  const box = tapContainer()
+  const entry = mountUpdateEntryHttp(box, { pluginId: 'p', prefix: 'demo', baseUrl: 'https://h.local/u', fetch, pollMs: 60000 })
+  await new Promise((r) => setTimeout(r, 30))
+  entry.open()
+  await new Promise((r) => setTimeout(r, 40))
+  box.fire('click', installClickEvent())
+  await new Promise((r) => setTimeout(r, 30))
+  const urls = log.map((e) => e.url)
+  assert.ok(urls.some((u) => u.endsWith('demo.updateInstall')), '面板安装电话应正常发出，实际=' + JSON.stringify(urls))
+  assert.match(box.innerHTML, /正在安装/, '安装应进入进度态')
+  assert.doesNotMatch(box.innerHTML, /只允许只读/, '不得再通道拒收')
+  entry.unmount()
+});
 
 // ---------- 批量五电话：同一内核（#35） ----------
 

@@ -367,21 +367,20 @@ export interface UpdateEntryHttpOptions extends Omit<UpdateEntryOptions, "call" 
   timeoutMs?: number | HttpTimeouts
 }
 
-/** 入口件 HTTP 直挂：内部源码级禁安装电话，内核复用 mountUpdateEntry。 */
+/** 入口件 HTTP 直挂：调用通道与面板直挂同一条，内核复用 mountUpdateEntry。
+ *
+ * 通道层不禁安装：入口件核心没有调安装的代码路径（只查 + 打开面板，见 README 铁律），
+ * 禁令只会连坐入口件打开的面板（#58：安装键亮着但永远抛错）；真正的门禁在宿主侧核心
+ *（凭证/排队/安装键/装后校验），面板安装与面板直挂走同一套，不过不少。
+ */
 export function mountUpdateEntryHttp(container: UpdatePanelContainer, options: UpdateEntryHttpOptions): UpdateEntryController {
   if (!options || typeof options !== "object") {
     throw new Error('[dsh-plugin-update] 挂 HTTP 入口件缺少配置：插件标识 pluginId 与网关根 baseUrl 必填')
   }
   const prefix = options.prefix ?? DEFAULT_PREFIX
-  const rawCall = createHttpCall({ prefix, baseUrl: options.baseUrl, routes: options.routes, fetch: options.fetch, fetchImpl: options.fetchImpl, timeout: options.timeout, timeoutMs: options.timeoutMs })
-  const guarded = async (name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> => {
-    if (shortActionOf(name) === "updateInstall") {
-      throw new Error('[dsh-plugin-update] 入口件只允许只读电话，updateInstall 禁止（源码级）')
-    }
-    return rawCall(name, args)
-  }
+  const call = createHttpCall({ prefix, baseUrl: options.baseUrl, routes: options.routes, fetch: options.fetch, fetchImpl: options.fetchImpl, timeout: options.timeout, timeoutMs: options.timeoutMs })
   const { baseUrl: _b, routes: _r, fetch: _f, fetchImpl: _fi, timeout: _t, timeoutMs: _tm, prefix: _p, ...entryRest } = options as unknown as Record<string, unknown>
-  return mountUpdateEntry(container, { ...(entryRest as object), pluginId: options.pluginId, prefix, call: guarded } as UpdateEntryOptions)
+  return mountUpdateEntry(container, { ...(entryRest as object), pluginId: options.pluginId, prefix, call } as UpdateEntryOptions)
 }
 
 // ---------- 薄封装：批量面板直挂（同一内核，不另起映射） ----------

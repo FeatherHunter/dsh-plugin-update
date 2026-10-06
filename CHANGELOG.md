@@ -2,6 +2,11 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [Unreleased]
+
+### Fixed
+- 拆入口通道安装禁令（#58 真因）：入口件 HTTP 直挂不再源码级禁 updateInstall（入口件核心本就没有安装代码路径，禁令只连坐入口件打开的面板；真正门禁在宿主侧核心）；入口打开面板后安装电话端到端验证通过。
+
 ## [0.5.6] - 2026-10-06
 
 ### Added
