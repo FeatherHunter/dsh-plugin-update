@@ -922,6 +922,10 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.14em;opacity:.7}',
   '.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px}',
   '.dsh-upd-chapter{margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-upd-line,#e5e7eb)}',
+  // 右下角独立 footer 区（#47 定案 A）：与第一章 actions 脱钩，右对齐，一次找到。
+  '.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-upd-line,#e5e7eb)}',
+  '.dsh-upd-foot-note{margin-right:auto;font-size:12px;opacity:.7}',
+  '.dsh-upd-footer button{margin:0}',
   '.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}',
   '.dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}',
   '.dsh-upd-chap-title{font-size:14px;margin:0}',
@@ -1062,6 +1066,9 @@ export const UPDATE_PANEL_D5_CSS = [
   'background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%238a5a00%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E") no-repeat center/20px 20px}',
   '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner>div:first-child{overflow:hidden;text-overflow:ellipsis}',
   '.dsh-upd[data-theme="d5-paper"] .dsh-upd-actions{flex-wrap:wrap}',
+  // footer 只换肤（#47 定案 A + D5 约束：不换 DOM 顺序；复制诊断永不隐藏，本串不动它）。
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-footer{margin-top:26px;padding-top:16px;border-top:1px solid var(--d5-line)}',
+  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-foot-note{color:var(--d5-muted)}',
   // —— 档案头（原型 :208-211 `.filehead`：serif 插件名 22px + 使用范围 + profile 牌；右侧留章位）——
   '.dsh-upd[data-theme="d5-paper"] .dsh-upd-head{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;padding-right:120px}',
   '.dsh-upd[data-theme="d5-paper"] .dsh-upd-name{font-family:var(--d5-serif);font-size:22px;font-weight:700}',
@@ -1256,9 +1263,8 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   if (snapshot) {
     actions.push(`<button type="button" data-action="copy-diag" title="复制已脱敏诊断，直接粘给插件作者">复制诊断</button>`)
   }
-  if (mode === 'dialog') {
-    actions.push(`<button type="button" data-action="close-view" title="关闭面板（安装在宿主侧继续跑，可重开恢复显示）">关闭</button>`)
-  }
+  // 关闭不住第一章（#47 定案 A）：dialog 的关闭住右下角独立 footer 区（见内核末尾）；
+  // embedded 无面板自带关闭（宿主框架自带关），与 requestDialogClose 只认 dialog 同口径。
   actions.push('</div>')
   }
   actions.push(progressBar(snapshot))
@@ -1403,6 +1409,15 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         : `<div class="dsh-upd-manual"><div class="dsh-upd-changelog-neutral">当前没有可用的手工命令（认不出使用范围或属源码安装时不给）。</div></div>`,
     ),
   )
+  // —— 右下角独立 footer 区（#47 定案 A：一次找到，脱离第一章 actions）——
+  // dialog 才有，永远在 05 章之后；embedded 无（宿主框架自带关）；
+  // 只读渲染（actions:'none'）下不画（动作面归调用方，免得出现可点却没人接的死按钮）。
+  if (showActions && mode === 'dialog') {
+    parts.push(
+      '<div class="dsh-upd-footer"><span class="dsh-upd-foot-note">安装在宿主侧继续跑，重开恢复显示</span>' +
+        `<button type="button" data-action="close-view" title="关闭面板（安装在宿主侧继续跑，可重开恢复显示）">关闭</button></div>`,
+    )
+  }
   return parts.join('\n')
 }
 
