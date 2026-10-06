@@ -28,6 +28,7 @@ import { manualCommand } from './commands.js'
 import { fetchReleaseChangelogText } from './changelog-io.js'
 import { shouldFetchChangelog } from './changelog.js'
 import { buildDiag } from './diag.js'
+import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL } from './log-events.js'
 import { fetchNpmVersionRelease, isVersionAllowedInChannel, updateError, validReleaseVersion, validRequestId } from './service.js'
 import { createUpdateDiskPorts, createUpdateExecutor, createUpdateQueuePorts } from './store.js'
 import { createUpdateReader, defaultHomeDir, resolveProfileName, resolveTargetPackage } from './reader.js'
@@ -704,7 +705,7 @@ function loggedPhone(
       const snapshot = out && out.snapshot ? out.snapshot : out
       // 成功事件 5 键基线（规格 #591 第 8 条）：旧 4 键加必填插件标识。
       // 成功形状不动（#21）：成功回包永不带 diag，旧面板逐字不变。
-      emit('info', 'host.call', { method, latencyMs: Date.now() - t0, ok: true, kind, pluginId })
+      emit('info', LOG_EVENT_CALL, { method, latencyMs: Date.now() - t0, ok: true, kind, pluginId })
       return {
         ok: true,
         snapshot,
@@ -718,7 +719,7 @@ function loggedPhone(
     } catch (error) {
       const payload = toUpdateErrorPayload(error)
       // 失败事件 4 键基线（规格 #591 第 8 条）：旧 3 键加必填插件标识。
-      emit('warn', 'host.call.fail', { method, kind, errorHash: hash8(String((error as Error)?.message || payload.error)), pluginId })
+      emit('warn', LOG_EVENT_CALL_FAIL, { method, kind, errorHash: hash8(String((error as Error)?.message || payload.error)), pluginId })
       // 失败证据闭包（#21，#18 契约实现）：失败回包加可选 diag，只增不改。
       // best-effort：组装失败即按无 diag 的旧形状返回（新面板×旧载荷仍为正常缺省）。
       let diag: Record<string, unknown> | undefined
@@ -808,11 +809,11 @@ function loggedChangelogPhone(
     const safeArgs = args && typeof args === 'object' ? (args as Record<string, unknown>) : {}
     try {
       const out = await fn(safeArgs)
-      emit('info', 'host.call', { method, latencyMs: Date.now() - t0, ok: true, kind: 'update-changelog', pluginId })
+      emit('info', LOG_EVENT_CALL, { method, latencyMs: Date.now() - t0, ok: true, kind: 'update-changelog', pluginId })
       return { ok: true, version: out.version, markdown: out.markdown }
     } catch (error) {
       const payload = toUpdateErrorPayload(error)
-      emit('warn', 'host.call.fail', { method, kind: 'update-changelog', errorHash: hash8(String((error as Error)?.message || payload.error)), pluginId })
+      emit('warn', LOG_EVENT_CALL_FAIL, { method, kind: 'update-changelog', errorHash: hash8(String((error as Error)?.message || payload.error)), pluginId })
       let diag: Record<string, unknown> | undefined
       try {
         const cfg = diagCtx?.config

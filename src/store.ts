@@ -26,6 +26,7 @@ import { emptyBatchSession, normalizeBatchSession, type BatchSession } from './b
 import { normalizeQueueState, type UpdateQueueState } from './queue.js'
 import { validReleaseVersion } from './service.js'
 import { sanitizeDetail } from './redaction.js'
+import { LOG_EVENT_INSTALL_EXEC } from './log-events.js'
 import type { EnvironmentKind, InstallRecipe, UpdateJob } from './ports.js'
 
 // 永久冻结的旧字面（规格 #591 第 14 条）：默认旧路径原文加三固定名永久冻结，永不删除。
@@ -747,7 +748,7 @@ function emitInstall(
   if (typeof log !== 'function') return
   try {
     const pluginId = part(parts.pluginId ?? null) as unknown
-    log('info', 'update.install.exec', {
+    log('info', LOG_EVENT_INSTALL_EXEC, {
       route: recipe ? recipe.route : 'none',
       ok: ok === true,
       exitCode: typeof exitCode === 'number' ? exitCode : null,

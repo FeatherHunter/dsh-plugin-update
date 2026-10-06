@@ -28,6 +28,7 @@ import {
   yankedBannerHTML,
 } from './changelog.js'
 import { visibleQueueFor, type UpdateQueueState, type VisibleQueue } from './queue.js'
+import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } from './log-events.js'
 import type { BlockedReason, UpdateSnapshot } from './ports.js'
 
 // ---------- 公开类型（完整类型定义：公开入口一律有类型，不做源码级复用） ----------
@@ -43,11 +44,11 @@ export type UpdatePanelMode = 'embedded' | 'dialog'
 export type UpdatePanelTheme = 'default' | 'archive' | 'd5-paper'
 
 /**
- * 主题归一：archive 与旧别名 d5-paper 走同一套渲染（DOM 属性仍为 d5-paper，既有覆盖样式不断）；
+ * 主题归一：archive 为首选名，旧别名 d5-paper 仍收并归到 archive（DOM 属性只出 archive）；
  * 其余一律回 default（纯渲染函数永不抛；挂载/setTheme 的非法值另行抛错）。
  */
-export function normalizePanelTheme(value: unknown): 'default' | 'd5-paper' {
-  return value === 'd5-paper' || value === 'archive' ? 'd5-paper' : 'default'
+export function normalizePanelTheme(value: unknown): 'default' | 'archive' {
+  return value === 'archive' || value === 'd5-paper' ? 'archive' : 'default'
 }
 
 /** 与宿主通话的传输函数：面板只认这个签名，不认任何宿主对象的具体形状。 */
@@ -83,6 +84,8 @@ export interface UpdatePanelOptions {
   theme?: UpdatePanelTheme
   /** 是否看他人排队明细：默认只看自己的（他人仅露正忙占位，位置照给）。 */
   showOthers?: boolean
+  /** 是否显示深挖日志指引：默认显示；面向纯终端用户的嵌入可关（失败证据行不受影响）。 */
+  showLogHint?: boolean
   /** 轮询间隔毫秒：默认 1000，不得小于 250。 */
   pollMs?: number
   /** 与宿主通话的函数（面板侧唯一的宿主接触面）。 */
@@ -891,8 +894,8 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-upd-ok-line);background:var(--dsh-upd-ok-bg)}',
   '.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-upd-busy-line);background:var(--dsh-upd-busy-bg)}',
   '.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}',
-  '.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:8px 0;font-size:13px}',
-  '.dsh-upd-changelog-wrap{margin:8px 0;font-size:13px;border-top:1px solid var(--dsh-upd-line,#e5e7eb);padding-top:8px}',
+  '.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:4px 0;font-size:13px}',
+  '.dsh-upd-changelog-wrap{margin:4px 0 0;font-size:13px}',
   '.dsh-upd-changelog-title{font-weight:700;margin:0 0 4px}',
   '.dsh-upd-changelog-version{margin:6px 0}',
   '.dsh-upd-changelog-catname{font-weight:600;margin:6px 0 2px}',
@@ -993,7 +996,7 @@ export const UPDATE_PANEL_CSS = [
 // 复制诊断永不隐藏：本串任何选择器都不对 `[data-action="copy-diag"]` / `.dsh-upd-manual` 写 `display:none`。
 export const UPDATE_PANEL_D5_CSS = [
   '/* D5 档案卷可选主题：只换颜色/字体/间距；内核 DOM 顺序一字不动，不断复制诊断。 */',
-  '.dsh-upd[data-theme="d5-paper"]{--d5-bg:#f7f3ea;--d5-card:#fffdf6;--d5-ink:#1a1a1a;--d5-muted:#6f675a;',
+  '.dsh-upd[data-theme="archive"]{--d5-bg:#f7f3ea;--d5-card:#fffdf6;--d5-ink:#1a1a1a;--d5-muted:#6f675a;',
   '--d5-line:#e3d9c4;--d5-line-strong:#c4b896;--d5-accent:#c8402a;--d5-accent-deep:#9c2e1d;',
   '--d5-ok:#1a7f37;--d5-ok-bg:#e9f4ea;--d5-warn:#8a5a00;--d5-warn-bg:#fbf0d0;',
   '--d5-bad:#b3261e;--d5-bad-bg:#fbe9e5;',
@@ -1004,111 +1007,111 @@ export const UPDATE_PANEL_D5_CSS = [
   'font-family:var(--d5-sans);color:var(--d5-ink);background:var(--d5-card);',
   'border:1px solid var(--d5-line-strong);border-radius:4px;box-shadow:var(--d5-shadow)}',
   // 按钮脸自己不透明（宿主底色未知时也读得出；卡片上渲染与 transparent 逐字同色）。
-  '.dsh-upd[data-theme="d5-paper"] button{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink);border-radius:3px;font-family:var(--d5-sans)}',
-  '.dsh-upd[data-theme="d5-paper"] button:hover:not(:disabled){border-color:var(--d5-accent);color:var(--d5-accent)}',
-  '.dsh-upd[data-theme="d5-paper"] button[data-primary="1"]{background:var(--d5-accent);border-color:var(--d5-accent);color:#fff}',
-  '.dsh-upd[data-theme="d5-paper"] button[data-primary="1"]:hover:not(:disabled){background:var(--d5-accent-deep);color:#fff}',
-  '.dsh-upd[data-theme="d5-paper"] button:focus-visible{outline:2px solid var(--d5-accent);outline-offset:2px}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner{background:var(--d5-bg);border-color:var(--d5-line-strong)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="update"]{border-color:var(--d5-ok);background:var(--d5-ok-bg)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="busy"]{border-color:var(--d5-warn);background:var(--d5-warn-bg)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]{border-color:var(--d5-warn);background:var(--d5-warn-bg);font-family:var(--d5-serif);border-width:2px}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="failed"],.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="blocked"]{border-color:var(--d5-bad);background:var(--d5-bad-bg)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="done"]{border-color:var(--d5-ok);background:var(--d5-ok-bg)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-changelog-yanked{border-color:var(--d5-warn);background:var(--d5-warn-bg);color:var(--d5-ink)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-breaking-badge{color:var(--d5-accent);border-color:var(--d5-accent)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-changelog-count{color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-changelog-more-note{color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] button{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink);border-radius:3px;font-family:var(--d5-sans)}',
+  '.dsh-upd[data-theme="archive"] button:hover:not(:disabled){border-color:var(--d5-accent);color:var(--d5-accent)}',
+  '.dsh-upd[data-theme="archive"] button[data-primary="1"]{background:var(--d5-accent);border-color:var(--d5-accent);color:#fff}',
+  '.dsh-upd[data-theme="archive"] button[data-primary="1"]:hover:not(:disabled){background:var(--d5-accent-deep);color:#fff}',
+  '.dsh-upd[data-theme="archive"] button:focus-visible{outline:2px solid var(--d5-accent);outline-offset:2px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner{background:var(--d5-bg);border-color:var(--d5-line-strong)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="update"]{border-color:var(--d5-ok);background:var(--d5-ok-bg)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="busy"]{border-color:var(--d5-warn);background:var(--d5-warn-bg)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]{border-color:var(--d5-warn);background:var(--d5-warn-bg);font-family:var(--d5-serif);border-width:2px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="failed"],.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="blocked"]{border-color:var(--d5-bad);background:var(--d5-bad-bg)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]{border-color:var(--d5-ok);background:var(--d5-ok-bg)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-yanked{border-color:var(--d5-warn);background:var(--d5-warn-bg);color:var(--d5-ink)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-breaking-badge{color:var(--d5-accent);border-color:var(--d5-accent)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-count{color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-more-note{color:var(--d5-muted)}',
   // —— 大印章（原型 :206 `.seal`：右上 88px、旋转 -7°、双细框；内容与色调来自根属性，不加节点）——
-  '.dsh-upd[data-theme="d5-paper"]{position:relative;padding:22px 26px 20px}',
-  '.dsh-upd[data-theme="d5-paper"]::before{content:attr(data-seal);position:absolute;top:20px;right:24px;width:88px;height:88px;',
+  '.dsh-upd[data-theme="archive"]{position:relative;padding:16px 20px 14px}',
+  '.dsh-upd[data-theme="archive"]::before{content:attr(data-seal);position:absolute;top:20px;right:24px;width:88px;height:88px;',
   'display:flex;align-items:center;justify-content:center;text-align:center;letter-spacing:.18em;text-indent:.18em;line-height:1.35;',
   'border:3px solid currentColor;border-radius:14px;transform:rotate(-7deg);font-family:var(--d5-serif);font-weight:700;font-size:21px;',
   'background:color-mix(in srgb,currentColor 8%,transparent);user-select:none;pointer-events:none;',
   'box-shadow:inset 0 0 0 5px var(--d5-card),inset 0 0 0 6px currentColor,0 2px 6px rgba(0,0,0,.12)}',
-  '.dsh-upd[data-theme="d5-paper"][data-seal-tone="ink"]::before{color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="d5-paper"][data-seal-tone="green"]::before{color:var(--d5-ok)}',
-  '.dsh-upd[data-theme="d5-paper"][data-seal-tone="yellow"]::before{color:var(--d5-warn)}',
-  '.dsh-upd[data-theme="d5-paper"][data-seal-tone="red"]::before{color:var(--d5-bad)}',
+  '.dsh-upd[data-theme="archive"][data-seal-tone="ink"]::before{color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"][data-seal-tone="green"]::before{color:var(--d5-ok)}',
+  '.dsh-upd[data-theme="archive"][data-seal-tone="yellow"]::before{color:var(--d5-warn)}',
+  '.dsh-upd[data-theme="archive"][data-seal-tone="red"]::before{color:var(--d5-bad)}',
   // 印章占位：首行（横幅/状态行）右侧留出 120px，文字不许压到印章上（原型 .filehead padding-right:120px）
   // —— 卷宗抬头（原型 :195-203 的刊头，主题切换按钮按用户口径去掉）：只有 D5 档案卷才显示 ——
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-masthead{display:block;padding:0 0 10px;margin:0 0 12px;border-bottom:1px solid var(--d5-line)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-masthead-kicker{display:block;font-size:11px;letter-spacing:.35em;color:var(--d5-muted);margin-bottom:3px}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-masthead-title{font-family:var(--d5-serif);font-size:26px;font-weight:700;line-height:1.2}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-masthead-title i{color:var(--d5-accent);font-style:normal}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-masthead{display:block;padding:0 0 8px;margin:0 0 8px;border-bottom:1px solid var(--d5-line)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-masthead-kicker{display:block;font-size:11px;letter-spacing:.35em;color:var(--d5-muted);margin-bottom:3px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title{font-family:var(--d5-serif);font-size:26px;font-weight:700;line-height:1.2}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title i{color:var(--d5-accent);font-style:normal}',
   // 横幅不再给大印章留 124px：实测（headless 量盒子）印章盒底边 y=109，横幅正文顶边 y=108、
   // 状态行那句在 y=159——印章只压到横幅顶部的留白带，压不到正文。留着反而把 27px 那句话挤成两行
   // （27px 单行需 428px，留白后只剩 366px）。档案头那 120px 保留：那里是真的重叠。
   // —— 更新队列（03 章）D5 皮肤 ——
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-qrow{padding:8px 0}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-qk{width:66px;letter-spacing:.18em}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-qv{font-family:var(--d5-serif);font-size:16px}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-qn{font-family:var(--d5-mono);font-size:11.5px;color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-qseq{color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-chap-note{color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-qrow{padding:6px 0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-qk{width:66px;letter-spacing:.18em}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-qv{font-family:var(--d5-serif);font-size:16px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-qn{font-family:var(--d5-mono);font-size:11.5px;color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-qseq{color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-note{color:var(--d5-muted)}',
   // —— 小印章（原型 :215 `.sealmini`：30px、旋转 -5°、一字）——
   // 待重启横幅一律不画印章：那一档的标记是左侧手绘 SVG（原型 :446 的 .mark 只有 SVG）。
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="loading"]::before,.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="idle"]::before,',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="update"]::before,.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="busy"]::before,',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="blocked"]::before,.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="failed"]::before,',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="done"]::before{content:attr(data-mini);display:inline-flex;align-items:center;justify-content:center;',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="loading"]::before,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="idle"]::before,',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="update"]::before,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="busy"]::before,',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="blocked"]::before,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="failed"]::before,',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]::before{content:attr(data-mini);display:inline-flex;align-items:center;justify-content:center;',
   'width:30px;height:30px;margin-right:10px;vertical-align:middle;border:2px solid currentColor;border-radius:7px;',
   'font-family:var(--d5-serif);font-weight:700;font-size:16px;line-height:26px;transform:rotate(-5deg);flex:none;color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="update"]::before{color:var(--d5-ok)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="busy"]::before{color:var(--d5-warn)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="blocked"]::before,.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="failed"]::before{color:var(--d5-bad)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="done"]::before{color:var(--d5-ok)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-log code{font-family:var(--d5-mono);font-size:11px;color:var(--d5-muted);border:1px solid var(--d5-line-strong);border-radius:3px;padding:0 6px;letter-spacing:.06em}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-manual code{display:block;background:var(--d5-ink);color:var(--d5-bg);font-family:var(--d5-mono);font-size:12.5px;padding:12px 14px;border-radius:4px;white-space:pre-wrap;word-break:break-all}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="update"]::before{color:var(--d5-ok)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="busy"]::before{color:var(--d5-warn)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="blocked"]::before,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="failed"]::before{color:var(--d5-bad)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]::before{color:var(--d5-ok)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-log code{font-family:var(--d5-mono);font-size:11px;color:var(--d5-muted);border:1px solid var(--d5-line-strong);border-radius:3px;padding:0 6px;letter-spacing:.06em}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-manual code{display:block;background:var(--d5-ink);color:var(--d5-bg);font-family:var(--d5-mono);font-size:12.5px;padding:12px 14px;border-radius:4px;white-space:pre-wrap;word-break:break-all}',
   // 待重启标记：手绘 SVG 当**独立 flex 标记**放在文字块左侧（原型 :446 `.mark` 是独立节点），
   // 不能用行内背景——那样换行时三角会落在句子中间把话劈开（现场回归）。
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]>div:first-child{display:flex;gap:10px;align-items:flex-start}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{content:"";flex:none;width:20px;height:20px;margin-top:3px;',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child{display:flex;gap:10px;align-items:flex-start}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{content:"";flex:none;width:20px;height:20px;margin-top:3px;',
   'background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%238a5a00%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E") no-repeat center/20px 20px}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner>div:first-child{overflow:hidden;text-overflow:ellipsis}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-actions{flex-wrap:wrap}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{overflow:hidden;text-overflow:ellipsis}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-actions{flex-wrap:wrap}',
   // footer 只换肤（#47 定案 A + D5 约束：不换 DOM 顺序；复制诊断永不隐藏，本串不动它）。
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-footer{margin-top:26px;padding-top:16px;border-top:1px solid var(--d5-line)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-foot-note{color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-footer{margin-top:14px;padding-top:10px;border-top:1px solid var(--d5-line)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-foot-note{color:var(--d5-muted)}',
   // —— 档案头（原型 :208-211 `.filehead`：serif 插件名 22px + 使用范围 + profile 牌；右侧留章位）——
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-head{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;padding-right:120px}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-name{font-family:var(--d5-serif);font-size:22px;font-weight:700}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-meta{width:100%;font-size:12.5px;color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-meta b{color:var(--d5-ink);font-weight:600}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-proftag{font-family:var(--d5-mono);font-size:11px;color:var(--d5-muted);border:1px solid var(--d5-line-strong);border-radius:3px;padding:0 6px;margin-left:8px;letter-spacing:.06em}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-head{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;padding-right:120px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-name{font-family:var(--d5-serif);font-size:22px;font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-meta{width:100%;font-size:12.5px;color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-meta b{color:var(--d5-ink);font-weight:600}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-proftag{font-family:var(--d5-mono);font-size:11px;color:var(--d5-muted);border:1px solid var(--d5-line-strong);border-radius:3px;padding:0 6px;margin-left:8px;letter-spacing:.06em}',
   // —— 版本条（原型 :216 `.strip`：三格，格间一线，左上小写标签 + 等宽值）——
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-strip{display:flex;flex-wrap:wrap;margin:10px 0 0;border:1px solid var(--d5-line);border-radius:4px;overflow:hidden;font-size:12.5px}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-strip>div{flex:1 1 120px;padding:8px 12px;border-left:1px solid var(--d5-line)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-strip>div:first-child{border-left:0}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.2em;color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-strip-v{font-family:var(--d5-mono);font-size:13px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--d5-line);border-radius:4px;overflow:hidden;font-size:12.5px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-strip>div{flex:1 1 120px;padding:6px 10px;border-left:1px solid var(--d5-line)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-strip>div:first-child{border-left:0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.2em;color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-strip-v{font-family:var(--d5-mono);font-size:13px}',
   // —— 章节（原型 :218-245：01–05 编号 + 衬线标题 + 细线）——
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-chapter{margin-top:26px;padding-top:16px;border-top:1px solid var(--d5-line)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-chap-head{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-chap-no{font-family:var(--d5-serif);font-style:italic;font-size:15px;color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-chap-title{font-family:var(--d5-serif);font-size:17px;margin:0;letter-spacing:.1em}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-chap-rule{flex:1;border-top:1px solid var(--d5-line);transform:translateY(-4px)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-chapter{margin-top:16px;padding-top:10px;border-top:1px solid var(--d5-line)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-no{font-family:var(--d5-serif);font-style:italic;font-size:15px;color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-title{font-family:var(--d5-serif);font-size:17px;margin:0;letter-spacing:.1em}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-rule{flex:1;border-top:1px solid var(--d5-line);transform:translateY(-4px)}',
   // —— 横幅即状态行 / 待重启横幅（原型 :81-85 `.restart-banner`：2px 边框、圆角 4、内边距 12/16、衬线；右侧留章位）——
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner{border:2px solid var(--d5-line-strong);border-radius:4px;padding:12px 16px;font-size:14.5px;font-family:var(--d5-serif);display:flex;gap:10px;align-items:center;flex-wrap:wrap}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner>div:first-child{flex:1 1 auto;min-width:0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:2px solid var(--d5-line-strong);border-radius:4px;padding:10px 12px;font-size:14.5px;font-family:var(--d5-serif);display:flex;gap:10px;align-items:center;flex-wrap:wrap}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{flex:1 1 auto;min-width:0}',
   // 状态行字号照原型 .status-line=27px（实测去掉横幅右侧占位后可写 486px > 428px，一行放得下）
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner>div:first-child strong{font-family:var(--d5-serif);font-size:27px;font-weight:700;line-height:1.35}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child strong{font-family:var(--d5-serif);font-size:27px;font-weight:700;line-height:1.25}',
   // —— 进度条 / 跳过行（原型 :132-133 `.prog`、:129-131 `.skipline .tag`）——
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-prog{height:8px;background:var(--d5-line);border-radius:4px;overflow:hidden;margin:10px 0 4px}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-prog-bar{display:block;height:100%;background:var(--d5-accent);transition:width .3s}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-progtxt{font-size:12.5px;color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-skipline{font-size:13px;margin-top:8px}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-tag{display:inline-block;border:1px dashed var(--d5-line-strong);border-radius:3px;padding:1px 8px;margin-right:8px;font-family:var(--d5-mono);font-size:12px}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-err{font-size:13px;margin:0 0 6px;color:var(--d5-muted)}',
-  '@media (max-width:640px){.dsh-upd[data-theme="d5-paper"]{padding:10px 12px}.dsh-upd[data-theme="d5-paper"]::before{top:12px;right:12px;width:56px;height:56px;font-size:15px;box-shadow:inset 0 0 0 4px var(--d5-card),inset 0 0 0 5px currentColor}.dsh-upd[data-theme="d5-paper"] .dsh-upd-masthead-title{font-size:19px}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner{padding-right:16px}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner::before{width:24px;height:24px;font-size:14px;line-height:20px;flex:none}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner>div:first-child{white-space:normal}}',
-  '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="d5-paper"]{--d5-bg:#141210;--d5-card:#1e1a15;--d5-ink:#ece5d3;--d5-muted:#a89c83;',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-prog{height:8px;background:var(--d5-line);border-radius:4px;overflow:hidden;margin:10px 0 4px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-prog-bar{display:block;height:100%;background:var(--d5-accent);transition:width .3s}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-progtxt{font-size:12.5px;color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-skipline{font-size:13px;margin-top:8px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-tag{display:inline-block;border:1px dashed var(--d5-line-strong);border-radius:3px;padding:1px 8px;margin-right:8px;font-family:var(--d5-mono);font-size:12px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-err{font-size:13px;margin:0 0 6px;color:var(--d5-muted)}',
+  '@media (max-width:640px){.dsh-upd[data-theme="archive"]{padding:10px 12px}.dsh-upd[data-theme="archive"]::before{top:12px;right:12px;width:56px;height:56px;font-size:15px;box-shadow:inset 0 0 0 4px var(--d5-card),inset 0 0 0 5px currentColor}.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title{font-size:19px}.dsh-upd[data-theme="archive"] .dsh-upd-banner{padding-right:16px}.dsh-upd[data-theme="archive"] .dsh-upd-banner::before{width:24px;height:24px;font-size:14px;line-height:20px;flex:none}.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{white-space:normal}}',
+  '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"]{--d5-bg:#141210;--d5-card:#1e1a15;--d5-ink:#ece5d3;--d5-muted:#a89c83;',
   '--d5-line:#3a3226;--d5-line-strong:#5c4e3b;--d5-accent:#e0684e;--d5-accent-deep:#f0866b;',
   '--d5-ok:#8fd6a4;--d5-ok-bg:rgba(80,180,120,.12);--d5-warn:#e8c15a;--d5-warn-bg:rgba(232,193,90,.12);',
   '--d5-bad:#ef8a7d;--d5-bad-bg:rgba(239,138,125,.12);--d5-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.45)}}',
-  '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="d5-paper"] button[data-primary="1"]{color:#141210}.dsh-upd[data-theme="d5-paper"] button:focus-visible{outline-color:var(--d5-accent-deep)}}',
-  '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23e8c15a%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E")}}',
-  '@media (forced-colors: active){.dsh-upd[data-theme="d5-paper"]{box-shadow:none}.dsh-upd[data-theme="d5-paper"]::before{background:none;box-shadow:none;border-color:CanvasText;color:CanvasText}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner{border:1px solid CanvasText}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner::before{border-color:CanvasText;color:CanvasText;background:Canvas}.dsh-upd[data-theme="d5-paper"] button{border:1px solid ButtonText}.dsh-upd[data-theme="d5-paper"] button[data-primary="1"]{background:ButtonFace;color:ButtonText;border-color:ButtonText}.dsh-upd[data-theme="d5-paper"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:none;content:"⚠"}}',
-  '@media (prefers-reduced-motion: reduce){.dsh-upd[data-theme="d5-paper"] *{transition:none !important;animation:none !important}}',
+  '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] button[data-primary="1"]{color:#141210}.dsh-upd[data-theme="archive"] button:focus-visible{outline-color:var(--d5-accent-deep)}}',
+  '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23e8c15a%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E")}}',
+  '@media (forced-colors: active){.dsh-upd[data-theme="archive"]{box-shadow:none}.dsh-upd[data-theme="archive"]::before{background:none;box-shadow:none;border-color:CanvasText;color:CanvasText}.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:1px solid CanvasText}.dsh-upd[data-theme="archive"] .dsh-upd-banner::before{border-color:CanvasText;color:CanvasText;background:Canvas}.dsh-upd[data-theme="archive"] button{border:1px solid ButtonText}.dsh-upd[data-theme="archive"] button[data-primary="1"]{background:ButtonFace;color:ButtonText;border-color:ButtonText}.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:none;content:"⚠"}}',
+  '@media (prefers-reduced-motion: reduce){.dsh-upd[data-theme="archive"] *{transition:none !important;animation:none !important}}',
 ].join('\n')
 
 function escapeHtml(text: string): string {
@@ -1120,7 +1123,7 @@ export interface PanelRenderInput extends PanelViewInput {
   showOthers: boolean
   pluginId: string
   copyNotice: string | null
-  /** 可选主题：不传即默认（输出与旧版一字不差）；`d5-paper` 切 D5 档案卷。 */
+  /** 可选主题：不传即默认（输出与旧版一字不差）；`archive` 切档案卷（旧别名 `d5-paper` 仍收）。 */
   theme?: UpdatePanelTheme
   /** 使用范围名（profile）：面板「使用范围」一栏的唯一来源，缺省显示“未知”，不猜。 */
   profileName?: string | null
@@ -1131,6 +1134,10 @@ export interface PanelRenderInput extends PanelViewInput {
    * 缺省即静默（输出与旧版一字不差）；只在挂载器置忙的那次 render 里传。
    */
   busyAct?: 'check' | 'install' | null
+  /** 失败引用（失败档案的查询键；缺省即无失败，不画卷宗）。 */
+  failure?: PanelFailureRef | null
+  /** 日志指引开关：false 即藏通用日志行（失败证据行不受影响）。 */
+  showLogHint?: boolean
   /**
    * 动作面归谁：`default`（缺省）由内核画动作按钮；`none` 只画内容、不画按钮。
    * 给「调用方自己提供动作面」的场景（如批量面板的详情：动作由批量面板经自己的通道提供）。
@@ -1141,6 +1148,25 @@ export interface PanelRenderInput extends PanelViewInput {
 
 /** 章节骨架（照原型 d5-paper.html:218-245 的 01–05 编号顺序）。 */
 const CHAPTER_TITLES = ['检查与安装', '更新日志', '更新队列', '错误信息', '手工命令'] as const
+
+/** 内核渲染用的失败引用（只读快照：证据仍在锁存里，这里只传展示键）。 */
+export interface PanelFailureRef {
+  requestId: string | null
+  checkId: string | null
+  atMs: number | null
+  source: 'check' | 'install' | null
+}
+
+/** 锁存时刻 → 本地 HH:MM:SS（失败档案“失败于”用；非法值回 null，不画时间）。 */
+export function formatLatchTime(atMs: unknown): string | null {
+  if (typeof atMs !== 'number' || !Number.isFinite(atMs) || atMs <= 0) return null
+  try {
+    const s = new Date(atMs).toLocaleTimeString('zh-CN', { hour12: false })
+    return s ? s : null
+  } catch {
+    return null
+  }
+}
 
 function chapterOf(index: 1 | 2 | 3 | 4 | 5, inner: string, note = ''): string {
   const no = String(index).padStart(2, '0')
@@ -1388,10 +1414,12 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
       )
     }
   }
-  // —— 04 错误信息（原型 :237-240）：失败时的稳定码一句话 + 复制诊断 + 日志过滤口径 ——
+  // —— 04 错误信息（原型 :237-240）：平时是路牌，失败时是带冻结证据与现成查询的卷宗 ——
   {
     const errLines: string[] = []
-    if (b.kind === 'failed' || b.kind === 'blocked') {
+    const failedNow = b.kind === 'failed' || b.kind === 'blocked'
+    const failRef = (input as { failure?: unknown }).failure as PanelFailureRef | null | undefined
+    if (failedNow) {
       const shownCode =
         b.kind === 'blocked'
           ? (snapshot?.blockedReason ?? b.kind)
@@ -1402,11 +1430,34 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         `<div class="dsh-upd-err">稳定码 <code>${escapeHtml(String(shownCode))}</code>` +
           `：上一条中文说明就是要用户做的事；要往上游报，用「复制诊断」整段粘（已脱敏）。</div>`,
       )
+      if (b.kind === 'failed' && failRef) {
+        const keys: string[] = []
+        if (typeof failRef.requestId === 'string' && failRef.requestId) keys.push(`请求 <code>${escapeHtml(failRef.requestId)}</code>`)
+        if (typeof failRef.checkId === 'string' && failRef.checkId) keys.push(`检查 <code>${escapeHtml(failRef.checkId)}</code>`)
+        const at = formatLatchTime(failRef.atMs)
+        if (at) keys.push(`失败于 ${escapeHtml(at)}`)
+        if (keys.length > 0) {
+          errLines.push(`<div class="dsh-upd-err">本次查询键：${keys.join(' · ')}（拿着它们去日志里对）。</div>`)
+        }
+        errLines.push(
+          `<div class="dsh-upd-err">证据已冻结：复制诊断里的码、版本、编号都取自失败时刻，不随轮询刷新；下一次查新版或安装会更新它。</div>`,
+        )
+      }
+    } else {
+      errLines.push(`<div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断给出的是当前状态快照。</div>`)
     }
-    errLines.push(
-      `<div class="dsh-upd-log">深挖看日志：按插件标识 <code>${escapeHtml(pluginId)}</code> 过滤 ` +
-        `<code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 三个事件。</div>`,
-    )
+    if ((input as { showLogHint?: unknown }).showLogHint !== false) {
+      errLines.push(
+        `<div class="dsh-upd-log">深挖看日志：按插件标识 <code>${escapeHtml(pluginId)}</code> 过滤 ` +
+          `<code>${LOG_EVENT_CALL}</code>、<code>${LOG_EVENT_CALL_FAIL}</code>、<code>${LOG_EVENT_INSTALL_EXEC}</code> 三个事件。</div>`,
+      )
+      if (b.kind === 'failed' && failRef && (failRef.requestId || failRef.checkId)) {
+        errLines.push(
+          `<div class="dsh-upd-log">凭上面的请求／检查编号在 <code>${LOG_EVENT_CALL_FAIL}</code> 里对上；基线耗时看 ` +
+            `<code>${LOG_EVENT_CALL}</code>，执行结果看 <code>${LOG_EVENT_INSTALL_EXEC}</code>。</div>`,
+        )
+      }
+    }
     if (copyNotice) errLines.push(`<div class="dsh-upd-copy" role="status">${escapeHtml(copyNotice)}</div>`)
     parts.push(chapterOf(4, errLines.join('')))
   }
@@ -1424,8 +1475,8 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   // 只读渲染（actions:'none'）下不画（动作面归调用方，免得出现可点却没人接的死按钮）。
   if (showActions && mode === 'dialog') {
     parts.push(
-      '<div class="dsh-upd-footer"><span class="dsh-upd-foot-note">安装在宿主侧继续跑，重开恢复显示</span>' +
-        `<button type="button" data-action="close-view" title="关闭面板（安装在宿主侧继续跑，可重开恢复显示）">关闭</button></div>`,
+      '<div class="dsh-upd-footer"><span class="dsh-upd-foot-note">关闭不影响更新，可随时回来查看</span>' +
+        `<button type="button" data-action="close-view" title="关闭窗口，更新不受影响">关闭</button></div>`,
     )
   }
   return parts.join('\n')
@@ -1437,8 +1488,8 @@ export function renderUpdatePanelHTML(input: PanelRenderInput): string {
   const kernel = renderUpdatePanelKernel(input, view)
   // 主题只换肤：默认主题输出与旧版一字不差（无 data-theme、不带 D5 串）；
   // 档案卷（archive / 旧别名 d5-paper）才在根上挂 data-theme 并追加 D5 串；内核 HTML 两边同一份。
-  const d5 = normalizePanelTheme(input.theme) === 'd5-paper'
-  const attr = d5 ? ' data-theme="d5-paper"' : ''
+  const d5 = normalizePanelTheme(input.theme) === 'archive'
+  const attr = d5 ? ' data-theme="archive"' : ''
   // 印章走属性带到根上：D5 用 CSS `content:attr(...)` 画成大印章，默认主题只当属性带着不画，
   // 两个主题的 DOM 仍逐字同一份（主题只换肤这条不变量不破）。
   const sealAttr = ` data-seal="${escapeHtml(view.seal.text)}" data-seal-tone="${view.seal.tone}"`
@@ -1472,6 +1523,7 @@ interface FailureLatch {
   source: 'check' | 'install'
   volatile: boolean
   jobId: string | null
+  atMs: number | null
 }
 
 const PANEL_FAILURE_LATCHES = new Map<string, FailureLatch>()
@@ -1614,6 +1666,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   // 使用范围（profile）：宿主经 includeEnv 回真值，调用方也能显式覆盖。
   // 这一栏是「更新装到哪个范围」的唯一展示面——web / desktop 各装一份，必须让人看见自己点的是哪个。
   const profileNameOption = typeof options.profileName === 'string' && options.profileName ? options.profileName : null
+  const showLogHintOption = options.showLogHint !== false
   const diagCopyFormat: DiagCopyFormat = options.diagCopyFormat === 'line' ? 'line' : 'block'
   let changelogMarkdown: string | null =
     typeof options.changelogMarkdown === 'string' ? options.changelogMarkdown : null
@@ -1637,6 +1690,14 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       else PANEL_FAILURE_LATCHES.delete(latchKey)
     } catch {
       // 锁存落盘失败不挡更新
+    }
+  }
+  function latchNow(): number | null {
+    try {
+      const n = Date.now()
+      return Number.isFinite(n) ? n : null
+    } catch {
+      return null
     }
   }
   function setLatch(next: FailureLatch): void {
@@ -1674,6 +1735,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       source,
       volatile: false,
       jobId: null,
+      atMs: latchNow(),
     }
   }
   function latchFromJob(job: NonNullable<UpdateSnapshot['job']>, snap: UpdateSnapshot | null): FailureLatch {
@@ -1696,6 +1758,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       source: 'install',
       volatile: false,
       jobId: typeof job.id === 'string' ? job.id : null,
+      atMs: latchNow(),
     }
   }
   function volatileLatch(source: 'check' | 'install'): FailureLatch {
@@ -1715,6 +1778,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       source,
       volatile: true,
       jobId: null,
+      atMs: latchNow(),
     }
   }
   function backfillLatch(s: UpdateSnapshot): void {
@@ -1789,6 +1853,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       skippedLatest,
       lastError: latch?.code ?? null,
       errorKind: latch?.kind ?? null,
+      failure: latch
+        ? { requestId: latch.requestId, checkId: latch.checkId, atMs: latch.atMs, source: latch.source }
+        : null,
+      showLogHint: showLogHintOption,
       changelogMarkdown,
       mode,
       showOthers,
@@ -1996,6 +2064,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
               source: 'install',
               volatile: false,
               jobId: null,
+              atMs: latchNow(),
             })
             render()
             return

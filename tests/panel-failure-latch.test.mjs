@@ -40,9 +40,9 @@ function scriptedCall(script) {
   const log = []
   const call = async (name, args) => {
     log.push(name)
-    if (name.endsWith('.updateStatus')) return script.status()
-    if (name.endsWith('.updateCheck')) return script.check()
-    if (name.endsWith('.updateInstall')) return script.install()
+    if (name.endsWith('.updateStatus')) return script.status(name, args)
+    if (name.endsWith('.updateCheck')) return script.check(name, args)
+    if (name.endsWith('.updateInstall')) return script.install(name, args)
     throw new Error('unknown-phone:' + name)
   }
   return { call, log, texts }
@@ -340,5 +340,90 @@ test('#58 健康已最新页复制：同样诚实无码', async () => {
   assert.match(last, /当前无失败/, '应声明无失败')
   assert.match(last, /已是最新/, '应报已是最新')
   assert.doesNotMatch(last, /check-failed/, '不得伪造失败码')
+  panel.unmount()
+});
+
+// ---------- 13. 失败档案：查询键＋冻结声明＋现成查询 ----------
+
+test('#58 失败档案：04 章给出查询键、冻结声明与现成查询', async () => {
+  const seen = {}
+  const { panel, box } = mountFor('latch-13', {
+    status: okStatus,
+    check: okCheck,
+    install: (name, args) => {
+      seen.requestId = args?.requestId ?? null
+      return { ok: false, error: 'install-failed', errorKind: 'install-failed' }
+    },
+  })
+  await settled()
+  await settled()
+  await panel.act('install')
+  await settled()
+  assert.match(box.innerHTML, /本次查询键/, '应有查询键行')
+  assert.ok(box.innerHTML.includes(seen.requestId), '查询键应带本次安装请求编号')
+  assert.match(box.innerHTML, /检查.*check-1/, '查询键应带检查编号')
+  assert.match(box.innerHTML, /失败于 \d{1,2}:\d{2}:\d{2}/, '应带失败时刻')
+  assert.match(box.innerHTML, /证据已冻结/, '应声明证据冻结')
+  assert.match(box.innerHTML, /凭上面的请求／检查编号/, '应有现成日志查询')
+  assert.doesNotMatch(box.innerHTML, /暂无失败/, '失败时不应再说暂无失败')
+  panel.unmount()
+});
+
+// ---------- 14. 健康档案：中性行＋路牌 ----------
+
+test('#58 健康档案：04 章有中性行与路牌', async () => {
+  const { panel, box } = mountFor('latch-14', { status: okStatus, check: okCheck, install: () => ({ ok: true }) })
+  await settled()
+  await settled()
+  assert.match(box.innerHTML, /暂无失败/, '健康态应有中性行')
+  assert.match(box.innerHTML, /深挖看日志/, '健康态仍有路牌')
+  panel.unmount()
+});
+
+// ---------- 15. showLogHint 关：藏路牌，不藏证据 ----------
+
+test('#58 showLogHint 关：路牌消失，失败证据行保留', async () => {
+  const healthy = mountFor('latch-15a', { status: okStatus, check: okCheck, install: () => ({ ok: true }) }, { showLogHint: false })
+  await settled()
+  await settled()
+  assert.match(healthy.box.innerHTML, /暂无失败/, '中性行保留')
+  assert.doesNotMatch(healthy.box.innerHTML, /深挖看日志/, '路牌应隐藏')
+  healthy.panel.unmount()
+  const failed = mountFor('latch-15b', {
+    status: okStatus,
+    check: okCheck,
+    install: () => ({ ok: false, error: 'install-failed', errorKind: 'install-failed' }),
+  }, { showLogHint: false })
+  await settled()
+  await settled()
+  await failed.panel.act('install')
+  await settled()
+  assert.match(failed.box.innerHTML, /本次查询键/, '证据行不受开关影响')
+  assert.match(failed.box.innerHTML, /证据已冻结/, '冻结声明不受开关影响')
+  assert.doesNotMatch(failed.box.innerHTML, /深挖看日志/, '通用日志行应隐藏')
+  failed.panel.unmount()
+});
+
+// ---------- 16. formatLatchTime 纯函数 ----------
+
+test('#58 formatLatchTime：合法回时分秒，非法回 null', async () => {
+  const { formatLatchTime } = await import('../dist/panel.js')
+  assert.match(formatLatchTime(Date.now()) ?? '', /^\d{1,2}:\d{2}:\d{2}$/, '合法时刻应为 HH:MM:SS')
+  assert.equal(formatLatchTime(null), null, 'null 回 null')
+  assert.equal(formatLatchTime(NaN), null, 'NaN 回 null')
+  assert.equal(formatLatchTime(-1), null, '负数回 null')
+  assert.equal(formatLatchTime('13:00:00'), null, '字符串回 null')
+});
+
+// ---------- 17. 事件名单源：路牌用常量 ----------
+
+test('#58 事件名单源：路牌三事件名来自共享常量', async () => {
+  const { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } = await import('../dist/log-events.js')
+  const { panel, box } = mountFor('latch-17', { status: okStatus, check: okCheck, install: () => ({ ok: true }) })
+  await settled()
+  await settled()
+  for (const name of [LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC]) {
+    assert.ok(box.innerHTML.includes(name), '路牌应含共享常量 ' + name)
+  }
   panel.unmount()
 });

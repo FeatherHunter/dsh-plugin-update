@@ -42,6 +42,8 @@ const UNITS = [
   { ts: 'client.ts', js: 'client.js' },
   { ts: 'panel.ts', js: 'panel.js' },
   { ts: 'http.ts', js: 'http.js' },
+  { ts: 'bilingual.ts', js: 'bilingual.js' },
+  { ts: 'log-events.ts', js: 'log-events.js' },
 ]
 
 function headerFor(tsName) {
