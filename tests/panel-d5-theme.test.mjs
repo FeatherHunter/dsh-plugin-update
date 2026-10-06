@@ -84,7 +84,7 @@ test('默认主题输出不带 D5：无 data-theme、无 D5 串', () => {
 
 test('默认 CSS 本身不含主题作用域（D5 只活在追加串里）', () => {
   assert.ok(!UPDATE_PANEL_CSS.includes('data-theme'), 'UPDATE_PANEL_CSS 不得含 data-theme')
-  assert.ok(UPDATE_PANEL_D5_CSS.includes('data-theme="d5-paper"'), 'D5 串按主题作用域收敛')
+  assert.ok(UPDATE_PANEL_D5_CSS.includes('data-theme="archive"'), 'D5 串按主题作用域收敛')
 })
 
 // ---------- 同 DOM 双主题行为等价 ----------
@@ -289,12 +289,12 @@ test('挂载：theme 可选，非法抛错，setTheme 可切', async () => {
   const box2 = fakeContainer()
   const panel2 = mountUpdatePanel(box2, { pluginId: 'p', call: fakeCall(), pollMs: 60000, theme: 'd5-paper' })
   await panel2.refresh()
-  assert.ok(box2.innerHTML.includes('data-theme="d5-paper"'), 'd5-paper 挂载即换肤')
+  assert.ok(box2.innerHTML.includes('data-theme="archive"'), 'archive/别名挂载即换肤')
   assert.ok(box2.innerHTML.includes('data-action="copy-diag"'), '换肤不断复制诊断')
   await panel2.setTheme('default')
   assert.ok(!box2.innerHTML.includes('data-theme='), 'setTheme 可切回默认')
   await panel2.setTheme('d5-paper')
-  assert.ok(box2.innerHTML.includes('data-theme="d5-paper"'), 'setTheme 可再切回 D5')
+  assert.ok(box2.innerHTML.includes('data-theme="archive"'), 'setTheme 可再切回档案卷')
   panel2.unmount()
 
   assert.throws(

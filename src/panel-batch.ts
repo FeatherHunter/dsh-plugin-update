@@ -373,7 +373,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   parts.push('<div class="dsh-upd-batch-macros">')
   parts.push('<button type="button" data-act="check"' + disabled + ' title="重新读取批量状态（只读）">检查更新</button>')
   parts.push('<button type="button" data-act="install" data-primary="1"' + disabled + ' title="把有新版的几家一次提交；同一会话同一幂等编号">全部更新</button>')
-  if (mode === 'dialog') parts.push('<button type="button" data-act="close" title="关闭面板（批量推进在宿主侧继续跑）">关闭</button>')
+  if (mode === 'dialog') parts.push('<button type="button" data-act="close" title="关闭窗口，批量更新不受影响">关闭</button>')
   parts.push('</div>')
   parts.push('</div>')
 
@@ -432,8 +432,8 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
 
   const kernel = parts.join(String.fromCharCode(10))
   // 主题只换肤：默认不带 data-theme、不带 D5 串；d5-paper 才挂属性并追加两份 D5 皮肤。
-  const d5 = normalizePanelTheme(theme) === 'd5-paper'
-  const attr = d5 ? ' data-theme="d5-paper"' : ''
+  const d5 = normalizePanelTheme(theme) === 'archive'
+  const attr = d5 ? ' data-theme="archive"' : ''
   const seal = batchSealOf(counts)
   const root =
     '<div class="dsh-upd dsh-upd-batch" data-mode="' + mode + '" data-seal="' + escapeHtml(seal.text) +
@@ -768,16 +768,16 @@ export const UPDATE_BATCH_PANEL_CSS = [
  */
 export const UPDATE_BATCH_PANEL_D5_CSS = [
   '/* 批量面板的 D5 皮肤：只换颜色/字体/间距；根上的大印章由 UPDATE_PANEL_D5_CSS 负责。 */',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-batch-head{padding-right:120px}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-batch-title{font-family:var(--d5-serif);font-size:21px;letter-spacing:.04em}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-batch-title i{color:var(--d5-accent)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-brow-main{background:transparent;border:0;color:var(--d5-ink)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-brow-main:hover{color:var(--d5-accent)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-bname{font-family:var(--d5-serif)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-bver{font-family:var(--d5-mono);color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-batch-ledger{color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-batch-sum{color:var(--d5-ink)}',
-  '.dsh-upd[data-theme="d5-paper"] .dsh-upd-brow-set{border-top-color:var(--d5-line)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-head{padding-right:120px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-title{font-family:var(--d5-serif);font-size:21px;letter-spacing:.04em}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-title i{color:var(--d5-accent)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-brow-main{background:transparent;border:0;color:var(--d5-ink)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-brow-main:hover{color:var(--d5-accent)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-bname{font-family:var(--d5-serif)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-bver{font-family:var(--d5-mono);color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-ledger{color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-sum{color:var(--d5-ink)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-brow-set{border-top-color:var(--d5-line)}',
 ].join(String.fromCharCode(10))
 
 // ---------- 挂载（多目标批量面板入口） ----------
@@ -1491,10 +1491,10 @@ export function mountUpdateBatchPanel(
   }
 
   function setTheme(next: UpdatePanelTheme): void {
-    if (next !== 'default' && next !== 'd5-paper') {
-      throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 d5-paper（收到 ' + JSON.stringify(next) + '）')
+    if (next !== 'default' && next !== 'archive' && next !== 'd5-paper') {
+      throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ' + JSON.stringify(next) + '）')
     }
-    theme = next
+    theme = normalizePanelTheme(next)
     render()
   }
 

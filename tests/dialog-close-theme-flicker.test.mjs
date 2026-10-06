@@ -98,8 +98,8 @@ function panelInput(overrides = {}) {
 
 describe('主题首选名 archive，旧别名仍可用', () => {
   it('归一：archive 与 d5-paper 同一渲染，其余回 default', () => {
-    assert.equal(normalizePanelTheme('archive'), 'd5-paper')
-    assert.equal(normalizePanelTheme('d5-paper'), 'd5-paper')
+    assert.equal(normalizePanelTheme('archive'), 'archive')
+    assert.equal(normalizePanelTheme('d5-paper'), 'archive')
     assert.equal(normalizePanelTheme('default'), 'default')
     assert.equal(normalizePanelTheme('nope'), 'default')
   })
@@ -108,7 +108,7 @@ describe('主题首选名 archive，旧别名仍可用', () => {
     const a = renderUpdatePanelHTML(panelInput({ theme: 'archive' }))
     const b = renderUpdatePanelHTML(panelInput({ theme: 'd5-paper' }))
     assert.equal(a, b)
-    assert.ok(a.includes('data-theme="d5-paper"'))
+    assert.ok(a.includes('data-theme="archive"'))
   })
 
   it('挂载与切换：archive 即换肤，非法仍抛错', async () => {
@@ -116,11 +116,11 @@ describe('主题首选名 archive，旧别名仍可用', () => {
     const panel = mountUpdatePanel(box, { pluginId: 'p', prefix: 't', call: panelCall(UP_TO_DATE).call, pollMs: 60000, autoChangelog: false, theme: 'archive' })
     try {
       await panel.refresh()
-      assert.ok(box.innerHTML.includes('data-theme="d5-paper"'), 'archive 挂载即换肤')
+      assert.ok(box.innerHTML.includes('data-theme="archive"'), 'archive 挂载即换肤')
       await panel.setTheme('default')
       assert.ok(!box.innerHTML.includes('data-theme='))
       await panel.setTheme('archive')
-      assert.ok(box.innerHTML.includes('data-theme="d5-paper"'))
+      assert.ok(box.innerHTML.includes('data-theme="archive"'))
       assert.throws(() => mountUpdatePanel(countingContainer(), { pluginId: 'p', call: panelCall(UP_TO_DATE).call, theme: 'nope' }), /主题非法/)
       await assert.rejects(panel.setTheme('nope'), /主题非法/)
     } finally {
@@ -130,7 +130,7 @@ describe('主题首选名 archive，旧别名仍可用', () => {
 
   it('批量纯渲染：archive 同走档案卷', () => {
     const html = renderBatchPanelHTML({ rows: [], theme: 'archive' })
-    assert.ok(html.includes('data-theme="d5-paper"'))
+    assert.ok(html.includes('data-theme="archive"'))
   })
 })
 
@@ -233,23 +233,23 @@ describe('弹窗点关闭真能关', () => {
 describe('深色宿主下档案卷按钮可读', () => {
   it('入口件 D5 脸自己不透明，文字走变量', () => {
     assert.ok(
-      UPDATE_ENTRY_CSS.includes('.dsh-upd-entry[data-theme="d5-paper"] .dsh-upd-entry-btn{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink)'),
+      UPDATE_ENTRY_CSS.includes('.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink)'),
       '按钮脸不透明 + 文字变量化，宿主底色未知也读得出',
     )
-    assert.ok(!UPDATE_ENTRY_CSS.includes('.dsh-upd-entry[data-theme="d5-paper"] .dsh-upd-entry-btn{border-color:#c4b896;background:transparent'), '旧透明脸已删')
+    assert.ok(!UPDATE_ENTRY_CSS.includes('.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn{border-color:#c4b896;background:transparent'), '旧透明脸已删')
   })
 
   it('入口件 D5 有深色变量覆盖（硬编码深墨只活在浅色）', () => {
     assert.ok(
-      UPDATE_ENTRY_CSS.includes('@media (prefers-color-scheme: dark){.dsh-upd-entry[data-theme="d5-paper"]{--d5-ink:#ece5d3'),
+      UPDATE_ENTRY_CSS.includes('@media (prefers-color-scheme: dark){.dsh-upd-entry[data-theme="archive"]{--d5-ink:#ece5d3'),
       '深色下墨色变量必须翻白，否则沿用硬编码深墨即隐形',
     )
-    assert.ok(!UPDATE_ENTRY_CSS.includes('data-theme="d5-paper"]{font-family:Georgia,"Songti SC","STSong","SimSun",serif;color:#1a1a1a}'), '根硬编码深墨已删')
+    assert.ok(!UPDATE_ENTRY_CSS.includes('data-theme="archive"]{font-family:Georgia,"Songti SC","STSong","SimSun",serif;color:#1a1a1a}'), '根硬编码深墨已删')
   })
 
   it('面板 D5 按钮脸同样不透明', () => {
     assert.ok(
-      UPDATE_PANEL_D5_CSS.includes('.dsh-upd[data-theme="d5-paper"] button{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink)'),
+      UPDATE_PANEL_D5_CSS.includes('.dsh-upd[data-theme="archive"] button{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink)'),
     )
   })
 
@@ -259,7 +259,7 @@ describe('深色宿主下档案卷按钮可读', () => {
     const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 't', call, pollMs: 60000, theme: 'archive' })
     try {
       await entry.refresh()
-      assert.ok(box.innerHTML.includes('data-theme="d5-paper"'), '别名挂载即换肤')
+      assert.ok(box.innerHTML.includes('data-theme="archive"'), '别名挂载即换肤')
       assert.ok(box.innerHTML.includes('检查更新'), '按钮文案在')
     } finally {
       entry.unmount()
