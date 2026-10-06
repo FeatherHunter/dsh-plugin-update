@@ -2,7 +2,10 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
-## [Unreleased]
+## [0.5.6] - 2026-10-06
+
+### Added
+- 弹窗分栏滚动、更新日志折叠与动效体系；双语防倒退门禁四道检查（文案源／快照／契约／零 draft）与自测（#56）。
 
 ### Fixed
 - 用户路径抛错锁存非瞬态化（#58）：查／装动作的传输抛错改为非瞬态锁存（安装抛错码为 install-failed，不再冒充查失败），轮询不再洗掉；抛错原文脱敏后进复制摘要；安装内补查失败精确归因到查阶段；轮询抛错仍瞬态自愈。
