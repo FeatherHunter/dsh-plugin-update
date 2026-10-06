@@ -117,6 +117,11 @@ export interface BatchPanelOptions {
    * 不传则回退为只停轮询（unmount），DOM 留给调用方处理。入口件打开的 dialog 已内置（收 dialog + 还原按钮）。
    */
   onCloseRequested?: () => void | Promise<void>
+  /**
+   * 语言覆盖（#60 窗口期占位：本票只加选项不消费，传了暂不生效，消费留给 #61-#66）。
+   * 形态与入口件一致：'zh' | 'en' | { getActive(): string; subscribe?(cb): () => void }。
+   */
+  locale?: unknown
 }
 
 /** 面板可点的动作（HTML 上 data-act 一一对应；测试走同一条路）。 */

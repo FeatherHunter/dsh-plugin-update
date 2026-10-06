@@ -32,7 +32,8 @@ import {
   type UpdatePanelTheme,
 } from './panel.js'
 import type { UpdateSnapshot } from './ports.js'
-import { BILINGUAL_CSS, bilingualHTML, bilingualText, type BilingualKey } from './bilingual.js'
+import { BILINGUAL_CSS, copyHTML, copyText, type BilingualKey } from './bilingual.js'
+import { resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
 
 // ---------- 公开类型 ----------
 
@@ -76,6 +77,8 @@ export interface UpdateEntryOptions {
   openOn?: EntryOpenOn
   /** 覆盖默认按钮文案（不传就用状态联动文案）。 */
   label?: string
+  /** 语言覆盖（#60 v2）：'zh' | 'en' | { getActive(): string; subscribe?(cb): () => void }，不传即跟随 html[lang] > navigator > zh。 */
+  locale?: LocaleOption
   profileName?: string
   pollMs?: number
   /**
@@ -107,10 +110,7 @@ export interface UpdateEntryController {
 // 五档与票面口径一一对应：无新版/未查→检查更新；有新版→有新版 X.Y.Z；安装中→正在安装…；
 // 待重启→待重启；失败→更新失败，点此查看。
 
-const LABEL_IDLE = '检查更新'
-const LABEL_FAILED = '更新失败，点此查看'
-const LABEL_BUSY = '正在安装…'
-const LABEL_RESTART = '待重启'
+// v2 起入口文案全部出自集中字典（单语），不再硬编码中文（#60：旧 LABEL_* 常量退场，zh 口径由字典保证逐字兼容）。
 
 /** 有没有新版：远端版本存在且与运行版本不同（能不能装是面板的事，入口件只如实说「有」）。 */
 function hasUpdateOf(snapshot: UpdateSnapshot | null): boolean {
@@ -140,7 +140,7 @@ export function entryStateKind(state: UpdateEntryState | null | undefined): Entr
 
 /**
  * 入口件双语 key（#54 底座调用链）：与 entryStateKind 同一输入（快照 + 失败码），分支只认稳定码，永不读文案。
- * 数据层只传 key + {version} 运行时值，表现层经 bilingualHTML 拼语义块。
+ * 数据层只传 key + {version} 运行时值，表现层经 copyHTML 拼单语块。
  */
 export function entryBilingualKeyFor(state: UpdateEntryState | null | undefined): BilingualKey {
   switch (entryStateKind(state)) {
@@ -159,7 +159,7 @@ export function entryBilingualKeyFor(state: UpdateEntryState | null | undefined)
   }
 }
 
-/** 双语插值（运行时值永不翻译：同一 version 在中英两 span 各出现一次）。 */
+/** 双语插值（运行时值永不翻译：同一 version 在单语块里原样透传，冻结词元两语言逐字相同）。 */
 export function entryBilingualValuesFor(state: UpdateEntryState | null | undefined): Record<string, string> {
   const key = entryBilingualKeyFor(state)
   if (key === 'entry.label.has-update') {
@@ -169,32 +169,22 @@ export function entryBilingualValuesFor(state: UpdateEntryState | null | undefin
   return {}
 }
 
-/** 一路调用链的语义块 HTML（entryHTML 按钮正文唯一来源，无覆盖时必走此函数）。 */
-export function entryBilingualHTMLFor(state: UpdateEntryState | null | undefined): string {
-  return bilingualHTML(entryBilingualKeyFor(state), entryBilingualValuesFor(state))
+/** 一路调用链的单语块 HTML（entryHTML 按钮正文唯一来源，无覆盖时必走此函数；lang 显式入参，缺省跟随全局）。 */
+export function entryBilingualHTMLFor(state: UpdateEntryState | null | undefined, lang?: AppLang | string | null): string {
+  const l = lang ?? resolveLang()
+  return copyHTML(entryBilingualKeyFor(state), l, entryBilingualValuesFor(state))
 }
 
-/** 属性位纯文本双语（title / aria-label 用，放不下 HTML 时的同内容平面版）。 */
-export function entryBilingualTextFor(state: UpdateEntryState | null | undefined): string {
-  return bilingualText(entryBilingualKeyFor(state), entryBilingualValuesFor(state))
+/** 属性位纯文本单语（title / aria-label 用，放不下 HTML 时的同内容平面版；与 HTML 出口同语言）。 */
+export function entryBilingualTextFor(state: UpdateEntryState | null | undefined, lang?: AppLang | string | null): string {
+  const l = lang ?? resolveLang()
+  return copyText(entryBilingualKeyFor(state), l, entryBilingualValuesFor(state))
 }
 
-/** 入口件文案（唯一出处：测试与接入方都读它，不各写一份）。 */
-export function entryLabelFor(state: UpdateEntryState | null | undefined): string {
-  switch (entryStateKind(state)) {
-    case 'busy':
-      return LABEL_BUSY
-    case 'restart':
-      return LABEL_RESTART
-    case 'failed':
-      return LABEL_FAILED
-    case 'update': {
-      const latest = state?.snapshot?.latestVersion
-      return typeof latest === 'string' && latest.trim() ? `有新版 ${latest.trim()}` : LABEL_IDLE
-    }
-    default:
-      return LABEL_IDLE
-  }
+/** 入口件文案第二出口（唯一出处：测试与接入方都读它；与 HTML 出口同语言，v2 起按 lang 取字典，不再硬编码中文）。 */
+export function entryLabelFor(state: UpdateEntryState | null | undefined, lang?: AppLang | string | null): string {
+  const l = lang ?? resolveLang()
+  return copyText(entryBilingualKeyFor(state), l, entryBilingualValuesFor(state))
 }
 
 // ---------- 入口件自己的最小样式（面板本体仍由 src/panel.ts 提供，这里只画按钮/圆点/提示） ----------
@@ -299,6 +289,20 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
     throw new Error(`[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ${JSON.stringify(options.pollMs)}）`)
   }
   const labelOverride = typeof options.label === 'string' && options.label ? options.label : null
+  const localeOpt: LocaleOption = (options as { locale?: LocaleOption }).locale ?? undefined
+  if (localeOpt !== undefined && localeOpt !== null) {
+    const isStr = typeof localeOpt === 'string'
+    const isObj = typeof localeOpt === 'object' && typeof (localeOpt as { getActive?: unknown }).getActive === 'function'
+    if (!isStr && !isObj) {
+      throw new Error('[dsh-plugin-update] invalid locale: expected zh / en / BCP47 or { getActive(), subscribe? }')
+    }
+    if (isStr && !(localeOpt as string).trim()) {
+      throw new Error('[dsh-plugin-update] invalid locale: empty string')
+    }
+  }
+  function currentLang(): AppLang {
+    return resolveLang(localeOpt)
+  }
   const profileName = typeof options.profileName === 'string' && options.profileName ? options.profileName : null
   const onActivate = typeof options.onActivate === 'function' ? options.onActivate : null
   const call = options.call
@@ -339,7 +343,7 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
   }
 
   function currentLabel(): string {
-    return labelOverride ?? entryLabelFor(stateOf())
+    return labelOverride ?? entryLabelFor(stateOf(), currentLang())
   }
 
   function hasUpdate(): boolean {
@@ -353,13 +357,14 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
 
   function entryHTML(): string {
     const kind = entryStateKind(stateOf())
-    // #54 底座调用链：无覆盖时按钮正文必走集中字典语义块（英文前中文后，lang 齐全）；有覆盖仍走用户原文（兼容口径）。
+    const lang = currentLang()
+    // #60 v2 单语调用链：无覆盖时按钮正文必走集中字典单语块（只含当前语言，lang 齐全）；有覆盖仍走用户原文（兼容口径）。
     const labelHTML = labelOverride
       ? escapeHtml(labelOverride)
       : activating
-        ? bilingualHTML('entry.action.checking')
-        : entryBilingualHTMLFor(stateOf())
-    const labelText = labelOverride ?? (activating ? bilingualText('entry.action.checking') : entryBilingualTextFor(stateOf()))
+        ? copyHTML('entry.action.checking', lang)
+        : copyHTML(entryBilingualKeyFor(stateOf()), lang, entryBilingualValuesFor(stateOf()))
+    const labelText = labelOverride ?? (activating ? copyText('entry.action.checking', lang) : copyText(entryBilingualKeyFor(stateOf()), lang, entryBilingualValuesFor(stateOf())))
     const busyAttr = activating ? ' disabled aria-busy="true"' : ''
     const themeAttr = theme === 'archive' ? ' data-theme="archive"' : ''
     const control =
@@ -367,7 +372,7 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
         ? `<button type="button" class="dsh-upd-entry-dot" ${ENTRY_ATTR}="activate" title="${escapeHtml(labelText)}" aria-label="${escapeHtml(labelText)}"${busyAttr}></button>`
         : `<button type="button" class="dsh-upd-entry-btn" ${ENTRY_ATTR}="activate"${busyAttr}>${labelHTML}</button>`
     const noteHTML = noteVersion
-      ? `<span class="dsh-upd-entry-note" data-dsh-upd-note="1">${bilingualHTML('entry.note.up-to-date', { version: noteVersion })}</span>`
+      ? `<span class="dsh-upd-entry-note" data-dsh-upd-note="1">${copyHTML('entry.note.up-to-date', lang, { version: noteVersion })}</span>`
       : ''
     return (
       `<style>${UPDATE_ENTRY_CSS}\n${BILINGUAL_CSS}</style>\n` +
@@ -419,7 +424,7 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
     }
   }
 
-  /** 把面板挂进容器（复用 src/panel.ts 的整组件，不另写界面）。 */
+  /** 把面板挂进容器（复用 src/panel.ts 的整组件，不另写界面；#60 窗口期：面板暂不消费 locale，透传仅为占位）。 */
   function mountPanel(mode: UpdatePanelMode): void {
     if (!mounted || panelMode !== null) return
     panel = mountUpdatePanel(panelHost, {
@@ -431,10 +436,11 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
       profileName,
       autoChangelog: options.autoChangelog,
       changelogMarkdown: options.changelogMarkdown ?? null,
+      locale: localeOpt,
       // 面板点「关闭」即走入口件的完整关闭（收 dialog + 还原按钮 + 重查一次），不再是面板自己停轮询。
       onCloseRequested: () => close(),
       call: panelCall,
-    })
+    } as Parameters<typeof mountUpdatePanel>[1])
     panelMode = mode
   }
 
@@ -498,7 +504,7 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
       openDialog()
       return
     }
-    // 确知没有新版：不开面板，只在原地给一句双语（#54 entry.note.up-to-date，值透传不译）。
+    // 确知没有新版：不开面板，只在原地给一句单语（#60 entry.note.up-to-date，值透传不译，与按钮同语言）。
     noteVersion = snapshot.runningVersion
     render()
   }
@@ -543,6 +549,11 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
   function unmount(): void {
     if (!mounted) return
     mounted = false
+    try {
+      unsubLang()
+    } catch {
+      // 停不掉也无妨。
+    }
     const opened = panel
     panel = null
     panelMode = null
@@ -564,6 +575,10 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
     // 卸载只停轮询与监听：绝不调安装/取消电话，也不动容器内容（与 panel.unmount 同口径）。
   }
 
+  // #60 v2 语言跟随：已挂载控件即时重绘，unmount 后停订（单例观察者，显式 locale 对象亦经同一出口）。
+  const unsubLang = subscribeLang(() => {
+    render()
+  }, localeOpt)
   try {
     container.addEventListener?.('click', onClick)
   } catch {

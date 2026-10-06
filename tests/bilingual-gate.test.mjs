@@ -62,8 +62,10 @@ function realDeps() {
       strings: bilingual.BILINGUAL_STRINGS,
       draftKeys: bilingual.draftKeys,
     },
-    renderHtml: bilingual.bilingualHTML,
-    renderText: bilingual.bilingualText,
+    copyHtml: bilingual.copyHTML,
+    copyText: bilingual.copyText,
+    renderHtml: bilingual.copyHTML,
+    renderText: bilingual.copyText,
     codes: {
       failureCopy: panel.failureCopy,
       blockedCopy: panel.blockedCopy,
@@ -84,10 +86,39 @@ function dictOf(strings, version = 'test-pin') {
 }
 
 function renderersOf(strings) {
+  const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  const fmt = (tpl, vals) => String(tpl).replace(/\{([A-Za-z0-9_]+)\}/g, (_, n) => {
+    const v = (vals ?? {})[n]
+    return v === null || v === undefined ? '' : String(v).trim()
+  })
+  const norm = (l) => {
+    const s = String(l ?? 'zh').trim().toLowerCase().replace(/_/g, '-')
+    if (!s) return 'zh'
+    if (s === 'zh' || s.startsWith('zh-')) return 'zh'
+    if (/^[a-z]{2,3}(-[a-z0-9]+)*$/.test(s)) return 'en'
+    return 'zh'
+  }
   return {
-    renderHtml: (k) =>
-      '<span class="dsh-upd-bi"><span lang="en">' + strings[k].en + '</span> <span lang="zh">' + strings[k].zh + '</span></span>',
-    renderText: (k) => strings[k].en + ' ' + strings[k].zh,
+    copyHtml: (k, lang, vals) => {
+      const l = norm(lang ?? 'zh')
+      const e = strings[k]
+      return '<span class="dsh-upd-bi"><span lang="' + l + '">' + esc(fmt(l === 'en' ? e.en : e.zh, vals)) + '</span></span>'
+    },
+    copyText: (k, lang, vals) => {
+      const l = norm(lang ?? 'zh')
+      const e = strings[k]
+      return fmt(l === 'en' ? e.en : e.zh, vals)
+    },
+    renderHtml: (k, lang, vals) => {
+      const l = norm(lang ?? 'zh')
+      const e = strings[k]
+      return '<span class="dsh-upd-bi"><span lang="' + l + '">' + esc(fmt(l === 'en' ? e.en : e.zh, vals)) + '</span></span>'
+    },
+    renderText: (k, lang, vals) => {
+      const l = norm(lang ?? 'zh')
+      const e = strings[k]
+      return fmt(l === 'en' ? e.en : e.zh, vals)
+    },
   }
 }
 
@@ -260,15 +291,23 @@ test('#56 字典门禁：中英具名槽不同名同数即红（语序可不同�
   assert.match(reasonsOf(got), /具名槽不同名同数/)
 })
 
-test('#56 字典门禁：纯文本形态反向即红（英文必须在前的兜底断言）', () => {
+test('#60 v2 单语门禁：zh 混英文 / en 混中文即红（冻结词元除外）', () => {
   const strings = GOOD_KEY
-  const got = checkDictionary({
+  const bothHtml = () => '<span class="dsh-upd-bi"><span lang="en">Check</span><span lang="zh">检查</span></span>'
+  const gotHtml = checkDictionary({
     dictionary: dictOf(strings),
-    renderHtml: renderersOf(strings).renderHtml,
-    renderText: (k) => strings[k].zh + ' ' + strings[k].en,
+    copyHtml: () => bothHtml(),
+    copyText: renderersOf(strings).copyText,
   })
-  assert.equal(got.ok, false)
-  assert.match(reasonsOf(got), /纯文本形态不是英文在前中文在后/)
+  assert.equal(gotHtml.ok, false)
+  assert.match(reasonsOf(gotHtml), /只许出现当前语言|混入/)
+  const swappedText = {
+    copyHtml: renderersOf(strings).copyHtml,
+    copyText: (k, lang, vals) => (String(lang).toLowerCase().startsWith('zh') ? strings[k].en : strings[k].zh),
+  }
+  const gotText = checkDictionary({ dictionary: dictOf(strings), ...swappedText })
+  assert.equal(gotText.ok, false)
+  assert.match(reasonsOf(gotText), /混入/)
 })
 
 test('#56 字典门禁：与冻结快照不一致即红（改文案必须同步快照，改文案不换 key）', () => {

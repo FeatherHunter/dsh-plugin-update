@@ -43,6 +43,7 @@ const UNITS = [
   { ts: 'panel.ts', js: 'panel.js' },
   { ts: 'http.ts', js: 'http.js' },
   { ts: 'bilingual.ts', js: 'bilingual.js' },
+  { ts: 'lang.ts', js: 'lang.js' },
   { ts: 'log-events.ts', js: 'log-events.js' },
 ]
 

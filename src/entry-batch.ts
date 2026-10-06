@@ -24,7 +24,7 @@
 //   状态档按「忙 > 失败 > 待重启 > 可更新 > 待查」落档（单入口是忙 > 待重启 > 失败 > 可更新，
 //   这里失败排在待重启前面：待重启是某家已装好的正常终态，失败是整批里最需要人动手的那档，
 //   聚合时必须先喊失败；正在装的忙仍最优先——活任务比陈旧失败更可信，与单入口同理）。
-//   文案只用中文可执行，不写相位英文：检查更新 / N 家可更新 / 正在安装… / N 家待重启 / N 家失败，点此查看。
+//   文案单语可执行（#60 v2，按当前语言取字典，不写相位英文）：zh 检查更新 / N 家可更新 / 正在安装… / N 家待重启 / N 家失败，点此查看；en 见字典同 key。
 //
 // 一条铁律（与单入口同一条）：**检查是只读、安装是写入，两者不许合并成一个动作**。
 //   批量入口件永远只做「查 + 打开面板」，绝不自动装；用户必须在面板里明确点「安装」。
@@ -36,6 +36,8 @@
 
 import { MIN_PANEL_POLL_MS } from './config.js'
 import { UPDATE_ENTRY_CSS } from './entry.js'
+import { BILINGUAL_CSS, copyHTML, copyText, type BilingualKey } from './bilingual.js'
+import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
 import {
   BATCH_PANEL_POLL,
   batchLedgerCounts,
@@ -106,6 +108,8 @@ export interface UpdateBatchEntryOptions {
   openOn?: BatchEntryOpenOn
   /** 覆盖默认按钮文案（不传就用聚合文案）。 */
   label?: string
+  /** 语言覆盖（#60 v2）：'zh' | 'en' | { getActive(): string; subscribe?(cb): () => void }，不传即跟随全局信号。 */
+  locale?: LocaleOption
   /** 可选：键 -> 中文名覆盖（透传给批量面板）。 */
   titles?: Record<string, string>
   /** 轮询间隔（毫秒，透传给批量面板；缺省 1500，下限 250）。 */
@@ -140,8 +144,7 @@ export interface UpdateBatchEntryController {
 
 // ---------- 聚合 → 文案（纯函数：同一七行永远算出同一句话，面板总账与入口徽标共用同一份数法） ----------
 
-const LABEL_IDLE = '检查更新'
-const LABEL_BUSY = '正在安装…'
+// v2 起批量入口文案全部出自集中字典（单语），不再硬编码中文（#60：旧 LABEL_* 常量退场，zh 口径由字典保证逐字兼容）。
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -164,8 +167,9 @@ function escapeHtml(value: unknown): string {
 /**
  * 聚合读数：计数唯一出处 batchLedgerCounts（与面板总账同一份，忙失败占位翻回可更新）。
  * hasUpdate = 忙/失败/待重启/可更新任一非零（openOn has-update 按它开面板；全 settled/待查/跳过即 idle）。
+ * v2 单语：label 与 HTML 出口同语言（lang 显式入参，缺省跟随全局；zh 口径逐字兼容旧中文）。
  */
-export function batchEntrySummary(state: UpdateBatchEntryState | null | undefined): BatchEntrySummary {
+export function batchEntrySummary(state: UpdateBatchEntryState | null | undefined, lang?: AppLang | string | null): BatchEntrySummary {
   const rows = state?.rows ?? null
   const counts = batchLedgerCounts(Array.isArray(rows) ? rows : [])
   const total = Array.isArray(rows) ? rows.length : 0
@@ -190,22 +194,23 @@ export function batchEntrySummary(state: UpdateBatchEntryState | null | undefine
     }
   }
   const hasUpdate = counts.installing > 0 || counts.failed > 0 || counts.restart > 0 || counts.updatable > 0
+  const l: AppLang = lang !== undefined && lang !== null ? normalizeLangTag(lang) : resolveLang()
   let label: string
   switch (kind) {
     case 'busy':
-      label = LABEL_BUSY
+      label = copyText('batch-entry.label.busy', l)
       break
     case 'failed':
-      label = counts.failed > 0 ? counts.failed + ' 家失败，点此查看' : '更新失败，点此查看'
+      label = counts.failed > 0 ? copyText('batch-entry.label.failed', l, { count: String(counts.failed) }) : copyText('entry.label.failed', l)
       break
     case 'restart':
-      label = counts.restart + ' 家待重启'
+      label = copyText('batch-entry.label.restart', l, { count: String(counts.restart) })
       break
     case 'update':
-      label = counts.updatable + ' 家可更新'
+      label = copyText('batch-entry.label.update', l, { count: String(counts.updatable) })
       break
     default:
-      label = LABEL_IDLE
+      label = copyText('batch-entry.label.idle', l)
       break
   }
   return {
@@ -223,14 +228,58 @@ export function batchEntrySummary(state: UpdateBatchEntryState | null | undefine
   }
 }
 
-/** 状态档（唯一出处：batchEntrySummary，不各写一份）。 */
+/** 状态档（唯一出处：batchEntrySummary，不各写一份；lang 仅影响 label，不影响档位）。 */
 export function batchEntryStateKind(state: UpdateBatchEntryState | null | undefined): BatchEntryStateKind {
   return batchEntrySummary(state).kind
 }
 
-/** 批量入口件文案（唯一出处：测试与接入方都读它，不各写一份）。 */
-export function batchEntryLabelFor(state: UpdateBatchEntryState | null | undefined): string {
-  return batchEntrySummary(state).label
+/** 批量入口件文案第二出口（唯一出处；与 HTML 出口同语言，v2 起按 lang 取字典）。 */
+export function batchEntryLabelFor(state: UpdateBatchEntryState | null | undefined, lang?: AppLang | string | null): string {
+  return batchEntrySummary(state, lang).label
+}
+
+/** 批量 key（与 entryStateKind 同输入，分支只认稳定码与计数，不读文案）。 */
+export function batchEntryBilingualKeyFor(state: UpdateBatchEntryState | null | undefined): BilingualKey {
+  const s = batchEntrySummary(state)
+  switch (s.kind) {
+    case 'busy':
+      return 'batch-entry.label.busy'
+    case 'failed':
+      return s.failed > 0 ? 'batch-entry.label.failed' : 'entry.label.failed'
+    case 'restart':
+      return 'batch-entry.label.restart'
+    case 'update':
+      return 'batch-entry.label.update'
+    default:
+      return 'batch-entry.label.idle'
+  }
+}
+
+/** 批量插值（{count} 运行时值永不翻译，冻结词元两语言逐字相同）。 */
+export function batchEntryBilingualValuesFor(state: UpdateBatchEntryState | null | undefined): Record<string, string> {
+  const s = batchEntrySummary(state)
+  switch (s.kind) {
+    case 'update':
+      return { count: String(s.updatable) }
+    case 'restart':
+      return { count: String(s.restart) }
+    case 'failed':
+      return s.failed > 0 ? { count: String(s.failed) } : {}
+    default:
+      return {}
+  }
+}
+
+/** 批量单语块 HTML（按钮正文唯一来源；lang 显式入参，缺省跟随全局）。 */
+export function batchEntryBilingualHTMLFor(state: UpdateBatchEntryState | null | undefined, lang?: AppLang | string | null): string {
+  const l = lang !== undefined && lang !== null ? normalizeLangTag(lang) : resolveLang()
+  return copyHTML(batchEntryBilingualKeyFor(state), l, batchEntryBilingualValuesFor(state))
+}
+
+/** 批量单语纯文本（title/aria 用；与 HTML 出口同语言）。 */
+export function batchEntryBilingualTextFor(state: UpdateBatchEntryState | null | undefined, lang?: AppLang | string | null): string {
+  const l = lang !== undefined && lang !== null ? normalizeLangTag(lang) : resolveLang()
+  return copyText(batchEntryBilingualKeyFor(state), l, batchEntryBilingualValuesFor(state))
 }
 
 // ---------- 挂载（接入方一行挂上；查是只读、装只能用户在面板里点） ----------
@@ -272,6 +321,20 @@ export function mountUpdateBatchEntry(
     throw new Error('[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ' + JSON.stringify(options.pollMs) + '）')
   }
   const labelOverride = typeof options.label === 'string' && options.label ? options.label : null
+  const localeOpt: LocaleOption = (options as { locale?: LocaleOption }).locale ?? undefined
+  if (localeOpt !== undefined && localeOpt !== null) {
+    const isStr = typeof localeOpt === 'string'
+    const isObj = typeof localeOpt === 'object' && typeof (localeOpt as { getActive?: unknown }).getActive === 'function'
+    if (!isStr && !isObj) {
+      throw new Error('[dsh-plugin-update] invalid locale: expected zh / en / BCP47 or { getActive(), subscribe? }')
+    }
+    if (isStr && !(localeOpt as string).trim()) {
+      throw new Error('[dsh-plugin-update] invalid locale: empty string')
+    }
+  }
+  function currentLang(): AppLang {
+    return resolveLang(localeOpt)
+  }
   const titles: Record<string, string> =
     options.titles && typeof options.titles === 'object' ? options.titles : {}
   const onActivate = typeof options.onActivate === 'function' ? options.onActivate : null
@@ -316,7 +379,7 @@ export function mountUpdateBatchEntry(
   }
 
   function summaryOf(): BatchEntrySummary {
-    return batchEntrySummary(stateOf())
+    return batchEntrySummary(stateOf(), currentLang())
   }
 
   function currentLabel(): string {
@@ -329,19 +392,26 @@ export function mountUpdateBatchEntry(
   }
 
   function entryHTML(): string {
-    const summary = summaryOf()
-    const text = activating ? '正在查新版…' : currentLabel()
+    const lang = currentLang()
+    const summary = batchEntrySummary(stateOf(), lang)
+    // #60 v2 单语：按钮正文走字典单语块（只含当前语言），badge 的 title/aria 走同语言纯文本。
+    const labelHTML = labelOverride
+      ? escapeHtml(labelOverride)
+      : activating
+        ? copyHTML('batch-entry.action.checking', lang)
+        : copyHTML(batchEntryBilingualKeyFor(stateOf()), lang, batchEntryBilingualValuesFor(stateOf()))
+    const labelText = labelOverride ?? (activating ? copyText('batch-entry.action.checking', lang) : copyText(batchEntryBilingualKeyFor(stateOf()), lang, batchEntryBilingualValuesFor(stateOf())))
     const busyAttr = activating ? ' disabled aria-busy="true"' : ''
     const themeAttr = theme === 'archive' ? ' data-theme="archive"' : ''
     const control =
       variant === 'badge'
-        ? '<button type="button" class="dsh-upd-entry-dot" ' + ENTRY_ATTR + '="activate" title="' + escapeHtml(text) + '" aria-label="' + escapeHtml(text) + '"' + busyAttr + '></button>'
-        : '<button type="button" class="dsh-upd-entry-btn" ' + ENTRY_ATTR + '="activate"' + busyAttr + '>' + escapeHtml(text) + '</button>'
+        ? '<button type="button" class="dsh-upd-entry-dot" ' + ENTRY_ATTR + '="activate" title="' + escapeHtml(labelText) + '" aria-label="' + escapeHtml(labelText) + '"' + busyAttr + '></button>'
+        : '<button type="button" class="dsh-upd-entry-btn" ' + ENTRY_ATTR + '="activate"' + busyAttr + '>' + labelHTML + '</button>'
     const noteHTML = note
       ? '<span class="dsh-upd-entry-note" data-dsh-upd-note="1">' + escapeHtml(note) + '</span>'
       : ''
     return (
-      '<style>' + UPDATE_ENTRY_CSS + '</style>\n' +
+      '<style>' + UPDATE_ENTRY_CSS + '\n' + BILINGUAL_CSS + '</style>\n' +
       '<span class="dsh-upd-entry" data-variant="' + variant + '" data-state="' + summary.kind + '"' + themeAttr + '>' +
       control + noteHTML + '</span>'
     )
@@ -391,7 +461,7 @@ export function mountUpdateBatchEntry(
     }
   }
 
-  /** 把批量面板挂进容器（复用 src/panel-batch.ts 的整组件，不另写界面）。 */
+  /** 把批量面板挂进容器（复用 src/panel-batch.ts 的整组件，不另写界面；#60 窗口期：批量面板暂不消费 locale，透传仅为占位）。 */
   function mountPanel(mode: BatchPanelMode): void {
     if (!mounted || panelMode !== null) return
     panel = mountUpdateBatchPanel(panelHost, {
@@ -403,10 +473,11 @@ export function mountUpdateBatchEntry(
       onRestartRequested: options.onRestartRequested,
       copyText: options.copyText,
       autoChangelog: options.autoChangelog,
+      locale: localeOpt,
       // 面板点「关闭」即走入口件的完整关闭（收 dialog + 还原按钮 + 重查一次），不再是面板自己停轮询。
       onCloseRequested: () => close(),
       call: panelCall,
-    })
+    } as Parameters<typeof mountUpdateBatchPanel>[1])
     panelMode = mode
   }
 
@@ -524,6 +595,11 @@ export function mountUpdateBatchEntry(
   function unmount(): void {
     if (!mounted) return
     mounted = false
+    try {
+      unsubLang()
+    } catch {
+      // 停不掉也无妨。
+    }
     const opened = panel
     panel = null
     panelMode = null
@@ -545,6 +621,10 @@ export function mountUpdateBatchEntry(
     // 卸载只停轮询与监听：绝不调安装/取消电话，也不动容器内容（与 panel.unmount 同口径）。
   }
 
+  // #60 v2 语言跟随：已挂载控件即时重绘，unmount 后停订（与单入口同口径）。
+  const unsubLang = subscribeLang(() => {
+    render()
+  }, localeOpt)
   try {
     ;(container as { addEventListener?: (type: string, listener: (ev: unknown) => void) => void }).addEventListener?.('click', onClick)
   } catch {

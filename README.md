@@ -183,7 +183,9 @@ const entry = mountUpdateEntry(document.getElementById('upd-entry'), {
 | 什么时候查 | `mount` / `never` | `mount` | 进页面静默查一次（**只调 `.updateStatus`，只读**）；`never` 则只在点击时查 |
 | 点了做什么 | `has-update` / `always` / `manual` / `direct` | `has-update` | 有新版才开面板；检查完总是开；交给 `onActivate` 自己跳；点开即弹窗、不预查 |
 
-按钮文案随状态自己变：`检查更新` / `有新版 1.1.0` / `正在安装…` / `待重启` / `更新失败，点此查看`。
+按钮文案随状态自己变（按宿主语言单语渲染：中文界面纯中文、英文界面纯英文，一次只出现一种语言）：`检查更新` / `有新版 1.1.0` / `正在安装…` / `待重启` / `更新失败，点此查看`（英文见集中字典同 key）。
+
+语言跟随（单语）：入口件默认跟随 `document.documentElement.lang` > `navigator.languages` > 中文兜底；显式覆盖传 `locale: 'zh' | 'en' | { getActive(): string; subscribe?(cb): () => void }`（对象形态可接宿主语言服务，切换即时重绘，`unmount` 后停订；无 DOM 环境不抛，落中文）。
 
 无新版时原地那句小字（`已是最新 X.Y.Z`）只在 `has-update` 下出现：不想看它就用 `openOn: 'always'`（检查完总是开弹窗，无新版在弹窗里看“已是最新”）或 `openOn: 'direct'`（点开即弹窗，连预查都省了，面板挂载即自查；徽标形态仍走回调口径）。
 
@@ -212,9 +214,11 @@ const entry = mountUpdateBatchEntry(document.getElementById('upd-entry'), {
 ```
 
 聚合口径与批量面板总账同一份数法（含「忙失败占位翻回可更新」）：`忙 > 失败 > 待重启 > 可更新 > 待查`，
-文案为 `检查更新` / `N 家可更新` / `正在安装…` / `N 家待重启` / `N 家失败，点此查看`。
+文案按宿主语言单语渲染（中文如左，英文见字典 `batch-entry.*` 同 key），`locale` 选项与单入口同形态，切换即时重绘。
 三自由度与单入口同取值，缺省不同：`openOn` 缺省 `'always'`（查完总是开批量面板；`has-update` 下有事才开，否则原地给总账一句）。
 `autoCheck` 缺省 `'mount'`（只调 `.batchStatus`，只读）；铁律同单入口：任何路径都不自动安装。
+
+窗口期说明（必读）：`mountUpdatePanel` 与 `mountUpdateBatchPanel` 已接受 `locale` 选项（与入口件同形态），但本版本暂不消费——传了不生效，面板内容仍按既有中文渲染；语言跟随的按面迁移在后续版本逐面落地，入口件两条链已先生效。
 
 ### 第 2.6 节：多目标批量更新（一个插件管 N 个插件的更新）
 

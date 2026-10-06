@@ -383,14 +383,14 @@ function slotsOf(template) {
 }
 
 /**
- * 字典快照门禁：每键 en+zh 非空、语言对得上、具名槽中英同名同数、键名合约定、
- * 渲染英文在前中文在后、值与冻结快照逐键一致（改文案必须同步快照）。
+ * 字典快照门禁（v2 单语，#60）：每键 en+zh 非空、语言对得上、具名槽中英同名同数、键名合约定、
+ * 渲染只出现当前语言（zh 不含英文/en 不含中文，冻结词元除外）、值与冻结快照逐键一致（改文案必须同步快照）。
  */
 export function checkDictionary(options = {}) {
   const dict = options.dictionary
   const snapshot = options.snapshot ?? null
-  const renderHtml = options.renderHtml
-  const renderText = options.renderText
+  const renderHtml = options.copyHtml ?? options.renderHtml
+  const renderText = options.copyText ?? options.renderText
   const violations = []
   const notes = []
   if (!dict || !dict.strings || typeof dict.strings !== 'object') {
@@ -462,21 +462,55 @@ export function checkDictionary(options = {}) {
       })
     }
     if (typeof renderHtml === 'function') {
-      const html = String(renderHtml(key) ?? '')
-      const enAt = html.indexOf('lang="en"')
-      const zhAt = html.indexOf('lang="zh"')
-      if (!(enAt >= 0 && zhAt > enAt)) {
-        violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 渲染不是英文在前中文在后（或缺 lang）' })
+      const vals = { version: '9.9.9', count: '7' }
+      let zhHtml = ''
+      let enHtml = ''
+      try {
+        zhHtml = String(renderHtml(key, 'zh', vals) ?? '')
+        enHtml = String(renderHtml(key, 'en', vals) ?? '')
+      } catch (e) {
+        violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 单语渲染抛错：' + (e && e.message) })
       }
-      if (!html.includes('</span> <span')) violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 双语块缺空白分隔' })
+      if (zhHtml || enHtml) {
+        if (!zhHtml.includes('lang="zh"') || zhHtml.includes('lang="en"')) {
+          violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' zh 渲染只许出现当前语言（含 lang="zh" 且不含 lang="en"）' })
+        }
+        if (!enHtml.includes('lang="en"') || enHtml.includes('lang="zh"')) {
+          violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' en 渲染只许出现当前语言（含 lang="en" 且不含 lang="zh"）' })
+        }
+        const strip = (h) => String(h ?? '').replace(/<[^>]*>/g, ' ').replace(/&[^;]+;/g, ' ')
+        const zhText = strip(zhHtml).replace(/9\.9\.9/g, '').replace(/7/g, '')
+        const enText = strip(enHtml).replace(/9\.9\.9/g, '').replace(/7/g, '')
+        if (/[A-Za-z]/.test(zhText)) {
+          violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' zh 渲染混入英文（冻结词元除外）' })
+        }
+        if (CJK.test(enText)) {
+          violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' en 渲染混入中文（冻结词元除外）' })
+        }
+        if (zhHtml && !CJK.test(strip(zhHtml))) {
+          violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' zh 渲染缺中文' })
+        }
+        if (enHtml && !/[A-Za-z]/.test(strip(enHtml))) {
+          violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' en 渲染缺英文' })
+        }
+      }
     }
     if (typeof renderText === 'function' && en && zh) {
-      const text = String(renderText(key) ?? '')
-      const enHead = en.split('{')[0].trim()
-      const zhHead = zh.split('{')[0].trim()
-      const enOk = enHead ? text.startsWith(enHead) : true
-      const zhOk = zhHead ? text.indexOf(zhHead) > 0 : true
-      if (!enOk || !zhOk) violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 纯文本形态不是英文在前中文在后' })
+      const vals = { version: '9.9.9', count: '7' }
+      let zhT = ''
+      let enT = ''
+      try {
+        zhT = String(renderText(key, 'zh', vals) ?? '')
+        enT = String(renderText(key, 'en', vals) ?? '')
+      } catch (e) {
+        violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 单语纯文本抛错：' + (e && e.message) })
+      }
+      if (zhT || enT) {
+        const zhClean = String(zhT).replace(/9\.9\.9/g, '').replace(/7/g, '')
+        const enClean = String(enT).replace(/9\.9\.9/g, '').replace(/7/g, '')
+        if (/[A-Za-z]/.test(zhClean)) violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 纯文本 zh 混入英文' })
+        if (CJK.test(enClean)) violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 纯文本 en 混入中文' })
+      }
     }
     if (en && zh) {
       const pairKey = en + '\u0000' + zh
@@ -755,8 +789,10 @@ async function loadDistDeps(root) {
   const panel = await import(pathToFileURL(distPanel).href + stamp)
   return {
     dictionary: { version: bilingual.BILINGUAL_DICT_VERSION, strings: bilingual.BILINGUAL_STRINGS, draftKeys: bilingual.draftKeys },
-    renderHtml: bilingual.bilingualHTML,
-    renderText: bilingual.bilingualText,
+    copyHtml: bilingual.copyHTML ?? bilingual.bilingualHTML,
+    copyText: bilingual.copyText ?? bilingual.bilingualText,
+    renderHtml: bilingual.copyHTML ?? bilingual.bilingualHTML,
+    renderText: bilingual.copyText ?? bilingual.bilingualText,
     codes: {
       failureCopy: panel.failureCopy,
       blockedCopy: panel.blockedCopy,
@@ -802,8 +838,10 @@ export async function runGate(options = {}) {
   const dict = checkDictionary({
     dictionary: deps.dictionary,
     snapshot: options.snapshot ?? readJsonIfExists(snapshotPath),
-    renderHtml: deps.renderHtml,
-    renderText: deps.renderText,
+    copyHtml: deps.copyHtml ?? deps.renderHtml,
+    copyText: deps.copyText ?? deps.renderText,
+    renderHtml: deps.copyHtml ?? deps.renderHtml,
+    renderText: deps.copyText ?? deps.renderText,
     draftKeys: deps.dictionary?.draftKeys,
   })
   sections.push({

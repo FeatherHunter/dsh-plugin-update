@@ -83,14 +83,7 @@
       "[dsh-plugin-update] 挂批量入口件需要传输函数 call（入口件调宿主电话的唯一接触面）",
       "[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual / direct（收到",
       "[dsh-plugin-update] 自动检查时机非法：只收 mount 或 never（收到",
-      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到",
-      "家可更新",
-      "家失败，点此查看",
-      "家待重启",
-      "更新失败，点此查看",
-      "检查更新",
-      "正在安装…",
-      "正在查新版…"
+      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到"
     ],
     "src/entry.ts": [
       "[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ）",
@@ -101,12 +94,7 @@
       "[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ）",
       "[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual / direct（收到 ）",
       "[dsh-plugin-update] 自动检查时机非法：只收 mount 或 never（收到 ）",
-      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ）",
-      "待重启",
-      "更新失败，点此查看",
-      "有新版",
-      "检查更新",
-      "正在安装…"
+      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ）"
     ],
     "src/gate.ts": [
       "[dsh-plugin-update] 事件清单 eventList 非法：",
