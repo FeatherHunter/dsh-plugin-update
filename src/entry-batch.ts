@@ -100,7 +100,7 @@ export interface UpdateBatchEntryOptions {
   /** 调宿主电话：(phoneName, args) => Promise<reply>。 */
   call: (name: string, args: Record<string, unknown>) => Promise<unknown>
   variant?: BatchEntryVariant
-  /** 主题：与单入口/面板同一套（default/archive，d5-paper 为旧别名仍可用）。 */
+  /** 主题：与单入口/面板同一套（default/archive）。 */
   theme?: UpdatePanelTheme
   /** 缺省 'mount'：进页面静默查一次（只调 .batchStatus，只读）。'never' 则只在用户点击时查。 */
   autoCheck?: BatchEntryAutoCheck
@@ -316,8 +316,8 @@ export function mountUpdateBatchEntry(
   if (openOn !== 'has-update' && openOn !== 'always' && openOn !== 'manual' && openOn !== 'direct') {
     throw new Error('[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual / direct（收到 ' + JSON.stringify(options.openOn) + '）')
   }
-  if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive' && options.theme !== 'd5-paper') {
-    throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ' + JSON.stringify(options.theme) + '）')
+  if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive') {
+    throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ' + JSON.stringify(options.theme) + '）')
   }
   let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
   const pollMs = options.pollMs
@@ -563,8 +563,8 @@ export function mountUpdateBatchEntry(
   }
 
   function setTheme(next: UpdatePanelTheme): void {
-    if (next !== 'default' && next !== 'archive' && next !== 'd5-paper') {
-      throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ' + JSON.stringify(next) + '）')
+    if (next !== 'default' && next !== 'archive') {
+      throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ' + JSON.stringify(next) + '）')
     }
     theme = normalizePanelTheme(next)
     if (panel) void panel.setTheme(theme)

@@ -46,7 +46,7 @@ import {
 } from './batch.js'
 import {
   UPDATE_PANEL_CSS,
-  UPDATE_PANEL_D5_CSS,
+  UPDATE_PANEL_ARCHIVE_CSS,
   buildDiagnosticText,
   createBrowserSkipStore,
   failureCopy,
@@ -268,9 +268,10 @@ export function batchLedgerText(counts: BatchLedgerCounts, lang?: unknown): stri
  * 所以「前方 N 个」= position N（队首那家前方正好 1 个：正在装的拥有者）。
  * 位置取不到（宿主只记了忙、没给占位读数）就说「等前面安装完」，不猜数字。
  */
-export function batchQueuedStatus(position: number | null): string {
-  if (typeof position !== 'number' || !Number.isFinite(position) || position < 1) return '已排队 · 等前面安装完'
-  return '已排队 · 前方 ' + position + ' 个'
+export function batchQueuedStatus(position: number | null, lang?: unknown): string {
+  const l = langOf(lang)
+  if (typeof position !== 'number' || !Number.isFinite(position) || position < 1) return batchText('batch.row.queued-generic', l)
+  return batchText('batch.row.queued-n', l, { n: String(position) })
 }
 
 /** 知识账本里的一行（只做展示，不参与安装决策）。 */
@@ -353,30 +354,31 @@ export function unfinishedCount(rows: readonly BatchRowView[], session?: unknown
  * 中文可执行，不写相位英文（相位只留在 data-phase 属性上，给人看的这句永远是动作）。
  * （#59 D2：调用方在无轮次 + 有知识时优先用 batchRowKnowledgeText；本函数语义冻结，旧快照不动。）
  */
-export function batchRowStatus(row: BatchRowView, skippedVersion?: string | null): string {
+export function batchRowStatus(row: BatchRowView, skippedVersion?: string | null, lang?: unknown): string {
+  const l = langOf(lang)
   const skipped = typeof skippedVersion === 'string' && skippedVersion ? skippedVersion : null
-  if (skipped !== null && asBatchPhase(row.phase) === 'ready') return '已跳过 ' + skipped
+  if (skipped !== null && asBatchPhase(row.phase) === 'ready') return batchText('batch.row.skipped', l, { version: skipped })
   switch (asBatchPhase(row.phase)) {
     case 'pending':
-      return '等它，轮到就自动查新版'
+      return batchText('batch.row.wait-turn', l)
     case 'checking':
-      return '正在查新版，稍等'
+      return batchText('batch.row.checking', l)
     case 'ready':
       return row.targetVersion
-      ? '点「安装这家」安装 ' + row.targetVersion
-      : '点「安装这家」安装新版'
+      ? batchText('batch.row.cta-version', l, { version: row.targetVersion })
+      : batchText('batch.row.cta-generic', l)
     case 'installing':
-      return '正在安装，别动'
+      return batchText('batch.row.installing', l)
     case 'current':
-      return '已是最新，不用动'
+      return batchText('batch.row.current', l)
     case 'done':
-      return row.restartRequired === true ? '安装好了，重启宿主才生效' : '安装好了，不用动'
+      return row.restartRequired === true ? batchText('batch.row.done-restart', l) : batchText('batch.row.done', l)
     case 'failed':
-      return '安装没成功，点「重试」再来一次'
+      return batchText('batch.row.failed-retry', l)
     case 'skipped':
-      return '这一版已跳过，不用动'
+      return batchText('batch.row.skipped-idle', l)
     default:
-      return '状态认不出，点「检查更新」重查一次'
+      return batchText('batch.row.unknown', l)
   }
 }
 
@@ -598,16 +600,16 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   }
 
   const kernel = parts.join(String.fromCharCode(10))
-  // 主题只换肤：默认不带 data-theme、不带 D5 串；d5-paper 才挂属性并追加两份 D5 皮肤。
-  const d5 = normalizePanelTheme(theme) === 'archive'
-  const attr = d5 ? ' data-theme="archive"' : ''
+  // 主题只换肤：默认不带 data-theme、不带 Archive 串；archive 才挂属性并追加两份 Archive 皮肤。
+  const archive = normalizePanelTheme(theme) === 'archive'
+  const attr = archive ? ' data-theme="archive"' : ''
   const seal = batchSealOf(counts, lang)
   const root =
     '<div class="dsh-upd dsh-upd-batch" data-mode="' + mode + '" data-seal="' + escapeHtml(seal.text) +
     '" data-seal-tone="' + seal.tone + '"' + attr + '>\n' + kernel + '\n</div>'
   const body = mode === 'dialog' ? '<div class="dsh-upd-overlay" data-mode="dialog">' + root + '</div>' : root
-  const css = d5
-    ? [UPDATE_PANEL_CSS, UPDATE_BATCH_PANEL_CSS, UPDATE_PANEL_D5_CSS, UPDATE_BATCH_PANEL_D5_CSS].join(String.fromCharCode(10))
+  const css = archive
+    ? [UPDATE_PANEL_CSS, UPDATE_BATCH_PANEL_CSS, UPDATE_PANEL_ARCHIVE_CSS, UPDATE_BATCH_PANEL_ARCHIVE_CSS].join(String.fromCharCode(10))
     : [UPDATE_PANEL_CSS, UPDATE_BATCH_PANEL_CSS].join(String.fromCharCode(10))
   return '<style>' + css + '</style>\n' + body
 }
@@ -639,7 +641,7 @@ function batchSummaryText(
   return batchText('batch.hint.done', l)
 }
 
-/** 印章（D5 才画）：色调按总账里最重的一档走；文字跟随语言（#64 单语，tone 不入 key）。 */
+/** 印章（Archive 才画）：色调按总账里最重的一档走；文字跟随语言（#64 单语，tone 不入 key）。 */
 function batchSealOf(counts: BatchLedgerCounts, lang?: unknown): { text: string; tone: 'ink' | 'green' | 'yellow' | 'red' } {
   const text = batchText('batch.seal.ledger', langOf(lang))
   if (counts.failed > 0) return { text, tone: 'red' }
@@ -717,44 +719,52 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const off = ctx.inFlight ? ' disabled' : ''
   if (phase === 'installing') {
     actions.push(
-      '<button type="button" data-act="row-install" data-key="' + keyAttr + '" disabled>安装中…</button>',
+      '<button type="button" data-act="row-install" data-key="' + keyAttr + '" disabled>' + escapeHtml(batchText('batch.row-action.installing', ctx.lang)) + '</button>',
     )
   } else if (queued) {
     // 排队那行的下一步是「取消排队」：撤掉自己的占位（别家与正在装的拥有者都不碰）。
     if (cancelQueuePhoneOf(row) !== null && queuedRequestIdOf(row) !== null) {
       actions.push(
-        '<button type="button" data-act="row-cancel-queue" data-key="' + keyAttr + '"' + off + '>取消排队</button>',
+        '<button type="button" data-act="row-cancel-queue" data-key="' + keyAttr + '"' + off + '>' + escapeHtml(batchText('batch.row-action.cancel-queue', ctx.lang)) + '</button>',
       )
     }
   } else if (phase === 'ready' && skipped === null) {
     actions.push(
       '<button type="button" data-act="row-install" data-key="' + keyAttr + '" data-primary="1"' + off + '>' +
-        (ctx.busy ? '加入队列' : '安装这家') + '</button>',
+        escapeHtml(ctx.busy ? batchText('batch.row-action.queue', ctx.lang) : batchText('batch.row-action.install-row', ctx.lang)) + '</button>',
     )
   } else if (phase === 'ready' && skipped !== null) {
     // 跳过后这一版的下一步是「恢复」：与单插件面板同一套本地跳过语义（按插件 + 版本记）。
     actions.push(
       '<button type="button" data-act="row-resume-skip" data-key="' + keyAttr + '"' + off +
-        '>恢复（' + escapeHtml(skipped) + '）</button>',
+        '>' + escapeHtml(batchText('batch.row-action.unskip', ctx.lang, { version: skipped })) + '</button>',
     )
   } else if (phase === 'failed') {
     actions.push(
       '<button type="button" data-act="row-install" data-key="' + keyAttr + '"' + off + '>' +
-        (ctx.busy ? '加入队列' : '重试') + '</button>',
+        escapeHtml(ctx.busy ? batchText('batch.row-action.queue', ctx.lang) : batchText('batch.row-action.retry', ctx.lang)) + '</button>',
     )
   }
   if (row.restartRequired === true) {
     // 与单插件面板同一措辞：宿主没有重启自己的电话，这里只做入口。
-    actions.push('<button type="button" data-act="restart" data-key="' + keyAttr + '">重启宿主</button>')
+    actions.push('<button type="button" data-act="restart" data-key="' + keyAttr + '">' + escapeHtml(batchText('batch.row-action.restart', ctx.lang)) + '</button>')
   }
   actions.push(
     '<button type="button" data-act="toggle-details" data-key="' + keyAttr + '">' +
-      (ctx.expanded ? '收起' : '详情') + '</button>',
+      escapeHtml(ctx.expanded ? batchText('batch.row-action.hide-detail', ctx.lang) : batchText('batch.row-action.show-detail', ctx.lang)) + '</button>',
   )
   const failLine =
     phase === 'failed' && !queued
-      ? '<span class="dsh-upd-bfail">失败 <code>' + escapeHtml(row.error || 'install-failed') + '</code>：' +
-        escapeHtml(failureCopy(row.error || 'install-failed')?.zh ?? '认不出具体原因') + '</span>'
+      ? (() => {
+        const failCode = row.error || 'install-failed'
+        const failDetail = failureCopy(failCode, ctx.lang)?.zh ?? failureCopy('unknown', ctx.lang)?.zh ?? ''
+        // 字典不存 HTML（#64 口径）：模板为纯文本，<code> 由此处组装，语义与 inventory batch.row.error-label 一致。
+        const label = batchText('batch.row.error-label', ctx.lang, { code: failCode, detail: failDetail })
+        const escaped = escapeHtml(label)
+        const codeEsc = escapeHtml(failCode)
+        const withCode = escaped.includes(codeEsc) ? escaped.replace(codeEsc, '<code>' + codeEsc + '</code>') : escaped
+        return '<span class="dsh-upd-bfail">' + withCode + '</span>'
+      })()
       : ''
   const main =
     '<button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="' + keyAttr +
@@ -762,7 +772,7 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
     '<span class="dsh-upd-updot" data-tone="' + dotToneOf(row, phase, skipped, queued) + '"></span>' +
     '<span class="dsh-upd-bname">' + escapeHtml(titleOf(row, ctx.titles)) + '</span>' +
     (version ? '<span class="dsh-upd-bver">' + escapeHtml(version) + '</span>' : '') +
-    '<span class="dsh-upd-bstat">' + escapeHtml(queued ? batchQueuedStatus(position) : (batchRowKnowledgeText(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped))) + (ctx.inRound && !queued ? '（' + escapeHtml(batchText('batch.row.unfinished-tag', ctx.lang)) + '）' : '') + '</span>' +
+    '<span class="dsh-upd-bstat">' + escapeHtml(queued ? batchQueuedStatus(position, ctx.lang) : (batchRowKnowledgeText(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))) + (ctx.inRound && !queued ? '（' + escapeHtml(batchText('batch.row.unfinished-tag', ctx.lang)) + '）' : '') + '</span>' +
     failLine +
     '</button>'
   const detail = ctx.expanded
@@ -808,7 +818,7 @@ function detailHTML(row: BatchRowView, ctx: RowRenderContext): string {
     theme: ctx.theme,
     profileName: typeof row.profileName === 'string' && row.profileName ? row.profileName : null,
     actions: 'none',
-  })
+  }, ctx.lang)
   return stripActionButtons(html)
 }
 
@@ -825,41 +835,41 @@ function detailActionsHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const off = ctx.inFlight ? ' disabled' : ''
   const buttons: string[] = []
   if (phase === 'installing') {
-    buttons.push('<button type="button" data-act="row-install" data-key="' + keyAttr + '" disabled>安装中…</button>')
+    buttons.push('<button type="button" data-act="row-install" data-key="' + keyAttr + '" disabled>' + escapeHtml(batchText('batch.row-action.installing', ctx.lang)) + '</button>')
   } else if (queued) {
     if (cancelQueuePhoneOf(row) !== null && queuedRequestIdOf(row) !== null) {
       buttons.push(
-        '<button type="button" data-act="row-cancel-queue" data-key="' + keyAttr + '"' + off + '>取消排队</button>',
+        '<button type="button" data-act="row-cancel-queue" data-key="' + keyAttr + '"' + off + '>' + escapeHtml(batchText('batch.row-action.cancel-queue', ctx.lang)) + '</button>',
       )
     }
   } else if (phase === 'failed') {
     buttons.push(
       '<button type="button" data-act="row-install" data-key="' + keyAttr + '"' + off + '>' +
-        (ctx.busy ? '加入队列' : '重试') + '</button>',
+        escapeHtml(ctx.busy ? batchText('batch.row-action.queue', ctx.lang) : batchText('batch.row-action.retry', ctx.lang)) + '</button>',
     )
   } else if (phase === 'ready' && ctx.skipped === null) {
     buttons.push(
       '<button type="button" data-act="row-install" data-key="' + keyAttr + '" data-primary="1"' + off +
-        '>' + (ctx.busy ? '加入队列' : '安装 ' + escapeHtml(version ?? '新版')) + '</button>',
+        '>' + escapeHtml(ctx.busy ? batchText('batch.row-action.queue', ctx.lang) : version !== null ? batchText('batch.row-action.install-version', ctx.lang, { version }) : batchText('batch.row-action.install-generic', ctx.lang)) + '</button>',
     )
   }
   if (!queued && phase === 'ready' && ctx.skipped === null && version !== null) {
     buttons.push(
-      '<button type="button" data-act="row-skip" data-key="' + keyAttr + '"' + off + '>跳过这一版</button>',
+      '<button type="button" data-act="row-skip" data-key="' + keyAttr + '"' + off + '>' + escapeHtml(batchText('batch.row-action.skip', ctx.lang)) + '</button>',
     )
   }
   if (ctx.skipped !== null) {
     buttons.push(
       '<button type="button" data-act="row-resume-skip" data-key="' + keyAttr + '"' + off +
-        '>恢复（' + escapeHtml(ctx.skipped) + '）</button>',
+        '>' + escapeHtml(batchText('batch.row-action.unskip', ctx.lang, { version: ctx.skipped })) + '</button>',
     )
   }
   if (typeof row.manual === 'string' && row.manual) {
     buttons.push(
-      '<button type="button" data-act="row-copy-manual" data-key="' + keyAttr + '"' + off + '>复制手工命令</button>',
+      '<button type="button" data-act="row-copy-manual" data-key="' + keyAttr + '"' + off + '>' + escapeHtml(batchText('batch.row-action.copy-manual', ctx.lang)) + '</button>',
     )
   }
-  buttons.push('<button type="button" data-act="row-copy-diag" data-key="' + keyAttr + '"' + off + '>复制诊断</button>')
+  buttons.push('<button type="button" data-act="row-copy-diag" data-key="' + keyAttr + '"' + off + '>' + escapeHtml(batchText('batch.row-action.copy-diag', ctx.lang)) + '</button>')
   return '<span class="dsh-upd-bdetail-actions">' + buttons.join('') + '</span>'
 }
 
@@ -888,40 +898,40 @@ function dotToneOf(
   return 'idle'
 }
 
-// ---------- 样式（同一套 dsh-upd-* 前缀；默认最小，D5 另起一串） ----------
+// ---------- 样式（同一套 dsh-upd-* 前缀；默认最小，Archive 另起一串） ----------
 
 export const UPDATE_BATCH_PANEL_CSS = [
-  '/* 批量面板（#25）：类名沿用 dsh-upd-* 前缀；默认（最小）主题，D5 皮肤见 UPDATE_BATCH_PANEL_D5_CSS。 */',
+  '/* 批量面板（#25）：类名沿用 dsh-upd-* 前缀；默认（最小）主题，Archive 皮肤见 UPDATE_BATCH_PANEL_ARCHIVE_CSS。 */',
   '.dsh-upd-batch-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}',
   '.dsh-upd-batch-title{font-weight:700;font-size:15px;letter-spacing:.06em}',
-  '.dsh-upd-batch-title i{font-style:normal;color:var(--dsh-upd-primary,#2563eb)}',
+  '.dsh-upd-batch-title i{font-style:normal;color:var(--dsh-update-primary,#2563eb)}',
   '.dsh-upd-batch-macros{flex:none}',
   '.dsh-upd-batch-sum{margin:4px 0 8px;font-size:13.5px}',
   '.dsh-upd-btable{margin-top:2px}',
-  '.dsh-upd-brow-set{border-top:1px solid var(--dsh-upd-line,#e5e7eb)}',
+  '.dsh-upd-brow-set{border-top:1px solid var(--dsh-update-border,#e5e7eb)}',
   '.dsh-upd-brow-set:first-child{border-top:0}',
   '.dsh-upd-brow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0}',
   '.dsh-upd .dsh-upd-brow-main{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1 1 260px;min-width:0;',
   'text-align:left;cursor:pointer;color:inherit;font:inherit;background:transparent;border:0;padding:2px 0;margin:0}',
-  '.dsh-upd .dsh-upd-brow-main:hover{color:var(--dsh-upd-primary,#2563eb)}',
+  '.dsh-upd .dsh-upd-brow-main:hover{color:var(--dsh-update-primary,#2563eb)}',
   '.dsh-upd-brow-actions{flex:none;margin-left:auto}',
   '.dsh-upd-brow-actions button{font-size:12.5px}',
-  '.dsh-upd-updot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--dsh-upd-line,#9ca3af);opacity:.55}',
-  '.dsh-upd-updot[data-tone="todo"]{background:var(--dsh-upd-ok-line,#059669);opacity:1}',
-  '.dsh-upd-updot[data-tone="ok"]{background:var(--dsh-upd-ok-line,#059669);opacity:1}',
-  '.dsh-upd-updot[data-tone="busy"]{background:var(--dsh-upd-busy-line,#2563eb);opacity:1}',
-  '.dsh-upd-updot[data-tone="warn"]{background:var(--dsh-upd-warn-line,#d97706);opacity:1}',
-  '.dsh-upd-updot[data-tone="bad"]{background:var(--dsh-upd-bad-line,#dc2626);opacity:1}',
+  '.dsh-upd-updot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--dsh-update-border,#9ca3af);opacity:.55}',
+  '.dsh-upd-updot[data-tone="todo"]{background:var(--dsh-update-ok-border,#059669);opacity:1}',
+  '.dsh-upd-updot[data-tone="ok"]{background:var(--dsh-update-ok-border,#059669);opacity:1}',
+  '.dsh-upd-updot[data-tone="busy"]{background:var(--dsh-update-busy-border,#2563eb);opacity:1}',
+  '.dsh-upd-updot[data-tone="warn"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}',
+  '.dsh-upd-updot[data-tone="bad"]{background:var(--dsh-update-bad-border,#dc2626);opacity:1}',
   '.dsh-upd-bname{font-weight:700;flex:none}',
   '.dsh-upd-bver{font-family:Consolas,Menlo,monospace;font-size:12px;opacity:.8;flex:none}',
   '.dsh-upd-bstat{font-size:12.5px;opacity:.9}',
-  '.dsh-upd-bfail{flex:1 1 100%;display:block;font-size:12.5px;color:var(--dsh-upd-bad-line,#dc2626)}',
+  '.dsh-upd-bfail{flex:1 1 100%;display:block;font-size:12.5px;color:var(--dsh-update-bad-border,#dc2626)}',
   '.dsh-upd-blist{font-size:12.5px;margin-top:2px}',
   '.dsh-upd-batch-ledger{margin:8px 0 0;font-size:13px;opacity:.85}',
   '.dsh-upd-batch-more{margin-top:6px}',
   '.dsh-upd-batch-more button{font-size:12px}',
   // 确认态：红框红字，与「关闭」等中性按钮一眼区分；disabled 照旧置灰。
-  '.dsh-upd-batch-more button[data-confirm="1"]{border-color:var(--dsh-upd-bad-line,#dc2626);color:var(--dsh-upd-bad-line,#dc2626)}',
+  '.dsh-upd-batch-more button[data-confirm="1"]{border-color:var(--dsh-update-bad-border,#dc2626);color:var(--dsh-update-bad-border,#dc2626)}',
   '.dsh-upd-batch-notice{margin-top:6px;font-size:12.5px;opacity:.85}',
   '.dsh-upd-bdetail-actions{margin:0 0 6px}',
   '.dsh-upd .dsh-upd-bdetail-actions button{font-size:12.5px}',
@@ -932,7 +942,7 @@ export const UPDATE_BATCH_PANEL_CSS = [
   '.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd{max-height:none;overflow:visible}',
   '.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body{overflow:visible}',
   '.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body .dsh-upd-chap-head{position:static}',
-  '@media (prefers-color-scheme: dark){.dsh-upd-batch-title i{color:var(--dsh-upd-focus,#93c5fd)}}',
+  '@media (prefers-color-scheme: dark){.dsh-upd-batch-title i{color:var(--dsh-update-focus,#93c5fd)}}',
   '@media (prefers-reduced-motion: reduce){.dsh-upd-batch *{transition:none !important;animation:none !important}}',
   // Batch check layout stability: reserve macro width + rows/summary heights + no scroll anchoring jumps.
   '.dsh-upd-batch{overflow-anchor:none}',
@@ -944,21 +954,21 @@ export const UPDATE_BATCH_PANEL_CSS = [
 ].join(String.fromCharCode(10))
 
 /**
- * 批量面板的 D5 皮肤（#20 同一套口径：只换颜色/字体/间距，不改顺序、不藏东西）。
+ * 批量面板的 Archive 皮肤（#20 同一套口径：只换颜色/字体/间距，不改顺序、不藏东西）。
  * 卷宗抬头右侧给大印章留 120px（与单插件面板档案头同一处理）。
  */
-export const UPDATE_BATCH_PANEL_D5_CSS = [
-  '/* 批量面板的 D5 皮肤：只换颜色/字体/间距；根上的大印章由 UPDATE_PANEL_D5_CSS 负责。 */',
+export const UPDATE_BATCH_PANEL_ARCHIVE_CSS = [
+  '/* 批量面板的 Archive 皮肤：只换颜色/字体/间距；根上的大印章由 UPDATE_PANEL_ARCHIVE_CSS 负责。 */',
   '.dsh-upd[data-theme="archive"] .dsh-upd-batch-head{padding-right:120px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-title{font-family:var(--d5-serif);font-size:21px;letter-spacing:.04em}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-title i{color:var(--d5-accent)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-brow-main{background:transparent;border:0;color:var(--d5-ink)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-brow-main:hover{color:var(--d5-accent)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-bname{font-family:var(--d5-serif)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-bver{font-family:var(--d5-mono);color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-ledger{color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-sum{color:var(--d5-ink)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-brow-set{border-top-color:var(--d5-line)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-title{font-family:var(--dsh-update-font-serif);font-size:21px;letter-spacing:.04em}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-title i{color:var(--dsh-update-primary)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-brow-main{background:transparent;border:0;color:var(--dsh-update-text)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-brow-main:hover{color:var(--dsh-update-primary)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-bname{font-family:var(--dsh-update-font-serif)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-bver{font-family:var(--dsh-update-font-mono);color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-ledger{color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-sum{color:var(--dsh-update-text)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-brow-set{border-top-color:var(--dsh-update-border)}',
 ].join(String.fromCharCode(10))
 
 // ---------- 挂载（多目标批量面板入口） ----------
@@ -1141,7 +1151,7 @@ function diagTextOf(row: BatchRowView, lang?: string | null): string {
     diagDetail !== null
       ? diagDetail
       : job !== null && job.detail !== null
-        ? job.detail + '（来源：后台任务收尾记录）'
+        ? job.detail + batchText('batch.diag.source-job', langOf(lang))
         : null
   const input: PanelDiagnosticInput = {
     pluginId: pluginIdOf(row),
@@ -1267,8 +1277,8 @@ export function mountUpdateBatchPanel(
   if (mode !== 'embedded' && mode !== 'dialog') {
     throw new Error('[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ' + JSON.stringify(options.mode) + '）')
   }
-  if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive' && options.theme !== 'd5-paper') {
-    throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ' + JSON.stringify(options.theme) + '）')
+  if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive') {
+    throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ' + JSON.stringify(options.theme) + '）')
   }
   let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
   const call = options.call
@@ -1518,7 +1528,7 @@ export function mountUpdateBatchPanel(
       await copyText(text)
       say(okNotice, key)
     } catch {
-      say('复制失败，请手动选中上面的信息。', key)
+      say(batchText('batch.toast.copy-fail', currentLang()), key)
     }
     render()
   }
@@ -1583,7 +1593,7 @@ export function mountUpdateBatchPanel(
       if (!mounted) return null
       if (busyRowKey !== null && isBusyReply(reply)) {
         // 老宿主还没接住这次入队：如实说「没排上，等它装完再点」，不画失败横幅、不把行记成失败。
-        say('前面还在装：这一家还没排上，等那家装完再点一次。', busyRowKey)
+        say(batchText('batch.toast.queue-missed', currentLang()), busyRowKey)
         return null
       }
       applyReply(reply)
@@ -1686,7 +1696,7 @@ export function mountUpdateBatchPanel(
         } catch {
           // 跳记不进去也不挡更新，只是不免打扰（版本号非法时同此）。
         }
-        say('已跳过 ' + version + '：这一版不再提醒；点「恢复」可撤销。', row.key)
+        say(batchText('batch.toast.skipped', currentLang(), { version }), row.key)
         render()
         return
       }
@@ -1699,7 +1709,7 @@ export function mountUpdateBatchPanel(
         } catch {
           // 同上：清不掉也不挡更新。
         }
-        say(version ? '已恢复 ' + version + '：这一版会照常提醒。' : '已恢复跳过提醒。', row.key)
+        say(version ? batchText('batch.toast.unskipped-version', currentLang(), { version }) : batchText('batch.toast.unskipped-all', currentLang()), row.key)
         render()
         return
       }
@@ -1711,7 +1721,7 @@ export function mountUpdateBatchPanel(
         const phoneName = cancelQueuePhoneOf(row)
         const requestId = queuedRequestIdOf(row)
         if (phoneName === null || requestId === null) {
-          say('这一行没带取消排队要用的电话名或编号，暂不能取消：等下一次刷新再看。', row.key)
+          say(batchText('batch.toast.cancel-unavailable', currentLang()), row.key)
           render()
           return
         }
@@ -1722,9 +1732,9 @@ export function mountUpdateBatchPanel(
         try {
           // 单插件回包形状与批量回包不同（没有 ok/session/rows），所以不进 applyReply，只当回执。
           await call(phoneName, { cancelQueued: true, requestId })
-          if (mounted) say('已取消排队：这一家不等了。', row.key)
+          if (mounted) say(batchText('batch.toast.cancel-ok', currentLang()), row.key)
         } catch {
-          if (mounted) say('取消排队没成功（可能已经开始装了）：看下面最新状态。', row.key)
+          if (mounted) say(batchText('batch.toast.cancel-fail', currentLang()), row.key)
         } finally {
           inFlight = false
         }
@@ -1735,13 +1745,13 @@ export function mountUpdateBatchPanel(
         const row = typeof key === 'string' && key ? rowOfKey(key) : null
         const manual = row && typeof row.manual === 'string' ? row.manual : ''
         if (!row || !manual) return
-        await copyWith(manual, '手工命令已复制，粘到终端整行执行即可。', row.key)
+        await copyWith(manual, batchText('batch.toast.copy-manual-ok', currentLang()), row.key)
         return
       }
       case 'row-copy-diag': {
         const row = typeof key === 'string' && key ? rowOfKey(key) : null
         if (!row) return
-        await copyWith(diagTextOf(row), '诊断已复制，直接粘给插件作者即可（已脱敏）。', row.key)
+        await copyWith(diagTextOf(row, currentLang()), batchText('batch.toast.copy-diag-ok', currentLang()), row.key)
         return
       }
       case 'toggle-details': {
@@ -1757,12 +1767,12 @@ export function mountUpdateBatchPanel(
         try {
           if (typeof onRestartRequested === 'function') {
             await onRestartRequested()
-            say('已按调用方的重启流程处理；重启后新版生效。')
+            say(batchText('batch.toast.restart-delegated', currentLang()))
           } else {
-            say('本宿主未提供重启入口：请手动重启宿主，重启后新版生效。')
+            say(batchText('batch.toast.restart-manual', currentLang()))
           }
         } catch {
-          say('重启入口调用失败：请手动重启宿主，重启后新版生效。')
+          say(batchText('batch.toast.restart-failed', currentLang()))
         }
         render()
         return
@@ -1801,8 +1811,8 @@ export function mountUpdateBatchPanel(
   }
 
   function setTheme(next: UpdatePanelTheme): void {
-    if (next !== 'default' && next !== 'archive' && next !== 'd5-paper') {
-      throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ' + JSON.stringify(next) + '）')
+    if (next !== 'default' && next !== 'archive') {
+      throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ' + JSON.stringify(next) + '）')
     }
     theme = normalizePanelTheme(next)
     render()

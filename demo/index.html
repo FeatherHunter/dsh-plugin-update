@@ -21,7 +21,7 @@ ol li{margin:6px 0}
 $env:DEMO_PORT='18788'; $env:DEMO_PLUGIN='demo-tasks-plugin'; $env:DEMO_PREFIX='tasks'; node demo/server.mjs</code></pre>
 <p>再看本页。两个面板各跑一个插件，方便看单队列串行。</p>
 <p>
-<button id="themeBtn">切 D5 / 最小主题</button>
+<button id="themeBtn">切 Archive / 最小主题</button>
 <button id="resetBtn">重置沙盒（清状态/队列/跳过）</button>
 <button id="filesBtn">看三落盘文件</button>
 <button id="logBtn">填示例更新日志</button>
@@ -51,8 +51,8 @@ const call = (plugin) => async (name, args) => {
 }
 const A = mountUpdatePanel(document.getElementById('slotA'), { pluginId: 'demo-notes-plugin', prefix: 'notes', call: call('notes') })
 const B = mountUpdatePanel(document.getElementById('slotB'), { pluginId: 'demo-tasks-plugin', prefix: 'tasks', call: call('tasks') })
-let d5 = false
-document.getElementById('themeBtn').onclick = async () => { d5 = !d5; await A.setTheme(d5 ? 'd5-paper' : 'default'); await B.setTheme(d5 ? 'd5-paper' : 'default') }
+let archive = false
+document.getElementById('themeBtn').onclick = async () => { archive = !archive; await A.setTheme(archive ? 'archive' : 'default'); await B.setTheme(archive ? 'archive' : 'default') }
 document.getElementById('resetBtn').onclick = async () => {
   await fetch('http://127.0.0.1:18787/reset'); await fetch('http://127.0.0.1:18788/reset')
   await A.refresh(); await B.refresh()

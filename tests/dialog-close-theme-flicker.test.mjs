@@ -1,6 +1,6 @@
 /**
  * tests/dialog-close-theme-flicker.test.mjs —— 三件小事，同一根因都是“对外口径”：
- * 1. 主题首选名 archive（d5-paper 为旧别名仍可用）；2. 弹窗点关闭真能关；3. 轮询不闪（输出不变不碰 DOM）。
+ * 1. 主题只有 default/archive 两档；2. 弹窗点关闭真能关；3. 轮询不闪（输出不变不碰 DOM）。
  * 只测外部行为，传输与容器全用假件。
  */
 import { describe, it } from 'node:test'
@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import { mountUpdatePanel, normalizePanelTheme, renderUpdatePanelHTML } from '../dist/panel.js'
 import { mountUpdateBatchPanel, renderBatchPanelHTML } from '../dist/panel-batch.js'
 import { mountUpdateEntry, UPDATE_ENTRY_CSS } from '../dist/entry.js'
-import { UPDATE_PANEL_D5_CSS } from '../dist/panel.js'
+import { UPDATE_PANEL_ARCHIVE_CSS } from '../dist/panel.js'
 
 const settled = () => new Promise((resolve) => setTimeout(resolve, 0))
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -96,18 +96,15 @@ function panelInput(overrides = {}) {
   }
 }
 
-describe('主题首选名 archive，旧别名仍可用', () => {
-  it('归一：archive 与 d5-paper 同一渲染，其余回 default', () => {
+describe('主题只有两档：default/archive', () => {
+  it('归一：archive 挂肤，其余回 default', () => {
     assert.equal(normalizePanelTheme('archive'), 'archive')
-    assert.equal(normalizePanelTheme('d5-paper'), 'archive')
     assert.equal(normalizePanelTheme('default'), 'default')
     assert.equal(normalizePanelTheme('nope'), 'default')
   })
 
-  it('纯渲染：archive 与 d5-paper 输出逐字相同', () => {
+  it('纯渲染：archive 输出带主题属性', () => {
     const a = renderUpdatePanelHTML(panelInput({ theme: 'archive' }))
-    const b = renderUpdatePanelHTML(panelInput({ theme: 'd5-paper' }))
-    assert.equal(a, b)
     assert.ok(a.includes('data-theme="archive"'))
   })
 
@@ -231,35 +228,35 @@ describe('弹窗点关闭真能关', () => {
 })
 
 describe('深色宿主下档案卷按钮可读', () => {
-  it('入口件 D5 脸自己不透明，文字走变量', () => {
+  it('入口件 Archive 脸自己不透明，文字走变量', () => {
     assert.ok(
-      UPDATE_ENTRY_CSS.includes('.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink)'),
+      UPDATE_ENTRY_CSS.includes('.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn{border-color:var(--dsh-update-border-strong);background:var(--dsh-update-bg);color:var(--dsh-update-text)'),
       '按钮脸不透明 + 文字变量化，宿主底色未知也读得出',
     )
     assert.ok(!UPDATE_ENTRY_CSS.includes('.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn{border-color:#c4b896;background:transparent'), '旧透明脸已删')
   })
 
-  it('入口件 D5 有深色变量覆盖（硬编码深墨只活在浅色）', () => {
+  it('入口件 Archive 有深色变量覆盖（硬编码深墨只活在浅色）', () => {
     assert.ok(
-      UPDATE_ENTRY_CSS.includes('@media (prefers-color-scheme: dark){.dsh-upd-entry[data-theme="archive"]{--d5-ink:#ece5d3'),
+      UPDATE_ENTRY_CSS.includes('@media (prefers-color-scheme: dark){.dsh-upd-entry[data-theme="archive"]{--dsh-update-text:#ece5d3'),
       '深色下墨色变量必须翻白，否则沿用硬编码深墨即隐形',
     )
     assert.ok(!UPDATE_ENTRY_CSS.includes('data-theme="archive"]{font-family:Georgia,"Songti SC","STSong","SimSun",serif;color:#1a1a1a}'), '根硬编码深墨已删')
   })
 
-  it('面板 D5 按钮脸同样不透明', () => {
+  it('面板 Archive 按钮脸同样不透明', () => {
     assert.ok(
-      UPDATE_PANEL_D5_CSS.includes('.dsh-upd[data-theme="archive"] button{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink)'),
+      UPDATE_PANEL_ARCHIVE_CSS.includes('.dsh-upd[data-theme="archive"] button{border-color:var(--dsh-update-border-strong);background:var(--dsh-update-button-bg);color:var(--dsh-update-text)'),
     )
   })
 
-  it('archive 别名走同一张 D5 脸（正是报障的配置）', async () => {
+  it('archive 挂载即换肤', async () => {
     const { call } = panelCall(UP_TO_DATE)
     const box = countingContainer()
     const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 't', call, pollMs: 60000, theme: 'archive' })
     try {
       await entry.refresh()
-      assert.ok(box.innerHTML.includes('data-theme="archive"'), '别名挂载即换肤')
+      assert.ok(box.innerHTML.includes('data-theme="archive"'), '挂载即换肤')
       assert.ok(box.innerHTML.includes('检查更新'), '按钮文案在')
     } finally {
       entry.unmount()

@@ -13,7 +13,7 @@
     Q2 四态冻结：常态=有新版可装 update／失败=install-failed／待重启=pending-restart（正常终态非失败）／缺日志=常态+changelog=null（安装不受影响）。
     Q3 只验 #54 的 7 键 draft 文案 + 3 溢出探针；panel/batch 长文案用现有中文占位，不新造双语 key（避免双源）。
     Q4 单文件双击即开 + ?variant= 可分享；截图人眼手工验收。
-  Matrix: 3 载体（单入口 entry / 单面板 panel / 批量面板 batch） x 2 主题（default / archive，d5-paper 为旧别名同渲染） x 4 态 = 24 格。
+  Matrix: 3 载体（单入口 entry / 单面板 panel / 批量面板 batch） x 2 主题（default / archive，archive 为旧别名同渲染） x 4 态 = 24 格。
   Wrap policy: 双语块 overflow-wrap:anywhere；code/命令 word-break:break-all；窄处（<=360px）A 自动竖排，B 常驻竖排，C 卡片堆叠。
   Phone shape: 本原型零真实电话，只读 stub 快照渲染，不出现安装电话，不改任何电话形状。
 -->
@@ -40,7 +40,7 @@
   .cell-head .st{ font-family:Consolas,Menlo,monospace; font-size:11px; color:#374151; display:block; margin-top:3px; word-break:break-all; }
   .cell-body{ padding:12px; }
   .cell-body .theme-tag{ display:inline-block; font-size:11px; border:1px solid var(--line); border-radius:4px; padding:0 6px; margin-bottom:8px; color:var(--mut); }
-  /* ---- demo 内核最小样式（从 src/entry.ts + src/panel.ts + d5 摘的“样子”，非全量） ---- */
+  /* ---- demo 内核最小样式（从 src/entry.ts + src/panel.ts + archive 摘的“样子”，非全量） ---- */
   .dsh-upd-entry{ display:inline-flex; align-items:center; gap:8px; font:13px/1.6 system-ui,"Microsoft YaHei",sans-serif; }
   .dsh-upd-entry-btn{ font:inherit; border:1px solid #d1d5db; border-radius:6px; background:#f9fafb; color:inherit; padding:4px 12px; cursor:pointer; max-width:100%; }
   .dsh-upd-entry[data-state="update"] .dsh-upd-entry-btn{ border-color:var(--ok); color:var(--ok); }
@@ -66,12 +66,12 @@
   .batch-total{ font-size:13px; background:#f8fafc; border:1px solid var(--line); border-radius:6px; padding:6px 10px; margin-bottom:8px; }
   .batch-row{ display:flex; gap:8px; align-items:baseline; border-top:1px solid #e5e7eb; padding:6px 0; font-size:13px; }
   .batch-row .dot{ width:8px; height:8px; border-radius:50%; flex:none; align-self:center; }
-  /* archive 主题（d5-paper 同渲染）：纸面卡 +  serif 标题 + 红 accent */
-  .dsh-upd[data-theme="d5-paper"]{ background:#fffdf6; border-color:#c4b896; color:#1a1a1a; font-family:Georgia,"Songti SC","STSong","SimSun",serif; }
-  .dsh-upd[data-theme="d5-paper"] button{ border-color:#c4b896; background:#fffdf6; border-radius:3px; }
-  .dsh-upd[data-theme="d5-paper"] .dsh-upd-banner{ background:#f7f3ea; }
-  .dsh-upd-entry[data-theme="d5-paper"]{ font-family:Georgia,"Songti SC","STSong",serif; }
-  .dsh-upd-entry[data-theme="d5-paper"] .dsh-upd-entry-btn{ border-color:#c4b896; background:#fffdf6; border-radius:3px; }
+  /* archive 主题（archive 同渲染）：纸面卡 +  serif 标题 + 红 accent */
+  .dsh-upd[data-theme="archive"]{ background:#fffdf6; border-color:#c4b896; color:#1a1a1a; font-family:Georgia,"Songti SC","STSong","SimSun",serif; }
+  .dsh-upd[data-theme="archive"] button{ border-color:#c4b896; background:#fffdf6; border-radius:3px; }
+  .dsh-upd[data-theme="archive"] .dsh-upd-banner{ background:#f7f3ea; }
+  .dsh-upd-entry[data-theme="archive"]{ font-family:Georgia,"Songti SC","STSong",serif; }
+  .dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn{ border-color:#c4b896; background:#fffdf6; border-radius:3px; }
   .darkwrap{ background:#111827; padding:10px; border-radius:8px; margin-bottom:8px; }
   .darkwrap .cap{ font-size:11px; color:#9ca3af; margin-bottom:6px; }
   /* ============ 三变体：双语块结构级差异（这才是本原型要回答的） ============ */
@@ -156,7 +156,7 @@ var STATES = {
 };
 var THEMES = [
   { id:'default', label:'default', attr:'default' },
-  { id:'archive', label:'archive（d5-paper 同渲染）', attr:'d5-paper' }
+  { id:'archive', label:'archive（archive 同渲染）', attr:'archive' }
 ];
 var CARRIERS = [
   { id:'entry', label:'单入口', note:'按钮文案走底座 7 键；缺日志格与常态同文案（入口件不取日志，预期一致）。' },
@@ -170,7 +170,7 @@ function setVariant(v){ var u=new URL(location.href); u.searchParams.set('varian
 function entryHTML(st, v){
   var kind = st===STATES.failed?'failed':(st===STATES.restart?'restart':(st.entryKey==='entry.label.has-update'?'update':'idle'));
   var title = esc(biText(st.entryKey, st.entryVals));
-  return '<div class="dsh-upd-entry" data-state="'+kind+'"'+(curThemeAttr==='d5-paper'?' data-theme="d5-paper"':'')+'>'
+  return '<div class="dsh-upd-entry" data-state="'+kind+'"'+(curThemeAttr==='archive'?' data-theme="archive"':'')+'>'
     + '<button class="dsh-upd-entry-btn" title="'+title+'" aria-label="'+title+'">'+bi(st.entryKey, st.entryVals, v)+'</button>'
     + '<span class="dsh-upd-entry-note">'+bi('entry.note.up-to-date', {version:'1.2.3'}, v)+'</span></div>';
 }

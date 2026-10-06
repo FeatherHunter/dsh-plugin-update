@@ -142,7 +142,7 @@ mountUpdatePanel(slot, { pluginId: 'my-notes-plugin', prefix: 'notes', call: hos
 
 面板画成档案五章：**01 检查与安装、02 更新日志、03 更新队列、04 错误信息、05 手工命令**（五章恒在，缺内容给中性提示，不跳号）。档案头一行是「插件名 + 使用范围 + `profile` 牌」：使用范围由面板自动向宿主索取（电话入参 `includeEnv`，宿主只回**范围名与宿主种类**、不回任何路径），显示的就是更新要落到的那个 profile——`web` 与 `desktop` 各装一份，装错范围是严重故障，所以这一栏宁可显示“未知”也不猜。调用方知道得更准时可以用 `profileName` 显式覆盖。
 
-可选档案卷主题（纸面浅色案卷风，不替换默认）：挂载时加 `theme: 'archive'` 即换肤（右上大印章「待查/可装/安装中/待重启/受阻/已最新」+ 横幅小印章一字 + profile 牌 + 待重启衬线横幅配手绘 SVG 标 + 窄屏印章固定 + 省略号逐字折叠 + 浅深双主题跟随系统），内核 DOM 顺序不动、复制诊断常在；不传即最小可用默认深色样式。运行时用 `panel.setTheme('archive' | 'default')` 可切。旧值 `theme: 'd5-paper'` 仍可用（同一套渲染）。入口件与批量面板是同一个 `theme` 参数，取值同一套。
+可选档案卷主题（纸面浅色案卷风，不替换默认）：挂载时加 `theme: 'archive'` 即换肤（右上大印章「待查/可装/安装中/待重启/受阻/已最新」+ 横幅小印章一字 + profile 牌 + 待重启衬线横幅配手绘 SVG 标 + 窄屏印章固定 + 省略号逐字折叠 + 浅深双主题跟随系统），内核 DOM 顺序不动、复制诊断常在；不传即最小可用默认深色样式。运行时用 `panel.setTheme('archive' | 'default')` 可切。旧值 `theme: 'archive'` 仍可用（同一套渲染）。入口件与批量面板是同一个 `theme` 参数，取值同一套。
 
 类型定义随包分发（`dsh-plugin-update/panel` 的 `.d.ts`），不用自编译；面板离线可读，与包版本绑定。
 
@@ -197,7 +197,7 @@ mountUpdateEntry(el, { pluginId: 'p', prefix: 'notes', call,
 })
 ```
 
-等价的手写 CSS 变量（与现有 `--dsh-upd-*` 颜色变量同口径，写在容器或祖先元素上即可）：`--dsh-upd-entry-font-size`（默认 `13px`）、`--dsh-upd-entry-padding`（默认 `4px 12px`）、`--dsh-upd-entry-border-radius`（默认 `6px`，`archive` 主题下 `3px`）、`--dsh-upd-entry-scale`（默认 `1`）。`badge` 圆点与 `inline` 内嵌不受影响。
+等价的手写 CSS 变量（与现有 `--dsh-update-*` 颜色变量同口径，写在容器或祖先元素上即可）：`--dsh-update-entry-font-size`（默认 `13px`）、`--dsh-update-entry-padding`（默认 `4px 12px`）、`--dsh-update-entry-border-radius`（默认 `6px`，`archive` 主题下 `3px`）、`--dsh-update-entry-scale`（默认 `1`）。`badge` 圆点与 `inline` 内嵌不受影响。一点约束：`sizing` 与手写变量都不接 `!important`（变量本身已赢特异性）；确需 `!important` 请手写 CSS 覆盖。
 
 **一条铁律：检查是只读、安装是写入，两者不许合并成一个动作。** 入口件永远只做「查 + 打开面板」，
 任何路径都不自动安装；用户必须在面板里明确点「安装」。想让点击交给自己（例如你已有自己的更新页）：
@@ -273,7 +273,7 @@ import { mountUpdateBatchPanel } from 'dsh-plugin-update/panel-batch'
 const panel = mountUpdateBatchPanel(el, {
   prefix: 'life',
   call: (name, args) => host.call(name, args),
-  theme: 'archive',          // 与单插件面板同一套皮肤（archive = 档案卷，旧值 d5-paper 仍可用）
+  theme: 'archive',          // 与单插件面板同一套皮肤（archive = 档案卷）
 })
 ```
 // 弹窗版与单面板同口径：传 `onCloseRequested`（点关闭/Esc 时先调它撤 DOM，再停轮询；入口件打开的 dialog 已内置；不传即只停轮询）。

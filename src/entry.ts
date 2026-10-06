@@ -66,8 +66,8 @@ export interface UpdateEntryState {
  * 入口件按钮尺寸覆盖（#69）：只影响 button 本体（字号/内边距/圆角/整体缩放），不碰 dialog 面板。
  * 缺省（不传）保持现状、零回归；badge 圆点与 inline 内嵌不读这些变量，天然不受影响。
  * 实现口径与现有 `--dsh-upd-*` 颜色变量一致：本选项只是把同样的 CSS 变量以内联方式写到容器上，
- * 手写 CSS 变量（`--dsh-upd-entry-font-size` / `--dsh-upd-entry-padding` /
- * `--dsh-upd-entry-border-radius` / `--dsh-upd-entry-scale`）同样生效，两者等价。
+ * 手写 CSS 变量（`--dsh-update-entry-font-size` / `--dsh-update-entry-padding` /
+ * `--dsh-update-entry-border-radius` / `--dsh-update-entry-scale`）同样生效，两者等价。
  * `scale` 即宿主临时方案里容器 `zoom: 1` 开关的正式形态：改一个数即缩放（默认 1）。
  */
 export interface EntrySizing {
@@ -88,7 +88,7 @@ export interface UpdateEntryOptions {
   /** 调宿主电话：(phoneName, args) => Promise<reply>。 */
   call: (name: string, args: Record<string, unknown>) => Promise<unknown>
   variant?: EntryVariant
-  /** 主题：`default` 最小可用深色，`archive` 档案卷纸面浅色（`d5-paper` 为旧别名仍可用）。 */
+  /** 主题：`default` 最小可用深色，`archive` 档案卷纸面浅色（仍可用）。 */
   theme?: UpdatePanelTheme
   /** 缺省 'mount'：进页面静默查一次（只读）。'never' 则只在用户点击时查。 */
   autoCheck?: EntryAutoCheck
@@ -210,8 +210,8 @@ export function entryLabelFor(state: UpdateEntryState | null | undefined, lang?:
 
 // ---------- 按钮尺寸覆盖（#69：sizing 选项 + CSS 变量同一口径） ----------
 //
-// 口径只有一套：CSS 以变量读（`--dsh-upd-entry-font-size` / `--dsh-upd-entry-padding` /
-// `--dsh-upd-entry-border-radius` / `--dsh-upd-entry-scale`，缺省即旧硬编码值，零回归）；
+// 口径只有一套：CSS 以变量读（`--dsh-update-entry-font-size` / `--dsh-update-entry-padding` /
+// `--dsh-update-entry-border-radius` / `--dsh-update-entry-scale`，缺省即旧硬编码值，零回归）；
 // `sizing` 选项只是把同一套变量以内联方式写到容器上，手写 CSS 变量同样生效。
 // 圆点（badge）与内嵌（inline）不读这些变量，天然不受影响——即“只影响按钮本体”。
 
@@ -246,19 +246,19 @@ export function entrySizingStyleFor(sizing: EntrySizing | null | undefined): str
   const { fontSize, padding, borderRadius, scale } = sizing
   if (fontSize !== undefined) {
     if (typeof fontSize !== 'string' || !isSafeEntryCssValue(fontSize)) throw entrySizingError(sizing)
-    parts.push(`--dsh-upd-entry-font-size:${fontSize.trim()}`)
+    parts.push(`--dsh-update-entry-font-size:${fontSize.trim()}`)
   }
   if (padding !== undefined) {
     if (typeof padding !== 'string' || !isSafeEntryCssValue(padding)) throw entrySizingError(sizing)
-    parts.push(`--dsh-upd-entry-padding:${padding.trim()}`)
+    parts.push(`--dsh-update-entry-padding:${padding.trim()}`)
   }
   if (borderRadius !== undefined) {
     if (typeof borderRadius !== 'string' || !isSafeEntryCssValue(borderRadius)) throw entrySizingError(sizing)
-    parts.push(`--dsh-upd-entry-border-radius:${borderRadius.trim()}`)
+    parts.push(`--dsh-update-entry-border-radius:${borderRadius.trim()}`)
   }
   if (scale !== undefined) {
     if (typeof scale !== 'number' || !Number.isFinite(scale) || scale <= 0) throw entrySizingError(sizing)
-    parts.push(`--dsh-upd-entry-scale:${String(scale)}`)
+    parts.push(`--dsh-update-entry-scale:${String(scale)}`)
   }
   return parts.join(';')
 }
@@ -266,10 +266,10 @@ export function entrySizingStyleFor(sizing: EntrySizing | null | undefined): str
 // ---------- 入口件自己的最小样式（面板本体仍由 src/panel.ts 提供，这里只画按钮/圆点/提示） ----------
 
 export const UPDATE_ENTRY_CSS = [
-  '.dsh-upd-entry{display:inline-flex;align-items:center;gap:8px;font:13px/1.6 system-ui,"Microsoft YaHei",sans-serif;font-size:var(--dsh-upd-entry-font-size,13px);color:var(--dsh-upd-fg,#1f2937)}',
-  '.dsh-upd-entry-btn{font:inherit;border:1px solid var(--dsh-upd-line,#d1d5db);border-radius:var(--dsh-upd-entry-border-radius,6px);',
-  'background:var(--dsh-upd-btn,#f9fafb);color:inherit;padding:var(--dsh-upd-entry-padding,4px 12px);zoom:var(--dsh-upd-entry-scale,1);cursor:pointer}',
-  '.dsh-upd-entry-btn:hover{border-color:var(--dsh-upd-primary,#2563eb)}',
+  '.dsh-upd-entry{display:inline-flex;align-items:center;gap:8px;font:13px/1.6 var(--dsh-update-font-sans,system-ui,"Microsoft YaHei",sans-serif);font-size:var(--dsh-update-entry-font-size,13px);color:var(--dsh-update-text,#1f2937)}',
+  '.dsh-upd-entry-btn{font:inherit;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:var(--dsh-update-entry-border-radius,6px);',
+  'background:var(--dsh-update-button-bg,#f9fafb);color:inherit;padding:var(--dsh-update-entry-padding,4px 12px);zoom:var(--dsh-update-entry-scale,1);cursor:pointer}',
+  '.dsh-upd-entry-btn:hover{border-color:var(--dsh-update-primary,#2563eb)}',
   '.dsh-upd-entry-btn,.dsh-upd-entry-dot{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}',
   '.dsh-upd-entry-btn:active:not(:disabled){transform:translateY(1px)}',
   '.dsh-upd-entry-btn:disabled,.dsh-upd-entry-dot:disabled{opacity:.55;cursor:wait}',
@@ -277,25 +277,26 @@ export const UPDATE_ENTRY_CSS = [
   'border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:dsh-upd-entry-spin .8s linear infinite}',
   '@keyframes dsh-upd-entry-spin{to{transform:rotate(360deg)}}',
   '@media (prefers-reduced-motion: reduce){.dsh-upd-entry-btn,.dsh-upd-entry-dot{transition:none}.dsh-upd-entry-btn[aria-busy="true"]::after{animation:none}}',
-  '.dsh-upd-entry-btn:focus-visible,.dsh-upd-entry-dot:focus-visible{outline:2px solid var(--dsh-upd-focus,#2563eb);outline-offset:1px}',
-  '.dsh-upd-entry[data-state="update"] .dsh-upd-entry-btn{border-color:var(--dsh-upd-ok-line,#059669);color:var(--dsh-upd-ok-line,#059669)}',
-  '.dsh-upd-entry[data-state="restart"] .dsh-upd-entry-btn{border-color:var(--dsh-upd-warn-line,#d97706);color:var(--dsh-upd-warn-line,#d97706)}',
-  '.dsh-upd-entry[data-state="failed"] .dsh-upd-entry-btn{border-color:var(--dsh-upd-bad-line,#dc2626);color:var(--dsh-upd-bad-line,#dc2626)}',
-  '.dsh-upd-entry-dot{width:10px;height:10px;padding:0;border:0;border-radius:50%;background:var(--dsh-upd-line,#9ca3af);cursor:pointer}',
-  '.dsh-upd-entry[data-state="update"] .dsh-upd-entry-dot{background:var(--dsh-upd-ok-line,#059669)}',
-  '.dsh-upd-entry[data-state="busy"] .dsh-upd-entry-dot,.dsh-upd-entry[data-state="restart"] .dsh-upd-entry-dot{background:var(--dsh-upd-warn-line,#d97706)}',
-  '.dsh-upd-entry[data-state="failed"] .dsh-upd-entry-dot{background:var(--dsh-upd-bad-line,#dc2626)}',
+  '.dsh-upd-entry-btn:focus-visible,.dsh-upd-entry-dot:focus-visible{outline:2px solid var(--dsh-update-focus,#2563eb);outline-offset:1px}',
+  '.dsh-upd-entry[data-state="update"] .dsh-upd-entry-btn{border-color:var(--dsh-update-ok-border,#059669);color:var(--dsh-update-ok-border,#059669)}',
+  '.dsh-upd-entry[data-state="restart"] .dsh-upd-entry-btn{border-color:var(--dsh-update-warn-border,#d97706);color:var(--dsh-update-warn-border,#d97706)}',
+  '.dsh-upd-entry[data-state="failed"] .dsh-upd-entry-btn{border-color:var(--dsh-update-bad-border,#dc2626);color:var(--dsh-update-bad-border,#dc2626)}',
+  '.dsh-upd-entry-dot{width:10px;height:10px;padding:0;border:0;border-radius:50%;background:var(--dsh-update-border,#9ca3af);cursor:pointer}',
+  '.dsh-upd-entry[data-state="update"] .dsh-upd-entry-dot{background:var(--dsh-update-ok-border,#059669)}',
+  '.dsh-upd-entry[data-state="busy"] .dsh-upd-entry-dot,.dsh-upd-entry[data-state="restart"] .dsh-upd-entry-dot{background:var(--dsh-update-warn-border,#d97706)}',
+  '.dsh-upd-entry[data-state="failed"] .dsh-upd-entry-dot{background:var(--dsh-update-bad-border,#dc2626)}',
   // 小字自带底（深色宿主 + 浅色变量时也读得出；浅底宿主上只是多一圈细线，不抢戏）。
-  '.dsh-upd-entry-note{font-size:12.5px;opacity:.9;background:var(--dsh-upd-bg,#ffffff);border:1px solid var(--dsh-upd-line,#e5e7eb);border-radius:4px;padding:1px 8px}',
-  '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-note{background:var(--d5-card);border-color:var(--d5-line-strong);color:var(--d5-ink)}',
-  '.dsh-upd-entry[data-theme="archive"]{--d5-ink:#1a1a1a;--d5-muted:#6f675a;--d5-line-strong:#c4b896;--d5-accent:#c8402a;--d5-card:#fffdf6;',
-  'font-family:Georgia,"Songti SC","STSong","SimSun",serif;color:var(--d5-ink)}',
+  '.dsh-upd-entry-note{font-size:12.5px;opacity:.9;background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:var(--dsh-update-radius-badge,4px);padding:1px 8px}',
+  '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-note{background:var(--dsh-update-bg);border-color:var(--dsh-update-border-strong);color:var(--dsh-update-text)}',
+  '.dsh-upd-entry[data-theme="archive"]{--dsh-update-text:#1a1a1a;--dsh-update-text-muted:#6f675a;--dsh-update-border-strong:#c4b896;--dsh-update-primary:#c8402a;--dsh-update-bg:#fffdf6;',
+  '--dsh-update-font-serif:Georgia,"Songti SC","STSong","SimSun",serif;',
+  'font-family:var(--dsh-update-font-serif,Georgia,"Songti SC","STSong","SimSun",serif);color:var(--dsh-update-text)}',
   // 按钮脸自己不透明（深色宿主 + 浅色系统变量时也读得出；hover 红在深浅底上都可见）。
-  '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink);border-radius:var(--dsh-upd-entry-border-radius,3px)}',
-  '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn:hover{border-color:var(--d5-accent);color:var(--d5-accent)}',
-  '@media (prefers-color-scheme: dark){.dsh-upd-entry[data-theme="archive"]{--d5-ink:#ece5d3;--d5-muted:#a89c83;--d5-line-strong:#5c4e3b;--d5-accent:#e0684e;--d5-card:#1e1a15}}',
+  '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn{border-color:var(--dsh-update-border-strong);background:var(--dsh-update-bg);color:var(--dsh-update-text);border-radius:var(--dsh-update-entry-border-radius,3px)}',
+  '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn:hover{border-color:var(--dsh-update-primary);color:var(--dsh-update-primary)}',
+  '@media (prefers-color-scheme: dark){.dsh-upd-entry[data-theme="archive"]{--dsh-update-text:#ece5d3;--dsh-update-text-muted:#a89c83;--dsh-update-border-strong:#5c4e3b;--dsh-update-primary:#e0684e;--dsh-update-bg:#1e1a15}}',
   '@media (prefers-color-scheme: dark){.dsh-upd-entry{color:#e5e7eb}',
-  '.dsh-upd-entry-btn{--dsh-upd-btn:#1f2937;--dsh-upd-line:#374151}}',
+  '.dsh-upd-entry-btn{--dsh-update-button-bg:#1f2937;--dsh-update-border:#374151}}',
 ].join('\n')
 
 // ---------- 内部小件 ----------
@@ -356,8 +357,8 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
   if (openOn !== 'has-update' && openOn !== 'always' && openOn !== 'manual' && openOn !== 'direct') {
     throw new Error(`[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual / direct（收到 ${JSON.stringify(options.openOn)}）`)
   }
-  if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive' && options.theme !== 'd5-paper') {
-    throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ${JSON.stringify(options.theme)}）`)
+  if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive') {
+    throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ${JSON.stringify(options.theme)}）`)
   }
   let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
   const pollMs = options.pollMs
@@ -589,8 +590,8 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
   }
 
   function setTheme(next: UpdatePanelTheme): void {
-    if (next !== 'default' && next !== 'archive' && next !== 'd5-paper') {
-      throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ${JSON.stringify(next)}）`)
+    if (next !== 'default' && next !== 'archive') {
+      throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ${JSON.stringify(next)}）`)
     }
     theme = normalizePanelTheme(next)
     if (panel) void panel.setTheme(theme)

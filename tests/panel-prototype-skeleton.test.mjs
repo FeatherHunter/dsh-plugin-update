@@ -1,5 +1,5 @@
 /**
- * tests/panel-prototype-skeleton.test.mjs —— 照原型 d5-paper.html 的档案骨架（Stage 2）。
+ * tests/panel-prototype-skeleton.test.mjs —— 照原型 archive.html 的档案骨架（Stage 2）。
  *
  * 只测外部行为/产物：
  *   ① 五章编号恒在且顺序为 01..05（不许跳号——现场就是 02→04→05 跳号）；
@@ -12,7 +12,7 @@
  */
 import { beforeEach, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { UPDATE_PANEL_CSS, UPDATE_PANEL_D5_CSS, mountUpdatePanel, renderUpdatePanelHTML } from '../dist/panel.js'
+import { UPDATE_PANEL_CSS, UPDATE_PANEL_ARCHIVE_CSS, mountUpdatePanel, renderUpdatePanelHTML } from '../dist/panel.js'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
 
 const TARGET = 'demo-plugin'
@@ -238,22 +238,22 @@ describe('宿主：includeEnv 才带使用范围，老调用形状不变', () =>
 // ---------- 2026-10-04 视觉定案三件：卷宗抬头 / 状态行 27px / 队列两行键值 ----------
 
 describe('卷宗抬头：两主题同一份内核，默认主题不显示', () => {
-  it('默认主题内核里也有抬头节点，但默认 CSS 不显示；D5 才显示', () => {
+  it('默认主题内核里也有抬头节点，但默认 CSS 不显示；Archive 才显示', () => {
     const html = renderUpdatePanelHTML(inputFor())
     assert.ok(html.includes('dsh-upd-masthead-title'), '内核须有卷宗抬头')
     assert.ok(html.includes('更新档案 <i>卷</i>'), '抬头文案须是「更新档案 卷」')
     assert.ok(UPDATE_PANEL_CSS.includes('.dsh-upd-masthead{display:none}'), '默认主题须不显示抬头')
-    assert.ok(UPDATE_PANEL_D5_CSS.includes('.dsh-upd-masthead{display:block'), 'D5 须显示抬头')
+    assert.ok(UPDATE_PANEL_ARCHIVE_CSS.includes('.dsh-upd-masthead{display:block'), 'Archive 须显示抬头')
   })
 
   it('两个主题从根到横幅之前逐字同一份（皮肤只决定画不画）', () => {
     // 从根标签**之后**切起：根上的 data-theme 本来就该不一样，比的是它到横幅之间的内核。
     const cut = (h) => h.slice(h.indexOf('>', h.indexOf('<div class="dsh-upd"')) + 1, h.indexOf('<div class="dsh-upd-banner"'))
-    assert.equal(cut(renderUpdatePanelHTML(inputFor({}, { theme: 'd5-paper' }))), cut(renderUpdatePanelHTML(inputFor())), '抬头与档案头两主题必须逐字相同')
+    assert.equal(cut(renderUpdatePanelHTML(inputFor({}, { theme: 'archive' }))), cut(renderUpdatePanelHTML(inputFor())), '抬头与档案头两主题必须逐字相同')
   })
 
   it('抬头里没有主题切换按钮（用户口径：那排按钮不重要）', () => {
-    const html = renderUpdatePanelHTML(inputFor({}, { theme: 'd5-paper' }))
+    const html = renderUpdatePanelHTML(inputFor({}, { theme: 'archive' }))
     const head = html.slice(html.indexOf('dsh-upd-masthead'), html.indexOf('dsh-upd-head'))
     assert.ok(!head.includes('<button'), '抬头里不该有按钮')
     assert.ok(!head.includes('跟随系统'), '不搬主题切换按钮')
@@ -261,11 +261,11 @@ describe('卷宗抬头：两主题同一份内核，默认主题不显示', () =
 })
 
 describe('尺寸定案：状态行 27px、横幅不再给印章留位', () => {
-  it('D5 串里状态行 27px；横幅不写 124px，档案头的 120px 仍在', () => {
-    assert.ok(UPDATE_PANEL_D5_CSS.includes('font-size:27px'), '状态行须照原型 .status-line=27px')
-    assert.ok(!UPDATE_PANEL_D5_CSS.includes('padding-right:124px'), '横幅不许再留 124px 印章位（实测白留，还把 27px 挤成两行）')
-    assert.ok(UPDATE_PANEL_D5_CSS.includes('padding-right:120px'), '档案头的印章占位须保留（那里真的重叠）')
-    assert.ok(!UPDATE_PANEL_D5_CSS.includes('white-space:nowrap'), '窄屏不许再 nowrap（27px 在窄容器里必须能折行）')
+  it('Archive 串里状态行 27px；横幅不写 124px，档案头的 120px 仍在', () => {
+    assert.ok(UPDATE_PANEL_ARCHIVE_CSS.includes('font-size:27px'), '状态行须照原型 .status-line=27px')
+    assert.ok(!UPDATE_PANEL_ARCHIVE_CSS.includes('padding-right:124px'), '横幅不许再留 124px 印章位（实测白留，还把 27px 挤成两行）')
+    assert.ok(UPDATE_PANEL_ARCHIVE_CSS.includes('padding-right:120px'), '档案头的印章占位须保留（那里真的重叠）')
+    assert.ok(!UPDATE_PANEL_ARCHIVE_CSS.includes('white-space:nowrap'), '窄屏不许再 nowrap（27px 在窄容器里必须能折行）')
   })
 })
 

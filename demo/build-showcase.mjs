@@ -36,8 +36,8 @@ const built = await esbuild.build({
 })
 const bundle = built.outputFiles[0].text
 
-// 变体：SHOWCASE_THEME=d5|default、SHOWCASE_SCENARIO=<场景键>、SHOWCASE_OUT=<文件名>
-const THEME = (process.env.SHOWCASE_THEME || 'default') === 'd5' ? 'd5' : 'default'
+// 变体：SHOWCASE_THEME=archive|default、SHOWCASE_SCENARIO=<场景键>、SHOWCASE_OUT=<文件名>
+const THEME = (process.env.SHOWCASE_THEME || 'default') === 'archive' ? 'archive' : 'default'
 const SCENARIO = process.env.SHOWCASE_SCENARIO || 'update'
 const OUT = process.env.SHOWCASE_OUT || 'showcase.html'
 
@@ -74,7 +74,7 @@ const html = `<!doctype html>
   </div>
   <div>
     <div class="tools">
-      <button id="theme">切 D5 档案卷主题</button>
+      <button id="theme">切 档案卷主题</button>
       <button id="narrow">窄屏（360px）</button>
       <button id="mode">切弹窗形态</button>
       <button id="refresh">重查一次</button>
@@ -95,7 +95,7 @@ const html = `<!doctype html>
   var prefix = 'demo'
   var phones = P.buildPhoneNames(prefix)
   var INSTALL_MS = 6000
-  var host = null, panel = null, d5 = ${THEME === 'd5' ? 'true' : 'false'}, narrow = false, mode = 'embedded'
+  var host = null, panel = null, archive = ${THEME === 'archive' ? 'true' : 'false'}, narrow = false, mode = 'embedded'
 
   function log(name, args, reply){
     document.getElementById('log').textContent =
@@ -235,7 +235,7 @@ const html = `<!doctype html>
       mode: mode,
       pollMs: 800,
       showOthers: false,
-      theme: d5 ? 'd5-paper' : 'default',
+      theme: archive ? 'archive' : 'default',
       hostKind: 'cli',
       call: host
     })
@@ -253,7 +253,7 @@ const html = `<!doctype html>
     }
     list.appendChild(b)
   })
-  document.getElementById('theme').onclick = function(){ d5 = !d5; if(panel) panel.setTheme(d5 ? 'd5-paper' : 'default') }
+  document.getElementById('theme').onclick = function(){ archive = !archive; if(panel) panel.setTheme(archive ? 'archive' : 'default') }
   document.getElementById('narrow').onclick = function(){ narrow = !narrow; document.getElementById('slotwrap').className = 'slotwrap' + (narrow ? ' narrow' : '') }
   document.getElementById('mode').onclick = function(){ mode = mode === 'embedded' ? 'dialog' : 'embedded'; if(panel) panel.setMode(mode) }
   document.getElementById('refresh').onclick = function(){ if(panel) panel.refresh() }

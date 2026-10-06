@@ -8,7 +8,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   UPDATE_PANEL_CSS,
-  UPDATE_PANEL_D5_CSS,
+  UPDATE_PANEL_ARCHIVE_CSS,
   mountUpdatePanel,
   renderUpdatePanelHTML,
 } from '../dist/panel.js'
@@ -117,6 +117,6 @@ test('动效 CSS：滚动条/磁吸头/折叠格/淡入存在，减速全关', (
   ]) {
     assert.ok(UPDATE_PANEL_CSS.includes(rule), '基础串须含 ' + rule)
   }
-  assert.ok(UPDATE_PANEL_D5_CSS.includes('.dsh-upd[data-theme="archive"] .dsh-upd-body .dsh-upd-chap-head'), 'D5 磁吸头跟肤')
+  assert.ok(UPDATE_PANEL_ARCHIVE_CSS.includes('.dsh-upd[data-theme="archive"] .dsh-upd-body .dsh-upd-chap-head'), 'Archive 磁吸头跟肤')
   assert.ok(UPDATE_PANEL_CSS.includes('.dsh-upd-changelog-foldbox{transition:none}'), '减速下折叠静止')
 })

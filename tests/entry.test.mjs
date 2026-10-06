@@ -446,18 +446,18 @@ test('unmount() 只停轮询：之后 refresh/点击都不再打电话，监听�
 
 // ---------- 主题与文案覆盖 ----------
 
-test('主题 default / d5-paper 双态可切：入口件与面板一起换肤', async () => {
+test('主题 default / archive 双态可切：入口件与面板一起换肤', async () => {
   const { call } = fakeCall({ status: statusReply(baseSnapshot()) })
   const box = fakeContainer()
   const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 'p', call, pollMs: 60000 })
   await settled()
-  entry.setTheme('d5-paper')
+  entry.setTheme('archive')
   assert.match(box.innerHTML, /<span class="dsh-upd-entry"[^>]*data-theme="archive"/, '还没开面板时入口件自己先带上主题')
   entry.open()
   assert.match(box.innerHTML, /data-mode="dialog"/)
   assert.match(box.innerHTML, /<div class="dsh-upd" data-mode="dialog"[^>]*data-theme="archive"/, '面板跟着同一个主题')
   entry.setTheme('default')
-  assert.ok(!/<div class="dsh-upd" data-mode="dialog"[^>]*data-theme=/.test(box.innerHTML), '切回默认即不再带 D5 串')
+  assert.ok(!/<div class="dsh-upd" data-mode="dialog"[^>]*data-theme=/.test(box.innerHTML), '切回默认即不再带 Archive 串')
   entry.close()
   assert.match(box.innerHTML, /data-dsh-upd-entry="activate"/)
   assert.ok(!/<span class="dsh-upd-entry"[^>]*data-theme=/.test(box.innerHTML), '还原的按钮也回默认主题')

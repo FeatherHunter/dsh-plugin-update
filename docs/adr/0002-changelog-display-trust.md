@@ -6,13 +6,13 @@
 
 ## 背景
 
-#38 落地了更新日志无脑接入（`updateChangelog` + 面板 `autoChangelog` 默认自动），但展示不可信：Security 默认折叠导致看不见且进不了页面查找；截断无说明导致用户误以为看到全部；目标版本 yanked 只在标题尾部小字；破坏性变更淹没在普通条目；作者无发布前校验手段。约束：不动四电话形状与快照六字段，无新依赖无新子路径，D5 主题 DOM 顺序冻结。
+#38 落地了更新日志无脑接入（`updateChangelog` + 面板 `autoChangelog` 默认自动），但展示不可信：Security 默认折叠导致看不见且进不了页面查找；截断无说明导致用户误以为看到全部；目标版本 yanked 只在标题尾部小字；破坏性变更淹没在普通条目；作者无发布前校验手段。约束：不动四电话形状与快照六字段，无新依赖无新子路径，档案卷主题 DOM 顺序冻结。
 
 ## 决策
 
 ### 1. Security 进 MUST_SHOW（唯一动既有逐字行为之处）
 
-`Security` 与 `Added/Fixed/Changed` 同级展开渲染；`Deprecated/Removed` 仍折叠。理由：安全 urgency 与折叠语义冲突，且折叠内容进不了页面查找。接受一次快照 churn，DOM 顺序不动，D5 只换肤。
+`Security` 与 `Added/Fixed/Changed` 同级展开渲染；`Deprecated/Removed` 仍折叠。理由：安全 urgency 与折叠语义冲突，且折叠内容进不了页面查找。接受一次快照 churn，DOM 顺序不动，档案卷只换肤。
 
 有限豁免：必显配额内全显（每类 200 条），超限部分收进该类内部 `<details>` 并标计数；64K 全文墙与单条 500 字墙保留。
 

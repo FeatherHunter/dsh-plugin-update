@@ -34,6 +34,8 @@
 
 import { DIAG_INLINE_BUDGET_BYTES, diagByteLength, enforceDiagBudget, resolveRegistryHost, sanitizeDetail } from './redaction.js'
 import { validReleaseVersion, validRequestId } from './service.js'
+import { copyText, type BilingualKey } from './bilingual.js'
+import { normalizeLangTag, type AppLang } from './lang.js'
 
 /** diag 对象版本：只管大门，新增可选键不 bump，面板永不分支于版本。 */
 export const DIAG_VERSION = 1
@@ -104,6 +106,8 @@ export interface DiagInput {
   environmentKind?: unknown
   /** 本次电话耗时毫秒（只收有限非负数）。 */
   latencyMs?: unknown
+  /** 人话兜底渲染语言（#66 单语：缺省 zh 零回归；电话侧无 DOM 信号时仍落 zh，面板侧 free-text 英文混入属正常见 #57 v2 非目标）。 */
+  lang?: AppLang | string | null
 }
 
 export interface DiagObject {
@@ -245,8 +249,9 @@ function pickId(raw: unknown): string | null {
   return typeof raw === 'string' && validRequestId(raw) ? raw.trim() : null
 }
 
-/** 人话摘要格：永远是字符串，压平空白、脱敏、300 字封顶；命中 URL 用户信息即整项丢弃（回空=省略）。 */
-function pickDetail(errorCode: string, error: unknown, httpStatus: number | null, phoneKind?: string): string | null {
+/** 人话摘要格：永远是字符串，压平空白、脱敏、300 字封顶；命中 URL 用户信息即整项丢弃（回空=省略）。
+ * #66 入字典单语（§7.1 18 行，271/273/274 复用电话表 key，其余走 diag.fallback.*）：分支只认稳定码，lang 缺省 zh 零回归。 */
+function pickDetail(errorCode: string, error: unknown, httpStatus: number | null, phoneKind?: string, lang?: AppLang | string | null): string | null {
   try {
     const rawDetail = (error as { detail?: unknown })?.detail
     if (typeof rawDetail === 'string' && rawDetail.trim()) {
@@ -263,24 +268,28 @@ function pickDetail(errorCode: string, error: unknown, httpStatus: number | null
     }
     const code = String(errorCode || '')
     const phone = String(phoneKind || '')
-    let fallback = '操作失败'
-    if (code === 'check-failed' && phone === 'update-status') fallback = '读本地状态没成功'
-    else if ((code === 'check-failed' || code === 'internal') && phone === 'update-install') fallback = '装前重验取数没成功'
-    else if (code === 'check-failed' && httpStatus === 429) fallback = '源返回 429，这一分钟请求太多'
-    else if (code === 'check-failed' && typeof httpStatus === 'number') fallback = `源返回 ${httpStatus}，重试仍失败`
-    else if (code === 'check-failed' || code === 'internal') fallback = '查新版没成功（联网、源、限流都可能）'
-    else if (code === 'invalid-release') fallback = '清单里的版本号不是合法版本'
-    else if (code === 'check-expired') fallback = '凭证过期了，安装请求被拒'
-    else if (code === 'update-busy') fallback = '同一使用范围正在装另一个'
-    else if (code === 'install-failed') fallback = '安装失败'
-    else if (code === 'unknown-profile') fallback = '使用范围或插件位置认不出'
-    else if (code === 'source-install') fallback = '当前是从源码装的，不是按版本号装的'
-    else if (code === 'invalid-installation') fallback = '已装的包不完整'
-    else if (code === 'installation-changed') fallback = '安装位置在使用中途变了'
-    else if (code === 'pending-restart') fallback = '新版已装到磁盘，正在跑的还是旧版'
-    else if (code === 'incompatible-node') fallback = '新版要求的 Node 与当前运行的对不上'
-    else if (code === 'registry-conflict') fallback = '本地声明的版本与磁盘实际版本互相矛盾'
-    else if (code === 'recovery-required') fallback = '上次安装被打断，留下一个半截任务'
+    const l = normalizeLangTag(lang ?? 'zh')
+    let key: BilingualKey = 'diag.fallback.generic'
+    let values: Record<string, unknown> | undefined
+    if (code === 'check-failed' && phone === 'update-status') key = 'diag.fallback.read-installed'
+    else if ((code === 'check-failed' || code === 'internal') && phone === 'update-install') key = 'diag.fallback.revalidate-fetch'
+    else if (code === 'check-failed' && httpStatus === 429) key = 'diag.fallback.rate-limited'
+    else if (code === 'check-failed' && typeof httpStatus === 'number') { key = 'diag.fallback.http-status'; values = { status: String(httpStatus) } }
+    else if (code === 'check-failed' || code === 'internal') key = 'panel.failure.check-failed.title'
+    else if (code === 'invalid-release') key = 'diag.fallback.invalid-release'
+    else if (code === 'check-expired') key = 'panel.failure.check-expired.title'
+    else if (code === 'update-busy') key = 'panel.failure.update-busy.title'
+    else if (code === 'install-failed') key = 'diag.fallback.install-failed'
+    else if (code === 'unknown-profile') key = 'diag.fallback.unknown-profile'
+    else if (code === 'source-install') key = 'diag.fallback.source-install'
+    else if (code === 'invalid-installation') key = 'diag.fallback.invalid-installation'
+    else if (code === 'installation-changed') key = 'diag.fallback.installation-changed'
+    else if (code === 'pending-restart') key = 'diag.fallback.pending-restart'
+    else if (code === 'incompatible-node') key = 'diag.fallback.incompatible-node'
+    else if (code === 'registry-conflict') key = 'diag.fallback.registry-conflict'
+    else if (code === 'recovery-required') key = 'diag.fallback.recovery-required'
+    let fallback: string
+    try { fallback = copyText(key, l, values) } catch { fallback = copyText('diag.fallback.generic', 'zh') }
     const clean = sanitizeDetail(fallback)
     return clean ? clean : null
   } catch {
@@ -313,7 +322,7 @@ export function buildDiag(input: DiagInput): DiagObject | undefined {
     const httpStatus = pickHttpStatus(stage, input?.error)
     const exitCode = pickExitCode(stage, input?.error)
     const latencyMs = pickLatencyMs(input?.latencyMs)
-    const detail = pickDetail(errorCode, input?.error, httpStatus, phoneKind)
+    const detail = pickDetail(errorCode, input?.error, httpStatus, phoneKind, (input as { lang?: AppLang | string | null })?.lang ?? 'zh')
     const targetPackageName = pickPackageName(input?.targetPackageName)
     const runningVersion = pickVersion(input?.runningVersion)
     const latestVersion = pickVersion(input?.latestVersion)

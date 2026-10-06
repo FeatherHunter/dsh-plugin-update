@@ -10,9 +10,10 @@ import assert from 'node:assert/strict'
 import {
   BATCH_PANEL_POLL,
   UPDATE_BATCH_PANEL_CSS,
-  UPDATE_BATCH_PANEL_D5_CSS,
+  UPDATE_BATCH_PANEL_ARCHIVE_CSS,
   batchLedgerCounts,
   batchLedgerText,
+  batchQueuedStatus,
   batchRowStatus,
   buildBatchPhoneNames,
   mountUpdateBatchPanel,
@@ -935,20 +936,20 @@ describe('排队语义：忙时也能加入队列（入队不算失败）', () =
 
 // ---------- 双主题 ----------
 
-describe('双主题：默认最小，d5-paper 只换肤', () => {
-  it('不传即最小默认：没有 data-theme、没有 d5 串', () => {
+describe('双主题：默认最小，archive 只换肤', () => {
+  it('不传即最小默认：没有 data-theme、没有 archive 串', () => {
     const html = renderBatchPanelHTML({ rows: [rowOf()] })
     assert.ok(html.includes('class="dsh-upd dsh-upd-batch"'), '沿用 dsh-upd-* 前缀')
     assert.ok(!rootTagOf(html).includes('data-theme='), '默认不许挂 data-theme')
-    assert.ok(!html.includes('d5-paper'), '默认不许带 D5 串')
+    assert.ok(!html.includes('archive'), '默认不许带 Archive 串')
   })
 
-  it('d5-paper 走 data-theme 属性，并在同前缀下换肤', () => {
-    const html = renderBatchPanelHTML({ rows: [rowOf()], theme: 'd5-paper' })
-    assert.ok(rootTagOf(html).includes('data-theme="archive"'), 'D5 靠根上的 data-theme 属性')
-    assert.ok(html.includes('--d5-serif'), 'D5 皮肤串要在')
-    assert.ok(UPDATE_BATCH_PANEL_D5_CSS.includes('[data-theme="archive"]'), '批量皮肤的 D5 段也按属性收敛')
-    assert.ok(!UPDATE_BATCH_PANEL_CSS.includes('d5-paper'), '默认那串不许混进 D5')
+  it('archive 走 data-theme 属性，并在同前缀下换肤', () => {
+    const html = renderBatchPanelHTML({ rows: [rowOf()], theme: 'archive' })
+    assert.ok(rootTagOf(html).includes('data-theme="archive"'), 'Archive 靠根上的 data-theme 属性')
+    assert.ok(html.includes('--dsh-update-font-serif'), 'Archive 皮肤串要在')
+    assert.ok(UPDATE_BATCH_PANEL_ARCHIVE_CSS.includes('[data-theme="archive"]'), '批量皮肤的 Archive 段也按属性收敛')
+    assert.ok(!UPDATE_BATCH_PANEL_CSS.includes('archive'), '默认那串不许混进 Archive')
   })
 
   it('setTheme 现场切换；非法主题/形态当场抛错', async () => {
@@ -956,11 +957,11 @@ describe('双主题：默认最小，d5-paper 只换肤', () => {
     const { panel } = mountPanel(box, [rowOf()])
     await settled()
     assert.ok(!rootTagOf(box.innerHTML).includes('data-theme='))
-    panel.setTheme('d5-paper')
+    panel.setTheme('archive')
     assert.ok(rootTagOf(box.innerHTML).includes('data-theme="archive"'))
     panel.setTheme('default')
     assert.ok(!rootTagOf(box.innerHTML).includes('data-theme='))
-    assert.throws(() => panel.setTheme('d5'), /主题/)
+    assert.throws(() => panel.setTheme('nope'), /主题/)
     assert.throws(() => panel.setMode('popup'), /形态/)
     panel.setMode('dialog')
     assert.ok(rootTagOf(box.innerHTML).includes('data-mode="dialog"'))
@@ -1116,5 +1117,65 @@ describe('#64 聚合与总账跟随语言', () => {
     assert.ok(en.includes('data-kind="failed"'), 'en 同码同档')
     assert.ok(zh.includes('查新版没成功'), 'zh 人话')
     assert.ok(!en.includes('查新版没成功'), 'en 人话已切换')
+  })
+})
+// ---------- #65 panel-batch 行/详情/回执跟随语言（§4.2/4.6/4.7）：单语渲染 + 语义 lang + 冻结词元 + 按码分支 ----------
+describe('#65 行、详情与回执跟随语言', () => {
+  it('行状态 batchRowStatus/batchQueuedStatus：zh 纯中文、en 纯英文（缺省 zh 零回归）', () => {
+    const r = (phase, extra = {}) => ({ key: 'a', title: 'A', phase, targetVersion: '2.0.0', restartRequired: false, error: null, snapshot: null, ...extra })
+    // 缺省 zh
+    assert.equal(batchQueuedStatus(null), '已排队 · 等前面安装完')
+    assert.equal(batchQueuedStatus(3), '已排队 · 前方 3 个')
+    assert.equal(batchRowStatus(r('pending')), '等它，轮到就自动查新版')
+    assert.equal(batchRowStatus(r('ready')), '点「安装这家」安装 2.0.0')
+    // zh 显式
+    assert.equal(batchQueuedStatus(1, 'zh'), '已排队 · 前方 1 个')
+    assert.equal(batchRowStatus(r('failed'), null, 'zh'), '安装没成功，点「重试」再来一次')
+    // en
+    const enQueued = batchQueuedStatus(2, 'en')
+    assert.ok(enQueued.includes('Queued'), 'en 排队：' + enQueued)
+    assert.ok(!(/[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(enQueued)), 'en 不混中文：' + enQueued)
+    const enReady = batchRowStatus(r('ready'), null, 'en')
+    assert.ok(enReady.includes('Install this plugin'), 'en 可更新：' + enReady)
+    assert.ok(!(/[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(enReady)), 'en 不混中文：' + enReady)
+    const enFailed = batchRowStatus(r('failed'), null, 'en')
+    assert.ok(enFailed.includes('Retry'), 'en 失败带重试：' + enFailed)
+    const zhFailed = batchRowStatus(r('failed'), null, 'zh')
+    assert.ok(!(/[A-Za-z]/.test(zhFailed.replace(/2\.0\.0/g, ''))), 'zh 不混英文：' + zhFailed)
+  })
+
+  it('行内与详情动作：zh/en 各只出现当前语言（两处复用同一 key）', () => {
+    const rows = [{ key: 'a', title: 'A', phase: 'ready', targetVersion: '2.4.0', restartRequired: false, error: null, snapshot: { runningVersion: '1.0.0', installedVersion: '1.0.0', latestVersion: '2.4.0', canInstall: true, blockedReason: null, job: null }, manual: 'npm i -g a@2.4.0', queue: null }]
+    const zh = renderBatchPanelHTML({ rows, loaded: true, expandedKey: 'a', lang: 'zh' })
+    assert.ok(zh.includes('>安装这家</button>'), 'zh 行内')
+    assert.ok(zh.includes('>安装 2.4.0</button>'), 'zh 详情版本按钮')
+    assert.ok(zh.includes('>跳过这一版</button>'), 'zh 跳过')
+    assert.ok(zh.includes('>复制诊断</button>'), 'zh 复制诊断')
+    assert.ok(!zh.includes('Install this plugin'), 'zh 不见英文行内')
+    assert.ok(!zh.includes('Skip this version'), 'zh 不见英文跳过')
+    const en = renderBatchPanelHTML({ rows, loaded: true, expandedKey: 'a', lang: 'en' })
+    assert.ok(en.includes('>Install this plugin</button>'), 'en 行内')
+    assert.ok(en.includes('>Install 2.4.0</button>'), 'en 详情版本按钮')
+    assert.ok(en.includes('>Skip this version</button>'), 'en 跳过')
+    assert.ok(en.includes('>Copy diagnostics</button>'), 'en 复制诊断')
+    assert.ok(!en.includes('安装这家'), 'en 不见中文行内')
+    assert.ok(!en.includes('跳过这一版'), 'en 不见中文跳过')
+    assert.ok(!en.includes('复制诊断'), 'en 不见中文复制诊断')
+  })
+
+  it('失败行与诊断后缀：稳定码逐字同、分支只认码，人话跟随语言', () => {
+    const rows = [{ key: 'a', title: 'A', phase: 'failed', targetVersion: null, restartRequired: false, error: 'install-failed', snapshot: null, manual: null, queue: null }]
+    const zh = renderBatchPanelHTML({ rows, loaded: true, lang: 'zh' })
+    const en = renderBatchPanelHTML({ rows, loaded: true, lang: 'en' })
+    assert.ok(zh.includes('install-failed'), 'zh 露稳定码')
+    assert.ok(en.includes('install-failed'), 'en 稳定码逐字同')
+    assert.ok(zh.includes('失败'), 'zh 行内失败前缀')
+    assert.ok(en.includes('Failed'), 'en 行内失败前缀')
+    assert.ok(zh.includes('装不上'), 'zh 人话')
+    assert.ok(!en.includes('装不上'), 'en 人话已切换')
+    assert.ok(en.includes('Couldn') || en.includes('install'), 'en 人话英文在位：' + en.slice(en.indexOf('dsh-upd-bfail'), en.indexOf('dsh-upd-bfail') + 200))
+    // 同一码换语言不换档
+    assert.ok(zh.includes('data-phase="failed"'), 'zh 失败档')
+    assert.ok(en.includes('data-phase="failed"'), 'en 同码同档')
   })
 })

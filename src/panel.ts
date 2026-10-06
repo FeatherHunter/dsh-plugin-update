@@ -38,19 +38,19 @@ import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type Locale
 /** 摆放形态：默认内嵌，切弹窗走同一参数。 */
 export type UpdatePanelMode = 'embedded' | 'dialog'
 
-/** 面板主题：默认最小可用样式；`archive` 为档案卷纸面浅色（只换肤，不换 DOM 顺序；`d5-paper` 为旧别名）。 */
+/** 面板主题：默认最小可用样式；`archive` 为档案卷纸面浅色（只换肤，不换 DOM 顺序）。 */
 /**
  * 面板主题：`default` 最小可用深色；`archive` 档案卷纸面浅色（原型敲定的案卷风格，只换肤）。
- * `d5-paper` 是 archive 的旧别名（历史取值），仍可用，渲染逐字相同。
+ * `archive` 是 archive 的旧别名（历史取值），仍可用，渲染逐字相同。
  */
-export type UpdatePanelTheme = 'default' | 'archive' | 'd5-paper'
+export type UpdatePanelTheme = 'default' | 'archive'
 
 /**
- * 主题归一：archive 为首选名，旧别名 d5-paper 仍收并归到 archive（DOM 属性只出 archive）；
+ * 主题归一：`archive` 挂 `data-theme="archive"`，其余一律回 `default`（DOM 属性只出 `archive`）；
  * 其余一律回 default（纯渲染函数永不抛；挂载/setTheme 的非法值另行抛错）。
  */
 export function normalizePanelTheme(value: unknown): 'default' | 'archive' {
-  return value === 'archive' || value === 'd5-paper' ? 'archive' : 'default'
+  return value === 'archive' ? 'archive' : 'default'
 }
 
 /** 与宿主通话的传输函数：面板只认这个签名，不认任何宿主对象的具体形状。 */
@@ -83,7 +83,7 @@ export interface UpdatePanelOptions {
   prefix?: string
   /** 摆放形态：默认内嵌。 */
   mode?: UpdatePanelMode
-  /** 面板主题：默认 `default`（最小可用样式，一字不动）；传 `archive` 切档案卷（`d5-paper` 为旧别名）。 */
+  /** 面板主题：默认 `default`（最小可用样式，一字不动）；传 `archive` 切档案卷。 */
   theme?: UpdatePanelTheme
   /** 是否看他人排队明细：默认只看自己的（他人仅露正忙占位，位置照给）。 */
   showOthers?: boolean
@@ -640,7 +640,7 @@ export interface PanelView {
   showManual: boolean
   showReset: boolean
   queueNote: string | null
-  /** 大印章（状态词）与小印章（一字）：取值与原型 `d5-paper.html:431-432` 的状态映射一一对应。 */
+  /** 大印章（状态词）与小印章（一字）：取值与原型 `archive.html:431-432` 的状态映射一一对应。 */
   seal: PanelSeal
 }
 
@@ -656,10 +656,10 @@ export interface PanelSeal {
 }
 
 /**
- * 状态 → 印章（原型映射表，逐条对齐 d5-paper.html:431-432，#61 入字典单语）：
+ * 状态 → 印章（原型映射表，逐条对齐 archive.html:431-432，#61 入字典单语）：
  * 待查=查/ink、可装=装/green、安装中=装/yellow、待重启=启/yellow、受阻=阻/red、已最新=定/green。
  * 中文印章 blocked/failed 共用“受阻”，英文分流（Blocked — Action needed / Failed — Retry available，见 #53 Q4）。
- * 主题无关：默认主题只把它当属性带着（不画），D5 用 CSS 读出来画成印章，DOM 两边仍同一份。
+ * 主题无关：默认主题只把它当属性带着（不画），Archive 用 CSS 读出来画成印章，DOM 两边仍同一份。
  */
 const SEAL_KEYS: Record<PanelBanner['kind'], { text: BilingualKey; mini: BilingualKey; tone: PanelSealTone }> = {
   loading: { text: 'panel.seal.loading.text', mini: 'panel.seal.loading.mini', tone: 'ink' },
@@ -771,7 +771,7 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
     return {
       banner: {
         kind: 'restart',
-        // 文案照原型（d5-paper.html:329）：不带 emoji——警示由横幅左侧的手绘 SVG 标承担，
+        // 文案照原型（archive.html:329）：不带 emoji——警示由横幅左侧的手绘 SVG 标承担，
         // 印章在状态一侧，两者各司其职，不再三重标记。
         title: copyText('panel.banner.restart-title', l, { latest }),
         action: blockedCopy('pending-restart', l)?.action ?? '',
@@ -875,23 +875,23 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
 // ---------- 渲染（纯函数：同一视图 → 同一内核 HTML；内外摆放只差外层包裹） ----------
 
 export const UPDATE_PANEL_CSS = [
-  '.dsh-upd{font:14px/1.6 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-upd-fg,#1f2937);',
-  'background:var(--dsh-upd-bg,#ffffff);border:1px solid var(--dsh-upd-line,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;',
+  '.dsh-upd{font:14px/1.6 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);',
+  'background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;',
   // 横幅配色走变量（浅色默认 + 深色覆盖，见下方 dark 媒体块）：硬编码浅色会让深色下
   // 「浅底 + 浅字」读不出来（现场回归：默认主题深色模式更新横幅白底浅字）。
-  '--dsh-upd-ok-bg:#ecfdf5;--dsh-upd-ok-line:#059669;--dsh-upd-warn-bg:#fffbeb;--dsh-upd-warn-line:#d97706;',
-  '--dsh-upd-bad-bg:#fef2f2;--dsh-upd-bad-line:#dc2626;--dsh-upd-busy-bg:#eff6ff;--dsh-upd-busy-line:#2563eb}',
+  '--dsh-update-ok-bg:#ecfdf5;--dsh-update-ok-border:#059669;--dsh-update-warn-bg:#fffbeb;--dsh-update-warn-border:#d97706;',
+  '--dsh-update-bad-bg:#fef2f2;--dsh-update-bad-border:#dc2626;--dsh-update-busy-bg:#eff6ff;--dsh-update-busy-border:#2563eb}',
   '.dsh-upd *{box-sizing:border-box}',
-  '.dsh-upd button{font:inherit;border:1px solid var(--dsh-upd-line,#d1d5db);border-radius:6px;background:var(--dsh-upd-btn,#f9fafb);',
+  '.dsh-upd button{font:inherit;border:1px solid var(--dsh-update-border-strong,#d1d5db);border-radius:var(--dsh-update-radius-button,6px);background:var(--dsh-update-button-bg,#f9fafb);',
   'color:inherit;padding:4px 12px;cursor:pointer;margin:2px 6px 2px 0}',
   '.dsh-upd button:disabled{opacity:.45;cursor:not-allowed}',
-  '.dsh-upd button:focus-visible{outline:2px solid var(--dsh-upd-focus,#2563eb);outline-offset:1px}',
-  '.dsh-upd button[data-primary="1"]{background:var(--dsh-upd-primary,#2563eb);border-color:var(--dsh-upd-primary,#2563eb);color:#fff}',
-  '.dsh-upd-banner{border-left:4px solid var(--dsh-upd-line,#9ca3af);padding:6px 10px;margin:0 0 8px;background:var(--dsh-upd-soft,#f3f4f6)}',
-  '.dsh-upd-banner[data-kind="restart"]{border-color:var(--dsh-upd-warn-line);background:var(--dsh-upd-warn-bg)}',
-  '.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-upd-bad-line);background:var(--dsh-upd-bad-bg)}',
-  '.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-upd-ok-line);background:var(--dsh-upd-ok-bg)}',
-  '.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-upd-busy-line);background:var(--dsh-upd-busy-bg)}',
+  '.dsh-upd button:focus-visible{outline:2px solid var(--dsh-update-focus,#2563eb);outline-offset:1px}',
+  '.dsh-upd button[data-primary="1"]{background:var(--dsh-update-primary,#2563eb);border-color:var(--dsh-update-primary,#2563eb);color:#fff}',
+  '.dsh-upd-banner{border-left:4px solid var(--dsh-update-border,#9ca3af);padding:6px 10px;margin:0 0 8px;background:var(--dsh-update-bg-soft,#f3f4f6)}',
+  '.dsh-upd-banner[data-kind="restart"]{border-color:var(--dsh-update-warn-border);background:var(--dsh-update-warn-bg)}',
+  '.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-update-bad-border);background:var(--dsh-update-bad-bg)}',
+  '.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}',
+  '.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-update-busy-border);background:var(--dsh-update-busy-bg)}',
   '.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}',
   '.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:4px 0;font-size:13px}',
   '.dsh-upd-changelog-wrap{margin:4px 0 0;font-size:13px}',
@@ -903,71 +903,71 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-changelog-fold{margin:4px 0}',
   '.dsh-upd-changelog-fold>summary{cursor:pointer}',
   '.dsh-upd-changelog-count{font-size:12px;opacity:.7;margin:2px 0 4px}',
-  '.dsh-upd-changelog-yanked{border-left:4px solid var(--dsh-upd-warn-line,#d97706);background:var(--dsh-upd-warn-bg,#fffbeb);padding:6px 10px;margin:6px 0;font-size:13px}',
+  '.dsh-upd-changelog-yanked{border-left:4px solid var(--dsh-update-warn-border,#d97706);background:var(--dsh-update-warn-bg,#fffbeb);padding:6px 10px;margin:6px 0;font-size:13px}',
   '.dsh-upd-breaking-badge{display:inline-block;font-size:11px;font-weight:700;border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:baseline}',
   '.dsh-upd-changelog-security-more{margin:4px 0 6px}',
   '.dsh-upd-changelog-security-more>summary{cursor:pointer;font-size:12px;opacity:.8}',
   '.dsh-upd-changelog-more-note{font-size:12px;opacity:.7;margin:2px 0 4px}',
   '.dsh-upd-changelog-neutral{color:inherit;opacity:.8}',
   '.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}',
-  '.dsh-upd-overlay .dsh-upd{background:var(--dsh-upd-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}',
+  '.dsh-upd-overlay .dsh-upd{background:var(--dsh-update-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}',
   // —— 弹窗分栏滚动：头（抬头/档案头/横幅/版本条）与尾固定，只有 01–05 章节区滚动 ——
   '.dsh-upd-body{min-height:0}',
-  '.dsh-upd-overlay .dsh-upd-body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsh-upd-line,#e5e7eb) transparent}',
+  '.dsh-upd-overlay .dsh-upd-body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsh-update-border,#e5e7eb) transparent}',
   '.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar{width:8px}',
-  '.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-upd-line,#e5e7eb);border-radius:4px}',
+  '.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-update-border,#e5e7eb);border-radius:4px}',
   '.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-track{background:transparent}',
-  // —— 章节标题磁吸：滚动时节标题贴顶（纯 CSS sticky；背景跟随主题，D5 另覆）——
-  '.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{position:sticky;top:0;z-index:1;background:var(--dsh-upd-bg,#ffffff);padding-top:2px}',
+  // —— 章节标题磁吸：滚动时节标题贴顶（纯 CSS sticky；背景跟随主题，Archive 另覆）——
+  '.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{position:sticky;top:0;z-index:1;background:var(--dsh-update-bg,#ffffff);padding-top:2px}',
   // —— 档案头 / 版本条 / 章节 / 进度条 / 跳过行（原型 :208-245 的新结构，默认主题给最小可用样式）——
   '.dsh-upd-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}',
-  // 卷宗抬头「插件更新 / 更新档案 卷」：D5 档案卷才画，默认（最小）主题不画。
+  // 卷宗抬头「插件更新 / 更新档案 卷」：Archive 档案卷才画，默认（最小）主题不画。
   // 两个主题共用同一份内核 HTML（见 renderUpdatePanelHTML 的注释），画不画是皮肤决定的事。
   '.dsh-upd-masthead{display:none}',
   '.dsh-upd-name{font-weight:700}',
   '.dsh-upd-meta{font-size:12.5px;opacity:.75}',
-  '.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:11px;border:1px solid var(--dsh-upd-line,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}',
-  '.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-upd-line,#e5e7eb);border-radius:4px;overflow:hidden;font-size:12.5px}',
-  '.dsh-upd-strip>div{flex:1 1 110px;padding:6px 10px;border-left:1px solid var(--dsh-upd-line,#e5e7eb)}',
+  '.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:11px;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}',
+  '.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;font-size:12.5px}',
+  '.dsh-upd-strip>div{flex:1 1 110px;padding:6px 10px;border-left:1px solid var(--dsh-update-border,#e5e7eb)}',
   '.dsh-upd-strip>div:first-child{border-left:0}',
   '.dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.14em;opacity:.7}',
   '.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px}',
-  '.dsh-upd-chapter{margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-upd-line,#e5e7eb)}',
+  '.dsh-upd-chapter{margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}',
   // 右下角独立 footer 区（#47 定案 A）：与第一章 actions 脱钩，右对齐，一次找到。
-  '.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-upd-line,#e5e7eb)}',
+  '.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}',
   '.dsh-upd-foot-note{margin-right:auto;font-size:12px;opacity:.7}',
   '.dsh-upd-footer button{margin:0}',
   '.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}',
   '.dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}',
   '.dsh-upd-chap-title{font-size:14px;margin:0}',
-  '.dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-upd-line,#e5e7eb);transform:translateY(-3px)}',
+  '.dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}',
   // 03 章标题行右端的开关（问题 3 定案：按钮形态、挪到标题行）。
   '.dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}',
   '.dsh-upd-chap-note button{margin:0}',
   // 更新队列两行键值（用户定案的设计）：结构两主题共用，皮肤各自收敛。
   '.dsh-upd-qrow{display:flex;align-items:baseline;gap:10px;padding:6px 0}',
-  '.dsh-upd-qrow+.dsh-upd-qrow{border-top:1px solid var(--dsh-upd-line,#e5e7eb)}',
+  '.dsh-upd-qrow+.dsh-upd-qrow{border-top:1px solid var(--dsh-update-border,#e5e7eb)}',
   '.dsh-upd-qdot{width:8px;height:8px;border-radius:50%;flex:none;align-self:center;background:currentColor;opacity:.5}',
-  '.dsh-upd-qdot[data-tone="busy"]{background:var(--dsh-upd-warn-line,#d97706);opacity:1}',
-  '.dsh-upd-qdot[data-tone="you"]{background:var(--dsh-upd-primary,#2563eb);opacity:1}',
+  '.dsh-upd-qdot[data-tone="busy"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}',
+  '.dsh-upd-qdot[data-tone="you"]{background:var(--dsh-update-primary,#2563eb);opacity:1}',
   '.dsh-upd-qk{flex:none;width:5.5em;font-size:12px;opacity:.7}',
   '.dsh-upd-qv{font-weight:600}',
   '.dsh-upd-qn{margin-left:auto;font-size:12px;opacity:.7}',
   '.dsh-upd-qseq{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}',
-  '.dsh-upd-prog{height:8px;background:var(--dsh-upd-line,#e5e7eb);border-radius:4px;overflow:hidden;margin:10px 0 4px}',
-  '.dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-upd-primary,#2563eb);transition:width .3s}',
+  '.dsh-upd-prog{height:8px;background:var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;margin:10px 0 4px}',
+  '.dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary,#2563eb);transition:width .3s}',
   '.dsh-upd-progtxt{font-size:12.5px;opacity:.75}',
   '.dsh-upd-skipline{font-size:13px;margin-top:8px}',
   // 骨架微光：只在首帧 loading 出现；reduced-motion 下静止占位，不断语义。
   '.dsh-upd-skv{display:inline-block;min-width:64px;border-radius:3px;color:transparent !important;user-select:none;',
-  'background:linear-gradient(90deg,var(--dsh-upd-line,#e5e7eb) 25%,var(--dsh-upd-soft,#f3f4f6) 50%,var(--dsh-upd-line,#e5e7eb) 75%);',
+  'background:linear-gradient(90deg,var(--dsh-update-border,#e5e7eb) 25%,var(--dsh-update-bg-soft,#f3f4f6) 50%,var(--dsh-update-border,#e5e7eb) 75%);',
   'background-size:200% 100%;animation:dsh-upd-shimmer 1.2s linear infinite}',
   '@keyframes dsh-upd-shimmer{to{background-position:-200% 0}}',
   '.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:12px}',
   '.dsh-upd-err{font-size:13px;margin:0 0 6px}',
   // —— 全按钮交互反馈（#36：悬停/按下/过渡/在途忙态；浅深双主题通用写法，不碰上面的既有串）——
   '.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}',
-  '.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-upd-focus,#2563eb)}',
+  '.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-update-focus,#2563eb)}',
   '.dsh-upd button[data-primary="1"]:hover:not(:disabled){filter:brightness(.93)}',
   '.dsh-upd button:active:not(:disabled){transform:translateY(1px)}',
   '.dsh-upd button[aria-busy="true"]{cursor:wait;animation:dsh-upd-pulse 1s ease-in-out infinite}',
@@ -993,19 +993,19 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-actions button:first-child:not([aria-busy="true"])::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;visibility:hidden}',
   '.dsh-upd-banner{min-height:1.2em}',
   '.dsh-upd-strip{min-height:48px}',
-  '@media (prefers-color-scheme: dark){.dsh-upd{--dsh-upd-fg:#e5e7eb;--dsh-upd-bg:#111827;--dsh-upd-line:#374151;',
-  '--dsh-upd-btn:#1f2937;--dsh-upd-soft:#1f2937;--dsh-upd-primary:#3b82f6;--dsh-upd-focus:#93c5fd;',
+  '@media (prefers-color-scheme: dark){.dsh-upd{--dsh-update-text:#e5e7eb;--dsh-update-bg:#111827;--dsh-update-border:#374151;',
+  '--dsh-update-button-bg:#1f2937;--dsh-update-bg-soft:#1f2937;--dsh-update-primary:#3b82f6;--dsh-update-focus:#93c5fd;',
   // 横幅深色覆盖：底色用低透明度同色系（不是浅色原值），边线提亮，保证「深底浅字」可读。
-  '--dsh-upd-ok-bg:rgba(16,185,129,.14);--dsh-upd-ok-line:#34d399;',
-  '--dsh-upd-warn-bg:rgba(245,158,11,.16);--dsh-upd-warn-line:#fbbf24;',
-  '--dsh-upd-bad-bg:rgba(239,68,68,.16);--dsh-upd-bad-line:#f87171;',
-  '--dsh-upd-busy-bg:rgba(59,130,246,.16);--dsh-upd-busy-line:#60a5fa}}',
+  '--dsh-update-ok-bg:rgba(16,185,129,.14);--dsh-update-ok-border:#34d399;',
+  '--dsh-update-warn-bg:rgba(245,158,11,.16);--dsh-update-warn-border:#fbbf24;',
+  '--dsh-update-bad-bg:rgba(239,68,68,.16);--dsh-update-bad-border:#f87171;',
+  '--dsh-update-busy-bg:rgba(59,130,246,.16);--dsh-update-busy-border:#60a5fa}}',
 ].join('\n')
 
-// ---------- D5 档案卷可选主题（#20：只换肤，不换 DOM 顺序） ----------
+// ---------- Archive 档案卷可选主题（#20：只换肤，不换 DOM 顺序） ----------
 //
 // 约束（验收线）：内核 DOM 冻结——主题只换颜色/字体/间距，不得改顺序、不得藏复制诊断。
-// 要素映射（原型 `prototype/redesign/d5-paper.html` → 现有内核类，逐条对齐原型行号）：
+// 要素映射（原型 `prototype/redesign/archive.html` → 现有内核类，逐条对齐原型行号）：
 // 大印章 → 根元素 `::before` + `content:attr(data-seal)`（原型 :206 `.seal`，右上 88px 旋转 -7°，
 //          外框 + 内细框用两条 inset 阴影合成，不加节点）；色调按 `data-seal-tone` 四档。
 // 小印章 → `.dsh-upd-banner::before` + `content:attr(data-mini)`（原型 :215 `.sealmini`，30px 旋转 -5°）；
@@ -1017,64 +1017,64 @@ export const UPDATE_PANEL_CSS = [
 // 浅深双主题 → 同一套变量，浅色默认 + `prefers-color-scheme: dark` 深色（跟随系统，与默认主题同口径）。
 // 可访问性：焦点环永不去掉；forced-colors 走系统色；reduced-motion 关掉一切过渡动画。
 // 复制诊断永不隐藏：本串任何选择器都不对 `[data-action="copy-diag"]` / `.dsh-upd-manual` 写 `display:none`。
-export const UPDATE_PANEL_D5_CSS = [
-  '/* D5 档案卷可选主题：只换颜色/字体/间距；内核 DOM 顺序一字不动，不断复制诊断。 */',
-  '.dsh-upd[data-theme="archive"]{--d5-bg:#f7f3ea;--d5-card:#fffdf6;--d5-ink:#1a1a1a;--d5-muted:#6f675a;',
-  '--d5-line:#e3d9c4;--d5-line-strong:#c4b896;--d5-accent:#c8402a;--d5-accent-deep:#9c2e1d;',
-  '--d5-ok:#1a7f37;--d5-ok-bg:#e9f4ea;--d5-warn:#8a5a00;--d5-warn-bg:#fbf0d0;',
-  '--d5-bad:#b3261e;--d5-bad-bg:#fbe9e5;',
-  '--d5-serif:Georgia,"Songti SC","STSong","SimSun","Noto Serif CJK SC","Source Han Serif SC",serif;',
-  '--d5-sans:system-ui,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;',
-  '--d5-mono:ui-monospace,"SF Mono",SFMono-Regular,Consolas,"Noto Sans Mono",monospace;',
-  '--d5-shadow:0 1px 2px rgba(60,40,20,.08),0 12px 32px rgba(60,40,20,.10);',
-  'font-family:var(--d5-sans);color:var(--d5-ink);background:var(--d5-card);',
-  'border:1px solid var(--d5-line-strong);border-radius:4px;box-shadow:var(--d5-shadow)}',
+export const UPDATE_PANEL_ARCHIVE_CSS = [
+  '/* Archive 档案卷可选主题：只换颜色/字体/间距；内核 DOM 顺序一字不动，不断复制诊断。 */',
+  '.dsh-upd[data-theme="archive"]{--dsh-update-bg-soft:#f7f3ea;--dsh-update-bg:#fffdf6;--dsh-update-text:#1a1a1a;--dsh-update-text-muted:#6f675a;',
+  '--dsh-update-border:#e3d9c4;--dsh-update-border-strong:#c4b896;--dsh-update-primary:#c8402a;--dsh-update-primary-deep:#9c2e1d;',
+  '--dsh-update-ok-text:#1a7f37;--dsh-update-ok-bg:#e9f4ea;--dsh-update-warn-text:#8a5a00;--dsh-update-warn-bg:#fbf0d0;',
+  '--dsh-update-bad-text:#b3261e;--dsh-update-bad-bg:#fbe9e5;',
+  '--dsh-update-font-serif:Georgia,"Songti SC","STSong","SimSun","Noto Serif CJK SC","Source Han Serif SC",serif;',
+  '--dsh-update-font-sans:system-ui,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;',
+  '--dsh-update-font-mono:ui-monospace,"SF Mono",SFMono-Regular,Consolas,"Noto Sans Mono",monospace;',
+  '--dsh-update-shadow:0 1px 2px rgba(60,40,20,.08),0 12px 32px rgba(60,40,20,.10);',
+  'font-family:var(--dsh-update-font-sans);color:var(--dsh-update-text);background:var(--dsh-update-bg);',
+  'border:1px solid var(--dsh-update-border-strong);border-radius:var(--dsh-update-radius-panel,4px);box-shadow:var(--dsh-update-shadow)}',
   // 按钮脸自己不透明（宿主底色未知时也读得出；卡片上渲染与 transparent 逐字同色）。
-  '.dsh-upd[data-theme="archive"] button{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink);border-radius:3px;font-family:var(--d5-sans)}',
-  '.dsh-upd[data-theme="archive"] button:hover:not(:disabled){border-color:var(--d5-accent);color:var(--d5-accent)}',
-  '.dsh-upd[data-theme="archive"] button[data-primary="1"]{background:var(--d5-accent);border-color:var(--d5-accent);color:#fff}',
-  '.dsh-upd[data-theme="archive"] button[data-primary="1"]:hover:not(:disabled){background:var(--d5-accent-deep);color:#fff}',
-  '.dsh-upd[data-theme="archive"] button:focus-visible{outline:2px solid var(--d5-accent);outline-offset:2px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner{background:var(--d5-bg);border-color:var(--d5-line-strong)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="update"]{border-color:var(--d5-ok);background:var(--d5-ok-bg)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="busy"]{border-color:var(--d5-warn);background:var(--d5-warn-bg)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]{border-color:var(--d5-warn);background:var(--d5-warn-bg);font-family:var(--d5-serif);border-width:2px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="failed"],.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="blocked"]{border-color:var(--d5-bad);background:var(--d5-bad-bg)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]{border-color:var(--d5-ok);background:var(--d5-ok-bg)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-yanked{border-color:var(--d5-warn);background:var(--d5-warn-bg);color:var(--d5-ink)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-breaking-badge{color:var(--d5-accent);border-color:var(--d5-accent)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-count{color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-more-note{color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] button{border-color:var(--dsh-update-border-strong);background:var(--dsh-update-button-bg);color:var(--dsh-update-text);border-radius:var(--dsh-update-radius-button,3px);font-family:var(--dsh-update-font-sans)}',
+  '.dsh-upd[data-theme="archive"] button:hover:not(:disabled){border-color:var(--dsh-update-primary);color:var(--dsh-update-primary)}',
+  '.dsh-upd[data-theme="archive"] button[data-primary="1"]{background:var(--dsh-update-primary);border-color:var(--dsh-update-primary);color:#fff}',
+  '.dsh-upd[data-theme="archive"] button[data-primary="1"]:hover:not(:disabled){background:var(--dsh-update-primary-deep);color:#fff}',
+  '.dsh-upd[data-theme="archive"] button:focus-visible{outline:2px solid var(--dsh-update-primary);outline-offset:2px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner{background:var(--dsh-update-bg-soft);border-color:var(--dsh-update-border-strong)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-update-busy-border);background:var(--dsh-update-busy-bg)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]{border-color:var(--dsh-update-warn-border);background:var(--dsh-update-warn-bg);font-family:var(--dsh-update-font-serif);border-width:2px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="failed"],.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-update-bad-border);background:var(--dsh-update-bad-bg)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-yanked{border-color:var(--dsh-update-warn-text);background:var(--dsh-update-warn-bg);color:var(--dsh-update-text)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-breaking-badge{color:var(--dsh-update-primary);border-color:var(--dsh-update-primary)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-count{color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-more-note{color:var(--dsh-update-text-muted)}',
   // —— 大印章（原型 :206 `.seal`：右上 88px、旋转 -7°、双细框；内容与色调来自根属性，不加节点）——
   '.dsh-upd[data-theme="archive"]{position:relative;padding:16px 20px 14px}',
   '.dsh-upd[data-theme="archive"]::before{content:attr(data-seal);position:absolute;top:20px;right:24px;width:88px;height:88px;',
   'display:flex;align-items:center;justify-content:center;text-align:center;letter-spacing:.18em;text-indent:.18em;line-height:1.35;',
-  'border:3px solid currentColor;border-radius:14px;transform:rotate(-7deg);font-family:var(--d5-serif);font-weight:700;font-size:21px;',
+  'border:3px solid currentColor;border-radius:14px;transform:rotate(-7deg);font-family:var(--dsh-update-font-serif);font-weight:700;font-size:21px;',
   'background:color-mix(in srgb,currentColor 8%,transparent);user-select:none;pointer-events:none;',
-  'box-shadow:inset 0 0 0 5px var(--d5-card),inset 0 0 0 6px currentColor,0 2px 6px rgba(0,0,0,.12)}',
-  '.dsh-upd[data-theme="archive"][data-seal-tone="ink"]::before{color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="archive"][data-seal-tone="green"]::before{color:var(--d5-ok)}',
-  '.dsh-upd[data-theme="archive"][data-seal-tone="yellow"]::before{color:var(--d5-warn)}',
-  '.dsh-upd[data-theme="archive"][data-seal-tone="red"]::before{color:var(--d5-bad)}',
+  'box-shadow:inset 0 0 0 5px var(--dsh-update-bg),inset 0 0 0 6px currentColor,0 2px 6px rgba(0,0,0,.12)}',
+  '.dsh-upd[data-theme="archive"][data-seal-tone="ink"]::before{color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"][data-seal-tone="green"]::before{color:var(--dsh-update-ok-text)}',
+  '.dsh-upd[data-theme="archive"][data-seal-tone="yellow"]::before{color:var(--dsh-update-warn-text)}',
+  '.dsh-upd[data-theme="archive"][data-seal-tone="red"]::before{color:var(--dsh-update-bad-text)}',
   // 印章占位：首行（横幅/状态行）右侧留出 120px，文字不许压到印章上（原型 .filehead padding-right:120px）
-  // —— 卷宗抬头（原型 :195-203 的刊头，主题切换按钮按用户口径去掉）：只有 D5 档案卷才显示 ——
-  '.dsh-upd[data-theme="archive"] .dsh-upd-masthead{display:block;padding:0 0 8px;margin:0 0 8px;border-bottom:1px solid var(--d5-line)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-masthead-kicker{display:block;font-size:11px;letter-spacing:.35em;color:var(--d5-muted);margin-bottom:3px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title{font-family:var(--d5-serif);font-size:26px;font-weight:700;line-height:1.2}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title i{color:var(--d5-accent);font-style:normal}',
+  // —— 卷宗抬头（原型 :195-203 的刊头，主题切换按钮按用户口径去掉）：只有 Archive 档案卷才显示 ——
+  '.dsh-upd[data-theme="archive"] .dsh-upd-masthead{display:block;padding:0 0 8px;margin:0 0 8px;border-bottom:1px solid var(--dsh-update-border)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-masthead-kicker{display:block;font-size:11px;letter-spacing:.35em;color:var(--dsh-update-text-muted);margin-bottom:3px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title{font-family:var(--dsh-update-font-serif);font-size:26px;font-weight:700;line-height:1.2}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title i{color:var(--dsh-update-primary);font-style:normal}',
   // 横幅不再给大印章留 124px：实测（headless 量盒子）印章盒底边 y=109，横幅正文顶边 y=108、
   // 状态行那句在 y=159——印章只压到横幅顶部的留白带，压不到正文。留着反而把 27px 那句话挤成两行
   // （27px 单行需 428px，留白后只剩 366px）。档案头那 120px 保留：那里是真的重叠。
-  // —— 更新队列（03 章）D5 皮肤 ——
+  // —— 更新队列（03 章）Archive 皮肤 ——
   '.dsh-upd[data-theme="archive"] .dsh-upd-qrow{padding:6px 0}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-qk{width:66px;letter-spacing:.18em}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-qv{font-family:var(--d5-serif);font-size:16px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-qn{font-family:var(--d5-mono);font-size:11.5px;color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-qseq{color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-note{color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-body .dsh-upd-chap-head{background:var(--d5-card)}',
-  '.dsh-upd-overlay .dsh-upd[data-theme="archive"] .dsh-upd-body{scrollbar-color:var(--d5-line-strong) transparent}',
-  '.dsh-upd-overlay .dsh-upd[data-theme="archive"] .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--d5-line-strong)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-qv{font-family:var(--dsh-update-font-serif);font-size:16px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-qn{font-family:var(--dsh-update-font-mono);font-size:11.5px;color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-qseq{color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-note{color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-body .dsh-upd-chap-head{background:var(--dsh-update-bg)}',
+  '.dsh-upd-overlay .dsh-upd[data-theme="archive"] .dsh-upd-body{scrollbar-color:var(--dsh-update-border-strong) transparent}',
+  '.dsh-upd-overlay .dsh-upd[data-theme="archive"] .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-update-border-strong)}',
   // —— 小印章（原型 :215 `.sealmini`：30px、旋转 -5°、一字）——
   // 待重启横幅一律不画印章：那一档的标记是左侧手绘 SVG（原型 :446 的 .mark 只有 SVG）。
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="loading"]::before,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="idle"]::before,',
@@ -1082,13 +1082,13 @@ export const UPDATE_PANEL_D5_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="blocked"]::before,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="failed"]::before,',
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]::before{content:attr(data-mini);display:inline-flex;align-items:center;justify-content:center;',
   'width:30px;height:30px;margin-right:10px;vertical-align:middle;border:2px solid currentColor;border-radius:7px;',
-  'font-family:var(--d5-serif);font-weight:700;font-size:16px;line-height:26px;transform:rotate(-5deg);flex:none;color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="update"]::before{color:var(--d5-ok)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="busy"]::before{color:var(--d5-warn)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="blocked"]::before,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="failed"]::before{color:var(--d5-bad)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]::before{color:var(--d5-ok)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-log code{font-family:var(--d5-mono);font-size:11px;color:var(--d5-muted);border:1px solid var(--d5-line-strong);border-radius:3px;padding:0 6px;letter-spacing:.06em}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-manual code{display:block;background:var(--d5-ink);color:var(--d5-bg);font-family:var(--d5-mono);font-size:12.5px;padding:12px 14px;border-radius:4px;white-space:pre-wrap;word-break:break-all}',
+  'font-family:var(--dsh-update-font-serif);font-weight:700;font-size:16px;line-height:26px;transform:rotate(-5deg);flex:none;color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="update"]::before{color:var(--dsh-update-ok-text)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="busy"]::before{color:var(--dsh-update-warn-text)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="blocked"]::before,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="failed"]::before{color:var(--dsh-update-bad-text)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]::before{color:var(--dsh-update-ok-text)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-log code{font-family:var(--dsh-update-font-mono);font-size:11px;color:var(--dsh-update-text-muted);border:1px solid var(--dsh-update-border-strong);border-radius:3px;padding:0 6px;letter-spacing:.06em}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-manual code{display:block;background:var(--dsh-update-text);color:var(--dsh-update-bg-soft);font-family:var(--dsh-update-font-mono);font-size:12.5px;padding:12px 14px;border-radius:4px;white-space:pre-wrap;word-break:break-all}',
   // 待重启标记：手绘 SVG 当**独立 flex 标记**放在文字块左侧（原型 :446 `.mark` 是独立节点），
   // 不能用行内背景——那样换行时三角会落在句子中间把话劈开（现场回归）。
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child{display:flex;gap:10px;align-items:flex-start}',
@@ -1096,45 +1096,45 @@ export const UPDATE_PANEL_D5_CSS = [
   'background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%238a5a00%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E") no-repeat center/20px 20px}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{overflow:hidden;text-overflow:ellipsis}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-actions{flex-wrap:wrap}',
-  // footer 只换肤（#47 定案 A + D5 约束：不换 DOM 顺序；复制诊断永不隐藏，本串不动它）。
-  '.dsh-upd[data-theme="archive"] .dsh-upd-footer{margin-top:14px;padding-top:10px;border-top:1px solid var(--d5-line)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-foot-note{color:var(--d5-muted)}',
+  // footer 只换肤（#47 定案 A + Archive 约束：不换 DOM 顺序；复制诊断永不隐藏，本串不动它）。
+  '.dsh-upd[data-theme="archive"] .dsh-upd-footer{margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-foot-note{color:var(--dsh-update-text-muted)}',
   // —— 档案头（原型 :208-211 `.filehead`：serif 插件名 22px + 使用范围 + profile 牌；右侧留章位）——
   '.dsh-upd[data-theme="archive"] .dsh-upd-head{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;padding-right:120px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-name{font-family:var(--d5-serif);font-size:22px;font-weight:700}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-meta{width:100%;font-size:12.5px;color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-meta b{color:var(--d5-ink);font-weight:600}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-proftag{font-family:var(--d5-mono);font-size:11px;color:var(--d5-muted);border:1px solid var(--d5-line-strong);border-radius:3px;padding:0 6px;margin-left:8px;letter-spacing:.06em}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-name{font-family:var(--dsh-update-font-serif);font-size:22px;font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-meta{width:100%;font-size:12.5px;color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-meta b{color:var(--dsh-update-text);font-weight:600}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-proftag{font-family:var(--dsh-update-font-mono);font-size:11px;color:var(--dsh-update-text-muted);border:1px solid var(--dsh-update-border-strong);border-radius:3px;padding:0 6px;margin-left:8px;letter-spacing:.06em}',
   // —— 版本条（原型 :216 `.strip`：三格，格间一线，左上小写标签 + 等宽值）——
-  '.dsh-upd[data-theme="archive"] .dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--d5-line);border-radius:4px;overflow:hidden;font-size:12.5px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-strip>div{flex:1 1 120px;padding:6px 10px;border-left:1px solid var(--d5-line)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border);border-radius:4px;overflow:hidden;font-size:12.5px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-strip>div{flex:1 1 120px;padding:6px 10px;border-left:1px solid var(--dsh-update-border)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-strip>div:first-child{border-left:0}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.2em;color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-strip-v{font-family:var(--d5-mono);font-size:13px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.2em;color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-strip-v{font-family:var(--dsh-update-font-mono);font-size:13px}',
   // —— 章节（原型 :218-245：01–05 编号 + 衬线标题 + 细线）——
-  '.dsh-upd[data-theme="archive"] .dsh-upd-chapter{margin-top:16px;padding-top:10px;border-top:1px solid var(--d5-line)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-chapter{margin-top:16px;padding-top:10px;border-top:1px solid var(--dsh-update-border)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-chap-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-no{font-family:var(--d5-serif);font-style:italic;font-size:15px;color:var(--d5-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-title{font-family:var(--d5-serif);font-size:17px;margin:0;letter-spacing:.1em}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-rule{flex:1;border-top:1px solid var(--d5-line);transform:translateY(-4px)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-no{font-family:var(--dsh-update-font-serif);font-style:italic;font-size:15px;color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-title{font-family:var(--dsh-update-font-serif);font-size:17px;margin:0;letter-spacing:.1em}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border);transform:translateY(-4px)}',
   // —— 横幅即状态行 / 待重启横幅（原型 :81-85 `.restart-banner`：2px 边框、圆角 4、内边距 12/16、衬线；右侧留章位）——
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:2px solid var(--d5-line-strong);border-radius:4px;padding:10px 12px;font-size:14.5px;font-family:var(--d5-serif);display:flex;gap:10px;align-items:center;flex-wrap:wrap}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:2px solid var(--dsh-update-border-strong);border-radius:4px;padding:10px 12px;font-size:14.5px;font-family:var(--dsh-update-font-serif);display:flex;gap:10px;align-items:center;flex-wrap:wrap}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{flex:1 1 auto;min-width:0}',
   // 状态行字号照原型 .status-line=27px（实测去掉横幅右侧占位后可写 486px > 428px，一行放得下）
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child strong{font-family:var(--d5-serif);font-size:27px;font-weight:700;line-height:1.25}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child strong{font-family:var(--dsh-update-font-serif);font-size:27px;font-weight:700;line-height:1.25}',
   // —— 进度条 / 跳过行（原型 :132-133 `.prog`、:129-131 `.skipline .tag`）——
-  '.dsh-upd[data-theme="archive"] .dsh-upd-prog{height:8px;background:var(--d5-line);border-radius:4px;overflow:hidden;margin:10px 0 4px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-prog-bar{display:block;height:100%;background:var(--d5-accent);transition:width .3s}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-progtxt{font-size:12.5px;color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-prog{height:8px;background:var(--dsh-update-border);border-radius:4px;overflow:hidden;margin:10px 0 4px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary);transition:width .3s}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-progtxt{font-size:12.5px;color:var(--dsh-update-text-muted)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-skipline{font-size:13px;margin-top:8px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-tag{display:inline-block;border:1px dashed var(--d5-line-strong);border-radius:3px;padding:1px 8px;margin-right:8px;font-family:var(--d5-mono);font-size:12px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-err{font-size:13px;margin:0 0 6px;color:var(--d5-muted)}',
-  '@media (max-width:640px){.dsh-upd[data-theme="archive"]{padding:10px 12px}.dsh-upd[data-theme="archive"]::before{top:12px;right:12px;width:56px;height:56px;font-size:15px;box-shadow:inset 0 0 0 4px var(--d5-card),inset 0 0 0 5px currentColor}.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title{font-size:19px}.dsh-upd[data-theme="archive"] .dsh-upd-banner{padding-right:16px}.dsh-upd[data-theme="archive"] .dsh-upd-banner::before{width:24px;height:24px;font-size:14px;line-height:20px;flex:none}.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{white-space:normal}}',
-  '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"]{--d5-bg:#141210;--d5-card:#1e1a15;--d5-ink:#ece5d3;--d5-muted:#a89c83;',
-  '--d5-line:#3a3226;--d5-line-strong:#5c4e3b;--d5-accent:#e0684e;--d5-accent-deep:#f0866b;',
-  '--d5-ok:#8fd6a4;--d5-ok-bg:rgba(80,180,120,.12);--d5-warn:#e8c15a;--d5-warn-bg:rgba(232,193,90,.12);',
-  '--d5-bad:#ef8a7d;--d5-bad-bg:rgba(239,138,125,.12);--d5-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.45)}}',
-  '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] button[data-primary="1"]{color:#141210}.dsh-upd[data-theme="archive"] button:focus-visible{outline-color:var(--d5-accent-deep)}}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-tag{display:inline-block;border:1px dashed var(--dsh-update-border-strong);border-radius:3px;padding:1px 8px;margin-right:8px;font-family:var(--dsh-update-font-mono);font-size:12px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-err{font-size:13px;margin:0 0 6px;color:var(--dsh-update-text-muted)}',
+  '@media (max-width:640px){.dsh-upd[data-theme="archive"]{padding:10px 12px}.dsh-upd[data-theme="archive"]::before{top:12px;right:12px;width:56px;height:56px;font-size:15px;box-shadow:inset 0 0 0 4px var(--dsh-update-bg),inset 0 0 0 5px currentColor}.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title{font-size:19px}.dsh-upd[data-theme="archive"] .dsh-upd-banner{padding-right:16px}.dsh-upd[data-theme="archive"] .dsh-upd-banner::before{width:24px;height:24px;font-size:14px;line-height:20px;flex:none}.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{white-space:normal}}',
+  '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"]{--dsh-update-bg-soft:#141210;--dsh-update-bg:#1e1a15;--dsh-update-text:#ece5d3;--dsh-update-text-muted:#a89c83;',
+  '--dsh-update-border:#3a3226;--dsh-update-border-strong:#5c4e3b;--dsh-update-primary:#e0684e;--dsh-update-primary-deep:#f0866b;',
+  '--dsh-update-ok-text:#8fd6a4;--dsh-update-ok-bg:rgba(80,180,120,.12);--dsh-update-warn-text:#e8c15a;--dsh-update-warn-bg:rgba(232,193,90,.12);',
+  '--dsh-update-bad-text:#ef8a7d;--dsh-update-bad-bg:rgba(239,138,125,.12);--dsh-update-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.45)}}',
+  '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] button[data-primary="1"]{color:#141210}.dsh-upd[data-theme="archive"] button:focus-visible{outline-color:var(--dsh-update-primary-deep)}}',
   '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23e8c15a%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E")}}',
   '@media (forced-colors: active){.dsh-upd[data-theme="archive"]{box-shadow:none}.dsh-upd[data-theme="archive"]::before{background:none;box-shadow:none;border-color:CanvasText;color:CanvasText}.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:1px solid CanvasText}.dsh-upd[data-theme="archive"] .dsh-upd-banner::before{border-color:CanvasText;color:CanvasText;background:Canvas}.dsh-upd[data-theme="archive"] button{border:1px solid ButtonText}.dsh-upd[data-theme="archive"] button[data-primary="1"]{background:ButtonFace;color:ButtonText;border-color:ButtonText}.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:none;content:"⚠"}}',
   '@media (prefers-reduced-motion: reduce){.dsh-upd[data-theme="archive"] *{transition:none !important;animation:none !important}}',
@@ -1151,7 +1151,7 @@ export interface PanelRenderInput extends PanelViewInput {
   copyNotice: string | null
   /** 渲染语言（#61 单语：缺省 zh；挂载态传 currentLang，纯函数直调可显式传 en/zh）。 */
   lang?: AppLang | string | null
-  /** 可选主题：不传即默认（输出与旧版一字不差）；`archive` 切档案卷（旧别名 `d5-paper` 仍收）。 */
+  /** 可选主题：不传即默认（输出与旧版一字不差）；`archive` 切档案卷。 */
   theme?: UpdatePanelTheme
   /** 使用范围名（profile）：面板「使用范围」一栏的唯一来源，缺省显示“未知”，不猜。 */
   profileName?: string | null
@@ -1179,7 +1179,7 @@ export interface PanelRenderInput extends PanelViewInput {
   changelogCollapsed?: boolean
 }
 
-/** 章节骨架（照原型 d5-paper.html:218-245 的 01–05 编号顺序；#62 入字典按 lang 单语）。 */
+/** 章节骨架（照原型 archive.html:218-245 的 01–05 编号顺序；#62 入字典按 lang 单语）。 */
 const CHAPTER_KEYS = [
   'panel.chapter.check',
   'panel.chapter.changelog',
@@ -1290,7 +1290,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   const seal = view.seal
   const parts: string[] = []
   // 卷宗抬头（原型 :195-203 的刊头；主题切换按钮按用户口径去掉——那排按钮不重要）。
-  // 两个主题共用同一份内核 HTML：默认（最小）主题由 CSS 不显示，D5 档案卷才画。
+  // 两个主题共用同一份内核 HTML：默认（最小）主题由 CSS 不显示，Archive 档案卷才画。
   parts.push(
     '<div class="dsh-upd-masthead"><span class="dsh-upd-masthead-kicker">' + escapeHtml(copyText('panel.masthead.kicker', l)) + '</span>' +
       '<span class="dsh-upd-masthead-title">' + escapeHtml(copyText('panel.masthead.title', l)) + ' <i>' + escapeHtml(copyText('panel.masthead.volume', l)) + '</i></span></div>',
@@ -1341,7 +1341,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   if (view.showManual && manual) {
     actions.push(`<button type="button" data-action="copy-manual" title="${escapeHtml(copyText('panel.action.copy-manual-title', l))}">${escapeHtml(copyText('panel.action.copy-manual', l))}</button>`)
   }
-  // 原型的待重启横幅右侧有个主动作「重启宿主」（d5-paper.html:448）。
+  // 原型的待重启横幅右侧有个主动作「重启宿主」（archive.html:448）。
   // 宿主没有「重启自己」的电话，所以这里只做入口：调用方给了 onRestartRequested 就交给它，
   // 没给就如实提示「请手动重启」——不假装能重启。
   if (b.kind === 'restart') {
@@ -1382,7 +1382,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
           snapshot.latestVersion,
           snapshot.installedVersion,
         )
-        const changelogHTML = renderChangelogHTML(ranged)
+        const changelogHTML = renderChangelogHTML(ranged, { lang: l })
         const fromText = String(snapshot.runningVersion ?? '')
         const toText = String(snapshot.latestVersion ?? '')
         const rangeTitle =
@@ -1390,7 +1390,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         let yankedBanner = ''
         try {
           const toEntry = Array.isArray(ranged) ? ranged.find(function(e) { try { return e && e.version === toText; } catch { return false; } }) : null
-          if (toEntry && (toEntry as { yanked?: unknown }).yanked === true && toText) { yankedBanner = yankedBannerHTML(toText); }
+          if (toEntry && (toEntry as { yanked?: unknown }).yanked === true && toText) { yankedBanner = yankedBannerHTML(toText, l); }
         } catch { yankedBanner = ''; }
         const logOpen = (input as { changelogCollapsed?: unknown }).changelogCollapsed !== true
         inner = `<div class="dsh-upd-changelog-wrap"><div>${escapeHtml(rangeTitle)}</div>` +
@@ -1576,18 +1576,18 @@ export function renderUpdatePanelHTML(input: PanelRenderInput, lang?: AppLang | 
   const l = normalizeLangTag(lang ?? (input as { lang?: unknown }).lang ?? 'zh')
   const view = panelViewModel(input, l)
   const kernel = renderUpdatePanelKernel(input, view, l)
-  // 主题只换肤：默认主题输出与旧版一字不差（无 data-theme、不带 D5 串）；
-  // 档案卷（archive / 旧别名 d5-paper）才在根上挂 data-theme 并追加 D5 串；内核 HTML 两边同一份。
-  const d5 = normalizePanelTheme(input.theme) === 'archive'
-  const attr = d5 ? ' data-theme="archive"' : ''
-  // 印章走属性带到根上：D5 用 CSS `content:attr(...)` 画成大印章，默认主题只当属性带着不画，
+  // 主题只换肤：默认主题输出与旧版一字不差（无 data-theme、不带 Archive 串）；
+  // 档案卷才在根上挂 data-theme 并追加 Archive 串；内核 HTML 两边同一份。
+  const archive = normalizePanelTheme(input.theme) === 'archive'
+  const attr = archive ? ' data-theme="archive"' : ''
+  // 印章走属性带到根上：Archive 用 CSS `content:attr(...)` 画成大印章，默认主题只当属性带着不画，
   // 两个主题的 DOM 仍逐字同一份（主题只换肤这条不变量不破）。
   const sealAttr = ` data-seal="${escapeHtml(view.seal.text)}" data-seal-tone="${view.seal.tone}"`
   const body =
     input.mode === 'dialog'
       ? `<div class="dsh-upd-overlay" data-mode="dialog"><div class="dsh-upd" data-mode="dialog" data-plugin="${escapeHtml(input.pluginId)}"${sealAttr}${attr}>\n${kernel}\n</div></div>`
       : `<div class="dsh-upd" data-mode="embedded" data-plugin="${escapeHtml(input.pluginId)}"${sealAttr}${attr}>\n${kernel}\n</div>`
-  const css = d5 ? `${UPDATE_PANEL_CSS}\n${UPDATE_PANEL_D5_CSS}` : UPDATE_PANEL_CSS
+  const css = archive ? `${UPDATE_PANEL_CSS}\n${UPDATE_PANEL_ARCHIVE_CSS}` : UPDATE_PANEL_CSS
   return `<style>${css}</style>\n${body}`
 }
 
@@ -1740,8 +1740,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   if (mode !== 'embedded' && mode !== 'dialog') {
     throw new Error(`[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ${JSON.stringify(options.mode)}）`)
   }
-  if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive' && options.theme !== 'd5-paper') {
-    throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ${JSON.stringify(options.theme)}）`)
+  if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive') {
+    throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ${JSON.stringify(options.theme)}）`)
   }
   let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
   const localeOpt: LocaleOption = (options as { locale?: LocaleOption }).locale ?? undefined
@@ -2471,8 +2471,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   }
 
   async function setTheme(next: UpdatePanelTheme): Promise<void> {
-    if (next !== 'default' && next !== 'archive' && next !== 'd5-paper') {
-      throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（d5-paper 为旧别名仍可用）（收到 ${JSON.stringify(next)}）`)
+    if (next !== 'default' && next !== 'archive') {
+      throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ${JSON.stringify(next)}）`)
     }
     theme = normalizePanelTheme(next)
     render()

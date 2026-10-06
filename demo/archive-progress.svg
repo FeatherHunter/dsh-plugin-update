@@ -3,7 +3,7 @@
   <rect x="18" y="18" width="1204" height="974" fill="none" stroke="#c4b896" stroke-width="1.5"/>
 
   <!-- 标题 -->
-  <text x="46" y="62" font-size="27" font-weight="700" fill="#1a1a1a">更新面板 · D5 移植进度</text>
+  <text x="46" y="62" font-size="27" font-weight="700" fill="#1a1a1a">更新面板 · Archive 移植进度</text>
   <text x="46" y="88" font-size="14" fill="#6f675a">2026-10-03 · 全量 358 项测试 / 357 过 / 0 失败 · 发布演练 36 文件 · 改动未提交</text>
   <text x="1194" y="62" font-size="13" fill="#c8402a" text-anchor="end" letter-spacing="2">待重启 · 阶段一已完成</text>
 
@@ -22,7 +22,7 @@
   <text x="560" y="212" font-size="13" fill="#6f675a">· 顺带修：测试助手 inputFor 第一个参数被忽略（断言会静默拿默认快照）</text>
 
   <!-- 两列标题 -->
-  <text x="46" y="262" font-size="15" font-weight="700" fill="#1a1a1a">原型骨架 · prototype/redesign/d5-paper.html</text>
+  <text x="46" y="262" font-size="15" font-weight="700" fill="#1a1a1a">原型骨架 · prototype/redesign/archive.html</text>
   <text x="656" y="262" font-size="15" font-weight="700" fill="#1a1a1a">当前实现 · src/panel.ts 渲染出来的</text>
 
   <!-- 左列 -->

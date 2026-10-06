@@ -13,10 +13,10 @@ import { UPDATE_PANEL_CSS } from '../dist/panel.js'
 
 const KINDS = ['update', 'restart', 'failed', 'busy']
 const VAR_NAMES = [
-  '--dsh-upd-ok-bg', '--dsh-upd-ok-line',
-  '--dsh-upd-warn-bg', '--dsh-upd-warn-line',
-  '--dsh-upd-bad-bg', '--dsh-upd-bad-line',
-  '--dsh-upd-busy-bg', '--dsh-upd-busy-line',
+  '--dsh-update-ok-bg', '--dsh-update-ok-border',
+  '--dsh-update-warn-bg', '--dsh-update-warn-border',
+  '--dsh-update-bad-bg', '--dsh-update-bad-border',
+  '--dsh-update-busy-bg', '--dsh-update-busy-border',
 ]
 
 function bannerRules() {
@@ -56,8 +56,8 @@ test('横幅四种状态的底色与边线都走变量，不硬编码浅色', ()
     assert.ok(hit.length > 0, `缺少 [data-kind="${kind}"] 横幅规则`)
     for (const line of hit) {
       const decls = line.slice(line.indexOf('{'))
-      assert.match(decls, /background:var\(--dsh-upd-[a-z]+-bg\)/, `${kind}：底色必须走变量`)
-      assert.match(decls, /border-color:var\(--dsh-upd-[a-z]+-line\)/, `${kind}：边线必须走变量`)
+      assert.match(decls, /background:var\(--dsh-update-[a-z]+-bg\)/, `${kind}：底色必须走变量`)
+      assert.match(decls, /border-color:var\(--dsh-update-[a-z]+-border\)/, `${kind}：边线必须走变量`)
       assert.doesNotMatch(decls, /(background|border-color):#/, `${kind}：不许硬编码颜色（深色会读不出来）`)
     }
   }
@@ -72,9 +72,9 @@ test('深色媒体块覆盖全部八条横幅变量（漏一条就退回浅色�
 
 test('深色下文字与横幅底色对比度 ≥ 4.5（浅字浅底的门）', () => {
   const block = darkBlock()
-  const fgMatch = block.match(/--dsh-upd-fg:(#[0-9a-fA-F]{3,6})/)
-  const panelMatch = block.match(/--dsh-upd-bg:(#[0-9a-fA-F]{3,6})/)
-  assert.ok(fgMatch && panelMatch, '深色块必须给 --dsh-upd-fg 与 --dsh-upd-bg')
+  const fgMatch = block.match(/--dsh-update-text:(#[0-9a-fA-F]{3,6})/)
+  const panelMatch = block.match(/--dsh-update-bg:(#[0-9a-fA-F]{3,6})/)
+  assert.ok(fgMatch && panelMatch, '深色块必须给 --dsh-update-text 与 --dsh-update-bg')
   const fg = hexToRgb(fgMatch[1])
   const panel = hexToRgb(panelMatch[1])
   for (const name of VAR_NAMES.filter((n) => n.endsWith('-bg'))) {

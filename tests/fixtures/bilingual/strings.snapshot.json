@@ -117,6 +117,11 @@
       "zh": "{n} 家已安装好，重启宿主后生效。",
       "draft": true
     },
+    "batch.diag.source-job": {
+      "en": "(Source: background job record)",
+      "zh": "（来源：后台任务收尾记录）",
+      "draft": true
+    },
     "batch.fact.close-safe": {
       "en": "Closing this panel won't stop it — progress is saved on disk.",
       "zh": "关掉面板不会中断：进度已写盘，回来可继续。",
@@ -202,9 +207,109 @@
       "zh": "已继续上次未完成的更新（还剩 {count} 家）。",
       "draft": true
     },
+    "batch.row-action.cancel-queue": {
+      "en": "Cancel queue",
+      "zh": "取消排队",
+      "draft": true
+    },
+    "batch.row-action.copy-diag": {
+      "en": "Copy diagnostics",
+      "zh": "复制诊断",
+      "draft": true
+    },
+    "batch.row-action.copy-manual": {
+      "en": "Copy manual command",
+      "zh": "复制手工命令",
+      "draft": true
+    },
+    "batch.row-action.hide-detail": {
+      "en": "Collapse",
+      "zh": "收起",
+      "draft": true
+    },
+    "batch.row-action.install-generic": {
+      "en": "Install the new version",
+      "zh": "安装 新版",
+      "draft": true
+    },
+    "batch.row-action.install-row": {
+      "en": "Install this plugin",
+      "zh": "安装这家",
+      "draft": true
+    },
+    "batch.row-action.install-version": {
+      "en": "Install {version}",
+      "zh": "安装 {version}",
+      "draft": true
+    },
+    "batch.row-action.installing": {
+      "en": "Installing…",
+      "zh": "安装中…",
+      "draft": true
+    },
+    "batch.row-action.queue": {
+      "en": "Join queue",
+      "zh": "加入队列",
+      "draft": true
+    },
+    "batch.row-action.restart": {
+      "en": "Restart host",
+      "zh": "重启宿主",
+      "draft": true
+    },
+    "batch.row-action.retry": {
+      "en": "Retry",
+      "zh": "重试",
+      "draft": true
+    },
+    "batch.row-action.show-detail": {
+      "en": "Details",
+      "zh": "详情",
+      "draft": true
+    },
+    "batch.row-action.skip": {
+      "en": "Skip this version",
+      "zh": "跳过这一版",
+      "draft": true
+    },
+    "batch.row-action.unskip": {
+      "en": "Restore ({version})",
+      "zh": "恢复（{version}）",
+      "draft": true
+    },
+    "batch.row.checking": {
+      "en": "Checking for updates; please wait",
+      "zh": "正在查新版，稍等",
+      "draft": true
+    },
+    "batch.row.cta-generic": {
+      "en": "Select “Install this plugin” to install the new version",
+      "zh": "点「安装这家」安装新版",
+      "draft": true
+    },
+    "batch.row.cta-version": {
+      "en": "Select “Install this plugin” to install {version}",
+      "zh": "点「安装这家」安装 {version}",
+      "draft": true
+    },
     "batch.row.current": {
       "en": "Up to date",
       "zh": "已是最新，不用动",
+      "draft": true
+    },
+    "batch.row.done": {
+      "en": "Installed; nothing to do",
+      "zh": "安装好了，不用动",
+      "draft": true
+    },
+    "batch.row.done-restart": {
+      "en": "Installed; restart the host to take effect",
+      "zh": "安装好了，重启宿主才生效",
+      "draft": true
+    },
+    "batch.row.error-label": {
+      "en": "Failed {code}: {detail}",
+      "zh": "失败 {code}：{detail}",
       "draft": true
     },
     "batch.row.failed": {
@@ -212,9 +317,39 @@
       "zh": "这次没查到",
       "draft": true
     },
+    "batch.row.failed-retry": {
+      "en": "Install failed; select “Retry” to try again",
+      "zh": "安装没成功，点「重试」再来一次",
+      "draft": true
+    },
+    "batch.row.installing": {
+      "en": "Installing; please wait",
+      "zh": "正在安装，别动",
+      "draft": true
+    },
     "batch.row.never": {
       "en": "Not checked yet",
       "zh": "还没查过",
+      "draft": true
+    },
+    "batch.row.queued-generic": {
+      "en": "Queued · waiting for the running install to finish",
+      "zh": "已排队 · 等前面安装完",
+      "draft": true
+    },
+    "batch.row.queued-n": {
+      "en": "Queued · {n} ahead",
+      "zh": "已排队 · 前方 {n} 个",
+      "draft": true
+    },
+    "batch.row.skipped": {
+      "en": "Skipped {version}",
+      "zh": "已跳过 {version}",
+      "draft": true
+    },
+    "batch.row.skipped-idle": {
+      "en": "This version is skipped; nothing to do",
+      "zh": "这一版已跳过，不用动",
       "draft": true
     },
     "batch.row.unfinished-tag": {
@@ -222,9 +357,19 @@
       "zh": "上一批没做完",
       "draft": true
     },
+    "batch.row.unknown": {
+      "en": "Unknown state; select “Check for updates” to check again",
+      "zh": "状态认不出，点「检查更新」重查一次",
+      "draft": true
+    },
     "batch.row.update": {
       "en": "Update available {version}",
       "zh": "有新版 {version}",
+      "draft": true
+    },
+    "batch.row.wait-turn": {
+      "en": "Waiting for its turn; it will check automatically",
+      "zh": "等它，轮到就自动查新版",
       "draft": true
     },
     "batch.seal.ledger": {
@@ -275,6 +420,191 @@
     "batch.summary.updatable": {
       "en": "{n} updates available",
       "zh": "{n} 家可更新",
+      "draft": true
+    },
+    "batch.toast.cancel-fail": {
+      "en": "Could not cancel the queue (it may have started installing); see the latest state below.",
+      "zh": "取消排队没成功（可能已经开始装了）：看下面最新状态。",
+      "draft": true
+    },
+    "batch.toast.cancel-ok": {
+      "en": "Queue cancelled: this plugin will not wait.",
+      "zh": "已取消排队：这一家不等了。",
+      "draft": true
+    },
+    "batch.toast.cancel-unavailable": {
+      "en": "This row carries no phone or ID to cancel the queue; try again after the next refresh.",
+      "zh": "这一行没带取消排队要用的电话名或编号，暂不能取消：等下一次刷新再看。",
+      "draft": true
+    },
+    "batch.toast.copy-diag-ok": {
+      "en": "Diagnostics copied; paste it to the plugin author (already redacted).",
+      "zh": "诊断已复制，直接粘给插件作者即可（已脱敏）。",
+      "draft": true
+    },
+    "batch.toast.copy-fail": {
+      "en": "Copy failed; please select the info above manually.",
+      "zh": "复制失败，请手动选中上面的信息。",
+      "draft": true
+    },
+    "batch.toast.copy-manual-ok": {
+      "en": "Manual command copied; paste the full line into the terminal to run it.",
+      "zh": "手工命令已复制，粘到终端整行执行即可。",
+      "draft": true
+    },
+    "batch.toast.queue-missed": {
+      "en": "Another install is running: this plugin is not queued yet; try again after it finishes.",
+      "zh": "前面还在装：这一家还没排上，等那家装完再点一次。",
+      "draft": true
+    },
+    "batch.toast.restart-delegated": {
+      "en": "Handled by the caller’s restart flow; the new version takes effect after restart.",
+      "zh": "已按调用方的重启流程处理；重启后新版生效。",
+      "draft": true
+    },
+    "batch.toast.restart-failed": {
+      "en": "Restart entry failed; please restart the host manually. The new version takes effect after restart.",
+      "zh": "重启入口调用失败：请手动重启宿主，重启后新版生效。",
+      "draft": true
+    },
+    "batch.toast.restart-manual": {
+      "en": "This host provides no restart entry; please restart the host manually. The new version takes effect after restart.",
+      "zh": "本宿主未提供重启入口：请手动重启宿主，重启后新版生效。",
+      "draft": true
+    },
+    "batch.toast.skipped": {
+      "en": "Skipped {version}: no further reminders for this version; select “Restore” to undo.",
+      "zh": "已跳过 {version}：这一版不再提醒；点「恢复」可撤销。",
+      "draft": true
+    },
+    "batch.toast.unskipped-all": {
+      "en": "Skip reminder restored.",
+      "zh": "已恢复跳过提醒。",
+      "draft": true
+    },
+    "batch.toast.unskipped-version": {
+      "en": "Restored {version}: reminders for this version are back on.",
+      "zh": "已恢复 {version}：这一版会照常提醒。",
+      "draft": true
+    },
+    "changelog.breaking.aria": {
+      "en": "Breaking change",
+      "zh": "破坏性变更",
+      "draft": true
+    },
+    "changelog.breaking.badge": {
+      "en": "Breaking",
+      "zh": "不兼容",
+      "draft": true
+    },
+    "changelog.neutral.hint": {
+      "en": "No changelog provided",
+      "zh": "作者未提供更新说明",
+      "draft": true
+    },
+    "changelog.neutral.line": {
+      "en": "No changelog provided. Install is not affected.",
+      "zh": "作者未提供更新说明，安装不受影响。",
+      "draft": true
+    },
+    "changelog.security.note": {
+      "en": "Remaining entries are collapsed to keep the panel fast. See the original text.",
+      "zh": "为保持面板性能，其余条目已折叠，可查看原文。",
+      "draft": true
+    },
+    "changelog.security.summary": {
+      "en": "{n} more items",
+      "zh": "其余 {n} 条",
+      "draft": true
+    },
+    "changelog.truncated.count": {
+      "en": "Showing {n} of {m} items",
+      "zh": "共 {m} 条，仅显示前 {n} 条",
+      "draft": true
+    },
+    "changelog.yanked.banner": {
+      "en": "Version {version} was yanked by the author. Install is not affected. Please confirm before proceeding.",
+      "zh": "目标版本 {version} 已被作者撤回（yanked），安装不受影响，继续前请确认。",
+      "draft": true
+    },
+    "changelog.yanked.suffix": {
+      "en": " · Yanked",
+      "zh": " · 已撤回",
+      "draft": true
+    },
+    "diag.fallback.generic": {
+      "en": "Operation failed",
+      "zh": "操作失败",
+      "draft": true
+    },
+    "diag.fallback.http-status": {
+      "en": "Source returned {status}. Retry still failed.",
+      "zh": "源返回 {status}，重试仍失败",
+      "draft": true
+    },
+    "diag.fallback.incompatible-node": {
+      "en": "New version needs a different Node version than the running one",
+      "zh": "新版要求的 Node 与当前运行的对不上",
+      "draft": true
+    },
+    "diag.fallback.install-failed": {
+      "en": "Install failed",
+      "zh": "安装失败",
+      "draft": true
+    },
+    "diag.fallback.installation-changed": {
+      "en": "Install location changed during use",
+      "zh": "安装位置在使用中途变了",
+      "draft": true
+    },
+    "diag.fallback.invalid-installation": {
+      "en": "Installed package is incomplete",
+      "zh": "已装的包不完整",
+      "draft": true
+    },
+    "diag.fallback.invalid-release": {
+      "en": "Version in the manifest is not valid",
+      "zh": "清单里的版本号不是合法版本",
+      "draft": true
+    },
+    "diag.fallback.pending-restart": {
+      "en": "New version is on disk. The running version is still the old one.",
+      "zh": "新版已装到磁盘，正在跑的还是旧版",
+      "draft": true
+    },
+    "diag.fallback.rate-limited": {
+      "en": "Source returned 429. Too many requests this minute.",
+      "zh": "源返回 429，这一分钟请求太多",
+      "draft": true
+    },
+    "diag.fallback.read-installed": {
+      "en": "Failed to read local state",
+      "zh": "读本地状态没成功",
+      "draft": true
+    },
+    "diag.fallback.recovery-required": {
+      "en": "Last install was interrupted, leaving a partial task",
+      "zh": "上次安装被打断，留下一个半截任务",
+      "draft": true
+    },
+    "diag.fallback.registry-conflict": {
+      "en": "Declared version conflicts with the on-disk version",
+      "zh": "本地声明的版本与磁盘实际版本互相矛盾",
+      "draft": true
+    },
+    "diag.fallback.revalidate-fetch": {
+      "en": "Revalidation fetch failed before install",
+      "zh": "装前重验取数没成功",
+      "draft": true
+    },
+    "diag.fallback.source-install": {
+      "en": "Installed from source, not by version",
+      "zh": "当前是从源码装的，不是按版本号装的",
+      "draft": true
+    },
+    "diag.fallback.unknown-profile": {
+      "en": "Scope or plugin location not recognized",
+      "zh": "使用范围或插件位置认不出",
       "draft": true
     },
     "entry.action.checking": {

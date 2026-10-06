@@ -14,17 +14,17 @@
 // - draft 诚实态（#53 Q3）：无母语评审即标 draft；底座钉住字典版本开发（BILINGUAL_DICT_VERSION），
 //   draft 不卡 #54，转正只换文案不换 key；零 draft 放行由 #56 门禁执行，本模块只提供 draftKeys() 供门禁读。
 //
-// 范围（#60 两条入口链 + #61 panel 状态与动作 + #62 panel 内核 HTML §3.7 + #63 诊断复制 §3.3/3.4 + #64 panel-batch 聚合总账 §4.1/4.3/4.4/4.5）：entry 7 键（#52 §1）+ batch-entry 6 键 + panel 75 键
-// （#52 §3.1 16 + §3.2 14 + §3.5 16 + §3.6 18 + §3.8 11）+ diag 35 键（#52 §3.3 13 + §3.4 22（含 3 复用），逐条见 research/52-inventory.md）。
-// panel-batch / changelog / diag 兜底复用后续票展开，本文件不预占它们的 key（避免双源）。
-// CHANGELOG 六类标题唯一源仍是 changelog.ts CATEGORY_ZH，本模块不另起第二套映射。
+// 范围（#60 两条入口链 + #61 panel 状态与动作 + #62 panel 内核 HTML §3.7 + #63 诊断复制 §3.3/3.4 + #64 panel-batch 聚合总账 §4.1/4.3/4.4/4.5 + #65 panel-batch 行详情回执 §4.2/4.6/4.7 + #66 changelog 运行时 §6.1/ diag 兜底 §7.1）：entry 7 键（#52 §1）+ batch-entry 6 键 + panel 75 键
+// （#52 §3.1 16 + §3.2 14 + §3.5 16 + §3.6 18 + §3.8 11）+ diag 35 键（#52 §3.3 13 + §3.4 22（含 3 复用））+ batch-ledger 33 + batch-row 42 + changelog 9 + diag-fallback 15（§7.1 18 行含 3 复用电话表，逐条见 research/52-inventory.md）。
+// panel-batch 剩余与验收矩阵由后续票展开，本文件不预占它们的 key（避免双源）。
+// CHANGELOG 六类标题唯一源仍是 changelog.ts CATEGORY_ZH，本模块不另起第二套映射（#66 中文「新增（Added）」/英文「Added」由渲染层按 CATEGORY_ZH 现场组装，不进字典）。
 
 import { normalizeLangTag, resolveLang, type AppLang } from './lang.js'
 
 /** 字典版本钉（#53 Q3 解耦）：key 冻即解阻塞 #54，文案按词标 draft/locked；开发钉此版本，转正只换文案不换 key。 */
 export const BILINGUAL_DICT_VERSION = '2026-10-06-pin53'
 
-/** key 全集（entry 7 + batch-entry 6 + panel 75（#61）+ kernel 72（#62 §3.7）+ diag 35（#63 §3.3/3.4）+ batch-ledger 33（#64 §4.1 8 + §4.3 8 + §4.4 10 + §4.5 7），命名沿 #52 key 提案，area.group.name；既有 213 键 en/zh/draft 不动）。 */
+/** key 全集（entry 7 + batch-entry 6 + panel 75（#61）+ kernel 72（#62 §3.7）+ diag 35（#63 §3.3/3.4）+ batch-ledger 33（#64 §4.1/4.3/4.4/4.5）+ batch-row 42（#65 §4.2 13 + §4.6 15 + §4.7 14）+ changelog 9 + diag-fallback 15（#66 §6.1/§7.1），命名沿 #52 key 提案，area.group.name；既有 288 键 en/zh/draft 不动）。 */
 export type BilingualKey =
   | 'entry.label.idle'
   | 'entry.label.failed'
@@ -272,6 +272,72 @@ export type BilingualKey =
   | 'batch.banner.restart-title'
   | 'batch.banner.restart-action'
   | 'batch.banner.restart-button'
+  | 'batch.row.queued-generic'
+  | 'batch.row.queued-n'
+  | 'batch.row.skipped'
+  | 'batch.row.wait-turn'
+  | 'batch.row.checking'
+  | 'batch.row.cta-version'
+  | 'batch.row.cta-generic'
+  | 'batch.row.installing'
+  | 'batch.row.done-restart'
+  | 'batch.row.done'
+  | 'batch.row.failed-retry'
+  | 'batch.row.skipped-idle'
+  | 'batch.row.unknown'
+  | 'batch.row-action.installing'
+  | 'batch.row-action.cancel-queue'
+  | 'batch.row-action.queue'
+  | 'batch.row-action.install-row'
+  | 'batch.row-action.retry'
+  | 'batch.row-action.install-version'
+  | 'batch.row-action.install-generic'
+  | 'batch.row-action.unskip'
+  | 'batch.row-action.restart'
+  | 'batch.row-action.show-detail'
+  | 'batch.row-action.hide-detail'
+  | 'batch.row-action.skip'
+  | 'batch.row-action.copy-manual'
+  | 'batch.row-action.copy-diag'
+  | 'batch.row.error-label'
+  | 'batch.diag.source-job'
+  | 'batch.toast.copy-fail'
+  | 'batch.toast.queue-missed'
+  | 'batch.toast.skipped'
+  | 'batch.toast.unskipped-version'
+  | 'batch.toast.unskipped-all'
+  | 'batch.toast.cancel-unavailable'
+  | 'batch.toast.cancel-ok'
+  | 'batch.toast.cancel-fail'
+  | 'batch.toast.copy-manual-ok'
+  | 'batch.toast.copy-diag-ok'
+  | 'batch.toast.restart-delegated'
+  | 'batch.toast.restart-manual'
+  | 'batch.toast.restart-failed'
+  | 'changelog.neutral.hint'
+  | 'changelog.neutral.line'
+  | 'changelog.breaking.badge'
+  | 'changelog.breaking.aria'
+  | 'changelog.truncated.count'
+  | 'changelog.yanked.banner'
+  | 'changelog.yanked.suffix'
+  | 'changelog.security.summary'
+  | 'changelog.security.note'
+  | 'diag.fallback.generic'
+  | 'diag.fallback.read-installed'
+  | 'diag.fallback.revalidate-fetch'
+  | 'diag.fallback.rate-limited'
+  | 'diag.fallback.http-status'
+  | 'diag.fallback.invalid-release'
+  | 'diag.fallback.install-failed'
+  | 'diag.fallback.unknown-profile'
+  | 'diag.fallback.source-install'
+  | 'diag.fallback.invalid-installation'
+  | 'diag.fallback.installation-changed'
+  | 'diag.fallback.pending-restart'
+  | 'diag.fallback.incompatible-node'
+  | 'diag.fallback.registry-conflict'
+  | 'diag.fallback.recovery-required'
 
 /** 一条双语：en/zh 模板 + 成熟度。模板内具名槽如 {version}/{count}，运行时值填入（值永不翻译）。 */
 export interface BilingualEntry {
@@ -533,6 +599,72 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.banner.restart-title': { en: '{n} installed; restart the host to take effect.', zh: '{n} 家已安装好，重启宿主后生效。', draft: true },
   'batch.banner.restart-action': { en: 'Restart the host to run the new version; this is a normal end state, not a failure.', zh: '重启宿主，让新版跑起来；这是正常终态，不是失败。', draft: true },
   'batch.banner.restart-button': { en: 'Restart host', zh: '重启宿主', draft: true },
+  'batch.row.queued-generic': { en: 'Queued \u00b7 waiting for the running install to finish', zh: '已排队 \u00b7 等前面安装完', draft: true },
+  'batch.row.queued-n': { en: 'Queued \u00b7 {n} ahead', zh: '已排队 \u00b7 前方 {n} 个', draft: true },
+  'batch.row.skipped': { en: 'Skipped {version}', zh: '已跳过 {version}', draft: true },
+  'batch.row.wait-turn': { en: 'Waiting for its turn; it will check automatically', zh: '等它，轮到就自动查新版', draft: true },
+  'batch.row.checking': { en: 'Checking for updates; please wait', zh: '正在查新版，稍等', draft: true },
+  'batch.row.cta-version': { en: 'Select \u201cInstall this plugin\u201d to install {version}', zh: '点\u300c安装这家\u300d安装 {version}', draft: true },
+  'batch.row.cta-generic': { en: 'Select \u201cInstall this plugin\u201d to install the new version', zh: '点\u300c安装这家\u300d安装新版', draft: true },
+  'batch.row.installing': { en: 'Installing; please wait', zh: '正在安装，别动', draft: true },
+  'batch.row.done-restart': { en: 'Installed; restart the host to take effect', zh: '安装好了，重启宿主才生效', draft: true },
+  'batch.row.done': { en: 'Installed; nothing to do', zh: '安装好了，不用动', draft: true },
+  'batch.row.failed-retry': { en: 'Install failed; select \u201cRetry\u201d to try again', zh: '安装没成功，点\u300c重试\u300d再来一次', draft: true },
+  'batch.row.skipped-idle': { en: 'This version is skipped; nothing to do', zh: '这一版已跳过，不用动', draft: true },
+  'batch.row.unknown': { en: 'Unknown state; select \u201cCheck for updates\u201d to check again', zh: '状态认不出，点\u300c检查更新\u300d重查一次', draft: true },
+  'batch.row-action.installing': { en: 'Installing\u2026', zh: '安装中\u2026', draft: true },
+  'batch.row-action.cancel-queue': { en: 'Cancel queue', zh: '取消排队', draft: true },
+  'batch.row-action.queue': { en: 'Join queue', zh: '加入队列', draft: true },
+  'batch.row-action.install-row': { en: 'Install this plugin', zh: '安装这家', draft: true },
+  'batch.row-action.retry': { en: 'Retry', zh: '重试', draft: true },
+  'batch.row-action.install-version': { en: 'Install {version}', zh: '安装 {version}', draft: true },
+  'batch.row-action.install-generic': { en: 'Install the new version', zh: '安装 新版', draft: true },
+  'batch.row-action.unskip': { en: 'Restore ({version})', zh: '恢复（{version}）', draft: true },
+  'batch.row-action.restart': { en: 'Restart host', zh: '重启宿主', draft: true },
+  'batch.row-action.show-detail': { en: 'Details', zh: '详情', draft: true },
+  'batch.row-action.hide-detail': { en: 'Collapse', zh: '收起', draft: true },
+  'batch.row-action.skip': { en: 'Skip this version', zh: '跳过这一版', draft: true },
+  'batch.row-action.copy-manual': { en: 'Copy manual command', zh: '复制手工命令', draft: true },
+  'batch.row-action.copy-diag': { en: 'Copy diagnostics', zh: '复制诊断', draft: true },
+  'batch.row.error-label': { en: 'Failed {code}: {detail}', zh: '失败 {code}：{detail}', draft: true },
+  'batch.diag.source-job': { en: '(Source: background job record)', zh: '（来源：后台任务收尾记录）', draft: true },
+  'batch.toast.copy-fail': { en: 'Copy failed; please select the info above manually.', zh: '复制失败，请手动选中上面的信息。', draft: true },
+  'batch.toast.queue-missed': { en: 'Another install is running: this plugin is not queued yet; try again after it finishes.', zh: '前面还在装：这一家还没排上，等那家装完再点一次。', draft: true },
+  'batch.toast.skipped': { en: 'Skipped {version}: no further reminders for this version; select \u201cRestore\u201d to undo.', zh: '已跳过 {version}：这一版不再提醒；点\u300c恢复\u300d可撤销。', draft: true },
+  'batch.toast.unskipped-version': { en: 'Restored {version}: reminders for this version are back on.', zh: '已恢复 {version}：这一版会照常提醒。', draft: true },
+  'batch.toast.unskipped-all': { en: 'Skip reminder restored.', zh: '已恢复跳过提醒。', draft: true },
+  'batch.toast.cancel-unavailable': { en: 'This row carries no phone or ID to cancel the queue; try again after the next refresh.', zh: '这一行没带取消排队要用的电话名或编号，暂不能取消：等下一次刷新再看。', draft: true },
+  'batch.toast.cancel-ok': { en: 'Queue cancelled: this plugin will not wait.', zh: '已取消排队：这一家不等了。', draft: true },
+  'batch.toast.cancel-fail': { en: 'Could not cancel the queue (it may have started installing); see the latest state below.', zh: '取消排队没成功（可能已经开始装了）：看下面最新状态。', draft: true },
+  'batch.toast.copy-manual-ok': { en: 'Manual command copied; paste the full line into the terminal to run it.', zh: '手工命令已复制，粘到终端整行执行即可。', draft: true },
+  'batch.toast.copy-diag-ok': { en: 'Diagnostics copied; paste it to the plugin author (already redacted).', zh: '诊断已复制，直接粘给插件作者即可（已脱敏）。', draft: true },
+  'batch.toast.restart-delegated': { en: 'Handled by the caller\u2019s restart flow; the new version takes effect after restart.', zh: '已按调用方的重启流程处理；重启后新版生效。', draft: true },
+  'batch.toast.restart-manual': { en: 'This host provides no restart entry; please restart the host manually. The new version takes effect after restart.', zh: '本宿主未提供重启入口：请手动重启宿主，重启后新版生效。', draft: true },
+  'batch.toast.restart-failed': { en: 'Restart entry failed; please restart the host manually. The new version takes effect after restart.', zh: '重启入口调用失败：请手动重启宿主，重启后新版生效。', draft: true },
+  'changelog.neutral.hint': { en: 'No changelog provided', zh: '作者未提供更新说明', draft: true },
+  'changelog.neutral.line': { en: 'No changelog provided. Install is not affected.', zh: '作者未提供更新说明，安装不受影响。', draft: true },
+  'changelog.breaking.badge': { en: 'Breaking', zh: '不兼容', draft: true },
+  'changelog.breaking.aria': { en: 'Breaking change', zh: '破坏性变更', draft: true },
+  'changelog.truncated.count': { en: 'Showing {n} of {m} items', zh: '共 {m} 条，仅显示前 {n} 条', draft: true },
+  'changelog.yanked.banner': { en: 'Version {version} was yanked by the author. Install is not affected. Please confirm before proceeding.', zh: '目标版本 {version} 已被作者撤回（yanked），安装不受影响，继续前请确认。', draft: true },
+  'changelog.yanked.suffix': { en: ' · Yanked', zh: ' · 已撤回', draft: true },
+  'changelog.security.summary': { en: '{n} more items', zh: '其余 {n} 条', draft: true },
+  'changelog.security.note': { en: 'Remaining entries are collapsed to keep the panel fast. See the original text.', zh: '为保持面板性能，其余条目已折叠，可查看原文。', draft: true },
+  'diag.fallback.generic': { en: 'Operation failed', zh: '操作失败', draft: true },
+  'diag.fallback.read-installed': { en: 'Failed to read local state', zh: '读本地状态没成功', draft: true },
+  'diag.fallback.revalidate-fetch': { en: 'Revalidation fetch failed before install', zh: '装前重验取数没成功', draft: true },
+  'diag.fallback.rate-limited': { en: 'Source returned 429. Too many requests this minute.', zh: '源返回 429，这一分钟请求太多', draft: true },
+  'diag.fallback.http-status': { en: 'Source returned {status}. Retry still failed.', zh: '源返回 {status}，重试仍失败', draft: true },
+  'diag.fallback.invalid-release': { en: 'Version in the manifest is not valid', zh: '清单里的版本号不是合法版本', draft: true },
+  'diag.fallback.install-failed': { en: 'Install failed', zh: '安装失败', draft: true },
+  'diag.fallback.unknown-profile': { en: 'Scope or plugin location not recognized', zh: '使用范围或插件位置认不出', draft: true },
+  'diag.fallback.source-install': { en: 'Installed from source, not by version', zh: '当前是从源码装的，不是按版本号装的', draft: true },
+  'diag.fallback.invalid-installation': { en: 'Installed package is incomplete', zh: '已装的包不完整', draft: true },
+  'diag.fallback.installation-changed': { en: 'Install location changed during use', zh: '安装位置在使用中途变了', draft: true },
+  'diag.fallback.pending-restart': { en: 'New version is on disk. The running version is still the old one.', zh: '新版已装到磁盘，正在跑的还是旧版', draft: true },
+  'diag.fallback.incompatible-node': { en: 'New version needs a different Node version than the running one', zh: '新版要求的 Node 与当前运行的对不上', draft: true },
+  'diag.fallback.registry-conflict': { en: 'Declared version conflicts with the on-disk version', zh: '本地声明的版本与磁盘实际版本互相矛盾', draft: true },
+  'diag.fallback.recovery-required': { en: 'Last install was interrupted, leaving a partial task', zh: '上次安装被打断，留下一个半截任务', draft: true },
 }
 
 function escapeHtml(value: unknown): string {

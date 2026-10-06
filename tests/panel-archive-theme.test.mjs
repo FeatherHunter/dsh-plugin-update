@@ -1,15 +1,15 @@
 /**
- * tests/panel-d5-theme.test.mjs —— D5 档案卷可选主题（#20）。
+ * tests/panel-archive-theme.test.mjs —— Archive 档案卷可选主题（#20）。
  *
  * 只测外部行为：同一输入双主题内核同一份（行为等价）、默认输出一字不动、
- * D5 七要素只换肤（印章/牌/衬线/TSVG/窄屏/折叠/双主题）、可访问性门禁、
+ * Archive 七要素只换肤（印章/牌/衬线/TSVG/窄屏/折叠/双主题）、可访问性门禁、
  * 窄屏回归、复制诊断永不隐藏。样式像素只断关键选择器存在，不逐像素比对。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   UPDATE_PANEL_CSS,
-  UPDATE_PANEL_D5_CSS,
+  UPDATE_PANEL_ARCHIVE_CSS,
   mountUpdatePanel,
   panelViewModel,
   renderUpdatePanelHTML,
@@ -75,16 +75,16 @@ function kernelOf(html) {
 
 // ---------- 默认主题一字不动 ----------
 
-test('默认主题输出不带 D5：无 data-theme、无 D5 串', () => {
+test('默认主题输出不带 Archive：无 data-theme、无 Archive 串', () => {
   const html = renderUpdatePanelHTML(inputFor())
   assert.ok(!html.includes('data-theme='), '默认不得出现 data-theme 属性')
-  assert.ok(!html.includes('d5-paper'), '默认样式不得带 D5 串')
+  assert.ok(!html.includes('archive'), '默认样式不得带 Archive 串')
   assert.ok(html.includes('data-action="copy-diag"'), '默认仍有复制诊断')
 })
 
-test('默认 CSS 本身不含主题作用域（D5 只活在追加串里）', () => {
+test('默认 CSS 本身不含主题作用域（Archive 只活在追加串里）', () => {
   assert.ok(!UPDATE_PANEL_CSS.includes('data-theme'), 'UPDATE_PANEL_CSS 不得含 data-theme')
-  assert.ok(UPDATE_PANEL_D5_CSS.includes('data-theme="archive"'), 'D5 串按主题作用域收敛')
+  assert.ok(UPDATE_PANEL_ARCHIVE_CSS.includes('data-theme="archive"'), 'Archive 串按主题作用域收敛')
 })
 
 // ---------- 同 DOM 双主题行为等价 ----------
@@ -103,7 +103,7 @@ const KIND_CASES = [
 test('同 DOM 双主题行为等价：八种横幅内核逐字同一份', () => {
   for (const [name, view] of KIND_CASES) {
     const a = kernelOf(renderUpdatePanelHTML(inputFor(view)))
-    const b = kernelOf(renderUpdatePanelHTML(inputFor(view, { theme: 'd5-paper' })))
+    const b = kernelOf(renderUpdatePanelHTML(inputFor(view, { theme: 'archive' })))
     assert.equal(b, a, `${name} 内核两边必须逐字相同`)
   }
 })
@@ -112,25 +112,25 @@ test('双形态与主题正交：同形态下换肤内核不变', () => {
   const base = { snapshot: baseSnapshot(), manual: 'cmd', queue: baseQueue(), skippedLatest: false, lastError: null }
   for (const mode of ['embedded', 'dialog']) {
     const def = kernelOf(renderUpdatePanelHTML({ ...base, mode, showOthers: false, pluginId: 'p', copyNotice: null }))
-    const d5 = kernelOf(renderUpdatePanelHTML({ ...base, mode, showOthers: false, pluginId: 'p', copyNotice: null, theme: 'd5-paper' }))
-    assert.equal(d5, def, `${mode} 下换肤内核必须逐字相同`)
+    const arch = kernelOf(renderUpdatePanelHTML({ ...base, mode, showOthers: false, pluginId: 'p', copyNotice: null, theme: 'archive' }))
+    assert.equal(arch, def, `${mode} 下换肤内核必须逐字相同`)
   }
 })
 
-// ---------- D5 七要素只换肤 ----------
+// ---------- Archive 七要素只换肤 ----------
 
-test('D5 七要素：印章取属性 + profile 牌 + 衬线横幅 + SVG + 折叠 + 双主题全在串里', () => {
-  const css = UPDATE_PANEL_D5_CSS
+test('Archive 七要素：印章取属性 + profile 牌 + 衬线横幅 + SVG + 折叠 + 双主题全在串里', () => {
+  const css = UPDATE_PANEL_ARCHIVE_CSS
   // 印章（原型 :206 大印章 / :215 小印章）：内容从根属性取，CSS 里不再写死五个字。
   assert.ok(css.includes('content:attr(data-seal)'), '大印章须读 data-seal')
   assert.ok(css.includes('content:attr(data-mini)'), '小印章须读 data-mini')
   assert.ok(css.includes('rotate(-7deg)'), '大印章须旋转 -7°（原型 .seal）')
   assert.ok(css.includes('[data-seal-tone="green"]'), '大印章须按色调分档上色')
   assert.ok(css.includes('.dsh-upd-log code'), 'profile 牌须落在现有日志 code 上')
-  assert.ok(css.includes('--d5-serif'), '须有衬线变量')
+  assert.ok(css.includes('--dsh-update-font-serif'), '须有衬线变量')
   assert.ok(css.includes('Noto Serif CJK SC'), '衬线栈须含 CJK 回退（无 Songti/SimSun 的环境不许回退成等线）')
   assert.ok(css.includes('[data-kind="restart"]'), '待重启横幅须单独收敛')
-  assert.ok(css.includes('font-family:var(--d5-serif)'), '待重启横幅须用衬线')
+  assert.ok(css.includes('font-family:var(--dsh-update-font-serif)'), '待重启横幅须用衬线')
   assert.ok(css.includes('data:image/svg+xml'), '手绘 SVG 标须内联 data-uri')
   assert.ok(css.includes('@media (max-width:640px)'), '窄屏回归须有 640px 媒体')
   assert.ok(css.includes('width:24px'), '窄屏印章须固定 24px')
@@ -140,7 +140,7 @@ test('D5 七要素：印章取属性 + profile 牌 + 衬线横幅 + SVG + 折叠
 })
 
 test('待重启横幅只有一个标记：不画印章，标记是手绘 SVG（原型 :446）', () => {
-  const css = UPDATE_PANEL_D5_CSS
+  const css = UPDATE_PANEL_ARCHIVE_CSS
   // 印章选择器列表里不许出现 restart（否则「启」章与 SVG 三角两个标记打架——现场就是这个问题）。
   const sealRule = css.slice(css.indexOf('content:attr(data-mini)'))
   const selectorHead = sealRule.slice(0, sealRule.indexOf('{'))
@@ -161,12 +161,12 @@ test('印章走属性带在根上：两个主题的内核逐字同一份，默�
     snapshot: baseSnapshot({ canInstall: false, blockedReason: 'pending-restart', latestVersion: '1.1.0', installedVersion: '1.1.0' }),
   })
   const def = renderUpdatePanelHTML(restartInput)
-  const d5 = renderUpdatePanelHTML({ ...restartInput, theme: 'd5-paper' })
+  const arch = renderUpdatePanelHTML({ ...restartInput, theme: 'archive' })
   assert.ok(def.includes('data-seal="待重启"'), '根上须带大印章文字')
   assert.ok(def.includes('data-seal-tone="yellow"'), '待重启印章色调应为黄')
   assert.ok(def.includes('data-mini="启"'), '横幅须带小印章一字')
-  assert.equal(kernelOf(d5), kernelOf(def), '换肤不得改内核')
-  assert.ok(!UPDATE_PANEL_CSS.includes('attr(data-seal)'), '默认主题不许画印章（内容只在 D5 串里读）')
+  assert.equal(kernelOf(arch), kernelOf(def), '换肤不得改内核')
+  assert.ok(!UPDATE_PANEL_CSS.includes('attr(data-seal)'), '默认主题不许画印章（内容只在 Archive 串里读）')
 })
 
 test('待重启文案照原型：不带 emoji，且给「重启宿主」入口', () => {
@@ -205,12 +205,12 @@ test('「重启宿主」入口：没给回调如实提示手动重启，给了�
   panelB.unmount()
 })
 
-test('复制诊断永不隐藏：D5 串不对复制入口写 display:none', () => {
-  const css = UPDATE_PANEL_D5_CSS
+test('复制诊断永不隐藏：Archive 串不对复制入口写 display:none', () => {
+  const css = UPDATE_PANEL_ARCHIVE_CSS
   assert.ok(!/copy-diag[^}]*display\s*:\s*none/.test(css), '不得藏复制诊断按钮')
   assert.ok(!/\.dsh-upd-manual[^}]*display\s*:\s*none/.test(css), '不得藏手工命令块')
-  const html = renderUpdatePanelHTML(inputFor({ snapshot: baseSnapshot() }, { theme: 'd5-paper' }))
-  assert.ok(html.includes('data-action="copy-diag"'), 'D5 下复制诊断仍在 DOM 里')
+  const html = renderUpdatePanelHTML(inputFor({ snapshot: baseSnapshot() }, { theme: 'archive' }))
+  assert.ok(html.includes('data-action="copy-diag"'), 'Archive 下复制诊断仍在 DOM 里')
 })
 
 // ---------- 可访问性门禁 ----------
@@ -249,19 +249,19 @@ test('对比度门禁：正文/次要/主按钮/横幅底上正文 ≥ 4.5', () 
   }
 })
 
-test('键盘门禁：D5 下焦点环永不去掉', () => {
-  assert.ok(UPDATE_PANEL_D5_CSS.includes('button:focus-visible'), 'D5 须保留焦点环')
-  assert.ok(UPDATE_PANEL_D5_CSS.includes('outline:'), '焦点环须有 outline')
+test('键盘门禁：Archive 下焦点环永不去掉', () => {
+  assert.ok(UPDATE_PANEL_ARCHIVE_CSS.includes('button:focus-visible'), 'Archive 须保留焦点环')
+  assert.ok(UPDATE_PANEL_ARCHIVE_CSS.includes('outline:'), '焦点环须有 outline')
 })
 
 test('forced-colors 与 reduced-motion 门禁在串', () => {
-  assert.ok(UPDATE_PANEL_D5_CSS.includes('@media (forced-colors: active)'), '须有 forced-colors 降级')
-  assert.ok(UPDATE_PANEL_D5_CSS.includes('CanvasText'), 'forced-colors 须走系统色')
-  assert.ok(UPDATE_PANEL_D5_CSS.includes('@media (prefers-reduced-motion: reduce)'), '须有关动画降级')
+  assert.ok(UPDATE_PANEL_ARCHIVE_CSS.includes('@media (forced-colors: active)'), '须有 forced-colors 降级')
+  assert.ok(UPDATE_PANEL_ARCHIVE_CSS.includes('CanvasText'), 'forced-colors 须走系统色')
+  assert.ok(UPDATE_PANEL_ARCHIVE_CSS.includes('@media (prefers-reduced-motion: reduce)'), '须有关动画降级')
 })
 
 test('SVG 双色归位：浅笔触在顶层规则，深笔触只活在深色媒体里', () => {
-  const css = UPDATE_PANEL_D5_CSS
+  const css = UPDATE_PANEL_ARCHIVE_CSS
   const darkIdx = css.indexOf('@media (prefers-color-scheme: dark)')
   assert.ok(darkIdx >= 0, '须有深色媒体')
   const top = css.slice(0, darkIdx)
@@ -271,8 +271,8 @@ test('SVG 双色归位：浅笔触在顶层规则，深笔触只活在深色媒�
   assert.ok(darkAndAfter.includes('%23e8c15a'), '深色笔触须在深色媒体里覆盖')
 })
 
-test('括号配平：D5 串去掉 url(...) 后 {} 必须成对（多余 } 会吃掉后面的门禁）', () => {
-  const noUrl = UPDATE_PANEL_D5_CSS.replace(/url\(".*?"\)/g, 'url()')
+test('括号配平：Archive 串去掉 url(...) 后 {} 必须成对（多余 } 会吃掉后面的门禁）', () => {
+  const noUrl = UPDATE_PANEL_ARCHIVE_CSS.replace(/url\(".*?"\)/g, 'url()')
   const opens = (noUrl.match(/\{/g) || []).length
   const closes = (noUrl.match(/\}/g) || []).length
   assert.equal(closes, opens, `括号须配平（开 ${opens}，合 ${closes}）`)
@@ -287,13 +287,13 @@ test('挂载：theme 可选，非法抛错，setTheme 可切', async () => {
   panel.unmount()
 
   const box2 = fakeContainer()
-  const panel2 = mountUpdatePanel(box2, { pluginId: 'p', call: fakeCall(), pollMs: 60000, theme: 'd5-paper' })
+  const panel2 = mountUpdatePanel(box2, { pluginId: 'p', call: fakeCall(), pollMs: 60000, theme: 'archive' })
   await panel2.refresh()
-  assert.ok(box2.innerHTML.includes('data-theme="archive"'), 'archive/别名挂载即换肤')
+  assert.ok(box2.innerHTML.includes('data-theme="archive"'), 'archive 挂载即换肤')
   assert.ok(box2.innerHTML.includes('data-action="copy-diag"'), '换肤不断复制诊断')
   await panel2.setTheme('default')
   assert.ok(!box2.innerHTML.includes('data-theme='), 'setTheme 可切回默认')
-  await panel2.setTheme('d5-paper')
+  await panel2.setTheme('archive')
   assert.ok(box2.innerHTML.includes('data-theme="archive"'), 'setTheme 可再切回档案卷')
   panel2.unmount()
 

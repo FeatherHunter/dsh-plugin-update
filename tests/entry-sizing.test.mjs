@@ -95,13 +95,13 @@ test('缺省回空串：undefined / null / {} 都不写 style', () => {
 test('全量拼出四个变量（顺序固定：字号→内边距→圆角→缩放）', () => {
   assert.equal(
     entrySizingStyleFor({ fontSize: '12px', padding: '2px 8px', borderRadius: '8px', scale: 1.25 }),
-    '--dsh-upd-entry-font-size:12px;--dsh-upd-entry-padding:2px 8px;--dsh-upd-entry-border-radius:8px;--dsh-upd-entry-scale:1.25',
+    '--dsh-update-entry-font-size:12px;--dsh-update-entry-padding:2px 8px;--dsh-update-entry-border-radius:8px;--dsh-update-entry-scale:1.25',
   )
 })
 
 test('单字段只出一个变量', () => {
-  assert.equal(entrySizingStyleFor({ fontSize: '14px' }), '--dsh-upd-entry-font-size:14px')
-  assert.equal(entrySizingStyleFor({ scale: 1 }), '--dsh-upd-entry-scale:1')
+  assert.equal(entrySizingStyleFor({ fontSize: '14px' }), '--dsh-update-entry-font-size:14px')
+  assert.equal(entrySizingStyleFor({ scale: 1 }), '--dsh-update-entry-scale:1')
 })
 
 test('非法即抛：未知键 / 非对象 / 空串 / 注入字符都不收', () => {
@@ -122,22 +122,22 @@ test('scale 只收大于 0 的有限数', () => {
   for (const bad of [0, -1, NaN, Infinity, -Infinity, '1.2', null]) {
     assert.throws(() => entrySizingStyleFor({ scale: bad }), /sizing/, JSON.stringify(bad))
   }
-  assert.equal(entrySizingStyleFor({ scale: 0.9 }), '--dsh-upd-entry-scale:0.9')
+  assert.equal(entrySizingStyleFor({ scale: 0.9 }), '--dsh-update-entry-scale:0.9')
 })
 
 // ---------- CSS 同口径：变量缺省即旧硬编码值 ----------
 
 test('CSS 以变量读、缺省即旧值：字号 13px / 内边距 4px 12px / 圆角 6px / 缩放 1', () => {
-  assert.match(UPDATE_ENTRY_CSS, /font-size:var\(--dsh-upd-entry-font-size,13px\)/)
-  assert.match(UPDATE_ENTRY_CSS, /padding:var\(--dsh-upd-entry-padding,4px 12px\)/)
-  assert.match(UPDATE_ENTRY_CSS, /border-radius:var\(--dsh-upd-entry-border-radius,6px\)/)
-  assert.match(UPDATE_ENTRY_CSS, /zoom:var\(--dsh-upd-entry-scale,1\)/)
+  assert.match(UPDATE_ENTRY_CSS, /font-size:var\(--dsh-update-entry-font-size,13px\)/)
+  assert.match(UPDATE_ENTRY_CSS, /padding:var\(--dsh-update-entry-padding,4px 12px\)/)
+  assert.match(UPDATE_ENTRY_CSS, /border-radius:var\(--dsh-update-entry-border-radius,6px\)/)
+  assert.match(UPDATE_ENTRY_CSS, /zoom:var\(--dsh-update-entry-scale,1\)/)
 })
 
 test('archive 主题圆角缺省仍是 3px，但变量可覆盖', () => {
   assert.match(
     UPDATE_ENTRY_CSS,
-    /\.dsh-upd-entry\[data-theme="archive"\] \.dsh-upd-entry-btn\{[^}]*border-radius:var\(--dsh-upd-entry-border-radius,3px\)/,
+    /\.dsh-upd-entry\[data-theme="archive"\] \.dsh-upd-entry-btn\{[^}]*border-radius:var\(--dsh-update-entry-border-radius,3px\)/,
   )
 })
 
@@ -149,7 +149,7 @@ test('缺省零回归：不传 sizing 就不写 style，DOM 与旧版一致', as
   const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 'p', call, pollMs: 60000 })
   await settled()
   assert.ok(!/<span class="dsh-upd-entry"[^>]*style=/.test(box.innerHTML), '缺省不在容器 span 上加 style（<style> 里的变量定义不算）')
-  assert.ok(!/style="[^"]*--dsh-upd-entry/.test(box.innerHTML), '缺省不在行内 style 里写尺寸变量')
+  assert.ok(!/style="[^"]*--dsh-update-entry/.test(box.innerHTML), '缺省不在行内 style 里写尺寸变量')
   assert.match(box.innerHTML, /dsh-upd-entry-btn/, '按钮照旧')
   entry.unmount()
 })
@@ -162,10 +162,10 @@ test('sizing 全量：变量以内联方式写到容器上（与手写 CSS 变�
     sizing: { fontSize: '12px', padding: '2px 8px', borderRadius: '8px', scale: 1.25 },
   })
   await settled()
-  assert.match(box.innerHTML, /--dsh-upd-entry-font-size:12px/)
-  assert.match(box.innerHTML, /--dsh-upd-entry-padding:2px 8px/)
-  assert.match(box.innerHTML, /--dsh-upd-entry-border-radius:8px/)
-  assert.match(box.innerHTML, /--dsh-upd-entry-scale:1\.25/)
+  assert.match(box.innerHTML, /--dsh-update-entry-font-size:12px/)
+  assert.match(box.innerHTML, /--dsh-update-entry-padding:2px 8px/)
+  assert.match(box.innerHTML, /--dsh-update-entry-border-radius:8px/)
+  assert.match(box.innerHTML, /--dsh-update-entry-scale:1\.25/)
   assert.match(box.innerHTML, /dsh-upd-entry-btn/, '按钮本体仍在')
   entry.unmount()
 })
@@ -186,8 +186,8 @@ test('archive 下 sizing 仍生效：变量照写，覆盖主题默认圆角', a
   })
   await settled()
   assert.match(box.innerHTML, /data-theme="archive"/)
-  assert.match(box.innerHTML, /--dsh-upd-entry-border-radius:10px/)
-  assert.match(box.innerHTML, /--dsh-upd-entry-scale:0\.9/)
+  assert.match(box.innerHTML, /--dsh-update-entry-border-radius:10px/)
+  assert.match(box.innerHTML, /--dsh-update-entry-scale:0\.9/)
   entry.unmount()
 })
 
@@ -231,4 +231,24 @@ test('入口件源码仍不出现安装电话，类型随包分发', async () =>
   assert.match(text, /EntrySizing/, '尺寸类型随包分发')
   assert.match(text, /sizing\?: EntrySizing/, '挂载选项含 sizing')
   assert.match(text, /entrySizingStyleFor/, '纯函数出口随包分发')
+})
+
+test('sizing 在 setTheme 与 refresh 重绘后依然存在', async () => {
+  const { call } = fakeCall()
+  const box = fakeContainer()
+  const entry = mountUpdateEntry(box, {
+    pluginId: 'p', prefix: 'p', call, pollMs: 60000,
+    sizing: { fontSize: '12px', scale: 1.1 },
+  })
+  await settled()
+  const hasVars = () => /--dsh-update-entry-font-size:12px/.test(box.innerHTML) && /--dsh-update-entry-scale:1\.1/.test(box.innerHTML)
+  assert.ok(hasVars(), '挂载即有变量')
+  entry.setTheme('archive')
+  assert.ok(hasVars(), '换肤后变量仍在')
+  assert.match(box.innerHTML, /data-theme="archive"/)
+  await entry.refresh()
+  assert.ok(hasVars(), '重查重绘后变量仍在')
+  entry.setTheme('default')
+  assert.ok(hasVars(), '切回默认后变量仍在')
+  entry.unmount()
 })

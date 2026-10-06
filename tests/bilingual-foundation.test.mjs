@@ -66,9 +66,9 @@ function fakeLocale(initial = 'zh') {
   }
 }
 
-// ---------- 类型锁死：246 键齐全，版本钉死 ----------
+// ---------- 类型锁死：288 键齐全，版本钉死 ----------
 
-test('字典钉住版本且 246 键齐全（entry 7 + batch-entry 6 + panel 75 + kernel 74 + diag 35 + batch 16 + batch-ledger 33，缺键即实现未完成）', () => {
+test('字典钉住版本且 312 键齐全（entry 7 + batch-entry 6 + panel 75 + kernel 74 + diag 35 + batch 16 + batch-ledger 33 + batch-row 42 + changelog 9 + diag-fallback 15，缺键即实现未完成）', () => {
   __resetLangState()
   assert.equal(BILINGUAL_DICT_VERSION, '2026-10-06-pin53')
   const keys = Object.keys(BILINGUAL_STRINGS).sort()
@@ -88,8 +88,8 @@ test('字典钉住版本且 246 键齐全（entry 7 + batch-entry 6 + panel 75 +
     'entry.label.restart',
     'entry.note.up-to-date',
   ]) assert.ok(keys.includes(k), k + ' 缺键')
-  // #61 panel 75 键（§3.1 16 + §3.2 14 + §3.5 16 + §3.6 18 + §3.8 11）+ #62 kernel 74（§3.7）+ #63 diag 35（§3.3 13 + §3.4 22）+ #64 batch-ledger 33（§4.1 8 + §4.3 8 + §4.4 10 + §4.5 7）
-  assert.equal(keys.length, 246)
+  // #61 panel 75 键（§3.1 16 + §3.2 14 + §3.5 16 + §3.6 18 + §3.8 11）+ #62 kernel 74（§3.7）+ #63 diag 35（§3.3 13 + §3.4 22）+ #64 batch-ledger 33（§4.1/4.3/4.4/4.5）+ #65 batch-row 42（§4.2 13 + §4.6 15 + §4.7 14）+ #66 changelog 9 + diag-fallback 15（§6.1/§7.1）
+  assert.equal(keys.length, 312)
   assert.ok(keys.includes('batch.action.resume'))
   assert.ok(keys.includes('batch.fact.close-safe'))
   assert.ok(keys.includes('batch.setting.check-on-open'))
@@ -115,6 +115,32 @@ test('字典钉住版本且 246 键齐全（entry 7 + batch-entry 6 + panel 75 +
     'batch.seal.ledger', 'batch.banner.error-title', 'batch.banner.error-action-fallback', 'batch.banner.failed-title',
     'batch.banner.failed-action', 'batch.banner.restart-title', 'batch.banner.restart-action', 'batch.banner.restart-button',
   ]) assert.ok(keys.includes(k), k + ' 缺键（#64）')
+  // #65 panel-batch 行/详情/回执 42 键（§4.2 13 + §4.6 15 + §4.7 14，逐条见 research/52-inventory.md；batch.row.failed 更名为 failed-retry 避让既有 knowledge 键，batch.row.current 复用既有）
+  for (const k of [
+    'batch.row.queued-generic', 'batch.row.queued-n', 'batch.row.skipped', 'batch.row.wait-turn',
+    'batch.row.checking', 'batch.row.cta-version', 'batch.row.cta-generic', 'batch.row.installing',
+    'batch.row.done-restart', 'batch.row.done', 'batch.row.failed-retry', 'batch.row.skipped-idle',
+    'batch.row.unknown',
+    'batch.row-action.installing', 'batch.row-action.cancel-queue', 'batch.row-action.queue', 'batch.row-action.install-row',
+    'batch.row-action.retry', 'batch.row-action.install-version', 'batch.row-action.install-generic', 'batch.row-action.unskip',
+    'batch.row-action.restart', 'batch.row-action.show-detail', 'batch.row-action.hide-detail', 'batch.row-action.skip',
+    'batch.row-action.copy-manual', 'batch.row-action.copy-diag', 'batch.row.error-label',
+    'batch.diag.source-job', 'batch.toast.copy-fail', 'batch.toast.queue-missed', 'batch.toast.skipped',
+    'batch.toast.unskipped-version', 'batch.toast.unskipped-all', 'batch.toast.cancel-unavailable', 'batch.toast.cancel-ok',
+    'batch.toast.cancel-fail', 'batch.toast.copy-manual-ok', 'batch.toast.copy-diag-ok', 'batch.toast.restart-delegated',
+    'batch.toast.restart-manual', 'batch.toast.restart-failed',
+  ]) assert.ok(keys.includes(k), k + ' 缺键（#65）')
+  // #66 changelog 运行时 9 键（§6.1，去六类）+ diag 兜底 15 键（§7.1 18 行含 3 复用电话表，逐条见 research/52-inventory.md）
+  for (const k of [
+    'changelog.neutral.hint', 'changelog.neutral.line', 'changelog.breaking.badge', 'changelog.breaking.aria',
+    'changelog.truncated.count', 'changelog.yanked.banner', 'changelog.yanked.suffix',
+    'changelog.security.summary', 'changelog.security.note',
+    'diag.fallback.generic', 'diag.fallback.read-installed', 'diag.fallback.revalidate-fetch', 'diag.fallback.rate-limited',
+    'diag.fallback.http-status', 'diag.fallback.invalid-release', 'diag.fallback.install-failed',
+    'diag.fallback.unknown-profile', 'diag.fallback.source-install', 'diag.fallback.invalid-installation',
+    'diag.fallback.installation-changed', 'diag.fallback.pending-restart', 'diag.fallback.incompatible-node',
+    'diag.fallback.registry-conflict', 'diag.fallback.recovery-required',
+  ]) assert.ok(keys.includes(k), k + ' 缺键（#66）')
   for (const k of keys) {
     const e = BILINGUAL_STRINGS[k]
     assert.equal(typeof e.en, 'string', k + ' 有英文')
@@ -124,8 +150,8 @@ test('字典钉住版本且 246 键齐全（entry 7 + batch-entry 6 + panel 75 +
   }
 })
 
-test('draft 诚实态：246 键全 draft，门禁读 draftKeys()（#61/#62/#63/#64 新增亦全 draft，--release 仍如实红）', () => {
-  assert.equal(draftKeys().length, 246)
+test('draft 诚实态：312 键全 draft，门禁读 draftKeys()（#61/#62/#63/#64/#65/#66 新增亦全 draft，--release 仍如实红）', () => {
+  assert.equal(draftKeys().length, 312)
   assert.ok(draftKeys().includes('entry.label.idle'))
   assert.ok(draftKeys().includes('batch-entry.label.update'))
 })
@@ -179,8 +205,8 @@ test('同一份快照：zh 不见字典英文，en 不见中文（冻结词元�
   for (const k of Object.keys(BILINGUAL_STRINGS)) {
     const zh = copyHTML(k, 'zh', vals)
     const en = copyHTML(k, 'en', vals)
-    // 冻结词元（#61 #63）：Node / installing / verifying / diag 在 zh 里逐字保留，不算混入。
-    const zhText = zh.replace(/<[^>]*>/g, ' ').replace(/9\.9\.9/g, '').replace(/7/g, '').replace(/Node/g, '').replace(/installing/g, '').replace(/verifying/g, '').replace(/diag/g, '')
+    // 冻结词元（#61 #63 #66）：Node / installing / verifying / diag / yanked / BREAKING 在 zh 里逐字保留，不算混入。
+    const zhText = zh.replace(/<[^>]*>/g, ' ').replace(/9\.9\.9/g, '').replace(/7/g, '').replace(/Node/g, '').replace(/installing/g, '').replace(/verifying/g, '').replace(/diag/g, '').replace(/yanked/gi, '').replace(/BREAKING/g, '')
     const enText = en.replace(/<[^>]*>/g, ' ').replace(/9\.9\.9/g, '').replace(/7/g, '')
     assert.ok(!/[A-Za-z]/.test(zhText), k + ' zh 混入英文：' + zh)
     assert.ok(!/[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(enText), k + ' en 混入中文：' + en)
@@ -497,6 +523,8 @@ test('面板 dialog 打开期间切换语言不打断轮询与瞬时态（入口
 
 // ---------- 不制造双源：changelog 标题仍唯一源于 CATEGORY_ZH ----------
 
-test('不为 changelog 另立第二映射：底座无 changelog key', () => {
-  assert.ok(!Object.keys(BILINGUAL_STRINGS).some((k) => k.startsWith('changelog.')), '分类表唯一源仍在 changelog.ts')
+test('不为 changelog 分类另立第二映射：底座无 changelog 分类 key（#66：运行时 9 键允许，分类仍唯一源于 CATEGORY_ZH）', () => {
+  assert.ok(!Object.keys(BILINGUAL_STRINGS).some((k) => k.startsWith('changelog.category.')), '分类表唯一源仍在 changelog.ts')
+  assert.ok(!Object.keys(BILINGUAL_STRINGS).some((k) => k.startsWith('changelog.category-')), '分类表唯一源仍在 changelog.ts')
+  assert.ok(Object.keys(BILINGUAL_STRINGS).some((k) => k.startsWith('changelog.')), '运行时 9 键已入字典')
 })

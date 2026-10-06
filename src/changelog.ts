@@ -22,14 +22,16 @@
  */
 
 import { compareReleaseVersions, validReleaseVersion } from './service.js'
+import { copyText } from './bilingual.js'
+import { normalizeLangTag, type AppLang } from './lang.js'
 
 /** 包内日志文件名（包根，与 tarball 内同名文件同一名字）。 */
 export const CHANGELOG_FILENAME = 'CHANGELOG.md'
 
-/** 缺日志时的中性提示（不挡安装，安装按钮状态不变）。 */
+/** 缺日志时的中性提示（不挡安装，安装按钮状态不变；zh 原文，渲染走字典 changelog.neutral.hint，留常量只为兼容既有导入）。 */
 export const CHANGELOG_NEUTRAL_HINT = '作者未提供更新说明'
 
-/** 中性提示完整行（含“安装不受影响”，把“不挡安装”说成人话）。 */
+/** 中性提示完整行（含“安装不受影响”，把“不挡安装”说成人话；渲染走字典 changelog.neutral.line）。 */
 export const CHANGELOG_NEUTRAL_LINE = '作者未提供更新说明，安装不受影响。'
 
 /** 输入上限（字符）：超限截断后解析，永不抛错、不OOM。 */
@@ -180,8 +182,24 @@ export function isFenceToggle(line: unknown): boolean {
   catch { return false; }
 }
 
-/** 破坏标记徽标文案（中文 UI 一致，原文前缀另行加粗保留）。 */
+/** 破坏标记徽标文案（中文 UI 一致，原文前缀另行加粗保留；渲染走字典 changelog.breaking.badge/aria，留常量只为兼容既有导入）。 */
 export const BREAKING_BADGE_TEXT = '不兼容';
+
+/** 六类标题按当前语言单语组装（#66，唯一源仍是 CATEGORY_ZH，不另起第二套映射）：中文「新增（Added）」观感、英文「Added」。 */
+export function changelogCategoryLabel(cat: ChangelogCategory, lang?: AppLang | string | null): string {
+  const l = normalizeLangTag(lang ?? 'zh')
+  const zh = CHANGELOG_CATEGORY_ZH[cat]
+  if (l === 'en') return cat
+  return zh + '（' + cat + '）'
+}
+
+/** 折叠类标题（含条数）：中文「弃用预告（Deprecated）（3）」/英文「Deprecated (3)」；条数是变量值，不译。 */
+export function changelogFoldedLabel(cat: ChangelogCategory, count: number, lang?: AppLang | string | null): string {
+  const l = normalizeLangTag(lang ?? 'zh')
+  const n = String(Math.floor(count))
+  if (l === 'en') return cat + ' (' + n + ')'
+  return CHANGELOG_CATEGORY_ZH[cat] + '（' + cat + '）（' + n + '）'
+}
 
 /** 剥行首 markdown 装饰（加粗/引用/前后空白），只为识别，渲染保留原文一字不动。 */
 export function stripBreakingDecorations(s: unknown): string {
@@ -434,27 +452,32 @@ export function countsOf(entry: ChangelogEntry | null | undefined): Record<Chang
   } catch { return { Added: 0, Fixed: 0, Changed: 0, Deprecated: 0, Removed: 0, Security: 0 }; }
 }
 
-/** 超限小字（诚实截断）：共 M 条，仅显示前 N 条。 */
-export function truncatedNoteHTML(total: number, shown: number): string {
+/** 超限小字（诚实截断，#66 入字典单语，lang 缺省 zh 零回归）：中文与旧文案一字不差，英文走字典。 */
+export function truncatedNoteHTML(total: number, shown: number, lang?: AppLang | string | null): string {
   try {
+    const l = normalizeLangTag(lang ?? 'zh')
     const m = Math.floor(total);
     const n = Math.floor(shown);
-    return '<div class="dsh-upd-changelog-count">共 ' + String(m) + ' 条，仅显示前 ' + String(n) + ' 条</div>';
+    const text = copyText('changelog.truncated.count', l, { m: String(m), n: String(n) })
+    return '<div class="dsh-upd-changelog-count">' + escapeChangelogHtml(text) + '</div>';
   } catch { return ''; }
 }
 
-/** 撤回横幅（只看 to 版，纯展示，不挡安装，文案冻结）。 */
-export function yankedBannerHTML(version: unknown): string {
+/** 撤回横幅（只看 to 版，纯展示，不挡安装，#66 入字典单语，lang 缺省 zh 零回归；中文与旧文案一字不差）。 */
+export function yankedBannerHTML(version: unknown, lang?: AppLang | string | null): string {
   try {
+    const l = normalizeLangTag(lang ?? 'zh')
     const v = typeof version === 'string' ? version.trim() : '';
     if (!v) return '';
-    return '<div class="dsh-upd-changelog-yanked" role="alert">目标版本 ' + escapeChangelogHtml(v) + ' 已被作者撤回（yanked），安装不受影响，继续前请确认。</div>';
+    const text = copyText('changelog.yanked.banner', l, { version: v })
+    return '<div class="dsh-upd-changelog-yanked" role="alert">' + escapeChangelogHtml(text) + '</div>';
   } catch { return ''; }
 }
 
-/** 单条目 HTML（含破坏标记徽标与前缀加粗，正文一字不动）。 */
-export function renderChangelogItem(item: string): string {
+/** 单条目 HTML（含破坏标记徽标与前缀加粗，正文一字不动；#66 徽标与无障碍名入字典单语，lang 缺省 zh 零回归）。 */
+export function renderChangelogItem(item: string, lang?: AppLang | string | null): string {
   try {
+    const l = normalizeLangTag(lang ?? 'zh')
     const s = String(item !== null && item !== undefined ? item : '');
     if (!s) return '';
     const split = splitBreakingPrefix(s);
@@ -462,22 +485,25 @@ export function renderChangelogItem(item: string): string {
     const head = escapeChangelogHtml(split.head);
     const prefix = escapeChangelogHtml(split.prefix);
     const rest = escapeChangelogHtml(split.rest);
-    const badge = '<span class="dsh-upd-breaking-badge" role="img" aria-label="破坏性变更">' + BREAKING_BADGE_TEXT + '</span> ';
+    const badgeText = copyText('changelog.breaking.badge', l)
+    const badgeAria = copyText('changelog.breaking.aria', l)
+    const badge = '<span class="dsh-upd-breaking-badge" role="img" aria-label="' + escapeChangelogHtml(badgeAria) + '">' + escapeChangelogHtml(badgeText) + '</span> ';
     return '<li>' + head + badge + '<strong>' + prefix + '</strong>' + rest + '</li>';
   } catch { return ''; }
 }
 
-/** 单节 HTML（调用方保证已过滤 Unreleased 与空节，本函数再兜底一次）。 */
-export function renderChangelogSection(entry: ChangelogEntry): string {
+/** 单节 HTML（调用方保证已过滤 Unreleased 与空节，本函数再兜底一次；#66 按 lang 单语，缺省 zh 零回归）。 */
+export function renderChangelogSection(entry: ChangelogEntry, lang?: AppLang | string | null): string {
   try {
     if (!entry || typeof entry !== 'object') return '';
     const version = String((entry as { version?: unknown }).version !== undefined && (entry as { version?: unknown }).version !== null ? String((entry as { version?: unknown }).version) : '').trim();
     if (!version || isUnreleasedVersion(version)) return '';
     if (!hasVisibleSections(entry)) return '';
+    const l = normalizeLangTag(lang ?? 'zh')
     const dateRaw = (entry as { date?: unknown }).date;
     const date = typeof dateRaw === 'string' ? dateRaw : '';
     const yankedFlag = (entry as { yanked?: unknown }).yanked === true;
-    const yankedSuffix = yankedFlag ? ' · 已撤回' : '';
+    const yankedSuffix = yankedFlag ? copyText('changelog.yanked.suffix', l) : '';
     const title = (date ? version + ' · ' + date : version) + yankedSuffix;
     const counts = countsOf(entry);
     const parts: string[] = [];
@@ -486,38 +512,40 @@ export function renderChangelogSection(entry: ChangelogEntry): string {
     for (const cat of CHANGELOG_MUST_SHOW) {
       const items = Array.isArray((entry as { sections?: unknown }).sections ? (entry.sections as Record<string, unknown>)[cat] as unknown : null) ? (entry.sections as Record<string, string[]>)[cat] : [];
       if (!items || items.length === 0) continue;
-      const label = cat + ' · ' + CHANGELOG_CATEGORY_ZH[cat];
+      const label = changelogCategoryLabel(cat, l);
       parts.push('<div class="dsh-upd-changelog-cat" data-cat="' + cat + '">');
       parts.push('<div class="dsh-upd-changelog-catname">' + escapeChangelogHtml(label) + '</div>');
       const total = counts[cat];
       const shown = items.length;
-      if (total > shown) { parts.push(truncatedNoteHTML(total, shown)); }
+      if (total > shown) { parts.push(truncatedNoteHTML(total, shown, l)); }
       parts.push('<ul>');
       for (const item of items) {
         if (!item) continue;
-        const li = renderChangelogItem(item);
+        const li = renderChangelogItem(item, l);
         if (li) parts.push(li);
       }
       parts.push('</ul>');
       if (cat === 'Security' && total > shown) {
         const restCount = total - shown;
-        parts.push('<details class="dsh-upd-changelog-security-more"><summary>其余 ' + String(restCount) + ' 条</summary><div class="dsh-upd-changelog-more-note">为保持面板性能，其余条目已折叠，可查看原文。</div></details>');
+        const sumText = copyText('changelog.security.summary', l, { n: String(restCount) })
+        const noteText = copyText('changelog.security.note', l)
+        parts.push('<details class="dsh-upd-changelog-security-more"><summary>' + escapeChangelogHtml(sumText) + '</summary><div class="dsh-upd-changelog-more-note">' + escapeChangelogHtml(noteText) + '</div></details>');
       }
       parts.push('</div>');
     }
     for (const cat of CHANGELOG_FOLDED) {
       const items = Array.isArray((entry as { sections?: unknown }).sections ? (entry.sections as Record<string, unknown>)[cat] as unknown : null) ? (entry.sections as Record<string, string[]>)[cat] : [];
       if (!items || items.length === 0) continue;
-      const label = cat + ' · ' + CHANGELOG_CATEGORY_ZH[cat] + '（' + String(items.length) + '）';
+      const label = changelogFoldedLabel(cat, items.length, l);
       parts.push('<details class="dsh-upd-changelog-fold" data-cat="' + cat + '">');
       parts.push('<summary>' + escapeChangelogHtml(label) + '</summary>');
       const total = counts[cat];
       const shown = items.length;
-      if (total > shown) { parts.push(truncatedNoteHTML(total, shown)); }
+      if (total > shown) { parts.push(truncatedNoteHTML(total, shown, l)); }
       parts.push('<ul>');
       for (const item of items) {
         if (!item) continue;
-        const li = renderChangelogItem(item);
+        const li = renderChangelogItem(item, l);
         if (li) parts.push(li);
       }
       parts.push('</ul></details>');
@@ -529,9 +557,13 @@ export function renderChangelogSection(entry: ChangelogEntry): string {
   }
 }
 
-/** 中性提示 HTML（缺日志、取不到、无区间内容时统一用它，不挡安装）。 */
-export function renderChangelogNeutral(): string {
-  return `<div class="dsh-upd-changelog-neutral">${escapeChangelogHtml(CHANGELOG_NEUTRAL_LINE)}</div>`
+/** 中性提示 HTML（缺日志、取不到、无区间内容时统一用它，不挡安装；#66 入字典单语，lang 缺省 zh 零回归）。 */
+export function renderChangelogNeutral(lang?: AppLang | string | null): string {
+  try {
+    const l = normalizeLangTag(lang ?? 'zh')
+    const text = copyText('changelog.neutral.line', l)
+    return `<div class="dsh-upd-changelog-neutral">${escapeChangelogHtml(text)}</div>`
+  } catch { return ''; }
 }
 
 /**
@@ -541,10 +573,11 @@ export function renderChangelogNeutral(): string {
  */
 export function renderChangelogHTML(
   entries: unknown,
-  opts?: { from?: string | null; to?: string | null },
+  opts?: { from?: string | null; to?: string | null; lang?: AppLang | string | null },
 ): string {
   try {
-    if (!Array.isArray(entries) || entries.length === 0) return renderChangelogNeutral()
+    const l = normalizeLangTag((opts as { lang?: unknown } | undefined)?.lang ?? 'zh')
+    if (!Array.isArray(entries) || entries.length === 0) return renderChangelogNeutral(l)
     const from = opts && typeof opts.from === 'string' ? opts.from : null
     const to = opts && typeof opts.to === 'string' ? opts.to : null
     let ranged: ChangelogEntry[]
@@ -560,12 +593,12 @@ export function renderChangelogHTML(
         }
       })
     }
-    if (ranged.length === 0) return renderChangelogNeutral()
-    const blocks = ranged.map((e) => renderChangelogSection(e)).filter((s) => !!s)
-    if (blocks.length === 0) return renderChangelogNeutral()
+    if (ranged.length === 0) return renderChangelogNeutral(l)
+    const blocks = ranged.map((e) => renderChangelogSection(e, l)).filter((s) => !!s)
+    if (blocks.length === 0) return renderChangelogNeutral(l)
     return `<div class="dsh-upd-changelog">\n${blocks.join('\n')}\n</div>`
   } catch {
-    return renderChangelogNeutral()
+    try { const ll = normalizeLangTag((opts as { lang?: unknown } | undefined)?.lang ?? 'zh'); return renderChangelogNeutral(ll) } catch { return ''; }
   }
 }
 /** 校验诊断（一行一码，行号为原文件 1-based，诊断按行号排序）。 */

@@ -259,11 +259,11 @@ test('refresh 重试失败：传输失败轮询退避、手动立即重问', asy
   } finally { p.unmount(); }
 });
 
-test('D5 只换肤不换 DOM 顺序', function() {
+test('Archive 只换肤不换 DOM 顺序', function() {
   const md = lines(['# C', '', '## [1.1.0] [YANKED]', '', '### Security', '- s', '', '### Added', '- BREAKING: b']);
   const input = baseInput({ changelogMarkdown: md });
   const a = renderUpdatePanelHTML(input);
-  const b = renderUpdatePanelHTML(baseInput({ changelogMarkdown: md, theme: 'd5-paper' }));
+  const b = renderUpdatePanelHTML(baseInput({ changelogMarkdown: md, theme: 'archive' }));
   function stripStyleAndTheme(h) {
     let out = h;
     while (out.includes('<style>')) {
@@ -277,6 +277,6 @@ test('D5 只换肤不换 DOM 顺序', function() {
   }
   const ka = stripStyleAndTheme(a);
   const kb = stripStyleAndTheme(b);
-  assert.equal(ka, kb, 'D5 与默认内核 DOM 应一字相同（只换肤）');
-  assert.ok(b.includes('data-theme="archive"'), 'D5 挂主题属性');
+  assert.equal(ka, kb, 'Archive 与默认内核 DOM 应一字相同（只换肤）');
+  assert.ok(b.includes('data-theme="archive"'), 'Archive 挂主题属性');
 });

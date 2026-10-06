@@ -2,6 +2,14 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [0.6.0] - 2026-10-06
+
+### Changed
+- 主题 token 全系更名（breaking）：`--d5-*` 18 个全系删除，`--dsh-upd-*` 展开为 `--dsh-update-*`；补全状态字色／次级字／强边线／深主色／字体／阴影／圆角 token，两主题共用同一张词典，主题只换值；卷宗横幅边框改吃 `*-border`（值与旧字色相等，零视觉差）；默认主题按钮边框吃 `border-strong`、卡片与按钮圆角及字体栈走变量（值与旧硬编码相等）。
+
+### Removed
+- 主题取值 `'d5-paper'` 删除，仅剩 `'default' | 'archive'`（非法即抛）；常量 `UPDATE_PANEL_D5_CSS / UPDATE_BATCH_PANEL_D5_CSS` 更名为 `UPDATE_PANEL_ARCHIVE_CSS / UPDATE_BATCH_PANEL_ARCHIVE_CSS`；手写旧变量覆盖须迁移到新词典；`demo/d5-progress.*` 更名为 `demo/archive-progress.*`，`tests/panel-d5-theme.test.mjs` 更名为 `tests/panel-archive-theme.test.mjs`。
+
 ## [0.5.8] - 2026-10-06
 
 ### Added
@@ -23,7 +31,7 @@
 ## [0.5.5] - 2026-10-06
 
 ### Added
-- 档案卷主题收敛 archive 与面板紧凑化：运行时 data-theme 统一为 archive（d5-paper 仅作输入旧别名归一），entry/entry-batch/panel-batch 输出与 CSS 选择器同步，panel-batch setTheme 补 archive 并归一存储；根／卷头／横幅／版本条／章节／章头／队列行／footer 间距收紧；删 changelog-wrap 与章节线重影内边框；页脚去技术词，批量关闭 title 同步。
+- 档案卷主题收敛 archive 与面板紧凑化：运行时 data-theme 统一为 archive，entry/entry-batch/panel-batch 输出与 CSS 选择器同步，panel-batch setTheme 补 archive 并归一存储；根／卷头／横幅／版本条／章节／章头／队列行／footer 间距收紧；删 changelog-wrap 与章节线重影内边框；页脚去技术词，批量关闭 title 同步。
 - 双语底座 #54（先行）：bilingual 字典模块、entry key 映射链、noteVersion 运行时值；research/52-inventory 双语盘点与原型矩阵随附。
 
 ### Fixed
@@ -39,7 +47,7 @@
 
 ### Added
 - 进入面板自动查一次新版（#46 结论固化 #48）：首绘 loading 后先只读本地刷新，拿到活体快照后条件自动查一次；轮询心跳永远只读本地、不触发查新版；抑制谓词 `pendingAutoCheck` 为纯函数，仅快照任务态 installing/verifying 或已有查/装在途时不发起，同范围忙/凭证过期/各类阻拦一律不抑制，无活体快照不发起；复用手动查同一通路与“正在查新版…”提示；并发只信服务端真相源（面板 busyAct 互斥 + checking 在途复用 + 2s 复用窗口），卸载靠 mounted 丢弃；失败无退避，只渲染既有失败文案与复制诊断，手动查清日志退避、关闭重开立即重问；embedded/dialog 一致；pollMs 不影响时机；四电话形状与快照六字段零变更。
-- 关闭按钮住右下角独立 footer 区（#47 定案 A）：第一章 actions 不再画 close-view，内核末尾 05 章之后新增 `.dsh-upd-footer`（dialog + 非只读渲染才有），按钮原 title/data-action 原样搬入；embedded 无面板自带关闭（宿主框架自带关）；默认 + D5 只换肤、DOM 同序；act/Esc/onCloseRequested 语义一字未动。
+- 关闭按钮住右下角独立 footer 区（#47 定案 A）：第一章 actions 不再画 close-view，内核末尾 05 章之后新增 `.dsh-upd-footer`（dialog + 非只读渲染才有），按钮原 title/data-action 原样搬入；embedded 无面板自带关闭（宿主框架自带关）；默认 + 档案卷只换肤、DOM 同序；act/Esc/onCloseRequested 语义一字未动。
 
 ### Changed
 - 入口件 direct 断言收紧：区分入口自身空参预查与面板挂载带 includeQueue 自查（面板挂载即自查归面板）。
@@ -68,7 +76,7 @@
 ## [0.5.0] - 2026-10-05
 
 ### Added
-- 主题首选名 `archive`（档案卷纸面浅色）：`d5-paper` 为旧别名仍可用，渲染逐字相同；入口件与批量面板同一套取值。
+- 主题首选名 `archive`（档案卷纸面浅色）：`archive` 为唯一的档案卷取值；入口件与批量面板同一套取值。
 - 弹窗关闭落地 `onCloseRequested`：dialog 下点「关闭」/按 Esc 先交调用方撤 DOM 再停轮询；入口件打开的 dialog 已内置（收 dialog + 还原按钮 + 重查一次）。
 
 ### Fixed
@@ -105,7 +113,7 @@
 - 现成整组件：`dsh-plugin-update/panel`（内嵌/弹窗一键切换，轮询/门控/中文一句话/待重启横幅/手工复制/排队开关/跳过/诊断复制全内置），完整类型定义随包分发，零运行依赖。
 - 脱敏规则表：五条具名规则（绝对路径/URL 账号密码/令牌前缀/密码键值对/邮箱），顺序固定，两占位符 `<路径>`/`<脱敏>`，复制前收敛。
 - 后台安装不中断：关面板不中断，重开读盘 1 秒内恢复，仅进程关判中断。
-- D5 档案卷可选主题：`theme: 'd5-paper'`（`mountUpdatePanel` + `setTheme`，默认不动），迷你印章 + profile 牌 + 待重启衬线横幅 + 手绘 SVG 标 + 窄屏印章固定 + 省略号逐字折叠 + 浅深双主题，DOM 冻结、复制诊断常在。
+- 档案卷可选主题：`theme: 'archive'`（`mountUpdatePanel` + `setTheme`，默认不动），迷你印章 + profile 牌 + 待重启衬线横幅 + 手绘 SVG 标 + 窄屏印章固定 + 省略号逐字折叠 + 浅深双主题，DOM 冻结、复制诊断常在。
 
 ### Fixed
 - **死按钮根治**：批量面板的详情曾把单插件内核 markup 原样搬入而不接管行为，里面 5 颗按钮可点却无反应。现在详情的内核走**只读渲染**（`actions:'none'`，连队列章的 `toggle-queue` 一起摘），动作行由批量面板自己提供（与行内同一 `act` 通道、同一忙守卫）。
