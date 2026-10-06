@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#55 双语视觉矩阵 · 抛弃式原型（PROTOTYPE — wipe me）</title>
+<!--
+  Three variants of the bilingual block, switchable via `?variant=`, on throwaway single file prototype/bilingual-matrix.prototype.html.
+  Question: 底座双语块（英文在前中文在后，空白分隔，窄处竖排，lang 属性）在 单入口/单面板/批量面板 x 双主题 x 常态/失败/待重启/缺日志 24 格里，竖排与间距是否顺眼、是否溢出？（#55）
+  Branch: UI / sub-shape B（本包无现成页面路由，只能新起抛弃式单文件；双击即开，内存 stub，无持久化，不进包 files，无测试，不改电话形状）。
+  Assumption（已 grilling 确认 2026-10-06，用户全选推荐）：
+    Q1 3变体×24格：A=横排并列（现状）/ B=竖排堆叠（常驻竖排）/ C=对照卡片（左右格）；每种都渲染完整 24 格，底部悬浮切换。
+    Q2 四态冻结：常态=有新版可装 update／失败=install-failed／待重启=pending-restart（正常终态非失败）／缺日志=常态+changelog=null（安装不受影响）。
+    Q3 只验 #54 的 7 键 draft 文案 + 3 溢出探针；panel/batch 长文案用现有中文占位，不新造双语 key（避免双源）。
+    Q4 单文件双击即开 + ?variant= 可分享；截图人眼手工验收。
+  Matrix: 3 载体（单入口 entry / 单面板 panel / 批量面板 batch） x 2 主题（default / archive，d5-paper 为旧别名同渲染） x 4 态 = 24 格。
+  Wrap policy: 双语块 overflow-wrap:anywhere；code/命令 word-break:break-all；窄处（<=360px）A 自动竖排，B 常驻竖排，C 卡片堆叠。
+  Phone shape: 本原型零真实电话，只读 stub 快照渲染，不出现安装电话，不改任何电话形状。
+-->
+<style>
+  :root{ --accent:#4f46e5; --ok:#059669; --warn:#d97706; --bad:#dc2626; --ink:#111827; --mut:#6b7280;
+    --line:#d1d5db; --bg:#f1f5f9; --card:#ffffff; --proto:#fef08a; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:system-ui,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; color:var(--ink); background:var(--bg); padding-bottom:130px; }
+  .proto-banner{ background:var(--proto); border-bottom:2px dashed #a16207; padding:10px 16px; font-size:13px; }
+  .proto-banner b{ background:#111827; color:#fef08a; padding:1px 8px; border-radius:4px; margin-right:8px; }
+  header.q{ padding:16px; max-width:1240px; margin:0 auto; }
+  header.q h1{ font-size:20px; margin:6px 0; }
+  header.q p, header.q li{ font-size:13px; color:#374151; }
+  header.q code{ background:#111827; color:#fef08a; padding:0 5px; border-radius:4px; font-size:12px; }
+  .stateline{ max-width:1240px; margin:0 auto 12px; padding:10px 16px; background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; font-size:13px; }
+  .stateline b{ color:var(--accent); }
+  main{ max-width:1240px; margin:0 auto; padding:0 16px; }
+  h2.carrier{ font-size:16px; margin:26px 0 4px; border-left:6px solid var(--accent); padding-left:10px; }
+  p.carrier-note{ font-size:12px; color:var(--mut); margin:2px 0 10px 16px; }
+  .matrix{ display:grid; grid-template-columns:repeat(auto-fit,minmax(430px,1fr)); gap:14px; }
+  .cell{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0; overflow:hidden; }
+  .cell-head{ padding:8px 12px; background:#f8fafc; border-bottom:1px solid var(--line); font-size:12px; }
+  .cell-head b{ font-size:12.5px; }
+  .cell-head .st{ font-family:Consolas,Menlo,monospace; font-size:11px; color:#374151; display:block; margin-top:3px; word-break:break-all; }
+  .cell-body{ padding:12px; }
+  .cell-body .theme-tag{ display:inline-block; font-size:11px; border:1px solid var(--line); border-radius:4px; padding:0 6px; margin-bottom:8px; color:var(--mut); }
+  /* ---- demo 内核最小样式（从 src/entry.ts + src/panel.ts + d5 摘的“样子”，非全量） ---- */
+  .dsh-upd-entry{ display:inline-flex; align-items:center; gap:8px; font:13px/1.6 system-ui,"Microsoft YaHei",sans-serif; }
+  .dsh-upd-entry-btn{ font:inherit; border:1px solid #d1d5db; border-radius:6px; background:#f9fafb; color:inherit; padding:4px 12px; cursor:pointer; max-width:100%; }
+  .dsh-upd-entry[data-state="update"] .dsh-upd-entry-btn{ border-color:var(--ok); color:var(--ok); }
+  .dsh-upd-entry[data-state="restart"] .dsh-upd-entry-btn{ border-color:var(--warn); color:var(--warn); }
+  .dsh-upd-entry[data-state="failed"] .dsh-upd-entry-btn{ border-color:var(--bad); color:var(--bad); }
+  .dsh-upd-entry-note{ font-size:12.5px; background:#fff; border:1px solid #e5e7eb; border-radius:4px; padding:1px 8px; }
+  .dsh-upd{ font:14px/1.6 system-ui,"Microsoft YaHei",sans-serif; color:#1f2937; background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:12px 14px; max-width:560px; }
+  .dsh-upd button{ font:inherit; border:1px solid #d1d5db; border-radius:6px; background:#f9fafb; padding:4px 12px; cursor:pointer; margin:2px 6px 2px 0; max-width:100%; }
+  .dsh-upd button[data-primary="1"]{ background:#2563eb; border-color:#2563eb; color:#fff; }
+  .dsh-upd-banner{ border-left:4px solid #9ca3af; padding:6px 10px; margin:0 0 8px; background:#f3f4f6; font-size:13px; }
+  .dsh-upd-banner[data-kind="restart"]{ border-color:var(--warn); background:#fffbeb; }
+  .dsh-upd-banner[data-kind="failed"]{ border-color:var(--bad); background:#fef2f2; }
+  .dsh-upd-banner[data-kind="update"]{ border-color:var(--ok); background:#ecfdf5; }
+  .dsh-upd code{ font-family:Consolas,Menlo,monospace; font-size:12px; word-break:break-all; }
+  .dsh-upd-strip{ display:flex; flex-wrap:wrap; margin:8px 0 0; border:1px solid #e5e7eb; border-radius:4px; overflow:hidden; font-size:12.5px; }
+  .dsh-upd-strip>div{ flex:1 1 110px; padding:6px 10px; border-left:1px solid #e5e7eb; }
+  .dsh-upd-strip>div:first-child{ border-left:0; }
+  .dsh-upd-strip-k{ display:block; font-size:11px; letter-spacing:.14em; opacity:.7; }
+  .dsh-upd-strip-v{ font-family:Consolas,Menlo,monospace; font-size:12.5px; word-break:break-all; }
+  .dsh-upd-log{ margin:8px 0; font-size:13px; border-top:1px solid #e5e7eb; padding-top:8px; }
+  .dsh-upd-neutral{ opacity:.8; }
+  .dsh-upd-queue{ margin:8px 0; font-size:13px; }
+  .batch-total{ font-size:13px; background:#f8fafc; border:1px solid var(--line); border-radius:6px; padding:6px 10px; margin-bottom:8px; }
+  .batch-row{ display:flex; gap:8px; align-items:baseline; border-top:1px solid #e5e7eb; padding:6px 0; font-size:13px; }
+  .batch-row .dot{ width:8px; height:8px; border-radius:50%; flex:none; align-self:center; }
+  /* archive 主题（d5-paper 同渲染）：纸面卡 +  serif 标题 + 红 accent */
+  .dsh-upd[data-theme="d5-paper"]{ background:#fffdf6; border-color:#c4b896; color:#1a1a1a; font-family:Georgia,"Songti SC","STSong","SimSun",serif; }
+  .dsh-upd[data-theme="d5-paper"] button{ border-color:#c4b896; background:#fffdf6; border-radius:3px; }
+  .dsh-upd[data-theme="d5-paper"] .dsh-upd-banner{ background:#f7f3ea; }
+  .dsh-upd-entry[data-theme="d5-paper"]{ font-family:Georgia,"Songti SC","STSong",serif; }
+  .dsh-upd-entry[data-theme="d5-paper"] .dsh-upd-entry-btn{ border-color:#c4b896; background:#fffdf6; border-radius:3px; }
+  .darkwrap{ background:#111827; padding:10px; border-radius:8px; margin-bottom:8px; }
+  .darkwrap .cap{ font-size:11px; color:#9ca3af; margin-bottom:6px; }
+  /* ============ 三变体：双语块结构级差异（这才是本原型要回答的） ============ */
+  /* A 横排并列（现状 BILINGUAL_CSS）：行内双语，窄处自动竖排 */
+  body[data-variant="A"] .dsh-upd-bi{ display:inline-flex; align-items:baseline; gap:.5em; max-width:100%; }
+  body[data-variant="A"] .dsh-upd-bi [lang]{ overflow-wrap:anywhere; }
+  body[data-variant="A"] .dsh-upd-bi .tag{ display:none; }
+  @media (max-width:360px){ body[data-variant="A"] .dsh-upd-bi{ flex-direction:column; gap:0; } }
+  /* B 竖排堆叠（常驻竖排）：EN 小字在上，ZH 在下，左侧 accent 线 */
+  body[data-variant="B"] .dsh-upd-bi{ display:flex; flex-direction:column; gap:0; line-height:1.5; border-left:3px solid var(--accent); padding-left:8px; max-width:100%; }
+  body[data-variant="B"] .dsh-upd-bi [lang="en"]{ font-size:12px; opacity:.72; letter-spacing:.02em; overflow-wrap:anywhere; }
+  body[data-variant="B"] .dsh-upd-bi [lang="zh"]{ font-size:14px; font-weight:650; overflow-wrap:anywhere; }
+  body[data-variant="B"] .dsh-upd-bi .tag{ display:none; }
+  body[data-variant="B"] .dsh-upd-entry-btn{ padding:6px 12px; }
+  /* C 对照卡片：左右两格 + EN/ZH 小签，窄处堆叠 */
+  body[data-variant="C"] .dsh-upd-bi{ display:inline-grid; grid-template-columns:1fr 1fr; max-width:100%; border:1px solid var(--line); border-radius:6px; overflow:hidden; vertical-align:middle; }
+  body[data-variant="C"] .dsh-upd-bi [lang]{ padding:2px 8px; overflow-wrap:anywhere; font-size:12.5px; }
+  body[data-variant="C"] .dsh-upd-bi [lang="en"]{ background:#eef2ff; border-right:1px solid var(--line); }
+  body[data-variant="C"] .dsh-upd-bi .tag{ display:block; font-size:9px; letter-spacing:.12em; opacity:.6; }
+  @media (max-width:420px){ body[data-variant="C"] .dsh-upd-bi{ grid-template-columns:1fr; } body[data-variant="C"] .dsh-upd-bi [lang="en"]{ border-right:0; border-bottom:1px solid var(--line); } }
+  .overflow{ border:1px dashed #a16207; border-radius:8px; padding:10px 12px; margin:10px 0; background:#fffbeb; font-size:12.5px; }
+  .overflow b{ font-size:12.5px; }
+  .overflow code{ display:block; background:#111827; color:#e5e7eb; padding:8px 10px; border-radius:6px; margin-top:6px; white-space:pre-wrap; word-break:break-all; }
+  /* 悬浮切换条 */
+  #switcher{ position:fixed; left:50%; transform:translateX(-50%); bottom:16px; z-index:50; background:#111827; color:#fff; border-radius:999px; padding:8px 10px; display:flex; gap:10px; align-items:center; box-shadow:0 6px 24px rgba(0,0,0,.35); font-size:14px; }
+  #switcher button{ background:#374151; color:#fff; border:none; font-size:16px; padding:4px 12px; border-radius:999px; cursor:pointer; }
+  #switcher .lbl{ min-width:230px; text-align:center; }
+  #switcher .lbl small{ display:block; font-size:10px; color:#9ca3af; }
+  footer.note{ max-width:1240px; margin:24px auto 0; padding:0 16px; font-size:12px; color:var(--mut); }
+</style>
+</head>
+<body>
+<div class="proto-banner"><b>PROTOTYPE</b>抛弃式原型 · 不进主分支 · 双击即开 · 内存 stub · 零真实电话（不改电话形状）· 问题见 <code>#55 双语视觉矩阵</code></div>
+<header class="q">
+  <h1>#55 双语视觉矩阵：单入口 / 单面板 / 批量面板 × 双主题 × 常态 / 失败 / 待重启 / 缺日志</h1>
+  <p>设计问题：<b>底座双语块应该长什么样</b>（英文在前中文在后，空白分隔，窄处竖排，<code>lang</code> 属性）——在 24 格矩阵里看竖排与间距是否顺眼、是否溢出。分支：<b>UI / sub-shape B</b>（包内无路由，抛弃式单文件），三变体经 <code>?variant=A|B|C</code> + 底部悬浮条切换。</p>
+  <ul>
+    <li><b>A 横排并列</b>（现状 <code>BILINGUAL_CSS</code>）：行内 <code>inline-flex</code>，英文前中文后空白分隔，≤360px 自动竖排。</li>
+    <li><b>B 竖排堆叠</b>：常驻竖排，EN 12px 弱化在上，ZH 14px 加重在下，左侧 accent 线（按钮/徽标小字场景）。</li>
+    <li><b>C 对照卡片</b>：左右两格 + EN/ZH 小签，≤420px 堆叠（诊断/面板标题等需要“看得出两种语言”的场景）。</li>
+    <li>四态：<b>常态</b>=有新版 1.2.3→1.3.0 可装 ／ <b>失败</b>=<code>install-failed</code> 红条 ／ <b>待重启</b>=<code>pending-restart</code>（正常终态非失败）／ <b>缺日志</b>=常态+<code>changelog=null</code>（中性提示，安装不受影响）。单入口缺日志格与常态同文案（预期一致，已外显）。</li>
+    <li>数据源：只用 <code>#54</code> 7 键 draft（<code>entry.label.*</code>），panel/batch 长行用现有中文占位（不新造 key，避免双源）；溢出探针 3 处见文末，每处注明换行策略。</li>
+  </ul>
+</header>
+<div class="stateline" id="stateline">…</div>
+<main id="main"></main>
+<footer class="note">
+  状态外显：每格头注明 <code>载体 · 主题 · 态 · key · 快照/电话码</code>；切换变体即重渲染并更新本行。验收：24 格全齐（3×2×4），溢出项注明换行策略，不改电话形状（本页零 <code>fetch</code>／零真实电话）。
+   verdict 待人眼验收后写回 #55 正文；本文件只留抛弃式分支。截图请用视口截图（非 fullpage 拼接，拼接会把 fixed 切换条压在页面中部属伪影；点 × 可隐藏切换条后截干净矩阵）。
+</footer>
+<div id="switcher" role="toolbar" aria-label="prototype variant switcher">
+  <button id="prev" aria-label="previous variant">←</button>
+  <div class="lbl"><span id="cur">A — 横排并列</span><small>?variant=A|B|C · ←/→ 切换 · 可分享 URL</small></div>
+  <button id="next" aria-label="next variant">→</button>
+  <button id="hide" aria-label="hide switcher" title="隐藏切换条（截图用，刷新恢复）">×</button>
+</div>
+<script>
+// ---------- 纯模块：底座 7 键（逐字抄 src/bilingual.ts draft） ----------
+var DICT = {
+  'entry.label.idle': { en: 'Check for updates', zh: '检查更新' },
+  'entry.label.failed': { en: 'Update failed \u2014 View details', zh: '更新失败，点此查看' },
+  'entry.label.busy': { en: 'Installing\u2026', zh: '正在安装\u2026' },
+  'entry.label.restart': { en: 'Restart required', zh: '待重启' },
+  'entry.label.has-update': { en: 'Update available {version}', zh: '有新版 {version}' },
+  'entry.action.checking': { en: 'Checking for updates\u2026', zh: '正在查新版\u2026' },
+  'entry.note.up-to-date': { en: 'Up to date {version}', zh: '已是最新 {version}' }
+};
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fill(t, v){ return String(t).replace(/\{([A-Za-z0-9_]+)\}/g, function(m,n){ var x=(v||{})[n]; return (x===null||x===undefined)?'':String(x).trim(); }); }
+function bi(key, values, variant){
+  var e = DICT[key]; var en = esc(fill(e.en, values)); var zh = esc(fill(e.zh, values));
+  if(variant==='C') return '<span class="dsh-upd-bi"><span lang="en"><span class="tag">EN</span>'+en+'</span><span lang="zh"><span class="tag">ZH</span>'+zh+'</span></span>';
+  return '<span class="dsh-upd-bi"><span lang="en">'+en+'</span> <span lang="zh">'+zh+'</span></span>';
+}
+function biText(key, values){ var e=DICT[key]; return fill(e.en,values)+' '+fill(e.zh,values); }
+// ---------- stub 快照（四态冻结，电话形状不动） ----------
+var STATES = {
+  normal:  { label:'常态', snapshot:{ running:'1.2.3', latest:'1.3.0', canInstall:true, blocked:null, job:null }, error:null, changelog:'## 1.3.0\n- 新增：一键复制诊断\n- 修复：深色下横幅看不清', entryKey:'entry.label.has-update', entryVals:{version:'1.3.0'} },
+  failed:  { label:'失败', snapshot:{ running:'1.2.3', latest:'1.3.0', canInstall:false, blocked:null, job:'failed' }, error:'install-failed', changelog:'## 1.3.0\n- 新增：一键复制诊断', entryKey:'entry.label.failed', entryVals:{} },
+  restart: { label:'待重启', snapshot:{ running:'1.2.3', latest:'1.3.0', canInstall:true, blocked:'pending-restart', job:null }, error:null, changelog:'## 1.3.0\n- 新增：一键复制诊断', entryKey:'entry.label.restart', entryVals:{} },
+  nolog:   { label:'缺日志', snapshot:{ running:'1.2.3', latest:'1.3.0', canInstall:true, blocked:null, job:null }, error:null, changelog:null, entryKey:'entry.label.has-update', entryVals:{version:'1.3.0'} }
+};
+var THEMES = [
+  { id:'default', label:'default', attr:'default' },
+  { id:'archive', label:'archive（d5-paper 同渲染）', attr:'d5-paper' }
+];
+var CARRIERS = [
+  { id:'entry', label:'单入口', note:'按钮文案走底座 7 键；缺日志格与常态同文案（入口件不取日志，预期一致）。' },
+  { id:'panel', label:'单面板', note:'横幅/版本条/ changelog 节；失败走红条+复制诊断，待重启走黄条（正常终态），缺日志走中性提示且安装按钮仍可用。' },
+  { id:'batch', label:'批量面板', note:'总账 + 3 行（可更新/失败或待查/已最新）；待重启行带“重启宿主才生效”。行内动作只做样子，不打电话。' }
+];
+var VARIANTS = { A:'A — 横排并列（现状）', B:'B — 竖排堆叠', C:'C — 对照卡片' };
+function getVariant(){ var m=/[?&]variant=([ABC])/i.exec(location.search); return m?m[1].toUpperCase():'A'; }
+function setVariant(v){ var u=new URL(location.href); u.searchParams.set('variant',v); history.replaceState(null,'',u.toString()); render(); }
+// ---------- 载体渲染（缩影，非全量内核；只为看双语块排版） ----------
+function entryHTML(st, v){
+  var kind = st===STATES.failed?'failed':(st===STATES.restart?'restart':(st.entryKey==='entry.label.has-update'?'update':'idle'));
+  var title = esc(biText(st.entryKey, st.entryVals));
+  return '<div class="dsh-upd-entry" data-state="'+kind+'"'+(curThemeAttr==='d5-paper'?' data-theme="d5-paper"':'')+'>'
+    + '<button class="dsh-upd-entry-btn" title="'+title+'" aria-label="'+title+'">'+bi(st.entryKey, st.entryVals, v)+'</button>'
+    + '<span class="dsh-upd-entry-note">'+bi('entry.note.up-to-date', {version:'1.2.3'}, v)+'</span></div>';
+}
+var curThemeAttr = 'default';
+function panelHTML(themeAttr, sk, st, v){
+  var banner='';
+  if(sk==='failed') banner='<div class="dsh-upd-banner" data-kind="failed"><b>'+bi('entry.label.failed', {}, v)+'</b><br>更新失败（install-failed）：装不上（详见诊断摘要）。<br><button>重试安装</button> <button>复制诊断</button></div>';
+  else if(sk==='restart') banner='<div class="dsh-upd-banner" data-kind="restart"><b>'+bi('entry.label.restart', {}, v)+'</b><br>新版 1.3.0 已安装，重启宿主后生效。这是正常终态，不是失败。<br><button>重启宿主</button></div>';
+  else banner='<div class="dsh-upd-banner" data-kind="update"><b>'+bi('entry.label.has-update', {version:'1.3.0'}, v)+'</b><br>有新版 1.3.0 可装（当前 1.2.3）。点安装即走精确版本安装；同一使用范围同时只装一个。<br><button data-primary="1">安装 1.3.0</button> <button>跳过该版本</button></div>';
+  var log='';
+  if(st.changelog===null) log='<div class="dsh-upd-log"><b>更新说明：</b><span class="dsh-upd-neutral">日志读不出来，安装不受影响。（缺日志中性提示）</span></div>';
+  else log='<div class="dsh-upd-log"><b>更新说明（1.2.3 → 1.3.0）：</b><br>新增：一键复制诊断；修复：深色下横幅看不清</div>';
+  return '<div class="dsh-upd" data-theme="'+themeAttr+'">'
+    + '<div style="font-size:12px;opacity:.7">插件更新 · panel缩影 · '+esc(themeAttr)+'</div>'
+    + '<div class="dsh-upd-strip"><div><span class="dsh-upd-strip-k">运行 RUNNING</span><span class="dsh-upd-strip-v">1.2.3</span></div><div><span class="dsh-upd-strip-k">磁盘 INSTALLED</span><span class="dsh-upd-strip-v">1.2.3</span></div><div><span class="dsh-upd-strip-k">远端 LATEST</span><span class="dsh-upd-strip-v">1.3.0</span></div></div>'
+    + '<div style="height:8px"></div>'+banner+log
+    + '<div style="margin-top:6px"><button>查新版</button><button>复制手工命令</button><button>关闭</button></div></div>';
+}
+function batchRows(sk){
+  if(sk==='normal') return [ {t:'插件甲 · 1.3.0 可装', c:'var(--ok)', w:'点安装这家安装 1.3.0'}, {t:'插件乙 · 正在查新版，稍等', c:'#9ca3af', w:'等它，轮到就自动查新版'}, {t:'插件丙 · 已是最新，不用动', c:'#9ca3af', w:'已是最新 1.2.3'} ];
+  if(sk==='failed') return [ {t:'插件甲 · 安装没成功，点重试再来一次', c:'var(--bad)', w:'install-failed：先看复制诊断'}, {t:'插件乙 · 1.3.0 可装', c:'var(--ok)', w:'点安装这家安装 1.3.0'}, {t:'插件丙 · 已是最新', c:'#9ca3af', w:'已是最新 1.2.3'} ];
+  if(sk==='restart') return [ {t:'插件甲 · 安装好了，重启宿主才生效', c:'var(--warn)', w:'pending-restart：正常终态'}, {t:'插件乙 · 1.3.0 可装', c:'var(--ok)', w:'点安装这家'}, {t:'插件丙 · 已是最新', c:'#9ca3af', w:'已是最新'} ];
+  return [ {t:'插件甲 · 1.3.0 可装（日志缺省仍可装）', c:'var(--ok)', w:'点安装这家安装 1.3.0'}, {t:'插件乙 · 正在查新版', c:'#9ca3af', w:'等它'}, {t:'插件丙 · 已是最新', c:'#9ca3af', w:'已是最新'} ];
+}
+function batchTotal(sk){
+  if(sk==='normal') return '1 家可更新 · 1 家待查 · 1 家已最新';
+  if(sk==='failed') return '1 家可更新 · 1 家失败 · 1 家已最新';
+  if(sk==='restart') return '1 家可更新 · 1 家待重启 · 1 家已最新';
+  return '1 家可更新 · 1 家待查 · 1 家已最新（缺日志不计数）';
+}
+function batchHTML(themeAttr, sk, v){
+  var rows = batchRows(sk).map(function(r){ return '<div class="batch-row"><span class="dot" style="background:'+r.c+'"></span><span>'+esc(r.t)+'<br><span style="font-size:12px;opacity:.7">'+esc(r.w)+'</span></span></div>'; }).join('');
+  return '<div class="dsh-upd" data-theme="'+themeAttr+'"><div style="font-size:12px;opacity:.7">更新档案 · 总账 · '+esc(themeAttr)+'</div>'
+    + '<div class="batch-total">'+esc(batchTotal(sk))+'</div>' + rows
+    + '<div style="margin-top:6px"><button>检查更新</button><button data-primary="1">全部更新</button></div></div>';
+}
+function stateTag(carrierId, themeId, sk, st){
+  var key = carrierId==='entry' ? st.entryKey : (carrierId==='panel' ? (sk==='failed'?'panel.banner.error.title / entry.label.failed':(sk==='restart'?'panel.banner.restart-title / entry.label.restart':'panel.banner.update-title / entry.label.has-update')) : 'batch.summary + batch.row.*');
+  var snap = carrierId==='entry' ? ('snapshot{latest:'+st.snapshot.latest+',job:'+(st.snapshot.job||'null')+',blocked:'+(st.snapshot.blocked||'null')+'} error:'+(st.error||'null'))
+    : carrierId==='panel' ? ('snapshot{run:1.2.3,latest:1.3.0,blocked:'+(st.snapshot.blocked||'null')+',job:'+(st.snapshot.job||'null')+'} code:'+(st.error||'none')+' changelog:'+(st.changelog===null?'null':'ok'))
+    : ('rows['+batchTotal(sk)+'] changelog:'+(st.changelog===null?'null':'ok'));
+  return 'key='+key+' · '+snap+' · 主题='+themeId;
+}
+function render(){
+  var v = getVariant(); document.body.setAttribute('data-variant', v);
+  document.getElementById('cur').textContent = VARIANTS[v] || v;
+  var main = document.getElementById('main'); var out='';
+  var order = ['normal','failed','restart','nolog'];
+  CARRIERS.forEach(function(c){
+    out += '<h2 class="carrier">'+esc(c.label)+' <span style="font-size:12px;font-weight:400">× 双主题 × 四态 = 8 格</span></h2><p class="carrier-note">'+esc(c.note)+'</p><div class="matrix">';
+    THEMES.forEach(function(th){
+      order.forEach(function(sk){
+        var st = STATES[sk]; curThemeAttr = th.attr;
+        var body='';
+        if(c.id==='entry') body = entryHTML(st, v);
+        else if(c.id==='panel') body = panelHTML(th.attr, sk, st, v);
+        else body = batchHTML(th.attr, sk, st, v);
+        out += '<div class="cell"><div class="cell-head"><b>'+esc(c.label)+' · '+esc(th.label)+' · '+esc(st.label)+'</b><span class="st">'+esc(stateTag(c.id, th.id, sk, st))+'</span></div><div class="cell-body"><span class="theme-tag">theme='+esc(th.attr)+'</span>'+body+'</div></div>';
+      });
+    });
+    out += '</div>';
+  });
+  // 溢出探针
+  curThemeAttr='default';
+  out += '<h2 class="carrier">溢出探针 × 换行策略（3 处 · 双主题只看 default 代表，archive 同策略）</h2><p class="carrier-note">策略：双语块 overflow-wrap:anywhere；code/命令 word-break:break-all；A ≤360px 自动竖排，B 常驻竖排，C ≤420px 卡片堆叠。切换变体看同一长串的不同表现。</p>';
+  var longVer='99.88.77-beta+build.1234567890abcdef';
+  out += '<div class="overflow"><b>P1 超长版本号</b>（按钮 + 版本条）：策略 overflow-wrap:anywhere，版本串不断行溢出则在任意字符处断。<br><br>'
+    + '<div class="dsh-upd-entry" data-state="update"><button class="dsh-upd-entry-btn">'+bi('entry.label.has-update',{version:longVer},v)+'</button></div>'
+    + '<div style="height:8px"></div><div class="dsh-upd" data-theme="default"><div class="dsh-upd-strip"><div><span class="dsh-upd-strip-k">远端 LATEST</span><span class="dsh-upd-strip-v">'+esc(longVer)+'</span></div></div></div>'
+    + '<code>P1 期望：按钮双语块不断出容器；版本条格内换行，横向不撑破 430px 格。</code></div>';
+  out += '<div class="overflow"><b>P2 批量长标题行</b>（24 字插件名 + 版本）：策略行内省略禁止，允许两行，状态词第二行弱化。<br><br>'
+    + '<div class="dsh-upd" data-theme="default"><div class="batch-row"><span class="dot" style="background:var(--ok)"></span><span>超长插件名称超长插件名称超长插件名称甲 · 1.3.0 可装<br><span style="font-size:12px;opacity:.7">点安装这家安装 '+esc(longVer)+'</span></span></div></div>'
+    + '<code>P2 期望：标题不断出卡片；版本串在行内第二行 break-all 换行。</code></div>';
+  out += '<div class="overflow"><b>P3 诊断复制长行</b>（detail 120 字 + 手工命令）：策略 code 块 break-all，复制文本与显示一致（已脱敏占位）。<br><br>'
+    + '<div class="dsh-upd" data-theme="default"><div class="dsh-upd-banner" data-kind="failed">稳定码 install-failed：装不上（详见诊断摘要）。人话已脱敏：将长路径收为 &lt;路径&gt; 占位。</div><code>[更新诊断] demo 稳定码：install-failed\n人话：装不上，详情见 &lt;路径&gt; 下超长日志超长日志超长日志超长日志超长日志\n手工命令：npm i -g xxx@'+esc(longVer)+' --registry=https://registry.npmmirror.com/extra/long/path/segment</code></div>'
+    + '<code>P3 期望：code 块横向滚动或换行均可，但不得撑破格子；&lt;路径&gt; 占位不译。</code></div>';
+  main.innerHTML = out;
+  var count = document.querySelectorAll('.cell').length;
+  document.getElementById('stateline').innerHTML = '当前变体：<b>'+esc(VARIANTS[v])+'</b> · 矩阵 <b>'+count+' 格</b>（3 载体×2 主题×4 态全齐）· 溢出探针 3 处 · URL <b>'+esc(location.search||'(无参，默认 A)')+'</b> · 底座 7 键 draft（entry.label.*）· 电话形状：<b>零真实电话</b>';
+}
+document.getElementById('hide').onclick=function(){ document.getElementById('switcher').style.display='none'; };
+document.getElementById('prev').onclick=function(){ var v=getVariant(); setVariant(v==='A'?'C':(v==='B'?'A':'B')); };
+document.getElementById('next').onclick=function(){ var v=getVariant(); setVariant(v==='A'?'B':(v==='B'?'C':'A')); };
+document.addEventListener('keydown',function(e){
+  var t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
+  if(e.key==='ArrowLeft') document.getElementById('prev').click();
+  if(e.key==='ArrowRight') document.getElementById('next').click();
+});
+render();
+</script>
+</body>
+</html>

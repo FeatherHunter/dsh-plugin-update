@@ -32,6 +32,7 @@ import {
   type UpdatePanelTheme,
 } from './panel.js'
 import type { UpdateSnapshot } from './ports.js'
+import { BILINGUAL_CSS, bilingualHTML, bilingualText, type BilingualKey } from './bilingual.js'
 
 // ---------- 公开类型 ----------
 
@@ -137,6 +138,47 @@ export function entryStateKind(state: UpdateEntryState | null | undefined): Entr
   return 'idle'
 }
 
+/**
+ * 入口件双语 key（#54 底座调用链）：与 entryStateKind 同一输入（快照 + 失败码），分支只认稳定码，永不读文案。
+ * 数据层只传 key + {version} 运行时值，表现层经 bilingualHTML 拼语义块。
+ */
+export function entryBilingualKeyFor(state: UpdateEntryState | null | undefined): BilingualKey {
+  switch (entryStateKind(state)) {
+    case 'busy':
+      return 'entry.label.busy'
+    case 'restart':
+      return 'entry.label.restart'
+    case 'failed':
+      return 'entry.label.failed'
+    case 'update': {
+      const latest = state?.snapshot?.latestVersion
+      return typeof latest === 'string' && latest.trim() ? 'entry.label.has-update' : 'entry.label.idle'
+    }
+    default:
+      return 'entry.label.idle'
+  }
+}
+
+/** 双语插值（运行时值永不翻译：同一 version 在中英两 span 各出现一次）。 */
+export function entryBilingualValuesFor(state: UpdateEntryState | null | undefined): Record<string, string> {
+  const key = entryBilingualKeyFor(state)
+  if (key === 'entry.label.has-update') {
+    const v = state?.snapshot?.latestVersion
+    return { version: typeof v === 'string' ? v.trim() : '' }
+  }
+  return {}
+}
+
+/** 一路调用链的语义块 HTML（entryHTML 按钮正文唯一来源，无覆盖时必走此函数）。 */
+export function entryBilingualHTMLFor(state: UpdateEntryState | null | undefined): string {
+  return bilingualHTML(entryBilingualKeyFor(state), entryBilingualValuesFor(state))
+}
+
+/** 属性位纯文本双语（title / aria-label 用，放不下 HTML 时的同内容平面版）。 */
+export function entryBilingualTextFor(state: UpdateEntryState | null | undefined): string {
+  return bilingualText(entryBilingualKeyFor(state), entryBilingualValuesFor(state))
+}
+
 /** 入口件文案（唯一出处：测试与接入方都读它，不各写一份）。 */
 export function entryLabelFor(state: UpdateEntryState | null | undefined): string {
   switch (entryStateKind(state)) {
@@ -179,13 +221,13 @@ export const UPDATE_ENTRY_CSS = [
   '.dsh-upd-entry[data-state="failed"] .dsh-upd-entry-dot{background:var(--dsh-upd-bad-line,#dc2626)}',
   // 小字自带底（深色宿主 + 浅色变量时也读得出；浅底宿主上只是多一圈细线，不抢戏）。
   '.dsh-upd-entry-note{font-size:12.5px;opacity:.9;background:var(--dsh-upd-bg,#ffffff);border:1px solid var(--dsh-upd-line,#e5e7eb);border-radius:4px;padding:1px 8px}',
-  '.dsh-upd-entry[data-theme="d5-paper"] .dsh-upd-entry-note{background:var(--d5-card);border-color:var(--d5-line-strong);color:var(--d5-ink)}',
-  '.dsh-upd-entry[data-theme="d5-paper"]{--d5-ink:#1a1a1a;--d5-muted:#6f675a;--d5-line-strong:#c4b896;--d5-accent:#c8402a;--d5-card:#fffdf6;',
+  '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-note{background:var(--d5-card);border-color:var(--d5-line-strong);color:var(--d5-ink)}',
+  '.dsh-upd-entry[data-theme="archive"]{--d5-ink:#1a1a1a;--d5-muted:#6f675a;--d5-line-strong:#c4b896;--d5-accent:#c8402a;--d5-card:#fffdf6;',
   'font-family:Georgia,"Songti SC","STSong","SimSun",serif;color:var(--d5-ink)}',
   // 按钮脸自己不透明（深色宿主 + 浅色系统变量时也读得出；hover 红在深浅底上都可见）。
-  '.dsh-upd-entry[data-theme="d5-paper"] .dsh-upd-entry-btn{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink);border-radius:3px}',
-  '.dsh-upd-entry[data-theme="d5-paper"] .dsh-upd-entry-btn:hover{border-color:var(--d5-accent);color:var(--d5-accent)}',
-  '@media (prefers-color-scheme: dark){.dsh-upd-entry[data-theme="d5-paper"]{--d5-ink:#ece5d3;--d5-muted:#a89c83;--d5-line-strong:#5c4e3b;--d5-accent:#e0684e;--d5-card:#1e1a15}}',
+  '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn{border-color:var(--d5-line-strong);background:var(--d5-card);color:var(--d5-ink);border-radius:3px}',
+  '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn:hover{border-color:var(--d5-accent);color:var(--d5-accent)}',
+  '@media (prefers-color-scheme: dark){.dsh-upd-entry[data-theme="archive"]{--d5-ink:#ece5d3;--d5-muted:#a89c83;--d5-line-strong:#5c4e3b;--d5-accent:#e0684e;--d5-card:#1e1a15}}',
   '@media (prefers-color-scheme: dark){.dsh-upd-entry{color:#e5e7eb}',
   '.dsh-upd-entry-btn{--dsh-upd-btn:#1f2937;--dsh-upd-line:#374151}}',
 ].join('\n')
@@ -263,7 +305,8 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
 
   let snapshot: UpdateSnapshot | null = null
   let error: string | null = null
-  let note: string | null = null
+  // 已是最新提示的运行时值（#54 双语 entry.note.up-to-date 的 {version}，null 即无提示；值永不翻译）
+  let noteVersion: string | null = null
   // 在途查新版（#36）：点下到回包前的那一帧，按钮置忙 + 并发连点只认第一次。
   let activating = false
   let mounted = true
@@ -310,18 +353,24 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
 
   function entryHTML(): string {
     const kind = entryStateKind(stateOf())
-    const text = activating ? '正在查新版…' : currentLabel()
+    // #54 底座调用链：无覆盖时按钮正文必走集中字典语义块（英文前中文后，lang 齐全）；有覆盖仍走用户原文（兼容口径）。
+    const labelHTML = labelOverride
+      ? escapeHtml(labelOverride)
+      : activating
+        ? bilingualHTML('entry.action.checking')
+        : entryBilingualHTMLFor(stateOf())
+    const labelText = labelOverride ?? (activating ? bilingualText('entry.action.checking') : entryBilingualTextFor(stateOf()))
     const busyAttr = activating ? ' disabled aria-busy="true"' : ''
-    const themeAttr = theme === 'd5-paper' ? ' data-theme="d5-paper"' : ''
+    const themeAttr = theme === 'archive' ? ' data-theme="archive"' : ''
     const control =
       variant === 'badge'
-        ? `<button type="button" class="dsh-upd-entry-dot" ${ENTRY_ATTR}="activate" title="${escapeHtml(text)}" aria-label="${escapeHtml(text)}"${busyAttr}></button>`
-        : `<button type="button" class="dsh-upd-entry-btn" ${ENTRY_ATTR}="activate"${busyAttr}>${escapeHtml(text)}</button>`
-    const noteHTML = note
-      ? `<span class="dsh-upd-entry-note" data-dsh-upd-note="1">${escapeHtml(note)}</span>`
+        ? `<button type="button" class="dsh-upd-entry-dot" ${ENTRY_ATTR}="activate" title="${escapeHtml(labelText)}" aria-label="${escapeHtml(labelText)}"${busyAttr}></button>`
+        : `<button type="button" class="dsh-upd-entry-btn" ${ENTRY_ATTR}="activate"${busyAttr}>${labelHTML}</button>`
+    const noteHTML = noteVersion
+      ? `<span class="dsh-upd-entry-note" data-dsh-upd-note="1">${bilingualHTML('entry.note.up-to-date', { version: noteVersion })}</span>`
       : ''
     return (
-      `<style>${UPDATE_ENTRY_CSS}</style>\n` +
+      `<style>${UPDATE_ENTRY_CSS}\n${BILINGUAL_CSS}</style>\n` +
       `<span class="dsh-upd-entry" data-variant="${variant}" data-state="${kind}"${themeAttr}>` +
       `${control}${noteHTML}</span>`
     )
@@ -428,7 +477,7 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
       return
     }
     activating = true
-    note = null
+    noteVersion = null
     render()
     try {
       await checkNow()
@@ -449,8 +498,8 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
       openDialog()
       return
     }
-    // 确知没有新版：不开面板，只在原地给一句话。
-    note = `已是最新 ${snapshot.runningVersion}`
+    // 确知没有新版：不开面板，只在原地给一句双语（#54 entry.note.up-to-date，值透传不译）。
+    noteVersion = snapshot.runningVersion
     render()
   }
 

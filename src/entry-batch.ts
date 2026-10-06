@@ -332,7 +332,7 @@ export function mountUpdateBatchEntry(
     const summary = summaryOf()
     const text = activating ? '正在查新版…' : currentLabel()
     const busyAttr = activating ? ' disabled aria-busy="true"' : ''
-    const themeAttr = theme === 'd5-paper' ? ' data-theme="d5-paper"' : ''
+    const themeAttr = theme === 'archive' ? ' data-theme="archive"' : ''
     const control =
       variant === 'badge'
         ? '<button type="button" class="dsh-upd-entry-dot" ' + ENTRY_ATTR + '="activate" title="' + escapeHtml(text) + '" aria-label="' + escapeHtml(text) + '"' + busyAttr + '></button>'

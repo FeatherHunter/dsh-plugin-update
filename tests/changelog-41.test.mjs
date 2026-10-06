@@ -272,11 +272,11 @@ test('D5 只换肤不换 DOM 顺序', function() {
       if (s < 0 || e < 0) break;
       out = out.slice(0, s) + out.slice(e + 8);
     }
-    out = out.split(' data-theme="d5-paper"').join('');
+    out = out.split(' data-theme="archive"').join('');
     return out;
   }
   const ka = stripStyleAndTheme(a);
   const kb = stripStyleAndTheme(b);
   assert.equal(ka, kb, 'D5 与默认内核 DOM 应一字相同（只换肤）');
-  assert.ok(b.includes('data-theme="d5-paper"'), 'D5 挂主题属性');
+  assert.ok(b.includes('data-theme="archive"'), 'D5 挂主题属性');
 });

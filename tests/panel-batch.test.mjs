@@ -943,9 +943,9 @@ describe('双主题：默认最小，d5-paper 只换肤', () => {
 
   it('d5-paper 走 data-theme 属性，并在同前缀下换肤', () => {
     const html = renderBatchPanelHTML({ rows: [rowOf()], theme: 'd5-paper' })
-    assert.ok(rootTagOf(html).includes('data-theme="d5-paper"'), 'D5 靠根上的 data-theme 属性')
+    assert.ok(rootTagOf(html).includes('data-theme="archive"'), 'D5 靠根上的 data-theme 属性')
     assert.ok(html.includes('--d5-serif'), 'D5 皮肤串要在')
-    assert.ok(UPDATE_BATCH_PANEL_D5_CSS.includes('[data-theme="d5-paper"]'), '批量皮肤的 D5 段也按属性收敛')
+    assert.ok(UPDATE_BATCH_PANEL_D5_CSS.includes('[data-theme="archive"]'), '批量皮肤的 D5 段也按属性收敛')
     assert.ok(!UPDATE_BATCH_PANEL_CSS.includes('d5-paper'), '默认那串不许混进 D5')
   })
 
@@ -955,7 +955,7 @@ describe('双主题：默认最小，d5-paper 只换肤', () => {
     await settled()
     assert.ok(!rootTagOf(box.innerHTML).includes('data-theme='))
     panel.setTheme('d5-paper')
-    assert.ok(rootTagOf(box.innerHTML).includes('data-theme="d5-paper"'))
+    assert.ok(rootTagOf(box.innerHTML).includes('data-theme="archive"'))
     panel.setTheme('default')
     assert.ok(!rootTagOf(box.innerHTML).includes('data-theme='))
     assert.throws(() => panel.setTheme('d5'), /主题/)

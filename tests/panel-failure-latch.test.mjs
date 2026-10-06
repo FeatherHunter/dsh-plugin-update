@@ -415,6 +415,49 @@ test('#58 formatLatchTime：合法回时分秒，非法回 null', async () => {
   assert.equal(formatLatchTime('13:00:00'), null, '字符串回 null')
 });
 
+// ---------- 18. volatile 不跨重挂 ----------
+
+test('#58 volatile 不跨重挂：读数瞬态失败重开即忘', async () => {
+  const down = () => { throw new Error('net down') }
+  const first = mountFor('latch-18', { status: down, check: down, install: down })
+  await settled()
+  await settled()
+  assert.match(first.box.innerHTML, /更新失败/, '读数抛错应有失败横幅')
+  assert.match(first.box.innerHTML, /读数瞬态失败/, '瞬态应用瞬态文案，不说冻结')
+  assert.doesNotMatch(first.box.innerHTML, /证据已冻结/, '瞬态不说冻结')
+  first.panel.unmount()
+  const second = mountFor('latch-18', { status: okStatus, check: okCheck, install: () => ({ ok: true }) })
+  await settled()
+  await settled()
+  assert.doesNotMatch(second.box.innerHTML, /更新失败/, '重开后瞬态失败不应复活')
+  assert.match(second.box.innerHTML, /有新版.*可装/, '重开后回到可装页')
+  second.panel.unmount()
+});
+
+// ---------- 19. 查锁存无编号：不拿旧安装编号充“本次” ----------
+
+test('#58 查锁存诚实：卷宗只有时刻，没有错配的编号', async () => {
+  const { panel, box } = mountFor('latch-19', {
+    status: okStatus,
+    check: () => ({ ok: false, error: 'check-failed', errorKind: 'check-failed' }),
+    install: () => ({ ok: false, error: 'install-failed', errorKind: 'install-failed' }),
+  })
+  await settled()
+  await settled()
+  await panel.act('install')
+  await settled()
+  assert.match(box.innerHTML, /更新失败/, '装失败应锁存（含编号，不影响本断言）')
+  await panel.act('dismiss-failure')
+  await settled()
+  await panel.act('check')
+  await settled()
+  assert.match(box.innerHTML, /更新失败/, '查失败应锁存')
+  assert.match(box.innerHTML, /失败于 \d{1,2}:\d{2}:\d{2}/, '应带失败时刻')
+  assert.doesNotMatch(box.innerHTML, /请求 <code>/, '查锁存不得带旧安装请求编号')
+  assert.doesNotMatch(box.innerHTML, /检查 <code>/, '查锁存不得带旧检查编号')
+  panel.unmount()
+});
+
 // ---------- 17. 事件名单源：路牌用常量 ----------
 
 test('#58 事件名单源：路牌三事件名来自共享常量', async () => {

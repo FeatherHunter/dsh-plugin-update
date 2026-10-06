@@ -134,7 +134,7 @@ describe('#47 定案 A：dialog 关闭住右下角独立 footer 区', () => {
     const b = strip(renderUpdatePanelHTML(panelInput({ mode: 'dialog', theme: 'archive' })))
     assert.ok(a.includes('dsh-upd-footer'), '默认主题有 footer')
     assert.ok(b.includes('dsh-upd-footer'), '档案卷有 footer')
-    assert.equal(b.replace(' data-theme="d5-paper"', ''), a, '内核 DOM 逐字同一份')
+    assert.equal(b.replace(' data-theme="archive"', ''), a, '内核 DOM 逐字同一份')
   })
 })
 
