@@ -229,8 +229,11 @@ export interface BatchLedgerCounts {
  * 失败优先（失败行永远算失败，不算待重启）；其余按相位落档；不用重启的终态才算「已最新」。
  * 例外一处：「忙失败占位」（phase=failed 但 error=update-busy）其实是**排队**不是失败——
  * 宿主忙时先写占位再回 update-busy，面板把它翻回「可更新」，免得总账把它报成失败。
+ * 无轮次 pending 行看知识（#73：与行展示同口径，四态镜像 batchRowKnowledgeText）：
+ * 有新版进可更新、已是最新进已最新、查失败进失败、无知识仍待查；
+ * checking 行永远走执行态（待查），不吃知识。不传 inventory 即无知识（旧语义）。
  */
-export function batchLedgerCounts(rows: readonly BatchRowView[]): BatchLedgerCounts {
+export function batchLedgerCounts(rows: readonly BatchRowView[], inventory?: unknown): BatchLedgerCounts {
   const counts: BatchLedgerCounts = {
     updatable: 0,
     installing: 0,
@@ -246,12 +249,26 @@ export function batchLedgerCounts(rows: readonly BatchRowView[]): BatchLedgerCou
     else if (phase === 'failed') counts.failed += 1
     else if (phase === 'installing') counts.installing += 1
     else if (phase === 'ready') counts.updatable += 1
-    else if (phase === 'pending' || phase === 'checking') counts.pending += 1
+    else if (phase === 'pending') counts[ledgerKnowledgeBucket(knowledgeEntryOf(inventory, row.key))] += 1
+    else if (phase === 'checking') counts.pending += 1
     else if (phase === 'skipped') counts.skipped += 1
     else if (row.restartRequired === true) counts.restart += 1
     else counts.settled += 1
   }
   return counts
+}
+
+/**
+ * pending 行的知识档位（#73）：与 batchRowKnowledgeText 四态一一镜像，总账与行永远同口径。
+ * checking 行不走这里（永远执行态）。
+ */
+function ledgerKnowledgeBucket(entry: BatchKnowledgeEntry | null): keyof BatchLedgerCounts {
+  if (!entry) return 'pending'
+  if (entry.error) return 'failed'
+  if (entry.latestVersion && entry.installedVersion) return entry.latestVersion !== entry.installedVersion ? 'updatable' : 'settled'
+  if (entry.latestVersion && !entry.installedVersion) return 'updatable'
+  if (entry.lastCheckedAt > 0) return 'settled'
+  return 'pending'
 }
 
 /** 分类计数 → 一句话总账（只出现非零档，顺序固定：可更新 · 安装中 · 待查 · 待重启 · 失败 · 已跳过 · 已最新；#64 单语：缺省 zh 零回归）。 */
@@ -536,7 +553,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   const expandedKey = typeof input.expandedKey === 'string' && input.expandedKey ? input.expandedKey : null
   const lastError = typeof input.lastError === 'string' && input.lastError ? input.lastError : null
   const loaded = input.loaded === undefined ? rows.length > 0 : input.loaded === true
-  const counts = batchLedgerCounts(rows)
+  const counts = batchLedgerCounts(rows, input.inventory)
   // 忙分两种：installing = 有人正在装（决定「加入队列」文案）；macroBusy = 再加本地电话在飞（决定宏按钮置灰）。
   const installing = counts.installing > 0
   const macroBusy = input.inFlight === true || installing
@@ -1624,10 +1641,26 @@ export function mountUpdateBatchPanel(
       return
     }
     if (reply['ok'] === true) {
-      const session = normalizeBatchSession(reply['session'])
-      const parsed = readRows(reply['rows'])
-      rows = parsed.length > 0 ? parsed : rowsFromSession(session)
-      lastSession = session
+      const hasSession = 'session' in reply && reply['session'] !== undefined
+      const hasRows = 'rows' in reply && reply['rows'] !== undefined
+      // Prefs-only save carries no ledger or rows: only flip the switch, keep the table (#74 flicker).
+      if (!hasSession && !hasRows) {
+        if (isObject(reply['prefs'])) lastPrefs = reply['prefs']
+        return
+      }
+      if (hasSession) {
+        const session = normalizeBatchSession(reply['session'])
+        lastSession = session
+        if (hasRows) {
+          const parsed = readRows(reply['rows'])
+          rows = parsed.length > 0 ? parsed : rowsFromSession(session)
+        } else {
+          rows = rowsFromSession(session)
+        }
+      } else {
+        const parsed = readRows(reply['rows'])
+        if (parsed.length > 0) rows = parsed
+      }
       if (isObject(reply['inventory'])) {
         lastInventory = reply['inventory']
         const at = (reply['inventory'] as Record<string, unknown>)['updatedAt']
