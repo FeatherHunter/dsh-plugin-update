@@ -1155,6 +1155,7 @@ export interface PanelFailureRef {
   checkId: string | null
   atMs: number | null
   source: 'check' | 'install' | null
+  volatile: boolean
 }
 
 /** 锁存时刻 → 本地 HH:MM:SS（失败档案“失败于”用；非法值回 null，不画时间）。 */
@@ -1439,9 +1440,15 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         if (keys.length > 0) {
           errLines.push(`<div class="dsh-upd-err">本次查询键：${keys.join(' · ')}（拿着它们去日志里对）。</div>`)
         }
-        errLines.push(
-          `<div class="dsh-upd-err">证据已冻结：复制诊断里的码、版本、编号都取自失败时刻，不随轮询刷新；下一次查新版或安装会更新它。</div>`,
-        )
+        if (!failRef.volatile) {
+          errLines.push(
+            `<div class="dsh-upd-err">证据已冻结：复制诊断里的码、版本、编号都取自失败时刻，不随轮询刷新；下一次查新版或安装会更新它。</div>`,
+          )
+        } else {
+          errLines.push(
+            `<div class="dsh-upd-err">读数瞬态失败：下一次成功读数会自动解除；一直出现再按稳定码排查。</div>`,
+          )
+        }
       }
     } else {
       errLines.push(`<div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断给出的是当前状态快照。</div>`)
@@ -1681,13 +1688,21 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   let latch: FailureLatch | null = null
   try {
     latch = PANEL_FAILURE_LATCHES.get(latchKey) ?? null
+    // 瞬态不跨重挂：读数传输失败是上一挂载的事，重开即重新读数
+    if (latch?.volatile) latch = null
   } catch {
     latch = null
   }
   function saveLatch(): void {
     try {
-      if (latch) PANEL_FAILURE_LATCHES.set(latchKey, latch)
-      else PANEL_FAILURE_LATCHES.delete(latchKey)
+      // 瞬态只活在本挂载：不进跨挂载表；表有界（100 家），老的自然淘汰
+      if (latch && !latch.volatile) {
+        if (!PANEL_FAILURE_LATCHES.has(latchKey) && PANEL_FAILURE_LATCHES.size >= 100) {
+          const oldest = PANEL_FAILURE_LATCHES.keys().next()
+          if (!oldest.done) PANEL_FAILURE_LATCHES.delete(oldest.value)
+        }
+        PANEL_FAILURE_LATCHES.set(latchKey, latch)
+      } else PANEL_FAILURE_LATCHES.delete(latchKey)
     } catch {
       // 锁存落盘失败不挡更新
     }
@@ -1725,8 +1740,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           : null,
       detail: null,
       diag: Object.prototype.hasOwnProperty.call(reply, 'diag') ? (reply as Record<string, unknown>)['diag'] : null,
-      requestId,
-      checkId: receipt?.checkId ?? null,
+      requestId: source === 'install' ? requestId : null,
+      checkId: source === 'install' ? (receipt?.checkId ?? null) : null,
       runningVersion: snapshot?.runningVersion ?? null,
       installedVersion: snapshot?.installedVersion ?? null,
       latestVersion: snapshot?.latestVersion ?? null,
@@ -1854,7 +1869,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       lastError: latch?.code ?? null,
       errorKind: latch?.kind ?? null,
       failure: latch
-        ? { requestId: latch.requestId, checkId: latch.checkId, atMs: latch.atMs, source: latch.source }
+        ? { requestId: latch.requestId, checkId: latch.checkId, atMs: latch.atMs, source: latch.source, volatile: latch.volatile }
         : null,
       showLogHint: showLogHintOption,
       changelogMarkdown,
