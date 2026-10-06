@@ -398,16 +398,19 @@ test('关闭面板只停轮询：卸载后不再调电话，也绝不调取消',
   assert.equal(log.length, before, '卸载后 refresh/act 都是空操作')
 })
 
-test('安装自动带凭证：无 receipt 先查新版再装，requestId 同编号复用', async () => {
+test('安装自动带凭证：mount 自动查已拿凭证时安装直接复用（无 receipt 回退见 panel-auto-check）', async () => {
   const { call, log } = fakeCall()
   const box = fakeContainer()
   const panel = mountUpdatePanel(box, { pluginId: 'p', call, pollMs: 60000 })
   await settled()
+  await settled()
+  assert.ok(log.some((e) => e.name.endsWith('.updateCheck')), 'mount 应已自动查拿凭证（#48）')
   log.length = 0
   await panel.act('install')
   const checkAt = log.findIndex((e) => e.name.endsWith('.updateCheck'))
   const installAt = log.findIndex((e) => e.name.endsWith('.updateInstall'))
-  assert.ok(checkAt >= 0 && installAt > checkAt, '先查后装，调用方不写凭证逻辑')
+  assert.equal(checkAt, -1, '已有凭证时安装不另查，直接复用自动查的凭证')
+  assert.ok(installAt >= 0, '安装电话已发出')
   const installArgs = log[installAt].args
   assert.equal(installArgs.checkId, 'check-1', '装更新带回查新版的凭证')
   assert.ok(typeof installArgs.requestId === 'string' && installArgs.requestId.length >= 1, '请求编号自带')

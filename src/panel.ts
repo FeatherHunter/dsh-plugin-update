@@ -1503,6 +1503,23 @@ async function defaultCopyText(text: string): Promise<void> {
 }
 
 /**
+ * mount 自动查抑制谓词（#48：#46 结论固化，纯函数）：
+ * 仅当快照任务态为 installing/verifying，或已有查/装在途动作时不发起；
+ * 同范围忙、凭证过期、各类阻拦一律不抑制（前两者正是要刷新/重建凭证时）。
+ * 无活体快照（null）也不发起：首个只读刷新没拿到快照时不猜。
+ */
+export function pendingAutoCheck(
+  snapshot: UpdateSnapshot | null,
+  busyAct: 'check' | 'install' | null,
+): boolean {
+  if (busyAct === 'check' || busyAct === 'install') return false
+  if (!snapshot) return false
+  const st = (snapshot as UpdateSnapshot | null)?.job?.state
+  if (st === 'installing' || st === 'verifying') return false
+  return true
+}
+
+/**
  * 挂载整组件（面板侧一行即跑）：
  * ```js
  * const panel = mountUpdatePanel(document.getElementById('upd'), { pluginId: 'my-plugin', prefix: 'notes', call: host.call })
@@ -2001,7 +2018,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     // 卸载只停轮询：绝不调安装/取消电话，安装在宿主进程内继续跑。
   }
 
-  // 首绘即 loading，立刻重查一次（重开 1 秒内恢复进度），再按间隔轮询。
+  // 首绘即 loading：先做一次只读本地的状态刷新，拿到活体快照后再判定是否自动查一次（#48）。
+  // 轮询心跳永远只做只读本地的状态刷新，不触发查新版；自动查复用手动查同一通路（act('check')），
+  // 并发只信服务端真相源（busyAct 互斥 + checking 在途复用 + 2 秒复用窗口），卸载靠 mounted 丢弃。
   render()
   try {
     container.addEventListener?.('click', onClick)
@@ -2024,7 +2043,15 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   } catch {
     // 无 unref 的环境（浏览器）忽略。
   }
-  void refresh()
+  // mount 串行：首绘 loading → await refresh（只读本地）→ 条件自动查一次；轮询永不查新版。
+  void (async () => {
+    await refresh()
+    try {
+      if (pendingAutoCheck(snapshot, busyAct)) void act('check')
+    } catch {
+      // 自动查失败已在 act 内渲染为既有失败文案，这里不另行处理。
+    }
+  })()
 
   return { refresh, act, setMode, setTheme, setShowOthers, setChangelogMarkdown, unmount }
 }

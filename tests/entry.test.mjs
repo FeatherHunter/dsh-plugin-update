@@ -268,7 +268,7 @@ test("openOn='manual'：点击不开面板，改调 onActivate({hasUpdate, lates
   entry.unmount()
 })
 
-test("openOn='direct'：点开即弹窗，不预查（面板挂载即自查）", async () => {
+test("openOn='direct'：点开即弹窗，入口不预查、面板挂载即自查（#48）", async () => {
   const { call, log } = fakeCall({ status: statusReply(UP_TO_DATE), check: checkReply(UP_TO_DATE) })
   const box = fakeContainer()
   const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 'p', call, openOn: 'direct', pollMs: 60000 })
@@ -276,8 +276,11 @@ test("openOn='direct'：点开即弹窗，不预查（面板挂载即自查）",
   log.length = 0
   box.click(CLICK_ENTRY)
   await settled()
-  assert.ok(!log.some((e) => e.name.endsWith('.updateCheck')), '不预查，直开')
+  await settled()
   assert.match(box.innerHTML, /data-mode="dialog"/, '点开即弹窗')
+  // 入口自身不预查：空参数的查是入口的，带 includeQueue 的查是面板自动查（#48 mount 串行）。
+  assert.ok(!log.some((e) => e.name.endsWith('.updateCheck') && !e.args?.includeQueue), '入口自身不预查')
+  assert.ok(log.some((e) => e.name.endsWith('.updateCheck') && e.args?.includeQueue), '面板挂载即自查（#48 自动查）')
   entry.unmount()
 })
 

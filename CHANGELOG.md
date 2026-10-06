@@ -2,6 +2,17 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [0.5.3] - 2026-10-06
+
+### Added
+- 进入面板自动查一次新版（#46 结论固化 #48）：首绘 loading 后先只读本地刷新，拿到活体快照后条件自动查一次；轮询心跳永远只读本地、不触发查新版；抑制谓词 `pendingAutoCheck` 为纯函数，仅快照任务态 installing/verifying 或已有查/装在途时不发起，同范围忙/凭证过期/各类阻拦一律不抑制，无活体快照不发起；复用手动查同一通路与“正在查新版…”提示；并发只信服务端真相源（面板 busyAct 互斥 + checking 在途复用 + 2s 复用窗口），卸载靠 mounted 丢弃；失败无退避，只渲染既有失败文案与复制诊断，手动查清日志退避、关闭重开立即重问；embedded/dialog 一致；pollMs 不影响时机；四电话形状与快照六字段零变更。
+- 关闭按钮住右下角独立 footer 区（#47 定案 A）：第一章 actions 不再画 close-view，内核末尾 05 章之后新增 `.dsh-upd-footer`（dialog + 非只读渲染才有），按钮原 title/data-action 原样搬入；embedded 无面板自带关闭（宿主框架自带关）；默认 + D5 只换肤、DOM 同序；act/Esc/onCloseRequested 语义一字未动。
+
+### Changed
+- 入口件 direct 断言收紧：区分入口自身空参预查与面板挂载带 includeQueue 自查（面板挂载即自查归面板）。
+- 面板安装复用断言更新：mount 自动查已拿凭证时安装直接复用，不另查（无 receipt 回退见 panel-auto-check 用例）。
+- 测试：新增 tests/panel-auto-check.test.mjs 11 项（纯函数、正常/抑制/阻拦仍查、慢网单发、卸载丢弃、手动重问、轮询不查、失败无退避、安装复用凭证），tests/panel-close-footer-47.test.mjs 5 项随前一提交；全量 637 计、636 过、0 败、1 跳（既有 derive-client 跳过）。
+
 ## [0.5.2] - 2026-10-06
 
 ### Added
