@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#47 关闭按钮位置 · 3 变体抛弃式原型（PROTOTYPE — wipe me）</title>
+<!-- Three variants of the update-panel close affordance, switchable via ?variant=, on throwaway mocks next to src/panel.ts. UI branch (sub-shape B: 本仓无页面路由，按惯例落 prototype 单文件）。 -->
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#fff; --sunk:#f3f4f6; --ink:#111827; --ink2:#374151;
+    --mut:#6b7280; --mut2:#9ca3af; --line:#d1d5db; --line2:#e5e7eb;
+    --accent:#4f46e5; --accent-s:#eef2ff; --ok:#15803d; --ok-s:#f0fdf4;
+    --warn:#b45309; --warn-s:#fffbeb; --barbg:#111827;
+    --paper:#faf6ec; --paper-ink:#2b2620; --paper-line:#d8cdb4; --paper-mut:#8a7f68;
+    --shadow:0 1px 2px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);padding:0 0 110px;
+    font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;font-size:14px;line-height:1.6}
+  .stage{max-width:1020px;margin:0 auto;padding:24px 20px 0}
+  .wipe{background:#3f2d06;color:#fde68a;border:1px solid #92400e;border-radius:10px;
+    padding:10px 14px;font-size:13px;margin-bottom:16px}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--mut);font-size:13px;margin:0 0 14px}
+  .qa{background:var(--panel);border:1px solid var(--line2);border-radius:10px;
+    padding:14px 16px;margin-bottom:14px;box-shadow:var(--shadow)}
+  .qa h2{font-size:14px;margin:0 0 8px}
+  .qa ul{margin:6px 0;padding-left:20px;font-size:13px}
+  .assume{background:var(--warn-s);border:1px dashed var(--warn);border-radius:10px;
+    padding:12px 16px;margin-bottom:16px;font-size:13px}
+  .themerow{display:flex;gap:8px;align-items:center;margin:0 0 14px;font-size:13px}
+  button{font-family:inherit;font-size:13px;padding:6px 13px;border-radius:7px;
+    border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+  button:hover{border-color:var(--mut)}
+  button.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button.xbtn{width:32px;height:32px;padding:0;font-size:17px;line-height:1;border-radius:8px;flex:none}
+  section.variant{display:none}
+  section.variant.on{display:block}
+  .vname{font-size:12px;letter-spacing:.08em;font-weight:700;color:var(--mut2);margin:4px 0 10px}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:820px){.pair{grid-template-columns:1fr}}
+  .mockcap{font-size:12px;color:var(--mut);margin:0 0 6px}
+  .mockcap b{color:var(--ink)}
+  .dlg{border:2px solid var(--ink);border-radius:12px;overflow:hidden;background:var(--panel)}
+  .dlgbar{background:var(--ink);color:#fff;font-size:12px;padding:6px 12px}
+  .emb{border:1px dashed var(--mut2);border-radius:12px;overflow:hidden;background:var(--panel)}
+  .embbar{background:var(--sunk);color:var(--mut);font-size:12px;padding:6px 12px;border-bottom:1px solid var(--line2)}
+  /* ---- 面板 mock（仿 src/panel.ts 内核结构，CSS 极简） ---- */
+  .dsh-upd{padding:16px;font-size:13.5px}
+  .dsh-upd[data-theme="d5-paper"]{background:var(--paper);color:var(--paper-ink)}
+  .dsh-upd .bar{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--line2)}
+  .dsh-upd[data-theme="d5-paper"] .bar{border-color:var(--paper-line)}
+  .dsh-upd .bar .t{font-weight:700}
+  .dsh-upd .mast{font-size:11px;letter-spacing:.3em;color:var(--mut);margin-bottom:2px}
+  .dsh-upd[data-theme="d5-paper"] .mast{color:var(--paper-mut)}
+  .dsh-upd .pname{font-size:17px;font-weight:700}
+  .dsh-upd .meta{font-size:12.5px;color:var(--mut);margin-bottom:10px}
+  .dsh-upd[data-theme="d5-paper"] .meta{color:var(--paper-mut)}
+  .dsh-upd .banner{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px;background:var(--sunk)}
+  .dsh-upd[data-theme="d5-paper"] .banner{background:transparent;border:2px solid var(--paper-line)}
+  .dsh-upd .banner strong{font-size:16px}
+  .dsh-upd .strip{display:flex;margin-bottom:10px;border:1px solid var(--line2);border-radius:8px;overflow:hidden}
+  .dsh-upd[data-theme="d5-paper"] .strip{border-color:var(--paper-line)}
+  .dsh-upd .strip>div{flex:1;padding:7px 10px;border-left:1px solid var(--line2);font-size:12px}
+  .dsh-upd .strip>div:first-child{border-left:0}
+  .dsh-upd[data-theme="d5-paper"] .strip>div{border-color:var(--paper-line)}
+  .dsh-upd .strip b{display:block;font-size:11px;color:var(--mut);font-weight:600}
+  .dsh-upd[data-theme="d5-paper"] .strip b{color:var(--paper-mut)}
+  .dsh-upd .ch{font-size:12px;font-weight:700;color:var(--mut);margin:12px 0 8px;letter-spacing:.06em}
+  .dsh-upd[data-theme="d5-paper"] .ch{color:var(--paper-mut)}
+  .dsh-upd .actions{display:flex;flex-wrap:wrap;gap:8px}
+  .dsh-upd .foot{display:flex;align-items:center;justify-content:flex-end;gap:10px;
+    margin-top:14px;padding-top:12px;border-top:1px solid var(--line2)}
+  .dsh-upd[data-theme="d5-paper"] .foot{border-color:var(--paper-line)}
+  .dsh-upd .foot .note{font-size:12px;color:var(--mut);margin-right:auto}
+  .dsh-upd[data-theme="d5-paper"] .foot .note{color:var(--paper-mut)}
+  .dsh-upd .noclose{margin-top:14px;padding:10px 12px;border:1px dashed var(--mut2);border-radius:8px;
+    font-size:12.5px;color:var(--mut)}
+  .dsh-upd .closed{background:var(--ok-s);border:1px solid #bbf7d0;border-radius:8px;
+    padding:12px;font-size:13px;color:var(--ok)}
+  .ev{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;background:var(--sunk);
+    border:1px solid var(--line2);border-radius:8px;padding:11px 13px;white-space:pre-wrap;
+    word-break:break-word;margin:10px 0 0;line-height:1.75}
+  /* ---- 底部悬浮切换条（原型件，非设计本身） ---- */
+  .sw{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:50;
+    display:flex;align-items:center;gap:14px;background:var(--barbg);color:#fff;
+    border-radius:999px;padding:9px 10px 9px 18px;box-shadow:0 8px 28px rgba(0,0,0,.35);
+    font-size:13px}
+  .sw button{background:#fff;color:#111;border:0;border-radius:999px;width:34px;height:34px;
+    font-size:17px;line-height:1;padding:0}
+  .sw .lbl b{letter-spacing:.04em}
+  .sw .proto{font-size:11px;opacity:.65}
+  .sw .hidebtn{width:26px;height:26px;font-size:13px}
+  #swShow{position:fixed;right:16px;bottom:18px;z-index:50;display:none;background:var(--barbg);color:#fff;border:0;border-radius:999px;padding:8px 12px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="wipe">PROTOTYPE — wipe me · 抛弃式原型，不进 main（看完即焚；结论回 <b>#47</b>，实现另起分支）</div>
+
+  <h1>#47 关闭按钮位置 · 3 变体原型</h1>
+  <p class="sub">设计问题：关闭按钮放在哪里才一次找到（右下角独立区），且内嵌与弹窗两形态一致？分支：<b>UI</b>（“应该长什么样”→ 同路由多变体 + 底部悬浮切换；本仓无页面路由，按惯例落 <span style="font-family:monospace">prototype/</span> 单文件，即 sub-shape B）。双击即开，无构建，无落盘（状态全内存）。</p>
+
+  <div class="assume">⚠️ <b>待确认假设</b>（grilling 已问，120s 无人应答，按代码口径默认；你回来改一句即可推翻）：<br>
+  ① <b>embedded 无面板自带关闭</b>（宿主框架自带关）—— panel.ts <span style="font-family:monospace">requestDialogClose</span> 在非 dialog 直接 return，entry.ts <span style="font-family:monospace">close()</span> 注明“只收 dialog”。三变体的 embedded mock 一律画“无关闭 + 说明行”，差异只在 dialog。<br>
+  ② 变体取 A/B/C 三个；③ 状态条外显 mode × theme × 关闭可见性 × DOM 顺序 × 焦点/Esc 口径。</div>
+
+  <div class="qa">
+    <h2>已定约束（不重议，原型里三者都遵守）</h2>
+    <ul>
+      <li>关闭只停轮询、不停安装；dialog 下点关闭 / 按 Esc 走 <span style="font-family:monospace">requestDialogClose</span>，<span style="font-family:monospace">onCloseRequested</span> 先交调用方撤 DOM 再 unmount。</li>
+      <li>D5 档案卷只换肤、不换 DOM 顺序；复制诊断永不隐藏（下面每个 mock 都有“复制诊断”）。</li>
+      <li>零 Node 专属；按钮须键盘可达（真实 <span style="font-family:monospace">&lt;button&gt;</span>，Tab 可达，<span style="font-family:monospace">aria-label</span> 见状态条）。</li>
+    </ul>
+    <div class="themerow">主题（只换肤，DOM 顺序不动）：
+      <button type="button" data-theme-set="default">默认深色</button>
+      <button type="button" data-theme-set="d5-paper">档案卷</button>
+      <span style="color:var(--mut)" id="themeNote">当前：default</span>
+    </div>
+  </div>
+
+  <!-- ============ 变体 A ============ -->
+  <section class="variant" id="vA">
+    <div class="vname">VARIANT A — 右下角独立 FOOTER 区（票题本意：脱离第一章 actions）</div>
+    <div class="pair">
+      <div>
+        <p class="mockcap"><b>dialog</b> · 标题栏无 ×，01 章无关闭，底部 footer 右对齐“关闭”</p>
+        <div class="dlg"><div class="dlgbar">dialog 外壳（调用方弹窗）· Esc 冒泡到容器即关</div>
+          <div class="dsh-upd" data-mock="A-dialog">
+            <div class="mast">插件更新</div>
+            <div class="pname">dsh-plugin-update</div>
+            <div class="meta">使用范围 <b>desktop</b></div>
+            <div class="banner"><strong>有新版 0.5.3 可装</strong><div>装完重启宿主即生效。</div></div>
+            <div class="strip"><div><b>运行</b>0.5.2</div><div><b>磁盘</b>0.5.2</div><div><b>远端</b>0.5.3</div></div>
+            <div class="ch">01 检查与安装</div>
+            <div class="actions">
+              <button type="button" data-stub>查新版</button>
+              <button type="button" class="pri" data-stub>安装更新</button>
+              <button type="button" data-stub>复制诊断</button>
+            </div>
+            <div class="foot"><span class="note">安装在宿主侧继续跑，重开恢复显示</span><button type="button" data-close title="关闭面板（安装在宿主侧继续跑，可重开恢复显示）">关闭</button></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="mockcap"><b>embedded</b> · 无面板自带关闭（宿主框架自带关），footer 位画说明行占位</p>
+        <div class="emb"><div class="embbar">宿主面板框架（自带关闭）· 内嵌容器</div>
+          <div class="dsh-upd" data-mock="A-embedded">
+            <div class="mast">插件更新</div>
+            <div class="pname">dsh-plugin-update</div>
+            <div class="meta">使用范围 <b>desktop</b></div>
+            <div class="banner"><strong>有新版 0.5.3 可装</strong><div>装完重启宿主即生效。</div></div>
+            <div class="strip"><div><b>运行</b>0.5.2</div><div><b>磁盘</b>0.5.2</div><div><b>远端</b>0.5.3</div></div>
+            <div class="ch">01 检查与安装</div>
+            <div class="actions">
+              <button type="button" data-stub>查新版</button>
+              <button type="button" class="pri" data-stub>安装更新</button>
+              <button type="button" data-stub>复制诊断</button>
+            </div>
+            <div class="noclose">嵌入形态：无面板自带关闭 —— 用宿主框架的关闭（与 dialog 的 footer 关闭同口径：只停轮询）。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <pre class="ev" data-state="A"></pre>
+  </section>
+
+  <!-- ============ 变体 B ============ -->
+  <section class="variant" id="vB">
+    <div class="vname">VARIANT B — 标题栏右上 ×（待决另一极：无 footer，第一章干净）</div>
+    <div class="pair">
+      <div>
+        <p class="mockcap"><b>dialog</b> · 标题栏右上 ×，01 章无关闭，无 footer</p>
+        <div class="dlg"><div class="dlgbar">dialog 外壳（调用方弹窗）· Esc 冒泡到容器即关</div>
+          <div class="dsh-upd" data-mock="B-dialog">
+            <div class="bar"><span class="t">更新面板</span><button type="button" class="xbtn" data-close aria-label="关闭面板" title="关闭面板（安装在宿主侧继续跑，可重开恢复显示）">×</button></div>
+            <div class="mast">插件更新</div>
+            <div class="pname">dsh-plugin-update</div>
+            <div class="meta">使用范围 <b>desktop</b></div>
+            <div class="banner"><strong>有新版 0.5.3 可装</strong><div>装完重启宿主即生效。</div></div>
+            <div class="strip"><div><b>运行</b>0.5.2</div><div><b>磁盘</b>0.5.2</div><div><b>远端</b>0.5.3</div></div>
+            <div class="ch">01 检查与安装</div>
+            <div class="actions">
+              <button type="button" data-stub>查新版</button>
+              <button type="button" class="pri" data-stub>安装更新</button>
+              <button type="button" data-stub>复制诊断</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="mockcap"><b>embedded</b> · 无 ×（宿主框架自带关），与 A 的 embedded 同口径</p>
+        <div class="emb"><div class="embbar">宿主面板框架（自带关闭）· 内嵌容器</div>
+          <div class="dsh-upd" data-mock="B-embedded">
+            <div class="mast">插件更新</div>
+            <div class="pname">dsh-plugin-update</div>
+            <div class="meta">使用范围 <b>desktop</b></div>
+            <div class="banner"><strong>有新版 0.5.3 可装</strong><div>装完重启宿主即生效。</div></div>
+            <div class="strip"><div><b>运行</b>0.5.2</div><div><b>磁盘</b>0.5.2</div><div><b>远端</b>0.5.3</div></div>
+            <div class="ch">01 检查与安装</div>
+            <div class="actions">
+              <button type="button" data-stub>查新版</button>
+              <button type="button" class="pri" data-stub>安装更新</button>
+              <button type="button" data-stub>复制诊断</button>
+            </div>
+            <div class="noclose">嵌入形态：无面板自带关闭 —— 用宿主框架的关闭。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <pre class="ev" data-state="B"></pre>
+  </section>
+
+  <!-- ============ 变体 C ============ -->
+  <section class="variant" id="vC">
+    <div class="vname">VARIANT C — 双保险（标题栏 × + 右下 footer 关闭，同走一函数）</div>
+    <div class="pair">
+      <div>
+        <p class="mockcap"><b>dialog</b> · × 与 footer 关闭并存，01 章无关闭</p>
+        <div class="dlg"><div class="dlgbar">dialog 外壳（调用方弹窗）· Esc 冒泡到容器即关</div>
+          <div class="dsh-upd" data-mock="C-dialog">
+            <div class="bar"><span class="t">更新面板</span><button type="button" class="xbtn" data-close aria-label="关闭面板" title="关闭面板（安装在宿主侧继续跑，可重开恢复显示）">×</button></div>
+            <div class="mast">插件更新</div>
+            <div class="pname">dsh-plugin-update</div>
+            <div class="meta">使用范围 <b>desktop</b></div>
+            <div class="banner"><strong>有新版 0.5.3 可装</strong><div>装完重启宿主即生效。</div></div>
+            <div class="strip"><div><b>运行</b>0.5.2</div><div><b>磁盘</b>0.5.2</div><div><b>远端</b>0.5.3</div></div>
+            <div class="ch">01 检查与安装</div>
+            <div class="actions">
+              <button type="button" data-stub>查新版</button>
+              <button type="button" class="pri" data-stub>安装更新</button>
+              <button type="button" data-stub>复制诊断</button>
+            </div>
+            <div class="foot"><span class="note">安装在宿主侧继续跑，重开恢复显示</span><button type="button" data-close title="关闭面板（安装在宿主侧继续跑，可重开恢复显示）">关闭</button></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="mockcap"><b>embedded</b> · 仍无面板自带关闭（冻结口径），与 A/B 一致</p>
+        <div class="emb"><div class="embbar">宿主面板框架（自带关闭）· 内嵌容器</div>
+          <div class="dsh-upd" data-mock="C-embedded">
+            <div class="mast">插件更新</div>
+            <div class="pname">dsh-plugin-update</div>
+            <div class="meta">使用范围 <b>desktop</b></div>
+            <div class="banner"><strong>有新版 0.5.3 可装</strong><div>装完重启宿主即生效。</div></div>
+            <div class="strip"><div><b>运行</b>0.5.2</div><div><b>磁盘</b>0.5.2</div><div><b>远端</b>0.5.3</div></div>
+            <div class="ch">01 检查与安装</div>
+            <div class="actions">
+              <button type="button" data-stub>查新版</button>
+              <button type="button" class="pri" data-stub>安装更新</button>
+              <button type="button" data-stub>复制诊断</button>
+            </div>
+            <div class="noclose">嵌入形态：无面板自带关闭 —— 用宿主框架的关闭。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <pre class="ev" data-state="C"></pre>
+  </section>
+
+  <div class="qa" style="margin-top:16px">
+    <h2>怎么评</h2>
+    <ul>
+      <li>底部条 ←/→（或键盘 ←/→）翻变体，URL 里 <span style="font-family:monospace">?variant=</span> 可分享、重载稳定。</li>
+      <li>点每个 mock 里的按钮试手：查新版 / 安装更新 / 复制诊断是桩（只记一笔）；<b>关闭 / × / “按 Esc”</b>走真口径模拟（先交调用方撤 DOM → 只停轮询 → 安装继续），mock 收起后可“重新打开”。</li>
+      <li>切主题看“只换肤”：DOM 顺序逐字不动（见下方状态条 DOM 顺序行）。</li>
+      <li>最有用的反馈通常是拼装：“要 B 的头 + A 的脚”——直接说，落选变体即焚。</li>
+    </ul>
+    <div class="themerow">模拟 Esc（与关闭按钮同口径，只在 dialog 生效）：
+      <button type="button" data-esc="A-dialog">A·dialog Esc</button>
+      <button type="button" data-esc="B-dialog">B·dialog Esc</button>
+      <button type="button" data-esc="C-dialog">C·dialog Esc</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="sw" role="navigation" aria-label="原型变体切换（非设计本身）" id="swBar">
+  <button type="button" id="swPrev" aria-label="上一个变体">←</button>
+  <span class="lbl"><b id="swLabel">A</b> <span class="proto">PROTOTYPE</span></span>
+  <button type="button" id="swNext" aria-label="下一个变体">→</button>
+  <button type="button" class="hidebtn" id="swHide" aria-label="收起切换条" title="收起（挡住 mock 按钮时用）">—</button>
+</div>
+<button type="button" id="swShow" title="展开变体切换条">原型·变体</button>
+
+<script>
+"use strict";
+var VARIANTS = [
+  { k: "A", name: "右下角独立 footer 区" },
+  { k: "B", name: "标题栏右上 ×" },
+  { k: "C", name: "双保险（× + footer）" }
+];
+var DOM_ORDER = {
+  A: "masthead → head → banner → strip → 01.actions[查新版/安装更新/复制诊断] → footer[关闭·右下]",
+  B: "bar[×·标题栏右上] → masthead → head → banner → strip → 01.actions[查新版/安装更新/复制诊断]",
+  C: "bar[×·标题栏右上] → masthead → head → banner → strip → 01.actions[查新版/安装更新/复制诊断] → footer[关闭·右下]"
+};
+var FOCUS_ORDER = {
+  A: "查新版 → 安装更新 → 复制诊断 → 关闭(footer 末位）",
+  B: "×(首位） → 查新版 → 安装更新 → 复制诊断",
+  C: "×(首位） → 查新版 → 安装更新 → 复制诊断 → 关闭(footer 末位）"
+};
+var ARIA = {
+  A: "footer 关闭：文本按钮，无需 aria-label（可见文本即名称）；title 与 Esc 口径一致",
+  B: "×：aria-label=关闭面板（图标无可见文本，必须给名）；键盘 Tab 首位可达",
+  C: "×：aria-label=关闭面板；footer 关闭：可见文本即名称；两处同走 requestDialogClose"
+};
+var S = { variant: "A", theme: "default", lastAction: "原型已载入（内存桩；切变体或点按钮开始）", closed: {} };
+
+function readVariant() {
+  try {
+    var q = new URLSearchParams(location.search).get("variant");
+    if (q) return q.toUpperCase();
+  } catch (e) {}
+  var m = /variant=([A-Ca-c])/.exec(location.hash || "");
+  return m ? m[1].toUpperCase() : "A";
+}
+function setVariant(k, silent) {
+  if (!VARIANTS.some(function (v) { return v.k === k; })) k = "A";
+  S.variant = k;
+  document.querySelectorAll("section.variant").forEach(function (el) { el.classList.remove("on"); });
+  document.getElementById("v" + k).classList.add("on");
+  document.getElementById("swLabel").textContent = k + " — " + VARIANTS.find(function (v) { return v.k === k; }).name;
+  try {
+    var u = new URL(location.href);
+    u.searchParams.set("variant", k);
+    history.replaceState(null, "", u);
+  } catch (e) { location.hash = "variant=" + k; }
+  if (!silent) { S.lastAction = "切换变体 → " + k + "（URL 可分享，重载稳定）"; }
+  renderStates();
+}
+function setTheme(t) {
+  S.theme = t;
+  document.querySelectorAll(".dsh-upd").forEach(function (el) { el.setAttribute("data-theme", t === "d5-paper" ? "d5-paper" : "default"); });
+  document.getElementById("themeNote").textContent = "当前：" + (t === "d5-paper" ? "archive（DOM 顺序逐字不动）" : "default");
+  S.lastAction = "切换主题 → " + t + "（只换肤；DOM 顺序见状态条，未动）";
+  renderStates();
+}
+function renderStates() {
+  ["A", "B", "C"].forEach(function (k) {
+    var el = document.querySelector('[data-state="' + k + '"]');
+    if (!el) return;
+    var closedD = !!S.closed[k + "-dialog"];
+    var NL = String.fromCharCode(10);
+    el.textContent = [
+      "变体 " + k + " · 状态外显（每次动作后重绘）",
+      "theme=" + S.theme + "（只换肤；DOM 顺序两主题逐字一致）",
+      "dialog：关闭可见=" + (closedD ? "已点关闭（mock 收起，可重开）" : "是") +
+      " · 位置=" + (k === "A" ? "footer 右下独立区" : k === "B" ? "标题栏右上 ×" : "标题栏 × + footer 关闭") +
+      " · DOM 顺序=" + DOM_ORDER[k],
+      "embedded：关闭可见=否（宿主框架自带关；假设①，无面板自带关闭）",
+      "焦点顺序=" + FOCUS_ORDER[k],
+      "aria=" + ARIA[k],
+      "Esc=与关闭按钮同口径（dialog 生效：onCloseRequested 先撤 DOM → unmount 只停轮询；embedded 不收）",
+      "点关闭后：轮询停 ✓ · 安装继续（宿主侧跑） ✓ · dialog DOM 由调用方撤 ✓ · 复制诊断始终在 01 章 ✓",
+      "lastAction=" + (S.variant === k ? S.lastAction : "—（当前在看变体 " + S.variant + "）")
+    ].join(NL);
+  });
+}
+function closeMock(key) {
+  var root = document.querySelector('[data-mock="' + key + '"]');
+  if (!root || S.closed[key]) return;
+  if (key.indexOf("embedded") !== -1) { S.lastAction = key + "：嵌入形态无面板关闭（宿主框架关），此桩不收"; renderStates(); return; }
+  S.closed[key] = true;
+  if (!root.dataset.orig) root.dataset.orig = root.innerHTML;
+  root.innerHTML = '<div class="closed">已关闭：onCloseRequested 已交调用方撤 DOM → unmount 只停轮询；安装在宿主侧继续跑，重开 1s 轮询即恢复。<br><br><button type="button" data-reopen="' + key + '">重新打开</button></div>';
+  var k = key.charAt(0);
+  S.lastAction = key + "：点关闭 → requestDialogClose（撤 DOM → 停轮询 → 安装继续）";
+  renderStates();
+}
+document.addEventListener("click", function (ev) {
+  var t = ev.target;
+  if (t.closest("[data-theme-set]")) { setTheme(t.closest("[data-theme-set]").dataset.themeSet); return; }
+  if (t.closest("[data-reopen]")) {
+    var key = t.closest("[data-reopen]").dataset.reopen;
+    var root = document.querySelector('[data-mock="' + key + '"]');
+    if (root && root.dataset.orig) { root.innerHTML = root.dataset.orig; delete S.closed[key]; }
+    S.lastAction = key + "：重新打开（mount 即 refresh，重开恢复进度）";
+    renderStates(); return;
+  }
+  if (t.closest("[data-close]")) {
+    var m = t.closest("[data-mock]");
+    if (m) closeMock(m.dataset.mock);
+    return;
+  }
+  if (t.closest("[data-stub]")) {
+    var mm = t.closest("[data-mock]");
+    S.lastAction = (mm ? mm.dataset.mock : "?") + "：点“" + t.textContent.trim() + "”（桩：不真执行，只记一笔）";
+    renderStates(); return;
+  }
+  if (t.closest("[data-esc]")) { closeMock(t.closest("[data-esc]").dataset.esc); return; }
+  if (t.closest("#swPrev") || t.closest("#swNext")) {
+    var i = VARIANTS.findIndex(function (v) { return v.k === S.variant; });
+    setVariant(VARIANTS[(i + (t.closest("#swNext") ? 1 : VARIANTS.length - 1)) % VARIANTS.length].k);
+    return;
+  }
+});
+window.addEventListener("keydown", function (ev) {
+  if (ev.target && ev.target.matches && ev.target.matches("input,textarea,select,[contenteditable]")) return;
+  if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+  var i = VARIANTS.findIndex(function (v) { return v.k === S.variant; });
+  setVariant(VARIANTS[(i + (ev.key === "ArrowRight" ? 1 : VARIANTS.length - 1)) % VARIANTS.length].k);
+});
+document.getElementById("swPrev").addEventListener("click", function () {
+  var i = VARIANTS.findIndex(function (v) { return v.k === S.variant; });
+  setVariant(VARIANTS[(i + VARIANTS.length - 1) % VARIANTS.length].k);
+});
+document.getElementById("swHide").addEventListener("click", function (ev) {
+  if (ev.stopPropagation) ev.stopPropagation();
+  document.getElementById("swBar").style.display = "none";
+  document.getElementById("swShow").style.display = "block";
+  S.lastAction = "收起底部切换条（挡住 mock 按钮时用）"; renderStates();
+});
+document.getElementById("swShow").addEventListener("click", function () {
+  document.getElementById("swBar").style.display = "flex";
+  document.getElementById("swShow").style.display = "none";
+  S.lastAction = "展开底部切换条"; renderStates();
+});
+document.getElementById("swNext").addEventListener("click", function () {
+  var i = VARIANTS.findIndex(function (v) { return v.k === S.variant; });
+  setVariant(VARIANTS[(i + 1) % VARIANTS.length].k);
+});
+setVariant(readVariant(), true);
+S.lastAction = "原型已载入（内存桩；切变体或点按钮开始）";
+renderStates();
+</script>
+</body>
+</html>
