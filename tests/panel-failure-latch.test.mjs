@@ -404,6 +404,74 @@ test('#58 showLogHint 关：路牌消失，失败证据行保留', async () => {
   failed.panel.unmount()
 });
 
+// ---------- 21. 安装抛错常驻＋原文捕获 ----------
+
+test('#58 安装抛错常驻：传输抛错不再被轮询洗掉，且摘要带原文', async () => {
+  const { panel, box, texts } = mountFor('latch-21', {
+    status: okStatus,
+    check: okCheck,
+    install: () => { throw new Error('gateway timeout after 5000ms') },
+  })
+  await settled()
+  await settled()
+  await panel.act('install')
+  await settled()
+  assert.match(box.innerHTML, /更新失败/, '安装抛错应有失败横幅')
+  assert.match(box.innerHTML, /install-failed/, '安装抛错码应为 install-failed，不冒充查失败')
+  await panel.refresh()
+  await settled()
+  assert.match(box.innerHTML, /更新失败/, '轮询后安装抛错仍在')
+  await panel.act('copy-diag')
+  await settled()
+  const last = texts.at(-1) ?? ''
+  assert.match(last, /install-failed/, '复制码应为 install-failed')
+  assert.match(last, /gateway timeout/, '复制摘要应带抛错原文，实际=' + JSON.stringify(last))
+  panel.unmount()
+});
+
+// ---------- 22. 查动作抛错常驻 ----------
+
+test('#58 查动作抛错常驻：用户点的查失败不被轮询清除', async () => {
+  const { panel, box, texts } = mountFor('latch-22', {
+    status: okStatus,
+    check: () => { throw new Error('socket hang up') },
+    install: () => ({ ok: true }),
+  })
+  await settled()
+  await settled()
+  assert.match(box.innerHTML, /更新失败/, '查抛错应锁存')
+  await panel.refresh()
+  await settled()
+  assert.match(box.innerHTML, /更新失败/, '轮询后查抛错仍在')
+  await panel.act('copy-diag')
+  await settled()
+  assert.match(texts.at(-1) ?? '', /socket hang up/, '复制摘要应带抛错原文')
+  panel.unmount()
+});
+
+// ---------- 23. 轮询抛错仍瞬态自愈 ----------
+
+test('#58 轮询抛错瞬态：同挂载内一次成功读数即解除', async () => {
+  const state = { down: true }
+  const { panel, box } = mountFor('latch-23', {
+    status: () => {
+      if (state.down) throw new Error('net down')
+      return okStatus()
+    },
+    check: okCheck,
+    install: () => ({ ok: true }),
+  })
+  await settled()
+  await settled()
+  assert.match(box.innerHTML, /更新失败/, '轮询抛错应有失败横幅')
+  assert.match(box.innerHTML, /读数瞬态失败/, '轮询抛错用瞬态文案')
+  state.down = false
+  await panel.refresh()
+  await settled()
+  assert.doesNotMatch(box.innerHTML, /更新失败/, '成功读数后瞬态解除')
+  panel.unmount()
+});
+
 // ---------- 16. formatLatchTime 纯函数 ----------
 
 test('#58 formatLatchTime：合法回时分秒，非法回 null', async () => {

@@ -1817,6 +1817,40 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       atMs: latchNow(),
     }
   }
+  /** 抛错原文收成摘要（脱敏后；裸码不算人话，缺省由渲染侧说人话）。 */
+  function thrownDetail(err: unknown): string | null {
+    try {
+      const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : null
+      if (typeof raw !== 'string') return null
+      const t = raw.trim()
+      if (!t) return null
+      if (/^[a-z][a-z-]*$/.test(t) && t.length <= 32) return null
+      return redactForCopy(t) || null
+    } catch {
+      return null
+    }
+  }
+  /** 用户路径抛错锁存（非瞬态）：点下去的动作，其结果无论回包还是抛错都冻结。 */
+  function userThrowLatch(source: 'check' | 'install', err: unknown): FailureLatch {
+    const env = currentEnvPair()
+    return {
+      code: source === 'install' ? 'install-failed' : 'check-failed',
+      kind: null,
+      detail: thrownDetail(err),
+      diag: null,
+      requestId: source === 'install' ? requestId : null,
+      checkId: source === 'install' ? (receipt?.checkId ?? null) : null,
+      runningVersion: snapshot?.runningVersion ?? null,
+      installedVersion: snapshot?.installedVersion ?? null,
+      latestVersion: snapshot?.latestVersion ?? null,
+      hostKind: env.hostKind,
+      profileName: env.profileName,
+      source,
+      volatile: false,
+      jobId: null,
+      atMs: latchNow(),
+    }
+  }
   function volatileLatch(source: 'check' | 'install'): FailureLatch {
     const env = currentEnvPair()
     return {
@@ -2081,9 +2115,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           applyStatusReply(reply, 'check')
           // 手动查新版是明确意图：清掉失败退避，下面的自动链路可再问一次。
           changelogFailedAt.clear()
-        } catch {
+        } catch (err) {
           if (!mounted) return
-          setLatch(volatileLatch('check'))
+          setLatch(userThrowLatch('check', err))
         } finally {
           busyAct = null
           if (copyNotice === '正在查新版…') copyNotice = null
@@ -2099,9 +2133,16 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         render()
         try {
           if (!receipt) {
-            const checked = await call(phoneNames.updateCheck, queueArgs())
-            if (!mounted) return
-            applyStatusReply(checked, 'check')
+            try {
+              const checked = await call(phoneNames.updateCheck, queueArgs())
+              if (!mounted) return
+              applyStatusReply(checked, 'check')
+            } catch (err) {
+              if (!mounted) return
+              setLatch(userThrowLatch('check', err))
+              render()
+              return
+            }
           }
           if (!mounted) return
           if (!receipt) {
@@ -2134,9 +2175,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           })
           if (!mounted) return
           applyStatusReply(reply, 'install')
-        } catch {
+        } catch (err) {
           if (!mounted) return
-          setLatch(volatileLatch('install'))
+          setLatch(userThrowLatch('install', err))
         } finally {
           busyAct = null
           if (copyNotice === '正在安装…') copyNotice = null
