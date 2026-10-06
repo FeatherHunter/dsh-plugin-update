@@ -1103,6 +1103,15 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-actions button:first-child:not([aria-busy="true"])::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;visibility:hidden}',
   '.dsh-upd-banner{min-height:1.2em}',
   '.dsh-upd-strip{min-height:48px}',
+  // —— 查新版瞬时抖动补强：忙闲两帧同高 + 横幅不动（只追加覆盖，不改上面既有串）——
+  '.dsh-upd-actions{align-content:flex-start}',
+  '.dsh-upd-actions button{white-space:nowrap}',
+  '.dsh-upd-actions button:first-child{min-width:10em}',
+  '.dsh-upd-actions button[data-primary="1"]{min-width:9em}',
+  '.dsh-upd-banner{min-height:3.4em;display:flex;flex-direction:column;justify-content:center}',
+  '.dsh-upd-banner{animation:none}',
+  '.dsh-upd-copy{min-height:1.75em}',
+  '.dsh-upd-copy--empty{visibility:hidden}',
   '@media (prefers-color-scheme: dark){.dsh-upd{--dsh-update-text:#e5e7eb;--dsh-update-bg:#111827;--dsh-update-border:#374151;',
   '--dsh-update-button-bg:#1f2937;--dsh-update-bg-soft:#1f2937;--dsh-update-primary:#3b82f6;--dsh-update-focus:#93c5fd;',
   // 横幅深色覆盖：底色用低透明度同色系（不是浅色原值），边线提亮，保证「深底浅字」可读。
@@ -1657,6 +1666,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
       }
     }
     if (copyNotice) errLines.push(`<div class="dsh-upd-copy" role="status">${escapeHtml(copyNotice)}</div>`)
+    else errLines.push('<div class="dsh-upd-copy dsh-upd-copy--empty" aria-hidden="true"></div>')
     chapters.push(chapterOf(4, errLines.join(''), '', l))
   }
   // —— 05 手工命令（原型 :242-245）：章节恒在；没有可给的手工命令就说清为什么 ——

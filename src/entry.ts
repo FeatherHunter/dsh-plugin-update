@@ -52,6 +52,9 @@ export type EntryAutoCheck = 'mount' | 'never'
  */
 export type EntryOpenOn = 'has-update' | 'always' | 'manual' | 'direct'
 
+/** 无新版时版本号摆哪：`note` 右侧小字（旧默认）；`button` 按钮本身即版本（默认）；`tooltip` 收进悬停。 */
+export type UpToDateDisplay = 'note' | 'button' | 'tooltip'
+
 /** 入口件主题（与面板同一套取值，切换即换肤）。 */
 export type EntryTheme = UpdatePanelTheme
 
@@ -96,6 +99,8 @@ export interface UpdateEntryOptions {
   autoCheck?: EntryAutoCheck
   /** 缺省 'has-update'：有新版才开面板，没有就只在原地给一句提示。 */
   openOn?: EntryOpenOn
+  /** 无新版时版本号摆哪：缺省 'button'（按钮本身即版本，单按钮不占宽）；'note' 回旧样子（右侧小字）；'tooltip' 收进悬停。 */
+  upToDateDisplay?: UpToDateDisplay
   /** 覆盖默认按钮文案（不传就用状态联动文案）。 */
   label?: string
   /** 按钮尺寸覆盖（#69）：见 EntrySizing；不传即零回归，badge/inline 不受影响。 */
@@ -138,6 +143,13 @@ export interface UpdateEntryController {
 // 待重启→待重启；失败→更新失败，点此查看。
 
 // v2 起入口文案全部出自集中字典（单语），不再硬编码中文（#60：旧 LABEL_* 常量退场，zh 口径由字典保证逐字兼容）。
+
+/** 确知的无新版版本号：快照有、无远端差、无失败、运行版非空才回版本号，否则 null（没查到就不说）。 */
+function upToDateVersionOf(snapshot: UpdateSnapshot | null, error: string | null): string | null {
+  if (error || !snapshot || hasUpdateOf(snapshot)) return null
+  const v = snapshot.runningVersion
+  return typeof v === 'string' && v.trim() ? v.trim() : null
+}
 
 /** 有没有新版：远端版本存在且与运行版本不同（能不能装是面板的事，入口件只如实说「有」）。 */
 function hasUpdateOf(snapshot: UpdateSnapshot | null): boolean {
@@ -291,6 +303,9 @@ export const UPDATE_ENTRY_CSS = [
   '.dsh-upd-entry[data-state="update"] .dsh-upd-entry-dot{background:var(--dsh-update-ok-border,#059669)}',
   '.dsh-upd-entry[data-state="busy"] .dsh-upd-entry-dot,.dsh-upd-entry[data-state="restart"] .dsh-upd-entry-dot{background:var(--dsh-update-warn-border,#d97706)}',
   '.dsh-upd-entry[data-state="failed"] .dsh-upd-entry-dot{background:var(--dsh-update-bad-border,#dc2626)}',
+  // C 直显（upToDateDisplay='button'）：无新版时按钮本身即版本，走中性弱边（不抢有新版的红/绿），hover 才走 primary 暗示可再查；复用既有 token，不加新键。
+  '.dsh-upd-entry[data-known="uptodate"] .dsh-upd-entry-btn{border-color:var(--dsh-update-border,#d1d5db);color:var(--dsh-update-text-muted,#6b7280)}',
+  '.dsh-upd-entry[data-known="uptodate"] .dsh-upd-entry-btn:hover{border-color:var(--dsh-update-primary,#2563eb);color:var(--dsh-update-primary,#2563eb)}',
   // 小字自带底（深色宿主 + 浅色变量时也读得出；浅底宿主上只是多一圈细线，不抢戏）。
   '.dsh-upd-entry-note{font-size:12.5px;opacity:.9;background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:var(--dsh-update-radius-badge,4px);padding:1px 8px}',
   '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-note{background:var(--dsh-update-bg);border-color:var(--dsh-update-border-strong);color:var(--dsh-update-text)}',
@@ -301,7 +316,7 @@ export const UPDATE_ENTRY_CSS = [
   '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn{border-color:var(--dsh-update-border-strong);background:var(--dsh-update-bg);color:var(--dsh-update-text);border-radius:var(--dsh-update-entry-border-radius,3px)}',
   '.dsh-upd-entry[data-theme="archive"] .dsh-upd-entry-btn:hover{border-color:var(--dsh-update-primary);color:var(--dsh-update-primary)}',
   '@media (prefers-color-scheme: dark){.dsh-upd-entry[data-theme="archive"]{--dsh-update-text:#ece5d3;--dsh-update-text-muted:#a89c83;--dsh-update-border-strong:#5c4e3b;--dsh-update-primary:#e0684e;--dsh-update-bg:#1e1a15}}',
-  '@media (prefers-color-scheme: dark){.dsh-upd-entry{color:#e5e7eb}',
+  '@media (prefers-color-scheme: dark){.dsh-upd-entry{color:#e5e7eb;--dsh-update-text-muted:#9ca3af}',
   '.dsh-upd-entry-btn{--dsh-update-button-bg:#1f2937;--dsh-update-border:#374151}}',
 ].join('\n')
 
@@ -362,6 +377,10 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
   const openOn: EntryOpenOn = options.openOn ?? 'has-update'
   if (openOn !== 'has-update' && openOn !== 'always' && openOn !== 'manual' && openOn !== 'direct') {
     throw new Error(`[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual / direct（收到 ${JSON.stringify(options.openOn)}）`)
+  }
+  const upToDateDisplay: UpToDateDisplay = options.upToDateDisplay ?? 'button'
+  if (upToDateDisplay !== 'note' && upToDateDisplay !== 'button' && upToDateDisplay !== 'tooltip') {
+    throw new Error(`[dsh-plugin-update] invalid upToDateDisplay: expected note / button / tooltip (got ${JSON.stringify(options.upToDateDisplay)})`)
   }
   if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive') {
     throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ${JSON.stringify(options.theme)}）`)
@@ -431,7 +450,14 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
   }
 
   function currentLabel(): string {
-    return labelOverride ?? entryLabelFor(stateOf(), currentLang())
+    if (labelOverride) return labelOverride
+    const lang = currentLang()
+    // button 直显：确知无新版时按钮本身即版本（label() 与按钮正文同一口径）。
+    if (!activating && upToDateDisplay === 'button' && entryStateKind(stateOf()) === 'idle') {
+      const v = upToDateVersionOf(snapshot, error)
+      if (v) return copyText('entry.note.up-to-date', lang, { version: v })
+    }
+    return entryLabelFor(stateOf(), lang)
   }
 
   function hasUpdate(): boolean {
@@ -446,28 +472,48 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
   function entryHTML(): string {
     const kind = entryStateKind(stateOf())
     const lang = currentLang()
+    // 确知的无新版版本号（button/tooltip 直显用；note 沿用点击后 noteVersion 旧口径）。
+    const knownUpToDate = !activating && kind === 'idle' ? upToDateVersionOf(snapshot, error) : null
+    const buttonMode = !labelOverride && upToDateDisplay === 'button' && knownUpToDate
+    const tooltipMode = !labelOverride && upToDateDisplay === 'tooltip' && knownUpToDate
     // #60 v2 单语调用链：无覆盖时按钮正文必走集中字典单语块（只含当前语言，lang 齐全）；有覆盖仍走用户原文（兼容口径）。
+    // button 直显复用 entry.note.up-to-date 同一 key，不新增文案（双语门禁零增）。
     const labelHTML = labelOverride
       ? escapeHtml(labelOverride)
       : activating
         ? copyHTML('entry.action.checking', lang)
-        : copyHTML(entryBilingualKeyFor(stateOf()), lang, entryBilingualValuesFor(stateOf()))
-    const labelText = labelOverride ?? (activating ? copyText('entry.action.checking', lang) : copyText(entryBilingualKeyFor(stateOf()), lang, entryBilingualValuesFor(stateOf())))
+        : buttonMode && knownUpToDate
+          ? copyHTML('entry.note.up-to-date', lang, { version: knownUpToDate })
+          : copyHTML(entryBilingualKeyFor(stateOf()), lang, entryBilingualValuesFor(stateOf()))
+    const labelText = labelOverride ?? (activating ? copyText('entry.action.checking', lang) : buttonMode && knownUpToDate ? copyText('entry.note.up-to-date', lang, { version: knownUpToDate }) : copyText(entryBilingualKeyFor(stateOf()), lang, entryBilingualValuesFor(stateOf())))
+    // button 直显 hover 给动作暗示（复用 idle 文案），tooltip 藏版本 hover 才见（复用 note 文案）；都不新增文案。
+    const titleText = labelOverride
+      ? labelOverride
+      : activating
+        ? copyText('entry.action.checking', lang)
+        : buttonMode && knownUpToDate
+          ? copyText(entryBilingualKeyFor(stateOf()), lang, entryBilingualValuesFor(stateOf()))
+          : tooltipMode && knownUpToDate
+            ? copyText('entry.note.up-to-date', lang, { version: knownUpToDate })
+            : labelText
     const busyAttr = activating ? ' disabled aria-busy="true"' : ''
     const themeAttr = theme === 'archive' ? ' data-theme="archive"' : ''
     const tokensStyle = themeTokensStyleFor(themeTokens ?? undefined)
     const styleBody = [sizingStyle, tokensStyle].filter((part) => part).join(';')
     const styleAttr = styleBody ? ` style="${styleBody}"` : ''
+    const knownAttr = buttonMode ? ' data-known="uptodate"' : ''
+    const displayAttr = ` data-uptodate="${upToDateDisplay}"`
     const control =
       variant === 'badge'
-        ? `<button type="button" class="dsh-upd-entry-dot" ${ENTRY_ATTR}="activate" title="${escapeHtml(labelText)}" aria-label="${escapeHtml(labelText)}"${busyAttr}></button>`
-        : `<button type="button" class="dsh-upd-entry-btn" ${ENTRY_ATTR}="activate"${busyAttr}>${labelHTML}</button>`
-    const noteHTML = noteVersion
+        ? `<button type="button" class="dsh-upd-entry-dot" ${ENTRY_ATTR}="activate" title="${escapeHtml(titleText)}" aria-label="${escapeHtml(labelText)}"${busyAttr}></button>`
+        : `<button type="button" class="dsh-upd-entry-btn" ${ENTRY_ATTR}="activate" title="${escapeHtml(titleText)}" aria-label="${escapeHtml(labelText)}"${busyAttr}>${labelHTML}</button>`
+    // note 只在 note 摆法下渲染；button/tooltip 由按钮本身承载，不再占第二元素。
+    const noteHTML = upToDateDisplay === 'note' && noteVersion
       ? `<span class="dsh-upd-entry-note" data-dsh-upd-note="1">${copyHTML('entry.note.up-to-date', lang, { version: noteVersion })}</span>`
       : ''
     return (
       `<style>${UPDATE_ENTRY_CSS}\n${BILINGUAL_CSS}</style>\n` +
-      `<span class="dsh-upd-entry" data-variant="${variant}" data-state="${kind}"${themeAttr}${styleAttr}>` +
+      `<span class="dsh-upd-entry" data-variant="${variant}" data-state="${kind}"${displayAttr}${knownAttr}${themeAttr}${styleAttr}>` +
       `${control}${noteHTML}</span>`
     )
   }
@@ -596,8 +642,8 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
       openDialog()
       return
     }
-    // 确知没有新版：不开面板，只在原地给一句单语（#60 entry.note.up-to-date，值透传不译，与按钮同语言）。
-    noteVersion = snapshot.runningVersion
+    // 确知没有新版：不开面板。note 摆法在原地给一句小字；button/tooltip 由按钮本身承载（快照即显，无需 noteVersion）。
+    if (upToDateDisplay === 'note') noteVersion = snapshot.runningVersion
     render()
   }
 

@@ -204,12 +204,13 @@ const entry = mountUpdateEntry(document.getElementById('upd-entry'), {
 | 摆什么 | `button` / `badge` / `inline` | `button` | 按钮；只给一个状态点；面板本体直接嵌进来 |
 | 什么时候查 | `mount` / `never` | `mount` | 进页面静默查一次（**只调 `.updateStatus`，只读**）；`never` 则只在点击时查 |
 | 点了做什么 | `has-update` / `always` / `manual` / `direct` | `has-update` | 有新版才开面板；检查完总是开；交给 `onActivate` 自己跳；点开即弹窗、不预查 |
+| 无新版摆哪 | `button` / `tooltip` / `note` | `button` | 版本即按钮本身；收进悬停；回右侧小字旧样子 |
 
-按钮文案随状态自己变（按宿主语言单语渲染：中文界面纯中文、英文界面纯英文，一次只出现一种语言）：`检查更新` / `有新版 1.1.0` / `正在安装…` / `待重启` / `更新失败，点此查看`（英文见集中字典同 key）。
+按钮文案随状态自己变（按宿主语言单语渲染：中文界面纯中文、英文界面纯英文，一次只出现一种语言）：`检查更新`（还没查到）/ `已是最新 X.Y.Z`（无新版，默认即按钮本身）/ `有新版 1.1.0` / `正在安装…` / `待重启` / `更新失败，点此查看`（英文见集中字典同 key）。
 
 语言跟随（单语）：入口件默认跟随 `document.documentElement.lang` > `navigator.languages` > 中文兜底；显式覆盖传 `locale: 'zh' | 'en' | { getActive(): string; subscribe?(cb): () => void }`（对象形态可接宿主语言服务，切换即时重绘，`unmount` 后停订；无 DOM 环境不抛，落中文）。
 
-无新版时原地那句小字（`已是最新 X.Y.Z`）只在 `has-update` 下出现：不想看它就用 `openOn: 'always'`（检查完总是开弹窗，无新版在弹窗里看“已是最新”）或 `openOn: 'direct'`（点开即弹窗，连预查都省了，面板挂载即自查；徽标形态仍走回调口径）。
+无新版时版本号摆哪（`upToDateDisplay`，缺省 `'button'`）：`button` 即按钮本身就是`已是最新 X.Y.Z`（单按钮不占宽，可点再查，hover 回`检查更新`暗示动作；无新版中性弱边，hover 才走主色）；`tooltip` 按钮还是`检查更新`、版本收进悬停；`note` 回旧样子（按钮旁右侧小字，只在 `openOn: 'has-update'` 下点击确认无新版后出现）。旧版默认即 `note` 的样子，要回去就显式传 `upToDateDisplay: 'note'`。想连按钮都不留痕，就用 `openOn: 'always'`（检查完总是开弹窗，无新版在弹窗里看“已是最新”）或 `openOn: 'direct'`（点开即弹窗，连预查都省了，面板挂载即自查；徽标形态仍走回调口径）。
 
 按钮尺寸（跟头行其他控件同高/整体缩放）：传 `sizing` 只改按钮本体，不碰面板；不传即默认外观。`scale` 是整体缩放（默认 `1`，如 `1.2` 放大、`0.9` 缩小），原来写在容器上的 `zoom` 可整体搬进来：
 

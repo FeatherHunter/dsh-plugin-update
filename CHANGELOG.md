@@ -2,6 +2,16 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [0.8.0] - 2026-10-07
+
+### Added
+- 入口件无新版摆法 `upToDateDisplay`（`note` / `button`（默认） / `tooltip`）：默认按钮本身即`已是最新 X.Y.Z`（单按钮不占宽，可点再查，hover 回`检查更新`暗示动作；无新版走中性弱边、hover 才走主色，复用既有 token，不新增文案与 token）；`tooltip` 按钮仍是`检查更新`、版本收进悬停；`note` 回右侧小字旧样子（显式传回）。入口 `label()` 与按钮正文同口径，`badge` 形态不受影响；README 2.5 节补自由度与参数说明，单测覆盖三摆法与非法校验。
+
+### Fixed
+- 查新版瞬时抖动补强（面板）：忙闲两帧同高（动作区按钮 nowrap + 最小宽预留、转圈槽常驻）+ 横幅／复制区最小高占位，查新版与轮询回包帧不再跳动。
+- 入口件深色默认主题补 `text-muted`（`#9ca3af`），按钮直显弱边在深底可读。
+- 批量 prefs-only 存偏好回归测试补齐（#74）：偏好保存不闪空行、失败保留行（测试覆盖，行为零变更）。
+
 ## [0.7.1] - 2026-10-06
 
 ### Fixed

@@ -204,7 +204,7 @@ test("openOn='has-update'（默认）：点击先查一次，有新版才以 dia
     },
   })
   const box = fakeContainer()
-  const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 'p', call, pollMs: 60000 })
+  const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 'p', call, upToDateDisplay: 'note', pollMs: 60000 })
   await settled()
   assert.match(box.innerHTML, /检查更新/, '挂载时宿主说已是最新')
   assert.ok(!box.innerHTML.includes('data-mode="dialog"'), '没点之前没有面板')
@@ -220,19 +220,57 @@ test("openOn='has-update'（默认）：点击先查一次，有新版才以 dia
   entry.unmount()
 })
 
-test("openOn='has-update'：确知没有新版就只在原地给一句「已是最新 X.Y.Z」，不开面板", async () => {
+test("upToDateDisplay='note'：确知没有新版就只在原地给一句「已是最新 X.Y.Z」，不开面板", async () => {
   const { call, log } = fakeCall({ status: statusReply(UP_TO_DATE), check: checkReply(UP_TO_DATE) })
   const box = fakeContainer()
-  const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 'p', call, pollMs: 60000 })
+  const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 'p', call, upToDateDisplay: 'note', pollMs: 60000 })
   await settled()
   box.click(CLICK_ENTRY)
   await settled()
   assert.ok(log.some((e) => e.name.endsWith('.updateCheck')), '先查了才敢说没有')
   assert.ok(!box.innerHTML.includes('data-mode="dialog"'), '没有新版就不开面板')
   assert.match(box.innerHTML, /已是最新 1\.0\.0/, '原地给一句人话提示')
+  assert.match(box.innerHTML, /data-dsh-upd-note="1"/, '小字是 span，不是第二个按钮')
   assert.match(box.innerHTML, /data-dsh-upd-entry="activate"/, '按钮还在，可以再查')
   assert.equal(entry.label(), '检查更新')
   entry.unmount()
+})
+
+test("upToDateDisplay 默认 'button'：无新版时按钮本身即版本，单按钮不占宽", async () => {
+  const { call, log } = fakeCall({ status: statusReply(UP_TO_DATE), check: checkReply(UP_TO_DATE) })
+  const box = fakeContainer()
+  const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 'p', call, pollMs: 60000 })
+  await settled()
+  assert.match(box.innerHTML, /data-uptodate="button"/, '默认摆法带到 DOM 上')
+  assert.match(box.innerHTML, /data-known="uptodate"/, '确知无新版才挂已知态')
+  assert.match(box.innerHTML, /<button[^>]*>.*已是最新 1\.0\.0.*<\/button>/s, '版本长在按钮上')
+  assert.ok(!box.innerHTML.includes('data-dsh-upd-note="1"'), '不再占第二个元素')
+  assert.equal(entry.label(), '已是最新 1.0.0')
+  log.length = 0
+  box.click(CLICK_ENTRY)
+  await settled()
+  assert.ok(log.some((e) => e.name.endsWith('.updateCheck')), '按钮可点再查')
+  assert.ok(!box.innerHTML.includes('data-mode="dialog"'), '没有新版就不开面板')
+  assert.equal(entry.label(), '已是最新 1.0.0')
+  assert.ok(!log.some((e) => e.name.endsWith('.updateInstall')), '查归查，装不许自动发生')
+  entry.unmount()
+})
+
+test("upToDateDisplay='tooltip'：按钮还是检查更新，版本收进悬停", async () => {
+  const { call } = fakeCall({ status: statusReply(UP_TO_DATE), check: checkReply(UP_TO_DATE) })
+  const box = fakeContainer()
+  const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 'p', call, upToDateDisplay: 'tooltip', pollMs: 60000 })
+  await settled()
+  assert.match(box.innerHTML, /data-uptodate="tooltip"/, '摆法带到 DOM 上')
+  assert.ok(!box.innerHTML.includes('data-dsh-upd-note="1"'), '不占第二个元素')
+  assert.match(box.innerHTML, /<button[^>]*title="[^"]*已是最新 1\.0\.0[^"]*"[^>]*>.*检查更新.*<\/button>/s, '版本在 title 里')
+  assert.equal(entry.label(), '检查更新')
+  entry.unmount()
+})
+
+test("upToDateDisplay 非法即抛：只收 note / button / tooltip", () => {
+  const { call } = fakeCall({})
+  assert.throws(() => mountUpdateEntry(fakeContainer(), { pluginId: 'p', prefix: 'p', call, upToDateDisplay: 'popup' }), /invalid upToDateDisplay/)
 })
 
 test("openOn='always'：点击必开面板，但仍先查一次", async () => {
