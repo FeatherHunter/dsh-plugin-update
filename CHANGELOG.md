@@ -2,7 +2,11 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
-## [Unreleased]
+## [0.5.5] - 2026-10-06
+
+### Added
+- 档案卷主题收敛 archive 与面板紧凑化：运行时 data-theme 统一为 archive（d5-paper 仅作输入旧别名归一），entry/entry-batch/panel-batch 输出与 CSS 选择器同步，panel-batch setTheme 补 archive 并归一存储；根／卷头／横幅／版本条／章节／章头／队列行／footer 间距收紧；删 changelog-wrap 与章节线重影内边框；页脚去技术词，批量关闭 title 同步。
+- 双语底座 #54（先行）：bilingual 字典模块、entry key 映射链、noteVersion 运行时值；research/52-inventory 双语盘点与原型矩阵随附。
 
 ### Fixed
 - 安装/查失败常驻与复制诊断锁定（#58）：失败横幅保留到下一次用户主动查/装的新结论、任务态或版本变化，只读轮询不再洗回可装页；「复制诊断」锁定致命那次回包（稳定码、摘要、版本、宿主、请求与检查编号冻结在失败时刻）；失败旁新增「知道了」可显式确认回到可装页；健康无失败时复制改为当前状态快照，不再伪造失败码；04 章失败时变为卷宗（真实稳定码、本次查询键与失败时刻、证据冻结声明、凭编号对日志的现成查询，平时为路牌＋中性行，可用 `showLogHint: false` 藏路牌）；日志事件名收归 `log-events.ts` 单源（宿主发射与面板路牌同源）；对抗审查补强：瞬态读失败不跨重挂、查锁存不再错配旧安装编号、瞬态失败换诚实文案、跨挂载表有界 100 家；`update-busy` 仍为瞬态不锁存；四电话形状与快照六字段零变更。
