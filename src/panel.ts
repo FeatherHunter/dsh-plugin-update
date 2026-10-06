@@ -69,6 +69,7 @@ export type UpdatePanelActionKind =
   | 'copy-manual'
   | 'copy-diag'
   | 'toggle-queue'
+  | 'toggle-changelog'
   | 'restart-hint'
   | 'close-view'
   | 'dismiss-failure'
@@ -142,6 +143,8 @@ export interface UpdatePanelController {
   setTheme(theme: UpdatePanelTheme): Promise<void>
   /** 切换排队可见性（重查一次，位置口径不变）。 */
   setShowOthers(show: boolean): Promise<void>
+  /** 收起/展开更新日志（纯视图态，不调电话；轮询与换肤不丢）。 */
+  setChangelogCollapsed(collapsed: boolean): Promise<void>
   /**
    * 换一版更新日志后重绘（#23：宿主侧备好新文本后调用；传 null/空串即回中性提示）。
    * 只换日志节，安装门控只跟快照，一字不动。
@@ -911,7 +914,15 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-changelog-more-note{font-size:12px;opacity:.7;margin:2px 0 4px}',
   '.dsh-upd-changelog-neutral{color:inherit;opacity:.8}',
   '.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}',
-  '.dsh-upd-overlay .dsh-upd{background:var(--dsh-upd-bg,#ffffff);max-height:85vh;overflow:auto}',
+  '.dsh-upd-overlay .dsh-upd{background:var(--dsh-upd-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}',
+  // —— 弹窗分栏滚动：头（抬头/档案头/横幅/版本条）与尾固定，只有 01–05 章节区滚动 ——
+  '.dsh-upd-body{min-height:0}',
+  '.dsh-upd-overlay .dsh-upd-body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsh-upd-line,#e5e7eb) transparent}',
+  '.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar{width:8px}',
+  '.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-upd-line,#e5e7eb);border-radius:4px}',
+  '.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-track{background:transparent}',
+  // —— 章节标题磁吸：滚动时节标题贴顶（纯 CSS sticky；背景跟随主题，D5 另覆）——
+  '.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{position:sticky;top:0;z-index:1;background:var(--dsh-upd-bg,#ffffff);padding-top:2px}',
   // —— 档案头 / 版本条 / 章节 / 进度条 / 跳过行（原型 :208-245 的新结构，默认主题给最小可用样式）——
   '.dsh-upd-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}',
   // 卷宗抬头「插件更新 / 更新档案 卷」：D5 档案卷才画，默认（最小）主题不画。
@@ -965,11 +976,18 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd button:active:not(:disabled){transform:translateY(1px)}',
   '.dsh-upd button[aria-busy="true"]{cursor:wait;animation:dsh-upd-pulse 1s ease-in-out infinite}',
   '@keyframes dsh-upd-pulse{0%,100%{opacity:1}50%{opacity:.55}}',
+  // —— 状态横幅淡入 + 日志折叠格动画（纯 CSS；重绘只发生在真变时；reduced-motion 下静止）——
+  '.dsh-upd-banner{animation:dsh-upd-fadein .22s ease}',
+  '@keyframes dsh-upd-fadein{from{opacity:.35;transform:translateY(2px)}}',
+  '.dsh-upd-changelog-foldbox{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .22s ease,opacity .18s ease}',
+  '.dsh-upd-changelog-foldbox-inner{min-height:0;overflow:hidden}',
+  '.dsh-upd-changelog-foldbox[data-open="0"]{grid-template-rows:0fr;opacity:0}',
   // 在途转圈：纯 CSS ::after，不加 DOM 节点（内核 DOM 冻结）；转的是边框缺口，不是 emoji。
   '.dsh-upd button[aria-busy="true"]::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;vertical-align:-1px;',
   'border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:dsh-upd-spin .8s linear infinite}',
   '@keyframes dsh-upd-spin{to{transform:rotate(360deg)}}',
-  '@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}}',
+  '@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}.dsh-upd-banner{animation:none}.dsh-upd-changelog-foldbox{transition:none}}',
+  '@media (forced-colors: active){.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{background:Canvas}}',
   '@media (prefers-color-scheme: dark){.dsh-upd{--dsh-upd-fg:#e5e7eb;--dsh-upd-bg:#111827;--dsh-upd-line:#374151;',
   '--dsh-upd-btn:#1f2937;--dsh-upd-soft:#1f2937;--dsh-upd-primary:#3b82f6;--dsh-upd-focus:#93c5fd;',
   // 横幅深色覆盖：底色用低透明度同色系（不是浅色原值），边线提亮，保证「深底浅字」可读。
@@ -1049,6 +1067,9 @@ export const UPDATE_PANEL_D5_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-qn{font-family:var(--d5-mono);font-size:11.5px;color:var(--d5-muted)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-qseq{color:var(--d5-muted)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-chap-note{color:var(--d5-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-body .dsh-upd-chap-head{background:var(--d5-card)}',
+  '.dsh-upd-overlay .dsh-upd[data-theme="archive"] .dsh-upd-body{scrollbar-color:var(--d5-line-strong) transparent}',
+  '.dsh-upd-overlay .dsh-upd[data-theme="archive"] .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--d5-line-strong)}',
   // —— 小印章（原型 :215 `.sealmini`：30px、旋转 -5°、一字）——
   // 待重启横幅一律不画印章：那一档的标记是左侧手绘 SVG（原型 :446 的 .mark 只有 SVG）。
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="loading"]::before,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="idle"]::before,',
@@ -1144,6 +1165,11 @@ export interface PanelRenderInput extends PanelViewInput {
    * 只读渲染下五章内容、进度条、「已跳过」提示一字不减，只是没有动作按钮。
    */
   actions?: 'default' | 'none'
+  /**
+   * 更新日志折叠（仅挂载态内部用：用户点了 02 章标题行的收起/展开）。
+   * 缺省即展开（安全日志必显、可查找；只读渲染下恒展开）。
+   */
+  changelogCollapsed?: boolean
 }
 
 /** 章节骨架（照原型 d5-paper.html:218-245 的 01–05 编号顺序）。 */
@@ -1305,10 +1331,14 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         `点「恢复」可撤销，之后这一版还会再提醒。</div>`,
     )
   }
-  parts.push(chapterOf(1, actions.join('')))
+  // 章节滚动区：01–05 先收进同一组，再包一层可滚动体；头尾留在外面固定。
+  const chapters: string[] = []
+  chapters.push(chapterOf(1, actions.join('')))
   // —— 02 更新日志（原型 :226-229）：章节恒在；缺日志给中性提示，不挡安装、不改门控 ——
+  // 折叠只影响展示：默认展开（安全日志必显、可查找）；开关在标题行右端，与 03 章开关同一位置语言。
   {
     let inner = ''
+    let hasLog = false
     if (snapshot && snapshot.latestVersion) {
       try {
         const mdText = typeof changelogMarkdown === 'string' ? changelogMarkdown : ''
@@ -1329,7 +1359,10 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
           const toEntry = Array.isArray(ranged) ? ranged.find(function(e) { try { return e && e.version === toText; } catch { return false; } }) : null
           if (toEntry && (toEntry as { yanked?: unknown }).yanked === true && toText) { yankedBanner = yankedBannerHTML(toText); }
         } catch { yankedBanner = ''; }
-        inner = `<div class="dsh-upd-changelog-wrap"><div>${escapeHtml(rangeTitle)}</div>${yankedBanner}\n${changelogHTML}\n</div>`
+        const logOpen = (input as { changelogCollapsed?: unknown }).changelogCollapsed !== true
+        inner = `<div class="dsh-upd-changelog-wrap"><div>${escapeHtml(rangeTitle)}</div>` +
+          `<div class="dsh-upd-changelog-foldbox" data-open="${logOpen ? '1' : '0'}"><div class="dsh-upd-changelog-foldbox-inner">${yankedBanner}\n${changelogHTML}\n</div></div></div>`
+        hasLog = Array.isArray(ranged) && ranged.length > 0
       } catch {
         // 日志画坏了也不挡更新：退回中性提示，安装按钮状态不变。
         inner = ''
@@ -1340,7 +1373,12 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         snapshot && snapshot.latestVersion ? '日志读不出来，安装不受影响。' : '还没查到新版；查到后再显示日志。',
       )}</div></div>`
     }
-    parts.push(chapterOf(2, inner))
+    const logCollapsed = (input as { changelogCollapsed?: unknown }).changelogCollapsed === true
+    const logNote = showActions && hasLog
+      ? '<span class="dsh-upd-chap-note"><button type="button" data-action="toggle-changelog" title="展开或收起更新日志">' +
+        `${logCollapsed ? '展开更新日志' : '收起更新日志'}</button></span>`
+      : ''
+    chapters.push(chapterOf(2, inner, logNote))
   }
   // —— 03 更新队列（原型 :231-235）：章节恒在（没排队也给一句话，编号不许跳）——
   // 设计定案（2026-10-04，见 03 章设计稿）：正文改成两行键值（正在安装 / 你的顺位），
@@ -1403,9 +1441,9 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         ? '<span class="dsh-upd-chap-note"><button type="button" data-action="toggle-queue">' +
           `${reveal ? '隐藏他人明细' : '显示其他插件'}</button></span>`
         : ''
-      parts.push(chapterOf(3, `<div class="dsh-upd-queue">${rows.join('')}</div>`, note))
+      chapters.push(chapterOf(3, `<div class="dsh-upd-queue">${rows.join('')}</div>`, note))
     } else {
-      parts.push(
+      chapters.push(
         chapterOf(
           3,
           `<div class="dsh-upd-queue"><div class="dsh-upd-changelog-neutral">${escapeHtml(
@@ -1466,10 +1504,10 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
       }
     }
     if (copyNotice) errLines.push(`<div class="dsh-upd-copy" role="status">${escapeHtml(copyNotice)}</div>`)
-    parts.push(chapterOf(4, errLines.join('')))
+    chapters.push(chapterOf(4, errLines.join('')))
   }
   // —— 05 手工命令（原型 :242-245）：章节恒在；没有可给的手工命令就说清为什么 ——
-  parts.push(
+  chapters.push(
     chapterOf(
       5,
       view.showManual && manual
@@ -1477,6 +1515,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         : `<div class="dsh-upd-manual"><div class="dsh-upd-changelog-neutral">当前没有可用的手工命令（认不出使用范围或属源码安装时不给）。</div></div>`,
     ),
   )
+  parts.push('<div class="dsh-upd-body">' + chapters.join('\n') + '</div>')
   // —— 右下角独立 footer 区（#47 定案 A：一次找到，脱离第一章 actions）——
   // dialog 才有，永远在 05 章之后；embedded 无（宿主框架自带关）；
   // 只读渲染（actions:'none'）下不画（动作面归调用方，免得出现可点却没人接的死按钮）。
@@ -1662,6 +1701,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   }
   let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
   let showOthers = options.showOthers === true
+  // 更新日志折叠（视图态：只影响 02 章展示，不调电话；换肤/轮询不丢）。
+  let changelogCollapsed = false
   const call = options.call
   const onRestartRequested = options.onRestartRequested
   const onCloseRequested = typeof options.onCloseRequested === 'function' ? options.onCloseRequested : null
@@ -1875,6 +1916,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       changelogMarkdown,
       mode,
       showOthers,
+      changelogCollapsed,
       pluginId,
       copyNotice,
       theme,
@@ -2214,6 +2256,11 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         await refresh()
         return
       }
+      case 'toggle-changelog': {
+        changelogCollapsed = !changelogCollapsed
+        render()
+        return
+      }
       // 「重启宿主」：宿主没有重启自己的电话，所以只做入口——
       // 调用方给了 onRestartRequested 就交给它；没给就如实说“请手动重启”，不假装。
       case 'restart-hint': {
@@ -2256,6 +2303,11 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   async function setShowOthers(show: boolean): Promise<void> {
     showOthers = show === true
     await refresh()
+  }
+
+  async function setChangelogCollapsed(collapsed: boolean): Promise<void> {
+    changelogCollapsed = collapsed === true
+    render()
   }
 
   function onClick(ev: unknown): void {
@@ -2362,7 +2414,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     }
   })()
 
-  return { refresh, act, setMode, setTheme, setShowOthers, setChangelogMarkdown, unmount }
+  return { refresh, act, setMode, setTheme, setShowOthers, setChangelogCollapsed, setChangelogMarkdown, unmount }
 }
 
 // ---------- 面板侧电话名与轮询口径（与派生工具同一源，不写字面量） ----------

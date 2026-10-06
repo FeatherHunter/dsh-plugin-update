@@ -758,6 +758,8 @@ export const UPDATE_BATCH_PANEL_CSS = [
   '.dsh-upd-bdetail{margin:2px 0 10px;overflow:visible}',
   '.dsh-upd .dsh-upd-bdetail .dsh-upd{max-width:none}',
   '.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd{max-height:none;overflow:visible}',
+  '.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body{overflow:visible}',
+  '.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body .dsh-upd-chap-head{position:static}',
   '@media (prefers-color-scheme: dark){.dsh-upd-batch-title i{color:var(--dsh-upd-focus,#93c5fd)}}',
   '@media (prefers-reduced-motion: reduce){.dsh-upd-batch *{transition:none !important;animation:none !important}}',
 ].join(String.fromCharCode(10))
