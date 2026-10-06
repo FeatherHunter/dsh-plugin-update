@@ -2,6 +2,11 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [0.5.8] - 2026-10-06
+
+### Added
+- 语言底座 v2 按宿主语言单语渲染，入口两条链先生效（#60，地图 #51）：新增 `src/lang.ts` 信号层（显式 `locale` > `document.documentElement.lang` > `navigator.languages` > 中文兜底，非中文落英文；单例 `MutationObserver` + 服务订阅，切换即时重绘，`unmount` 停订，无 DOM 落中文）；`bilingual.ts` 新增 `copyHTML/copyText(key, lang, values)` 单语纯函数出口（一次一种语言，单 `span[lang]`），旧 `bilingualHTML/Text` 转为按当前语言包装，字典新增 `batch-entry.*` 6 键（13 键全 `draft`）；`entry/entry-batch` 新增 `locale` 选项全走字典单语块（含聚合口径与 `已是最新` 小字）；`panel/panel-batch` 仅加 `locale` 占位暂不消费（#61-#66 按面迁移）；双语门禁改断言单语（缺语言/混语言即红，冻结词元除外）；`build.mjs` 加 `lang.ts` 单元；README 补单语与窗口期说明。
+
 ## [0.5.7] - 2026-10-06
 
 ### Fixed
