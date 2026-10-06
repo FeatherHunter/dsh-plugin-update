@@ -112,6 +112,11 @@ export interface BatchPanelOptions {
    * 老宿主没给行电话名即回中性提示；false 关闭。
    */
   autoChangelog?: boolean
+  /**
+   * 弹窗关闭的落地（与单插件面板同一口径）：只在 dialog 下点「关闭」/按 Esc 时调用；调用方在此撤掉弹窗 DOM。
+   * 不传则回退为只停轮询（unmount），DOM 留给调用方处理。入口件打开的 dialog 已内置（收 dialog + 还原按钮）。
+   */
+  onCloseRequested?: () => void | Promise<void>
 }
 
 /** 面板可点的动作（HTML 上 data-act 一一对应；测试走同一条路）。 */
@@ -1087,6 +1092,7 @@ export function mountUpdateBatchPanel(
   const titles: Record<string, string> =
     options.titles && typeof options.titles === 'object' ? options.titles : {}
   const onRestartRequested = options.onRestartRequested
+  const onCloseRequested = typeof options.onCloseRequested === 'function' ? options.onCloseRequested : null
   const copyText = options.copyText ?? defaultCopyText
   // 跳过存储按插件标识各一份（浏览器 localStorage 优先，没有退内存；与单插件面板同一套语义）。
   const skipStores = new Map<string, PanelSkipStore>()
@@ -1452,7 +1458,7 @@ export function mountUpdateBatchPanel(
         return
       }
       case 'close': {
-        if (mode === 'dialog') unmount()
+        await requestDialogClose()
         return
       }
       default:
@@ -1460,12 +1466,25 @@ export function mountUpdateBatchPanel(
     }
   }
 
+  /** 弹窗关闭：dialog 下点「关闭」/按 Esc 走这里；有落地回调先交调用方撤 DOM，再停轮询。 */
+  async function requestDialogClose(): Promise<void> {
+    if (!mounted || mode !== 'dialog') return
+    if (onCloseRequested) {
+      try {
+        await onCloseRequested()
+      } catch {
+        // 调用方撤 DOM 失败也不挡停轮询。
+      }
+    }
+    unmount()
+  }
+
   function onKeyDown(ev: unknown): void {
-    // Esc 关弹窗：与「关闭」按钮同口径（只停轮询，不动宿主侧推进）。
+    // Esc 关弹窗：焦点在面板内时按键冒泡到容器；与「关闭」按钮同口径（可配落地，不动宿主）。
     try {
       const e = ev as { key?: unknown } | null | undefined
       if (!mounted || mode !== 'dialog' || !e || e.key !== 'Escape') return
-      unmount()
+      void requestDialogClose()
     } catch {
       // 按坏了也不挡更新。
     }

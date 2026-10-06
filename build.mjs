@@ -37,6 +37,7 @@ const UNITS = [
   { ts: 'host-batch.ts', js: 'host-batch.js' },
   { ts: 'panel-batch.ts', js: 'panel-batch.js' },
   { ts: 'entry.ts', js: 'entry.js' },
+  { ts: 'entry-batch.ts', js: 'entry-batch.js' },
   { ts: 'host.ts', js: 'host.js' },
   { ts: 'client.ts', js: 'client.js' },
   { ts: 'panel.ts', js: 'panel.js' },

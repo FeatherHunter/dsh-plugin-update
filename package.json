@@ -38,6 +38,10 @@
       "types": "./dist/entry.d.ts",
       "default": "./dist/entry.js"
     },
+    "./entry-batch": {
+      "types": "./dist/entry-batch.d.ts",
+      "default": "./dist/entry-batch.js"
+    },
     "./http": {
       "types": "./dist/http.d.ts",
       "default": "./dist/http.js"

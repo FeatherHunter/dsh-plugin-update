@@ -195,6 +195,27 @@ mountUpdateEntry(el, { pluginId: 'p', prefix: 'notes', call, variant: 'badge',
   onActivate: ({ hasUpdate, latestVersion }) => { /* 自己跳自己的页面 */ } })
 ```
 
+#### 批量感知的入口件（一颗按钮看 N 家，点开即批量面板）
+
+一个总管替 N 家管更新时，别再用单入口的 `manual` 桥接批量面板——徽标只反映总管自己一行，不是七家聚合。换这一颗：
+
+```js
+import { mountUpdateBatchEntry } from 'dsh-plugin-update/entry-batch'
+
+const entry = mountUpdateBatchEntry(document.getElementById('upd-entry'), {
+  prefix: 'life',                              // 批量电话前缀（五个批量电话从它派生）
+  call: (name, args) => host.call(name, args),
+  theme: 'archive',                            // 与单入口/面板同一套皮肤
+})
+// 点击先调 `life.batchCheck` 查一次 N 家，再以 dialog 形态开批量面板；徽标即七家聚合。
+// 下游删掉 `openOn: 'manual' + onActivate` 桥接即跑，总管单行不再当状态源。
+```
+
+聚合口径与批量面板总账同一份数法（含「忙失败占位翻回可更新」）：`忙 > 失败 > 待重启 > 可更新 > 待查`，
+文案为 `检查更新` / `N 家可更新` / `正在安装…` / `N 家待重启` / `N 家失败，点此查看`。
+三自由度与单入口同取值，缺省不同：`openOn` 缺省 `'always'`（查完总是开批量面板；`has-update` 下有事才开，否则原地给总账一句）。
+`autoCheck` 缺省 `'mount'`（只调 `.batchStatus`，只读）；铁律同单入口：任何路径都不自动安装。
+
 ### 第 2.6 节：多目标批量更新（一个插件管 N 个插件的更新）
 
 一个插件替自己**和另外几个插件**管更新时，别把 N 个面板并排——用户在那块界面上只问三件事：
@@ -239,6 +260,7 @@ const panel = mountUpdateBatchPanel(el, {
   theme: 'archive',          // 与单插件面板同一套皮肤（archive = 档案卷，旧值 d5-paper 仍可用）
 })
 ```
+// 弹窗版与单面板同口径：传 `onCloseRequested`（点关闭/Esc 时先调它撤 DOM，再停轮询；入口件打开的 dialog 已内置；不传即只停轮询）。
 
 批量面板 HTTP 版（无 `host.call` 环境即跑：同一传输内核，五电话走同一映射，取消走 `batchCancel`）：
 
