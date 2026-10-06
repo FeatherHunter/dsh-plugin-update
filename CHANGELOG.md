@@ -2,6 +2,15 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [0.7.1] - 2026-10-06
+
+### Fixed
+- 批量行三列对齐 + pending 显示最新版 + 新版红（#71）：行主区改网格（名 5em／版 18ch／态 1fr，版 nowrap + tabular-nums，态换行同列起，失败跨整行）；版本三段式只红新版（老版本弱化／箭头中性／专用红 token `newText`，深浅主题与档案皮肤及 forced-colors 回退，加粗 + 箭头 + 状态词为非颜色信号）；版本会话优先、知识仅展示，无轮次无知识回还没查过（不再误 wait-turn），轮次中仍执行态；会话／安装语义未动。
+- 默认弹窗 01~05 横滑消除 + 疏朗化（#72，A 方案落地）。
+
+### Added
+- 主题变量新增 `newText`（`--dsh-update-new-text`，有新版版本号专用红，可覆盖，非法即抛）。
+
 ## [0.7.0] - 2026-10-06
 
 ### Added
