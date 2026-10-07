@@ -1445,16 +1445,21 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   const busyAct = (input as { busyAct?: unknown }).busyAct
   const checkBusy = busyAct === 'check'
   const installBusy = busyAct === 'install'
+  // #87 宏忙守卫（与批量 macroBusy 同口径）：快照 installing/verifying 或任一本地电话在飞，两键一起置灰。只渲染不推导：不改电话形状与快照字段，不新增文案键。
+  const jobState = (snapshot as unknown as { job?: { state?: unknown } } | null)?.job?.state
+  const snapshotBusy = jobState === 'installing' || jobState === 'verifying'
+  const macroBusy = busyAct === 'check' || busyAct === 'install' || snapshotBusy
   actions.push('<div class="dsh-upd-actions">')
   // 在途那一帧：按钮禁用 + 文案切换 + aria-busy（静默时输出与旧版一字不差）。
   // title 是零成本原生 tooltip：不引入浮层组件，只给悬停一句话说明。
+  // 宏守卫只加 disabled，不换文案不加键：忙的不是本键时沿用闲态文案，仅置灰防并发。
   actions.push(
     (checkBusy
       ? `<button type="button" data-action="check" disabled aria-busy="true" title="${escapeHtml(copyText('panel.action.checking-busy-title', l))}">${escapeHtml(copyText('panel.action.checking-busy', l))}</button>`
-      : `<button type="button" data-action="check" title="${escapeHtml(copyText('panel.action.check-title', l))}">${escapeHtml(copyText('panel.action.check', l))}</button>`) +
+      : `<button type="button" data-action="check" title="${escapeHtml(copyText('panel.action.check-title', l))}"${macroBusy ? ' disabled' : ''}>${escapeHtml(copyText('panel.action.check', l))}</button>`) +
       (installBusy
         ? `<button type="button" data-action="install" data-primary="1" disabled aria-busy="true" title="${escapeHtml(copyText('panel.action.installing-busy-title', l))}">${escapeHtml(copyText('panel.action.installing-busy', l))}</button>`
-        : `<button type="button" data-action="install" data-primary="1" title="${escapeHtml(copyText('panel.action.install-title', l))}"${view.installEnabled ? '' : ' disabled'}>${escapeHtml(view.installLabel)}</button>`),
+        : `<button type="button" data-action="install" data-primary="1" title="${escapeHtml(copyText('panel.action.install-title', l))}"${macroBusy || !view.installEnabled ? ' disabled' : ''}>${escapeHtml(view.installLabel)}</button>`),
   )
   if (snapshot?.latestVersion && !view.skippedLatest && view.banner.kind === 'update') {
     actions.push(`<button type="button" data-action="skip" title="${escapeHtml(copyText('panel.action.skip-title', l))}">${escapeHtml(copyText('panel.action.skip', l))}</button>`)
