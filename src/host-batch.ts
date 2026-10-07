@@ -380,6 +380,8 @@ interface RowCache {
   manual: string | null
   queue: unknown
   profileName: string | null
+  /** 宿主种类（env.environmentKind；面板诊断与详情用，取不到即 null，说人话未知）。 */
+  hostKind: string | null
   error: string | null
   /** 最近一次回包带的失败诊断（#21 的 diag；成功回包恒不带，所以成功即清空，不留陈旧诊断）。 */
   diag: unknown
@@ -390,6 +392,7 @@ const EMPTY_CACHE: RowCache = {
   manual: null,
   queue: null,
   profileName: null,
+  hostKind: null,
   error: null,
   diag: null,
 }
@@ -452,13 +455,24 @@ async function callPhone(rt: TargetRuntime, name: string, args: Record<string, u
     if ('snapshot' in value) next.snapshot = value['snapshot'] ?? null
     if ('manual' in value) next.manual = firstText(value['manual'])
     if ('queue' in value) next.queue = value['queue'] ?? null
-    if ('env' in value) next.profileName = firstText(asRecord(value['env'])['profileName'])
+    if ('env' in value) {
+      next.profileName = firstText(asRecord(value['env'])['profileName'])
+      next.hostKind = firstText(asRecord(value['env'])['environmentKind'])
+    }
     next.error = null
     // 成功回包永不带 diag（#21 冻结）：成功即清空，旧诊断不留成陈旧证据。
     next.diag = null
   } else {
     // 失败回包才可能带 diag（status / check / install 三电话同一套 #21 契约），有就收下。
     next.diag = 'diag' in value ? (value['diag'] ?? null) : null
+    // 失败也带使用范围与宿主种类（#45：调用方显式要才带；读不到即保留旧值，不猜）。
+    if ('env' in value) {
+      const envRec = asRecord(value['env'])
+      const pn = firstText(envRec['profileName'])
+      const hk = firstText(envRec['environmentKind'])
+      if (pn !== null) next.profileName = pn
+      if (hk !== null) next.hostKind = hk
+    }
   }
   rt.cache = next
   return value
@@ -802,6 +816,7 @@ export function createMultiHostUpdate(
         manual: rt.cache.manual,
         queue: rt.cache.queue,
         profileName: rt.cache.profileName,
+        hostKind: rt.cache.hostKind,
         phoneNames: rt.host.phoneNames,
         // 新增两格（#25 解法三，只增不改）：该目标的宿主插件标识，与最近一次失败回包的诊断。
         pluginId: rt.pluginId,

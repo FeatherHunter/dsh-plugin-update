@@ -52,6 +52,7 @@ import {
   failureCopy,
   isKnownFailureCode,
   normalizePanelTheme,
+  readDiagTolerant,
   renderUpdatePanelHTML,
   themeTokensStyleFor,
   type PanelDiagnosticInput,
@@ -146,6 +147,7 @@ export type BatchPanelActionKind =
   | 'resume'
   | 'cancel'
   | 'row-install'
+  | 'row-check'
   | 'row-skip'
   | 'row-resume-skip'
   | 'row-cancel-queue'
@@ -906,6 +908,7 @@ function detailHTML(row: BatchRowView, ctx: RowRenderContext): string {
     theme: ctx.theme,
     themeTokens: ctx.themeTokens,
     profileName: typeof row.profileName === 'string' && row.profileName ? row.profileName : null,
+    hostKind: typeof row.hostKind === 'string' && row.hostKind ? row.hostKind : null,
     actions: 'none',
   }, ctx.lang)
   return stripActionButtons(html)
@@ -941,6 +944,13 @@ function detailActionsHTML(row: BatchRowView, ctx: RowRenderContext): string {
       '<button type="button" data-act="row-install" data-key="' + keyAttr + '" data-primary="1"' + off +
         '>' + escapeHtml(ctx.busy ? batchText('batch.row-action.queue', ctx.lang) : version !== null ? batchText('batch.row-action.install-version', ctx.lang, { version }) : batchText('batch.row-action.install-generic', ctx.lang)) + '</button>',
     )
+  }
+  // 单查（#84）：该行自己的查新版电话透过行 phoneNames 透传（老宿主没给即不画，诚实缺省）。
+  // 文案沿用批量宏的已有键（不新增键）：在详情里它自然就是「查这一家」。
+  if (phase !== 'installing' && singleCheckPhoneOf(row) !== null) {
+    buttons.push(
+      '<button type="button" data-act="row-check" data-key="' + keyAttr + '"' + off + '>' + escapeHtml(batchText('batch.action.check', ctx.lang)) + '</button>',
+    );
   }
   if (!queued && phase === 'ready' && ctx.skipped === null && version !== null) {
     buttons.push(
@@ -1135,6 +1145,14 @@ function queuedRequestIdOf(row: BatchRowView): string | null {
   return null
 }
 
+/** 单查要打的电话：该家自己的单插件查新版电话；老宿主没给行 phoneNames 就没有单查入口。 */
+function singleCheckPhoneOf(row: BatchRowView): string | null {
+  const phones = isObject(row.phoneNames) ? row.phoneNames : null
+  if (!phones) return null
+  const check = (phones as Record<string, unknown>)['updateCheck']
+  return typeof check === 'string' && check ? check : null
+}
+
 /** 取消排队要打的电话：该家自己的单插件安装电话（带 cancelQueued 用）；老宿主不给就取消不了。 */
 function cancelQueuePhoneOf(row: BatchRowView): string | null {
   const phones = isObject(row.phoneNames) ? row.phoneNames : null
@@ -1237,6 +1255,27 @@ function jobFailureOf(row: BatchRowView): { code: string | null; detail: string 
 }
 
 /**
+ * diag 结构化字段的机器后缀（#84）：宽容读电话侧 diag，把阶段/路由/方法/HTTP/exit/耗时/源等
+ * 组一段 `k=v` 拼起来的后缀，拼进复制文本的摘要段。标签是机器 tag（与 buildUpdateDiagCopy
+ * 里硬编码的 HTTP=/exit= 同口径，不进双语字典、不新增键）；缺省即整段省略。
+ */
+function diagStructuredSuffix(diagValue: unknown): string | null {
+  const t = readDiagTolerant(diagValue)
+  const parts: string[] = []
+  if (t.stage) parts.push('stage=' + t.stage)
+  if (t.route) parts.push('route=' + t.route)
+  if (t.method) parts.push('method=' + t.method)
+  if (typeof t.httpStatus === 'number') parts.push('HTTP=' + String(t.httpStatus))
+  if (typeof t.exitCode === 'number') parts.push('exit=' + String(t.exitCode))
+  if (typeof t.latencyMs === 'number') parts.push('latency=' + String(t.latencyMs) + 'ms')
+  if (t.registryHost) parts.push('source=' + t.registryHost)
+  if (t.action) parts.push('action=' + t.action)
+  if (t.requestId) parts.push('request=' + t.requestId)
+  if (t.checkId) parts.push('check=' + t.checkId)
+  return parts.length > 0 ? parts.join(' · ') : null
+}
+
+/**
  * 该行的诊断文本：逐字出自单插件面板那套 buildDiagnosticText（稳定码 + 脱敏详情 + 版本 + 宿主 + 队列）。
  * 详情按来源优先级取，取到什么就标什么来源，绝不编造：
  *   ① row.diag.detail —— 宿主给的诊断摘要（最优先）；
@@ -1253,12 +1292,18 @@ function diagTextOf(row: BatchRowView, lang?: string | null): string {
   const text = (value: unknown): string | null => (typeof value === 'string' && value ? value : null)
   const job = jobFailureOf(row)
   const diagDetail = diag ? text(diag['detail']) : null
-  const detail =
+  const baseDetail =
     diagDetail !== null
       ? diagDetail
       : job !== null && job.detail !== null
         ? job.detail + batchText('batch.diag.source-job', langOf(lang))
         : null
+  // 结构化 diag 与摘要同段进复制文本（面板只渲染：原样拼，不推导；无结构化即整段省略）。
+  const structured = diagStructuredSuffix(row.diag)
+  const detail =
+    baseDetail !== null && structured !== null
+      ? baseDetail + ' [' + structured + ']'
+      : (baseDetail ?? structured)
   const input: PanelDiagnosticInput = {
     pluginId: pluginIdOf(row),
     code: job !== null && job.code !== null ? job.code : row.error || 'check-failed',
@@ -1837,6 +1882,47 @@ export function mountUpdateBatchPanel(
         }
         say(version ? batchText('batch.toast.unskipped-version', currentLang(), { version }) : batchText('batch.toast.unskipped-all', currentLang()), row.key)
         render()
+        return
+      }
+      // 「查这一家」（#84）：走该家自己的单插件查新版电话（行 phoneNames 透传；老宿主没给即无入口）。
+      // 单插件回包形状与批量回包不同，不进 applyReply：成功靠随后一次 refresh 把新快照读回来；
+      // 失败只在该行留一句失败回执（failureCopy 已有键），行相位不动，不编造。
+      case 'row-check': {
+        const row = typeof key === 'string' && key ? rowOfKey(key) : null
+        if (!row) return
+        const phoneName = singleCheckPhoneOf(row)
+        if (phoneName === null) return
+        if (inFlight) return
+        inFlight = true
+        clearNotice()
+        render()
+        try {
+          const reply = await call(phoneName, { includeEnv: true, includeQueue: true })
+          if (!mounted) return
+          if (isObject(reply) && reply['ok'] !== true) {
+            const rec = reply as Record<string, unknown>
+            const kind = typeof rec['errorKind'] === 'string' && (rec['errorKind'] as string).trim() ? (rec['errorKind'] as string).trim() : ''
+            const err = typeof rec['error'] === 'string' && (rec['error'] as string).trim() ? (rec['error'] as string).trim() : ''
+            const code = kind || err || 'check-failed'
+            const copy = failureCopy(code, currentLang())
+            say(copy ? copy.zh + '｜' + copy.act : code, row.key)
+          }
+        } catch {
+          if (mounted) {
+            const copy = failureCopy('check-failed', currentLang())
+            say(copy ? copy.zh + '｜' + copy.act : 'check-failed', row.key)
+          }
+        } finally {
+          inFlight = false
+        }
+        // 显式单查后退避清掉该行：下面的按行日志链路可再问一次；日志按需取一行，不碰别家。
+        try {
+          for (const k of [...rowFailedAt.keys()]) {
+            if (k === row.key || k.startsWith(row.key + '\0')) rowFailedAt.delete(k)
+          }
+        } catch { /* keep */ }
+        await refresh()
+        maybeAutoRowChangelog(expandedKey)
         return
       }
       // 「取消排队」：走**该家自己的**单插件安装电话（宿主支持 cancelQueued：只撤自己那条 waiting，

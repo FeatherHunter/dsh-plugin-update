@@ -700,10 +700,10 @@ describe('rows 新增 pluginId 与 diag（只增不改）', () => {
     assert.deepEqual(
       Object.keys(rowOf.a).sort(),
       [
-        'diag', 'error', 'key', 'manual', 'phase', 'phoneNames', 'pluginId',
+        'diag', 'error', 'hostKind', 'key', 'manual', 'phase', 'phoneNames', 'pluginId',
         'profileName', 'queue', 'restartRequired', 'snapshot', 'targetVersion', 'title',
       ],
-      '既有字段一个没动，只加了 pluginId 与 diag',
+      '既有字段一个没动，只加了 pluginId 与 diag（#84 再加 hostKind，只增不改）',
     )
     host.dispose()
   })
@@ -742,6 +742,8 @@ describe('rows 新增 pluginId 与 diag（只增不改）', () => {
     const rowOf = Object.fromEntries(reply.rows.map((row) => [row.key, row]))
     assert.ok(rowOf.bad.diag, '失败那家的 diag 带出来了')
     assert.equal(rowOf.good.diag, null, '成功那家为 null')
+    assert.equal(rowOf.good.profileName, 'web', '使用范围透进行（#84 env 进视图）')
+    assert.equal(rowOf.good.hostKind, 'cli', '宿主种类透进行（#84 env 进视图）')
     const strip = (diag) => {
       const copy = { ...diag }
       delete copy.latencyMs
