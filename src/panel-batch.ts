@@ -1862,10 +1862,15 @@ export function mountUpdateBatchPanel(
         const row = typeof key === 'string' && key ? rowOfKey(key) : null
         const version = row ? latestVersionOf(row) : null
         if (!row || !version) return
+        // 与单面板 skip 同口径（#88）：版本号非法就不记也不 toast，静默重绘（单面板同例：守卫拦下即只 render）。
+        if (!validReleaseVersion(version)) {
+          render()
+          return
+        }
         try {
           skipStoreFor(pluginIdOf(row)).skip(version)
         } catch {
-          // 跳记不进去也不挡更新，只是不免打扰（版本号非法时同此）。
+          // 跳记不进去也不挡更新，只是不免打扰。
         }
         say(batchText('batch.toast.skipped', currentLang(), { version }), row.key)
         render()

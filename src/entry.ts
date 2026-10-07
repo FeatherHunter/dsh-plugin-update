@@ -561,7 +561,7 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
     }
   }
 
-  /** 把面板挂进容器（复用 src/panel.ts 的整组件，不另写界面；#60 窗口期：面板暂不消费 locale，透传仅为占位）。 */
+  /** 把面板挂进容器（复用 src/panel.ts 的整组件，不另写界面；locale 透传给面板消费（显式覆盖 > 全局跟随），与批量入口同口径）。 */
   function mountPanel(mode: UpdatePanelMode): void {
     if (!mounted || panelMode !== null) return
     panel = mountUpdatePanel(panelHost, {
