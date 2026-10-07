@@ -32,7 +32,7 @@ function rowMainOf(html, key) {
 }
 
 describe('#71 Q1：只红新版本号', () => {
-  it('会话目标行三段式：老版本弱化、箭头中性、新版红加粗', () => {
+  it('未装行三段式走红：老版本弱化、箭头中性、新版红加粗', () => {
     const html = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase: 'ready', targetVersion: '0.3.44', snapshot: snap('0.3.42') })], lang: 'zh' })
     const main = rowMainOf(html, 'a')
     assert.ok(main.includes('dsh-upd-bver-cur">0.3.42'), '老版本段')
@@ -42,6 +42,23 @@ describe('#71 Q1：只红新版本号', () => {
     assert.ok(UPDATE_BATCH_PANEL_CSS.includes('.dsh-upd-bver-new') && UPDATE_BATCH_PANEL_CSS.includes('font-weight:700'), '红为第二信号：加粗保留')
     assert.ok(UPDATE_BATCH_PANEL_CSS.includes('.dsh-upd-bver-cur{opacity:'), '老版本弱化')
     assert.ok(UPDATE_BATCH_PANEL_CSS.includes('.dsh-upd-bver-arrow{opacity:'), '箭头中性')
+  })
+
+  it('装好行走绿：done 的新版用 new-ok 段', () => {
+    const html = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase: 'done', targetVersion: '0.3.44', restartRequired: true, snapshot: snap('0.3.42') })], lang: 'zh' })
+    const main = rowMainOf(html, 'a')
+    assert.ok(main.includes('dsh-upd-bver-new-ok\">0.3.44'), '装好走绿')
+    assert.ok(!main.includes('dsh-upd-bver-new\">'), '装好不行红段')
+    assert.ok(UPDATE_BATCH_PANEL_CSS.includes('.dsh-upd-bver-new-ok{color:var(--dsh-update-new-ok-text'), '绿走专用 token')
+  })
+
+  it('装中/待装行走红：installing 与 ready 的新版用 new 段', () => {
+    for (const phase of ['ready', 'installing']) {
+      const html = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase, targetVersion: '0.3.44', snapshot: snap('0.3.42') })], lang: 'zh' })
+      const main = rowMainOf(html, 'a')
+      assert.ok(main.includes('dsh-upd-bver-new\">0.3.44'), phase + ' 走红')
+      assert.ok(!main.includes('new-ok'), phase + ' 不走绿')
+    }
   })
 
   it('无新版行不变红：只显当前，无 new 段', () => {
@@ -64,6 +81,9 @@ describe('#71 Q1：只红新版本号', () => {
     assert.ok(String(UPDATE_BATCH_PANEL_ARCHIVE_CSS).includes('--dsh-update-new-text:#b3261e'), '档案浅色')
     assert.ok(String(UPDATE_BATCH_PANEL_ARCHIVE_CSS).includes('--dsh-update-new-text:#ef8a7d'), '档案深色')
     assert.equal(themeTokensStyleFor({ newText: '#c8402a' }), '--dsh-update-new-text:#c8402a', '第三方可覆专用红')
+    assert.equal(themeTokensStyleFor({ newOkText: '#1a7f37' }), '--dsh-update-new-ok-text:#1a7f37', '第三方可覆专用绿')
+    assert.ok(UPDATE_BATCH_PANEL_CSS.includes('.dsh-upd-bver-new-ok{color:var(--dsh-update-new-ok-text'), '绿段样式在')
+    assert.ok(String(UPDATE_BATCH_PANEL_ARCHIVE_CSS).includes('--dsh-update-new-ok-text:#1a7f37'), '档案绿浅色')
   })
 })
 
@@ -97,7 +117,8 @@ describe('#71 Q2：三列网格左起点一致', () => {
       assert.ok(main.includes('dsh-upd-bname'), k + ' 有名列')
       assert.ok(main.includes('dsh-upd-bver'), k + ' 有版本列')
       assert.ok(main.includes('dsh-upd-bstat'), k + ' 有状态列')
-      assert.ok(main.includes('dsh-upd-bver-new'), k + ' 7 行皆有 → 新版红')
+      if (k === 'k1' || k === 'k2') assert.ok(main.includes('dsh-upd-bver-new-ok'), k + ' 装好走绿')
+      else assert.ok(main.includes('dsh-upd-bver-new">') && !main.includes('new-ok'), k + ' 未装走红')
     }
   })
 })

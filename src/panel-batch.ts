@@ -456,14 +456,16 @@ export function batchRowVersionParts(row: BatchRowView, knowledge: BatchKnowledg
 }
 
 /**
- * 版本列 HTML（#71 Q1：只红新版本号，老版本弱化，箭头中性；红为第二信号，`→` + 加粗 + 状态词保留）。
- * 有新版：`<cur> → <new>` 三段式（new 加粗 + 专用红 token）；无新版：只显当前；皆无：空串（调用方不画 span）。
+ * 版本列 HTML（#71 Q1 修订为状态跟随：装好绿、未装红；老版本弱化、箭头中性不变）。
+ * 有新版：`<cur> → <new>` 三段式（new 加粗 + 专用 token：`done` 行走绿 `newOkText`，其余行走红 `newText`）；
+ * 无新版：只显当前；皆无：空串（调用方不画 span）。红绿之外 `→` + 加粗 + 状态词保留为非颜色信号。
  */
 function batchRowVersionHTML(row: BatchRowView, knowledge: BatchKnowledgeEntry | null): string {
   const parts = batchRowVersionParts(row, knowledge)
   if (parts.hasUpdate && parts.latest) {
     const cur = parts.current ?? '?'
-    return '<span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">' + escapeHtml(cur) + '</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">' + escapeHtml(parts.latest) + '</span></span>'
+    const newCls = asBatchPhase(row.phase) === 'done' ? 'dsh-upd-bver-new-ok' : 'dsh-upd-bver-new'
+    return '<span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">' + escapeHtml(cur) + '</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="' + newCls + '">' + escapeHtml(parts.latest) + '</span></span>'
   }
   if (parts.current) return '<span class="dsh-upd-bver">' + escapeHtml(parts.current) + '</span>'
   return ''
@@ -1014,11 +1016,15 @@ export const UPDATE_BATCH_PANEL_CSS = [
   '.dsh-upd-bver-cur{opacity:.65}',
   '.dsh-upd-bver-arrow{opacity:.6}',
   '.dsh-upd-bver-new{color:var(--dsh-update-new-text,#dc2626);font-weight:700}',
+  '.dsh-upd-bver-new-ok{color:var(--dsh-update-new-ok-text,#047857);font-weight:700}',
   '.dsh-upd-bstat{font-size:12.5px;opacity:.9;min-width:0;overflow-wrap:anywhere}',
   '.dsh-upd-bfail{grid-column:1/-1;display:block;font-size:12.5px;color:var(--dsh-update-bad-border,#dc2626)}',
   '.dsh-upd-batch{--dsh-update-new-text:#dc2626}',
+  '.dsh-upd-batch{--dsh-update-new-ok-text:#047857}',
   '@media (prefers-color-scheme: dark){.dsh-upd-batch{--dsh-update-new-text:#f87171}}',
+  '@media (prefers-color-scheme: dark){.dsh-upd-batch{--dsh-update-new-ok-text:#34d399}}',
   '@media (forced-colors: active){.dsh-upd-bver-new{color:CanvasText}}',
+  '@media (forced-colors: active){.dsh-upd-bver-new-ok{color:CanvasText}}',
   '.dsh-upd-blist{font-size:12.5px;margin-top:2px}',
   '.dsh-upd-batch-ledger{margin:8px 0 0;font-size:13px;opacity:.85}',
   '.dsh-upd-batch-more{margin-top:6px}',
@@ -1061,7 +1067,10 @@ export const UPDATE_BATCH_PANEL_ARCHIVE_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-bver{font-family:var(--dsh-update-font-mono);color:var(--dsh-update-text-muted)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-bver-cur{opacity:.75}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-bver-new{color:var(--dsh-update-new-text,#b3261e)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-bver-new-ok{color:var(--dsh-update-new-ok-text,#1a7f37)}',
+  '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] .dsh-upd-batch{--dsh-update-new-ok-text:#8fd6a4}}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-batch{--dsh-update-new-text:#b3261e}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch{--dsh-update-new-ok-text:#1a7f37}',
   '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] .dsh-upd-batch{--dsh-update-new-text:#ef8a7d}}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-batch-ledger{color:var(--dsh-update-text-muted)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-batch-sum{color:var(--dsh-update-text)}',

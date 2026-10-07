@@ -71,6 +71,8 @@ export interface UpdateThemeTokens {
   busyBg?: string; busyBorder?: string; busyText?: string;
   /** 有新版版本号的醒目红（#71 Q1 专用；缺省跟随坏项红的对比度口径，深浅主题另覆）。 */
   newText?: string;
+  /** 已装好新版版本号的绿色（#71 状态跟随修订：done 行走绿，其余走红；深浅主题另覆）。 */
+  newOkText?: string;
   fontSans?: string; fontSerif?: string; fontMono?: string; shadow?: string;
   radiusPanel?: string; radiusButton?: string; radiusBadge?: string;
   entryFontSize?: string; entryPadding?: string; entryBorderRadius?: string;
@@ -91,6 +93,7 @@ const THEME_TOKEN_VARS: { [K in keyof UpdateThemeTokens]-?: string } = {
   badBg: '--dsh-update-bad-bg', badBorder: '--dsh-update-bad-border', badText: '--dsh-update-bad-text',
   busyBg: '--dsh-update-busy-bg', busyBorder: '--dsh-update-busy-border', busyText: '--dsh-update-busy-text',
   newText: '--dsh-update-new-text',
+  newOkText: '--dsh-update-new-ok-text',
   fontSans: '--dsh-update-font-sans', fontSerif: '--dsh-update-font-serif',
   fontMono: '--dsh-update-font-mono', shadow: '--dsh-update-shadow',
   radiusPanel: '--dsh-update-radius-panel', radiusButton: '--dsh-update-radius-button',
@@ -104,7 +107,7 @@ const THEME_TOKEN_COLOR_KEYS: ReadonlySet<string> = new Set([
   'text', 'textMuted', 'bg', 'bgSoft', 'border', 'borderStrong', 'buttonBg',
   'primary', 'primaryDeep', 'focus',
   'okBg', 'okBorder', 'okText', 'warnBg', 'warnBorder', 'warnText',
-  'badBg', 'badBorder', 'badText', 'busyBg', 'busyBorder', 'busyText', 'newText',
+  'badBg', 'badBorder', 'badText', 'busyBg', 'busyBorder', 'busyText', 'newText', 'newOkText',
 ]);
 
 function themeTokensError(raw: unknown): Error {
