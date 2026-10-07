@@ -365,7 +365,7 @@ function batchText(key: BilingualKey, lang: unknown, values?: Record<string, unk
 }
 
 /**
- * 会话里的条目（宽容读：没有会话/没有 entries 数组就给 null，调用方各自回退旧口径）。
+ * 会话里的条目（宽容读：没有会话/没有 entries 数组就给 null，调用方各自处理）。
  * 会话只在这一处读——原先三处各手写一遍同样形状的遍历（#73 code-review 收敛）。
  */
 function sessionEntriesOf(session: unknown): readonly Record<string, unknown>[] | null {
@@ -430,18 +430,25 @@ function worldUpdateVersion(
   return parts.hasUpdate && parts.latest ? parts.latest : null
 }
 
-/** 有未终态行（控制区出现条件：盘上有没做完的一轮）。 */
+/**
+ * 有未终态行（控制区出现条件：盘上有没做完的一轮，#85）。
+ * 只认盘上会话：无会话（还没读到状态、或老宿主根本没带 session）一律按「没有」处理，
+ * 面板只渲染不推导——行相位（ledger）不可作判据（#82），否则无会话时也会画出续跑按钮，
+ * 点下去命中空账本分支，报一句空话成功。rows 参数保留（调用形状不变），仅作兼容不参与判定。
+ */
 export function hasUnfinishedRows(rows: readonly BatchRowView[], session?: unknown): boolean {
+  void rows
   const entries = sessionEntriesOf(session)
-  if (entries !== null) return entries.some(isUnfinishedEntry)
-  if (rows.length === 0) return false
-  return !rows.every((row) => isTerminalPhase(asBatchPhase(row.phase)))
+  if (entries === null) return false
+  return entries.some(isUnfinishedEntry)
 }
 
+/** 未终态行数（续跑按钮里的计数与回执共用；与 hasUnfinishedRows 同一口径：只认盘上会话，#85）。 */
 export function unfinishedCount(rows: readonly BatchRowView[], session?: unknown): number {
+  void rows
   const entries = sessionEntriesOf(session)
-  if (entries !== null) return entries.filter(isUnfinishedEntry).length
-  return rows.filter((row) => !isTerminalPhase(asBatchPhase(row.phase))).length
+  if (entries === null) return 0
+  return entries.filter(isUnfinishedEntry).length
 }
 
 /**
