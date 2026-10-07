@@ -160,6 +160,7 @@ mountUpdatePanel(el, { pluginId: 'p', prefix: 'notes', call,
 | 文字背景边线 | `text`、`textMuted`、`bg`、`bgSoft`、`border`、`borderStrong`、`buttonBg` |
 | 主色焦点 | `primary`、`primaryDeep`、`focus` |
 | 状态四组 | `okBg / okBorder / okText`、`warnBg / warnBorder / warnText`、`badBg / badBorder / badText`、`busyBg / busyBorder / busyText` |
+| 批量新版 | `newText`（未装好红）、`newOkText`（已装好绿） |
 | 字体阴影 | `fontSans`、`fontSerif`、`fontMono`、`shadow` |
 | 圆角 | `radiusPanel`、`radiusButton`、`radiusBadge` |
 | 入口件尺寸 | `entryFontSize`、`entryPadding`、`entryBorderRadius`、`entryScale`（数字，大于 0） |
