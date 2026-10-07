@@ -75,10 +75,12 @@ export type BatchEntryOpenOn = 'has-update' | 'always' | 'manual' | 'direct'
 /** 批量入口件的状态档：只用来算文案与 data-state，不另立状态机。 */
 export type BatchEntryStateKind = 'idle' | 'update' | 'busy' | 'restart' | 'failed'
 
-/** 算文案要的全部输入：批量七行 + 最近一次批量电话的失败稳定码（没查过、没失败为 null）。 */
+/** 算文案要的全部输入：批量七行 + 最近一次批量电话的失败稳定码（没查过、没失败为 null）+ 知识账本（只做展示，不参与安装决策；缺省即旧语义）。 */
 export interface UpdateBatchEntryState {
   rows: readonly BatchRowView[] | null
   error: string | null
+  /** 知识账本 inventory（batchStatus/batchCheck 回包里的同形状透传；#83 与面板总账同口径）。 */
+  inventory?: unknown
 }
 
 /** 聚合后的读数（onActivate 与测试共用同一份，不各算一份）。 */
@@ -175,13 +177,14 @@ function escapeHtml(value: unknown): string {
 }
 
 /**
- * 聚合读数：计数唯一出处 batchLedgerCounts（与面板总账同一份，忙失败占位翻回可更新）。
+ * 聚合读数：计数唯一出处 batchLedgerCounts（含 inventory 即与面板总账同一份知识口径，忙失败占位翻回可更新）。
  * hasUpdate = 忙/失败/待重启/可更新任一非零（openOn has-update 按它开面板；全 settled/待查/跳过即 idle）。
  * v2 单语：label 与 HTML 出口同语言（lang 显式入参，缺省跟随全局；zh 口径逐字兼容旧中文）。
  */
 export function batchEntrySummary(state: UpdateBatchEntryState | null | undefined, lang?: AppLang | string | null): BatchEntrySummary {
   const rows = state?.rows ?? null
-  const counts = batchLedgerCounts(Array.isArray(rows) ? rows : [])
+  const inventory = (state as { inventory?: unknown } | null | undefined)?.inventory ?? undefined
+  const counts = batchLedgerCounts(Array.isArray(rows) ? rows : [], inventory)
   const total = Array.isArray(rows) ? rows.length : 0
   let kind: BatchEntryStateKind
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -358,6 +361,7 @@ export function mountUpdateBatchEntry(
 
   let rows: BatchRowView[] | null = null
   let error: string | null = null
+  let inventory: unknown = null
   let note: string | null = null
   let loaded = false
   // 在途批量查（点下到回包前的那一帧，按钮置忙 + 并发连点只认第一次；与单入口同一口径）。
@@ -388,7 +392,7 @@ export function mountUpdateBatchEntry(
   }
 
   function stateOf(): UpdateBatchEntryState {
-    return { rows, error }
+    return { rows, error, inventory }
   }
 
   function summaryOf(): BatchEntrySummary {
@@ -447,6 +451,7 @@ export function mountUpdateBatchEntry(
     }
     const next = asRows(reply['rows'])
     if (next) rows = next
+    if (isObject(reply) && 'inventory' in reply) inventory = (reply as Record<string, unknown>)['inventory'] ?? null
     error = null
     loaded = true
   }

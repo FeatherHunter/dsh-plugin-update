@@ -429,7 +429,7 @@ export function batchRowKnowledgeText(row: BatchRowView, entry: BatchKnowledgeEn
  * 一行的版本展示（#71 Q3：永远显示当前版；有新版才 `当前 → 最新`）。
  * latest 只做展示，不参与安装决策：会话目标版优先（安装语义），无会话目标时才看知识最新版。
  * - 会话有目标版：current（快照运行版优先）→ 会话目标（current 缺失时占位 `?`，与旧口径一致）。
- * - 会话无目标：current（快照优先，缺失退知识 installedVersion）→ 知识 latest（仅当两者皆有且不等；相等即已是最新，只显当前）。
+ * - 会话无目标：current（快照优先，缺失退知识 installedVersion）→ 知识 latest（不等即 → 红；相等即已是最新，只显当前；current 缺失而 latest 有即 `? → latest` 红，与会话缺当前同例）。
  * - 两者皆无：current 为 null、latest 为 null、hasUpdate 为 false（调用方不画版本 span）。
  */
 export interface BatchRowVersionParts {
@@ -451,7 +451,7 @@ export function batchRowVersionParts(row: BatchRowView, knowledge: BatchKnowledg
   const latest = knowledge && typeof knowledge.latestVersion === 'string' && knowledge.latestVersion ? knowledge.latestVersion : null
   if (current && latest && latest !== current) return { current, latest, hasUpdate: true }
   if (current) return { current, latest: null, hasUpdate: false }
-  if (latest) return { current: latest, latest: null, hasUpdate: false }
+  if (latest) return { current: null, latest, hasUpdate: true }
   return { current: null, latest: null, hasUpdate: false }
 }
 
