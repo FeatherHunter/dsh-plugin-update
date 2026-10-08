@@ -270,11 +270,9 @@ export function batchLedgerCounts(rows: readonly BatchRowView[], inventory?: unk
  * checking 行与在轮行不走这里（永远执行态）。
  */
 function ledgerKnowledgeBucket(entry: BatchKnowledgeEntry | null): keyof BatchLedgerCounts {
-  if (!entry) return 'pending'
-  if (entry.error) return 'pending'
-  if (entry.latestVersion && entry.installedVersion) return entry.latestVersion !== entry.installedVersion ? 'updatable' : 'settled'
-  if (entry.latestVersion && !entry.installedVersion) return 'updatable'
-  if (entry.lastCheckedAt > 0) return 'settled'
+  const verdict = knowledgeVerdictOf(entry)
+  if (verdict === 'update') return 'updatable'
+  if (verdict === 'current') return 'settled'
   return 'pending'
 }
 
@@ -330,6 +328,24 @@ function knowledgeEntryOf(inventory: unknown, key: string): BatchKnowledgeEntry 
   }
 }
 
+/**
+ * 无轮次 pending 行的知识判定——**唯一出处**：行文案（batchRowKnowledgeText）与总账档位
+ * （ledgerKnowledgeBucket）都从它推，别再各写一份四态（#82 §7 改动点 2「行循环的 knowledge 计算
+ * 应与计数共用同一判定，避免两处分叉」；上一版就是两处手抄，改一处必漏另一处）。
+ * 四种结果与 ADR-0003 §2 的四种行状态一一对应：update=有新版、current=已是最新、
+ * failed=这次没查到（查失败≠安装失败，它的"结果"就是没有结果）、never=还没查过/没知识。
+ */
+type BatchKnowledgeVerdict = 'update' | 'current' | 'failed' | 'never'
+
+function knowledgeVerdictOf(entry: BatchKnowledgeEntry | null): BatchKnowledgeVerdict {
+  if (!entry) return 'never'
+  if (entry.error) return 'failed'
+  if (entry.latestVersion && entry.installedVersion) return entry.latestVersion !== entry.installedVersion ? 'update' : 'current'
+  if (entry.latestVersion && !entry.installedVersion) return 'update'
+  if (entry.lastCheckedAt > 0) return 'current'
+  return 'never'
+}
+
 function langOf(lang: unknown): AppLang {
   try {
     return normalizeLangTag(typeof lang === 'string' ? lang : resolveLang(lang as LocaleOption))
@@ -347,54 +363,52 @@ function batchText(key: BilingualKey, lang: unknown, values?: Record<string, unk
 }
 
 /**
- * 这一家是否在「没做完的一轮」里（session.entries 非终态相位；认不出的相位按 pending 读）。
- * 总账与行展示共用这一处判定（#82 §6.1「有轮次未做完仍走执行态」、ADR-0003）：
+ * 会话里的条目（宽容读：没有会话/没有 entries 数组就给 null，调用方各自回退旧口径）。
+ * 会话只在这一处读——原先三处各手写一遍同样形状的遍历（#73 code-review 收敛）。
+ */
+function sessionEntriesOf(session: unknown): readonly Record<string, unknown>[] | null {
+  if (!isObject(session)) return null
+  const entries = (session as Record<string, unknown>)['entries']
+  if (!Array.isArray(entries)) return null
+  return entries.filter((item): item is Record<string, unknown> => isObject(item))
+}
+
+/** 条目相位（宽容读：认不出的字符串按 pending；压根不是字符串即没读到，与旧口径一致）。 */
+function entryPhaseOf(entry: Record<string, unknown>): BatchPhase | null {
+  const phase = entry['phase']
+  return typeof phase === 'string' ? asBatchPhase(phase) : null
+}
+
+/** 条目是不是「没做完」的那一行（相位非终态）。 */
+function isUnfinishedEntry(entry: Record<string, unknown>): boolean {
+  const phase = entryPhaseOf(entry)
+  return phase !== null && !isTerminalPhase(phase)
+}
+
+/**
+ * 这一家是否在「没做完的一轮」里：会话里该家**任一条目**非终态即算。
+ * 总账与行展示共用这一处判定（#82 §6 细则 3 与 §7 测试 4「有轮次未做完仍走执行态」、ADR-0003 §2）：
  * 在轮行不吃知识、不按知识落档，免得同一屏一边说执行态一边报知识。
+ * 与 hasUnfinishedRows/unfinishedCount 同一份读法：坏会话一律按执行态读——
+ * 控制区说「有没做完的一轮」，行与总账就不许改口说知识。
  */
 function isInUnfinishedRound(session: unknown, key: string): boolean {
-  if (!isObject(session)) return false
-  const entries = (session as Record<string, unknown>)['entries']
-  if (!Array.isArray(entries)) return false
-  let phase: BatchPhase | null = null
-  for (const item of entries) {
-    if (!isObject(item)) continue
-    const entry = item as Record<string, unknown>
-    // 同一家多行取最后一行（与旧渲染口径一致：认最后写的那个相位）。
-    if (entry['key'] === key && typeof entry['phase'] === 'string') phase = asBatchPhase(entry['phase'])
-  }
-  return phase !== null && !isTerminalPhase(phase)
+  const entries = sessionEntriesOf(session)
+  if (entries === null) return false
+  return entries.some((entry) => entry['key'] === key && isUnfinishedEntry(entry))
 }
 
 /** 有未终态行（控制区出现条件：盘上有没做完的一轮）。 */
 export function hasUnfinishedRows(rows: readonly BatchRowView[], session?: unknown): boolean {
-  if (isObject(session)) {
-    const entries = (session as Record<string, unknown>)['entries']
-    if (Array.isArray(entries)) {
-      for (const item of entries) {
-        if (!isObject(item)) continue
-        const phase = (item as Record<string, unknown>)['phase']
-        if (typeof phase === 'string' && !isTerminalPhase(asBatchPhase(phase))) return true
-      }
-      return false
-    }
-  }
+  const entries = sessionEntriesOf(session)
+  if (entries !== null) return entries.some(isUnfinishedEntry)
   if (rows.length === 0) return false
   return !rows.every((row) => isTerminalPhase(asBatchPhase(row.phase)))
 }
 
 export function unfinishedCount(rows: readonly BatchRowView[], session?: unknown): number {
-  if (isObject(session)) {
-    const entries = (session as Record<string, unknown>)['entries']
-    if (Array.isArray(entries)) {
-      let n = 0
-      for (const item of entries) {
-        if (!isObject(item)) continue
-        const phase = (item as Record<string, unknown>)['phase']
-        if (typeof phase === 'string' && !isTerminalPhase(asBatchPhase(phase))) n += 1
-      }
-      return n
-    }
-  }
+  const entries = sessionEntriesOf(session)
+  if (entries !== null) return entries.filter(isUnfinishedEntry).length
   return rows.filter((row) => !isTerminalPhase(asBatchPhase(row.phase))).length
 }
 
@@ -437,17 +451,10 @@ export function batchRowStatus(row: BatchRowView, skippedVersion?: string | null
  */
 export function batchRowKnowledgeText(row: BatchRowView, entry: BatchKnowledgeEntry | null, lang?: unknown): string | null {
   if (asBatchPhase(row.phase) !== 'pending' || !entry) return null
-  if (entry.error) return batchText('batch.row.failed', lang)
-  if (entry.latestVersion && entry.installedVersion && entry.latestVersion !== entry.installedVersion) {
-    return batchText('batch.row.update', lang, { version: entry.latestVersion })
-  }
-  if (entry.latestVersion && entry.installedVersion && entry.latestVersion === entry.installedVersion) {
-    return batchText('batch.row.current', lang)
-  }
-  if (entry.latestVersion && !entry.installedVersion) {
-    return batchText('batch.row.update', lang, { version: entry.latestVersion })
-  }
-  if (entry.lastCheckedAt > 0) return batchText('batch.row.current', lang)
+  const verdict = knowledgeVerdictOf(entry)
+  if (verdict === 'update' && entry.latestVersion) return batchText('batch.row.update', lang, { version: entry.latestVersion })
+  if (verdict === 'current') return batchText('batch.row.current', lang)
+  if (verdict === 'failed') return batchText('batch.row.failed', lang)
   return batchText('batch.row.never', lang)
 }
 
@@ -537,7 +544,7 @@ export interface BatchPanelRenderInput {
   noticeKey?: string | null
   /** 键 -> 该行已取到的日志全文（只传有文本的；取不到与没展开即中性提示，不挡安装）。 */
   changelogs?: Record<string, string | null>
-  /** 轮次会话（有未终态行才画控制区；不传按行相位回退旧口径，兼容旧快照）。 */
+  /** 轮次会话（有未终态行才画控制区，并决定在轮的行与总账吃不吃知识；不传按行相位回退旧口径，兼容旧快照）。 */
   session?: unknown
   /** 知识账本（无轮次时行按知识展示；只做展示，不参与安装决策）。 */
   inventory?: unknown

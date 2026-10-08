@@ -127,7 +127,8 @@ describe('#73 补：有轮次未做完仍走执行态（#82 §6.3 / §7 测试 4
     assert.equal(ledgerTextOf(html), '2 家待查', '底部同为执行态')
   })
 
-  it('轮次未做完 + 知识查失败：仍待查，不喊安装失败', () => {
+  // 这一条钉的是「在轮短路」（在轮行根本不看知识）；「查失败 → 待查」的改判本身由上面无轮次那条钉住。
+  it('轮次未做完 + 知识查失败：在轮短路仍待查，不喊安装失败', () => {
     const rows = [rowOf({ key: 'a' })]
     const inventory = invOf({ a: invEntry({ latestVersion: null, error: 'check-failed' }) })
     const session = roundSession(['a'])
@@ -217,10 +218,17 @@ describe('#73 补：有轮次未做完仍走执行态（#82 §6.3 / §7 测试 4
     assert.equal(noRound.updatable, 2, '无轮次仍吃知识（#83 口径不变）')
     assert.equal(noRound.kind, 'update')
   })
-});
+})
 
 describe('#73 集成：挂载路径同一句话（面板 + 入口徽标）', () => {
-  const settled = () => new Promise((resolve) => setTimeout(resolve, 0))
+  const settled = (ms = 10) => new Promise((resolve) => setTimeout(resolve, ms))
+
+  /** 点入口按钮（data-dsh-upd-entry=activate）：与 tests/entry-batch.test.mjs 同一手法。 */
+  function clickEntry(box) {
+    const el = { getAttribute: (name) => (name === 'data-dsh-upd-entry' ? 'activate' : null) }
+    const target = { closest: (sel) => (sel === '[data-dsh-upd-entry]' ? el : null) }
+    for (const fn of [...box.listeners]) fn({ target })
+  }
 
   function fakeContainer() {
     const listeners = []
@@ -298,4 +306,24 @@ describe('#73 集成：挂载路径同一句话（面板 + 入口徽标）', () 
     assert.ok(box2.innerHTML.includes('2 家可更新'), '空会话（无轮次）仍吃知识')
     entry2.unmount()
   })
-});
+
+  it("入口 openOn='has-update'：有轮次未做完时不当成「有事」，原地给与面板同一句总账", async () => {
+    const rows = ['a', 'b'].map((k) => rowOf({ key: k, title: k }))
+    const inventory = invOf({ a: invEntry(), b: invEntry() })
+    const session = roundSession(['a', 'b'])
+    const box = fakeContainer()
+    const entry = mountUpdateBatchEntry(box, {
+      prefix: 'life',
+      call: async () => ({ ok: true, session, rows, progress: {}, inventory }),
+      openOn: 'has-update',
+      pollMs: 60000,
+    })
+    await settled()
+    clickEntry(box)
+    await settled()
+    assert.ok(!box.innerHTML.includes('dsh-upd-batch'), '在轮时不开面板（聚合档位是 idle，不是 update）')
+    assert.ok(box.innerHTML.includes('2 家待查'), '原地给的总账与面板底部同一句')
+    assert.ok(box.innerHTML.includes('data-dsh-upd-entry'), '按钮还在，可以再查')
+    entry.unmount()
+  })
+})

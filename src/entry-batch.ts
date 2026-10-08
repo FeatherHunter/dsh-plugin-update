@@ -75,7 +75,7 @@ export type BatchEntryOpenOn = 'has-update' | 'always' | 'manual' | 'direct'
 /** 批量入口件的状态档：只用来算文案与 data-state，不另立状态机。 */
 export type BatchEntryStateKind = 'idle' | 'update' | 'busy' | 'restart' | 'failed'
 
-/** 算文案要的全部输入：批量七行 + 最近一次批量电话的失败稳定码（没查过、没失败为 null）+ 知识账本（只做展示，不参与安装决策；缺省即旧语义）。 */
+/** 算文案要的全部输入：批量七行 + 最近一次批量电话的失败稳定码（没查过、没失败为 null）+ 知识账本 + 会话（后两样只做展示，不参与安装决策；缺省即旧语义）。 */
 export interface UpdateBatchEntryState {
   rows: readonly BatchRowView[] | null
   error: string | null
@@ -83,7 +83,9 @@ export interface UpdateBatchEntryState {
   inventory?: unknown
   /**
    * 会话（同回包里透传）：只用来认「有没做完的一轮」——在轮行走执行态、不吃知识，
-   * 徽标才与面板总账同一句话（#73 / #82 §6.1）。缺省即当无轮次。
+   * 徽标才与面板总账同一句话（#73 / #82 §6 细则 3、ADR-0003 §2）。缺省即当无轮次。
+   * 连带影响：在轮时聚合档位是 idle（不是 update），openOn='has-update' 因此不会开面板——
+   * 徽标说「检查更新」、点一下真去查，与面板同一句话。
    */
   session?: unknown
 }
@@ -189,7 +191,7 @@ function escapeHtml(value: unknown): string {
 export function batchEntrySummary(state: UpdateBatchEntryState | null | undefined, lang?: AppLang | string | null): BatchEntrySummary {
   const rows = state?.rows ?? null
   const inventory = (state as { inventory?: unknown } | null | undefined)?.inventory ?? undefined
-  const session = (state as { session?: unknown } | null | undefined)?.session ?? undefined
+  const session: unknown = state?.session
   const counts = batchLedgerCounts(Array.isArray(rows) ? rows : [], inventory, session)
   const total = Array.isArray(rows) ? rows.length : 0
   let kind: BatchEntryStateKind
