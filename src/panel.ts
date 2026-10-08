@@ -1026,6 +1026,18 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-changelog-neutral{color:inherit;opacity:.8}',
   '.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}',
   '.dsh-upd-overlay .dsh-upd{background:var(--dsh-update-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}',
+  // —— 弹窗高度让渡契约（#93，headless 量盒子实测）——
+  // 面板内容高过 85vh 时，纵向 flex 按比例压所有子项；唯独**显式写了 min-height 的区**会失去 CSS 的
+  // 「内容最小尺寸」自动保护：横幅（3.4em）与版本条（48px）被压到地板，而没写 min-height 的抬头/
+  // 档案头/页脚纹丝不动。档案卷皮肤又给横幅加了 flex-wrap:wrap——纵向 flex 上它不换行而换列，
+  // 最后一项（副行）被甩到标题右侧、冲出横幅后被 .dsh-upd{overflow:hidden} 裁掉。
+  // 契约：带滚动区的弹窗帧里，只有滚动区让高度，其余各区不得小于自己的内容高度。
+  // :has(>.dsh-upd-body) 是刻意的边界——批量面板的弹窗帧没有滚动区，本契约不扩到它（属 #90/#91 域）。
+  '.dsh-upd-overlay .dsh-upd:has(>.dsh-upd-body)>:not(.dsh-upd-body){flex:none}',
+  // 兜底：窗口矮到连框架都放不下时，整面板自己滚（横向仍 hidden）；章节区留 8em 下限——
+  // 别把章节区压成 0、更别把页脚顶出视野还滚不到（实测：可用高 ≤ 约 512 时接管，对应窗口高 ≤ 约 600）。
+  '.dsh-upd-overlay .dsh-upd:has(>.dsh-upd-body){overflow-x:hidden;overflow-y:auto}',
+  '.dsh-upd-overlay .dsh-upd:has(>.dsh-upd-body)>.dsh-upd-body{min-height:8em}',
   // —— 弹窗分栏滚动：头（抬头/档案头/横幅/版本条）与尾固定，只有 01–05 章节区滚动 ——
   '.dsh-upd-body{min-height:0}',
   '.dsh-upd-body *{min-width:0}',
@@ -1243,7 +1255,7 @@ export const UPDATE_PANEL_ARCHIVE_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-chap-title{font-family:var(--dsh-update-font-serif);font-size:17px;margin:0;letter-spacing:.1em}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border);transform:translateY(-4px)}',
   // —— 横幅即状态行 / 待重启横幅（原型 :81-85 `.restart-banner`：2px 边框、圆角 4、内边距 12/16、衬线；右侧留章位）——
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:2px solid var(--dsh-update-border-strong);border-radius:4px;padding:10px 12px;font-size:14.5px;font-family:var(--dsh-update-font-serif);display:flex;gap:10px;align-items:center;flex-wrap:wrap}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:2px solid var(--dsh-update-border-strong);border-radius:4px;padding:10px 12px;font-size:14.5px;font-family:var(--dsh-update-font-serif);gap:10px;align-items:center}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{flex:1 1 auto;min-width:0}',
   // 状态行字号照原型 .status-line=27px（实测去掉横幅右侧占位后可写 486px > 428px，一行放得下）
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child strong{font-family:var(--dsh-update-font-serif);font-size:27px;font-weight:700;line-height:1.25}',

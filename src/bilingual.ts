@@ -224,6 +224,7 @@ export type BilingualKey =
   | 'panel.diag.copy.block.source'
   | 'panel.diag.copy.block.remedy'
   | 'batch.action.resume'
+  | 'batch.action.resume-title'
   | 'batch.action.discard'
   | 'batch.action.confirm-discard'
   | 'batch.fact.close-safe'
@@ -551,6 +552,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.diag.copy.block.source': { en: 'Source：{source}', zh: '来源：{source}', draft: true },
   'panel.diag.copy.block.remedy': { en: 'Remedy：{remedy}', zh: '怎么办：{remedy}', draft: true },
   'batch.action.resume': { en: 'Continue the unfinished batch ({count} left)', zh: '继续上次未完成的更新（还剩 {count} 家）', draft: true },
+  'batch.action.resume-title': { en: 'Continue from where it stopped; installed ones stay', zh: '从上次没做完的地方接着安装，已完成的不重装', draft: true },
   'batch.action.discard': { en: 'Discard this unfinished batch (installed ones stay)', zh: '丢弃这批未完成的更新（已完成的保留）', draft: true },
   'batch.action.confirm-discard': { en: 'Confirm discard', zh: '确认丢弃', draft: true },
   'batch.fact.close-safe': { en: 'Closing this panel won\'t stop it \u2014 progress is saved on disk.', zh: '关掉面板不会中断：进度已写盘，回来可继续。', draft: true },

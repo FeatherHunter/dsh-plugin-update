@@ -68,7 +68,7 @@ function fakeLocale(initial = 'zh') {
 
 // ---------- 类型锁死：288 键齐全，版本钉死 ----------
 
-test('字典钉住版本且 312 键齐全（entry 7 + batch-entry 6 + panel 75 + kernel 74 + diag 35 + batch 16 + batch-ledger 33 + batch-row 42 + changelog 9 + diag-fallback 15，缺键即实现未完成）', () => {
+test('字典钉住版本且 313 键齐全（entry 7 + batch-entry 6 + panel 75 + kernel 74 + diag 35 + batch 17 + batch-ledger 33 + batch-row 42 + changelog 9 + diag-fallback 15，缺键即实现未完成）', () => {
   __resetLangState()
   assert.equal(BILINGUAL_DICT_VERSION, '2026-10-06-pin53')
   const keys = Object.keys(BILINGUAL_STRINGS).sort()
@@ -89,8 +89,9 @@ test('字典钉住版本且 312 键齐全（entry 7 + batch-entry 6 + panel 75 +
     'entry.note.up-to-date',
   ]) assert.ok(keys.includes(k), k + ' 缺键')
   // #61 panel 75 键（§3.1 16 + §3.2 14 + §3.5 16 + §3.6 18 + §3.8 11）+ #62 kernel 74（§3.7）+ #63 diag 35（§3.3 13 + §3.4 22）+ #64 batch-ledger 33（§4.1/4.3/4.4/4.5）+ #65 batch-row 42（§4.2 13 + §4.6 15 + §4.7 14）+ #66 changelog 9 + diag-fallback 15（§6.1/§7.1）
-  assert.equal(keys.length, 312)
+  assert.equal(keys.length, 313)
   assert.ok(keys.includes('batch.action.resume'))
+  assert.ok(keys.includes('batch.action.resume-title'))
   assert.ok(keys.includes('batch.fact.close-safe'))
   assert.ok(keys.includes('batch.setting.check-on-open'))
   assert.ok(keys.includes('batch.row.update'))
@@ -150,8 +151,8 @@ test('字典钉住版本且 312 键齐全（entry 7 + batch-entry 6 + panel 75 +
   }
 })
 
-test('draft 诚实态：312 键全 draft，门禁读 draftKeys()（#61/#62/#63/#64/#65/#66 新增亦全 draft，--release 仍如实红）', () => {
-  assert.equal(draftKeys().length, 312)
+test('draft 诚实态：313 键全 draft，门禁读 draftKeys()（#61/#62/#63/#64/#65/#66 新增亦全 draft，--release 仍如实红）', () => {
+  assert.equal(draftKeys().length, 313)
   assert.ok(draftKeys().includes('entry.label.idle'))
   assert.ok(draftKeys().includes('batch-entry.label.update'))
 })

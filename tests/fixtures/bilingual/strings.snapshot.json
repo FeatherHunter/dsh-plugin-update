@@ -77,6 +77,11 @@
       "zh": "继续上次未完成的更新（还剩 {count} 家）",
       "draft": true
     },
+    "batch.action.resume-title": {
+      "en": "Continue from where it stopped; installed ones stay",
+      "zh": "从上次没做完的地方接着安装，已完成的不重装",
+      "draft": true
+    },
     "batch.banner.error-action-fallback": {
       "en": "Retry once first; if it persists, send the copied diagnostics to the plugin author.",
       "zh": "先重试一次；一直这样就把复制诊断交给插件作者。",
