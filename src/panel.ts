@@ -213,7 +213,7 @@ export interface UpdatePanelOptions {
    */
   profileName?: string | null
   /**
-   * 「重启宿主」按钮的落地（可选）：宿主没有重启自己的电话，默认点击只提示手动重启；
+   * 「请重启DSH」按钮的落地（可选）：宿主没有重启自己的电话，默认点击只提示手动重启；
    * 调用方能把重启流程接进来（拉起自己的重启脚本/提示用户），按钮就交给它。
    */
   onRestartRequested?: () => void | Promise<void>
@@ -1477,7 +1477,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   // 宿主没有「重启自己」的电话，所以这里只做入口：调用方给了 onRestartRequested 就交给它，
   // 没给就如实提示「请手动重启」——不假装能重启。
   if (b.kind === 'restart') {
-    actions.push(`<button type="button" data-action="restart-hint" data-primary="1" title="${escapeHtml(copyText('panel.action.restart-host-title', l))}">${escapeHtml(copyText('panel.action.restart-host', l))}</button>`)
+    actions.push(`<button type="button" data-action="restart-hint" title="${escapeHtml(copyText('panel.action.restart-host-title', l))}">${escapeHtml(copyText('panel.action.restart-host', l))}</button>`)
   }
   if (b.kind === 'failed') {
     actions.push(`<button type="button" data-action="dismiss-failure" title="${escapeHtml(copyText('panel.action.dismiss-title', l))}">${escapeHtml(copyText('panel.action.dismiss', l))}</button>`)
@@ -2578,7 +2578,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         render()
         return
       }
-      // 「重启宿主」：宿主没有重启自己的电话，所以只做入口——
+      // 「请重启DSH」：宿主没有重启自己的电话，所以只做入口——
       // 调用方给了 onRestartRequested 就交给它；没给就如实说“请手动重启”，不假装。
       case 'restart-hint': {
         try {
