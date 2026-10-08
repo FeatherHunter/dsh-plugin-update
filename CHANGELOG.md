@@ -2,6 +2,28 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [0.9.0] - 2026-10-08
+
+### Added
+- 批量详情独立动作矩阵（#84）：详情弹窗按单插件内核只读 + 批量自出动作行，支持单查 / 重试 / 复制诊断 / 复制手工 / 跳过，行单查透 `phoneNames`、诊断进 `diag/env/queue`；死按钮摘净、不嵌套滚动；文案零新增。
+- 批量两段式决策 ADR-0004 proposed（#86）：先全查再串行装（生产者 `checkAll` + 消费者复用 `driveLocked/runBatch`）、查并发取 3、消费前重查（不做常驻 reader）、公平性有界与回退线；本版只落决策不改驱动。
+- 主题新增 `newOkText`（#71 修订 Q1）：done 行新版走绿 `newOkText`，其余带箭头行走红 `newText`，相等无箭头；README 键表同步，深浅 / 档案 / forced-colors 回退。
+
+### Changed
+- 总账吃知识（#73 口径 = #82 推荐 A）+ 世界账与轮次账分家（#90）：无轮次 pending 行按知识四态（有新版进可更新 / 已是最新进已最新 / 无知识与查失败仍待查），有轮次与 checking 行恒走执行态；终态 current / 无重启 done 行被更新鲜知识推翻为可更新（`lastCheckedAt > 会话行 updatedAt` 且快照比对确有新版），陈旧知识与失败检查永不推翻；入口徽标 `batchEntrySummary` 同口径（含 openOn='has-update' 在轮不开面板）。
+- 检查诚实语义（#90 R2/R5 + #73）：宿主 `defaultCheck` 回包成功却无版本永不判 current，改判 `check-failed`；知识“查过但无版本”判 never（回“还没查过”），不再坍缩为“已是最新”；知识查失败归待查，不冒充安装失败（顶部不再喊“N 家安装失败”）。
+- 驱动进行中检查回忙（#90 R4）+ 装类在途轮询放行：`checkPhone` 在 `driveActive` 时回 `update-busy`，不用旧表冒充 fresh 结果；批量驱动收尾前可观测中间进度。
+- 判定收敛（#73 code-review）：新增 `sessionEntriesOf/entryPhaseOf/isUnfinishedEntry` 与 `knowledgeVerdictOf` 唯一判定，总账与行共用“在轮 / 知识”两处判定，注释正错（首个匹配即返、任一条目非终态即在轮）。
+
+### Fixed
+- 明细行版本与对齐一致性（#83）：知识孤版红 + 入口吃知识，会话目标赢知识；三列网格（名 5em / 版 18ch / 态 1fr）与 #71 无回归。
+- 单面板宏忙守卫与批量一致（#87）：installing / verifying 快照与 busyAct 在途时查 / 装两键同灰，只加 disabled，不换文案不加键。
+- 详情 row-skip 非法版本与单面板同口径（#88）：不记不 toast 静默重绘；entry locale 注释正错。
+- 重启后待重启自动回查清零（#91）：任务完成态换算落盘（restart-required→completed）， done + 待重启在快照已生效时清零、真未生效时保留；只读失败不展示陈旧待重启。
+- 单面板安装门控稳定（#87 附带）：settled 等自动查回包；抖动预留与闪空行留存沿用既有载体（68 预留 + 焦点滚动 + 轮询让路，74 prefs-only）。
+
+门禁：`npm test` 869 例（868 过 / 1 跳过既有 derive-client / 0 失败）+ `gate:bilingual` 四道硬门禁过（文案零新增，312 draft 未动；`--release` 仍如实红，非阻断）。
+
 ## [0.8.0] - 2026-10-07
 
 ### Added
