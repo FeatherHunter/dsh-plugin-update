@@ -160,18 +160,19 @@ function hasUpdateOf(snapshot: UpdateSnapshot | null): boolean {
 }
 
 /**
- * 状态档：快照六字段 + 失败码推出，顺序固定（活任务 > 待重启 > 失败 > 有新版 > 待查）。
- * 待重启是正常终态（不是失败），所以排在失败前面；正在装的任务比一条陈旧的失败码更可信。
+ * 状态档：快照六字段 + 失败码推出，顺序固定（活任务 > 失败 > 待重启 > 有新版 > 待查）。
+ * 失败码是最近一次通话的新证据，快照是上一次成功的旧读数：新证据赢（#91）。
+ * 待重启仍是正常终态，但只在无新失败时展示；正在装的任务比一条陈旧的失败码更可信。
  */
 export function entryStateKind(state: UpdateEntryState | null | undefined): EntryStateKind {
   const snapshot = state?.snapshot ?? null
   const job = snapshot?.job ?? null
   if (job && (job.state === 'installing' || job.state === 'verifying')) return 'busy'
-  if (snapshot && (snapshot.blockedReason === 'pending-restart' || job?.state === 'restart-required')) {
-    return 'restart'
-  }
   if ((state && state.error) || (job && (job.state === 'failed' || job.state === 'interrupted'))) {
     return 'failed'
+  }
+  if (snapshot && (snapshot.blockedReason === 'pending-restart' || job?.state === 'restart-required')) {
+    return 'restart'
   }
   if (hasUpdateOf(snapshot)) return 'update'
   return 'idle'

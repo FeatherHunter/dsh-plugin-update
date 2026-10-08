@@ -783,6 +783,43 @@ export function createMultiHostUpdate(
     }
   }
 
+  /**
+   * 重启后回查（#91）：账本记 done+待重启，但该家实时快照已证明新版在跑
+   * （运行版==目标版、磁盘版==运行版、单插件不再报待重启、任务非待重启）——
+   * 那次重启其实已生效，把这一行纠成 done 且不再待重启。只清不置：证据不足即保留旧标记。
+   * 与 reconcileFailed 同一纪律：重读最新会话 → 改这一行 → 写回；驱动进行中不走这条路。
+   */
+  async function reconcileRestart(
+    rt: TargetRuntime,
+    entry: BatchEntry,
+  ): Promise<{ session: BatchSession; entry: BatchEntry } | null> {
+    if (entry.phase !== 'done' || entry.restartRequired !== true) return null
+    const snapshot = asRecord(rt.cache.snapshot)
+    const running = firstText(snapshot['runningVersion'])
+    const installed = firstText(snapshot['installedVersion'])
+    if (!running || !installed) return null
+    const target = entry.targetVersion ?? installed
+    if (!target) return null
+    if (running !== target) return null
+    if (installed !== running) return null
+    if (firstText(snapshot['blockedReason']) === 'pending-restart') return null
+    const job = snapshot['job']
+    const jobState = job && typeof job === 'object' && !Array.isArray(job) ? firstText((job as Record<string, unknown>)['state']) : null
+    if (jobState === 'restart-required') return null
+    try {
+      const latest = await readSession()
+      const current = batchEntryOf(latest, entry.key)
+      if (!current || current.phase !== 'done' || current.restartRequired !== true) return null
+      const marked = markBatchEntry(latest, entry.key, { phase: 'done', restartRequired: false, error: null }, now())
+      if (!marked.changed) return null
+      await saveSession(marked.session)
+      const corrected = batchEntryOf(marked.session, entry.key)
+      return corrected ? { session: marked.session, entry: corrected } : null
+    } catch {
+      // 纠正失败不挡状态读取：账本仍是待重启，下次刷新再试。
+      return null
+    }
+  }
   /** 全表行：相位/版本/失败码来自账本，快照来自各目标电话（推进中一律用缓存，见注释）。 */
   async function buildRows(
     session: BatchSession,
@@ -802,6 +839,15 @@ export function createMultiHostUpdate(
             current = corrected.session
             entry = corrected.entry
           }
+        }
+      }
+      // 重启后回查：有实时快照即按快照再验一次账本旧标记（读表/重启后自动清零，见 #91）。
+      // 推进中不用缓存快照做纠正（缓存是推进前的旧读数）；只在非驱动时纠。
+      if (entry && !driveActive) {
+        const correctedRestart = await reconcileRestart(rt, entry)
+        if (correctedRestart) {
+          current = correctedRestart.session
+          entry = correctedRestart.entry
         }
       }
       const phase: BatchPhase = entry ? entry.phase : 'pending'

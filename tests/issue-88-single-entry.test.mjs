@@ -154,12 +154,19 @@ describe('#88对照·跳过：非法版本不许 toast 撒谎（与单面板同�
 // ---------- 绿锁：档位顺序（单 vs 批量聚合， intentional 不同，钉死不许“统一”） ----------
 
 describe('#88对照·档位：单与批量聚合的顺序各有出处，互不覆盖', () => {
-  it('单入口：待重启排失败前面（正常终态优先喊）', () => {
+  // #91 修订：单入口的新失败赢旧快照（只读失败不展陈旧待重启）。
+  // 无失败时待重启仍是正常终态优先；有新失败时失败优先（与批量聚合一致）。
+  it('单入口：无失败时待重启优先，有新失败时失败优先（#91）', () => {
+    const restartOnly = entryStateKind({
+      snapshot: snapshotOf({ blockedReason: 'pending-restart' }),
+      error: null,
+    });
+    assert.equal(restartOnly, 'restart');
     const kind = entryStateKind({
       snapshot: snapshotOf({ blockedReason: 'pending-restart' }),
       error: 'check-failed',
     });
-    assert.equal(kind, 'restart');
+    assert.equal(kind, 'failed');
   });
 
   it('批量入口：失败排待重启前面（整批里失败最需动手）', () => {

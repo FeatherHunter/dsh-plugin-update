@@ -877,25 +877,8 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
       queueNote,
     }
   }
-  // 待重启是正常终态：只给重启指引与手工命令入口，不再给安装按钮。
-  if (snapshot.blockedReason === 'pending-restart') {
-    const latest = snapshot.latestVersion ?? snapshot.installedVersion ?? ''
-    return {
-      banner: {
-        kind: 'restart',
-        // 文案照原型（archive.html:329）：不带 emoji——警示由横幅左侧的手绘 SVG 标承担，
-        // 印章在状态一侧，两者各司其职，不再三重标记。
-        title: copyText('panel.banner.restart-title', l, { latest }),
-        action: blockedCopy('pending-restart', l)?.action ?? '',
-      },
-      installEnabled: false,
-      installLabel: copyText('panel.action.install', l),
-      skippedLatest: false,
-      showManual: manual ? true : false,
-      showReset: false,
-      queueNote,
-    }
-  }
+  // 顺序（#91）：在途任务与新失败是新证据，旧快照的待重启排在其后。
+  // 待重启仍是正常终态，但只在无在途、无新失败时展示。
   // 安装中：按钮置灰，进度靠轮询恢复（重开面板立刻重查即回进度）。
   if (jobState === 'installing' || jobState === 'verifying') {
     const ver = typeof job?.targetVersion === 'string' && job.targetVersion.trim() ? job.targetVersion.trim() : ''
@@ -934,6 +917,26 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
       },
       installEnabled: snapshot.canInstall,
       installLabel: copyText('panel.action.retry-install', l),
+      skippedLatest: false,
+      showManual: manual ? true : false,
+      showReset: false,
+      queueNote,
+    }
+  }
+  // 待重启是正常终态：只给重启指引与手工命令入口，不再给安装按钮。
+  // 到这里已排除在途任务与新失败（见上），旧快照的待重启才可信（#91）。
+  if (snapshot.blockedReason === 'pending-restart') {
+    const latest = snapshot.latestVersion ?? snapshot.installedVersion ?? ''
+    return {
+      banner: {
+        kind: 'restart',
+        // 文案照原型（archive.html:329）：不带 emoji——警示由横幅左侧的手绘 SVG 标承担，
+        // 印章在状态一侧，两者各司其职，不再三重标记。
+        title: copyText('panel.banner.restart-title', l, { latest }),
+        action: blockedCopy('pending-restart', l)?.action ?? '',
+      },
+      installEnabled: false,
+      installLabel: copyText('panel.action.install', l),
       skippedLatest: false,
       showManual: manual ? true : false,
       showReset: false,

@@ -522,9 +522,26 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     }
   }
 
+  function jobsEqual(a: UpdateJob | null, b: UpdateJob | null): boolean {
+    if (a === b) return true
+    if (!a || !b) return false
+    return a.id === b.id && a.state === b.state && a.targetVersion === b.targetVersion && a.message === b.message && (a.requestId ?? null) === (b.requestId ?? null)
+  }
+  async function healedJob(env: EnvironmentView): Promise<UpdateJob | null> {
+    const loaded = await loadJob()
+    const healed = healJob(loaded, env)
+    if (!jobsEqual(loaded, healed)) {
+      try {
+        await saveJob(healed)
+      } catch {
+        // 只读回查的落盘是 best-effort：写不回去仍按换算后的快照展示，不把状态读数变成安装失败。
+      }
+    }
+    return healed
+  }
   async function status(): Promise<UpdateSnapshot> {
     const env = await ports.readInstalled()
-    const job = healJob(await loadJob(), env)
+    const job = await healedJob(env)
     return buildSnapshot(env, job)
   }
 
@@ -533,7 +550,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     // 2 秒内重复点击复用上次结果，不重新联网（失败不缓存为成功）。
     if (checked?.checkId && ports.now() - lastCheckAt < RECHECK_WINDOW_MS) {
       const env = await ports.readInstalled()
-      const snapshot = buildSnapshot(env, healJob(await loadJob(), env))
+      const snapshot = buildSnapshot(env, await healedJob(env))
       return { snapshot, receipt: snapshot.canInstall ? toReceipt() : null }
     }
     lastCheckAt = ports.now()
@@ -550,7 +567,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
           blockedReason: satisfiesNodeRange(ports.nodeVersion, release.nodeRange) ? null : 'incompatible-node',
         }
         // 凭证只在能装时交：没新版或有阻拦时交了也没用，不交。
-        const snapshot = buildSnapshot(env, healJob(await loadJob(), env))
+        const snapshot = buildSnapshot(env, await healedJob(env))
         return { snapshot, receipt: snapshot.canInstall ? toReceipt() : null }
       } catch (error) {
         if (checked) checked = { ...checked, checkId: null, expiresAt: 0 }
