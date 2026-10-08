@@ -2,6 +2,22 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [0.10.0] - 2026-10-09
+
+### Added
+- 待重启诚实化基线（#95 T0）：字典 4 键收敛为“请重启DSH”，基线与快照同步，bilingual-gate 同步放行。
+- 续跑按钮后果悬停（#85 收尾）：新增 `batch.action.resume-title`“从上次没做完的地方接着安装，已完成的不重装”，grilling Q1-Q4 全认可。
+- 弹窗高度量盒子探针（#93 附带）：`scripts/panel-layout-probe.mjs` 用系统 Chrome headless 量盒子（非滚动区不被压、副行不折列、矮窗整面板可滚），可选仪器、非发布门禁。
+
+### Changed
+- 待重启去 primary 保委托（#96 T1 单面板 + #97 T2 批量）：`restart-hint` 与批量横幅 `restart` 按钮摘 `data-primary`，不换文案不加键；批量顶部行对齐收敛；注释与单测同步。
+
+### Fixed
+- 弹窗高度让渡契约（#93）：带滚动区弹窗帧里只有滚动区让高度，其余各区 `flex:none`；档案卷横幅去 `flex-wrap` 布局语义；窗口矮到连框架都放不下时整面板自己滚，章节区留 8em 下限。
+- 续跑 stalled 判据只认盘上会话（#85）：无会话一律按没有未终态处理，行相位不作判据；新增 `unfinishedCount` 与 `hasUnfinishedRows` 同口径，`rows` 参数仅兼容保留。
+
+门禁：`npm test` 888 例（887 过 / 1 跳过既有 derive-client / 0 失败）+ `gate:bilingual` 四道硬门禁过（313 draft 未动；`--release` 仍如实红，非阻断）。
+
 ## [0.9.0] - 2026-10-08
 
 ### Added
