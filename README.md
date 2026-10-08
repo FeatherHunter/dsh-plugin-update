@@ -1,8 +1,16 @@
 # dsh-plugin-update
 
+[![版本](https://img.shields.io/npm/v/dsh-plugin-update?label=%E7%89%88%E6%9C%AC)](https://www.npmjs.com/package/dsh-plugin-update) [![下载次数](https://img.shields.io/npm/dm/dsh-plugin-update?label=%E4%B8%8B%E8%BD%BD%E6%AC%A1%E6%95%B0)](https://www.npmjs.com/package/dsh-plugin-update) [![Node](https://img.shields.io/node/v/dsh-plugin-update?label=Node)](https://nodejs.org/) [![License](https://img.shields.io/npm/l/dsh-plugin-update?label=License)](./LICENSE)
+
+[![优秀示例-deck](https://img.shields.io/badge/优秀示例-deck-2563eb?logo=github)](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck) [![优秀示例-palette](https://img.shields.io/badge/优秀示例-palette-059669?logo=github)](https://github.com/FeatherHunter/dsh-opencode-palette) [![优秀示例-ilife](https://img.shields.io/badge/优秀示例-ilife-d97706?logo=github)](https://github.com/FeatherHunter/ilife)
+
+> ✨ **本包为任何 DSH 插件提供开箱即用的自我更新能力：宿主侧一段接线，面板侧挂一个现成组件。**把「查新版 / 装更新 / 失败兜底 / 更新日志」一次性包掉，为开发者省下大量重复工作量与长期维护成本。**直接把本 README 丢给 AI 通读即可集成**：第 1–2 节是三步接入法，后续章节是全部 UI 控件（单面板 / 批量面板 / 入口件 / 批量入口件 / HTTP 直挂）与自定义 UI 参数，基本都支持按需覆盖。
+
+> 📦 **优秀示例项目（先看代码再动手）**：[dsh-mattpocock-skills-deck](https://github.com/FeatherHunter/dsh-mattpocock-skills-deck) · [dsh-opencode-palette](https://github.com/FeatherHunter/dsh-opencode-palette) · [ilife](https://github.com/FeatherHunter/ilife)
+
 给 DSH 插件加「检查更新 / 安装更新」能力的 npm 包。宿主侧一段接线，面板侧挂一个现成组件，装不上时给用户一条可复制的手工命令。
 
-要求 Node 22 或更高，零运行时依赖。当前版本 `0.5.2`。
+要求 Node 22 或更高，零运行时依赖。当前版本 `0.9.0`。
 
 装上它你会拿到六样东西：
 
