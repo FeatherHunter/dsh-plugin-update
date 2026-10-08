@@ -169,17 +169,19 @@ test('印章走属性带在根上：两个主题的内核逐字同一份，默�
   assert.ok(!UPDATE_PANEL_CSS.includes('attr(data-seal)'), '默认主题不许画印章（内容只在 Archive 串里读）')
 })
 
-test('待重启文案照原型：不带 emoji，且给「重启宿主」入口', () => {
+test('待重启文案照原型：不带 emoji，且给「请重启DSH」入口', () => {
   const html = renderUpdatePanelHTML(
     inputFor({ snapshot: baseSnapshot({ canInstall: false, blockedReason: 'pending-restart', latestVersion: '1.1.0', installedVersion: '1.1.0' }) }),
   )
   assert.ok(html.includes('新版 1.1.0 已安装，重启宿主后生效。'), '文案须照原型')
   assert.ok(!html.includes('⚠'), '标题里不得再有 emoji（标记由 SVG 承担）')
-  assert.ok(html.includes('data-action="restart-hint"'), '须给「重启宿主」入口')
-  assert.ok(html.includes('>重启宿主<'), '按钮文字须是「重启宿主」')
+  assert.ok(html.includes('data-action="restart-hint"'), '须给「请重启DSH」入口')
+  assert.ok(html.includes('>请重启DSH<'), '按钮文字须是「请重启DSH」')
+  assert.ok(!html.includes('data-action="restart-hint" data-primary'), '诚实化：重启入口不再是主按钮')
+  assert.ok(html.includes('title="点一下走调用方流程，没有就手动重启 DSH"') || html.includes('title="Run the caller restart flow'), '悬停须是新口径（走调用方流程/手动重启DSH）')
 })
 
-test('「重启宿主」入口：没给回调如实提示手动重启，给了回调就交给调用方', async () => {
+test('「请重启DSH」入口：没给回调如实提示手动重启，给了回调就交给调用方', async () => {
   const restart = baseSnapshot({ canInstall: false, blockedReason: 'pending-restart', latestVersion: '1.1.0', installedVersion: '1.1.0' })
   const boxA = fakeContainer()
   const panelA = mountUpdatePanel(boxA, { pluginId: 'p', call: fakeCall(restart), pollMs: 60000 })
@@ -203,6 +205,23 @@ test('「重启宿主」入口：没给回调如实提示手动重启，给了�
   assert.equal(called, 1, '给了回调须调用它')
   assert.ok(boxB.innerHTML.includes('已按调用方的重启流程处理'), '须如实回执')
   panelB.unmount()
+})
+
+test('「请重启DSH」入口抛错回退手动重启提示', async () => {
+  const restart = baseSnapshot({ canInstall: false, blockedReason: 'pending-restart', latestVersion: '1.1.0', installedVersion: '1.1.0' })
+  const box = fakeContainer()
+  const panel = mountUpdatePanel(box, {
+    pluginId: 'p',
+    call: fakeCall(restart),
+    pollMs: 60000,
+    onRestartRequested: () => {
+      throw new Error('restart-boom')
+    },
+  })
+  await panel.refresh()
+  await panel.act('restart-hint')
+  assert.ok(box.innerHTML.includes('重启入口调用失败'), '调用方流程抛错须回退手动重启提示')
+  panel.unmount()
 })
 
 test('复制诊断永不隐藏：Archive 串不对复制入口写 display:none', () => {

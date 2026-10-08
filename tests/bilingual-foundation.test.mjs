@@ -206,8 +206,9 @@ test('同一份快照：zh 不见字典英文，en 不见中文（冻结词元�
   for (const k of Object.keys(BILINGUAL_STRINGS)) {
     const zh = copyHTML(k, 'zh', vals)
     const en = copyHTML(k, 'en', vals)
-    // 冻结词元（#61 #63 #66）：Node / installing / verifying / diag / yanked / BREAKING 在 zh 里逐字保留，不算混入。
-    const zhText = zh.replace(/<[^>]*>/g, ' ').replace(/9\.9\.9/g, '').replace(/7/g, '').replace(/Node/g, '').replace(/installing/g, '').replace(/verifying/g, '').replace(/diag/g, '').replace(/yanked/gi, '').replace(/BREAKING/g, '')
+    // 冻结词元（#61 #63 #66）：Node / installing / verifying / diag / yanked / BREAKING 在 zh 里逐字保留，不算混入；DSH 仅对 4 个重启键豁免（#94，见 scripts/bilingual-gate.mjs DSH_KEYS）。
+    const zhBase = zh.replace(/<[^>]*>/g, ' ').replace(/9\.9\.9/g, '').replace(/7/g, '').replace(/Node/g, '').replace(/installing/g, '').replace(/verifying/g, '').replace(/diag/g, '').replace(/yanked/gi, '').replace(/BREAKING/g, '')
+    const zhText = ['panel.action.restart-host', 'panel.action.restart-host-title', 'batch.banner.restart-button', 'batch.row-action.restart'].includes(k) ? zhBase.replace(/DSH/g, '') : zhBase
     const enText = en.replace(/<[^>]*>/g, ' ').replace(/9\.9\.9/g, '').replace(/7/g, '')
     assert.ok(!/[A-Za-z]/.test(zhText), k + ' zh 混入英文：' + zh)
     assert.ok(!/[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(enText), k + ' en 混入中文：' + en)

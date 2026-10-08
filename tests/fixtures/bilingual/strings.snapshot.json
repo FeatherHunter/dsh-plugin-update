@@ -113,8 +113,8 @@
       "draft": true
     },
     "batch.banner.restart-button": {
-      "en": "Restart host",
-      "zh": "重启宿主",
+      "en": "Please restart DSH",
+      "zh": "请重启DSH",
       "draft": true
     },
     "batch.banner.restart-title": {
@@ -258,8 +258,8 @@
       "draft": true
     },
     "batch.row-action.restart": {
-      "en": "Restart host",
-      "zh": "重启宿主",
+      "en": "Please restart DSH",
+      "zh": "请重启DSH",
       "draft": true
     },
     "batch.row-action.retry": {
@@ -728,13 +728,13 @@
       "draft": true
     },
     "panel.action.restart-host": {
-      "en": "Restart host",
-      "zh": "重启宿主",
+      "en": "Please restart DSH",
+      "zh": "请重启DSH",
       "draft": true
     },
     "panel.action.restart-host-title": {
-      "en": "This host provides no restart entry; restart the host manually",
-      "zh": "宿主没有自重启电话：请手动重启宿主",
+      "en": "Run the caller restart flow if available, otherwise restart DSH manually",
+      "zh": "点一下走调用方流程，没有就手动重启 DSH",
       "draft": true
     },
     "panel.action.retry-install": {
