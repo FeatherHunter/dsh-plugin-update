@@ -717,7 +717,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   if (showControls) {
     const more: string[] = []
     more.push(
-      '<button type="button" data-act="resume">' +
+      '<button type="button" data-act="resume" title="' + escapeHtml(batchText('batch.action.resume-title', lang)) + '">' +
         escapeHtml(batchText('batch.action.resume', lang, { count: String(unfinished) })) + '</button>',
     )
     // 忙守卫同理：安装中「取消」停不了正在跑的那一家（宿主侧取消只清会话），别给人假动作。

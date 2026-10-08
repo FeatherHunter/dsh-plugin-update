@@ -5,8 +5,8 @@
  * hasUnfinishedRows 文档承诺的也是「盘上有没做完的一轮」）；无会话假成功不再出现；
  * unmount 只停轮询；关闭不等于取消。
  *
- * 文案终裁归人类（grilling+task）：本文件只断已有字典键的行为，不定新文案、
- * 不新增 bilingual 键、不改电话形状。
+ * 文案终裁归人类（grilling+task）：判据与回执行为见下；Q3 定的继续按钮悬停
+ *（batch.action.resume-title）随本单新增一键，不改电话形状。
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -131,6 +131,23 @@ describe('#85 无会话假成功不再出现（resumed 事实）', () => {
     assert.ok(box.innerHTML.includes('没有可继续的内容'), '如实说无事可续，实到：' + box.innerHTML.slice(-300))
     assert.ok(!box.innerHTML.includes('已继续上次'), '不许报空话成功')
     panel.unmount()
+  })
+
+  it('继续按钮带悬停：后果说明与丢弃侧对称', () => {
+    const session = sessionOf([
+      { key: 'a', phase: 'done' },
+      { key: 'b', phase: 'pending' },
+    ])
+    const html = renderBatchPanelHTML({
+      rows: [rowOf({ key: 'a', phase: 'done' }), rowOf({ key: 'b', phase: 'pending' })],
+      session, lang: 'zh',
+    })
+    assert.ok(html.includes('data-act="resume" title="从上次没做完的地方接着安装，已完成的不重装"'), '继续按钮须有后果悬停，实到：' + html.slice(html.indexOf('data-act="resume"') - 20, html.indexOf('data-act="resume"') + 200))
+    const en = renderBatchPanelHTML({
+      rows: [rowOf({ key: 'a', phase: 'done' }), rowOf({ key: 'b', phase: 'pending' })],
+      session, lang: 'en',
+    })
+    assert.ok(en.includes('Continue from where it stopped; installed ones stay'), '英文悬停同在')
   })
 
   it('resume 回 resumed:true → 报已继续（正向不断）', async () => {
