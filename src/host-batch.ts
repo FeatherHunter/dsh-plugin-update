@@ -484,7 +484,8 @@ async function defaultCheck(rt: TargetRuntime): Promise<BatchCheckOutcome> {
   if (reply['ok'] !== true) return { kind: 'failed', error: codeOfReply(reply) }
   const snapshot = snapshotOf(reply)
   const latest = firstText(snapshot['latestVersion'])
-  if (!latest) return { kind: 'current' }
+  // 未知永不判 current（#90 R2）：回包成功却无版本信息是失败，不是「已是最新」。
+  if (!latest) return { kind: 'failed', error: 'check-failed' }
   if (isVersionSkipped(await skippedVersionsOf(rt), latest)) return { kind: 'skipped', version: latest }
   const base = firstText(snapshot['installedVersion'], snapshot['runningVersion'])
   if (base) {
@@ -1018,45 +1019,46 @@ export function createMultiHostUpdate(
   async function checkPhone(): Promise<Record<string, unknown>> {
     const refuse = denied()
     if (refuse) return refuse
+    // 驱动进行中不静默跳过（#90 R4）：回忙（与 batchResume/batchCancel 同口径），
+    // 绝不用旧表冒充 fresh 结果；调用方（面板自动查）本就吞掉非 ok 回包，手动点则见忙横幅。
+    if (driveActive) return { ok: false, error: 'update-busy', errorKind: 'update-busy' }
     const session = await readSession()
-    if (!driveActive) {
-      const at = now()
-      let prev: BatchInventory = emptyBatchInventory()
+    const at = now()
+    let prev: BatchInventory = emptyBatchInventory()
+    try {
+      prev = await readInventory()
+    } catch {
+      prev = emptyBatchInventory()
+    }
+    const entries: BatchInventory['entries'] = { ...prev.entries }
+    for (const rt of runtimes) {
       try {
-        prev = await readInventory()
-      } catch {
-        prev = emptyBatchInventory()
-      }
-      const entries: BatchInventory['entries'] = { ...prev.entries }
-      for (const rt of runtimes) {
-        try {
-          const outcome = await rt.check(rt.spec.key, rt.spec)
-          rt.cache = { ...rt.cache, error: outcome.kind === 'failed' ? outcome.error : null }
-          const snapshot = asRecord(rt.cache.snapshot)
-          const installed = firstText(snapshot['installedVersion'], snapshot['runningVersion'])
-          const canInstallRaw = snapshot['canInstall']
-          const canInstall = typeof canInstallRaw === 'boolean' ? canInstallRaw : null
-          if (outcome.kind === 'update') {
-            entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: outcome.version, canInstall, error: null }
-          } else if (outcome.kind === 'current') {
-            entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: installed, canInstall: false, error: null }
-          } else if (outcome.kind === 'skipped') {
-            entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: outcome.version, canInstall: false, error: null }
-          } else {
-            entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: firstText(snapshot['latestVersion']), canInstall, error: outcome.error }
-          }
-        } catch (error) {
-          const code = errorPayloadOf(error).error
-          rt.cache = { ...rt.cache, error: code }
-          const snapshot = asRecord(rt.cache.snapshot)
-          entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: firstText(snapshot['installedVersion'], snapshot['runningVersion']), latestVersion: firstText(snapshot['latestVersion']), canInstall: typeof snapshot['canInstall'] === 'boolean' ? (snapshot['canInstall'] as boolean) : null, error: code }
+        const outcome = await rt.check(rt.spec.key, rt.spec)
+        rt.cache = { ...rt.cache, error: outcome.kind === 'failed' ? outcome.error : null }
+        const snapshot = asRecord(rt.cache.snapshot)
+        const installed = firstText(snapshot['installedVersion'], snapshot['runningVersion'])
+        const canInstallRaw = snapshot['canInstall']
+        const canInstall = typeof canInstallRaw === 'boolean' ? canInstallRaw : null
+        if (outcome.kind === 'update') {
+          entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: outcome.version, canInstall, error: null }
+        } else if (outcome.kind === 'current') {
+          entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: installed, canInstall: false, error: null }
+        } else if (outcome.kind === 'skipped') {
+          entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: outcome.version, canInstall: false, error: null }
+        } else {
+          entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: firstText(snapshot['latestVersion']), canInstall, error: outcome.error }
         }
+      } catch (error) {
+        const code = errorPayloadOf(error).error
+        rt.cache = { ...rt.cache, error: code }
+        const snapshot = asRecord(rt.cache.snapshot)
+        entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: firstText(snapshot['installedVersion'], snapshot['runningVersion']), latestVersion: firstText(snapshot['latestVersion']), canInstall: typeof snapshot['canInstall'] === 'boolean' ? (snapshot['canInstall'] as boolean) : null, error: code }
       }
-      try {
-        await writeInventory(normalizeBatchInventory({ version: 1, updatedAt: at, entries }, at))
-      } catch {
-        // 知识落盘失败不挡检查回包（只做展示）。
-      }
+    }
+    try {
+      await writeInventory(normalizeBatchInventory({ version: 1, updatedAt: at, entries }, at))
+    } catch {
+      // 知识落盘失败不挡检查回包（只做展示）。
     }
     return await table(session, false)
   }

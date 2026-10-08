@@ -234,6 +234,8 @@ export interface BatchLedgerCounts {
  * 无轮次 pending 行看知识（#73 口径 = #82 报告 §6 推荐 A），条件与行展示同一处（isInUnfinishedRound）：
  * 有新版进可更新、已是最新进已最新、没有结果（无知识 / 查失败）仍待查；
  * checking 行与「有没做完一轮」的行永远走执行态（待查），都不吃知识。
+ * 终态 current / 无重启 done 行看世界账（#90 世界账与轮次账分家）：知识更新鲜且确有新版即进可更新，
+ * 否则沿旧结论（已最新），免得陈旧知识或失败的检查翻转已收尾的轮次。
  * 不传 inventory 即无知识；不传 session 即当无轮次（旧调用零回归）。
  */
 export function batchLedgerCounts(rows: readonly BatchRowView[], inventory?: unknown, session?: unknown): BatchLedgerCounts {
@@ -257,7 +259,7 @@ export function batchLedgerCounts(rows: readonly BatchRowView[], inventory?: unk
     else if (phase === 'checking') counts.pending += 1
     else if (phase === 'skipped') counts.skipped += 1
     else if (row.restartRequired === true) counts.restart += 1
-    else counts.settled += 1
+    else counts[worldUpdateVersion(row, knowledgeEntryOf(inventory, row.key), sessionUpdatedAtOf(session, row.key)) ? 'updatable' : 'settled'] += 1
   }
   return counts
 }
@@ -334,6 +336,7 @@ function knowledgeEntryOf(inventory: unknown, key: string): BatchKnowledgeEntry 
  * 应与计数共用同一判定，避免两处分叉」；上一版就是两处手抄，改一处必漏另一处）。
  * 四种结果与 ADR-0003 §2 的四种行状态一一对应：update=有新版、current=已是最新、
  * failed=这次没查到（查失败≠安装失败，它的"结果"就是没有结果）、never=还没查过/没知识。
+ * 查过但无版本（#90 R5：未知永不坍缩为已是最新）亦判 never，不判 current。
  */
 type BatchKnowledgeVerdict = 'update' | 'current' | 'failed' | 'never'
 
@@ -342,7 +345,6 @@ function knowledgeVerdictOf(entry: BatchKnowledgeEntry | null): BatchKnowledgeVe
   if (entry.error) return 'failed'
   if (entry.latestVersion && entry.installedVersion) return entry.latestVersion !== entry.installedVersion ? 'update' : 'current'
   if (entry.latestVersion && !entry.installedVersion) return 'update'
-  if (entry.lastCheckedAt > 0) return 'current'
   return 'never'
 }
 
@@ -396,6 +398,36 @@ function isInUnfinishedRound(session: unknown, key: string): boolean {
   const entries = sessionEntriesOf(session)
   if (entries === null) return false
   return entries.some((entry) => entry['key'] === key && isUnfinishedEntry(entry))
+}
+
+/** 会话里该行的 updatedAt（没有会话/没有该行即 null，调用方按无历史处理）。 */
+function sessionUpdatedAtOf(session: unknown, key: string): number | null {
+  const entries = sessionEntriesOf(session)
+  if (entries === null) return null
+  for (const entry of entries) {
+    if (entry['key'] !== key) continue
+    const at = entry['updatedAt']
+    if (typeof at === 'number' && Number.isFinite(at)) return at
+  }
+  return null
+}
+
+/**
+ * 世界账推翻（#90 R1：世界账与轮次账分家）。终态 current / 无重启 done 行，若知识更新鲜
+ * （lastCheckedAt > 会话行 updatedAt）且与实时快照比对确有新版，回新版本号；否则回 null。
+ * 失败的检查（entry.error）永不推翻——旧结论保留；无会话历史（null）即按知识直判。
+ */
+function worldUpdateVersion(
+  row: BatchRowView,
+  knowledge: BatchKnowledgeEntry | null,
+  sessionUpdatedAt: number | null,
+): string | null {
+  const phase = asBatchPhase(row.phase)
+  if (phase !== 'current' && !(phase === 'done' && row.restartRequired !== true)) return null
+  if (!knowledge || knowledge.error) return null
+  if (sessionUpdatedAt !== null && !(knowledge.lastCheckedAt > sessionUpdatedAt)) return null
+  const parts = batchRowVersionParts(row, knowledge)
+  return parts.hasUpdate && parts.latest ? parts.latest : null
 }
 
 /** 有未终态行（控制区出现条件：盘上有没做完的一轮）。 */
@@ -571,10 +603,12 @@ interface RowRenderContext {
   changelogMarkdown: string | null
   /** 单语（新文案渲染用）。 */
   lang: AppLang
-  /** 该行的知识条目（无轮次 pending 行按知识展示）。 */
+  /** 该行的知识条目（在轮行恒为 null，不吃知识；其余行按知识展示/推翻）。 */
   knowledge: BatchKnowledgeEntry | null
   /** 该行是否在没做完的一轮里（轮次事实小标记用，不改写下一步）。 */
   inRound: boolean
+  /** 世界账推翻出的新版本号（#90：终态行被更新鲜的知识推翻时非 null，状态词与圆点同它走）。 */
+  worldLatest: string | null
 }
 
 /** 整面板 HTML（含样式；重绘即整体替换 innerHTML，故每次都带 style 也只留一份）。 */
@@ -614,6 +648,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
     lang,
     knowledge: null,
     inRound: false,
+    worldLatest: null,
   }
   const parts: string[] = []
 
@@ -648,6 +683,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
     const skipped = typeof raw === 'string' && raw ? raw : null
     const expanded = row.key === expandedKey
     const inRound = isInUnfinishedRound(input.session, row.key)
+    const knowledge = !inRound ? knowledgeEntryOf(input.inventory, row.key) : null
     parts.push(
       rowSetHTML(row, {
         ...ctx,
@@ -657,8 +693,9 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
         changelogMarkdown:
           expanded && typeof changelogs[row.key] === 'string' ? (changelogs[row.key] as string) : null,
         lang,
-        knowledge: asBatchPhase(row.phase) === 'pending' && !inRound ? knowledgeEntryOf(input.inventory, row.key) : null,
+        knowledge,
         inRound,
+        worldLatest: worldUpdateVersion(row, knowledge, sessionUpdatedAtOf(input.session, row.key)),
       }),
     )
   }
@@ -819,9 +856,11 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const versionHTML = batchRowVersionHTML(row, ctx.knowledge)
   const rowStatusText = queued
     ? batchQueuedStatus(position, ctx.lang)
-    : ctx.inRound
-      ? (batchRowKnowledgeText(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))
-      : (batchRowPendingStatus(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))
+    : ctx.worldLatest !== null
+      ? batchText('batch.row.update', ctx.lang, { version: ctx.worldLatest })
+      : ctx.inRound
+        ? (batchRowKnowledgeText(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))
+        : (batchRowPendingStatus(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))
   const actions: string[] = []
   // 忙守卫按行：正在装的那一行禁自己（不许重复提交）；**别的行不灰**——点下去是「加入队列」。
   const off = ctx.inFlight ? ' disabled' : ''
@@ -877,7 +916,7 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const main =
     '<button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="' + keyAttr +
     '" aria-expanded="' + (ctx.expanded ? 'true' : 'false') + '">' +
-    '<span class="dsh-upd-updot" data-tone="' + dotToneOf(row, phase, skipped, queued) + '"></span>' +
+    '<span class="dsh-upd-updot" data-tone="' + dotToneOf(row, phase, skipped, queued, ctx.worldLatest) + '"></span>' +
     '<span class="dsh-upd-bname">' + escapeHtml(titleOf(row, ctx.titles)) + '</span>' +
     versionHTML +
     '<span class="dsh-upd-bstat">' + escapeHtml(rowStatusText) + (ctx.inRound && !queued ? '（' + escapeHtml(batchText('batch.row.unfinished-tag', ctx.lang)) + '）' : '') + '</span>' +
@@ -1005,11 +1044,13 @@ function dotToneOf(
   phase: BatchPhase,
   skipped: string | null,
   queued: boolean,
+  worldLatest: string | null = null,
 ): 'idle' | 'todo' | 'busy' | 'warn' | 'bad' | 'ok' {
   if (phase === 'failed' && !queued) return 'bad'
   if (phase === 'installing' || phase === 'checking') return 'busy'
   if (queued) return 'warn'
   if (row.restartRequired === true) return 'warn'
+  if (worldLatest !== null) return 'todo'
   if (phase === 'ready') return skipped === null ? 'todo' : 'idle'
   if (phase === 'current' || phase === 'done') return 'ok'
   return 'idle'
@@ -1477,6 +1518,8 @@ export function mountUpdateBatchPanel(
   let notice: string | null = null
   let noticeKey: string | null = null
   let inFlight = false
+  /** 在途的是查类电话（读-读让路，#87 防抖）；装类在途不抑制轮询（#90 R3：查询不被命令饿死）。 */
+  let inFlightIsCheck = false
   let loaded = false
   let refreshing = false
   // 两步确认（#37）：「取消这一批」点一次只上膛，点别的按钮自动卸膛。
@@ -1774,6 +1817,7 @@ export function mountUpdateBatchPanel(
   async function phone(name: string, args: Record<string, unknown>, busyRowKey: string | null = null): Promise<Record<string, unknown> | null> {
     if (!mounted || inFlight) return null
     inFlight = true
+    inFlightIsCheck = name === phones.check
     clearNotice()
     render()
     let out: Record<string, unknown> | null = null
@@ -1795,6 +1839,7 @@ export function mountUpdateBatchPanel(
       out = null
     } finally {
       inFlight = false
+      inFlightIsCheck = false
       if (mounted) render()
     }
     maybeAutoRowChangelog(expandedKey)
@@ -1917,6 +1962,7 @@ export function mountUpdateBatchPanel(
         if (phoneName === null) return
         if (inFlight) return
         inFlight = true
+        inFlightIsCheck = true
         clearNotice()
         render()
         try {
@@ -1937,6 +1983,7 @@ export function mountUpdateBatchPanel(
           }
         } finally {
           inFlight = false
+          inFlightIsCheck = false
         }
         // 显式单查后退避清掉该行：下面的按行日志链路可再问一次；日志按需取一行，不碰别家。
         try {
@@ -2191,7 +2238,10 @@ export function mountUpdateBatchPanel(
   }
   const timer = getTimer()
   const handle = timer.set(() => {
-    if (inFlight) return
+    // 查类在途轮询让路（#87 防抖：读-读不插帧，回包自带那一帧）；装类在途照刷
+    // （#90 R3：查询不被命令饿死——轮询只读本地账本与缓存快照，宿主侧驱动期间跳过单插件电话）。
+    // 按钮置灰照旧，防连点是命令侧的事。
+    if (inFlight && inFlightIsCheck) return
     void refresh()
   }, pollMs)
   try {
