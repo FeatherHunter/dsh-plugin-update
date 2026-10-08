@@ -18,7 +18,7 @@
 // 信息架构（第一性：多插件场景用户只问有没有事 / 是哪几家 / 我要做什么）：
 //   ① 总账：一句话（有没有事）+ 分类计数（可更新/安装中/待查/待重启/失败/已跳过/已最新）；
 //   ② 明细：一行一家（状态灯 + 中文名 + 当前版本 → 远端版本 + 一句可执行的状态词 + 行内动作）；
-//   ③ 动作：顶部两件宏（检查更新/全部更新）+ 行内（安装这家/重试/重启宿主/详情）。
+//   ③ 动作：顶部两件宏（检查更新/全部更新）+ 行内（安装这家/重试/请重启DSH/详情）。
 //   一行只回答一个问题：这家的**下一步**是什么。状态词一律中文可执行，不写相位英文。
 //   待重启与失败走常驻横幅，不藏进抽屉。
 //
@@ -109,7 +109,7 @@ export interface BatchPanelOptions {
   /** 可选：键 -> 中文名覆盖。 */
   titles?: Record<string, string>
   /**
-   * 「重启宿主」的落地（与单插件面板同一口径）：不传就只提示手动重启，不假装能重启。
+   * 「请重启DSH」的落地（与单插件面板同一口径）：不传就只提示手动重启，不假装能重启。
    */
   onRestartRequested?: () => void | Promise<void>
   /** 复制文本的出口（与单插件面板同一口径）：不传即试浏览器剪贴板，都没有也不抛错。 */
@@ -839,7 +839,7 @@ function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, strin
         // 措辞与单插件面板 panel.blocked.pending-restart.action 同一句（#64 按清单独立成 batch.banner.restart-action 键，英文可独立调优）。
         '<div>' + escapeHtml(batchText('batch.banner.restart-action', l)) + '</div>' +
         '<div class="dsh-upd-blist">' + restart.map((row) => escapeHtml(titleOf(row, titles))).join('、') + '</div>' +
-        '<div><button type="button" data-act="restart" data-primary="1">' + escapeHtml(batchText('batch.banner.restart-button', l)) + '</button></div>' +
+        '<div><button type="button" data-act="restart">' + escapeHtml(batchText('batch.banner.restart-button', l)) + '</button></div>' +
         '</div>',
     )
   }
@@ -2043,7 +2043,7 @@ export function mountUpdateBatchPanel(
         maybeAutoRowChangelog(expandedKey)
         return
       }
-      // 「重启宿主」：宿主没有重启自己的电话，只做入口——调用方给了 onRestartRequested 就交给它，
+      // 「请重启DSH」：宿主没有重启自己的电话，只做入口——调用方给了 onRestartRequested 就交给它，
       // 没给就如实说「请手动重启」，不假装能重启（与单插件面板逐字同一口径）。
       case 'restart': {
         try {

@@ -331,15 +331,20 @@ describe('失败与待重启：常驻横幅 + 行内入口', () => {
     panel.unmount()
   })
 
-  it('待重启行给「重启宿主」入口，措辞与单插件面板一致', async () => {
+  it('待重启行给「请重启DSH」入口，措辞与单插件面板一致', async () => {
     const rows = [rowOf({ key: 'a', title: '甲插件', phase: 'done', restartRequired: true })]
     const box = fakeContainer()
     const { panel, log } = mountPanel(box, rows)
     await settled()
     const html = box.innerHTML
-    assert.match(html, /data-act="restart"[^>]*>重启宿主</, '待重启行要有「重启宿主」')
+    assert.match(html, /data-act="restart" data-key="a">请重启DSH</, '待重启行要有「请重启DSH」（带 data-key，与顶部区分）')
+    assert.match(html, /data-act="restart">请重启DSH</, '顶部横幅按钮也要「请重启DSH」（无 data-key）')
+    assert.ok(!html.includes('data-act="restart" data-primary'), '诚实化：批量重启入口不再是主按钮')
     assert.ok(html.includes('重启宿主，让新版跑起来；这是正常终态，不是失败。'), '与单插件面板同一措辞')
     assert.ok(html.includes('1 家已安装好，重启宿主后生效。'), '待重启常驻横幅')
+    const enHtml = renderBatchPanelHTML({ rows: [{ key: 'a', title: 'A', phase: 'done', restartRequired: true, error: null, snapshot: null }], loaded: true, lang: 'en' })
+    assert.match(enHtml, /data-act="restart" data-key="a">Please restart DSH</, 'en 行内也要 Please restart DSH（中英同义）')
+    assert.match(enHtml, /data-act="restart">Please restart DSH</, 'en 顶部也要 Please restart DSH（中英同义）')
     const before = log.length
     await panel.act('restart')
     assert.equal(log.length, before, '重启入口不打任何电话（宿主没有重启自己的电话）')
@@ -363,6 +368,23 @@ describe('失败与待重启：常驻横幅 + 行内入口', () => {
     await panel.act('restart')
     assert.equal(called, 1)
     assert.ok(box.innerHTML.includes('已按调用方的重启流程处理'))
+    panel.unmount()
+  })
+
+  it('调用方重启流程抛错回退手动重启提示', async () => {
+    const box = fakeContainer()
+    const { call } = fakeCall([rowOf({ key: 'a', phase: 'done', restartRequired: true })])
+    const panel = mountUpdateBatchPanel(box, {
+      prefix: 'life',
+      call,
+      pollMs: 60000,
+      onRestartRequested: () => {
+        throw new Error('restart-boom')
+      },
+    })
+    await settled()
+    await panel.act('restart')
+    assert.ok(box.innerHTML.includes('重启入口调用失败'), '抛错须回退手动重启提示')
     panel.unmount()
   })
 
