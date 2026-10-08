@@ -81,6 +81,11 @@ export interface UpdateBatchEntryState {
   error: string | null
   /** 知识账本 inventory（batchStatus/batchCheck 回包里的同形状透传；#83 与面板总账同口径）。 */
   inventory?: unknown
+  /**
+   * 会话（同回包里透传）：只用来认「有没做完的一轮」——在轮行走执行态、不吃知识，
+   * 徽标才与面板总账同一句话（#73 / #82 §6.1）。缺省即当无轮次。
+   */
+  session?: unknown
 }
 
 /** 聚合后的读数（onActivate 与测试共用同一份，不各算一份）。 */
@@ -184,7 +189,8 @@ function escapeHtml(value: unknown): string {
 export function batchEntrySummary(state: UpdateBatchEntryState | null | undefined, lang?: AppLang | string | null): BatchEntrySummary {
   const rows = state?.rows ?? null
   const inventory = (state as { inventory?: unknown } | null | undefined)?.inventory ?? undefined
-  const counts = batchLedgerCounts(Array.isArray(rows) ? rows : [], inventory)
+  const session = (state as { session?: unknown } | null | undefined)?.session ?? undefined
+  const counts = batchLedgerCounts(Array.isArray(rows) ? rows : [], inventory, session)
   const total = Array.isArray(rows) ? rows.length : 0
   let kind: BatchEntryStateKind
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -362,6 +368,7 @@ export function mountUpdateBatchEntry(
   let rows: BatchRowView[] | null = null
   let error: string | null = null
   let inventory: unknown = null
+  let session: unknown = null
   let note: string | null = null
   let loaded = false
   // 在途批量查（点下到回包前的那一帧，按钮置忙 + 并发连点只认第一次；与单入口同一口径）。
@@ -392,7 +399,7 @@ export function mountUpdateBatchEntry(
   }
 
   function stateOf(): UpdateBatchEntryState {
-    return { rows, error, inventory }
+    return { rows, error, inventory, session }
   }
 
   function summaryOf(): BatchEntrySummary {
@@ -452,6 +459,8 @@ export function mountUpdateBatchEntry(
     const next = asRows(reply['rows'])
     if (next) rows = next
     if (isObject(reply) && 'inventory' in reply) inventory = (reply as Record<string, unknown>)['inventory'] ?? null
+    // 会话同样只透传（回包里没给就保持上一次的读数，别把在轮事实抹掉）。
+    if (isObject(reply) && 'session' in reply) session = (reply as Record<string, unknown>)['session'] ?? null
     error = null
     loaded = true
   }

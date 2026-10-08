@@ -231,11 +231,12 @@ export interface BatchLedgerCounts {
  * 失败优先（失败行永远算失败，不算待重启）；其余按相位落档；不用重启的终态才算「已最新」。
  * 例外一处：「忙失败占位」（phase=failed 但 error=update-busy）其实是**排队**不是失败——
  * 宿主忙时先写占位再回 update-busy，面板把它翻回「可更新」，免得总账把它报成失败。
- * 无轮次 pending 行看知识（#73：与行展示同口径，四态镜像 batchRowKnowledgeText）：
- * 有新版进可更新、已是最新进已最新、查失败进失败、无知识仍待查；
- * checking 行永远走执行态（待查），不吃知识。不传 inventory 即无知识（旧语义）。
+ * 无轮次 pending 行看知识（#73 口径 = #82 报告 §6 推荐 A），条件与行展示同一处（isInUnfinishedRound）：
+ * 有新版进可更新、已是最新进已最新、没有结果（无知识 / 查失败）仍待查；
+ * checking 行与「有没做完一轮」的行永远走执行态（待查），都不吃知识。
+ * 不传 inventory 即无知识；不传 session 即当无轮次（旧调用零回归）。
  */
-export function batchLedgerCounts(rows: readonly BatchRowView[], inventory?: unknown): BatchLedgerCounts {
+export function batchLedgerCounts(rows: readonly BatchRowView[], inventory?: unknown, session?: unknown): BatchLedgerCounts {
   const counts: BatchLedgerCounts = {
     updatable: 0,
     installing: 0,
@@ -251,7 +252,8 @@ export function batchLedgerCounts(rows: readonly BatchRowView[], inventory?: unk
     else if (phase === 'failed') counts.failed += 1
     else if (phase === 'installing') counts.installing += 1
     else if (phase === 'ready') counts.updatable += 1
-    else if (phase === 'pending') counts[ledgerKnowledgeBucket(knowledgeEntryOf(inventory, row.key))] += 1
+    else if (phase === 'pending')
+      counts[isInUnfinishedRound(session, row.key) ? 'pending' : ledgerKnowledgeBucket(knowledgeEntryOf(inventory, row.key))] += 1
     else if (phase === 'checking') counts.pending += 1
     else if (phase === 'skipped') counts.skipped += 1
     else if (row.restartRequired === true) counts.restart += 1
@@ -261,12 +263,15 @@ export function batchLedgerCounts(rows: readonly BatchRowView[], inventory?: unk
 }
 
 /**
- * pending 行的知识档位（#73）：与 batchRowKnowledgeText 四态一一镜像，总账与行永远同口径。
- * checking 行不走这里（永远执行态）。
+ * pending 行的知识档位（#73）：知识只回答三件事，档位与行文案同义——
+ * 有新版 → 可更新（行「有新版 x」）、已是最新 → 已最新（行「已是最新，不用动」）、
+ * 没有结果（无知识 / 这次没查到）→ 待查（行「还没查过」/「这次没查到」）。
+ * 查失败**不是**安装失败：failed 档的文案与横幅讲的是安装失败，知识不许冒充它。
+ * checking 行与在轮行不走这里（永远执行态）。
  */
 function ledgerKnowledgeBucket(entry: BatchKnowledgeEntry | null): keyof BatchLedgerCounts {
   if (!entry) return 'pending'
-  if (entry.error) return 'failed'
+  if (entry.error) return 'pending'
   if (entry.latestVersion && entry.installedVersion) return entry.latestVersion !== entry.installedVersion ? 'updatable' : 'settled'
   if (entry.latestVersion && !entry.installedVersion) return 'updatable'
   if (entry.lastCheckedAt > 0) return 'settled'
@@ -339,6 +344,25 @@ function batchText(key: BilingualKey, lang: unknown, values?: Record<string, unk
   } catch {
     return ''
   }
+}
+
+/**
+ * 这一家是否在「没做完的一轮」里（session.entries 非终态相位；认不出的相位按 pending 读）。
+ * 总账与行展示共用这一处判定（#82 §6.1「有轮次未做完仍走执行态」、ADR-0003）：
+ * 在轮行不吃知识、不按知识落档，免得同一屏一边说执行态一边报知识。
+ */
+function isInUnfinishedRound(session: unknown, key: string): boolean {
+  if (!isObject(session)) return false
+  const entries = (session as Record<string, unknown>)['entries']
+  if (!Array.isArray(entries)) return false
+  let phase: BatchPhase | null = null
+  for (const item of entries) {
+    if (!isObject(item)) continue
+    const entry = item as Record<string, unknown>
+    // 同一家多行取最后一行（与旧渲染口径一致：认最后写的那个相位）。
+    if (entry['key'] === key && typeof entry['phase'] === 'string') phase = asBatchPhase(entry['phase'])
+  }
+  return phase !== null && !isTerminalPhase(phase)
 }
 
 /** 有未终态行（控制区出现条件：盘上有没做完的一轮）。 */
@@ -557,7 +581,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   const expandedKey = typeof input.expandedKey === 'string' && input.expandedKey ? input.expandedKey : null
   const lastError = typeof input.lastError === 'string' && input.lastError ? input.lastError : null
   const loaded = input.loaded === undefined ? rows.length > 0 : input.loaded === true
-  const counts = batchLedgerCounts(rows, input.inventory)
+  const counts = batchLedgerCounts(rows, input.inventory, input.session)
   // 忙分两种：installing = 有人正在装（决定「加入队列」文案）；macroBusy = 再加本地电话在飞（决定宏按钮置灰）。
   const installing = counts.installing > 0
   const macroBusy = input.inFlight === true || installing
@@ -610,26 +634,13 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   const prefs = isObject(input.prefs) ? (input.prefs as Record<string, unknown>) : null
   const checkOnOpen = prefs === null ? null : (prefs['checkOnOpen'] === false ? false : true)
 
-  function roundEntryPhase(key: string): string | null {
-    if (!session) return null
-    const entries = (session as Record<string, unknown>)['entries']
-    if (!Array.isArray(entries)) return null
-    for (const item of entries) {
-      if (!isObject(item)) continue
-      const e = item as Record<string, unknown>
-      if (e['key'] === key && typeof e['phase'] === 'string') return e['phase'] as string
-    }
-    return null
-  }
-
   // 明细：一行一家。
   parts.push('<div class="dsh-upd-btable">')
   for (const row of rows) {
     const raw = skippedVersions[row.key]
     const skipped = typeof raw === 'string' && raw ? raw : null
     const expanded = row.key === expandedKey
-    const entryPhase = roundEntryPhase(row.key)
-    const inRound = entryPhase !== null && !isTerminalPhase(asBatchPhase(entryPhase))
+    const inRound = isInUnfinishedRound(input.session, row.key)
     parts.push(
       rowSetHTML(row, {
         ...ctx,
