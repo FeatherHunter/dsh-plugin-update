@@ -183,7 +183,8 @@ export function installRecipe(input: {
  * 手工兜底命令：给人复制到终端执行，形状沿用 `dsh plugin --profile <名> add <包>@<版本>`。
  * 与配方同一套政策（精确版本、官方源、--save-exact），只是使用范围名含特殊字符时加引号，
  * 因为这一串要经用户自己的 shell 解释。网络受限时用户可自行去掉 --registry=。
- * 源码安装等不安全情形不给命令。
+ * 源码安装等不安全情形不给命令；无安全可选项（候选全低于运行版、
+ * 通道外、无候选、比不出）同样不给，不回退旧 picks[0]、不猜 latest。
  */
 export function manualCommand(input: { profileName: string | null; latestVersion: string | null; installedVersion: string | null; runningVersion: string; jobTargetVersion: string | null; blockedReason: BlockedReason | null; sourceInstall: boolean; targetPackageName?: string; registryUrl?: string; releaseChannel?: ReleaseChannel }): string | null {
   if (input.sourceInstall || input.blockedReason === 'source-install' || input.blockedReason === 'unknown-profile') return null
@@ -195,13 +196,18 @@ export function manualCommand(input: { profileName: string | null; latestVersion
   const channel: ReleaseChannel = input.releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
   const arg = /^[A-Za-z0-9_.-]+$/.test(name) ? name : JSON.stringify(name)
   const picks = [input.latestVersion, input.jobTargetVersion, input.installedVersion].filter((v) => versionAllowed(v, channel))
-  let version = picks.length > 0 ? picks[0] : 'latest'
+  // 安全可选项：通道允许且不低于运行版；没有即回空（issue #98：beta 运行 +
+  // 更低 stable 远端时，旧回退曾产出降级命令）。
+  let version: string | null = null
   try {
     const ranked = picks.filter((v) => compareReleaseVersions(v, input.runningVersion) >= 0)
     if (ranked.length > 0) {
       version = ranked[0]
       for (const v of ranked) if (compareReleaseVersions(v, version) === 1) version = v
     }
-  } catch {}
+  } catch {
+    version = null
+  }
+  if (!version) return null
   return `dsh plugin --profile ${arg} add --save-exact ${targetName}@${version} --registry=${registry}`
 }

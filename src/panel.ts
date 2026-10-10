@@ -285,7 +285,7 @@ export interface PanelSkipStore {
 //
 // README §5.2：面板只展示“用户该做什么”，不只展示英文原因。
 // zh 逐字等于旧散落文案（兼容既有测试）；en 待母语评审全 draft（见 src/bilingual.ts）。
-// 8 阻塞行复用同一组 key（failureCopy 对阻塞码直接复用 blocked 行，不另起措辞）。
+// 9 阻塞行复用同一组 key（failureCopy 对阻塞码直接复用 blocked 行，不另起措辞）。
 
 export interface BlockedCopy {
   title: string
@@ -294,6 +294,7 @@ export interface BlockedCopy {
 
 const BLOCKED_KEYS: Record<BlockedReason, { title: BilingualKey; action: BilingualKey }> = {
   'unknown-profile': { title: 'panel.blocked.unknown-profile.title', action: 'panel.blocked.unknown-profile.action' },
+  'channel-mismatch': { title: 'panel.blocked.channel-mismatch.title', action: 'panel.blocked.channel-mismatch.action' },
   'source-install': { title: 'panel.blocked.source-install.title', action: 'panel.blocked.source-install.action' },
   'invalid-installation': { title: 'panel.blocked.invalid-installation.title', action: 'panel.blocked.invalid-installation.action' },
   'installation-changed': { title: 'panel.blocked.installation-changed.title', action: 'panel.blocked.installation-changed.action' },
@@ -312,9 +313,9 @@ export function blockedCopy(reason: BlockedReason | null, lang?: AppLang | strin
   return { title: copyText(keys.title, l), action: copyText(keys.action, l) }
 }
 
-// ---------- 14 码单语文案（#22 原型 + #61 入字典：8 阻塞 + 5 电话 + internal + 未来兜底） ----------
+// ---------- 15 码单语文案（#22 原型 + #61 入字典：9 阻塞 + 5 电话 + internal + 未来兜底） ----------
 //
-// 8 行以 README §5.2 为准（手册是源，字典逐字跟手册，不自创措辞）；
+// 9 行以 README §5.2 为准（手册是源，字典逐字跟手册，不自创措辞）；
 // 5 电话专属 + internal 为原型 panel-tolerated-reader 起草，措辞只给行动，不推导；
 // 未来码走兜底（unknown），面板只渲染不推导（分支只用稳定码，不碰 diag 明细）。
 export interface FailureCopy {
@@ -336,7 +337,7 @@ const UNKNOWN_FAILURE_KEYS: { title: BilingualKey; action: BilingualKey } = {
   action: 'panel.failure.unknown.action',
 }
 
-/** 14 码全表是否包含该码（8 阻塞 + 5 电话 + internal；未来码不在此列，走兜底）。 */
+/** 15 码全表是否包含该码（9 阻塞 + 5 电话 + internal；未来码不在此列，走兜底）。 */
 export function isKnownFailureCode(code: unknown): boolean {
   if (typeof code !== 'string' || !code) return false
   const c = code.trim()
@@ -345,8 +346,8 @@ export function isKnownFailureCode(code: unknown): boolean {
 }
 
 /**
- * 稳定码 → 单语一句话（14 码全覆盖；未知码回未来兜底，空码回 null；lang 缺省 zh，零回归）。
- * 8 阻塞行复用 blocked 行原文，不另起措辞；面板分支只认返回值，不碰 diag。
+ * 稳定码 → 单语一句话（15 码全覆盖；未知码回未来兜底，空码回 null；lang 缺省 zh，零回归）。
+ * 9 阻塞行复用 blocked 行原文，不另起措辞；面板分支只认返回值，不碰 diag。
  */
 export function failureCopy(code: unknown, lang?: AppLang | string | null): FailureCopy | null {
   if (typeof code !== 'string') return null

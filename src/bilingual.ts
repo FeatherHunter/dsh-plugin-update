@@ -15,7 +15,7 @@
 //   draft 不卡 #54，转正只换文案不换 key；零 draft 放行由 #56 门禁执行，本模块只提供 draftKeys() 供门禁读。
 //
 // 范围（#60 两条入口链 + #61 panel 状态与动作 + #62 panel 内核 HTML §3.7 + #63 诊断复制 §3.3/3.4 + #64 panel-batch 聚合总账 §4.1/4.3/4.4/4.5 + #65 panel-batch 行详情回执 §4.2/4.6/4.7 + #66 changelog 运行时 §6.1/ diag 兜底 §7.1）：entry 7 键（#52 §1）+ batch-entry 6 键 + panel 75 键
-// （#52 §3.1 16 + §3.2 14 + §3.5 16 + §3.6 18 + §3.8 11）+ diag 35 键（#52 §3.3 13 + §3.4 22（含 3 复用））+ batch-ledger 33 + batch-row 42 + changelog 9 + diag-fallback 15（§7.1 18 行含 3 复用电话表，逐条见 research/52-inventory.md）。
+// （#52 §3.1 16 + §3.2 14 + §3.5 16 + §3.6 18 + §3.8 11）+ diag 35 键（#52 §3.3 13 + §3.4 22（含 3 复用））+ batch-ledger 33 + batch-row 42 + changelog 9 + diag-fallback 16（§7.1 19 行含 3 复用电话表，逐条见 research/52-inventory.md）。
 // panel-batch 剩余与验收矩阵由后续票展开，本文件不预占它们的 key（避免双源）。
 // CHANGELOG 六类标题唯一源仍是 changelog.ts CATEGORY_ZH，本模块不另起第二套映射（#66 中文「新增（Added）」/英文「Added」由渲染层按 CATEGORY_ZH 现场组装，不进字典）。
 
@@ -41,6 +41,8 @@ export type BilingualKey =
   | 'batch-entry.action.checking'
   | 'panel.blocked.unknown-profile.title'
   | 'panel.blocked.unknown-profile.action'
+  | 'panel.blocked.channel-mismatch.title'
+  | 'panel.blocked.channel-mismatch.action'
   | 'panel.blocked.source-install.title'
   | 'panel.blocked.source-install.action'
   | 'panel.blocked.invalid-installation.title'
@@ -332,6 +334,7 @@ export type BilingualKey =
   | 'diag.fallback.invalid-release'
   | 'diag.fallback.install-failed'
   | 'diag.fallback.unknown-profile'
+  | 'diag.fallback.channel-mismatch'
   | 'diag.fallback.source-install'
   | 'diag.fallback.invalid-installation'
   | 'diag.fallback.installation-changed'
@@ -369,6 +372,8 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch-entry.action.checking': { en: 'Checking for updates…', zh: '正在查新版…', draft: true },
   'panel.blocked.unknown-profile.title': { en: 'Unrecognized scope or plugin location', zh: '使用范围或插件位置认不出', draft: true },
   'panel.blocked.unknown-profile.action': { en: 'Reopen the host and check again; if it persists, send the version and logs to the plugin author; no manual command is provided for this case.', zh: '重开宿主再查一次；一直这样就把版本号与日志交给插件作者；这种情形不给手工命令', draft: true },
+  'panel.blocked.channel-mismatch.title': { en: 'Installed version is not in the selected release channel', zh: '已装版本不在所选版本通道内', draft: true },
+  'panel.blocked.channel-mismatch.action': { en: 'Switch to the prerelease channel, or install the channel release, then check again.', zh: '切到预发布通道，或装回本通道正式版后再查', draft: true },
   'panel.blocked.source-install.title': { en: 'Installed from source, not by version', zh: '当前是从源码装的，不是按版本号装的', draft: true },
   'panel.blocked.source-install.action': { en: 'No manual command is provided here; to update, reinstall by version first.', zh: '这种情形不给手工命令；想走更新先按版本号重装一次', draft: true },
   'panel.blocked.invalid-installation.title': { en: 'Installed package is incomplete (name mismatch, invalid version, or missing entry file)', zh: '已装的包不完整（名字对不上、版本非法、入口文件缺失）', draft: true },
@@ -660,6 +665,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'diag.fallback.invalid-release': { en: 'Version in the manifest is not valid', zh: '清单里的版本号不是合法版本', draft: true },
   'diag.fallback.install-failed': { en: 'Install failed', zh: '安装失败', draft: true },
   'diag.fallback.unknown-profile': { en: 'Scope or plugin location not recognized', zh: '使用范围或插件位置认不出', draft: true },
+  'diag.fallback.channel-mismatch': { en: 'Installed version is not in the selected release channel', zh: '已装版本不在所选版本通道内', draft: true },
   'diag.fallback.source-install': { en: 'Installed from source, not by version', zh: '当前是从源码装的，不是按版本号装的', draft: true },
   'diag.fallback.invalid-installation': { en: 'Installed package is incomplete', zh: '已装的包不完整', draft: true },
   'diag.fallback.installation-changed': { en: 'Install location changed during use', zh: '安装位置在使用中途变了', draft: true },

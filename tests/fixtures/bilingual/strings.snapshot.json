@@ -537,6 +537,11 @@
       "zh": " · 已撤回",
       "draft": true
     },
+    "diag.fallback.channel-mismatch": {
+      "en": "Installed version is not in the selected release channel",
+      "zh": "已装版本不在所选版本通道内",
+      "draft": true
+    },
     "diag.fallback.generic": {
       "en": "Operation failed",
       "zh": "操作失败",
@@ -805,6 +810,16 @@
     "panel.banner.update-title": {
       "en": "Update available: {latest} (current: {running}).",
       "zh": "有新版 {latest} 可装（当前 {running}）。",
+      "draft": true
+    },
+    "panel.blocked.channel-mismatch.action": {
+      "en": "Switch to the prerelease channel, or install the channel release, then check again.",
+      "zh": "切到预发布通道，或装回本通道正式版后再查",
+      "draft": true
+    },
+    "panel.blocked.channel-mismatch.title": {
+      "en": "Installed version is not in the selected release channel",
+      "zh": "已装版本不在所选版本通道内",
       "draft": true
     },
     "panel.blocked.incompatible-node.action": {

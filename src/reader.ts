@@ -15,7 +15,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertPluginId } from './config.js'
-import { createUpdateCore, isVersionAllowedInChannel, validVersion } from './service.js'
+import { createUpdateCore, isVersionAllowedInChannel, validReleaseVersion } from './service.js'
 import type { EnvironmentKind, EnvironmentView, FetchImpl, ReleaseChannel, UpdateCore, UpdateJob } from './ports.js'
 
 const LOCK_FILES = ['pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package-lock.json']
@@ -149,24 +149,35 @@ export function profileNameValid(name: unknown): boolean {
   )
 }
 
-/** 依赖写法是否像从源装的（纯谓词，导出供验证与面板复用）。 */
+/** 依赖写法是否像从源装的（纯谓词，导出供验证与面板复用）。
+ *
+ * 精确预发布版（`1.8.0-beta.1`）与预发布范围（`^1.8.0-beta.1`）都是注册表写法，
+ * 不是源码安装（issue #98）：第一 clause 用发行版口径（含预发布），第二 clause
+ * 的范围字符集收字母（预发布标识符含字母）。源码形（`file:` / `link:` /
+ * `workspace:` / `npm:` / `git+` / `http` / 路径）都含 `:` 或 `/`，该字符集
+ * 永远排除这两者，故不会被误判为注册表写法。
+ */
 export function registrySpec(spec: unknown): boolean {
   return (
     typeof spec === 'string' &&
     spec.trim().length > 0 &&
-    (validVersion(spec.trim()) ||
-      /^[~^>=< ]*[0-9x*][0-9x*./\-_ |~^>=<]*$/u.test(spec.trim()) ||
+    (validReleaseVersion(spec.trim()) ||
+      /^[~^>=< ]*[0-9x*][0-9A-Za-zx*./\-_ |~^>=<]*$/u.test(spec.trim()) ||
       /^[A-Za-z][A-Za-z0-9._-]*$/u.test(spec.trim()))
   )
 }
 
-/** 包是否完好：名字对得上目标包名、版本在通道内合法、三个入口文件都在包内且真实存在。 */
+/** 包是否完好：名字对得上目标包名、版本是合法发行版、三个入口文件都在包内且真实存在。
+ *
+ * 完好性只查身份与完整性，不查通道政策（issue #98）：版本合法但不被通道接受
+ * 的包是“完好的、只是通道不对”，阻拦由 readInstalledReal 的 channel-mismatch
+ * 分支报告，不在这里判 invalid-installation。
+ */
 async function validPackage(
   pkg: { manifest: Record<string, unknown>; directory: string } | null,
-  targetName: string,
-  channel: ReleaseChannel = 'stable'
+  targetName: string
 ): Promise<boolean> {
-  if (!pkg || pkg.manifest?.name !== targetName || !isVersionAllowedInChannel(pkg.manifest.version, channel)) return false
+  if (!pkg || pkg.manifest?.name !== targetName || !validReleaseVersion(pkg.manifest.version)) return false
   const main = pkg.manifest.main
   const exportsField = pkg.manifest.exports as Record<string, unknown> | undefined
   const dshField = pkg.manifest.dsh as Record<string, unknown> | undefined
@@ -304,7 +315,7 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
     const deps = (profile.manifest.dependencies ?? {}) as Record<string, unknown>
     result.sourceInstall = !registrySpec(deps[targetPackageName]) || !inside(join(profileDir, 'node_modules'), installed.directory)
     result.installedVersion = typeof installed.manifest.version === 'string' ? installed.manifest.version : null
-    result.packageValid = await validPackage(installed, targetPackageName, releaseChannel)
+    result.packageValid = await validPackage(installed, targetPackageName)
     const loaded = await loadedPackage
     // 目标包定位不到（自动解析全失败且没给显式目录）：诚实失败，不产假的 installation-changed
     //（issue #3；到这里已装包真实存在，是“本包认不出目标”而非“安装位置变了”，重开宿主也修不好）。
@@ -326,6 +337,10 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
     else if (!sameLoadedPackage && boundIdentity === undefined) result.blockedReason = 'installation-changed'
     else if (!result.packageValid) result.blockedReason = 'invalid-installation'
     else if (result.sourceInstall) result.blockedReason = 'source-install'
+    // 通道政策只断言在这里（issue #98）：完好包 + 非源码 + 已装版本不被通道接受
+    // → channel-mismatch。unknown-profile 只留给定位不到；invalid-installation
+    // 只留给包体不完整。pending-restart 只在通道通过后才判。
+    else if (!isVersionAllowedInChannel(result.installedVersion, releaseChannel)) result.blockedReason = 'channel-mismatch'
     else if (result.installedVersion !== runningVersion) result.blockedReason = 'pending-restart'
     result.eligible = !result.blockedReason
     result.blockedReason = result.blockedReason ?? null

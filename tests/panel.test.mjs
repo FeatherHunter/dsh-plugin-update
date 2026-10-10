@@ -136,11 +136,12 @@ test('安装按钮状态跟随快照 installability，不另写规则', async ()
   panel2.unmount()
 })
 
-// ---------- 八种原因各有一句中文 ----------
+// ---------- 九种原因各有一句中文 ----------
 
-test('八种装不了的原因各有一句中文一句话，不是英文原文', () => {
+test('九种装不了的原因各有一句中文一句话，不是英文原文', () => {
   const reasons = [
     'unknown-profile',
+    'channel-mismatch',
     'source-install',
     'invalid-installation',
     'installation-changed',

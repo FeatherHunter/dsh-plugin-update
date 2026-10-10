@@ -90,7 +90,7 @@ createHostUpdate(
 
 - `snapshot` 恒为第 5.1 节那六个字段；`manual` 是第 5.3 节那条手工命令（能给则给，不能给为 `null`）。
 - `receipt` 只有查新版给（`{ checkId, checkedAt, expiresAt }`）；装更新时把 `checkId` 原样带回来，`requestId` 由面板自己生成（同一个编号重复提交直接返回旧结果）。
-- 失败一律 `ok: false`：`error` 是原因码（第 5.2 节那八种，另加 `check-failed` / `invalid-release` / `check-expired` / `update-busy` / `install-failed`），`errorKind` 认不出时是 `internal`。面板按 14 码给中文文案（八种见第 5.2 节，另五种与 `internal` 见下表，未来码走兜底）；分支只认 `errorKind`，`error` 仅回退。
+- 失败一律 `ok: false`：`error` 是原因码（第 5.2 节那九种，另加 `check-failed` / `invalid-release` / `check-expired` / `update-busy` / `install-failed`），`errorKind` 认不出时是 `internal`。面板按 15 码给中文文案（九种见第 5.2 节，另五种与 `internal` 见下表，未来码走兜底）；分支只认 `errorKind`，`error` 仅回退。
 - 失败可能顺带回可选 `diag`（失败证据小对象：阶段、路由、耗时、人话摘要、版本、宿主、请求与检查编号、源主机、动作提示；缺省即省略，序列化恒在 1KB 内）。旧面板直接忽略它，行为逐字不变；新面板也只按稳定码分支，不拿它做分支。
 
 ### 第 3 步：面板侧接线（构建期派生）
@@ -456,7 +456,7 @@ const update = createHostUpdate(
 | `blockedReason` | 装不了的原因（能装为 null） |
 | `job` | 当前任务（只读半程恒为 null） |
 
-### 5.2 八种装不了的原因
+### 5.2 九种装不了的原因
 
 面板拿到非空 `blockedReason` 时，直接展示下表「用户该做什么」那一列的一句话，不要只展示英文原因本身。
 
@@ -470,6 +470,7 @@ const update = createHostUpdate(
 | `registry-conflict` | 本地声明的版本与磁盘实际版本互相矛盾 | 打开使用范围的清单文件，把目标包名那一行改成版本号再试 |
 | `incompatible-node` | 新版要求的 Node 与当前运行的对不上 | 先升级 Node 到 22 或更高，再查更新 |
 | `recovery-required` | 上次安装被打断，留下一个半截任务 | 重新点一次安装；一直出现就按第 6 节排错 |
+| `channel-mismatch` | 已装版本不在所选版本通道内 | 切到预发布通道，或装回本通道正式版后再查 |
 
 电话专属码与 `internal`（面板同样给中文，不只给英文码；未来码走兜底并带上原码）：
 

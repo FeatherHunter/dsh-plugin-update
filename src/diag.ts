@@ -250,7 +250,7 @@ function pickId(raw: unknown): string | null {
 }
 
 /** 人话摘要格：永远是字符串，压平空白、脱敏、300 字封顶；命中 URL 用户信息即整项丢弃（回空=省略）。
- * #66 入字典单语（§7.1 18 行，271/273/274 复用电话表 key，其余走 diag.fallback.*）：分支只认稳定码，lang 缺省 zh 零回归。 */
+ * #66 入字典单语（§7.1 19 行，271/273/274 复用电话表 key，其余走 diag.fallback.*）：分支只认稳定码，lang 缺省 zh 零回归。 */
 function pickDetail(errorCode: string, error: unknown, httpStatus: number | null, phoneKind?: string, lang?: AppLang | string | null): string | null {
   try {
     const rawDetail = (error as { detail?: unknown })?.detail
@@ -281,6 +281,7 @@ function pickDetail(errorCode: string, error: unknown, httpStatus: number | null
     else if (code === 'update-busy') key = 'panel.failure.update-busy.title'
     else if (code === 'install-failed') key = 'diag.fallback.install-failed'
     else if (code === 'unknown-profile') key = 'diag.fallback.unknown-profile'
+    else if (code === 'channel-mismatch') key = 'diag.fallback.channel-mismatch'
     else if (code === 'source-install') key = 'diag.fallback.source-install'
     else if (code === 'invalid-installation') key = 'diag.fallback.invalid-installation'
     else if (code === 'installation-changed') key = 'diag.fallback.installation-changed'

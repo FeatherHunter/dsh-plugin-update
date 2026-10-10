@@ -15,8 +15,8 @@
  *    渲染英文在前中文在后；全量 key→en/zh/draft 冻结在 tests/fixtures/bilingual/strings.snapshot.json，
  *    改文案必须同步快照（diff 里看得见），**改文案不换 key**。
  *
- * 3. 契约测试（14 码分支 + 诊断解析契约）：
- *    14 个稳定码（8 阻塞 + 5 电话 + internal）各有文案且只按码分支；未知码走未来兜底；
+ * 3. 契约测试（15 码分支 + 诊断解析契约）：
+ *    15 个稳定码（9 阻塞 + 5 电话 + internal）各有文案且只按码分支；未知码走未来兜底；
  *    诊断解析契约：宽容读 diag 对象（16 键，未知键忽略、错类型忽略、永不抛）＋
  *    两种复制形态（三行块 / 单行）都能解析回同一组字段，字段顺序冻结（码 → 摘要 → 来源 → 怎么办）。
  *
@@ -50,9 +50,10 @@ export const SCAN_DIRS = ['src']
 export const DEFAULT_BASELINE_PATH = join(PKG_DIR, 'tests', 'fixtures', 'bilingual', 'copy-baseline.json')
 export const DEFAULT_SNAPSHOT_PATH = join(PKG_DIR, 'tests', 'fixtures', 'bilingual', 'strings.snapshot.json')
 
-/** 14 码契约：8 阻塞 + 5 电话 + internal（#22；未来码不在此列，走兜底）。 */
+/** 15 码契约：9 阻塞 + 5 电话 + internal（#22；未来码不在此列，走兜底）。 */
 export const BLOCKED_REASONS = [
   'unknown-profile',
+  'channel-mismatch',
   'source-install',
   'invalid-installation',
   'installation-changed',
@@ -549,7 +550,7 @@ export function checkDictionary(options = {}) {
   return { ok: violations.length === 0, violations, notes, keys }
 }
 
-/** 14 码分支契约：每个码都有文案、都判已知；未知码走兜底；阻塞 8 行复用阻塞表原文。 */
+/** 15 码分支契约：每个码都有文案、都判已知；未知码走兜底；阻塞 9 行复用阻塞表原文。 */
 export function checkStableCodes(options = {}) {
   const codes = options.codes ?? {}
   const { failureCopy, blockedCopy, isKnownFailureCode, failureCodeOf } = codes
@@ -562,11 +563,11 @@ export function checkStableCodes(options = {}) {
     violations.push({ file: 'src/panel.ts', line: 0, text: 'blockedCopy', reason: '面板入口缺函数：blockedCopy' })
     return { ok: false, violations, notes: [], codes: STABLE_CODES }
   }
-  if (STABLE_CODES.length !== 14) {
-    violations.push({ file: 'scripts/bilingual-gate.mjs', line: 0, text: '', reason: '14 码契约表被改动：现在 ' + STABLE_CODES.length + ' 条' })
+  if (STABLE_CODES.length !== 15) {
+    violations.push({ file: 'scripts/bilingual-gate.mjs', line: 0, text: '', reason: '15 码契约表被改动：现在 ' + STABLE_CODES.length + ' 条' })
   }
   if (new Set(STABLE_CODES).size !== STABLE_CODES.length) {
-    violations.push({ file: 'scripts/bilingual-gate.mjs', line: 0, text: '', reason: '14 码契约表有重复' })
+    violations.push({ file: 'scripts/bilingual-gate.mjs', line: 0, text: '', reason: '15 码契约表有重复' })
   }
 
   for (const code of STABLE_CODES) {
@@ -579,7 +580,7 @@ export function checkStableCodes(options = {}) {
       violations.push({ file: 'src/panel.ts', line: 0, text: code, reason: '稳定码文案必须是中文人话（含汉字）：' + code })
     }
     if (isKnownFailureCode(code) !== true) {
-      violations.push({ file: 'src/panel.ts', line: 0, text: code, reason: '14 码必须判为已知：' + code })
+      violations.push({ file: 'src/panel.ts', line: 0, text: code, reason: '15 码必须判为已知：' + code })
     }
   }
   for (const reason of BLOCKED_REASONS) {
@@ -590,7 +591,7 @@ export function checkStableCodes(options = {}) {
       continue
     }
     if (blocked.title !== copy.zh) {
-      violations.push({ file: 'src/panel.ts', line: 0, text: reason, reason: '8 行必须复用阻塞表原文，不另起措辞：' + reason })
+      violations.push({ file: 'src/panel.ts', line: 0, text: reason, reason: '9 行必须复用阻塞表原文，不另起措辞：' + reason })
     }
   }
   const future = 'future-code-not-yet'
@@ -864,7 +865,7 @@ export async function runGate(options = {}) {
   const codes = checkStableCodes({ codes: deps.codes })
   sections.push({
     id: 'stable-codes',
-    title: '14 码分支契约（8 阻塞 + 5 电话 + internal）',
+    title: '15 码分支契约（9 阻塞 + 5 电话 + internal）',
     ok: codes.ok,
     violations: codes.violations,
     notes: codes.notes,

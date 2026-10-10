@@ -369,21 +369,21 @@ test('#56 真基线文件：现仓 src/ 逐条对上（新散落中文必须显�
   assert.ok(got.scanned.length >= 20)
 })
 
-// ---------- 14 码分支契约 ----------
+// ---------- 15 码分支契约 ----------
 
-test('#56 14 码契约：8 阻塞 + 5 电话 + internal，真件逐码有文案有分支', () => {
-  assert.equal(BLOCKED_REASONS.length, 8)
+test('#56 15 码契约：9 阻塞 + 5 电话 + internal，真件逐码有文案有分支', () => {
+  assert.equal(BLOCKED_REASONS.length, 9)
   assert.equal(PHONE_FAILURE_CODES.length, 5)
-  assert.equal(STABLE_CODES.length, 14)
-  assert.equal(new Set(STABLE_CODES).size, 14)
+  assert.equal(STABLE_CODES.length, 15)
+  assert.equal(new Set(STABLE_CODES).size, 15)
   const got = checkStableCodes({ codes: realDeps().codes })
   assert.equal(got.ok, true, reasonsOf(got))
 })
 
-test('#56 14 码契约：码被判成未知即红（防倒退抓得住）', () => {
+test('#56 15 码契约：码被判成未知即红（防倒退抓得住）', () => {
   const got = checkStableCodes({ codes: { ...realDeps().codes, isKnownFailureCode: () => false } })
   assert.equal(got.ok, false)
-  assert.equal(got.violations.filter((v) => /判为已知/.test(v.reason)).length, 14)
+  assert.equal(got.violations.filter((v) => /判为已知/.test(v.reason)).length, 15)
 })
 
 test('#56 14 码契约：入口缺函数直接报缺件，不静默通过', () => {
@@ -394,7 +394,7 @@ test('#56 14 码契约：入口缺函数直接报缺件，不静默通过', () =
 
 // ---------- 诊断解析契约 ----------
 
-test('#56 诊断解析契约：真件全绿（16 键宽容读 + 14 码 ×2 形态回读 + 顺序冻结）', () => {
+test('#56 诊断解析契约：真件全绿（16 键宽容读 + 15 码 ×2 形态回读 + 顺序冻结）', () => {
   assert.equal(DIAG_KNOWN_KEYS.length, 16)
   const got = checkDiagParseContract({ diag: realDeps().diag })
   assert.equal(got.ok, true, reasonsOf(got))
@@ -441,7 +441,7 @@ test('#56 诊断解析契约：复制块丢了怎么办就红（抓得住）', (
 
 // ---------- 跑起来的门禁：真仓绿、放行条件如实红 ----------
 
-test('#56 真仓真件：三道硬门禁全绿（文案源 + 快照 + 14 码 + 诊断解析）', async () => {
+test('#56 真仓真件：三道硬门禁全绿（文案源 + 快照 + 15 码 + 诊断解析）', async () => {
   const result = await runGate({ root: PKG_DIR, deps: realDeps() })
   assert.equal(result.ok, true, formatReport(result))
   assert.deepEqual(

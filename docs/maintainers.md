@@ -75,7 +75,7 @@ node --test tests/*.test.mjs
 它不进发布产物（`scripts/` 不在 files 白名单），只在本仓用：
 
 ```sh
-npm run gate:bilingual            # 三道硬门禁：文案源 grep + 字典快照 + 14 码与诊断解析契约
+npm run gate:bilingual            # 三道硬门禁：文案源 grep + 字典快照 + 15 码与诊断解析契约
 npm run gate:bilingual:release    # 再加第四道：零 draft 放行（合入主分支/发版条件，见 #57）
 ```
 
@@ -86,7 +86,7 @@ npm run gate:bilingual:release    # 再加第四道：零 draft 放行（合入�
   注释与正则不入账：门禁只数字符串字面量。
 - **字典快照**：每键 en/zh 非空、英文无汉字、中文有汉字、具名槽中英同名同数、渲染英文在前；
   全量快照在 `tests/fixtures/bilingual/strings.snapshot.json`，改文案必须同步快照（**改文案不换 key**）。
-- **14 码与诊断解析契约**：8 阻塞 + 5 电话 + internal 各有文案且只按稳定码分支；诊断两种复制形态
+- **15 码与诊断解析契约**：9 阻塞 + 5 电话 + internal 各有文案且只按稳定码分支；诊断两种复制形态
   （三行块 / 单行）都能解析回同一组字段，顺序冻结（码 → 摘要 → 来源 → 怎么办）。
 - **零 draft 放行**：字典里还有 `draft: true` 就红——母语 + 域内双签转正才放行合入/发版（#53 立约，见 #57）。
   现在 7 个 entry key 仍是 draft，所以 `--release` 是**如实红**，不是坏门禁。

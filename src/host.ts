@@ -368,11 +368,19 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   const loaded = await resolveTargetPackage(targetPackageName, explicitTargetDir ? { targetPackageDir: explicitTargetDir } : {}).catch(
     () => null
   )
-  const runningVersion =
-    overrides.runningVersion ??
-    (loaded && isVersionAllowedInChannel((loaded.manifest as { version?: unknown }).version, releaseChannel)
-      ? String((loaded.manifest as { version: string }).version)
-      : null)
+  // 运行版本只认“是不是合法发行版”，通道政策不在这里门控（issue #98）：
+  // 定位得到但版本不被通道接受 → 照常建成读取器，阻拦由 readInstalled 的
+  // channel-mismatch 分支诚实报告；unknown-profile 只留给“定位不到”与“版本非法”。
+  const loadedVersion = loaded ? (loaded.manifest as { version?: unknown }).version : null
+  const overrideVersion = overrides.runningVersion
+  let runningVersion: string | null = null
+  if (overrideVersion !== undefined && overrideVersion !== null) {
+    // 显式覆盖即调用方责任，原样采用、有效性门不过问（与改造前一致：
+    // 空串等退化输入同样落到下面的未知分支，行为一字不动）。
+    runningVersion = overrideVersion
+  } else if (validReleaseVersion(loadedVersion)) {
+    runningVersion = String(loadedVersion)
+  }
   if (!runningVersion) throw unknownProfile()
   let profileDirInput: string
   if (overrides.profileDir) {
@@ -580,6 +588,7 @@ function toUpdateErrorPayload(error: unknown): { error: string; errorKind: strin
     'update-busy',
     'install-failed',
     'unknown-profile',
+    'channel-mismatch',
     'source-install',
     'invalid-installation',
     'installation-changed',

@@ -27,6 +27,7 @@ export type ReleaseChannel = 'stable' | 'prerelease'
 /** 装不了的原因（装前不满足条件只给原因不给装，见通用方案复用清单）。 */
 export type BlockedReason =
   | 'unknown-profile'
+  | 'channel-mismatch'
   | 'source-install'
   | 'invalid-installation'
   | 'installation-changed'
@@ -47,6 +48,7 @@ export type UpdateErrorCode =
   | 'pending-restart'
   | 'source-install'
   | 'unknown-profile'
+  | 'channel-mismatch'
   | 'invalid-installation'
   | 'incompatible-node'
   | 'registry-conflict'
