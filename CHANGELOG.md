@@ -2,6 +2,20 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [0.11.0] - 2026-10-10
+
+### Added
+- 通道错码独立化（#98）：新增 `channel-mismatch` 阻塞原因与中英双语文案，门禁 14→15 码；缺省 stable 下预发布已装版落到通道码，使用范围栏显示真实名，手工命令仅在安全可选项存在时给出。
+- 档案卷横幅小印章行内化（#99）：印章由伪元素改真节点行内章（同行居左），框随文长（min-width＋自动伸展＋不换行），待重启档无章，`data-mini` 属性保留。
+
+### Changed
+- 手工命令无安全可选项回空（#98）：不再回退旧 picks[0]、不猜 latest；会降级、无候选、比不出时回空态。
+
+### Fixed
+- 预发布已装版误报 `unknown-profile`（#98）：运行推导去通道门，完好性判定去通道门，`registrySpec` 认精确预发布与预发布范围；`unknown-profile` 只留真定位不到与版本非法。
+
+门禁：`npm test` 908 例（907 过 / 1 跳过既有 derive-client / 0 失败）+ `gate:bilingual` 四道硬门禁过（316 draft 未动；`--release` 仍如实红，非阻断）。
+
 ## [0.10.0] - 2026-10-09
 
 ### Added
