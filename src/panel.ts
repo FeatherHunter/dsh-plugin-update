@@ -1129,6 +1129,8 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-actions button[data-primary="1"]{min-width:9em}',
   '.dsh-upd-banner{min-height:3.4em;display:flex;flex-direction:column;justify-content:center}',
   '.dsh-upd-banner{animation:none}',
+  // #99 真节点行内章：默认主题不画（Archive 串里才显示）；节点常驻 DOM（双主题内核逐字同一份）。
+  '.dsh-upd-banner>div:first-child>.dsh-upd-sealmini{display:none}',
   '.dsh-upd-copy{min-height:1.75em}',
   '.dsh-upd-copy--empty{visibility:hidden}',
   '@media (prefers-color-scheme: dark){.dsh-upd{--dsh-update-text:#e5e7eb;--dsh-update-bg:#111827;--dsh-update-border:#374151;',
@@ -1213,18 +1215,21 @@ export const UPDATE_PANEL_ARCHIVE_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-body .dsh-upd-chap-head{background:var(--dsh-update-bg)}',
   '.dsh-upd-overlay .dsh-upd[data-theme="archive"] .dsh-upd-body{scrollbar-color:var(--dsh-update-border-strong) transparent}',
   '.dsh-upd-overlay .dsh-upd[data-theme="archive"] .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-update-border-strong)}',
-  // —— 小印章（原型 :215 `.sealmini`：30px、旋转 -5°、一字）——
+  // —— 小印章（原型 :215 `.sealmini`：30px、旋转 -5°、一字；#99：真节点行内章）——
   // 待重启横幅一律不画印章：那一档的标记是左侧手绘 SVG（原型 :446 的 .mark 只有 SVG）。
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="loading"]::before,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="idle"]::before,',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="update"]::before,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="busy"]::before,',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="blocked"]::before,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="failed"]::before,',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]::before{content:attr(data-mini);display:inline-flex;align-items:center;justify-content:center;',
-  'width:30px;height:30px;margin-right:10px;vertical-align:middle;border:2px solid currentColor;border-radius:7px;',
-  'font-family:var(--dsh-update-font-serif);font-weight:700;font-size:16px;line-height:26px;transform:rotate(-5deg);flex:none;color:var(--dsh-update-text-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="update"]::before{color:var(--dsh-update-ok-text)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="busy"]::before{color:var(--dsh-update-warn-text)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="blocked"]::before,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="failed"]::before{color:var(--dsh-update-bad-text)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]::before{color:var(--dsh-update-ok-text)}',
+  // #99 注：印章曾是横幅的 ::before 伪元素，但内核横幅是纵向 flex（#93 契约冻结），伪元素只能独占一行；
+  // 英文词撑宽后固定缩进又会与标题重叠——纯 CSS 走不通。改为横幅首行内的真实行内节点（aria-hidden，
+  // 默认主题隐藏），与原型 `.sealmini + 文字` 同结构；data-mini 属性保留（取证与快照口径不变）。
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="loading"] .dsh-upd-sealmini,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="idle"] .dsh-upd-sealmini,',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="update"] .dsh-upd-sealmini,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="busy"] .dsh-upd-sealmini,',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="blocked"] .dsh-upd-sealmini,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="failed"] .dsh-upd-sealmini,',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"] .dsh-upd-sealmini{display:inline-flex;align-items:center;justify-content:center;width:auto;min-width:34px;height:34px;padding:0 6px;box-sizing:border-box;white-space:nowrap;vertical-align:middle;margin-right:10px;',
+  'border:2px solid currentColor;border-radius:7px;',
+  'font-family:var(--dsh-update-font-serif);font-weight:700;font-size:16px;line-height:26px;transform:rotate(-5deg);color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="update"] .dsh-upd-sealmini{color:var(--dsh-update-ok-text)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="busy"] .dsh-upd-sealmini{color:var(--dsh-update-warn-text)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="blocked"] .dsh-upd-sealmini,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="failed"] .dsh-upd-sealmini{color:var(--dsh-update-bad-text)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"] .dsh-upd-sealmini{color:var(--dsh-update-ok-text)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-log code{font-family:var(--dsh-update-font-mono);font-size:11px;color:var(--dsh-update-text-muted);border:1px solid var(--dsh-update-border-strong);border-radius:3px;padding:0 6px;letter-spacing:.06em}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-manual code{display:block;background:var(--dsh-update-text);color:var(--dsh-update-bg-soft);font-family:var(--dsh-update-font-mono);font-size:12.5px;padding:12px 14px;border-radius:4px;white-space:pre-wrap;word-break:break-all}',
   // 待重启标记：手绘 SVG 当**独立 flex 标记**放在文字块左侧（原型 :446 `.mark` 是独立节点），
@@ -1257,7 +1262,9 @@ export const UPDATE_PANEL_ARCHIVE_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border);transform:translateY(-4px)}',
   // —— 横幅即状态行 / 待重启横幅（原型 :81-85 `.restart-banner`：2px 边框、圆角 4、内边距 12/16、衬线；右侧留章位）——
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:2px solid var(--dsh-update-border-strong);border-radius:4px;padding:10px 12px;font-size:14.5px;font-family:var(--dsh-update-font-serif);gap:10px;align-items:center}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{flex:1 1 auto;min-width:0}',
+  // #99 标题行拉满：纵向 flex + align-items:center 会把短标题收成窄块居中（章跟着偏右）；
+  // 原型状态行是整行块居左，这里 stretch 回去（只动交叉轴，主轴 stacking 与 #93 副行契约不动）。
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{flex:1 1 auto;min-width:0;align-self:stretch}',
   // 状态行字号照原型 .status-line=27px（实测去掉横幅右侧占位后可写 486px > 428px，一行放得下）
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child strong{font-family:var(--dsh-update-font-serif);font-size:27px;font-weight:700;line-height:1.25}',
   // —— 进度条 / 跳过行（原型 :132-133 `.prog`、:129-131 `.skipline .tag`）——
@@ -1267,7 +1274,7 @@ export const UPDATE_PANEL_ARCHIVE_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-skipline{font-size:13px;margin-top:8px}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-tag{display:inline-block;border:1px dashed var(--dsh-update-border-strong);border-radius:3px;padding:1px 8px;margin-right:8px;font-family:var(--dsh-update-font-mono);font-size:12px}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-err{font-size:13px;margin:0 0 6px;color:var(--dsh-update-text-muted)}',
-  '@media (max-width:640px){.dsh-upd[data-theme="archive"]{padding:10px 12px}.dsh-upd[data-theme="archive"]::before{top:12px;right:12px;width:56px;height:56px;font-size:15px;box-shadow:inset 0 0 0 4px var(--dsh-update-bg),inset 0 0 0 5px currentColor}.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title{font-size:19px}.dsh-upd[data-theme="archive"] .dsh-upd-banner{padding-right:16px}.dsh-upd[data-theme="archive"] .dsh-upd-banner::before{width:24px;height:24px;font-size:14px;line-height:20px;flex:none}.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{white-space:normal}}',
+  '@media (max-width:640px){.dsh-upd[data-theme="archive"]{padding:10px 12px}.dsh-upd[data-theme="archive"]::before{top:12px;right:12px;width:56px;height:56px;font-size:15px;box-shadow:inset 0 0 0 4px var(--dsh-update-bg),inset 0 0 0 5px currentColor}.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title{font-size:19px}.dsh-upd[data-theme="archive"] .dsh-upd-banner{padding-right:16px}.dsh-upd[data-theme="archive"] .dsh-upd-banner .dsh-upd-sealmini{min-width:28px;height:28px;font-size:14px;line-height:20px}.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{white-space:normal}}',
   '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"]{--dsh-update-bg-soft:#141210;--dsh-update-bg:#1e1a15;--dsh-update-text:#ece5d3;--dsh-update-text-muted:#a89c83;',
   '--dsh-update-border:#3a3226;--dsh-update-border-strong:#5c4e3b;--dsh-update-primary:#e0684e;--dsh-update-primary-deep:#f0866b;',
   '--dsh-update-ok-text:#8fd6a4;--dsh-update-ok-bg:rgba(80,180,120,.12);--dsh-update-warn-text:#e8c15a;--dsh-update-warn-bg:rgba(232,193,90,.12);',
@@ -1444,9 +1451,10 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
       `<span class="dsh-upd-proftag">profile</span></span></div>`,
   )
   // 横幅：状态行 / 待重启横幅（原型 :213-215 restartSlot + 状态行）。
-  // 小印章一字挂在它上面；待重启档不挂印章——那一档的标记是手绘 SVG（原型 :446 只有 SVG）。
+  // 小印章是首行内的真实行内节点（#99；原型 :215 `.sealmini + 文字` 同结构）；待重启档不挂印章——
+  // 那一档的标记是手绘 SVG（原型 :446 只有 SVG）。章对读屏隐藏（标题文本已含语义），默认主题由 CSS 隐藏。
   parts.push(`<div class="dsh-upd-banner" data-kind="${b.kind}" data-mini="${escapeHtml(seal.mini)}" role="status" aria-live="polite">`)
-  parts.push(`<div><strong>${escapeHtml(b.title)}</strong></div>`)
+  parts.push(`<div>${b.kind === 'restart' ? '' : `<span class="dsh-upd-sealmini" aria-hidden="true">${escapeHtml(seal.mini)}</span>`}<strong>${escapeHtml(b.title)}</strong></div>`)
   if (b.action) parts.push(`<div>${escapeHtml(b.action)}</div>`)
   parts.push('</div>')
   // 版本条（原型 :216 `.strip`）：运行 / 磁盘 / 远端三格。

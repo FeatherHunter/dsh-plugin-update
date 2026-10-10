@@ -812,7 +812,7 @@ function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, strin
     const act = copy?.act ?? batchText('batch.banner.error-action-fallback', l)
     parts.push(
       '<div class="dsh-upd-banner" data-kind="failed" data-mini="阻" role="status">' +
-        '<div><strong>' + escapeHtml(batchText('batch.banner.error-title', l, { code: lastError, detail })) + '</strong></div>' +
+        '<div><span class="dsh-upd-sealmini" aria-hidden="true">阻</span><strong>' + escapeHtml(batchText('batch.banner.error-title', l, { code: lastError, detail })) + '</strong></div>' +
         '<div>' + escapeHtml(act) + '</div>' +
         '</div>',
     )
@@ -832,7 +832,7 @@ function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, strin
       .join('')
     parts.push(
       '<div class="dsh-upd-banner" data-kind="failed" data-mini="阻" role="status">' +
-        '<div><strong>' + escapeHtml(batchText('batch.banner.failed-title', l, { n: String(failed.length) })) + '</strong></div>' +
+        '<div><span class="dsh-upd-sealmini" aria-hidden="true">阻</span><strong>' + escapeHtml(batchText('batch.banner.failed-title', l, { n: String(failed.length) })) + '</strong></div>' +
         '<div>' + escapeHtml(batchText('batch.banner.failed-action', l)) + '</div>' +
         '<div class="dsh-upd-blist">' + lines + '</div>' +
         '</div>',

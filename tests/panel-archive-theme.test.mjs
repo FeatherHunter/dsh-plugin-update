@@ -121,9 +121,10 @@ test('双形态与主题正交：同形态下换肤内核不变', () => {
 
 test('Archive 七要素：印章取属性 + profile 牌 + 衬线横幅 + SVG + 折叠 + 双主题全在串里', () => {
   const css = UPDATE_PANEL_ARCHIVE_CSS
-  // 印章（原型 :206 大印章 / :215 小印章）：内容从根属性取，CSS 里不再写死五个字。
+  // 印章（原型 :206 大印章 / :215 小印章）：大印章内容从根属性取；小印章是首行内真节点
+  // （#99：伪元素在纵向 flex 里只能独占一行，纯 CSS 走不通），CSS 只给行内章上肤。
   assert.ok(css.includes('content:attr(data-seal)'), '大印章须读 data-seal')
-  assert.ok(css.includes('content:attr(data-mini)'), '小印章须读 data-mini')
+  assert.ok(css.includes('.dsh-upd-sealmini'), '小印章须有行内节点样式（真节点，不再是 ::before 伪元素）')
   assert.ok(css.includes('rotate(-7deg)'), '大印章须旋转 -7°（原型 .seal）')
   assert.ok(css.includes('[data-seal-tone="green"]'), '大印章须按色调分档上色')
   assert.ok(css.includes('.dsh-upd-log code'), 'profile 牌须落在现有日志 code 上')
@@ -133,7 +134,7 @@ test('Archive 七要素：印章取属性 + profile 牌 + 衬线横幅 + SVG + �
   assert.ok(css.includes('font-family:var(--dsh-update-font-serif)'), '待重启横幅须用衬线')
   assert.ok(css.includes('data:image/svg+xml'), '手绘 SVG 标须内联 data-uri')
   assert.ok(css.includes('@media (max-width:640px)'), '窄屏回归须有 640px 媒体')
-  assert.ok(css.includes('width:24px'), '窄屏印章须固定 24px')
+  assert.ok(css.includes('min-width:28px'), '窄屏印章下限 28px 外框、不被挤掉（#99：与旧 24+2×2 外框一致，英文词可伸展）')
   assert.ok(css.includes('text-overflow:ellipsis'), '优先级折叠走 CSS 省略号逐字折叠')
   assert.ok(css.includes('@media (prefers-color-scheme: dark)'), '浅深双主题须跟随系统')
   assert.ok(css.includes('#f7f3ea') && css.includes('#141210'), '浅深纸色须各就其位')
@@ -142,9 +143,12 @@ test('Archive 七要素：印章取属性 + profile 牌 + 衬线横幅 + SVG + �
 test('待重启横幅只有一个标记：不画印章，标记是手绘 SVG（原型 :446）', () => {
   const css = UPDATE_PANEL_ARCHIVE_CSS
   // 印章选择器列表里不许出现 restart（否则「启」章与 SVG 三角两个标记打架——现场就是这个问题）。
-  const sealRule = css.slice(css.indexOf('content:attr(data-mini)'))
-  const selectorHead = sealRule.slice(0, sealRule.indexOf('{'))
-  assert.ok(!selectorHead.includes('data-kind="restart"'), '待重启横幅不得挂迷你印章')
+  // #99：印章是真节点，选择器形如 `[data-kind="x"] .dsh-upd-sealmini`（含空格后代）。
+  const sealSelectors = css.split('}').filter((chunk) => chunk.includes('.dsh-upd-sealmini'))
+  assert.ok(sealSelectors.length > 0, '小印章样式规则必须还在')
+  for (const sel of sealSelectors) {
+    assert.ok(!sel.includes('data-kind="restart"'), '待重启横幅不得挂迷你印章：' + sel.slice(0, 120))
+  }
   assert.ok(
     !/\[data-kind="restart"\]::before\{content:/.test(css),
     '待重启横幅不得有 content 规则（标记只能是 SVG）',

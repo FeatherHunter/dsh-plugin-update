@@ -265,7 +265,9 @@ describe('尺寸定案：状态行 27px、横幅不再给印章留位', () => {
     assert.ok(UPDATE_PANEL_ARCHIVE_CSS.includes('font-size:27px'), '状态行须照原型 .status-line=27px')
     assert.ok(!UPDATE_PANEL_ARCHIVE_CSS.includes('padding-right:124px'), '横幅不许再留 124px 印章位（实测白留，还把 27px 挤成两行）')
     assert.ok(UPDATE_PANEL_ARCHIVE_CSS.includes('padding-right:120px'), '档案头的印章占位须保留（那里真的重叠）')
-    assert.ok(!UPDATE_PANEL_ARCHIVE_CSS.includes('white-space:nowrap'), '窄屏不许再 nowrap（27px 在窄容器里必须能折行）')
+    // #99：印章自身须 white-space:nowrap（单行章不折行），禁令收窄到标题容器——标题行窄屏必须能折行。
+    assert.ok(UPDATE_PANEL_ARCHIVE_CSS.includes('.dsh-upd-banner>div:first-child{white-space:normal}'), '窄屏标题行必须能折行（27px 在窄容器里折行）')
+    assert.ok(!/dsh-upd-banner>div[^{]*\{[^}]*nowrap/.test(UPDATE_PANEL_ARCHIVE_CSS), '标题行容器不许 nowrap')
   })
 })
 

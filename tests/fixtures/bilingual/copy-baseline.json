@@ -135,6 +135,7 @@
       "/* 批量面板（#25）：类名沿用 dsh-upd-* 前缀；默认（最小）主题，Archive 皮肤见 UPDATE_BATCH_PANEL_ARCHIVE_CSS。 */",
       "/* 详情复用单插件内核：不许嵌套滚动——中性化 overlay 的 max-height/overflow，自身也不给 overflow。 */",
       "<div class=\"dsh-upd-banner\" data-kind=\"failed\" data-mini=\"阻\" role=\"status\">",
+      "<div><span class=\"dsh-upd-sealmini\" aria-hidden=\"true\">阻</span><strong>",
       "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到",
       "[dsh-plugin-update] 批量面板轮询间隔非法：不得小于 250 毫秒（收到",
       "[dsh-plugin-update] 挂载批量面板缺少配置：批量电话前缀 prefix 必填",
