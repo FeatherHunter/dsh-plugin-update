@@ -106,6 +106,11 @@ function normalizeCategory(raw: string): ChangelogCategory | null {
   if (t === 'deprecated') return 'Deprecated'
   if (t === 'removed') return 'Removed'
   if (t === 'security') return 'Security'
+  // 中文名（与 CHANGELOG_CATEGORY_ZH 同一表，不另起第二映射；精确匹配，不做子串，
+  // 免得「新增功能」这类标题被误收到 Added——归因污染比漏收更坏）。
+  for (const k of CHANGELOG_ALL_CATEGORIES) {
+    if (t === CHANGELOG_CATEGORY_ZH[k]) return k
+  }
   return null
 }
 
@@ -307,7 +312,7 @@ export function parseChangelog(markdown: unknown): ChangelogEntry[] {
         cur = { version, date, yanked, sections: emptySections(), counts: emptyCounts() }
         continue
       }
-      // 分类标题：`### Added` 等六类（大小写不敏感，`##` 后空格同样可选），其余三级标题直接无视。
+      // 分类标题：`### Added` 等六类（英文大小写不敏感，亦收中文名，`###` 后空格同样可选），其余三级标题直接无视。
       const catTitle = matchCategoryHeading(line)
       if (catTitle !== null) {
         const cat = normalizeCategory(catTitle)
@@ -504,11 +509,15 @@ export function renderChangelogSection(entry: ChangelogEntry, lang?: AppLang | s
     const date = typeof dateRaw === 'string' ? dateRaw : '';
     const yankedFlag = (entry as { yanked?: unknown }).yanked === true;
     const yankedSuffix = yankedFlag ? copyText('changelog.yanked.suffix', l) : '';
-    const title = (date ? version + ' · ' + date : version) + yankedSuffix;
+    // 日期包独立 span：默认主题无该 span 样式（继承标题样式，视觉一字不动）；
+    // 档案卷皮肤把它收成灰色小字（原型 .logver .vh span）。
+    const titleInner = date
+      ? escapeChangelogHtml(version) + ' · ' + '<span class="dsh-upd-changelog-date">' + escapeChangelogHtml(date) + '</span>' + escapeChangelogHtml(yankedSuffix)
+      : escapeChangelogHtml(version + yankedSuffix);
     const counts = countsOf(entry);
     const parts: string[] = [];
     parts.push('<div class="dsh-upd-changelog-version" data-version="' + escapeChangelogHtml(version) + '">');
-    parts.push('<div class="dsh-upd-changelog-title">' + escapeChangelogHtml(title) + '</div>');
+    parts.push('<div class="dsh-upd-changelog-title">' + titleInner + '</div>');
     for (const cat of CHANGELOG_MUST_SHOW) {
       const items = Array.isArray((entry as { sections?: unknown }).sections ? (entry.sections as Record<string, unknown>)[cat] as unknown : null) ? (entry.sections as Record<string, string[]>)[cat] : [];
       if (!items || items.length === 0) continue;
@@ -616,7 +625,7 @@ export interface ChangelogValidation {
 /** 校验提示文（与终裁码表一字对应，仅 CI/发布前用，运行时永不调用）。 */
 export const CHANGELOG_VALIDATE_HINTS: Record<string, string> = {
   E_VERSION_TITLE: '该标题不是合法版本号，其下条目已被忽略，请改成 ## [x.y.z] 形态',
-  E_CATEGORY: '未知分类，其下条目已被忽略，仅收 Added/Fixed/Changed/Deprecated/Removed/Security',
+  E_CATEGORY: '未知分类，其下条目已被忽略；仅收 Added/Fixed/Changed/Deprecated/Removed/Security，亦收中文名（新增/修复/变更/弃用预告/移除/安全）',
   E_BULLET_ORPHAN: '该条目不在版本节与分类下，已被忽略',
   W_BREAKING_MAYBE: '疑似破坏标记误写（缺冒号/拼写接近/位置疑似放错），请检查是否想写 BREAKING:/不兼容:',
   W_YANKED: '该版本已被标记撤回（yanked），安装不受影响，继续前请确认',

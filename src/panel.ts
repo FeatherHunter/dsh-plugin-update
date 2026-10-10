@@ -1090,6 +1090,10 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}',
   '.dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}',
   '.dsh-upd-chap-title{font-size:14px;margin:0}',
+  // —— 宿主样式隔离：章节标题是裸 h3，宿主全局 h3 规则（如渐变标题字）会直接命中它，
+  // 而继承来的根颜色输给任何直接命中的规则。双 class 显式钉死颜色并洗掉背景裁剪，
+  // 深色宿主下即回近白正文，档案卷下跟纸墨变量走（宿主 !important 另议，见测试）。
+  '.dsh-upd .dsh-upd-chap-title{color:var(--dsh-update-text,#1f2937);background:none;-webkit-background-clip:border-box;-webkit-text-fill-color:currentColor}',
   '.dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}',
   // 03 章标题行右端的开关（问题 3 定案：按钮形态、挪到标题行）。
   '.dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}',
@@ -1289,7 +1293,7 @@ export const UPDATE_PANEL_ARCHIVE_CSS = [
   // —— 横幅即状态行 / 待重启横幅（原型 :81-85 `.restart-banner`：2px 边框、圆角 4、内边距 12/16、衬线；右侧留章位）——
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:2px solid var(--dsh-update-border-strong);border-radius:4px;padding:10px 12px;font-size:14.5px;font-family:var(--dsh-update-font-serif);gap:10px;align-items:center}',
   // #99 标题行拉满：纵向 flex + align-items:center 会把短标题收成窄块居中（章跟着偏右）；
-  // 原型状态行是整行块居左，这里 stretch 回去（只动交叉轴，主轴 stacking 与 #93 副行契约不动）。
+  // 原型状态行是整行块居左，这里 stretch 回去（副行已移出框体为独立兄弟节点，不吃本条）。
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{flex:1 1 auto;min-width:0;align-self:stretch}',
   // 状态行字号照原型 .status-line=27px（实测去掉横幅右侧占位后可写 486px > 428px，一行放得下）
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child strong{font-family:var(--dsh-update-font-serif);font-size:27px;font-weight:700;line-height:1.25}',
@@ -1314,6 +1318,7 @@ export const UPDATE_PANEL_ARCHIVE_CSS = [
   // —— 日志贴原型（d5-paper :137-144 `.logver`：版本 mono 粗体、分类头隐藏、条目前缀红字）——
   '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-version{margin:12px 0}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-title{font-family:var(--dsh-update-font-mono);font-size:14px;font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-date{font-weight:400;font-size:12px;color:var(--dsh-update-text-muted)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-changelog ul{margin:6px 0 0 2px;padding-left:18px;font-size:13.5px}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-changelog li{margin:3px 0}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-catname{display:none}',
@@ -1588,20 +1593,27 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
           snapshot.latestVersion,
           snapshot.installedVersion,
         )
-        const changelogHTML = renderChangelogHTML(ranged, { lang: l })
-        const fromText = String(snapshot.runningVersion ?? '')
-        const toText = String(snapshot.latestVersion ?? '')
-        const rangeTitle =
-          fromText && toText ? copyText('panel.changelog.heading-range', l, { from: fromText, to: toText }) : copyText('panel.changelog.heading', l)
-        let yankedBanner = ''
-        try {
-          const toEntry = Array.isArray(ranged) ? ranged.find(function(e) { try { return e && e.version === toText; } catch { return false; } }) : null
-          if (toEntry && (toEntry as { yanked?: unknown }).yanked === true && toText) { yankedBanner = yankedBannerHTML(toText, l); }
-        } catch { yankedBanner = ''; }
-        const logOpen = (input as { changelogCollapsed?: unknown }).changelogCollapsed !== true
-        inner = `<div class="dsh-upd-changelog-wrap"><div>${escapeHtml(rangeTitle)}</div>` +
-          `<div class="dsh-upd-changelog-foldbox" data-open="${logOpen ? '1' : '0'}"><div class="dsh-upd-changelog-foldbox-inner">${yankedBanner}\n${changelogHTML}\n</div></div></div>`
-        hasLog = Array.isArray(ranged) && ranged.length > 0
+        // 有文本但一个版本节都读不出：诚实说读不出来，不说"未提供"。
+        // 空文本仍走"未提供"；有解析节但区间外仍走旧中性（区间外是另一回事，不在此改）。
+        if (ranged.length === 0 && mdText.trim() && entries.length === 0) {
+          inner = `<div class="dsh-upd-changelog-wrap"><div class="dsh-upd-changelog-neutral">${escapeHtml(copyText('panel.changelog.unavailable', l))}</div></div>`
+          hasLog = false
+        } else {
+          const changelogHTML = renderChangelogHTML(ranged, { lang: l })
+          const fromText = String(snapshot.runningVersion ?? '')
+          const toText = String(snapshot.latestVersion ?? '')
+          const rangeTitle =
+            fromText && toText ? copyText('panel.changelog.heading-range', l, { from: fromText, to: toText }) : copyText('panel.changelog.heading', l)
+          let yankedBanner = ''
+          try {
+            const toEntry = Array.isArray(ranged) ? ranged.find(function(e) { try { return e && e.version === toText; } catch { return false; } }) : null
+            if (toEntry && (toEntry as { yanked?: unknown }).yanked === true && toText) { yankedBanner = yankedBannerHTML(toText, l); }
+          } catch { yankedBanner = ''; }
+          const logOpen = (input as { changelogCollapsed?: unknown }).changelogCollapsed !== true
+          inner = `<div class="dsh-upd-changelog-wrap"><div>${escapeHtml(rangeTitle)}</div>` +
+            `<div class="dsh-upd-changelog-foldbox" data-open="${logOpen ? '1' : '0'}"><div class="dsh-upd-changelog-foldbox-inner">${yankedBanner}\n${changelogHTML}\n</div></div></div>`
+          hasLog = Array.isArray(ranged) && ranged.length > 0
+        } // end else（正常渲染分支）
       } catch {
         // 日志画坏了也不挡更新：退回中性提示，安装按钮状态不变。
         inner = ''
@@ -2347,7 +2359,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         // 成功终态：旧失败已无意义
         clearLatch()
       } else if ((jobState === 'failed' || jobState === 'interrupted') && snapshot?.job) {
-        // 后台结局到达：单调置入（只允许从无到有或同源更新，永不由轮询清除）
+        // 后台结局到达：单调置入（只允许从无到有或同源更新，永不由轮询清除）。
         // #100：三元组已变（比如远端出了新版）→ 旧失败的上下文被新信息替代，不再复活；
         // 同上下文才常驻（#58）。
         if (snapshot && tripleChanged(snapshot)) clearLatch()

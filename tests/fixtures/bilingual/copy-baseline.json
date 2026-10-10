@@ -16,7 +16,7 @@
       "弃用预告",
       "文件超 64K，仅校验前 64K",
       "新增",
-      "未知分类，其下条目已被忽略，仅收 Added/Fixed/Changed/Deprecated/Removed/Security",
+      "未知分类，其下条目已被忽略；仅收 Added/Fixed/Changed/Deprecated/Removed/Security，亦收中文名（新增/修复/变更/弃用预告/移除/安全）",
       "未解析到任何版本节，面板将显示中性提示",
       "条",
       "条，仅显示前",

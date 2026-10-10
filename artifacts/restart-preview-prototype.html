@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<title>PROTOTYPE · 重启按钮4键位置对照（throwaway）</title>
+<style>
+:root{--bg:#f1f4f9;--card:#fff;--ink:#1c2333;--muted:#667085;--line:#e4e9f2;--amber-bd:#e3a008;--amber-bg:#fffbeb;--blue:#2456e6;--blue-d:#1b44bd;--chip:#eef2ff;--code:#f2f4f8}
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;margin:0;color:var(--ink);background:radial-gradient(1200px 400px at 50% -80px,#e3ebff 0%,var(--bg) 60%)}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 24px 40px}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.badge{font-size:11px;letter-spacing:.08em;background:#111c33;color:#fff;padding:4px 10px;border-radius:999px}
+.badge2{font-size:11px;background:#fff;border:1px solid var(--line);color:var(--muted);padding:4px 10px;border-radius:999px}
+h1{font-size:24px;margin:10px 0 4px;letter-spacing:.01em}
+.sub{font-size:13px;color:var(--muted);margin:0 0 18px}
+.sec{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 6px 24px rgba(28,35,51,.06);margin-bottom:18px}
+.sec-h{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.num{width:26px;height:26px;border-radius:50%;background:#111c33;color:#fff;font-size:13px;display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+.sec-t{font-size:15px;font-weight:700}
+.src{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;background:var(--code);border:1px solid var(--line);padding:3px 8px;border-radius:6px;color:#475069}
+.pill{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:#fafbff}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+.card{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.card-h{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);background:#fafbff}
+.st{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px}
+.st.cur{background:#eef2ff;color:#3648c8;border:1px solid #d4dcff}
+.st.new{background:#e7f7ee;color:#14753c;border:1px solid #bfe8cd}
+.card-b{padding:14px}
+.banner{border:1.5px solid var(--amber-bd);background:var(--amber-bg);border-radius:10px;padding:12px 14px;display:flex;gap:10px}
+.ic{flex:none;width:26px;height:26px;border-radius:50%;background:#fbbf24;display:flex;align-items:center;justify-content:center;font-weight:900;color:#5c3d00}
+.bt{font-size:14px;font-weight:800;margin-bottom:2px}
+.bb{font-size:13px;color:#4b5563}
+.blist{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:12px;background:#fff;border:1px solid #f0d48a;padding:2px 9px;border-radius:999px}
+.act{margin-top:10px}
+.btn-p{background:var(--blue);color:#fff;border:1px solid var(--blue);border-radius:8px;padding:8px 18px;font-size:13.5px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(36,86,230,.35)}
+.btn-p:hover{background:var(--blue-d)}
+.btn-t{background:none;border:none;color:var(--blue);font-size:14px;font-weight:600;cursor:pointer;padding:8px 2px;text-decoration:underline;text-underline-offset:4px}
+.btn-t:hover{color:var(--blue-d)}
+.meta{margin:0;padding:10px 14px;background:#f7f9ff;border-top:1px dashed var(--line);font-size:12px;color:#3c4761}
+.meta code{font-family:ui-monospace,Consolas,monospace;background:#fff;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:11.5px}
+.meta .k{color:#111c33;font-weight:700}
+.prow{border:1px solid var(--line);border-radius:10px;padding:11px 13px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.pname{font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:#e3a008;display:inline-block}
+.pst{font-size:12.5px;color:var(--muted)}
+.pact{display:flex;gap:12px;align-items:center}
+.linklike{color:var(--blue);font-size:13px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer;background:none;border:none;padding:0}
+.foot{font-size:12.5px;color:#3c4761;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.suffix{font-size:11px;color:#8a94a8;background:#fff;border:1px solid var(--line);border-radius:5px;padding:0 5px;margin-left:4px;white-space:nowrap}
+</style></head><body><div class="wrap">
+<div class="top"><span class="badge">PROTOTYPE · THROWAWAY</span><span class="badge2">只为讲解位置 · 不进主分支</span></div>
+<h1>重启 4 键在 UI 上的哪里</h1>
+<p class="sub">左 = 现状 Current　右 = 临时方案 B Proposed · 悬停 title 在截图里看不见，下方灰条把它的文字直接印出来；实际使用时鼠标放到按钮上才会冒泡。</p>
+
+<div class="sec"><div class="sec-h"><span class="num">1</span><span class="sec-t">单插件面板 · 待重启横幅</span><span class="src">src/panel.ts:1480</span><span class="pill">仅待重启时渲染 · 有 title</span></div>
+<div class="grid">
+<div class="card"><div class="card-h"><span class="st cur">现状 Current</span><span class="pill">data-primary="1" 主按钮</span></div><div class="card-b">
+<div class="banner"><div class="ic">!</div><div><div class="bt">新版 1.9.0 已安装，重启宿主后生效。</div><div class="bb">重启宿主，让新版跑起来；这是正常终态，不是失败。</div><div class="act"><button class="btn-p" title="宿主没有自重启电话：请手动重启宿主">重启宿主</button></div></div></div>
+</div><div class="meta"><span class="k">按钮字</span> <code>panel.action.restart-host</code>「重启宿主」<br><span class="k">悬停</span> <code>panel.action.restart-host-title</code>「宿主没有自重启电话：请手动重启宿主」</div></div>
+<div class="card"><div class="card-h"><span class="st new">临时方案 B</span><span class="pill">摘 primary · 可点文字链</span></div><div class="card-b">
+<div class="banner"><div class="ic">!</div><div><div class="bt">新版 1.9.0 已安装，重启宿主后生效。<span class="suffix">标题不动</span></div><div class="bb">重启宿主，让新版跑起来；这是正常终态，不是失败。<span class="suffix">不动</span></div><div class="act"><button class="btn-t" title="点一下走调用方流程，没有就手动重启 DSH">请重启DSH</button></div></div></div>
+</div><div class="meta"><span class="k">按钮字 →</span>「请重启DSH」　<span class="k">悬停 →</span>「点一下走调用方流程，没有就手动重启 DSH」<br>委托不断，有 onRestartRequested 照调</div></div>
+</div></div>
+
+<div class="sec"><div class="sec-h"><span class="num">2</span><span class="sec-t">批量面板 · 顶部黄横幅</span><span class="src">src/panel-batch.ts:842</span><span class="pill">无 title · 误解最重</span></div>
+<div class="grid">
+<div class="card"><div class="card-h"><span class="st cur">现状 Current</span><span class="pill">data-primary="1" · 无 title</span></div><div class="card-b">
+<div class="banner"><div class="ic">!</div><div><div class="bt">2 家已安装好，重启宿主后生效。</div><div class="bb">重启宿主，让新版跑起来；这是正常终态，不是失败。</div><div class="blist"><span class="chip">插件A</span><span class="chip">插件B</span></div><div class="act"><button class="btn-p">重启宿主</button></div></div></div>
+</div><div class="meta"><code>batch.banner.restart-button</code>「重启宿主」· 无悬停解释，全靠按钮质感暗示</div></div>
+<div class="card"><div class="card-h"><span class="st new">临时方案 B</span><span class="pill">只换字 + 摘 primary</span></div><div class="card-b">
+<div class="banner"><div class="ic">!</div><div><div class="bt">2 家已安装好，重启宿主后生效。<span class="suffix">不动</span></div><div class="bb">重启宿主，让新版跑起来；这是正常终态，不是失败。<span class="suffix">不动</span></div><div class="blist"><span class="chip">插件A</span><span class="chip">插件B</span></div><div class="act"><button class="btn-t">请重启DSH</button></div></div></div>
+</div><div class="meta">只换字 + 摘 primary；点击仍走同一委托 / 手动三 toast</div></div>
+</div></div>
+
+<div class="sec"><div class="sec-h"><span class="num">3</span><span class="sec-t">批量列表 · 行内小按钮</span><span class="src">src/panel-batch.ts:897</span><span class="pill">无 primary · 无 title</span></div>
+<div class="grid">
+<div class="card"><div class="card-h"><span class="st cur">现状 Current</span><span class="pill">本来就是文字链</span></div><div class="card-b">
+<div class="prow"><div><div class="pname"><span class="dot"></span>插件A</div><div class="pst">安装好了，重启宿主才生效</div></div><div class="pact"><button class="linklike">重启宿主</button><button class="linklike" style="color:var(--muted)">详情</button></div></div>
+</div><div class="meta"><code>batch.row-action.restart</code>「重启宿主」</div></div>
+<div class="card"><div class="card-h"><span class="st new">临时方案 B</span><span class="pill">只换字 · 对齐</span></div><div class="card-b">
+<div class="prow"><div><div class="pname"><span class="dot"></span>插件A</div><div class="pst">安装好了，重启宿主才生效<span class="suffix">不动</span></div></div><div class="pact"><button class="linklike">请重启DSH</button><button class="linklike" style="color:var(--muted)">详情</button></div></div>
+</div><div class="meta">只换字，与上面两颗对齐；点击仍走委托 / 手动三 toast</div></div>
+</div></div>
+
+<div class="foot">点击行为左右完全一样：有 onRestartRequested 就调它（delegated），没有就提示手动（manual），抛错提示 failed。B 只改“看起来像不像自动重启”，不改“点了走哪条路”。</div>
+</div></body></html>

@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8"><title>#59 改后效果预览（真实渲染）</title>
+<style>body{font-family:system-ui,sans-serif;max-width:900px;margin:24px auto;padding:0 16px;color:#222}
+h1{font-size:22px}h2{font-size:18px;margin-top:36px;border-top:2px solid #eee;padding-top:16px}
+p.note{background:#f6f8fa;border:1px solid #e5e8eb;border-radius:8px;padding:10px 14px;font-size:14px;line-height:1.7}
+.demo{border:1px dashed #bbb;border-radius:8px;padding:12px;margin:12px 0}
+code{background:#f0f0f0;padding:1px 5px;border-radius:4px;font-size:13px}</style></head><body>
+<h1>#59 改后效果预览（以下面板均为 <code>renderBatchPanelHTML</code> 真实渲染，非手画）</h1>
+
+<h2>场景一：首次打开——有知识、无轮次（对应问题一）</h2>
+<p class="note">进面板自动查了一轮（底部勾选默认开）。没有“上一轮”，所以<strong>没有</strong>“继续/丢弃”按钮；每一行按知识展示四态：饼干记账/居家管家/爱生活=有新版，卡路里/私家大厨=已是最新，备忘录=还没查过，作息管家=这次没查到。再也不需要先手点“检查更新”才能看到远端版本。</p>
+<div class="demo"><style>.dsh-upd{font:14px/1.75 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);
+background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;
+--dsh-update-ok-bg:#ecfdf5;--dsh-update-ok-border:#059669;--dsh-update-warn-bg:#fffbeb;--dsh-update-warn-border:#d97706;
+--dsh-update-bad-bg:#fef2f2;--dsh-update-bad-border:#dc2626;--dsh-update-busy-bg:#eff6ff;--dsh-update-busy-border:#2563eb}
+.dsh-upd *{box-sizing:border-box}
+.dsh-upd button{font:inherit;border:1px solid var(--dsh-update-border-strong,#d1d5db);border-radius:var(--dsh-update-radius-button,6px);background:var(--dsh-update-button-bg,#f9fafb);
+color:inherit;padding:7px 14px;cursor:pointer;margin:2px 6px 2px 0}
+.dsh-upd button:disabled{opacity:.45;cursor:not-allowed}
+.dsh-upd button:focus-visible{outline:2px solid var(--dsh-update-focus,#2563eb);outline-offset:1px}
+.dsh-upd button[data-primary="1"]{background:var(--dsh-update-primary,#2563eb);border-color:var(--dsh-update-primary,#2563eb);color:#fff}
+.dsh-upd-banner{border-left:4px solid var(--dsh-update-border,#9ca3af);padding:6px 10px;margin:0 0 8px;background:var(--dsh-update-bg-soft,#f3f4f6)}
+.dsh-upd-banner[data-kind="restart"]{border-color:var(--dsh-update-warn-border);background:var(--dsh-update-warn-bg)}
+.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-update-bad-border);background:var(--dsh-update-bad-bg)}
+.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}
+.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-update-busy-border);background:var(--dsh-update-busy-bg)}
+.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:4px 0;font-size:13px}
+.dsh-upd-changelog-wrap{margin:4px 0 0;font-size:13px}
+.dsh-upd-changelog-title{font-weight:700;margin:0 0 4px}
+.dsh-upd-changelog-version{margin:6px 0}
+.dsh-upd-changelog-catname{font-weight:600;margin:6px 0 2px}
+.dsh-upd-changelog ul{margin:2px 0 6px 20px;padding:0}
+.dsh-upd-changelog li{margin:2px 0}
+.dsh-upd-changelog-fold{margin:4px 0}
+.dsh-upd-changelog-fold>summary{cursor:pointer}
+.dsh-upd-changelog-count{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-yanked{border-left:4px solid var(--dsh-update-warn-border,#d97706);background:var(--dsh-update-warn-bg,#fffbeb);padding:6px 10px;margin:6px 0;font-size:13px}
+.dsh-upd-breaking-badge{display:inline-block;font-size:11px;font-weight:700;border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:baseline}
+.dsh-upd-changelog-security-more{margin:4px 0 6px}
+.dsh-upd-changelog-security-more>summary{cursor:pointer;font-size:12px;opacity:.8}
+.dsh-upd-changelog-more-note{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-neutral{color:inherit;opacity:.8}
+.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}
+.dsh-upd-overlay .dsh-upd{background:var(--dsh-update-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.dsh-upd-body{min-height:0}
+.dsh-upd-body *{min-width:0}
+.dsh-upd-overlay .dsh-upd-body{flex:1 1 auto;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsh-update-border,#e5e7eb) transparent}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar{width:8px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-update-border,#e5e7eb);border-radius:4px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-track{background:transparent}
+.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{position:sticky;top:0;z-index:1;background:var(--dsh-update-bg,#ffffff);padding-top:2px}
+.dsh-upd-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.dsh-upd-masthead{display:none}
+.dsh-upd-name{font-weight:700}
+.dsh-upd-meta{font-size:12.5px;opacity:.75}
+.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:11px;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}
+.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;font-size:12.5px}
+.dsh-upd-strip>div{flex:1 1 110px;min-width:0;padding:6px 10px;border-left:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-strip>div:first-child{border-left:0}
+.dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.14em;opacity:.7}
+.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px;word-break:break-all}
+.dsh-upd-chapter{margin-top:18px;padding-top:14px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-foot-note{margin-right:auto;font-size:12px;opacity:.7}
+.dsh-upd-footer button{margin:0}
+.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}
+.dsh-upd-chap-title{font-size:14px;margin:0}
+.dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}
+.dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}
+.dsh-upd-chap-note button{margin:0}
+.dsh-upd-qrow{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;padding:6px 0;min-width:0}
+.dsh-upd-qrow+.dsh-upd-qrow{border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-qdot{width:8px;height:8px;border-radius:50%;flex:none;align-self:center;background:currentColor;opacity:.5}
+.dsh-upd-qdot[data-tone="busy"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}
+.dsh-upd-qdot[data-tone="you"]{background:var(--dsh-update-primary,#2563eb);opacity:1}
+.dsh-upd-qk{flex:none;width:5.5em;font-size:12px;opacity:.7}
+.dsh-upd-qv{font-weight:600}
+.dsh-upd-qn{margin-left:auto;font-size:12px;opacity:.7}
+.dsh-upd-qseq{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-prog{height:8px;background:var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;margin:10px 0 4px}
+.dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary,#2563eb);transition:width .3s}
+.dsh-upd-progtxt{font-size:12.5px;opacity:.75}
+.dsh-upd-skipline{font-size:13px;margin-top:8px}
+.dsh-upd-skv{display:inline-block;min-width:64px;border-radius:3px;color:transparent !important;user-select:none;
+background:linear-gradient(90deg,var(--dsh-update-border,#e5e7eb) 25%,var(--dsh-update-bg-soft,#f3f4f6) 50%,var(--dsh-update-border,#e5e7eb) 75%);
+background-size:200% 100%;animation:dsh-upd-shimmer 1.2s linear infinite}
+@keyframes dsh-upd-shimmer{to{background-position:-200% 0}}
+.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:12px}
+.dsh-upd-err{font-size:13px;margin:0 0 6px}
+.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}
+.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-update-focus,#2563eb)}
+.dsh-upd button[data-primary="1"]:hover:not(:disabled){filter:brightness(.93)}
+.dsh-upd button:active:not(:disabled){transform:translateY(1px)}
+.dsh-upd button[aria-busy="true"]{cursor:wait;animation:dsh-upd-pulse 1s ease-in-out infinite}
+@keyframes dsh-upd-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.dsh-upd-banner{animation:dsh-upd-fadein .22s ease}
+@keyframes dsh-upd-fadein{from{opacity:.35;transform:translateY(2px)}}
+.dsh-upd-changelog-foldbox{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .22s ease,opacity .18s ease}
+.dsh-upd-changelog-foldbox-inner{min-height:0;overflow:hidden}
+.dsh-upd-changelog-foldbox[data-open="0"]{grid-template-rows:0fr;opacity:0}
+.dsh-upd button[aria-busy="true"]::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;vertical-align:-1px;
+border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:dsh-upd-spin .8s linear infinite}
+@keyframes dsh-upd-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}.dsh-upd-banner{animation:none}.dsh-upd-changelog-foldbox{transition:none}}
+@media (forced-colors: active){.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{background:Canvas}}
+.dsh-upd{overflow-anchor:none}
+.dsh-upd-body{overflow-anchor:none}
+.dsh-upd-actions{display:flex;flex-wrap:wrap;align-items:center;min-height:34px}
+.dsh-upd-actions button:first-child{min-width:8em;text-align:center}
+.dsh-upd-actions button[data-primary="1"]{min-width:7em;text-align:center}
+.dsh-upd-actions button:first-child:not([aria-busy="true"])::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;visibility:hidden}
+.dsh-upd-banner{min-height:1.2em}
+.dsh-upd-strip{min-height:48px}
+.dsh-upd-actions{align-content:flex-start}
+.dsh-upd-actions button{white-space:nowrap}
+.dsh-upd-actions button:first-child{min-width:10em}
+.dsh-upd-actions button[data-primary="1"]{min-width:9em}
+.dsh-upd-banner{min-height:3.4em;display:flex;flex-direction:column;justify-content:center}
+.dsh-upd-banner{animation:none}
+.dsh-upd-copy{min-height:1.75em}
+.dsh-upd-copy--empty{visibility:hidden}
+@media (prefers-color-scheme: dark){.dsh-upd{--dsh-update-text:#e5e7eb;--dsh-update-bg:#111827;--dsh-update-border:#374151;
+--dsh-update-button-bg:#1f2937;--dsh-update-bg-soft:#1f2937;--dsh-update-primary:#3b82f6;--dsh-update-focus:#93c5fd;
+--dsh-update-ok-bg:rgba(16,185,129,.14);--dsh-update-ok-border:#34d399;
+--dsh-update-warn-bg:rgba(245,158,11,.16);--dsh-update-warn-border:#fbbf24;
+--dsh-update-bad-bg:rgba(239,68,68,.16);--dsh-update-bad-border:#f87171;
+--dsh-update-busy-bg:rgba(59,130,246,.16);--dsh-update-busy-border:#60a5fa}}
+/* 批量面板（#25）：类名沿用 dsh-upd-* 前缀；默认（最小）主题，Archive 皮肤见 UPDATE_BATCH_PANEL_ARCHIVE_CSS。 */
+.dsh-upd-batch-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.dsh-upd-batch-title{font-weight:700;font-size:15px;letter-spacing:.06em}
+.dsh-upd-batch-title i{font-style:normal;color:var(--dsh-update-primary,#2563eb)}
+.dsh-upd-batch-macros{flex:none}
+.dsh-upd-batch-sum{margin:4px 0 8px;font-size:13.5px}
+.dsh-upd-btable{margin-top:2px}
+.dsh-upd-brow-set{border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-brow-set:first-child{border-top:0}
+.dsh-upd-brow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0}
+.dsh-upd .dsh-upd-brow-main{display:grid;grid-template-columns:auto minmax(5em,max-content) minmax(18ch,max-content) minmax(0,1fr);align-items:baseline;column-gap:8px;row-gap:2px;flex:1 1 260px;min-width:0;
+text-align:left;cursor:pointer;color:inherit;font:inherit;background:transparent;border:0;padding:2px 0;margin:0}
+.dsh-upd .dsh-upd-brow-main:hover{color:var(--dsh-update-primary,#2563eb)}
+.dsh-upd-brow-actions{flex:none;margin-left:auto}
+.dsh-upd-brow-actions button{font-size:12.5px}
+.dsh-upd-updot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--dsh-update-border,#9ca3af);opacity:.55}
+.dsh-upd-updot[data-tone="todo"]{background:var(--dsh-update-ok-border,#059669);opacity:1}
+.dsh-upd-updot[data-tone="ok"]{background:var(--dsh-update-ok-border,#059669);opacity:1}
+.dsh-upd-updot[data-tone="busy"]{background:var(--dsh-update-busy-border,#2563eb);opacity:1}
+.dsh-upd-updot[data-tone="warn"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}
+.dsh-upd-updot[data-tone="bad"]{background:var(--dsh-update-bad-border,#dc2626);opacity:1}
+.dsh-upd-bname{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsh-upd-bver{font-family:Consolas,Menlo,monospace;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums;min-width:0}
+.dsh-upd-bver-cur{opacity:.65}
+.dsh-upd-bver-arrow{opacity:.6}
+.dsh-upd-bver-new{color:var(--dsh-update-new-text,#dc2626);font-weight:700}
+.dsh-upd-bstat{font-size:12.5px;opacity:.9;min-width:0;overflow-wrap:anywhere}
+.dsh-upd-bfail{grid-column:1/-1;display:block;font-size:12.5px;color:var(--dsh-update-bad-border,#dc2626)}
+.dsh-upd-batch{--dsh-update-new-text:#dc2626}
+@media (prefers-color-scheme: dark){.dsh-upd-batch{--dsh-update-new-text:#f87171}}
+@media (forced-colors: active){.dsh-upd-bver-new{color:CanvasText}}
+.dsh-upd-blist{font-size:12.5px;margin-top:2px}
+.dsh-upd-batch-ledger{margin:8px 0 0;font-size:13px;opacity:.85}
+.dsh-upd-batch-more{margin-top:6px}
+.dsh-upd-batch-more button{font-size:12px}
+.dsh-upd-batch-more button[data-confirm="1"]{border-color:var(--dsh-update-bad-border,#dc2626);color:var(--dsh-update-bad-border,#dc2626)}
+.dsh-upd-batch-notice{margin-top:6px;font-size:12.5px;opacity:.85}
+.dsh-upd-bdetail-actions{margin:0 0 6px}
+.dsh-upd .dsh-upd-bdetail-actions button{font-size:12.5px}
+.dsh-upd-bdetail-notice{margin:0 0 6px;font-size:12.5px;opacity:.85}
+/* 详情复用单插件内核：不许嵌套滚动——中性化 overlay 的 max-height/overflow，自身也不给 overflow。 */
+.dsh-upd-bdetail{margin:2px 0 10px;overflow:visible}
+.dsh-upd .dsh-upd-bdetail .dsh-upd{max-width:none}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd{max-height:none;overflow:visible}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body{overflow:visible}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body .dsh-upd-chap-head{position:static}
+@media (prefers-color-scheme: dark){.dsh-upd-batch-title i{color:var(--dsh-update-focus,#93c5fd)}}
+@media (prefers-reduced-motion: reduce){.dsh-upd-batch *{transition:none !important;animation:none !important}}
+.dsh-upd-batch{overflow-anchor:none}
+.dsh-upd-btable{overflow-anchor:none}
+.dsh-upd-batch-macros{display:flex;flex-wrap:wrap;align-items:center;gap:0}
+.dsh-upd-batch-macros button:first-child,.dsh-upd-batch-macros button[data-primary="1"]{min-width:6em;text-align:center}
+.dsh-upd-batch-sum,.dsh-upd-batch-ledger{min-height:1.6em}
+.dsh-upd-brow{min-height:28px}</style>
+<div class="dsh-upd-overlay" data-mode="dialog"><div class="dsh-upd dsh-upd-batch" data-mode="dialog" data-seal="总账" data-seal-tone="red">
+<div class="dsh-upd-batch-head">
+<div class="dsh-upd-batch-title">更新档案 · <i>总账</i></div>
+<div class="dsh-upd-batch-macros">
+<button type="button" data-act="check" title="重新读取批量状态（只读）">检查更新</button>
+<button type="button" data-act="install" data-primary="1" title="把有新版的几家一次提交；同一会话同一幂等编号">全部更新</button>
+<button type="button" data-act="close" title="关闭窗口，批量更新不受影响">关闭</button>
+</div>
+</div>
+<div class="dsh-upd-batch-sum" role="status" aria-live="polite">1 家安装失败；照下面的失败提示逐家重试。</div>
+
+<div class="dsh-upd-btable">
+<div class="dsh-upd-brow-set" data-key="bill"><div class="dsh-upd-brow" data-phase="pending" data-key="bill"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="bill" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">饼干记账</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.41</span></span><span class="dsh-upd-bstat">有新版 0.3.41</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="bill">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="calorie"><div class="dsh-upd-brow" data-phase="pending" data-key="calorie"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="calorie" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">卡路里</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.40</span></span><span class="dsh-upd-bstat">已是最新，不用动</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="calorie">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="memo"><div class="dsh-upd-brow" data-phase="pending" data-key="memo"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="memo" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">备忘录</span><span class="dsh-upd-bver">1.0.0</span><span class="dsh-upd-bstat">还没查过</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="memo">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="schedule"><div class="dsh-upd-brow" data-phase="pending" data-key="schedule"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="schedule" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">作息管家</span><span class="dsh-upd-bver">1.0.0</span><span class="dsh-upd-bstat">这次没查到</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="schedule">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="home"><div class="dsh-upd-brow" data-phase="pending" data-key="home"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="home" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">居家管家</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.41</span></span><span class="dsh-upd-bstat">有新版 0.3.41</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="home">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="chef"><div class="dsh-upd-brow" data-phase="pending" data-key="chef"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="chef" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">私家大厨</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.40</span></span><span class="dsh-upd-bstat">已是最新，不用动</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="chef">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="life-pack"><div class="dsh-upd-brow" data-phase="pending" data-key="life-pack"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="life-pack" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">爱生活</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.42</span></span><span class="dsh-upd-bstat">有新版 0.3.42</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="life-pack">详情</button></span></div></div>
+</div>
+<div class="dsh-upd-batch-ledger">3 家可更新 · 1 家待查 · 1 家失败 · 2 家已最新</div>
+<div class="dsh-upd-batch-prefs"><button type="button" data-act="toggle-check-on-open" aria-pressed="true">[x] 打开面板时自动检查更新</button></div>
+</div></div></div>
+
+<h2>场景二：上一批没做完（对应问题二、三）</h2>
+<p class="note">控制区只在这种时候出现：“<strong>继续上次未完成的更新（还剩 4 家）</strong>”带计数、“<strong>丢弃这批未完成的更新（已完成的保留）</strong>”讲后果；常驻事实行“<strong>关掉面板不会中断：进度已写盘，回来可继续。</strong>”没做完的行带“上一批没做完”小标记，但“下一步”本身不变。无会话时这两个按钮根本不画，假成功已消失。</p>
+<div class="demo"><style>.dsh-upd{font:14px/1.75 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);
+background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;
+--dsh-update-ok-bg:#ecfdf5;--dsh-update-ok-border:#059669;--dsh-update-warn-bg:#fffbeb;--dsh-update-warn-border:#d97706;
+--dsh-update-bad-bg:#fef2f2;--dsh-update-bad-border:#dc2626;--dsh-update-busy-bg:#eff6ff;--dsh-update-busy-border:#2563eb}
+.dsh-upd *{box-sizing:border-box}
+.dsh-upd button{font:inherit;border:1px solid var(--dsh-update-border-strong,#d1d5db);border-radius:var(--dsh-update-radius-button,6px);background:var(--dsh-update-button-bg,#f9fafb);
+color:inherit;padding:7px 14px;cursor:pointer;margin:2px 6px 2px 0}
+.dsh-upd button:disabled{opacity:.45;cursor:not-allowed}
+.dsh-upd button:focus-visible{outline:2px solid var(--dsh-update-focus,#2563eb);outline-offset:1px}
+.dsh-upd button[data-primary="1"]{background:var(--dsh-update-primary,#2563eb);border-color:var(--dsh-update-primary,#2563eb);color:#fff}
+.dsh-upd-banner{border-left:4px solid var(--dsh-update-border,#9ca3af);padding:6px 10px;margin:0 0 8px;background:var(--dsh-update-bg-soft,#f3f4f6)}
+.dsh-upd-banner[data-kind="restart"]{border-color:var(--dsh-update-warn-border);background:var(--dsh-update-warn-bg)}
+.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-update-bad-border);background:var(--dsh-update-bad-bg)}
+.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}
+.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-update-busy-border);background:var(--dsh-update-busy-bg)}
+.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:4px 0;font-size:13px}
+.dsh-upd-changelog-wrap{margin:4px 0 0;font-size:13px}
+.dsh-upd-changelog-title{font-weight:700;margin:0 0 4px}
+.dsh-upd-changelog-version{margin:6px 0}
+.dsh-upd-changelog-catname{font-weight:600;margin:6px 0 2px}
+.dsh-upd-changelog ul{margin:2px 0 6px 20px;padding:0}
+.dsh-upd-changelog li{margin:2px 0}
+.dsh-upd-changelog-fold{margin:4px 0}
+.dsh-upd-changelog-fold>summary{cursor:pointer}
+.dsh-upd-changelog-count{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-yanked{border-left:4px solid var(--dsh-update-warn-border,#d97706);background:var(--dsh-update-warn-bg,#fffbeb);padding:6px 10px;margin:6px 0;font-size:13px}
+.dsh-upd-breaking-badge{display:inline-block;font-size:11px;font-weight:700;border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:baseline}
+.dsh-upd-changelog-security-more{margin:4px 0 6px}
+.dsh-upd-changelog-security-more>summary{cursor:pointer;font-size:12px;opacity:.8}
+.dsh-upd-changelog-more-note{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-neutral{color:inherit;opacity:.8}
+.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}
+.dsh-upd-overlay .dsh-upd{background:var(--dsh-update-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.dsh-upd-body{min-height:0}
+.dsh-upd-body *{min-width:0}
+.dsh-upd-overlay .dsh-upd-body{flex:1 1 auto;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsh-update-border,#e5e7eb) transparent}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar{width:8px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-update-border,#e5e7eb);border-radius:4px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-track{background:transparent}
+.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{position:sticky;top:0;z-index:1;background:var(--dsh-update-bg,#ffffff);padding-top:2px}
+.dsh-upd-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.dsh-upd-masthead{display:none}
+.dsh-upd-name{font-weight:700}
+.dsh-upd-meta{font-size:12.5px;opacity:.75}
+.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:11px;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}
+.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;font-size:12.5px}
+.dsh-upd-strip>div{flex:1 1 110px;min-width:0;padding:6px 10px;border-left:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-strip>div:first-child{border-left:0}
+.dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.14em;opacity:.7}
+.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px;word-break:break-all}
+.dsh-upd-chapter{margin-top:18px;padding-top:14px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-foot-note{margin-right:auto;font-size:12px;opacity:.7}
+.dsh-upd-footer button{margin:0}
+.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}
+.dsh-upd-chap-title{font-size:14px;margin:0}
+.dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}
+.dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}
+.dsh-upd-chap-note button{margin:0}
+.dsh-upd-qrow{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;padding:6px 0;min-width:0}
+.dsh-upd-qrow+.dsh-upd-qrow{border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-qdot{width:8px;height:8px;border-radius:50%;flex:none;align-self:center;background:currentColor;opacity:.5}
+.dsh-upd-qdot[data-tone="busy"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}
+.dsh-upd-qdot[data-tone="you"]{background:var(--dsh-update-primary,#2563eb);opacity:1}
+.dsh-upd-qk{flex:none;width:5.5em;font-size:12px;opacity:.7}
+.dsh-upd-qv{font-weight:600}
+.dsh-upd-qn{margin-left:auto;font-size:12px;opacity:.7}
+.dsh-upd-qseq{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-prog{height:8px;background:var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;margin:10px 0 4px}
+.dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary,#2563eb);transition:width .3s}
+.dsh-upd-progtxt{font-size:12.5px;opacity:.75}
+.dsh-upd-skipline{font-size:13px;margin-top:8px}
+.dsh-upd-skv{display:inline-block;min-width:64px;border-radius:3px;color:transparent !important;user-select:none;
+background:linear-gradient(90deg,var(--dsh-update-border,#e5e7eb) 25%,var(--dsh-update-bg-soft,#f3f4f6) 50%,var(--dsh-update-border,#e5e7eb) 75%);
+background-size:200% 100%;animation:dsh-upd-shimmer 1.2s linear infinite}
+@keyframes dsh-upd-shimmer{to{background-position:-200% 0}}
+.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:12px}
+.dsh-upd-err{font-size:13px;margin:0 0 6px}
+.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}
+.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-update-focus,#2563eb)}
+.dsh-upd button[data-primary="1"]:hover:not(:disabled){filter:brightness(.93)}
+.dsh-upd button:active:not(:disabled){transform:translateY(1px)}
+.dsh-upd button[aria-busy="true"]{cursor:wait;animation:dsh-upd-pulse 1s ease-in-out infinite}
+@keyframes dsh-upd-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.dsh-upd-banner{animation:dsh-upd-fadein .22s ease}
+@keyframes dsh-upd-fadein{from{opacity:.35;transform:translateY(2px)}}
+.dsh-upd-changelog-foldbox{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .22s ease,opacity .18s ease}
+.dsh-upd-changelog-foldbox-inner{min-height:0;overflow:hidden}
+.dsh-upd-changelog-foldbox[data-open="0"]{grid-template-rows:0fr;opacity:0}
+.dsh-upd button[aria-busy="true"]::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;vertical-align:-1px;
+border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:dsh-upd-spin .8s linear infinite}
+@keyframes dsh-upd-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}.dsh-upd-banner{animation:none}.dsh-upd-changelog-foldbox{transition:none}}
+@media (forced-colors: active){.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{background:Canvas}}
+.dsh-upd{overflow-anchor:none}
+.dsh-upd-body{overflow-anchor:none}
+.dsh-upd-actions{display:flex;flex-wrap:wrap;align-items:center;min-height:34px}
+.dsh-upd-actions button:first-child{min-width:8em;text-align:center}
+.dsh-upd-actions button[data-primary="1"]{min-width:7em;text-align:center}
+.dsh-upd-actions button:first-child:not([aria-busy="true"])::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;visibility:hidden}
+.dsh-upd-banner{min-height:1.2em}
+.dsh-upd-strip{min-height:48px}
+.dsh-upd-actions{align-content:flex-start}
+.dsh-upd-actions button{white-space:nowrap}
+.dsh-upd-actions button:first-child{min-width:10em}
+.dsh-upd-actions button[data-primary="1"]{min-width:9em}
+.dsh-upd-banner{min-height:3.4em;display:flex;flex-direction:column;justify-content:center}
+.dsh-upd-banner{animation:none}
+.dsh-upd-copy{min-height:1.75em}
+.dsh-upd-copy--empty{visibility:hidden}
+@media (prefers-color-scheme: dark){.dsh-upd{--dsh-update-text:#e5e7eb;--dsh-update-bg:#111827;--dsh-update-border:#374151;
+--dsh-update-button-bg:#1f2937;--dsh-update-bg-soft:#1f2937;--dsh-update-primary:#3b82f6;--dsh-update-focus:#93c5fd;
+--dsh-update-ok-bg:rgba(16,185,129,.14);--dsh-update-ok-border:#34d399;
+--dsh-update-warn-bg:rgba(245,158,11,.16);--dsh-update-warn-border:#fbbf24;
+--dsh-update-bad-bg:rgba(239,68,68,.16);--dsh-update-bad-border:#f87171;
+--dsh-update-busy-bg:rgba(59,130,246,.16);--dsh-update-busy-border:#60a5fa}}
+/* 批量面板（#25）：类名沿用 dsh-upd-* 前缀；默认（最小）主题，Archive 皮肤见 UPDATE_BATCH_PANEL_ARCHIVE_CSS。 */
+.dsh-upd-batch-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.dsh-upd-batch-title{font-weight:700;font-size:15px;letter-spacing:.06em}
+.dsh-upd-batch-title i{font-style:normal;color:var(--dsh-update-primary,#2563eb)}
+.dsh-upd-batch-macros{flex:none}
+.dsh-upd-batch-sum{margin:4px 0 8px;font-size:13.5px}
+.dsh-upd-btable{margin-top:2px}
+.dsh-upd-brow-set{border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-brow-set:first-child{border-top:0}
+.dsh-upd-brow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0}
+.dsh-upd .dsh-upd-brow-main{display:grid;grid-template-columns:auto minmax(5em,max-content) minmax(18ch,max-content) minmax(0,1fr);align-items:baseline;column-gap:8px;row-gap:2px;flex:1 1 260px;min-width:0;
+text-align:left;cursor:pointer;color:inherit;font:inherit;background:transparent;border:0;padding:2px 0;margin:0}
+.dsh-upd .dsh-upd-brow-main:hover{color:var(--dsh-update-primary,#2563eb)}
+.dsh-upd-brow-actions{flex:none;margin-left:auto}
+.dsh-upd-brow-actions button{font-size:12.5px}
+.dsh-upd-updot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--dsh-update-border,#9ca3af);opacity:.55}
+.dsh-upd-updot[data-tone="todo"]{background:var(--dsh-update-ok-border,#059669);opacity:1}
+.dsh-upd-updot[data-tone="ok"]{background:var(--dsh-update-ok-border,#059669);opacity:1}
+.dsh-upd-updot[data-tone="busy"]{background:var(--dsh-update-busy-border,#2563eb);opacity:1}
+.dsh-upd-updot[data-tone="warn"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}
+.dsh-upd-updot[data-tone="bad"]{background:var(--dsh-update-bad-border,#dc2626);opacity:1}
+.dsh-upd-bname{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsh-upd-bver{font-family:Consolas,Menlo,monospace;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums;min-width:0}
+.dsh-upd-bver-cur{opacity:.65}
+.dsh-upd-bver-arrow{opacity:.6}
+.dsh-upd-bver-new{color:var(--dsh-update-new-text,#dc2626);font-weight:700}
+.dsh-upd-bstat{font-size:12.5px;opacity:.9;min-width:0;overflow-wrap:anywhere}
+.dsh-upd-bfail{grid-column:1/-1;display:block;font-size:12.5px;color:var(--dsh-update-bad-border,#dc2626)}
+.dsh-upd-batch{--dsh-update-new-text:#dc2626}
+@media (prefers-color-scheme: dark){.dsh-upd-batch{--dsh-update-new-text:#f87171}}
+@media (forced-colors: active){.dsh-upd-bver-new{color:CanvasText}}
+.dsh-upd-blist{font-size:12.5px;margin-top:2px}
+.dsh-upd-batch-ledger{margin:8px 0 0;font-size:13px;opacity:.85}
+.dsh-upd-batch-more{margin-top:6px}
+.dsh-upd-batch-more button{font-size:12px}
+.dsh-upd-batch-more button[data-confirm="1"]{border-color:var(--dsh-update-bad-border,#dc2626);color:var(--dsh-update-bad-border,#dc2626)}
+.dsh-upd-batch-notice{margin-top:6px;font-size:12.5px;opacity:.85}
+.dsh-upd-bdetail-actions{margin:0 0 6px}
+.dsh-upd .dsh-upd-bdetail-actions button{font-size:12.5px}
+.dsh-upd-bdetail-notice{margin:0 0 6px;font-size:12.5px;opacity:.85}
+/* 详情复用单插件内核：不许嵌套滚动——中性化 overlay 的 max-height/overflow，自身也不给 overflow。 */
+.dsh-upd-bdetail{margin:2px 0 10px;overflow:visible}
+.dsh-upd .dsh-upd-bdetail .dsh-upd{max-width:none}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd{max-height:none;overflow:visible}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body{overflow:visible}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body .dsh-upd-chap-head{position:static}
+@media (prefers-color-scheme: dark){.dsh-upd-batch-title i{color:var(--dsh-update-focus,#93c5fd)}}
+@media (prefers-reduced-motion: reduce){.dsh-upd-batch *{transition:none !important;animation:none !important}}
+.dsh-upd-batch{overflow-anchor:none}
+.dsh-upd-btable{overflow-anchor:none}
+.dsh-upd-batch-macros{display:flex;flex-wrap:wrap;align-items:center;gap:0}
+.dsh-upd-batch-macros button:first-child,.dsh-upd-batch-macros button[data-primary="1"]{min-width:6em;text-align:center}
+.dsh-upd-batch-sum,.dsh-upd-batch-ledger{min-height:1.6em}
+.dsh-upd-brow{min-height:28px}</style>
+<div class="dsh-upd-overlay" data-mode="dialog"><div class="dsh-upd dsh-upd-batch" data-mode="dialog" data-seal="总账" data-seal-tone="red">
+<div class="dsh-upd-batch-head">
+<div class="dsh-upd-batch-title">更新档案 · <i>总账</i></div>
+<div class="dsh-upd-batch-macros">
+<button type="button" data-act="check" title="重新读取批量状态（只读）">检查更新</button>
+<button type="button" data-act="install" data-primary="1" title="把有新版的几家一次提交；同一会话同一幂等编号">全部更新</button>
+<button type="button" data-act="close" title="关闭窗口，批量更新不受影响">关闭</button>
+</div>
+</div>
+<div class="dsh-upd-batch-sum" role="status" aria-live="polite">1 家安装失败；照下面的失败提示逐家重试。</div>
+<div class="dsh-upd-banner" data-kind="failed" data-mini="阻" role="status"><div><strong>1 家安装失败。</strong></div><div>逐家点行内「重试」再来一次；一直失败就把复制诊断交给插件作者。</div><div class="dsh-upd-blist"><div>居家管家：<code>install-failed</code> 装不上（详见诊断摘要）</div></div></div>
+<div class="dsh-upd-btable">
+<div class="dsh-upd-brow-set" data-key="bill"><div class="dsh-upd-brow" data-phase="done" data-key="bill"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="bill" aria-expanded="false"><span class="dsh-upd-updot" data-tone="ok"></span><span class="dsh-upd-bname">饼干记账</span><span class="dsh-upd-bver">1.0.0</span><span class="dsh-upd-bstat">安装好了，不用动</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="bill">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="calorie"><div class="dsh-upd-brow" data-phase="done" data-key="calorie"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="calorie" aria-expanded="false"><span class="dsh-upd-updot" data-tone="ok"></span><span class="dsh-upd-bname">卡路里</span><span class="dsh-upd-bver">1.0.0</span><span class="dsh-upd-bstat">安装好了，不用动</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="calorie">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="memo"><div class="dsh-upd-brow" data-phase="pending" data-key="memo"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="memo" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">备忘录</span><span class="dsh-upd-bver">1.0.0</span><span class="dsh-upd-bstat">等它，轮到就自动查新版（上一批没做完）</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="memo">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="schedule"><div class="dsh-upd-brow" data-phase="ready" data-key="schedule"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="schedule" aria-expanded="false"><span class="dsh-upd-updot" data-tone="todo"></span><span class="dsh-upd-bname">作息管家</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">1.2.0</span></span><span class="dsh-upd-bstat">点「安装这家」安装 1.2.0（上一批没做完）</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="row-install" data-key="schedule" data-primary="1">安装这家</button><button type="button" data-act="toggle-details" data-key="schedule">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="home"><div class="dsh-upd-brow" data-phase="failed" data-key="home"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="home" aria-expanded="false"><span class="dsh-upd-updot" data-tone="bad"></span><span class="dsh-upd-bname">居家管家</span><span class="dsh-upd-bver">1.0.0</span><span class="dsh-upd-bstat">安装没成功，点「重试」再来一次</span><span class="dsh-upd-bfail">失败 <code>install-failed</code>：装不上（详见诊断摘要）</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="row-install" data-key="home">重试</button><button type="button" data-act="toggle-details" data-key="home">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="chef"><div class="dsh-upd-brow" data-phase="current" data-key="chef"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="chef" aria-expanded="false"><span class="dsh-upd-updot" data-tone="ok"></span><span class="dsh-upd-bname">私家大厨</span><span class="dsh-upd-bver">1.0.0</span><span class="dsh-upd-bstat">已是最新，不用动</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="chef">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="life-pack"><div class="dsh-upd-brow" data-phase="pending" data-key="life-pack"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="life-pack" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">爱生活</span><span class="dsh-upd-bver">1.0.0</span><span class="dsh-upd-bstat">等它，轮到就自动查新版（上一批没做完）</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="life-pack">详情</button></span></div></div>
+</div>
+<div class="dsh-upd-batch-ledger">2 家可更新 · 1 家待查 · 1 家失败 · 3 家已最新</div>
+<div class="dsh-upd-batch-more"><button type="button" data-act="resume">继续上次未完成的更新（还剩 3 家）</button><button type="button" data-act="cancel" title="丢弃这批未完成的更新（已完成的保留）">丢弃这批未完成的更新（已完成的保留）</button></div>
+<div class="dsh-upd-batch-fact" role="note">关掉面板不会中断：进度已写盘，回来可继续。</div>
+<div class="dsh-upd-batch-prefs"><button type="button" data-act="toggle-check-on-open" aria-pressed="true">[x] 打开面板时自动检查更新</button></div>
+</div></div></div>
+
+<h2>场景三：全部收尾（控制区消失）</h2>
+<p class="note">没有未终态行 → 继续/丢弃都不画，面板回到干净的总账。</p>
+<div class="demo"><style>.dsh-upd{font:14px/1.75 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);
+background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;
+--dsh-update-ok-bg:#ecfdf5;--dsh-update-ok-border:#059669;--dsh-update-warn-bg:#fffbeb;--dsh-update-warn-border:#d97706;
+--dsh-update-bad-bg:#fef2f2;--dsh-update-bad-border:#dc2626;--dsh-update-busy-bg:#eff6ff;--dsh-update-busy-border:#2563eb}
+.dsh-upd *{box-sizing:border-box}
+.dsh-upd button{font:inherit;border:1px solid var(--dsh-update-border-strong,#d1d5db);border-radius:var(--dsh-update-radius-button,6px);background:var(--dsh-update-button-bg,#f9fafb);
+color:inherit;padding:7px 14px;cursor:pointer;margin:2px 6px 2px 0}
+.dsh-upd button:disabled{opacity:.45;cursor:not-allowed}
+.dsh-upd button:focus-visible{outline:2px solid var(--dsh-update-focus,#2563eb);outline-offset:1px}
+.dsh-upd button[data-primary="1"]{background:var(--dsh-update-primary,#2563eb);border-color:var(--dsh-update-primary,#2563eb);color:#fff}
+.dsh-upd-banner{border-left:4px solid var(--dsh-update-border,#9ca3af);padding:6px 10px;margin:0 0 8px;background:var(--dsh-update-bg-soft,#f3f4f6)}
+.dsh-upd-banner[data-kind="restart"]{border-color:var(--dsh-update-warn-border);background:var(--dsh-update-warn-bg)}
+.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-update-bad-border);background:var(--dsh-update-bad-bg)}
+.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}
+.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-update-busy-border);background:var(--dsh-update-busy-bg)}
+.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:4px 0;font-size:13px}
+.dsh-upd-changelog-wrap{margin:4px 0 0;font-size:13px}
+.dsh-upd-changelog-title{font-weight:700;margin:0 0 4px}
+.dsh-upd-changelog-version{margin:6px 0}
+.dsh-upd-changelog-catname{font-weight:600;margin:6px 0 2px}
+.dsh-upd-changelog ul{margin:2px 0 6px 20px;padding:0}
+.dsh-upd-changelog li{margin:2px 0}
+.dsh-upd-changelog-fold{margin:4px 0}
+.dsh-upd-changelog-fold>summary{cursor:pointer}
+.dsh-upd-changelog-count{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-yanked{border-left:4px solid var(--dsh-update-warn-border,#d97706);background:var(--dsh-update-warn-bg,#fffbeb);padding:6px 10px;margin:6px 0;font-size:13px}
+.dsh-upd-breaking-badge{display:inline-block;font-size:11px;font-weight:700;border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:baseline}
+.dsh-upd-changelog-security-more{margin:4px 0 6px}
+.dsh-upd-changelog-security-more>summary{cursor:pointer;font-size:12px;opacity:.8}
+.dsh-upd-changelog-more-note{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-neutral{color:inherit;opacity:.8}
+.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}
+.dsh-upd-overlay .dsh-upd{background:var(--dsh-update-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.dsh-upd-body{min-height:0}
+.dsh-upd-body *{min-width:0}
+.dsh-upd-overlay .dsh-upd-body{flex:1 1 auto;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsh-update-border,#e5e7eb) transparent}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar{width:8px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-update-border,#e5e7eb);border-radius:4px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-track{background:transparent}
+.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{position:sticky;top:0;z-index:1;background:var(--dsh-update-bg,#ffffff);padding-top:2px}
+.dsh-upd-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.dsh-upd-masthead{display:none}
+.dsh-upd-name{font-weight:700}
+.dsh-upd-meta{font-size:12.5px;opacity:.75}
+.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:11px;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}
+.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;font-size:12.5px}
+.dsh-upd-strip>div{flex:1 1 110px;min-width:0;padding:6px 10px;border-left:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-strip>div:first-child{border-left:0}
+.dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.14em;opacity:.7}
+.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px;word-break:break-all}
+.dsh-upd-chapter{margin-top:18px;padding-top:14px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-foot-note{margin-right:auto;font-size:12px;opacity:.7}
+.dsh-upd-footer button{margin:0}
+.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}
+.dsh-upd-chap-title{font-size:14px;margin:0}
+.dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}
+.dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}
+.dsh-upd-chap-note button{margin:0}
+.dsh-upd-qrow{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;padding:6px 0;min-width:0}
+.dsh-upd-qrow+.dsh-upd-qrow{border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-qdot{width:8px;height:8px;border-radius:50%;flex:none;align-self:center;background:currentColor;opacity:.5}
+.dsh-upd-qdot[data-tone="busy"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}
+.dsh-upd-qdot[data-tone="you"]{background:var(--dsh-update-primary,#2563eb);opacity:1}
+.dsh-upd-qk{flex:none;width:5.5em;font-size:12px;opacity:.7}
+.dsh-upd-qv{font-weight:600}
+.dsh-upd-qn{margin-left:auto;font-size:12px;opacity:.7}
+.dsh-upd-qseq{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-prog{height:8px;background:var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;margin:10px 0 4px}
+.dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary,#2563eb);transition:width .3s}
+.dsh-upd-progtxt{font-size:12.5px;opacity:.75}
+.dsh-upd-skipline{font-size:13px;margin-top:8px}
+.dsh-upd-skv{display:inline-block;min-width:64px;border-radius:3px;color:transparent !important;user-select:none;
+background:linear-gradient(90deg,var(--dsh-update-border,#e5e7eb) 25%,var(--dsh-update-bg-soft,#f3f4f6) 50%,var(--dsh-update-border,#e5e7eb) 75%);
+background-size:200% 100%;animation:dsh-upd-shimmer 1.2s linear infinite}
+@keyframes dsh-upd-shimmer{to{background-position:-200% 0}}
+.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:12px}
+.dsh-upd-err{font-size:13px;margin:0 0 6px}
+.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}
+.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-update-focus,#2563eb)}
+.dsh-upd button[data-primary="1"]:hover:not(:disabled){filter:brightness(.93)}
+.dsh-upd button:active:not(:disabled){transform:translateY(1px)}
+.dsh-upd button[aria-busy="true"]{cursor:wait;animation:dsh-upd-pulse 1s ease-in-out infinite}
+@keyframes dsh-upd-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.dsh-upd-banner{animation:dsh-upd-fadein .22s ease}
+@keyframes dsh-upd-fadein{from{opacity:.35;transform:translateY(2px)}}
+.dsh-upd-changelog-foldbox{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .22s ease,opacity .18s ease}
+.dsh-upd-changelog-foldbox-inner{min-height:0;overflow:hidden}
+.dsh-upd-changelog-foldbox[data-open="0"]{grid-template-rows:0fr;opacity:0}
+.dsh-upd button[aria-busy="true"]::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;vertical-align:-1px;
+border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:dsh-upd-spin .8s linear infinite}
+@keyframes dsh-upd-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}.dsh-upd-banner{animation:none}.dsh-upd-changelog-foldbox{transition:none}}
+@media (forced-colors: active){.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{background:Canvas}}
+.dsh-upd{overflow-anchor:none}
+.dsh-upd-body{overflow-anchor:none}
+.dsh-upd-actions{display:flex;flex-wrap:wrap;align-items:center;min-height:34px}
+.dsh-upd-actions button:first-child{min-width:8em;text-align:center}
+.dsh-upd-actions button[data-primary="1"]{min-width:7em;text-align:center}
+.dsh-upd-actions button:first-child:not([aria-busy="true"])::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;visibility:hidden}
+.dsh-upd-banner{min-height:1.2em}
+.dsh-upd-strip{min-height:48px}
+.dsh-upd-actions{align-content:flex-start}
+.dsh-upd-actions button{white-space:nowrap}
+.dsh-upd-actions button:first-child{min-width:10em}
+.dsh-upd-actions button[data-primary="1"]{min-width:9em}
+.dsh-upd-banner{min-height:3.4em;display:flex;flex-direction:column;justify-content:center}
+.dsh-upd-banner{animation:none}
+.dsh-upd-copy{min-height:1.75em}
+.dsh-upd-copy--empty{visibility:hidden}
+@media (prefers-color-scheme: dark){.dsh-upd{--dsh-update-text:#e5e7eb;--dsh-update-bg:#111827;--dsh-update-border:#374151;
+--dsh-update-button-bg:#1f2937;--dsh-update-bg-soft:#1f2937;--dsh-update-primary:#3b82f6;--dsh-update-focus:#93c5fd;
+--dsh-update-ok-bg:rgba(16,185,129,.14);--dsh-update-ok-border:#34d399;
+--dsh-update-warn-bg:rgba(245,158,11,.16);--dsh-update-warn-border:#fbbf24;
+--dsh-update-bad-bg:rgba(239,68,68,.16);--dsh-update-bad-border:#f87171;
+--dsh-update-busy-bg:rgba(59,130,246,.16);--dsh-update-busy-border:#60a5fa}}
+/* 批量面板（#25）：类名沿用 dsh-upd-* 前缀；默认（最小）主题，Archive 皮肤见 UPDATE_BATCH_PANEL_ARCHIVE_CSS。 */
+.dsh-upd-batch-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.dsh-upd-batch-title{font-weight:700;font-size:15px;letter-spacing:.06em}
+.dsh-upd-batch-title i{font-style:normal;color:var(--dsh-update-primary,#2563eb)}
+.dsh-upd-batch-macros{flex:none}
+.dsh-upd-batch-sum{margin:4px 0 8px;font-size:13.5px}
+.dsh-upd-btable{margin-top:2px}
+.dsh-upd-brow-set{border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-brow-set:first-child{border-top:0}
+.dsh-upd-brow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0}
+.dsh-upd .dsh-upd-brow-main{display:grid;grid-template-columns:auto minmax(5em,max-content) minmax(18ch,max-content) minmax(0,1fr);align-items:baseline;column-gap:8px;row-gap:2px;flex:1 1 260px;min-width:0;
+text-align:left;cursor:pointer;color:inherit;font:inherit;background:transparent;border:0;padding:2px 0;margin:0}
+.dsh-upd .dsh-upd-brow-main:hover{color:var(--dsh-update-primary,#2563eb)}
+.dsh-upd-brow-actions{flex:none;margin-left:auto}
+.dsh-upd-brow-actions button{font-size:12.5px}
+.dsh-upd-updot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--dsh-update-border,#9ca3af);opacity:.55}
+.dsh-upd-updot[data-tone="todo"]{background:var(--dsh-update-ok-border,#059669);opacity:1}
+.dsh-upd-updot[data-tone="ok"]{background:var(--dsh-update-ok-border,#059669);opacity:1}
+.dsh-upd-updot[data-tone="busy"]{background:var(--dsh-update-busy-border,#2563eb);opacity:1}
+.dsh-upd-updot[data-tone="warn"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}
+.dsh-upd-updot[data-tone="bad"]{background:var(--dsh-update-bad-border,#dc2626);opacity:1}
+.dsh-upd-bname{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsh-upd-bver{font-family:Consolas,Menlo,monospace;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums;min-width:0}
+.dsh-upd-bver-cur{opacity:.65}
+.dsh-upd-bver-arrow{opacity:.6}
+.dsh-upd-bver-new{color:var(--dsh-update-new-text,#dc2626);font-weight:700}
+.dsh-upd-bstat{font-size:12.5px;opacity:.9;min-width:0;overflow-wrap:anywhere}
+.dsh-upd-bfail{grid-column:1/-1;display:block;font-size:12.5px;color:var(--dsh-update-bad-border,#dc2626)}
+.dsh-upd-batch{--dsh-update-new-text:#dc2626}
+@media (prefers-color-scheme: dark){.dsh-upd-batch{--dsh-update-new-text:#f87171}}
+@media (forced-colors: active){.dsh-upd-bver-new{color:CanvasText}}
+.dsh-upd-blist{font-size:12.5px;margin-top:2px}
+.dsh-upd-batch-ledger{margin:8px 0 0;font-size:13px;opacity:.85}
+.dsh-upd-batch-more{margin-top:6px}
+.dsh-upd-batch-more button{font-size:12px}
+.dsh-upd-batch-more button[data-confirm="1"]{border-color:var(--dsh-update-bad-border,#dc2626);color:var(--dsh-update-bad-border,#dc2626)}
+.dsh-upd-batch-notice{margin-top:6px;font-size:12.5px;opacity:.85}
+.dsh-upd-bdetail-actions{margin:0 0 6px}
+.dsh-upd .dsh-upd-bdetail-actions button{font-size:12.5px}
+.dsh-upd-bdetail-notice{margin:0 0 6px;font-size:12.5px;opacity:.85}
+/* 详情复用单插件内核：不许嵌套滚动——中性化 overlay 的 max-height/overflow，自身也不给 overflow。 */
+.dsh-upd-bdetail{margin:2px 0 10px;overflow:visible}
+.dsh-upd .dsh-upd-bdetail .dsh-upd{max-width:none}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd{max-height:none;overflow:visible}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body{overflow:visible}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body .dsh-upd-chap-head{position:static}
+@media (prefers-color-scheme: dark){.dsh-upd-batch-title i{color:var(--dsh-update-focus,#93c5fd)}}
+@media (prefers-reduced-motion: reduce){.dsh-upd-batch *{transition:none !important;animation:none !important}}
+.dsh-upd-batch{overflow-anchor:none}
+.dsh-upd-btable{overflow-anchor:none}
+.dsh-upd-batch-macros{display:flex;flex-wrap:wrap;align-items:center;gap:0}
+.dsh-upd-batch-macros button:first-child,.dsh-upd-batch-macros button[data-primary="1"]{min-width:6em;text-align:center}
+.dsh-upd-batch-sum,.dsh-upd-batch-ledger{min-height:1.6em}
+.dsh-upd-brow{min-height:28px}</style>
+<div class="dsh-upd dsh-upd-batch" data-mode="embedded" data-seal="总账" data-seal-tone="ink">
+<div class="dsh-upd-batch-head">
+<div class="dsh-upd-batch-title">更新档案 · <i>总账</i></div>
+<div class="dsh-upd-batch-macros">
+<button type="button" data-act="check" title="重新读取批量状态（只读）">检查更新</button>
+<button type="button" data-act="install" data-primary="1" title="把有新版的几家一次提交；同一会话同一幂等编号">全部更新</button>
+</div>
+</div>
+<div class="dsh-upd-batch-sum" role="status" aria-live="polite">全部已最新，没有要做的。</div>
+
+<div class="dsh-upd-btable">
+<div class="dsh-upd-brow-set" data-key="a"><div class="dsh-upd-brow" data-phase="done" data-key="a"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="a" aria-expanded="false"><span class="dsh-upd-updot" data-tone="ok"></span><span class="dsh-upd-bname">甲插件</span><span class="dsh-upd-bver">1.0.0</span><span class="dsh-upd-bstat">安装好了，不用动</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="a">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="b"><div class="dsh-upd-brow" data-phase="current" data-key="b"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="b" aria-expanded="false"><span class="dsh-upd-updot" data-tone="ok"></span><span class="dsh-upd-bname">乙插件</span><span class="dsh-upd-bver">1.0.0</span><span class="dsh-upd-bstat">已是最新，不用动</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="b">详情</button></span></div></div>
+</div>
+<div class="dsh-upd-batch-ledger">2 家已最新</div>
+</div></div>
+
+<h2>场景四：偏好可关（对应问题一的设置）</h2>
+<p class="note">底部勾选落盘（<code>prefs.json</code>，用户偏好 &gt; 集成方选项 &gt; 缺省）。关掉就是手动挡，行为回今天，但文案已修对。</p>
+<div class="demo"><style>.dsh-upd{font:14px/1.75 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);
+background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;
+--dsh-update-ok-bg:#ecfdf5;--dsh-update-ok-border:#059669;--dsh-update-warn-bg:#fffbeb;--dsh-update-warn-border:#d97706;
+--dsh-update-bad-bg:#fef2f2;--dsh-update-bad-border:#dc2626;--dsh-update-busy-bg:#eff6ff;--dsh-update-busy-border:#2563eb}
+.dsh-upd *{box-sizing:border-box}
+.dsh-upd button{font:inherit;border:1px solid var(--dsh-update-border-strong,#d1d5db);border-radius:var(--dsh-update-radius-button,6px);background:var(--dsh-update-button-bg,#f9fafb);
+color:inherit;padding:7px 14px;cursor:pointer;margin:2px 6px 2px 0}
+.dsh-upd button:disabled{opacity:.45;cursor:not-allowed}
+.dsh-upd button:focus-visible{outline:2px solid var(--dsh-update-focus,#2563eb);outline-offset:1px}
+.dsh-upd button[data-primary="1"]{background:var(--dsh-update-primary,#2563eb);border-color:var(--dsh-update-primary,#2563eb);color:#fff}
+.dsh-upd-banner{border-left:4px solid var(--dsh-update-border,#9ca3af);padding:6px 10px;margin:0 0 8px;background:var(--dsh-update-bg-soft,#f3f4f6)}
+.dsh-upd-banner[data-kind="restart"]{border-color:var(--dsh-update-warn-border);background:var(--dsh-update-warn-bg)}
+.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-update-bad-border);background:var(--dsh-update-bad-bg)}
+.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}
+.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-update-busy-border);background:var(--dsh-update-busy-bg)}
+.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:4px 0;font-size:13px}
+.dsh-upd-changelog-wrap{margin:4px 0 0;font-size:13px}
+.dsh-upd-changelog-title{font-weight:700;margin:0 0 4px}
+.dsh-upd-changelog-version{margin:6px 0}
+.dsh-upd-changelog-catname{font-weight:600;margin:6px 0 2px}
+.dsh-upd-changelog ul{margin:2px 0 6px 20px;padding:0}
+.dsh-upd-changelog li{margin:2px 0}
+.dsh-upd-changelog-fold{margin:4px 0}
+.dsh-upd-changelog-fold>summary{cursor:pointer}
+.dsh-upd-changelog-count{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-yanked{border-left:4px solid var(--dsh-update-warn-border,#d97706);background:var(--dsh-update-warn-bg,#fffbeb);padding:6px 10px;margin:6px 0;font-size:13px}
+.dsh-upd-breaking-badge{display:inline-block;font-size:11px;font-weight:700;border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:baseline}
+.dsh-upd-changelog-security-more{margin:4px 0 6px}
+.dsh-upd-changelog-security-more>summary{cursor:pointer;font-size:12px;opacity:.8}
+.dsh-upd-changelog-more-note{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-neutral{color:inherit;opacity:.8}
+.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}
+.dsh-upd-overlay .dsh-upd{background:var(--dsh-update-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.dsh-upd-body{min-height:0}
+.dsh-upd-body *{min-width:0}
+.dsh-upd-overlay .dsh-upd-body{flex:1 1 auto;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsh-update-border,#e5e7eb) transparent}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar{width:8px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-update-border,#e5e7eb);border-radius:4px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-track{background:transparent}
+.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{position:sticky;top:0;z-index:1;background:var(--dsh-update-bg,#ffffff);padding-top:2px}
+.dsh-upd-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.dsh-upd-masthead{display:none}
+.dsh-upd-name{font-weight:700}
+.dsh-upd-meta{font-size:12.5px;opacity:.75}
+.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:11px;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}
+.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;font-size:12.5px}
+.dsh-upd-strip>div{flex:1 1 110px;min-width:0;padding:6px 10px;border-left:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-strip>div:first-child{border-left:0}
+.dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.14em;opacity:.7}
+.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px;word-break:break-all}
+.dsh-upd-chapter{margin-top:18px;padding-top:14px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-foot-note{margin-right:auto;font-size:12px;opacity:.7}
+.dsh-upd-footer button{margin:0}
+.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}
+.dsh-upd-chap-title{font-size:14px;margin:0}
+.dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}
+.dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}
+.dsh-upd-chap-note button{margin:0}
+.dsh-upd-qrow{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;padding:6px 0;min-width:0}
+.dsh-upd-qrow+.dsh-upd-qrow{border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-qdot{width:8px;height:8px;border-radius:50%;flex:none;align-self:center;background:currentColor;opacity:.5}
+.dsh-upd-qdot[data-tone="busy"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}
+.dsh-upd-qdot[data-tone="you"]{background:var(--dsh-update-primary,#2563eb);opacity:1}
+.dsh-upd-qk{flex:none;width:5.5em;font-size:12px;opacity:.7}
+.dsh-upd-qv{font-weight:600}
+.dsh-upd-qn{margin-left:auto;font-size:12px;opacity:.7}
+.dsh-upd-qseq{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-prog{height:8px;background:var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;margin:10px 0 4px}
+.dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary,#2563eb);transition:width .3s}
+.dsh-upd-progtxt{font-size:12.5px;opacity:.75}
+.dsh-upd-skipline{font-size:13px;margin-top:8px}
+.dsh-upd-skv{display:inline-block;min-width:64px;border-radius:3px;color:transparent !important;user-select:none;
+background:linear-gradient(90deg,var(--dsh-update-border,#e5e7eb) 25%,var(--dsh-update-bg-soft,#f3f4f6) 50%,var(--dsh-update-border,#e5e7eb) 75%);
+background-size:200% 100%;animation:dsh-upd-shimmer 1.2s linear infinite}
+@keyframes dsh-upd-shimmer{to{background-position:-200% 0}}
+.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:12px}
+.dsh-upd-err{font-size:13px;margin:0 0 6px}
+.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}
+.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-update-focus,#2563eb)}
+.dsh-upd button[data-primary="1"]:hover:not(:disabled){filter:brightness(.93)}
+.dsh-upd button:active:not(:disabled){transform:translateY(1px)}
+.dsh-upd button[aria-busy="true"]{cursor:wait;animation:dsh-upd-pulse 1s ease-in-out infinite}
+@keyframes dsh-upd-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.dsh-upd-banner{animation:dsh-upd-fadein .22s ease}
+@keyframes dsh-upd-fadein{from{opacity:.35;transform:translateY(2px)}}
+.dsh-upd-changelog-foldbox{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .22s ease,opacity .18s ease}
+.dsh-upd-changelog-foldbox-inner{min-height:0;overflow:hidden}
+.dsh-upd-changelog-foldbox[data-open="0"]{grid-template-rows:0fr;opacity:0}
+.dsh-upd button[aria-busy="true"]::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;vertical-align:-1px;
+border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:dsh-upd-spin .8s linear infinite}
+@keyframes dsh-upd-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}.dsh-upd-banner{animation:none}.dsh-upd-changelog-foldbox{transition:none}}
+@media (forced-colors: active){.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{background:Canvas}}
+.dsh-upd{overflow-anchor:none}
+.dsh-upd-body{overflow-anchor:none}
+.dsh-upd-actions{display:flex;flex-wrap:wrap;align-items:center;min-height:34px}
+.dsh-upd-actions button:first-child{min-width:8em;text-align:center}
+.dsh-upd-actions button[data-primary="1"]{min-width:7em;text-align:center}
+.dsh-upd-actions button:first-child:not([aria-busy="true"])::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;visibility:hidden}
+.dsh-upd-banner{min-height:1.2em}
+.dsh-upd-strip{min-height:48px}
+.dsh-upd-actions{align-content:flex-start}
+.dsh-upd-actions button{white-space:nowrap}
+.dsh-upd-actions button:first-child{min-width:10em}
+.dsh-upd-actions button[data-primary="1"]{min-width:9em}
+.dsh-upd-banner{min-height:3.4em;display:flex;flex-direction:column;justify-content:center}
+.dsh-upd-banner{animation:none}
+.dsh-upd-copy{min-height:1.75em}
+.dsh-upd-copy--empty{visibility:hidden}
+@media (prefers-color-scheme: dark){.dsh-upd{--dsh-update-text:#e5e7eb;--dsh-update-bg:#111827;--dsh-update-border:#374151;
+--dsh-update-button-bg:#1f2937;--dsh-update-bg-soft:#1f2937;--dsh-update-primary:#3b82f6;--dsh-update-focus:#93c5fd;
+--dsh-update-ok-bg:rgba(16,185,129,.14);--dsh-update-ok-border:#34d399;
+--dsh-update-warn-bg:rgba(245,158,11,.16);--dsh-update-warn-border:#fbbf24;
+--dsh-update-bad-bg:rgba(239,68,68,.16);--dsh-update-bad-border:#f87171;
+--dsh-update-busy-bg:rgba(59,130,246,.16);--dsh-update-busy-border:#60a5fa}}
+/* 批量面板（#25）：类名沿用 dsh-upd-* 前缀；默认（最小）主题，Archive 皮肤见 UPDATE_BATCH_PANEL_ARCHIVE_CSS。 */
+.dsh-upd-batch-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.dsh-upd-batch-title{font-weight:700;font-size:15px;letter-spacing:.06em}
+.dsh-upd-batch-title i{font-style:normal;color:var(--dsh-update-primary,#2563eb)}
+.dsh-upd-batch-macros{flex:none}
+.dsh-upd-batch-sum{margin:4px 0 8px;font-size:13.5px}
+.dsh-upd-btable{margin-top:2px}
+.dsh-upd-brow-set{border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-brow-set:first-child{border-top:0}
+.dsh-upd-brow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0}
+.dsh-upd .dsh-upd-brow-main{display:grid;grid-template-columns:auto minmax(5em,max-content) minmax(18ch,max-content) minmax(0,1fr);align-items:baseline;column-gap:8px;row-gap:2px;flex:1 1 260px;min-width:0;
+text-align:left;cursor:pointer;color:inherit;font:inherit;background:transparent;border:0;padding:2px 0;margin:0}
+.dsh-upd .dsh-upd-brow-main:hover{color:var(--dsh-update-primary,#2563eb)}
+.dsh-upd-brow-actions{flex:none;margin-left:auto}
+.dsh-upd-brow-actions button{font-size:12.5px}
+.dsh-upd-updot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--dsh-update-border,#9ca3af);opacity:.55}
+.dsh-upd-updot[data-tone="todo"]{background:var(--dsh-update-ok-border,#059669);opacity:1}
+.dsh-upd-updot[data-tone="ok"]{background:var(--dsh-update-ok-border,#059669);opacity:1}
+.dsh-upd-updot[data-tone="busy"]{background:var(--dsh-update-busy-border,#2563eb);opacity:1}
+.dsh-upd-updot[data-tone="warn"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}
+.dsh-upd-updot[data-tone="bad"]{background:var(--dsh-update-bad-border,#dc2626);opacity:1}
+.dsh-upd-bname{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsh-upd-bver{font-family:Consolas,Menlo,monospace;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums;min-width:0}
+.dsh-upd-bver-cur{opacity:.65}
+.dsh-upd-bver-arrow{opacity:.6}
+.dsh-upd-bver-new{color:var(--dsh-update-new-text,#dc2626);font-weight:700}
+.dsh-upd-bstat{font-size:12.5px;opacity:.9;min-width:0;overflow-wrap:anywhere}
+.dsh-upd-bfail{grid-column:1/-1;display:block;font-size:12.5px;color:var(--dsh-update-bad-border,#dc2626)}
+.dsh-upd-batch{--dsh-update-new-text:#dc2626}
+@media (prefers-color-scheme: dark){.dsh-upd-batch{--dsh-update-new-text:#f87171}}
+@media (forced-colors: active){.dsh-upd-bver-new{color:CanvasText}}
+.dsh-upd-blist{font-size:12.5px;margin-top:2px}
+.dsh-upd-batch-ledger{margin:8px 0 0;font-size:13px;opacity:.85}
+.dsh-upd-batch-more{margin-top:6px}
+.dsh-upd-batch-more button{font-size:12px}
+.dsh-upd-batch-more button[data-confirm="1"]{border-color:var(--dsh-update-bad-border,#dc2626);color:var(--dsh-update-bad-border,#dc2626)}
+.dsh-upd-batch-notice{margin-top:6px;font-size:12.5px;opacity:.85}
+.dsh-upd-bdetail-actions{margin:0 0 6px}
+.dsh-upd .dsh-upd-bdetail-actions button{font-size:12.5px}
+.dsh-upd-bdetail-notice{margin:0 0 6px;font-size:12.5px;opacity:.85}
+/* 详情复用单插件内核：不许嵌套滚动——中性化 overlay 的 max-height/overflow，自身也不给 overflow。 */
+.dsh-upd-bdetail{margin:2px 0 10px;overflow:visible}
+.dsh-upd .dsh-upd-bdetail .dsh-upd{max-width:none}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd{max-height:none;overflow:visible}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body{overflow:visible}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body .dsh-upd-chap-head{position:static}
+@media (prefers-color-scheme: dark){.dsh-upd-batch-title i{color:var(--dsh-update-focus,#93c5fd)}}
+@media (prefers-reduced-motion: reduce){.dsh-upd-batch *{transition:none !important;animation:none !important}}
+.dsh-upd-batch{overflow-anchor:none}
+.dsh-upd-btable{overflow-anchor:none}
+.dsh-upd-batch-macros{display:flex;flex-wrap:wrap;align-items:center;gap:0}
+.dsh-upd-batch-macros button:first-child,.dsh-upd-batch-macros button[data-primary="1"]{min-width:6em;text-align:center}
+.dsh-upd-batch-sum,.dsh-upd-batch-ledger{min-height:1.6em}
+.dsh-upd-brow{min-height:28px}</style>
+<div class="dsh-upd-overlay" data-mode="dialog"><div class="dsh-upd dsh-upd-batch" data-mode="dialog" data-seal="总账" data-seal-tone="red">
+<div class="dsh-upd-batch-head">
+<div class="dsh-upd-batch-title">更新档案 · <i>总账</i></div>
+<div class="dsh-upd-batch-macros">
+<button type="button" data-act="check" title="重新读取批量状态（只读）">检查更新</button>
+<button type="button" data-act="install" data-primary="1" title="把有新版的几家一次提交；同一会话同一幂等编号">全部更新</button>
+<button type="button" data-act="close" title="关闭窗口，批量更新不受影响">关闭</button>
+</div>
+</div>
+<div class="dsh-upd-batch-sum" role="status" aria-live="polite">1 家安装失败；照下面的失败提示逐家重试。</div>
+
+<div class="dsh-upd-btable">
+<div class="dsh-upd-brow-set" data-key="bill"><div class="dsh-upd-brow" data-phase="pending" data-key="bill"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="bill" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">饼干记账</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.41</span></span><span class="dsh-upd-bstat">有新版 0.3.41</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="bill">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="calorie"><div class="dsh-upd-brow" data-phase="pending" data-key="calorie"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="calorie" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">卡路里</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.40</span></span><span class="dsh-upd-bstat">已是最新，不用动</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="calorie">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="memo"><div class="dsh-upd-brow" data-phase="pending" data-key="memo"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="memo" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">备忘录</span><span class="dsh-upd-bver">1.0.0</span><span class="dsh-upd-bstat">还没查过</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="memo">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="schedule"><div class="dsh-upd-brow" data-phase="pending" data-key="schedule"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="schedule" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">作息管家</span><span class="dsh-upd-bver">1.0.0</span><span class="dsh-upd-bstat">这次没查到</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="schedule">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="home"><div class="dsh-upd-brow" data-phase="pending" data-key="home"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="home" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">居家管家</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.41</span></span><span class="dsh-upd-bstat">有新版 0.3.41</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="home">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="chef"><div class="dsh-upd-brow" data-phase="pending" data-key="chef"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="chef" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">私家大厨</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.40</span></span><span class="dsh-upd-bstat">已是最新，不用动</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="chef">详情</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="life-pack"><div class="dsh-upd-brow" data-phase="pending" data-key="life-pack"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="life-pack" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">爱生活</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.42</span></span><span class="dsh-upd-bstat">有新版 0.3.42</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="life-pack">详情</button></span></div></div>
+</div>
+<div class="dsh-upd-batch-ledger">3 家可更新 · 1 家待查 · 1 家失败 · 2 家已最新</div>
+<div class="dsh-upd-batch-prefs"><button type="button" data-act="toggle-check-on-open" aria-pressed="false">[ ] 打开面板时自动检查更新</button></div>
+</div></div></div>
+
+<h2>场景五：英文单语（同场景一换 en）</h2>
+<p class="note">一次只渲染一种语言，走集中字典（<code>batch.*</code>），无散装中文。</p>
+<div class="demo"><style>.dsh-upd{font:14px/1.75 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);
+background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;
+--dsh-update-ok-bg:#ecfdf5;--dsh-update-ok-border:#059669;--dsh-update-warn-bg:#fffbeb;--dsh-update-warn-border:#d97706;
+--dsh-update-bad-bg:#fef2f2;--dsh-update-bad-border:#dc2626;--dsh-update-busy-bg:#eff6ff;--dsh-update-busy-border:#2563eb}
+.dsh-upd *{box-sizing:border-box}
+.dsh-upd button{font:inherit;border:1px solid var(--dsh-update-border-strong,#d1d5db);border-radius:var(--dsh-update-radius-button,6px);background:var(--dsh-update-button-bg,#f9fafb);
+color:inherit;padding:7px 14px;cursor:pointer;margin:2px 6px 2px 0}
+.dsh-upd button:disabled{opacity:.45;cursor:not-allowed}
+.dsh-upd button:focus-visible{outline:2px solid var(--dsh-update-focus,#2563eb);outline-offset:1px}
+.dsh-upd button[data-primary="1"]{background:var(--dsh-update-primary,#2563eb);border-color:var(--dsh-update-primary,#2563eb);color:#fff}
+.dsh-upd-banner{border-left:4px solid var(--dsh-update-border,#9ca3af);padding:6px 10px;margin:0 0 8px;background:var(--dsh-update-bg-soft,#f3f4f6)}
+.dsh-upd-banner[data-kind="restart"]{border-color:var(--dsh-update-warn-border);background:var(--dsh-update-warn-bg)}
+.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-update-bad-border);background:var(--dsh-update-bad-bg)}
+.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}
+.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-update-busy-border);background:var(--dsh-update-busy-bg)}
+.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:4px 0;font-size:13px}
+.dsh-upd-changelog-wrap{margin:4px 0 0;font-size:13px}
+.dsh-upd-changelog-title{font-weight:700;margin:0 0 4px}
+.dsh-upd-changelog-version{margin:6px 0}
+.dsh-upd-changelog-catname{font-weight:600;margin:6px 0 2px}
+.dsh-upd-changelog ul{margin:2px 0 6px 20px;padding:0}
+.dsh-upd-changelog li{margin:2px 0}
+.dsh-upd-changelog-fold{margin:4px 0}
+.dsh-upd-changelog-fold>summary{cursor:pointer}
+.dsh-upd-changelog-count{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-yanked{border-left:4px solid var(--dsh-update-warn-border,#d97706);background:var(--dsh-update-warn-bg,#fffbeb);padding:6px 10px;margin:6px 0;font-size:13px}
+.dsh-upd-breaking-badge{display:inline-block;font-size:11px;font-weight:700;border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:baseline}
+.dsh-upd-changelog-security-more{margin:4px 0 6px}
+.dsh-upd-changelog-security-more>summary{cursor:pointer;font-size:12px;opacity:.8}
+.dsh-upd-changelog-more-note{font-size:12px;opacity:.7;margin:2px 0 4px}
+.dsh-upd-changelog-neutral{color:inherit;opacity:.8}
+.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}
+.dsh-upd-overlay .dsh-upd{background:var(--dsh-update-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.dsh-upd-body{min-height:0}
+.dsh-upd-body *{min-width:0}
+.dsh-upd-overlay .dsh-upd-body{flex:1 1 auto;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsh-update-border,#e5e7eb) transparent}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar{width:8px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-thumb{background:var(--dsh-update-border,#e5e7eb);border-radius:4px}
+.dsh-upd-overlay .dsh-upd-body::-webkit-scrollbar-track{background:transparent}
+.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{position:sticky;top:0;z-index:1;background:var(--dsh-update-bg,#ffffff);padding-top:2px}
+.dsh-upd-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.dsh-upd-masthead{display:none}
+.dsh-upd-name{font-weight:700}
+.dsh-upd-meta{font-size:12.5px;opacity:.75}
+.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:11px;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}
+.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;font-size:12.5px}
+.dsh-upd-strip>div{flex:1 1 110px;min-width:0;padding:6px 10px;border-left:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-strip>div:first-child{border-left:0}
+.dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.14em;opacity:.7}
+.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px;word-break:break-all}
+.dsh-upd-chapter{margin-top:18px;padding-top:14px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-foot-note{margin-right:auto;font-size:12px;opacity:.7}
+.dsh-upd-footer button{margin:0}
+.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}
+.dsh-upd-chap-title{font-size:14px;margin:0}
+.dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}
+.dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}
+.dsh-upd-chap-note button{margin:0}
+.dsh-upd-qrow{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;padding:6px 0;min-width:0}
+.dsh-upd-qrow+.dsh-upd-qrow{border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-qdot{width:8px;height:8px;border-radius:50%;flex:none;align-self:center;background:currentColor;opacity:.5}
+.dsh-upd-qdot[data-tone="busy"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}
+.dsh-upd-qdot[data-tone="you"]{background:var(--dsh-update-primary,#2563eb);opacity:1}
+.dsh-upd-qk{flex:none;width:5.5em;font-size:12px;opacity:.7}
+.dsh-upd-qv{font-weight:600}
+.dsh-upd-qn{margin-left:auto;font-size:12px;opacity:.7}
+.dsh-upd-qseq{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}
+.dsh-upd-prog{height:8px;background:var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;margin:10px 0 4px}
+.dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary,#2563eb);transition:width .3s}
+.dsh-upd-progtxt{font-size:12.5px;opacity:.75}
+.dsh-upd-skipline{font-size:13px;margin-top:8px}
+.dsh-upd-skv{display:inline-block;min-width:64px;border-radius:3px;color:transparent !important;user-select:none;
+background:linear-gradient(90deg,var(--dsh-update-border,#e5e7eb) 25%,var(--dsh-update-bg-soft,#f3f4f6) 50%,var(--dsh-update-border,#e5e7eb) 75%);
+background-size:200% 100%;animation:dsh-upd-shimmer 1.2s linear infinite}
+@keyframes dsh-upd-shimmer{to{background-position:-200% 0}}
+.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:12px}
+.dsh-upd-err{font-size:13px;margin:0 0 6px}
+.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}
+.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-update-focus,#2563eb)}
+.dsh-upd button[data-primary="1"]:hover:not(:disabled){filter:brightness(.93)}
+.dsh-upd button:active:not(:disabled){transform:translateY(1px)}
+.dsh-upd button[aria-busy="true"]{cursor:wait;animation:dsh-upd-pulse 1s ease-in-out infinite}
+@keyframes dsh-upd-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.dsh-upd-banner{animation:dsh-upd-fadein .22s ease}
+@keyframes dsh-upd-fadein{from{opacity:.35;transform:translateY(2px)}}
+.dsh-upd-changelog-foldbox{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .22s ease,opacity .18s ease}
+.dsh-upd-changelog-foldbox-inner{min-height:0;overflow:hidden}
+.dsh-upd-changelog-foldbox[data-open="0"]{grid-template-rows:0fr;opacity:0}
+.dsh-upd button[aria-busy="true"]::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;vertical-align:-1px;
+border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:dsh-upd-spin .8s linear infinite}
+@keyframes dsh-upd-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}.dsh-upd-banner{animation:none}.dsh-upd-changelog-foldbox{transition:none}}
+@media (forced-colors: active){.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{background:Canvas}}
+.dsh-upd{overflow-anchor:none}
+.dsh-upd-body{overflow-anchor:none}
+.dsh-upd-actions{display:flex;flex-wrap:wrap;align-items:center;min-height:34px}
+.dsh-upd-actions button:first-child{min-width:8em;text-align:center}
+.dsh-upd-actions button[data-primary="1"]{min-width:7em;text-align:center}
+.dsh-upd-actions button:first-child:not([aria-busy="true"])::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;visibility:hidden}
+.dsh-upd-banner{min-height:1.2em}
+.dsh-upd-strip{min-height:48px}
+.dsh-upd-actions{align-content:flex-start}
+.dsh-upd-actions button{white-space:nowrap}
+.dsh-upd-actions button:first-child{min-width:10em}
+.dsh-upd-actions button[data-primary="1"]{min-width:9em}
+.dsh-upd-banner{min-height:3.4em;display:flex;flex-direction:column;justify-content:center}
+.dsh-upd-banner{animation:none}
+.dsh-upd-copy{min-height:1.75em}
+.dsh-upd-copy--empty{visibility:hidden}
+@media (prefers-color-scheme: dark){.dsh-upd{--dsh-update-text:#e5e7eb;--dsh-update-bg:#111827;--dsh-update-border:#374151;
+--dsh-update-button-bg:#1f2937;--dsh-update-bg-soft:#1f2937;--dsh-update-primary:#3b82f6;--dsh-update-focus:#93c5fd;
+--dsh-update-ok-bg:rgba(16,185,129,.14);--dsh-update-ok-border:#34d399;
+--dsh-update-warn-bg:rgba(245,158,11,.16);--dsh-update-warn-border:#fbbf24;
+--dsh-update-bad-bg:rgba(239,68,68,.16);--dsh-update-bad-border:#f87171;
+--dsh-update-busy-bg:rgba(59,130,246,.16);--dsh-update-busy-border:#60a5fa}}
+/* 批量面板（#25）：类名沿用 dsh-upd-* 前缀；默认（最小）主题，Archive 皮肤见 UPDATE_BATCH_PANEL_ARCHIVE_CSS。 */
+.dsh-upd-batch-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.dsh-upd-batch-title{font-weight:700;font-size:15px;letter-spacing:.06em}
+.dsh-upd-batch-title i{font-style:normal;color:var(--dsh-update-primary,#2563eb)}
+.dsh-upd-batch-macros{flex:none}
+.dsh-upd-batch-sum{margin:4px 0 8px;font-size:13.5px}
+.dsh-upd-btable{margin-top:2px}
+.dsh-upd-brow-set{border-top:1px solid var(--dsh-update-border,#e5e7eb)}
+.dsh-upd-brow-set:first-child{border-top:0}
+.dsh-upd-brow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0}
+.dsh-upd .dsh-upd-brow-main{display:grid;grid-template-columns:auto minmax(5em,max-content) minmax(18ch,max-content) minmax(0,1fr);align-items:baseline;column-gap:8px;row-gap:2px;flex:1 1 260px;min-width:0;
+text-align:left;cursor:pointer;color:inherit;font:inherit;background:transparent;border:0;padding:2px 0;margin:0}
+.dsh-upd .dsh-upd-brow-main:hover{color:var(--dsh-update-primary,#2563eb)}
+.dsh-upd-brow-actions{flex:none;margin-left:auto}
+.dsh-upd-brow-actions button{font-size:12.5px}
+.dsh-upd-updot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--dsh-update-border,#9ca3af);opacity:.55}
+.dsh-upd-updot[data-tone="todo"]{background:var(--dsh-update-ok-border,#059669);opacity:1}
+.dsh-upd-updot[data-tone="ok"]{background:var(--dsh-update-ok-border,#059669);opacity:1}
+.dsh-upd-updot[data-tone="busy"]{background:var(--dsh-update-busy-border,#2563eb);opacity:1}
+.dsh-upd-updot[data-tone="warn"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}
+.dsh-upd-updot[data-tone="bad"]{background:var(--dsh-update-bad-border,#dc2626);opacity:1}
+.dsh-upd-bname{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsh-upd-bver{font-family:Consolas,Menlo,monospace;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums;min-width:0}
+.dsh-upd-bver-cur{opacity:.65}
+.dsh-upd-bver-arrow{opacity:.6}
+.dsh-upd-bver-new{color:var(--dsh-update-new-text,#dc2626);font-weight:700}
+.dsh-upd-bstat{font-size:12.5px;opacity:.9;min-width:0;overflow-wrap:anywhere}
+.dsh-upd-bfail{grid-column:1/-1;display:block;font-size:12.5px;color:var(--dsh-update-bad-border,#dc2626)}
+.dsh-upd-batch{--dsh-update-new-text:#dc2626}
+@media (prefers-color-scheme: dark){.dsh-upd-batch{--dsh-update-new-text:#f87171}}
+@media (forced-colors: active){.dsh-upd-bver-new{color:CanvasText}}
+.dsh-upd-blist{font-size:12.5px;margin-top:2px}
+.dsh-upd-batch-ledger{margin:8px 0 0;font-size:13px;opacity:.85}
+.dsh-upd-batch-more{margin-top:6px}
+.dsh-upd-batch-more button{font-size:12px}
+.dsh-upd-batch-more button[data-confirm="1"]{border-color:var(--dsh-update-bad-border,#dc2626);color:var(--dsh-update-bad-border,#dc2626)}
+.dsh-upd-batch-notice{margin-top:6px;font-size:12.5px;opacity:.85}
+.dsh-upd-bdetail-actions{margin:0 0 6px}
+.dsh-upd .dsh-upd-bdetail-actions button{font-size:12.5px}
+.dsh-upd-bdetail-notice{margin:0 0 6px;font-size:12.5px;opacity:.85}
+/* 详情复用单插件内核：不许嵌套滚动——中性化 overlay 的 max-height/overflow，自身也不给 overflow。 */
+.dsh-upd-bdetail{margin:2px 0 10px;overflow:visible}
+.dsh-upd .dsh-upd-bdetail .dsh-upd{max-width:none}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd{max-height:none;overflow:visible}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body{overflow:visible}
+.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body .dsh-upd-chap-head{position:static}
+@media (prefers-color-scheme: dark){.dsh-upd-batch-title i{color:var(--dsh-update-focus,#93c5fd)}}
+@media (prefers-reduced-motion: reduce){.dsh-upd-batch *{transition:none !important;animation:none !important}}
+.dsh-upd-batch{overflow-anchor:none}
+.dsh-upd-btable{overflow-anchor:none}
+.dsh-upd-batch-macros{display:flex;flex-wrap:wrap;align-items:center;gap:0}
+.dsh-upd-batch-macros button:first-child,.dsh-upd-batch-macros button[data-primary="1"]{min-width:6em;text-align:center}
+.dsh-upd-batch-sum,.dsh-upd-batch-ledger{min-height:1.6em}
+.dsh-upd-brow{min-height:28px}</style>
+<div class="dsh-upd-overlay" data-mode="dialog"><div class="dsh-upd dsh-upd-batch" data-mode="dialog" data-seal="Ledger" data-seal-tone="red">
+<div class="dsh-upd-batch-head">
+<div class="dsh-upd-batch-title">Update archive · <i>Ledger</i></div>
+<div class="dsh-upd-batch-macros">
+<button type="button" data-act="check" title="Re-read batch status (read-only)">Check for updates</button>
+<button type="button" data-act="install" data-primary="1" title="Submit all updatable plugins at once; one idempotency key per session">Update all</button>
+<button type="button" data-act="close" title="Close the window; batch progress keeps running">Close</button>
+</div>
+</div>
+<div class="dsh-upd-batch-sum" role="status" aria-live="polite">1 failed to install; retry each one from the failure notes below.</div>
+
+<div class="dsh-upd-btable">
+<div class="dsh-upd-brow-set" data-key="bill"><div class="dsh-upd-brow" data-phase="pending" data-key="bill"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="bill" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">饼干记账</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.41</span></span><span class="dsh-upd-bstat">Update available 0.3.41</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="bill">Details</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="calorie"><div class="dsh-upd-brow" data-phase="pending" data-key="calorie"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="calorie" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">卡路里</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.40</span></span><span class="dsh-upd-bstat">Up to date</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="calorie">Details</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="memo"><div class="dsh-upd-brow" data-phase="pending" data-key="memo"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="memo" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">备忘录</span><span class="dsh-upd-bver">1.0.0</span><span class="dsh-upd-bstat">Not checked yet</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="memo">Details</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="schedule"><div class="dsh-upd-brow" data-phase="pending" data-key="schedule"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="schedule" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">作息管家</span><span class="dsh-upd-bver">1.0.0</span><span class="dsh-upd-bstat">Last check failed</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="schedule">Details</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="home"><div class="dsh-upd-brow" data-phase="pending" data-key="home"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="home" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">居家管家</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.41</span></span><span class="dsh-upd-bstat">Update available 0.3.41</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="home">Details</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="chef"><div class="dsh-upd-brow" data-phase="pending" data-key="chef"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="chef" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">私家大厨</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.40</span></span><span class="dsh-upd-bstat">Up to date</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="chef">Details</button></span></div></div>
+<div class="dsh-upd-brow-set" data-key="life-pack"><div class="dsh-upd-brow" data-phase="pending" data-key="life-pack"><button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="life-pack" aria-expanded="false"><span class="dsh-upd-updot" data-tone="idle"></span><span class="dsh-upd-bname">爱生活</span><span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">1.0.0</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="dsh-upd-bver-new">0.3.42</span></span><span class="dsh-upd-bstat">Update available 0.3.42</span></button><span class="dsh-upd-brow-actions"><button type="button" data-act="toggle-details" data-key="life-pack">Details</button></span></div></div>
+</div>
+<div class="dsh-upd-batch-ledger">3 updates available · 1 not checked · 1 failed · 2 up to date</div>
+<div class="dsh-upd-batch-prefs"><button type="button" data-act="toggle-check-on-open" aria-pressed="true">[x] Check for updates when opening</button></div>
+</div></div></div>
+
+<h2>看不见但同样改了的</h2>
+<p class="note">账本按属主分目录（<code>update-queue/&lt;指纹&gt;/&lt;前缀&gt;/batch.json</code>），旧公共账本不读不删；取消只清自己那份，不碰队列/锁/别家；单队列不变（四家单插件与批量仍共用同一份 <code>queue.json</code> + 全局锁，一次只装一个）；无事可续回 <code>resumed:false</code>，面板如实说“没有可继续的内容”。</p>
+</body></html>

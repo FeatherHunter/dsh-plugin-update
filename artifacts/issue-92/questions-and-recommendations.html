@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>更新面板05节为空：两个追问与推荐</title>
+<style>
+body{font-family:"Microsoft YaHei",system-ui,sans-serif;line-height:1.6;margin:0;color:#222}
+main{max-width:760px;margin:0 auto;padding:24px 20px 48px}
+h1{font-size:22px;margin:0 0 8px}
+.sub{color:#666;font-size:13px;margin-bottom:20px}
+h2{font-size:17px;margin:28px 0 10px;border-left:4px solid #2563eb;padding-left:10px}
+h3{font-size:15px;margin:16px 0 8px}
+.box{background:#f6f8fb;border:1px solid #e3e8ef;border-radius:8px;padding:12px 14px;margin:10px 0}
+code{background:#eef2f7;padding:1px 6px;border-radius:4px;font-size:13px}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:10px 0}
+th,td{border:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}
+th{background:#f3f4f6}
+.fill{border:1px dashed #999;border-radius:6px;padding:10px;margin:10px 0;background:#fff}
+.small{font-size:13px;color:#555}
+</style>
+</head>
+<body>
+<main>
+<h1>更新面板05节显示“没有可用的手工命令”：两个追问与推荐</h1>
+<div class="sub">对应事项：<a href="https://github.com/FeatherHunter/dsh-plugin-update/issues/92">更新面板05手工命令显示“当前没有可用的手工命令”，期望给出当前profile最新更新命令</a> ｜ 本页只解释问题与追问，不改代码、不关单</div>
+
+<h2>一、我的两个问题</h2>
+<div class="box">
+<h3>问题1（最要紧）：请贴出诊断全文</h3>
+<p>打开更新面板，点“复制诊断”，把内容粘过来（把里面的真实路径换成“路径”两个字）。里面必须有这五项：不给命令的原因、正在跑的版本、装上的版本、最新版本、安装来源。如果点不了复制，就把第04节整个截屏发过来。</p>
+<div class="fill">把诊断全文粘在这里（例子格式）：<br><code>原因：没认出使用范围 / 正在跑：1.7.45 / 装上：1.7.45 / 最新：1.7.46 / 来源：普通安装</code></div>
+<h3>问题2（第二要紧）：你的安装方式是哪一种</h3>
+<p>二选一，再顺手填两空：</p>
+<p>A. 普通安装：按版本号从常用软件源装的<br>B. 源码方式：用本地文件夹、链接方式、自己改代码跑起来的</p>
+<div class="fill">我选：__（填 A 或 B）<br>面板顶部显示的名字：__（例如 web）<br>配置文件里那一行原文：__（例如 “某插件”: “1.7.45”）</div>
+</div>
+
+<h2>二、背景（一句话说清）</h2>
+<p>你看到的不是坏掉，是系统在两种情况下故意不给命令：一是没认出你现在用的是哪个使用范围，二是你这是源码方式装的，怕更新命令盖掉你的改动。</p>
+<p>要给你一条能直接用的更新命令，系统必须同时确定三件事：用的是哪个名字、现在是哪个版本、最新是哪个版本。缺一个，它就宁可不给，也不给一条错的。</p>
+<p>你举例的那条命令样子是对的，说明你的直觉是“我明明是普通使用范围，为什么不给”。到底是系统看错了，还是按规则就不该给，缺上面的诊断就分不清。</p>
+
+<h2>三、我的推荐答案</h2>
+<div class="box">
+<p><b>问题1推荐：</b>直接粘“复制诊断”的文字，不要只发截图。因为文字里有完整的原因和版本号，能一次分清。截图只在点不了复制时用。</p>
+<p><b>问题2推荐：</b>如果你没动过源码、就是正常装的，先选 A，并把顶部名字和配置文件那一行照原文填上。如果你是拿本地代码跑起来的，选 B。这两个空能直接排除一大类误判。</p>
+<p class="small">为什么这样推荐：这两个答案加起来最小、最准，能一次判断是“看错了要修”，还是“按规则不给要讨论要不要放宽”。</p>
+</div>
+
+<h2>四、每个答案的优点和缺点</h2>
+<table>
+<tr><th>选项</th><th>优点</th><th>缺点</th></tr>
+<tr><td>问题1：粘文字诊断</td><td>信息全，一次就能定位；能复制去查</td><td>要多点一下复制，稍麻烦一点</td></tr>
+<tr><td>问题1：只截04节图</td><td>操作快，不用找复制按钮</td><td>可能截不全，字小看不清，还要再追一次</td></tr>
+<tr><td>问题2选 A（普通安装）</td><td>如果真是普通安装，后面修起来最快</td><td>如果实际是源码方式却选了 A，会误导排查</td></tr>
+<tr><td>问题2选 B（源码方式）</td><td>能解释为什么不给命令，避免白查一轮</td><td>如果只是看着像源码、实际不是，需要再拿配置文件那一行来证明</td></tr>
+</table>
+
+<h2>五、对抗式审查后（故意挑刺后还站得住的结论）</h2>
+<div class="box">
+<p>挑刺1：“能不能不管原因，直接按顶部名字拼一条命令？”——不行。顶部名字可能只是显示用的，和系统实际认到的不是同一个。按显示拼一条，跑起来可能装错地方，后果更大。</p>
+<p>挑刺2：“会不会诊断本身也是错的？”——有可能。所以问题2让你同时填安装方式和配置文件原文，就是用第二个证据来交叉验证，不只信一处。</p>
+<p>挑刺3：“用户都想要命令，为什么不放宽都给？”——源码方式下给更新命令可能盖掉本地改动，这是安全问题，要人来拍板，不能顺手放宽。</p>
+<p><b>审查后结论不变：</b>还是先要问题1和问题2，不加新问题。</p>
+</div>
+
+<h2>六、从头想起（回到最根本的需求）</h2>
+<div class="box">
+<p>你真正要的是一条“复制就能用、用了不装错”的命令。</p>
+<p>要做到这点，系统必须答出三句话：给你装到哪里去、从哪个版本升到哪个版本、这次安装会不会弄丢你的东西。答不上来，就不该给。</p>
+<p>所以最省事的路就是这两样：诊断全文回答“能不能给、为什么”，安装方式回答“会不会弄丢东西”。拿齐这两样，下一步是修错还是讨论放宽，自然就清楚了。</p>
+</div>
+
+<p class="small">等你回复后，我会先核对覆盖了问题1和问题2中的哪些，再把事项转回待分流重新派发，不会停在等信息的状态。</p>
+</main>
+</body>
+</html>

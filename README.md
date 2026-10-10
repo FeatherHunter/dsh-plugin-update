@@ -368,7 +368,7 @@ const panel = mountUpdatePanel(document.getElementById('update-slot'), {
 
 作者侧只写文件，不写代码（发布后用户自动看到）：
 
-1. 包根放 `CHANGELOG.md`（文件名全大写，小写视为没有），版本节形如 `## [1.2.0] - 2026-10-05`（最新在前），分类用 `### Added/Fixed/Changed/Security`（面板必显展开；`Deprecated/Removed` 折叠；`Unreleased` 与空节忽略）。
+1. 包根放 `CHANGELOG.md`（文件名全大写，小写视为没有），版本节形如 `## [1.2.0] - 2026-10-05`（最新在前），分类用 `### Added/Fixed/Changed/Security`（亦收中文名 `新增/修复/变更/弃用预告/移除/安全`；面板必显展开；`Deprecated/Removed` 折叠；`Unreleased` 与空节忽略）。分类与条目必须挂在版本节下：裸条目（没有 `###` 分类行）会被忽略；全文一个版本节都读不出时面板如实说"读不出来"，不说"未提供"。
 2. `package.json` 的 `files` 白名单加上 `CHANGELOG.md`（否则发出去的包里没有它，面板永远读不到），发布前跑一次 `npm publish --dry-run` 核对。
 
 行为：有新版时面板按新版号自动取一次该版 tarball 里的全文（复用官方源 + `integrity` 校验，同一版本只取一次）；删了文件或取不到即中性提示，**安装永远不受影响**。想自己接管就传 `autoChangelog: false` 退回手动（备好文本后 `mountUpdatePanel({ changelogMarkdown })` 或 `setChangelogMarkdown` 传入，显式文本永不被覆盖）。入口件与批量面板同样自动：前者透传，后者展开行按行取。细节与边界见第 5.8 节。

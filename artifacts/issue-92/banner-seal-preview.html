@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阻章位置对照（原型，非生产）</title>
+<style>
+body{font-family:"Microsoft YaHei",system-ui,sans-serif;background:#1e1a16;color:#eee;margin:0;padding:24px}
+main{max-width:860px;margin:0 auto}
+h1{font-size:18px;margin:0 0 4px}
+.sub{font-size:13px;color:#aaa;margin-bottom:16px}
+.bar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;justify-content:center;padding:10px;background:rgba(0,0,0,.7)}
+.bar button{padding:8px 14px;border-radius:6px;border:1px solid #666;background:#222;color:#fff;cursor:pointer}
+.bar button[aria-pressed="true"]{background:#c8402a;border-color:#c8402a}
+section.panel{margin:18px 0;padding:18px;border-radius:8px;background:#2a241f}
+section.panel h2{font-size:14px;margin:0 0 10px;color:#ccc}
+/* ---- 错误版：你截图的样子（居中） ---- */
+.wrong{border:2px solid #e5484d;border-radius:8px;background:#2b1c14;padding:18px 14px;text-align:center}
+.wrong .mini{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:2px solid #e5484d;border-radius:8px;color:#e5484d;font-weight:700;transform:rotate(-5deg);margin-bottom:10px}
+.wrong .title{color:#e8a13c;font-size:24px;font-weight:700;margin:6px 0}
+.wrong .action{color:#cfc4b4;font-size:13px}
+/* ---- 正确版A：默认主题（无徽章，左侧条） ---- */
+.dsh-upd{background:#fff;color:#111;border-radius:6px;padding:14px 16px}
+.dsh-upd-banner{border-left:4px solid #d97706;background:#fffbeb;padding:8px 12px;margin:0 0 8px}
+.dsh-upd-banner[data-kind="blocked"]{border-color:#d97706;background:#fffbeb}
+.dsh-upd-banner strong{display:block;font-size:15px}
+.dsh-upd-banner .act{font-size:13px;color:#555}
+/* ---- 正确版B：档案卷（小印章行内居左） ---- */
+.arch{background:#fffdf6;color:#1a1a1a;border:1px solid #c4b896;border-radius:4px;padding:16px 20px 14px;box-shadow:0 1px 2px rgba(60,40,20,.08),0 12px 32px rgba(60,40,20,.10)}
+.arch .dsh-upd-banner{background:#f7f3ea;border:1px solid #c4b896;border-radius:4px;padding:10px 12px;display:block}
+.arch .dsh-upd-banner[data-kind="blocked"]{border-color:#b3261e;background:#fbe9e5}
+.arch .dsh-upd-banner .row{display:flex;align-items:flex-start;gap:10px}
+.arch .mini{flex:none;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:2px solid #b3261e;border-radius:7px;color:#b3261e;font-family:Georgia,serif;font-weight:700;font-size:16px;transform:rotate(-5deg);margin-top:2px}
+.arch .title{font-size:15px;font-weight:700}
+.arch .action{font-size:13px;color:#6f675a;margin-top:2px}
+.note{font-size:12px;color:#999;margin-top:8px}
+</style>
+</head>
+<body>
+<main>
+<h1>阻章位置对照（原型，非生产）</h1>
+<div class="sub">问题：截图里“阻”章顶部居中是否正确？结论：不正确，应行内居左。用底部按钮切换 ?v=wrong / default / archive。</div>
+
+<section class="panel" data-v="wrong">
+<h2>❌ 现在（错）：顶部居中 —— 你截图的样子</h2>
+<div class="wrong"><div class="mini">阻</div><div class="title">当前是从源码装的，不是按版本号装的。</div><div class="action">这种情形不给手工命令；想走更新先按版本号重装一次</div></div>
+<div class="note">徽章独占一行居中，标题副行全居中，四边红框。代码里没有这一档。</div>
+</section>
+
+<section class="panel" data-v="default">
+<h2>✅ 正确A：默认主题（最小可用，无徽章，左侧条）</h2>
+<div class="dsh-upd"><div class="dsh-upd-banner" data-kind="blocked"><div><strong>当前是从源码装的，不是按版本号装的。</strong></div><div class="act">这种情形不给手工命令；想走更新先按版本号重装一次</div></div></div>
+<div class="note">默认主题不画“阻”章（data-mini 只在 archive 皮肤渲染），靠左侧红条区分 blocked/failed。左对齐是本体。</div>
+</section>
+
+<section class="panel" data-v="archive">
+<h2>✅ 正确B：档案卷（小印章行内居左）</h2>
+<div class="arch"><div class="dsh-upd-banner" data-kind="blocked"><div class="row"><span class="mini">阻</span><span><span class="title">当前是从源码装的，不是按版本号装的。</span><br><span class="action">这种情形不给手工命令；想走更新先按版本号重装一次</span></span></div></div></div>
+<div class="note">对齐 src/panel.ts:1220（inline-flex + margin-right:10px + 旋转-5°），章在文字左侧，不独占一行，不居中。</div>
+</section>
+</main>
+<div class="bar" role="toolbar" aria-label="variant">
+<button data-go="wrong">错版</button>
+<button data-go="default">正确A</button>
+<button data-go="archive">正确B</button>
+</div>
+<script>
+const ps=[...document.querySelectorAll("section.panel")];
+function show(v){ps.forEach(s=>s.style.display=(s.dataset.v===v)?"":"none");document.querySelectorAll(".bar button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.go===v?"true":"false"));history.replaceState(null,"","?v="+v);}
+const init=new URLSearchParams(location.search).get("v")||"archive";
+show(["wrong","default","archive"].includes(init)?init:"archive");
+document.querySelectorAll(".bar button").forEach(b=>b.onclick=()=>show(b.dataset.go));
+</script>
+</body>
+</html>
