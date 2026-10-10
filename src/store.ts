@@ -27,7 +27,7 @@ import { normalizeQueueState, type UpdateQueueState } from './queue.js'
 import { validReleaseVersion } from './service.js'
 import { sanitizeDetail } from './redaction.js'
 import { LOG_EVENT_INSTALL_EXEC } from './log-events.js'
-import type { EnvironmentKind, InstallRecipe, UpdateJob } from './ports.js'
+import type { EnvironmentKind, InstallRecipe, ReleaseChannel, UpdateJob } from './ports.js'
 
 // 永久冻结的旧字面（规格 #591 第 14 条）：默认旧路径原文加三固定名永久冻结，永不删除。
 // 旧原文：join(家目录, 'updates', 'dsh-mattpocock-skills-deck', 短指纹(使用范围目录))。
@@ -900,6 +900,8 @@ async function awaitOutcome(
 export interface ExecutorParts {
   profileName?: string | null | (() => string | null)
   environmentKind?: EnvironmentKind | (() => EnvironmentKind)
+  /** 版本通道：查用哪条，装就用哪条（#100：丢了它，预发布精确版在执行器回落 stable，白白 install-failed）。 */
+  releaseChannel?: ReleaseChannel | (() => ReleaseChannel)
   profileDir?: string | (() => string)
   subprocess?: unknown | (() => unknown)
   desktopPnpm?: unknown | (() => unknown)
@@ -1175,12 +1177,13 @@ const INSTALL_RUNNERS: Record<string, InstallRunner> = {
  *   - cli-process：subprocess.spawn({ argv: [运行时, …运行时参数, CLI 入口, 'plugin', '--profile', 名, …参数] })。
  * 起进程只经宿主注入的子进程能力，不经 shell、不用 PATH 上的 `dsh` 命令名。
  */
-export function createUpdateExecutor(parts: ExecutorParts = {}): (args?: { version?: string; profileName?: string | null; environmentKind?: EnvironmentKind }) => Promise<void> {
-  return async function runInstall(args: { version?: string; profileName?: string | null; environmentKind?: EnvironmentKind } = {}): Promise<void> {
+export function createUpdateExecutor(parts: ExecutorParts = {}): (args?: { version?: string; profileName?: string | null; environmentKind?: EnvironmentKind; releaseChannel?: ReleaseChannel }) => Promise<void> {
+  return async function runInstall(args: { version?: string; profileName?: string | null; environmentKind?: EnvironmentKind; releaseChannel?: ReleaseChannel } = {}): Promise<void> {
     const recipe = installRecipe({
       profileName: args.profileName ?? (part(parts.profileName ?? null) as string | null),
       version: String(args.version ?? ''),
       environmentKind: args.environmentKind ?? (part(parts.environmentKind ?? 'cli') as EnvironmentKind),
+      releaseChannel: args.releaseChannel ?? (part(parts.releaseChannel ?? 'stable') as ReleaseChannel),
       targetPackageName: parts.targetPackageName === undefined ? undefined : (part(parts.targetPackageName) as string),
       registryUrl: parts.registryUrl === undefined ? undefined : (part(parts.registryUrl) as string),
       timeoutMs: parts.installTimeoutMs === undefined ? undefined : (part(parts.installTimeoutMs) as number),

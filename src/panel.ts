@@ -19,7 +19,7 @@
 
 import { buildChangelogPhoneName, buildPhoneNames, DEFAULT_PANEL_POLL_MS, MIN_PANEL_POLL_MS } from './config.js'
 import { COPY_BUDGET_CHARS, sanitizeForCopy } from './redaction.js'
-import { validReleaseVersion } from './service.js'
+import { compareReleaseVersions, validReleaseVersion } from './service.js'
 import {
   changelogForUpdate,
   parseChangelog,
@@ -912,7 +912,21 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
     lastError ||
     jobCode ||
     ''
-  if (failedCode || jobState === 'failed' || jobState === 'interrupted') {
+  // #100：失败任务已是旧目标、远端已有新版 → 失败页让位给新信息（旧失败不挡新版）。
+  // 只压任务自带的失败：另有新鲜的 errorKind/lastError 时仍按失败页（那是当下的证据）。
+  // 比不出版本一律按旧失败页，不猜。
+  let staleFailure = false
+  try {
+    const target = typeof job?.targetVersion === 'string' ? job.targetVersion.trim() : ''
+    const latest = typeof snapshot.latestVersion === 'string' ? snapshot.latestVersion.trim() : ''
+    const freshOther = (typeof errorKind === 'string' && errorKind.trim()) || lastError
+    staleFailure =
+      (jobState === 'failed' || jobState === 'interrupted') &&
+      !!target && !!latest && !freshOther && compareReleaseVersions(latest, target) === 1
+  } catch {
+    staleFailure = false
+  }
+  if (!staleFailure && (failedCode || jobState === 'failed' || jobState === 'interrupted')) {
     const code = failedCode || 'install-failed'
     const copy = failureCopy(code, l)
     return {
@@ -2332,7 +2346,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         clearLatch()
       } else if ((jobState === 'failed' || jobState === 'interrupted') && snapshot?.job) {
         // 后台结局到达：单调置入（只允许从无到有或同源更新，永不由轮询清除）
-        setLatch(latchFromJob(snapshot.job, snapshot))
+        // #100：三元组已变（比如远端出了新版）→ 旧失败的上下文被新信息替代，不再复活；
+        // 同上下文才常驻（#58）。
+        if (snapshot && tripleChanged(snapshot)) clearLatch()
+        else setLatch(latchFromJob(snapshot.job, snapshot))
       } else if (via === 'install') {
         // 安装调用成功且无任务态：新一轮已被接受，旧失败让位
         clearLatch()

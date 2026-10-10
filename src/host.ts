@@ -343,7 +343,7 @@ export interface ReaderOverrides {
   releaseLock?: (lockId: string) => void | Promise<void>
   backupJob?: (job: import('./ports.js').UpdateJob) => void | Promise<void>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  runInstall?: (args: { version: string; profileName: string | null; environmentKind: EnvironmentKind }) => any
+  runInstall?: (args: { version: string; profileName: string | null; environmentKind: EnvironmentKind; releaseChannel?: ReleaseChannel }) => any
   subprocess?: unknown
   desktopPnpm?: unknown
   desktopProfiles?: unknown
@@ -529,6 +529,7 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   const defaultRun = createUpdateExecutor({
     profileName: overrides.profileName ?? null,
     environmentKind,
+    releaseChannel,
     profileDir: profileDirInput,
     subprocess: () => overrides.subprocess ?? ctxService(overrides.ctx, 'subprocess'),
     desktopPnpm: () => overrides.desktopPnpm ?? sharedDesktopPnpm,
@@ -617,6 +618,7 @@ function manualOfEnv(
       sourceInstall: env?.sourceInstall === true,
       targetPackageName: config.targetPackageName,
       registryUrl: config.registryUrl,
+      releaseChannel: config.releaseChannel,
     })
   } catch {
     return null

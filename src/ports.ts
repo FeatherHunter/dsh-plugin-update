@@ -219,7 +219,7 @@ export interface UpdatePorts {
    * 适配器必须调 installRecipe 拿配方再执行，不得自己按系统或宿主分支选路由。
    * 测试一律给假的，不真跑。
    */
-  runInstall?: (args: { version: string; profileName: string | null; environmentKind: EnvironmentKind }) => void | Promise<void>
+  runInstall?: (args: { version: string; profileName: string | null; environmentKind: EnvironmentKind; releaseChannel?: ReleaseChannel }) => void | Promise<void>
 }
 
 /** 对外三个方法（进度不单独给方法，调用方轮询查状态）。 */
