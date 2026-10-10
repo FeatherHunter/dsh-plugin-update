@@ -403,13 +403,13 @@ test('#56 诊断解析契约：真件全绿（16 键宽容读 + 15 码 ×2 形�
 test('#56 诊断解析：三行块与单行都解析回同一组字段，顺序冻结', () => {
   const source = '插件=demo · 版本=1.0.0→1.1.0 · 宿主=desktop · 使用范围=web · 源=未知 · 队列=不在队列里'
   const block = [
-    '[update-diag] install-failed — 装不上（详见诊断摘要）',
+    '[update-diag] install-failed — 安装执行失败，详情见诊断摘要',
     '  摘要：源返回 404',
     '  来源：' + source,
-    '  怎么办：先看复制诊断',
+    '  怎么办：请查阅诊断摘要',
   ].join('\n')
   const line =
-    '[update-diag] code=install-failed · 装不上（详见诊断摘要） · 摘要=源返回 404 · ' + source + ' · 怎么办=先看复制诊断'
+    '[update-diag] code=install-failed · 安装执行失败，详情见诊断摘要 · 摘要=源返回 404 · ' + source + ' · 怎么办=请查阅诊断摘要'
   for (const [format, text] of [
     ['block', block],
     ['line', line],
@@ -418,7 +418,7 @@ test('#56 诊断解析：三行块与单行都解析回同一组字段，顺序�
     assert.equal(parsed.format, format)
     assert.equal(parsed.code, 'install-failed')
     assert.equal(parsed.summary, '源返回 404')
-    assert.equal(parsed.remedy, '先看复制诊断')
+    assert.equal(parsed.remedy, '请查阅诊断摘要')
     assert.deepEqual(parsed.order, ['code', 'summary', 'source', 'remedy'])
     assert.equal(parsed.sourceFields['插件'], 'demo')
     assert.equal(parsed.sourceFields['版本'], '1.0.0→1.1.0')

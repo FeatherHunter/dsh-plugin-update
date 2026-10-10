@@ -1134,6 +1134,8 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-actions button[data-primary="1"]{min-width:9em}',
   '.dsh-upd-banner{min-height:3.4em;display:flex;flex-direction:column;justify-content:center}',
   '.dsh-upd-banner{animation:none}',
+  // —— 横幅副行：色框之外的第二行补充说明（居左小字；两主题共用结构，皮肤各自收敛）——
+  '.dsh-upd-banner-sub{font-size:12.5px;opacity:.75;margin:2px 0 8px;text-align:left}',
   // #99 真节点行内章：默认主题不画（Archive 串里才显示）；节点常驻 DOM（双主题内核逐字同一份）。
   '.dsh-upd-banner>div:first-child>.dsh-upd-sealmini{display:none}',
   '.dsh-upd-copy{min-height:1.75em}',
@@ -1157,6 +1159,9 @@ export const UPDATE_PANEL_CSS = [
 //          **待重启横幅不画印章**——那一档的标记是手绘 SVG（原型 :446 `.mark` 只有 SVG）。
 // profile 牌 → `.dsh-upd-log code`（现有插件标识 code 穿上牌样式，不加节点）；
 // 待重启衬线横幅 → `[data-kind="restart"]` 衬线字体 + 警告配色 + 标题行左侧 SVG 标；
+// 横幅副行 → `.dsh-upd-banner-sub`（行动句住色框之外、框下第二行居左；色框只装标题 strong）；
+// 动作行 → `.dsh-upd-actions` 照原型 `.btn` 收紧（13px、无最小宽、8px 间距；复制类小按钮 12px）；
+// 日志 → `.dsh-upd-changelog` 照原型 `.logver`（版本 mono 粗体、分类头隐藏改条目前缀红字）；
 // 窄屏印章固定 → 640px 下印章固定 24px、不被挤掉，操作区换行；
 // 优先级逐字折叠 → CSS 省略号逐字折叠（标题行单行省略；JS 引擎不移植：它要 data-fold 标记，会动 DOM）；
 // 浅深双主题 → 同一套变量，浅色默认 + `prefers-color-scheme: dark` 深色（跟随系统，与默认主题同口径）。
@@ -1279,6 +1284,29 @@ export const UPDATE_PANEL_ARCHIVE_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-skipline{font-size:13px;margin-top:8px}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-tag{display:inline-block;border:1px dashed var(--dsh-update-border-strong);border-radius:3px;padding:1px 8px;margin-right:8px;font-family:var(--dsh-update-font-mono);font-size:12px}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-err{font-size:13px;margin:0 0 6px;color:var(--dsh-update-text-muted)}',
+  // —— 横幅副行（框外第二行居左小字；色框只装标题，原型状态行是裸文本）——
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner-sub{color:var(--dsh-update-text-muted);font-size:12.5px;text-align:left;margin:2px 0 8px}',
+  // —— 动作行贴原型（d5-paper :119-125 `.btn`：13px 紧凑、无最小宽、8px 间距；复制类小按钮 12px）——
+  '.dsh-upd[data-theme="archive"] .dsh-upd-actions{gap:8px;min-height:0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-actions button{font-size:13px;line-height:1.45;padding:6px 12px;margin:0;min-width:0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-actions button:first-child{min-width:0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-actions button[data-primary="1"]{min-width:0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-actions button:first-child:not([aria-busy="true"])::after{display:none}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-actions button:not([data-primary="1"]){background:transparent}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-actions button[data-action="copy-manual"],' +
+  '.dsh-upd[data-theme="archive"] .dsh-upd-actions button[data-action="copy-diag"]{font-size:12px;padding:4px 10px}',
+  // —— 日志贴原型（d5-paper :137-144 `.logver`：版本 mono 粗体、分类头隐藏、条目前缀红字）——
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-version{margin:12px 0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-title{font-family:var(--dsh-update-font-mono);font-size:14px;font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog ul{margin:6px 0 0 2px;padding-left:18px;font-size:13.5px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog li{margin:3px 0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-catname{display:none}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-cat[data-cat="Added"] ul li::before{content:"Added · ";color:var(--dsh-update-primary);font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-cat[data-cat="Fixed"] ul li::before{content:"Fixed · ";color:var(--dsh-update-primary);font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-cat[data-cat="Changed"] ul li::before{content:"Changed · ";color:var(--dsh-update-primary);font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-cat[data-cat="Security"] ul li::before{content:"Security · ";color:var(--dsh-update-primary);font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-fold[data-cat="Deprecated"] ul li::before{content:"Deprecated · ";color:var(--dsh-update-text-muted);font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-fold[data-cat="Removed"] ul li::before{content:"Removed · ";color:var(--dsh-update-text-muted);font-weight:700}',
   '@media (max-width:640px){.dsh-upd[data-theme="archive"]{padding:10px 12px}.dsh-upd[data-theme="archive"]::before{top:12px;right:12px;width:56px;height:56px;font-size:15px;box-shadow:inset 0 0 0 4px var(--dsh-update-bg),inset 0 0 0 5px currentColor}.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title{font-size:19px}.dsh-upd[data-theme="archive"] .dsh-upd-banner{padding-right:16px}.dsh-upd[data-theme="archive"] .dsh-upd-banner .dsh-upd-sealmini{min-width:28px;height:28px;font-size:14px;line-height:20px}.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{white-space:normal}}',
   '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"]{--dsh-update-bg-soft:#141210;--dsh-update-bg:#1e1a15;--dsh-update-text:#ece5d3;--dsh-update-text-muted:#a89c83;',
   '--dsh-update-border:#3a3226;--dsh-update-border-strong:#5c4e3b;--dsh-update-primary:#e0684e;--dsh-update-primary-deep:#f0866b;',
@@ -1462,8 +1490,10 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   // 那一档的标记是手绘 SVG（原型 :446 只有 SVG）。章对读屏隐藏（标题文本已含语义），默认主题由 CSS 隐藏。
   parts.push(`<div class="dsh-upd-banner" data-kind="${b.kind}" data-mini="${escapeHtml(seal.mini)}" role="status" aria-live="polite">`)
   parts.push(`<div>${b.kind === 'restart' ? '' : `<span class="dsh-upd-sealmini" aria-hidden="true">${escapeHtml(seal.mini)}</span>`}<strong>${escapeHtml(b.title)}</strong></div>`)
-  if (b.action) parts.push(`<div>${escapeHtml(b.action)}</div>`)
   parts.push('</div>')
+  // 横幅副行（行动句）：放在色框之外、框下第二行居左（原型口径：状态行是裸文本，色框只装标题）。
+  // 色框（绿/蓝/黄）只装标题 strong，副行是框外的补充说明，不进 role=status 的框体。
+  if (b.action) parts.push(`<div class="dsh-upd-banner-sub">${escapeHtml(b.action)}</div>`)
   // 版本条（原型 :216 `.strip`）：运行 / 磁盘 / 远端三格。
   // 首帧无快照：画骨架占位（纯 CSS 微光，不加语义节点；快照一到即换真格）。
   parts.push(snapshot ? versionStrip(snapshot, l) : skeletonStrip(view.banner.kind === 'loading', l))

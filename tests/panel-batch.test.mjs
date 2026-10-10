@@ -318,7 +318,7 @@ describe('失败与待重启：常驻横幅 + 行内入口', () => {
     await settled()
     const html = box.innerHTML
     assert.ok(html.includes('install-failed'), '稳定码要露出来')
-    assert.ok(html.includes('装不上（详见诊断摘要）'), '稳定码要配中文人话')
+    assert.ok(html.includes('安装执行失败，详情见诊断摘要'), '稳定码要配中文人话')
     assert.match(html, /data-act="row-install" data-key="a"[^>]*>重试</, '失败行要给行内重试')
     assert.ok(html.includes('1 家安装失败'), '失败常驻横幅')
     log.length = 0
@@ -340,7 +340,7 @@ describe('失败与待重启：常驻横幅 + 行内入口', () => {
     assert.match(html, /data-act="restart" data-key="a">请重启DSH</, '待重启行要有「请重启DSH」（带 data-key，与顶部区分）')
     assert.match(html, /data-act="restart">请重启DSH</, '顶部横幅按钮也要「请重启DSH」（无 data-key）')
     assert.ok(!html.includes('data-act="restart" data-primary'), '诚实化：批量重启入口不再是主按钮')
-    assert.ok(html.includes('重启宿主，让新版跑起来；这是正常终态，不是失败。'), '与单插件面板同一措辞')
+    assert.ok(html.includes('重启宿主以加载新版本；此为正常状态，非安装失败'), '与单插件面板同一措辞')
     assert.ok(html.includes('1 家已安装好，重启宿主后生效。'), '待重启常驻横幅')
     const enHtml = renderBatchPanelHTML({ rows: [{ key: 'a', title: 'A', phase: 'done', restartRequired: true, error: null, snapshot: null }], loaded: true, lang: 'en' })
     assert.match(enHtml, /data-act="restart" data-key="a">Please restart DSH</, 'en 行内也要 Please restart DSH（中英同义）')
@@ -1066,7 +1066,7 @@ describe('回包宽容读', () => {
     failNext = true
     await panel.act('check')
     assert.ok(box.innerHTML.includes('update-busy'), '稳定码要露出来')
-    assert.ok(box.innerHTML.includes('同一使用范围正在装另一个'), '稳定码配中文人话')
+    assert.ok(box.innerHTML.includes('同一使用范围内存在进行中的安装任务'), '稳定码配中文人话')
     assert.ok(box.innerHTML.includes('甲插件'), '读失败也不许把表清空')
     panel.unmount()
   })
@@ -1146,8 +1146,8 @@ describe('#64 聚合与总账跟随语言', () => {
     // 同一码换语言不换档：两边都是 failed 横幅（data-kind），只是人话语言不同。
     assert.ok(zh.includes('data-kind="failed"'), 'zh 失败档')
     assert.ok(en.includes('data-kind="failed"'), 'en 同码同档')
-    assert.ok(zh.includes('查新版没成功'), 'zh 人话')
-    assert.ok(!en.includes('查新版没成功'), 'en 人话已切换')
+    assert.ok(zh.includes('版本信息查询失败'), 'zh 人话')
+    assert.ok(!en.includes('版本信息查询失败'), 'en 人话已切换')
   })
 })
 // ---------- #65 panel-batch 行/详情/回执跟随语言（§4.2/4.6/4.7）：单语渲染 + 语义 lang + 冻结词元 + 按码分支 ----------
@@ -1202,8 +1202,8 @@ describe('#65 行、详情与回执跟随语言', () => {
     assert.ok(en.includes('install-failed'), 'en 稳定码逐字同')
     assert.ok(zh.includes('失败'), 'zh 行内失败前缀')
     assert.ok(en.includes('Failed'), 'en 行内失败前缀')
-    assert.ok(zh.includes('装不上'), 'zh 人话')
-    assert.ok(!en.includes('装不上'), 'en 人话已切换')
+    assert.ok(zh.includes('安装执行失败'), 'zh 人话')
+    assert.ok(!en.includes('安装执行失败'), 'en 人话已切换')
     assert.ok(en.includes('Couldn') || en.includes('install'), 'en 人话英文在位：' + en.slice(en.indexOf('dsh-upd-bfail'), en.indexOf('dsh-upd-bfail') + 200))
     // 同一码换语言不换档
     assert.ok(zh.includes('data-phase="failed"'), 'zh 失败档')

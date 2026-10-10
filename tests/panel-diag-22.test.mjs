@@ -73,7 +73,7 @@ test('#22 15码全覆盖：9阻塞+5电话+internal 各有一句中文，未来�
   assert.ok(isKnownFailureCode('internal'), 'internal 计入15码')
   const future = failureCopy('quota-exceeded')
   assert.ok(future && future.zh && future.act, '未来码必须有兜底')
-  assert.match(future.act, /带上你看到的码/, '未来兜底必须提醒带上原码')
+  assert.match(future.act, /所见错误码/, '未来兜底必须提醒带上原码')
   assert.equal(isKnownFailureCode('quota-exceeded'), false, '未来码不在15码内')
   assert.equal(failureCopy(null), null, '空码回 null，不猜')
   assert.equal(failureCopy(''), null, '空串回 null')
@@ -115,7 +115,7 @@ test('#22 按errorKind分支：errorKind=internal 时不误判为查新版失败
   })
   assert.equal(view.banner.kind, 'failed')
   assert.match(view.banner.title, /internal/, '标题用 errorKind，不用已被改写的 error')
-  assert.ok(!view.banner.title.includes('查新版没成功'), 'internal 不许说查新版失败那句')
+  assert.ok(!view.banner.title.includes('版本信息查询失败'), 'internal 不许说版本信息查询失败那句')
   assert.match(view.banner.action, /重试/, 'internal 有自己的行动句')
 })
 
@@ -129,7 +129,7 @@ test('#22 未知码走兜底但标题保留原码', () => {
     errorKind: 'quota-exceeded',
   })
   assert.match(view.banner.title, /quota-exceeded/, '标题保留原码供定位')
-  assert.match(view.banner.action, /带上你看到的码/, '行动句提醒带码')
+  assert.match(view.banner.action, /所见错误码/, '行动句提醒带码')
 })
 
 // ---------- 宽容读 ----------
@@ -193,8 +193,8 @@ test('#22 双形态内容顺序完全一致：码→摘要→来源，块三行�
   assert.equal(line.includes('\n'), false, '单行无换行')
   // 同序：码 → 中文 → 摘要 → 来源 → 怎么办，在两形态中相对顺序一致（第一性：怎么办是页脚，不插断码→摘要→来源）
   //（块用全角冒号、单行用等号，分形态断，避免中文里的“摘要”二字干扰）
-  const blockOrder = ['install-failed', '装不上', '  摘要：宿主管理器', '  来源：', '插件=my-plugin', '路由=desktop-manager', '请求=req-7f3a91', '检查=chk-2b81', '  怎么办：']
-  const lineOrder = ['install-failed', '装不上', '摘要=宿主管理器', '插件=my-plugin', '路由=desktop-manager', '请求=req-7f3a91', '检查=chk-2b81', '怎么办=']
+  const blockOrder = ['install-failed', '安装执行失败', '  摘要：宿主管理器', '  来源：', '插件=my-plugin', '路由=desktop-manager', '请求=req-7f3a91', '检查=chk-2b81', '  怎么办：']
+  const lineOrder = ['install-failed', '安装执行失败', '摘要=宿主管理器', '插件=my-plugin', '路由=desktop-manager', '请求=req-7f3a91', '检查=chk-2b81', '怎么办=']
   for (const [s, order] of [[block, blockOrder], [line, lineOrder]]) {
     let last = -1
     for (const seg of order) {
@@ -331,7 +331,7 @@ test('#22 挂载复制诊断走[update-diag]新块：errorKind=internal 不误�
   assert.equal(texts.length, 1, '复制一次')
   assert.match(texts[0], /\[update-diag\]/, '复制块带 tag')
   assert.match(texts[0], /internal/, '复制块带 errorKind')
-  assert.ok(!texts[0].includes('查新版没成功'), 'internal 复制块不误用 check-failed 文案')
+  assert.ok(!texts[0].includes('版本信息查询失败'), 'internal 复制块不误用 check-failed 文案')
   panel.unmount()
 })
 

@@ -283,7 +283,7 @@ test('失败无退避：自动查失败渲染一句话，手动可立即重问',
   const panel = mountUpdatePanel(box, { pluginId: 'p', prefix: 't', call, pollMs: 60000 })
   await settled()
   await settled()
-  assert.match(box.innerHTML, /查新版没成功/, '失败即渲染既有一句话')
+  assert.match(box.innerHTML, /版本信息查询失败/, '失败即渲染既有一句话')
   assert.match(box.innerHTML, /复制诊断/, '失败带复制诊断入口')
   await panel.act('check')
   await settled()
