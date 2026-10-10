@@ -410,6 +410,8 @@ export interface PanelDiagnosticInput {
   queuePosition?: number | null
   requestId?: string | null
   manual?: string | null
+  /** 失败那次安装的目标版本（冻结证据；缺省省略，只显式值）。 */
+  targetVersion?: string | null
   /** 电话侧 diag（#21 落定前多半没有；有则宽容读，无则走显式字段，缺省说人话）。 */
   diag?: unknown
   /** 显式来源（diag 没有时用；有 diag 时显式优先，缺省仍说人话，不留白）。 */
@@ -579,9 +581,12 @@ export function buildUpdateDiagCopy(input: UpdateDiagCopyInput, langOverride?: A
   const requestRaw = (diag.requestId ?? input.requestId) as unknown
   const checkRaw = (diag.checkId ?? (input as { checkId?: unknown }).checkId) as unknown
   const queue = queueTextOf(input.queuePosition ?? null, l)
-  // 来源顺序固定：插件 → 版本 → 宿主 → 使用范围 → 路由 → 阶段 → 方法 → HTTP/exit/耗时 → 源 → 建议 → 请求/检查 → 队列
-  // 缺省即省略：路由/请求/检查等无值即不出现；插件/版本/宿主/使用范围/队列恒显；源缺省给人话。
-  const prov: string[] = [copyText('panel.diag.copy.field.plugin', l, { plugin: pluginName }), copyText('panel.diag.copy.field.version', l, { run: runVer, inst: instVer }), copyText('panel.diag.copy.field.host', l, { host })]
+  // 来源顺序固定：插件 → 版本 → 目标 → 宿主 → 使用范围 → 路由 → 阶段 → 方法 → HTTP/exit/耗时 → 源 → 建议 → 请求/检查 → 队列
+  // 缺省即省略：路由/请求/检查/目标等无值即不出现；插件/版本/宿主/使用范围/队列恒显；源缺省给人话。
+  const prov: string[] = [copyText('panel.diag.copy.field.plugin', l, { plugin: pluginName }), copyText('panel.diag.copy.field.version', l, { run: runVer, inst: instVer })]
+  const targetRaw = (input as { targetVersion?: unknown }).targetVersion
+  if (typeof targetRaw === 'string' && targetRaw.trim()) prov.push(copyText('panel.diag.copy.field.target', l, { version: targetRaw.trim() }))
+  prov.push(copyText('panel.diag.copy.field.host', l, { host }))
   // #45：使用范围恒显（排错第一信息；未知也不猜，与表头口径一致，diag 无此键故只看显式值）。
   prov.push(copyText('panel.diag.copy.field.profile', l, { profile: pickText((input as { profileName?: unknown }).profileName, unknown) }))
   if (typeof routeRaw === 'string' && routeRaw.trim()) prov.push(copyText('panel.diag.copy.field.route', l, { route: routeRaw.trim() }))
@@ -1346,6 +1351,8 @@ export interface PanelFailureRef {
   atMs: number | null
   source: 'check' | 'install' | null
   volatile: boolean
+  /** 失败那次安装的目标版本（无则不画行）。 */
+  targetVersion: string | null
 }
 
 /** 锁存时刻 → 本地 HH:MM:SS（失败档案“失败于”用；非法值回 null，不画时间；#62 跟随宿主 locale）。 */
@@ -1665,6 +1672,9 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         if (keys.length > 0) {
           errLines.push(`<div class="dsh-upd-err">${copyText('panel.error.query-keys', l, { keys: keys.join(' · ') })}</div>`)
         }
+        if (typeof failRef.targetVersion === 'string' && failRef.targetVersion.trim()) {
+          errLines.push(`<div class="dsh-upd-err">${escapeHtml(copyText('panel.error.target-version', l, { version: failRef.targetVersion.trim() }))}</div>`)
+        }
         if (!failRef.volatile) {
           errLines.push(
             `<div class="dsh-upd-err">${escapeHtml(copyText('panel.error.evidence-frozen', l))}</div>`,
@@ -1764,6 +1774,8 @@ interface FailureLatch {
   runningVersion: string | null
   installedVersion: string | null
   latestVersion: string | null
+  /** 失败那次安装的目标版本（任务自带；查失败与抛错无此上下文即 null）。 */
+  targetVersion: string | null
   hostKind: string | null
   profileName: string | null
   source: 'check' | 'install'
@@ -1985,6 +1997,16 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   function currentEnvPair(): { hostKind: string | null; profileName: string | null } {
     return { hostKind: hostKind ?? envHostKind, profileName: profileNameOption ?? envProfileName }
   }
+  /** 任务自带的目标版本（失败那次装的是哪一版；读不到即 null，不猜）。 */
+  function jobTargetOf(value: unknown): string | null {
+    try {
+      const job = (value as { job?: { targetVersion?: unknown } } | null | undefined)?.job
+      const tv = job?.targetVersion
+      return typeof tv === 'string' && tv.trim() ? tv.trim() : null
+    } catch {
+      return null
+    }
+  }
   function latchFromReply(reply: Record<string, unknown>, source: 'check' | 'install'): FailureLatch {
     const env = currentEnvPair()
     return {
@@ -2003,6 +2025,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       runningVersion: snapshot?.runningVersion ?? null,
       installedVersion: snapshot?.installedVersion ?? null,
       latestVersion: snapshot?.latestVersion ?? null,
+      targetVersion: jobTargetOf(reply['snapshot']),
       hostKind: env.hostKind,
       profileName: env.profileName,
       source,
@@ -2026,6 +2049,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       runningVersion: snap?.runningVersion ?? snapshot?.runningVersion ?? null,
       installedVersion: snap?.installedVersion ?? snapshot?.installedVersion ?? null,
       latestVersion: snap?.latestVersion ?? snapshot?.latestVersion ?? null,
+      targetVersion: jobTargetOf({ job }),
       hostKind: env.hostKind ?? latch?.hostKind ?? null,
       profileName: env.profileName ?? latch?.profileName ?? null,
       source: 'install',
@@ -2060,6 +2084,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       runningVersion: snapshot?.runningVersion ?? null,
       installedVersion: snapshot?.installedVersion ?? null,
       latestVersion: snapshot?.latestVersion ?? null,
+      targetVersion: null,
       hostKind: env.hostKind,
       profileName: env.profileName,
       source,
@@ -2080,6 +2105,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       runningVersion: snapshot?.runningVersion ?? null,
       installedVersion: snapshot?.installedVersion ?? null,
       latestVersion: snapshot?.latestVersion ?? null,
+      targetVersion: null,
       hostKind: env.hostKind,
       profileName: env.profileName,
       source,
@@ -2227,7 +2253,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       lastError: latch?.code ?? null,
       errorKind: latch?.kind ?? null,
       failure: latch
-        ? { requestId: latch.requestId, checkId: latch.checkId, atMs: latch.atMs, source: latch.source, volatile: latch.volatile }
+        ? { requestId: latch.requestId, checkId: latch.checkId, atMs: latch.atMs, source: latch.source, volatile: latch.volatile, targetVersion: latch.targetVersion }
         : null,
       showLogHint: showLogHintOption,
       changelogMarkdown,
@@ -2447,6 +2473,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
               runningVersion: snapshot?.runningVersion ?? null,
               installedVersion: snapshot?.installedVersion ?? null,
               latestVersion: snapshot?.latestVersion ?? null,
+              targetVersion: null,
               hostKind: expiredEnv.hostKind,
               profileName: expiredEnv.profileName,
               source: 'install',
@@ -2562,6 +2589,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           runningVersion: frozen?.runningVersion ?? snapshot?.runningVersion ?? null,
           installedVersion: frozen?.installedVersion ?? snapshot?.installedVersion ?? null,
           latestVersion: frozen?.latestVersion ?? snapshot?.latestVersion ?? null,
+          targetVersion: frozen?.targetVersion ?? null,
           hostKind: frozen?.hostKind ?? hostKind ?? envHostKind,
           profileName: frozen?.profileName ?? profileNameOption ?? envProfileName,
           queuePosition: queue?.position ?? null,

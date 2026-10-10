@@ -538,3 +538,58 @@ test('#58 事件名单源：路牌三事件名来自共享常量', async () => {
   }
   panel.unmount()
 });
+
+// ---------- 20. 失败目标版本：卷宗写明这次装的是哪一版 ----------
+
+function failedJobWith(targetVersion) {
+  return { id: 'job-9', state: 'failed', targetVersion, message: 'install-failed: 宿主执行失败', requestId: 'req-9' }
+}
+
+function targetScript(job) {
+  const state = { failed: false }
+  return {
+    state,
+    status: () =>
+      state.failed
+        ? { ok: true, snapshot: baseSnapshot({ job }), manual: null, receipt: null, queue: baseQueue() }
+        : okStatus(),
+    check: okCheck,
+    install: () => {
+      state.failed = true
+      return { ok: false, error: 'install-failed', errorKind: 'install-failed' }
+    },
+  }
+}
+
+test('#100 失败目标：失败任务自带目标版，卷宗与复制诊断都写明', async () => {
+  const script = targetScript(failedJobWith('0.4.2'))
+  const { panel, box, texts } = mountFor('latch-20', script)
+  await settled()
+  await settled()
+  await panel.act('install')
+  await settled()
+  await panel.refresh()
+  await settled()
+  assert.match(box.innerHTML, /失败目标 0\.4\.2/, '04 应写明这次装的是哪一版，实际=' + JSON.stringify(box.innerHTML.slice(box.innerHTML.indexOf('错误信息'), box.innerHTML.indexOf('错误信息') + 600)))
+  await panel.act('copy-diag')
+  await settled()
+  assert.match(texts.at(-1) ?? '', /目标=0\.4\.2/, '复制诊断冻结证据应带目标版，实际=' + JSON.stringify(texts.at(-1)))
+  panel.unmount()
+});
+
+test('#100 无目标不画行：任务没带目标版就不写失败目标', async () => {
+  const script = targetScript(failedJobWith(null))
+  const { panel, box, texts } = mountFor('latch-21', script)
+  await settled()
+  await settled()
+  await panel.act('install')
+  await settled()
+  await panel.refresh()
+  await settled()
+  assert.match(box.innerHTML, /更新失败/, '失败横幅仍在')
+  assert.doesNotMatch(box.innerHTML, /失败目标/, '没目标版就不画失败目标行，不猜')
+  await panel.act('copy-diag')
+  await settled()
+  assert.doesNotMatch(texts.at(-1) ?? '', /目标=/, '复制诊断也不带目标字段')
+  panel.unmount()
+});

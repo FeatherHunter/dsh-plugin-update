@@ -1042,6 +1042,11 @@
       "zh": "阶段={stage}",
       "draft": true
     },
+    "panel.diag.copy.field.target": {
+      "en": "Target={version}",
+      "zh": "目标={version}",
+      "draft": true
+    },
     "panel.diag.copy.field.version": {
       "en": "Version={run}→{inst}",
       "zh": "版本={run}→{inst}",
@@ -1190,6 +1195,11 @@
     "panel.error.query-request": {
       "en": "Request",
       "zh": "请求",
+      "draft": true
+    },
+    "panel.error.target-version": {
+      "en": "Failed target {version}",
+      "zh": "失败目标 {version}",
       "draft": true
     },
     "panel.failure.check-expired.action": {

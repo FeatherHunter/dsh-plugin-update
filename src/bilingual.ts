@@ -180,6 +180,7 @@ export type BilingualKey =
   | 'panel.error.query-check'
   | 'panel.error.failed-at'
   | 'panel.error.query-keys'
+  | 'panel.error.target-version'
   | 'panel.error.evidence-frozen'
   | 'panel.error.evidence-transient'
   | 'panel.error.no-failure'
@@ -220,6 +221,7 @@ export type BilingualKey =
   | 'panel.diag.copy.field.request'
   | 'panel.diag.copy.field.check'
   | 'panel.diag.copy.field.queue'
+  | 'panel.diag.copy.field.target'
   | 'panel.diag.copy.line.summary'
   | 'panel.diag.copy.line.remedy'
   | 'panel.diag.copy.block.summary'
@@ -511,6 +513,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.error.query-check': { en: 'Check', zh: '检查', draft: true },
   'panel.error.failed-at': { en: 'Failed at {time}', zh: '失败于 {time}', draft: true },
   'panel.error.query-keys': { en: 'Query keys: {keys} (use them to match in logs).', zh: '本次查询键：{keys}（拿着它们去日志里对）。', draft: true },
+  'panel.error.target-version': { en: 'Failed target {version}', zh: '失败目标 {version}', draft: true },
   'panel.error.evidence-frozen': { en: 'Evidence frozen: the code, versions, and IDs in copied diagnostics are from the failure moment and do not refresh with polling; the next check or install will update them.', zh: '证据已冻结：复制诊断里的码、版本、编号都取自失败时刻，不随轮询刷新；下一次查新版或安装会更新它。', draft: true },
   'panel.error.evidence-transient': { en: 'Transient read failure: it clears on the next successful read; if it persists, troubleshoot by stable code.', zh: '读数瞬态失败：下一次成功读数会自动解除；一直出现再按稳定码排查。', draft: true },
   'panel.error.no-failure': { en: 'No failure: copying diagnostics gives the current state snapshot.', zh: '暂无失败：此时复制诊断给出的是当前状态快照。', draft: true },
@@ -551,6 +554,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.diag.copy.field.request': { en: 'Request={request}', zh: '请求={request}', draft: true },
   'panel.diag.copy.field.check': { en: 'Check={check}', zh: '检查={check}', draft: true },
   'panel.diag.copy.field.queue': { en: 'Queue={queue}', zh: '队列={queue}', draft: true },
+  'panel.diag.copy.field.target': { en: 'Target={version}', zh: '目标={version}', draft: true },
   'panel.diag.copy.line.summary': { en: 'Summary={summary}', zh: '摘要={summary}', draft: true },
   'panel.diag.copy.line.remedy': { en: 'Remedy={remedy}', zh: '怎么办={remedy}', draft: true },
   'panel.diag.copy.block.summary': { en: 'Summary：{summary}', zh: '摘要：{summary}', draft: true },
