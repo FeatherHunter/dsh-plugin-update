@@ -15,6 +15,7 @@ import { createUpdateExecutor } from '../dist/store.js'
 import { createUpdateCore } from '../dist/service.js'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
 import { mountUpdatePanel } from '../dist/panel.js'
+import { panelViewModel } from '../dist/panel.js'
 
 const TARGET = 'dsh-mattpocock-skills-deck'
 const RC_RUNNING = '1.8.0-rc.3'
@@ -117,6 +118,35 @@ describe('issue #100：执行器必须透传版本通道', () => {
       () => runInstall({ version: RC_LATEST, profileName: 'desktop', environmentKind: MANAGER_KIND }),
       (error) => error.code === 'install-failed'
     )
+  })
+
+  it('垃圾通道值不炸：未知取值一律按 stable 处理', async () => {
+    for (const junk of ['beta', '', null, undefined]) {
+      const runInstall = runWith({
+        releaseChannel: junk,
+        pluginManager: { installBundle: () => Promise.resolve({ application: 'applied' }) },
+        log: () => {},
+      })
+      await assert.rejects(
+        () => runInstall({ version: RC_LATEST, profileName: 'desktop', environmentKind: MANAGER_KIND }),
+        (error) => error.code === 'install-failed',
+        `通道 ${JSON.stringify(junk)} 应回落 stable 并拒绝 rc`
+      )
+    }
+    // stable 纯三段不受影响
+    const seen = []
+    const runInstall = runWith({
+      releaseChannel: 'beta',
+      pluginManager: {
+        installBundle: (spec) => {
+          seen.push(spec)
+          return Promise.resolve({ application: 'applied' })
+        },
+      },
+      log: () => {},
+    })
+    await runInstall({ version: '1.8.0', profileName: 'desktop', environmentKind: MANAGER_KIND })
+    assert.deepEqual(seen, [`${TARGET}@1.8.0`])
   })
 })
 
@@ -290,5 +320,54 @@ describe('issue #100：新版本到达，旧失败横幅必须让位', () => {
     assert.doesNotMatch(box.innerHTML, /更新失败/, '远端出 rc.4 后旧失败横幅必须消失')
     assert.match(box.innerHTML, /有新版.*可装/, '回到 rc.4 可装页')
     panel.unmount()
+  })
+})
+
+describe('issue #100：让位矩阵（视图模型纯函数）', () => {
+  const staleJob = (target, state = 'failed') => ({ id: 'j', state, targetVersion: target, message: 'install-failed: x', requestId: 'r' })
+  const snap = (over = {}) => ({
+    runningVersion: RC_RUNNING, installedVersion: RC_RUNNING, latestVersion: RC_LATEST,
+    canInstall: true, blockedReason: null, job: null, ...over,
+  })
+  const viewOf = (snapshot, extra = {}) =>
+    panelViewModel({
+      snapshot, manual: null, queue: null, skippedLatest: false, lastError: null,
+      showOthers: false, pluginId: 'p', copyNotice: null, mode: 'embedded', ...extra,
+    }, 'zh')
+
+  it('旧失败 + 可装 + 远端更新 → update 页', () => {
+    const v = viewOf(snap({ job: staleJob(RC_RUNNING) }))
+    assert.equal(v.banner.kind, 'update')
+    assert.equal(v.installEnabled, true)
+  })
+
+  it('旧失败 + 不可装 + 无阻拦 → 失败页（宁留旧失败，不撒谎已最新）', () => {
+    const v = viewOf(snap({ job: staleJob(RC_RUNNING), canInstall: false }))
+    assert.equal(v.banner.kind, 'failed')
+  })
+
+  it('旧失败 + 待重启 → 重启页（当下真相优先）', () => {
+    const v = viewOf(snap({ job: staleJob(RC_RUNNING), canInstall: false, blockedReason: 'pending-restart' }))
+    assert.equal(v.banner.kind, 'restart')
+  })
+
+  it('旧失败 + 新鲜 lastError → 失败页（当下证据优先）', () => {
+    const v = viewOf(snap({ job: staleJob(RC_RUNNING) }), { lastError: 'check-failed' })
+    assert.equal(v.banner.kind, 'failed')
+  })
+
+  it('失败目标就是当前远端 → 失败页（正当失败）', () => {
+    const v = viewOf(snap({ job: staleJob(RC_LATEST) }))
+    assert.equal(v.banner.kind, 'failed')
+  })
+
+  it('任务无目标版 / 远端未知 → 失败页（信息不足不让位）', () => {
+    assert.equal(viewOf(snap({ job: staleJob(null) })).banner.kind, 'failed')
+    assert.equal(viewOf(snap({ job: staleJob(RC_RUNNING), latestVersion: null })).banner.kind, 'failed')
+  })
+
+  it('interrupted 同规则', () => {
+    const v = viewOf(snap({ job: staleJob(RC_RUNNING, 'interrupted') }))
+    assert.equal(v.banner.kind, 'update')
   })
 })

@@ -914,6 +914,7 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
     ''
   // #100：失败任务已是旧目标、远端已有新版 → 失败页让位给新信息（旧失败不挡新版）。
   // 只压任务自带的失败：另有新鲜的 errorKind/lastError 时仍按失败页（那是当下的证据）。
+  // 让位只发生在有当下故事可讲时（可装 / 有阻拦原因）；否则退回失败页——撒谎说“已最新”比留旧失败更糟。
   // 比不出版本一律按旧失败页，不猜。
   let staleFailure = false
   try {
@@ -922,7 +923,8 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
     const freshOther = (typeof errorKind === 'string' && errorKind.trim()) || lastError
     staleFailure =
       (jobState === 'failed' || jobState === 'interrupted') &&
-      !!target && !!latest && !freshOther && compareReleaseVersions(latest, target) === 1
+      !!target && !!latest && !freshOther && (snapshot.canInstall || !!snapshot.blockedReason) &&
+      compareReleaseVersions(latest, target) === 1
   } catch {
     staleFailure = false
   }
