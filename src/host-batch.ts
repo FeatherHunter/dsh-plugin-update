@@ -41,6 +41,7 @@ import {
   createBatchSession,
   emptyBatchSession,
   isBatchFinished,
+  isTerminalPhase,
   markBatchEntry,
   orderTargets,
   resumeBatchSession,
@@ -284,6 +285,29 @@ function sleep(ms: number): Promise<void> {
 
 /** 一轮推进的步数上限：防病态状态下空转（正常一家两步，七家十几步）。 */
 const DRIVE_STEP_GUARD = 10000
+
+/**
+ * 批量查新的受控并发（#70 ADR-0004：取下限保守起步，待实测上调）。
+ * 只关乎“registry 礼貌”，与并发安全无关：checkPhone 只写版本串不读 receipt，
+ * 在途调用各持各的 reader 对象，落盘单次全量写，逐家 try/catch 即 allSettled 语义。
+ * 回退线：降到 1 即退回现状串行查，装阶段不受影响。
+ */
+export const BATCH_CHECK_CONCURRENCY = 3
+
+/** 受控池：最多 limit 个在飞，不新增依赖；items 为空即直接回。 */
+async function runWithConcurrency<T>(items: readonly T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  const Inflight = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 1
+  if (items.length === 0) return
+  let next = 0
+  const workers = Array.from({ length: Math.min(Inflight, items.length) }, async () => {
+    while (next < items.length) {
+      const current = next
+      next += 1
+      await fn(items[current])
+    }
+  })
+  await Promise.all(workers)
+}
 
 /**
  * 把更全的那份会话里的行并进 base（键相同的以 base 的相位为准），顺序以更全的那份为准。
@@ -557,13 +581,27 @@ async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetS
     if (!receipt) return { kind: 'failed', error: 'check-expired' }
   }
   const phoneRequestId = phoneRequestIdOf(requestId)
-  const reply = await callPhone(rt, rt.host.phoneNames.updateInstall, {
-    checkId: receipt.checkId,
-    requestId: phoneRequestId,
-  })
+  const submitOnce = async (checkId: string): Promise<Record<string, unknown>> =>
+    await callPhone(rt, rt.host.phoneNames.updateInstall, {
+      checkId,
+      requestId: phoneRequestId,
+    })
+  let reply = await submitOnce(receipt.checkId)
   rt.receipt = null
   if (reply['ok'] === true) return await settleInstall(rt, reply)
-  const code = codeOfReply(reply)
+  let code = codeOfReply(reply)
+  if (code === 'check-expired') {
+    // A 案（#70 ADR-0004 §3）：单例 sharedReader 查 B 挤掉 A 的 checked，预查凭证在装到后面几家时
+    // 必然过期——过期只触发当场重查一次，不判失败；第二次仍过期才记 failed。不碰单例纪律。
+    const again = await rt.check(key, spec)
+    if (again.kind !== 'update') return { kind: 'failed', error: again.kind === 'failed' ? again.error : 'check-expired' }
+    const fresh = (rt as unknown as Record<string, unknown>)['receipt'] as { checkId: string; version: string } | null
+    if (!fresh || typeof fresh.checkId !== 'string' || !fresh.checkId) return { kind: 'failed', error: 'check-expired' }
+    reply = await submitOnce(fresh.checkId)
+    rt.receipt = null
+    if (reply['ok'] === true) return await settleInstall(rt, reply)
+    code = codeOfReply(reply)
+  }
   if (code === 'update-busy') {
     // 宿主的「已占位、排队等轮到你」不是失败（#25 排队语义）：回 queued + 该家队列位置，
     // 驱动器据此把相位退回 ready（远端版本留着），下一轮推动从它接着装。
@@ -1018,6 +1056,41 @@ export function createMultiHostUpdate(
     return await table(await readSession())
   }
 
+  /** 单家查新并收敛知识行：checkPhone 与两段式预查共用（只写知识，不建会话、不装）。 */
+  function applyCheckToInventory(
+    entries: BatchInventory['entries'],
+    rt: TargetRuntime,
+    outcome: BatchCheckOutcome,
+    at: number,
+  ): void {
+    rt.cache = { ...rt.cache, error: outcome.kind === 'failed' ? outcome.error : null }
+    const snapshot = asRecord(rt.cache.snapshot)
+    const installed = firstText(snapshot['installedVersion'], snapshot['runningVersion'])
+    const canInstallRaw = snapshot['canInstall']
+    const canInstall = typeof canInstallRaw === 'boolean' ? canInstallRaw : null
+    if (outcome.kind === 'update') {
+      entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: outcome.version, canInstall, error: null }
+    } else if (outcome.kind === 'current') {
+      entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: installed, canInstall: false, error: null }
+    } else if (outcome.kind === 'skipped') {
+      entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: outcome.version, canInstall: false, error: null }
+    } else {
+      entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: firstText(snapshot['latestVersion']), canInstall, error: outcome.error }
+    }
+  }
+
+  function applyCheckErrorToInventory(
+    entries: BatchInventory['entries'],
+    rt: TargetRuntime,
+    error: unknown,
+    at: number,
+  ): void {
+    const code = errorPayloadOf(error).error
+    rt.cache = { ...rt.cache, error: code }
+    const snapshot = asRecord(rt.cache.snapshot)
+    entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: firstText(snapshot['installedVersion'], snapshot['runningVersion']), latestVersion: firstText(snapshot['latestVersion']), canInstall: typeof snapshot['canInstall'] === 'boolean' ? (snapshot['canInstall'] as boolean) : null, error: code }
+  }
+
   async function checkPhone(): Promise<Record<string, unknown>> {
     const refuse = denied()
     if (refuse) return refuse
@@ -1033,30 +1106,14 @@ export function createMultiHostUpdate(
       prev = emptyBatchInventory()
     }
     const entries: BatchInventory['entries'] = { ...prev.entries }
-    for (const rt of runtimes) {
+    await runWithConcurrency(runtimes, BATCH_CHECK_CONCURRENCY, async (rt) => {
       try {
         const outcome = await rt.check(rt.spec.key, rt.spec)
-        rt.cache = { ...rt.cache, error: outcome.kind === 'failed' ? outcome.error : null }
-        const snapshot = asRecord(rt.cache.snapshot)
-        const installed = firstText(snapshot['installedVersion'], snapshot['runningVersion'])
-        const canInstallRaw = snapshot['canInstall']
-        const canInstall = typeof canInstallRaw === 'boolean' ? canInstallRaw : null
-        if (outcome.kind === 'update') {
-          entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: outcome.version, canInstall, error: null }
-        } else if (outcome.kind === 'current') {
-          entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: installed, canInstall: false, error: null }
-        } else if (outcome.kind === 'skipped') {
-          entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: outcome.version, canInstall: false, error: null }
-        } else {
-          entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: firstText(snapshot['latestVersion']), canInstall, error: outcome.error }
-        }
+        applyCheckToInventory(entries, rt, outcome, at)
       } catch (error) {
-        const code = errorPayloadOf(error).error
-        rt.cache = { ...rt.cache, error: code }
-        const snapshot = asRecord(rt.cache.snapshot)
-        entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: firstText(snapshot['installedVersion'], snapshot['runningVersion']), latestVersion: firstText(snapshot['latestVersion']), canInstall: typeof snapshot['canInstall'] === 'boolean' ? (snapshot['canInstall'] as boolean) : null, error: code }
+        applyCheckErrorToInventory(entries, rt, error, at)
       }
-    }
+    })
     try {
       await writeInventory(normalizeBatchInventory({ version: 1, updatedAt: at, entries }, at))
     } catch {
@@ -1091,6 +1148,90 @@ export function createMultiHostUpdate(
     return await table(session, false)
   }
 
+  /**
+   * 两段式预查（#70 生产者）：把选中 keys 先全查成 ready 进会话，再由 driveLocked 串行装。
+   * - 并发查（BATCH_CHECK_CONCURRENCY），知识与会话同轮收敛，只写 inventory + 置 ready，不装；
+   * - 终态行跳过，ready 有版复用不重查；失败行照常落盘，stopOnFailure 由驱动阶段执行；
+   * - 传输抛错（真路径不会抛，只假件模拟崩溃）沿旧口径上抛，调用方回 ok:false，已收敛的行已落盘。
+   */
+  async function precheckSelectedToReady(
+    session: BatchSession,
+    selected: Set<string> | null,
+  ): Promise<BatchSession> {
+    let current = session
+    const candidates = current.order.filter((key) => selected === null || selected.has(key))
+    const pendingKeys: string[] = []
+    for (const key of candidates) {
+      const entry = batchEntryOf(current, key)
+      if (!entry || isTerminalPhase(entry.phase)) continue
+      if (entry.phase === 'ready' && entry.targetVersion) continue
+      pendingKeys.push(key)
+    }
+    if (pendingKeys.length === 0) return current
+    // 先逐家记 checking 落盘（中断后知道哪家没查完，与驱动器单步口径一致）。
+    for (const key of pendingKeys) {
+      const marked = markBatchEntry(current, key, { phase: 'checking', error: null }, now())
+      if (marked.changed) {
+        current = marked.session
+        await saveSession(current)
+      }
+    }
+    const at = now()
+    let prev: BatchInventory = emptyBatchInventory()
+    try {
+      prev = await readInventory()
+    } catch {
+      prev = emptyBatchInventory()
+    }
+    const entries: BatchInventory['entries'] = { ...prev.entries }
+    const outcomes = new Map<string, BatchCheckOutcome>()
+    let firstError: unknown = null
+    let hasError = false
+    await runWithConcurrency(pendingKeys, BATCH_CHECK_CONCURRENCY, async (key) => {
+      const rt = runtimeOf(key)
+      try {
+        const outcome = await rt.check(key, rt.spec)
+        outcomes.set(key, outcome)
+        applyCheckToInventory(entries, rt, outcome, at)
+      } catch (error) {
+        if (!hasError) {
+          hasError = true
+          firstError = error
+        }
+        applyCheckErrorToInventory(entries, rt, error, at)
+      }
+    })
+    try {
+      await writeInventory(normalizeBatchInventory({ version: 1, updatedAt: at, entries }, at))
+    } catch {
+      // 知识落盘失败不挡会话收敛（只做展示）。
+    }
+    // 按会话顺序收敛结果并落盘；抛错的那家留在 checking（与旧驱动口径一致），最后再上抛。
+    for (const key of pendingKeys) {
+      if (!outcomes.has(key)) continue
+      const outcome = outcomes.get(key) as BatchCheckOutcome
+      let patch: Partial<Omit<BatchEntry, 'key' | 'requestId'>> | null = null
+      if (outcome.kind === 'update') {
+        patch = { phase: 'ready', targetVersion: outcome.version, error: null }
+      } else if (outcome.kind === 'current') {
+        patch = { phase: 'current', targetVersion: null, error: null }
+      } else if (outcome.kind === 'skipped') {
+        patch = { phase: 'skipped', targetVersion: outcome.version, error: null }
+      } else {
+        patch = { phase: 'failed', error: outcome.error }
+      }
+      if (patch) {
+        const marked = markBatchEntry(current, key, patch, now())
+        if (marked.changed) {
+          current = marked.session
+          await saveSession(current)
+        }
+      }
+    }
+    if (hasError) throw firstError
+    return current
+  }
+
   async function installPhone(args: Record<string, unknown>): Promise<Record<string, unknown>> {
     const refuse = denied()
     if (refuse) return refuse
@@ -1122,6 +1263,8 @@ export function createMultiHostUpdate(
         session = retried
         await saveSession(session)
       }
+      // 两段式：先把选中 keys 全查成 ready 进会话，再串行装（装阶段复用 ready，不重查）。
+      session = await precheckSelectedToReady(session, selected)
       driven = await driveLocked(session, selected, Number.POSITIVE_INFINITY)
     } catch (error) {
       return { ok: false, ...errorPayloadOf(error) }
