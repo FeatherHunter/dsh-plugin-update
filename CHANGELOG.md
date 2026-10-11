@@ -2,6 +2,17 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [0.13.0] - 2026-10-11
+
+### Added
+- 面板字号参数化（#103）：`themeTokens` 新增 5 语义键——`panelFontSize`（正文基准，默认 `14px`）、`panelChapterFontSize`（章节标题，默认 `14px`／档案卷 `17px`，批量标题 `15px`／档案卷 `21px` 同键）、`panelBannerTitleFontSize`（横幅标题，默认继承正文／档案卷 `27px`、已最新 `24px`）、`panelLogFontSize`（日志，默认 `13px` 系）、`panelSmallFontSize`（小字副行/注脚，默认 `11px`–`12.5px` 按规则回退）；沿 `语义键 → --dsh-update-panel-* → 根内联，非法即抛` 同口径，CSS 全量走 `var(...,旧值)` 回退，不传零回归；被覆盖 token 即固定值（深色媒体不跟随，README 已注明）。
+- 面板字号 README 键表（#103）：`themeTokens` 文档新增「面板字号」一行与固定值补注。
+
+### Changed
+- 尺寸用例同步回退断言（#103）：`panel-prototype-skeleton` 状态行 `27px`／已最新 `24px` 改断变量回退（原型值仍在回退里），行为零变更。
+
+门禁：`npm test` 978 例（977 过 / 0 失败 / 1 跳过既有）+ `gate:bilingual` 四道硬门禁过（318 draft 未动；`--release` 仍如实红，非阻断）。
+
 ## [0.12.0] - 2026-10-11
 
 ### Added
