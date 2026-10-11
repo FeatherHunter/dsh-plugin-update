@@ -1167,6 +1167,8 @@ export const UPDATE_BATCH_PANEL_ARCHIVE_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-brow-actions button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0;background:transparent}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-bdetail-actions button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0;background:transparent}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-batch-more button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0;background:transparent}',
+  // prefs 开关贴幽灵口径（#106：以请重启/详情为基准——此前无覆盖，吃到底层 archive button 填充；沿用 border-strong/text，不独立设键；13px 与宏/名单行同档）。
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-prefs button{font-size:13px;line-height:1.45;padding:6px 12px;margin:0;min-width:0;background:transparent}',
   // 黄框名单行（只收敛不对齐规则，不声明横幅盒体布局）：标题行拉满，名单居左，按钮同行居右。
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner>.dsh-upd-browline{align-self:stretch;display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner>.dsh-upd-browline .dsh-upd-blist{flex:1 1 auto;min-width:220px;text-align:left;margin:0;color:var(--dsh-update-text-muted)}',
