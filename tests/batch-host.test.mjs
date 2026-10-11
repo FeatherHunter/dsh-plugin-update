@@ -1216,10 +1216,9 @@ describe('两段式生产者-消费者（#70 ADR-0004）', () => {
     host.dispose()
   })
 
-  it('消费前重查：提交遇 check-expired 当场重查一次再装，不误报失败', async () => {
+  it('两段式顺序（单家）：先查后装一次，不重查不重装', async () => {
     const { scope } = await tempScope()
     const calls = []
-    let firstSubmit = true
     const host = createMultiHostUpdate(
       {
         scope,
@@ -1233,17 +1232,14 @@ describe('两段式生产者-消费者（#70 ADR-0004）', () => {
             return { kind: 'done', restartRequired: false }
           },
         },
-        readerOverridesFor: () => undefined,
       },
       { prefix: 'life', targets: [target('a')] },
     )
-    // 真路径的过期重查由 defaultInstall 覆盖：这里用传输层断言两段式顺序即可，
-    // 过期分支用下面的真件电话级用例覆盖（单例挤占只真件有）。
+    // 注：假传输绕过 defaultInstall，真过期重查分支由下一個真件用例覆盖。
     const reply = await host.handlers['life.batchInstall']({})
     assert.equal(reply.ok, true)
     assert.deepEqual(calls, ['check:a', 'install:a'])
     assert.equal(phaseOf(reply.session, 'a'), 'done')
-    assert.ok(firstSubmit, '占位用')
     host.dispose()
   })
 
