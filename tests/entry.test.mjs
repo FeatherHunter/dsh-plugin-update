@@ -35,7 +35,7 @@ function statusReply(snapshot, extra = {}) {
   return { ok: true, snapshot, manual: null, receipt: null, queue: baseQueue(), ...extra }
 }
 
-/** 宿主侧查新版的回包（带检查凭证，但入口件不用它——安装只从面板走）。 */
+/** 宿主侧检查更新的回包（带检查凭证，但入口件不用它——安装只从面板走）。 */
 function checkReply(snapshot, extra = {}) {
   return {
     ok: true,
@@ -145,7 +145,7 @@ test('状态文案五档各不相同，且是人话不是稳定码', () => {
   const cases = [
     ['未查', null, '检查更新'],
     ['无新版', { snapshot: UP_TO_DATE, error: null }, '检查更新'],
-    ['有新版', { snapshot: baseSnapshot(), error: null }, '有新版 1.1.0'],
+    ['有新版本', { snapshot: baseSnapshot(), error: null }, '有新版本 1.1.0'],
     [
       '安装中',
       { snapshot: baseSnapshot({ job: { id: 'j', state: 'installing', targetVersion: '1.1.0', message: null, requestId: 'r' } }), error: null },
@@ -155,9 +155,9 @@ test('状态文案五档各不相同，且是人话不是稳定码', () => {
     [
       '装失败',
       { snapshot: baseSnapshot({ job: { id: 'j', state: 'failed', targetVersion: '1.1.0', message: 'install-failed: x', requestId: 'r' } }), error: null },
-      '更新失败，点此查看',
+      '更新失败，请查看详情',
     ],
-    ['查失败', { snapshot: null, error: 'check-failed' }, '更新失败，点此查看'],
+    ['查失败', { snapshot: null, error: 'check-failed' }, '更新失败，请查看详情'],
   ]
   for (const [name, state, want] of cases) {
     assert.equal(entryLabelFor(state), want, name)
@@ -171,9 +171,9 @@ test('快照一变按钮文案就跟着变（DOM 上也一样）', async () => {
   const box = fakeContainer()
   const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 'p', call, pollMs: 60000 })
   await settled()
-  assert.match(box.innerHTML, /有新版 1\.1\.0/)
+  assert.match(box.innerHTML, /有新版本 1\.1\.0/)
   assert.match(box.innerHTML, /data-state="update"/)
-  assert.equal(entry.label(), '有新版 1.1.0')
+  assert.equal(entry.label(), '有新版本 1.1.0')
   entry.unmount()
 })
 
@@ -194,7 +194,7 @@ test("autoCheck='never'：挂载不打电话，用户点击才联网查（.updat
 
 // ---------- 点下去做什么：has-update / always / manual ----------
 
-test("openOn='has-update'（默认）：点击先查一次，有新版才以 dialog 形态开面板", async () => {
+test("openOn='has-update'（默认）：点击先查一次，有新版本才以 dialog 形态开面板", async () => {
   let known = UP_TO_DATE
   const { call, log } = fakeCall({
     status: () => statusReply(known),
@@ -212,15 +212,15 @@ test("openOn='has-update'（默认）：点击先查一次，有新版才以 dia
   box.click(CLICK_ENTRY)
   await settled()
   assert.equal(log[0].name, 'p.updateCheck', '点击先查一次')
-  assert.match(box.innerHTML, /data-mode="dialog"/, '有新版才以 dialog 形态开面板（复用 panel）')
-  assert.match(box.innerHTML, /有新版 1\.1\.0 可装/, '面板里点明新版号')
+  assert.match(box.innerHTML, /data-mode="dialog"/, '有新版本才以 dialog 形态开面板（复用 panel）')
+  assert.match(box.innerHTML, /有新版本 1\.1\.0 可安装/, '面板里点明新版号')
   assert.match(box.innerHTML, /data-action="install"/, '安装是面板里的一次明确动作')
-  assert.equal(entry.label(), '有新版 1.1.0')
+  assert.equal(entry.label(), '有新版本 1.1.0')
   assert.ok(!log.some((e) => e.name.endsWith('.updateInstall')), '开面板不等于装')
   entry.unmount()
 })
 
-test("upToDateDisplay='note'：确知没有新版就只在原地给一句「已是最新 X.Y.Z」，不开面板", async () => {
+test("upToDateDisplay='note'：确知没有新版本就只在原地给一句「已是最新 X.Y.Z」，不开面板", async () => {
   const { call, log } = fakeCall({ status: statusReply(UP_TO_DATE), check: checkReply(UP_TO_DATE) })
   const box = fakeContainer()
   const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 'p', call, upToDateDisplay: 'note', pollMs: 60000 })
@@ -228,7 +228,7 @@ test("upToDateDisplay='note'：确知没有新版就只在原地给一句「已�
   box.click(CLICK_ENTRY)
   await settled()
   assert.ok(log.some((e) => e.name.endsWith('.updateCheck')), '先查了才敢说没有')
-  assert.ok(!box.innerHTML.includes('data-mode="dialog"'), '没有新版就不开面板')
+  assert.ok(!box.innerHTML.includes('data-mode="dialog"'), '没有新版本就不开面板')
   assert.match(box.innerHTML, /已是最新 1\.0\.0/, '原地给一句人话提示')
   assert.match(box.innerHTML, /data-dsh-upd-note="1"/, '小字是 span，不是第二个按钮')
   assert.match(box.innerHTML, /data-dsh-upd-entry="activate"/, '按钮还在，可以再查')
@@ -250,7 +250,7 @@ test("upToDateDisplay 默认 'button'：无新版时按钮本身即版本，单�
   box.click(CLICK_ENTRY)
   await settled()
   assert.ok(log.some((e) => e.name.endsWith('.updateCheck')), '按钮可点再查')
-  assert.ok(!box.innerHTML.includes('data-mode="dialog"'), '没有新版就不开面板')
+  assert.ok(!box.innerHTML.includes('data-mode="dialog"'), '没有新版本就不开面板')
   assert.equal(entry.label(), '已是最新 1.0.0')
   assert.ok(!log.some((e) => e.name.endsWith('.updateInstall')), '查归查，装不许自动发生')
   entry.unmount()
@@ -282,7 +282,7 @@ test("openOn='always'：点击必开面板，但仍先查一次", async () => {
   box.click(CLICK_ENTRY)
   await settled()
   assert.equal(log[0].name, 'p.updateCheck', '开之前照样先查一次')
-  assert.match(box.innerHTML, /data-mode="dialog"/, '没有新版也开（用户就是要看面板）')
+  assert.match(box.innerHTML, /data-mode="dialog"/, '没有新版本也开（用户就是要看面板）')
   entry.unmount()
 })
 
@@ -361,7 +361,7 @@ test('variant=badge：只有一个小圆点，点击走 onActivate 不开面板'
   assert.match(box.innerHTML, /data-variant="badge"/)
   assert.match(box.innerHTML, /dsh-upd-entry-dot/, '徽标只有一个小圆点')
   assert.ok(!/<button[^>]*class="dsh-upd-entry-btn"/.test(box.innerHTML), '徽标形态不画文字按钮')
-  assert.equal(entry.label(), '有新版 1.1.0', 'label() 仍给状态文案，接入方自己排版')
+  assert.equal(entry.label(), '有新版本 1.1.0', 'label() 仍给状态文案，接入方自己排版')
   log.length = 0
   box.click(CLICK_ENTRY)
   await settled()
@@ -379,7 +379,7 @@ test("variant=inline：面板本体直接嵌进容器（等价 embedded），不
   assert.match(box.innerHTML, /data-mode="embedded"/, '同一内核、内嵌摆放')
   assert.match(box.innerHTML, /data-action="install"/, '安装入口在面板里')
   assert.ok(!/<button[^>]*class="dsh-upd-entry-btn"/.test(box.innerHTML), 'inline 不另画按钮')
-  assert.equal(entry.label(), '有新版 1.1.0', '状态文案仍可读（给接入方排版用）')
+  assert.equal(entry.label(), '有新版本 1.1.0', '状态文案仍可读（给接入方排版用）')
   entry.close()
   assert.match(box.innerHTML, /data-mode="embedded"/, 'close() 只管 dialog，不动内嵌本体')
   assert.ok(!log.some((e) => e.name.endsWith('.updateInstall')), '内嵌也不自动装')
@@ -515,7 +515,7 @@ test('label 显式覆盖：接入方给了文案就用它的，状态照样带�
 
 // ---------- 查不出来也要让用户看见 ----------
 
-test('查新版失败也开面板：把失败摊给用户看，而不是咽掉', async () => {
+test('检查更新失败也开面板：把失败摊给用户看，而不是咽掉', async () => {
   const { call } = fakeCall({
     status: statusReply(UP_TO_DATE),
     check: { ok: false, error: 'check-failed', errorKind: 'check-failed' },
@@ -526,7 +526,7 @@ test('查新版失败也开面板：把失败摊给用户看，而不是咽掉',
   box.click(CLICK_ENTRY)
   await settled()
   assert.match(box.innerHTML, /data-mode="dialog"/, '查不出来就打开面板，让用户看见原因')
-  assert.equal(entry.label(), '更新失败，点此查看')
+  assert.equal(entry.label(), '更新失败，请查看详情')
   entry.unmount()
 })
 

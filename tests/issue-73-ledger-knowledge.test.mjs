@@ -3,10 +3,10 @@
  *
  * 只测外部行为：batchLedgerCounts 的知识映射 + renderBatchPanelHTML 同一屏一致 + 入口徽标同口径。
  * 口径三条（#82 报告 §6.1–§6.3、§7 测试 4；#73 triage Agent Brief）：
- *   1. 无轮次 pending 行有新版 → 进可更新（顶部 hint 与底部 ledger 同步，与行同口径）；
+ *   1. 无轮次 pending 行有新版本 → 进可更新（顶部 hint 与底部 ledger 同步，与行同口径）；
  *   2. 有轮次未做完（inRound）→ 仍走执行态，总账不吃知识（按旧相位计数，inRound 语义不动）；
- *   3. 知识只回答「有没有新版 / 已是最新 / 这次没查到」：查失败的行文案是「这次没查到」，
- *      不许算成安装失败——否则顶部会喊「N 家安装失败；照下面的失败提示逐家重试」，而下面根本没有失败提示。
+ *   3. 知识只回答「有没有新版本 / 已是最新 / 本次未能查询」：查失败的行文案是「本次未能查询」，
+ *      不许算成安装失败——否则顶部会喊「N 家安装失败；照下面的失败提示逐项重试」，而下面根本没有失败提示。
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -48,8 +48,8 @@ function ledgerTextOf(html) {
 }
 const seven = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
 
-describe('#73：空会话 + 知识有新版不再矛盾', () => {
-  it('7 行 pending + 知识 0.3.44→0.3.46：总账 updatable:7、hint 可更新、同屏无还没查过', () => {
+describe('#73：空会话 + 知识有新版本不再矛盾', () => {
+  it('7 行 pending + 知识 0.3.44→0.3.46：总账 updatable:7、hint 可更新、同屏无尚未查询', () => {
     const rows = seven.map((k) => rowOf({ key: k }))
     const entries = {}
     for (const r of rows) entries[r.key] = invEntry()
@@ -59,20 +59,20 @@ describe('#73：空会话 + 知识有新版不再矛盾', () => {
     assert.equal(counts.pending, 0)
     assert.equal(counts.updatable + counts.installing + counts.pending + counts.restart + counts.failed + counts.skipped + counts.settled, 7)
     const html = renderBatchPanelHTML({ rows, session: emptySession(), inventory, lang: 'zh' })
-    assert.ok(!html.includes('还没查过'), '顶部/底部不再报还没查过')
-    assert.equal(sumTextOf(html), '7 家可更新；点「全部更新」一次安装完，也可以逐家点「安装这家」。', 'hint 走可更新')
-    assert.equal(countOf(html, '有新版 0.3.46'), 7, '行仍显示 7 处有新版')
-    assert.equal(ledgerTextOf(html), '7 家可更新', '底部总账同步可更新')
+    assert.ok(!html.includes('尚未查询'), '顶部/底部不再报尚未查询')
+    assert.equal(sumTextOf(html), '7 个可更新；请选择「全部更新」一次安装完成，也可逐项选择「安装此插件」。', 'hint 走可更新')
+    assert.equal(countOf(html, '有新版本 0.3.46'), 7, '行仍显示 7 处有新版本')
+    assert.equal(ledgerTextOf(html), '7 个可更新', '底部总账同步可更新')
   })
 
-  it('知识已是最新：进 settled，hint 全部已最新', () => {
+  it('知识已是最新：进 settled，hint 已全部为最新', () => {
     const rows = [rowOf({ key: 'a' })]
     const inventory = invOf({ a: invEntry({ installedVersion: '0.3.46', latestVersion: '0.3.46' }) })
     const counts = batchLedgerCounts(rows, inventory)
     assert.equal(counts.settled, 1)
     assert.equal(counts.pending, 0)
     const html = renderBatchPanelHTML({ rows, session: emptySession(), inventory, lang: 'zh' })
-    assert.ok(html.includes('全部已最新'), 'hint 走 done')
+    assert.ok(html.includes('已全部为最新'), 'hint 走 done')
     assert.ok(html.includes('已是最新'), '行显示已是最新')
   })
 
@@ -81,18 +81,18 @@ describe('#73：空会话 + 知识有新版不再矛盾', () => {
     const counts = batchLedgerCounts(rows)
     assert.equal(counts.pending, 1)
     const html = renderBatchPanelHTML({ rows, session: emptySession(), lang: 'zh' })
-    assert.ok(html.includes('还没查过'), '无知识仍提示还没查过')
+    assert.ok(html.includes('尚未查询'), '无知识仍提示尚未查询')
   })
 
-  it('知识查失败：行说「这次没查到」，总账就归待查，不冒充安装失败', () => {
+  it('知识查失败：行说「本次未能查询」，总账就归待查，不冒充安装失败', () => {
     const rows = [rowOf({ key: 'a' })]
     const inventory = invOf({ a: invEntry({ latestVersion: null, error: 'check-failed' }) })
     const counts = batchLedgerCounts(rows, inventory)
     assert.equal(counts.failed, 0, '查失败不是安装失败，不进失败档')
     assert.equal(counts.pending, 1, '没有结果 = 还没结果，归待查')
     const html = renderBatchPanelHTML({ rows, session: emptySession(), inventory, lang: 'zh' })
-    assert.ok(html.includes('这次没查到'), '行文案仍是这次没查到（知识事实）')
-    assert.equal(sumTextOf(html), '1 家还没查过；点「检查更新」查一轮。', '顶部给可执行的重查，不喊安装失败')
+    assert.ok(html.includes('本次未能查询'), '行文案仍是本次未能查询（知识事实）')
+    assert.equal(sumTextOf(html), '1 个尚未查询；请选择「检查更新」查询一轮。', '顶部给可执行的重查，不喊安装失败')
     assert.ok(!sumTextOf(html).includes('安装失败'), '顶部不许出现安装失败')
     assert.ok(!sumTextOf(html).includes('失败提示'), '顶部不许指向不存在的失败提示')
   })
@@ -105,7 +105,7 @@ describe('#73：空会话 + 知识有新版不再矛盾', () => {
     assert.equal(counts.updatable, 0)
   })
 
-  it('总账文本同步：有新版时底部 ledger 含可更新', () => {
+  it('总账文本同步：有新版本时底部 ledger 含可更新', () => {
     const rows = [rowOf({ key: 'a' })]
     const counts = batchLedgerCounts(rows, invOf({ a: invEntry() }))
     assert.ok(batchLedgerText(counts, 'zh').includes('可更新'), 'ledger 文本同步')
@@ -113,7 +113,7 @@ describe('#73：空会话 + 知识有新版不再矛盾', () => {
 })
 
 describe('#73 补：有轮次未做完仍走执行态（#82 §6.3 / §7 测试 4）', () => {
-  it('轮次未做完 + 知识有新版：总账不吃知识，与行的执行态同口径', () => {
+  it('轮次未做完 + 知识有新版本：总账不吃知识，与行的执行态同口径', () => {
     const rows = ['a', 'b'].map((k) => rowOf({ key: k, title: k }))
     const inventory = invOf({ a: invEntry(), b: invEntry() })
     const session = roundSession(['a', 'b'])
@@ -121,10 +121,10 @@ describe('#73 补：有轮次未做完仍走执行态（#82 §6.3 / §7 测试 4
     assert.equal(counts.pending, 2, '在轮里的 pending 行按旧相位计，不吃知识')
     assert.equal(counts.updatable, 0, '不许把在轮的行算成可更新')
     const html = renderBatchPanelHTML({ rows, session, inventory, lang: 'zh' })
-    assert.equal(countOf(html, '有新版 0.3.46'), 0, '行也不吃知识（inRound 走执行态）')
-    assert.equal(countOf(html, '等它，轮到就自动查新版'), 2, '行是执行态的等待词')
-    assert.equal(sumTextOf(html), '2 家还没查过；点「检查更新」查一轮。', '顶部与行同为执行态')
-    assert.equal(ledgerTextOf(html), '2 家待查', '底部同为执行态')
+    assert.equal(countOf(html, '有新版本 0.3.46'), 0, '行也不吃知识（inRound 走执行态）')
+    assert.equal(countOf(html, '请等待，轮到将自动查询版本信息。'), 2, '行是执行态的等待词')
+    assert.equal(sumTextOf(html), '2 个尚未查询；请选择「检查更新」查询一轮。', '顶部与行同为执行态')
+    assert.equal(ledgerTextOf(html), '2 个待查询', '底部同为执行态')
   })
 
   // 这一条钉的是「在轮短路」（在轮行根本不看知识）；「查失败 → 待查」的改判本身由上面无轮次那条钉住。
@@ -146,8 +146,8 @@ describe('#73 补：有轮次未做完仍走执行态（#82 §6.3 / §7 测试 4
     const counts = batchLedgerCounts(rows, inventory, session)
     assert.equal(counts.updatable, 1, '终态轮次不算没做完，行已回到知识展示')
     const html = renderBatchPanelHTML({ rows, session, inventory, lang: 'zh' })
-    assert.equal(countOf(html, '有新版 0.3.46'), 1, '行显示有新版')
-    assert.ok(!html.includes('还没查过'), '总账同步为可更新')
+    assert.equal(countOf(html, '有新版本 0.3.46'), 1, '行显示有新版本')
+    assert.ok(!html.includes('尚未查询'), '总账同步为可更新')
   })
 
   it('轮次里没有这一家：这一家仍吃知识，在轮的那家走执行态', () => {
@@ -200,7 +200,7 @@ describe('#73 补：有轮次未做完仍走执行态（#82 §6.3 / §7 测试 4
     assert.equal(sum, rows.length, '每行恰好进一档')
     assert.equal(counts.updatable, 1, '只有 a 吃知识进可更新')
     assert.equal(counts.pending, 2, 'e（checking）与 f（在轮）都待查')
-    assert.equal(counts.settled, 1, 'd 已最新')
+    assert.equal(counts.settled, 1, 'd 已是最新')
     assert.equal(counts.installing, 1)
     assert.equal(counts.failed, 1, '只有真失败行 c 算失败')
   })
@@ -258,9 +258,9 @@ describe('#73 集成：挂载路径同一句话（面板 + 入口徽标）', () 
       checkOnOpen: false,
     })
     await settled()
-    assert.equal(sumTextOf(box.innerHTML), '2 家还没查过；点「检查更新」查一轮。', '挂载路径也走执行态口径')
-    assert.equal(ledgerTextOf(box.innerHTML), '2 家待查')
-    assert.equal(countOf(box.innerHTML, '有新版 0.3.46'), 0, '在轮行不吃知识')
+    assert.equal(sumTextOf(box.innerHTML), '2 个尚未查询；请选择「检查更新」查询一轮。', '挂载路径也走执行态口径')
+    assert.equal(ledgerTextOf(box.innerHTML), '2 个待查询')
+    assert.equal(countOf(box.innerHTML, '有新版本 0.3.46'), 0, '在轮行不吃知识')
     panel.unmount()
   })
 
@@ -277,9 +277,9 @@ describe('#73 集成：挂载路径同一句话（面板 + 入口徽标）', () 
       checkOnOpen: false,
     })
     await settled()
-    assert.ok(!box.innerHTML.includes('还没查过'), '挂载路径不再报还没查过')
-    assert.equal(ledgerTextOf(box.innerHTML), '7 家可更新')
-    assert.equal(countOf(box.innerHTML, '有新版 0.3.46'), 7)
+    assert.ok(!box.innerHTML.includes('尚未查询'), '挂载路径不再报尚未查询')
+    assert.equal(ledgerTextOf(box.innerHTML), '7 个可更新')
+    assert.equal(countOf(box.innerHTML, '有新版本 0.3.46'), 7)
     panel.unmount()
   })
 
@@ -294,7 +294,7 @@ describe('#73 集成：挂载路径同一句话（面板 + 入口徽标）', () 
     })
     await settled()
     assert.ok(box.innerHTML.includes('检查更新'), '徽标按执行态读数 = 无事可报')
-    assert.ok(!box.innerHTML.includes('2 家可更新'), '不喊可更新')
+    assert.ok(!box.innerHTML.includes('2 个可更新'), '不喊可更新')
     entry.unmount()
     const box2 = fakeContainer()
     const entry2 = mountUpdateBatchEntry(box2, {
@@ -303,7 +303,7 @@ describe('#73 集成：挂载路径同一句话（面板 + 入口徽标）', () 
       pollMs: 60000,
     })
     await settled()
-    assert.ok(box2.innerHTML.includes('2 家可更新'), '空会话（无轮次）仍吃知识')
+    assert.ok(box2.innerHTML.includes('2 个可更新'), '空会话（无轮次）仍吃知识')
     entry2.unmount()
   })
 
@@ -322,7 +322,7 @@ describe('#73 集成：挂载路径同一句话（面板 + 入口徽标）', () 
     clickEntry(box)
     await settled()
     assert.ok(!box.innerHTML.includes('dsh-upd-batch'), '在轮时不开面板（聚合档位是 idle，不是 update）')
-    assert.ok(box.innerHTML.includes('2 家待查'), '原地给的总账与面板底部同一句')
+    assert.ok(box.innerHTML.includes('2 个待查询'), '原地给的总账与面板底部同一句')
     assert.ok(box.innerHTML.includes('data-dsh-upd-entry'), '按钮还在，可以再查')
     entry.unmount()
   })

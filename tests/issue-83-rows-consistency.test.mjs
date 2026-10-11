@@ -45,9 +45,9 @@ describe('#83复核#71无回归', () => {
       { current: '0.3.42', latest: '9.9.9', hasUpdate: true },
     );
   });
-  it('Q3四态：无知识回还没查过且仍显当前版', () => {
+  it('Q3四态：无知识回尚未查询且仍显当前版', () => {
     const html = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase: 'pending', snapshot: snap('0.3.42') })], session: emptySession(), lang: 'zh' });
-    assert.ok(html.includes('还没查过'), '无知识四态之还没查过');
+    assert.ok(html.includes('尚未查询'), '无知识四态之尚未查询');
     assert.ok(html.includes('dsh-upd-bver">0.3.42'), '永远显示当前版');
     assert.equal(batchRowPendingStatus(rowOf({ phase: 'ready' }), null, 'zh'), null, '非pending回null');
   });
@@ -56,14 +56,14 @@ describe('#83复核#71无回归', () => {
 // ---------- 单/入口行一致性结论（只读对照：三列/箭头红仅批量行） ----------
 
 describe('#83单/入口一致性（只读对照）', () => {
-  it('单面板版本条三格恒在：运行/磁盘/远端各一格，恒显当前，无批量箭头红', () => {
+  it('单面板版本条三格恒在：运行/磁盘/最新版各一格，恒显当前，无批量箭头红', () => {
     const html = renderUpdatePanelHTML({ pluginId: 'p', snapshot: snap('1.0.0', { latestVersion: '1.2.0' }) });
     assert.ok(html.includes('dsh-upd-strip'), '单面板版本条三格');
     assert.ok(html.includes('1.0.0'), '恒显当前运行版');
-    assert.ok(html.includes('1.2.0'), '远端版同条展示');
+    assert.ok(html.includes('1.2.0'), '最新版同条展示');
     assert.ok(!html.includes('dsh-upd-bver-new'), '单面板不套批量行红（不同表面，N/A）');
   });
-  it('单入口文案只说最新版：有新版带latest，无三列概念', () => {
+  it('单入口文案只说最新版：有新版本带latest，无三列概念', () => {
     const label = entryLabelFor({ snapshot: snap('1.0.0', { latestVersion: '1.2.0' }), error: null }, 'zh');
     assert.ok(label.includes('1.2.0'), '单入口说最新版号');
   });
@@ -72,27 +72,27 @@ describe('#83单/入口一致性（只读对照）', () => {
 // ---------- 残留高优（红→绿）：两处版本/聚合与状态列互斥 ----------
 
 describe('#83残留高优', () => {
-  it('知识孤版（快照无当前+知识仅latest）：版本列须?→latest红，与状态列有新版一致', () => {
+  it('知识孤版（快照无当前+知识仅latest）：版本列须?→latest红，与状态列有新版本一致', () => {
     const row = rowOf({ phase: 'pending', snapshot: null });
     const know = { lastCheckedAt: 1, installedVersion: null, latestVersion: '2.0.0', canInstall: true, error: null };
     const parts = batchRowVersionParts(row, know);
     assert.deepEqual(parts, { current: null, latest: '2.0.0', hasUpdate: true }, '孤版按会话缺当前同例：?=占位+红');
     const html = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase: 'pending', snapshot: null })], session: emptySession(), inventory: invOf({ a: know }), lang: 'zh' });
     assert.ok(html.includes('dsh-upd-bver-new">2.0.0'), '版本列红与状态列同口径');
-    assert.ok(html.includes('有新版 2.0.0'), '状态列有新版');
+    assert.ok(html.includes('有新版本 2.0.0'), '状态列有新版本');
   });
-  it('批量入口聚合吃知识：pending+知识有新版即N家可更新，与面板总账同口径', () => {
+  it('批量入口聚合吃知识：pending+知识有新版本即N个可更新，与面板总账同口径', () => {
     const rows = [rowOf({ key: 'a', phase: 'pending', snapshot: snap('0.3.42') }), rowOf({ key: 'b', phase: 'pending', snapshot: snap('0.3.42') })];
     const inventory = invOf({
       a: { lastCheckedAt: 1, installedVersion: '0.3.42', latestVersion: '0.3.44', canInstall: true, error: null },
       b: { lastCheckedAt: 1, installedVersion: '0.3.42', latestVersion: '0.3.44', canInstall: true, error: null },
     });
     const panelCounts = batchLedgerCounts(rows, inventory);
-    assert.equal(panelCounts.updatable, 2, '面板总账对照：知识有新版进可更新');
+    assert.equal(panelCounts.updatable, 2, '面板总账对照：知识有新版本进可更新');
     const s = batchEntrySummary({ rows, error: null, inventory }, 'zh');
     assert.equal(s.updatable, 2, '入口聚合与面板总账同一份数法');
     assert.equal(s.kind, 'update', '档位同为update');
-    assert.equal(batchEntryLabelFor({ rows, error: null, inventory }, 'zh'), '2 家可更新', '文案同为N家可更新');
+    assert.equal(batchEntryLabelFor({ rows, error: null, inventory }, 'zh'), '2 个可更新', '文案同为N个可更新');
   });
   it('批量入口挂载透传知识：batchStatus回包inventory即进聚合（只读透传）', async () => {
     const rows = [rowOf({ key: 'a', phase: 'pending', snapshot: snap('0.3.42') })];

@@ -88,7 +88,7 @@ test('字典钉住版本且 318 键齐全（entry 7 + batch-entry 6 + panel 76 +
     'entry.label.restart',
     'entry.note.up-to-date',
   ]) assert.ok(keys.includes(k), k + ' 缺键')
-  // #61 panel 75 键（§3.1 16 + §3.2 14 + §3.5 16 + §3.6 18 + §3.8 11）+ #62 kernel 74（§3.7）+ #63 diag 35（§3.3 13 + §3.4 22）+ #64 batch-ledger 33（§4.1/4.3/4.4/4.5）+ #65 batch-row 42（§4.2 13 + §4.6 15 + §4.7 14）+ #66 changelog 9 + diag-fallback 16（§6.1/§7.1）+ #100 panel 1（失败目标）+ diag 1（复制目标）
+  // #61 panel 75 键（§3.1 16 + §3.2 14 + §3.5 16 + §3.6 18 + §3.8 11）+ #62 kernel 74（§3.7）+ #63 diag 35（§3.3 13 + §3.4 22）+ #64 batch-ledger 33（§4.1/4.3/4.4/4.5）+ #65 batch-row 42（§4.2 13 + §4.6 15 + §4.7 14）+ #66 changelog 9 + diag-fallback 16（§6.1/§7.1）+ #100 panel 1（失败目标版本）+ diag 1（复制目标）
   assert.equal(keys.length, 318)
   assert.ok(keys.includes('batch.action.resume'))
   assert.ok(keys.includes('batch.action.resume-title'))
@@ -236,7 +236,7 @@ test('纯文本单语：title/aria 用同语言平面版', () => {
 
 test('占位按名填充：version 单语块里出现一次，原样不译', () => {
   const zh = copyHTML('entry.label.has-update', 'zh', { version: '1.2.3-beta' })
-  assert.match(zh, /<span lang="zh">有新版 1\.2\.3-beta<\/span>/)
+  assert.match(zh, /<span lang="zh">有新版本 1\.2\.3-beta<\/span>/)
   assert.equal(zh.split('1.2.3-beta').length - 1, 1)
   const en = copyHTML('entry.label.has-update', 'en', { version: '1.2.3-beta' })
   assert.match(en, /<span lang="en">Update available 1\.2\.3-beta<\/span>/)
@@ -274,16 +274,16 @@ test('entry key 映射五档齐全（分支输入与旧文案同一套：快照 
 
 test('第二出口同语言：同一快照 zh 回中文、en 回英文（未引入新分支）', () => {
   const s = { snapshot: baseSnapshot(), error: null }
-  assert.equal(entryLabelFor(s, 'zh'), '有新版 1.1.0')
+  assert.equal(entryLabelFor(s, 'zh'), '有新版本 1.1.0')
   assert.equal(entryLabelFor(s, 'en'), 'Update available 1.1.0')
-  assert.equal(entryBilingualTextFor(s, 'zh'), '有新版 1.1.0')
+  assert.equal(entryBilingualTextFor(s, 'zh'), '有新版本 1.1.0')
   assert.equal(entryBilingualTextFor(s, 'en'), 'Update available 1.1.0')
   const zhH = entryBilingualHTMLFor(s, 'zh')
   const enH = entryBilingualHTMLFor(s, 'en')
-  assert.match(zhH, /有新版 1\.1\.0/)
+  assert.match(zhH, /有新版本 1\.1\.0/)
   assert.ok(!zhH.includes('Update available'))
   assert.match(enH, /Update available 1\.1\.0/)
-  assert.ok(!enH.includes('有新版'))
+  assert.ok(!enH.includes('有新版本'))
 })
 
 test('分支仍只认稳定码：同一快照换语言不换档', () => {
@@ -310,9 +310,9 @@ test('挂载默认落 zh（Node 无信号）：按钮单语 zh，label() 同语�
   )
   await new Promise((r) => setTimeout(r, 10))
   await entry.refresh()
-  assert.match(box.innerHTML, /<span class="dsh-upd-bi"><span lang="zh">有新版 1\.1\.0<\/span><\/span>/)
+  assert.match(box.innerHTML, /<span class="dsh-upd-bi"><span lang="zh">有新版本 1\.1\.0<\/span><\/span>/)
   assert.ok(!box.innerHTML.includes('Update available'), 'zh 不见英文')
-  assert.equal(entry.label(), '有新版 1.1.0')
+  assert.equal(entry.label(), '有新版本 1.1.0')
   entry.unmount()
   __resetLangState()
 })
@@ -336,7 +336,7 @@ test('显式 locale=en：按钮与 label() 同为英文，不见中文', async (
   )
   await entry.refresh()
   assert.match(box.innerHTML, /<span lang="en">Update available 1\.1\.0<\/span>/)
-  assert.ok(!box.innerHTML.includes('有新版'), 'en 不见中文')
+  assert.ok(!box.innerHTML.includes('有新版本'), 'en 不见中文')
   assert.equal(entry.label(), 'Update available 1.1.0')
   entry.unmount()
   __resetLangState()
@@ -372,7 +372,7 @@ test('html[lang] 变化即时重绘（假 document + 假 MutationObserver，不�
       },
     )
     await entry.refresh()
-    assert.match(box.innerHTML, /有新版 1\.1\.0/)
+    assert.match(box.innerHTML, /有新版本 1\.1\.0/)
     fakeEl.lang = 'en'
     moCb()
     assert.match(box.innerHTML, /Update available 1\.1\.0/, 'html lang 切 en 后即时重绘')
@@ -405,7 +405,7 @@ test('语言切换即时重绘已挂载入口件（假 locale 服务源）', asy
     },
   )
   await entry.refresh()
-  assert.match(box.innerHTML, /有新版 1\.1\.0/)
+  assert.match(box.innerHTML, /有新版本 1\.1\.0/)
   locale.set('en')
   assert.match(box.innerHTML, /Update available 1\.1\.0/, '切换后即时重绘为英文')
   assert.equal(entry.label(), 'Update available 1.1.0')
@@ -445,13 +445,13 @@ test('批量入口件同样跟随语言（假源）：zh/en 切换即时重绘',
     },
   )
   await entry.refresh()
-  assert.match(box.innerHTML, /1 家可更新/)
+  assert.match(box.innerHTML, /1 个可更新/)
   assert.ok(!box.innerHTML.includes('updates available'))
   locale.set('en')
   assert.match(box.innerHTML, /1 updates available/, '切英文后重绘')
   assert.ok(!box.innerHTML.includes('家可更新'))
   assert.equal(entry.label(), '1 updates available')
-  assert.equal(batchEntryLabelFor({ rows: [row()], error: null }, 'zh'), '1 家可更新')
+  assert.equal(batchEntryLabelFor({ rows: [row()], error: null }, 'zh'), '1 个可更新')
   assert.equal(batchEntryLabelFor({ rows: [row()], error: null }, 'en'), '1 updates available')
   entry.unmount()
   __resetLangState()
@@ -507,7 +507,7 @@ test('面板 dialog 打开期间切换语言不打断轮询与瞬时态（入口
     },
   )
   await entry.refresh()
-  assert.match(box.innerHTML, /有新版/)
+  assert.match(box.innerHTML, /有新版本/)
   entry.open()
   const dialogHTML = box.innerHTML
   assert.match(dialogHTML, /dsh-upd/, 'dialog 已打开（面板接管容器）')

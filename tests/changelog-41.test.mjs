@@ -208,7 +208,7 @@ test('面板默认 autoChangelog 下四处优化可见；显式文本仍赢、fa
     assert.ok(slot1.innerHTML.includes('Security'), 'Security 必显');
     assert.ok(slot1.innerHTML.includes('dsh-upd-breaking-badge'), '破坏徽标可见');
     assert.ok(slot1.innerHTML.includes('已被作者撤回'), '撤回横幅可见');
-    assert.ok(slot1.innerHTML.includes('安装 1.1.0'), '缺日志也不挡安装（有日志更不挡）');
+    assert.ok(slot1.innerHTML.includes('安装版本 1.1.0'), '缺日志也不挡安装（有日志更不挡）');
   } finally { p1.unmount(); }
   const explicit = lines(['# C', '', '## [1.1.0]', '', '### Added', '- 手动文本']);
   const ctx2 = callFor(status, md);
@@ -254,7 +254,7 @@ test('refresh 重试失败：传输失败轮询退避、手动立即重问', asy
     assert.equal(n, 1, '轮询退避内不再问');
     await p.act('check');
     await settled(); await settled();
-    assert.ok(n >= 2, '手动查新版立即重问');
+    assert.ok(n >= 2, '手动检查更新立即重问');
     assert.ok(slot.innerHTML.includes('重试后成功'), '重试成功后渲染');
   } finally { p.unmount(); }
 });

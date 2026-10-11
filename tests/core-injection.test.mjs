@@ -86,7 +86,7 @@ describe('三处注入默认现状、可调即生效', () => {
     )
   })
 
-  it('核心经端口注入目标与源：查新版带回注入包的版本', async () => {
+  it('核心经端口注入目标与源：检查更新带回注入包的版本', async () => {
     const core = createUpdateCore(
       basePorts({
         targetPackageName: 'other-plugin',

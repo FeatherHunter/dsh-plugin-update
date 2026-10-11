@@ -1,5 +1,5 @@
 /**
- * tests/issue-45-diag-complete.test.mjs —— #45 查新版失败复制诊断一次给全.
+ * tests/issue-45-diag-complete.test.mjs —— #45 检查更新失败复制诊断一次给全.
  *
  * 只测外部行为（公开电话最高口 + 公开复制入口 + 挂载控制器），不测内部实现。
  * 缝：电话失败回包形状（含 env/queue 选填）、复制块文本、控制器失败消费。

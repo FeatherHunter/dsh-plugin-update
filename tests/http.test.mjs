@@ -551,7 +551,7 @@ test('批量薄封装续跑：check/install/resume/row-install 经 HTTP 打对�
   assert.ok(urls.includes('https://h.local/u/life.batchCheck'), '检查更新应打 batchCheck')
   assert.ok(urls.includes('https://h.local/u/life.batchInstall'), '全部更新应打 batchInstall')
   const rowHit = seen.find((s) => s.url.endsWith('life.batchInstall') && s.body.keys?.[0] === 'bill')
-  assert.ok(rowHit, '行内安装这家应带 keys:[bill] 打 batchInstall')
+  assert.ok(rowHit, '行内安装此插件应带 keys:[bill] 打 batchInstall')
   assert.ok(urls.includes('https://h.local/u/life.batchResume'), '接着上次应打 batchResume')
   panel.unmount()
 })

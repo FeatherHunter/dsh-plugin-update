@@ -126,14 +126,14 @@ describe('host（4 条）', () => {
 })
 
 describe('panel（4 条）', () => {
-  it('P1 无账本也有知识行：pending + 知识显示有新版', () => {
+  it('P1 无账本也有知识行：pending + 知识显示有新版本', () => {
     const html = renderBatchPanelHTML({
       rows: [rowOf({ key: 'a' })],
       session: { version: 1, id: 's', selfKey: null, stopOnFailure: false, order: [], entries: [], createdAt: 0, updatedAt: 0 },
       inventory: { version: 1, updatedAt: 1, entries: { a: { lastCheckedAt: 1, installedVersion: '1.0.0', latestVersion: '2.0.0', canInstall: true, error: null } } },
       lang: 'zh',
     })
-    assert.ok(html.includes('有新版 2.0.0'), '知识行，实到：' + html.slice(0, 400))
+    assert.ok(html.includes('有新版本 2.0.0'), '知识行，实到：' + html.slice(0, 400))
   })
 
   it('P2 无未终态行不画控制区', () => {
@@ -152,9 +152,9 @@ describe('panel（4 条）', () => {
     const session = { version: 1, id: 's', selfKey: null, stopOnFailure: false, order: ['a', 'b'], entries: [{ key: 'a', phase: 'done', requestId: 'r', targetVersion: null, restartRequired: false, error: null, updatedAt: 0 }, { key: 'b', phase: 'pending', requestId: 'r', targetVersion: null, restartRequired: false, error: null, updatedAt: 0 }], createdAt: 0, updatedAt: 0 }
     const html = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase: 'done' }), rowOf({ key: 'b' })], session, lang: 'zh' })
     assert.ok(html.includes('data-act="resume"'), '有继续')
-    assert.ok(html.includes('还剩 1 家'), '带计数')
+    assert.ok(html.includes('剩余 1 个'), '带计数')
     assert.ok(html.includes('data-act="cancel"'), '有丢弃')
-    assert.ok(html.includes('关掉面板不会中断'), '带生命周期事实')
+    assert.ok(html.includes('关闭面板不会中断更新'), '带生命周期事实')
   })
 
   it('P4 偏好勾选受控并可调 prefsSave', async () => {
@@ -206,7 +206,7 @@ describe('纯函数', () => {
   it('batchRowKnowledgeText 四态', () => {
     const row = rowOf({ key: 'a' })
     assert.ok((batchRowKnowledgeText(row, { lastCheckedAt: 1, installedVersion: '1.0.0', latestVersion: '2.0.0', canInstall: true, error: null }, 'zh') || '').includes('2.0.0'))
-    assert.equal(batchRowKnowledgeText(row, { lastCheckedAt: 0, installedVersion: null, latestVersion: null, canInstall: null, error: null }, 'zh'), '还没查过')
-    assert.equal(batchRowKnowledgeText(row, { lastCheckedAt: 1, installedVersion: null, latestVersion: null, canInstall: null, error: 'check-failed' }, 'zh'), '这次没查到')
+    assert.equal(batchRowKnowledgeText(row, { lastCheckedAt: 0, installedVersion: null, latestVersion: null, canInstall: null, error: null }, 'zh'), '尚未查询')
+    assert.equal(batchRowKnowledgeText(row, { lastCheckedAt: 1, installedVersion: null, latestVersion: null, canInstall: null, error: 'check-failed' }, 'zh'), '本次未能查询')
   })
 })

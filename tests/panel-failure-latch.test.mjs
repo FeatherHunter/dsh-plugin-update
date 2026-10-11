@@ -4,7 +4,7 @@
  * 只测外部行为：调公开入口（mount / act / refresh），看横幅、看复制诊断文本，
  * 不刺探内部闭包变量。
  *
- * 背景：安装失败瞬间有失败态，随后一次成功的状态轮询即洗回“可装”绿页，
+ * 背景：安装失败瞬间有失败态，随后一次成功的状态轮询即洗回“可更新”绿页，
  * 且复制诊断回退到 check-failed 兜底（与本次安装无关）。
  */
 import { test } from 'node:test'
@@ -92,7 +92,7 @@ test('#58 安装失败常驻：失败横幅活过一次成功的状态轮询', a
   await panel.refresh()
   await settled()
   assert.match(box.innerHTML, /更新失败/, '一次成功的状态轮询后失败横幅仍在')
-  assert.doesNotMatch(box.innerHTML, /有新版.*可装/, '不应回到可装绿页')
+  assert.doesNotMatch(box.innerHTML, /有新版本.*可安装/, '不应回到可更新绿页')
   panel.unmount()
 })
 
@@ -135,7 +135,7 @@ test('#58 用户重查成功：解除查失败锁存，装失败锁存保留', a
   state.checkFail = false
   await panel.act('check')
   await settled()
-  assert.match(box.innerHTML, /有新版.*可装/, '用户重查成功后查失败应解除')
+  assert.match(box.innerHTML, /有新版本.*可安装/, '用户重查成功后查失败应解除')
   // 装失败一次：锁存
   await panel.act('install')
   await settled()
@@ -193,7 +193,7 @@ test('#58 查失败常驻：成功的状态轮询不清除查失败', async () =
 
 // ---------- 6. 忙不进锁存 ----------
 
-test('#58 忙是瞬态：update-busy 不锁存，轮询成功即回可装', async () => {
+test('#58 忙是瞬态：update-busy 不锁存，轮询成功即回可更新', async () => {
   const { panel, box } = mountFor('latch-6', {
     status: okStatus,
     check: okCheck,
@@ -206,7 +206,7 @@ test('#58 忙是瞬态：update-busy 不锁存，轮询成功即回可装', asyn
   await panel.refresh()
   await settled()
   assert.doesNotMatch(box.innerHTML, /更新失败/, '忙不应留下失败横幅')
-  assert.match(box.innerHTML, /有新版.*可装/, '忙过后应回到可装页')
+  assert.match(box.innerHTML, /有新版本.*可安装/, '忙过后应回到可更新页')
   panel.unmount()
 })
 
@@ -267,7 +267,7 @@ test('#58 版本变化解除：磁盘版本追上后失败锁存清除', async (
 
 // ---------- 9. 显式确认解除 ----------
 
-test('#58 显式确认：用户确认后回到可装页', async () => {
+test('#58 显式确认：用户确认后回到可更新页', async () => {
   const { panel, box } = mountFor('latch-9', {
     status: okStatus,
     check: okCheck,
@@ -281,7 +281,7 @@ test('#58 显式确认：用户确认后回到可装页', async () => {
   await panel.act('dismiss-failure')
   await settled()
   assert.doesNotMatch(box.innerHTML, /更新失败/, '确认后失败横幅应消失')
-  assert.match(box.innerHTML, /有新版.*可装/, '确认后回到可装页')
+  assert.match(box.innerHTML, /有新版本.*可安装/, '确认后回到可更新页')
   panel.unmount()
 })
 
@@ -307,9 +307,9 @@ test('#58 跨重挂存活：重开面板后装失败仍在，自动查不清除�
   second.panel.unmount()
 });
 
-// ---------- 11. 健康可装页复制诚实：不伪造失败码 ----------
+// ---------- 11. 健康可更新页复制诚实：不伪造失败码 ----------
 
-test('#58 健康可装页复制：无失败即报状态快照，不编 check-failed', async () => {
+test('#58 健康可更新页复制：无失败即报状态快照，不编 check-failed', async () => {
   const { panel, texts } = mountFor('latch-11', {
     status: okStatus,
     check: okCheck,
@@ -327,9 +327,9 @@ test('#58 健康可装页复制：无失败即报状态快照，不编 check-fai
   panel.unmount()
 });
 
-// ---------- 12. 健康已最新页复制诚实 ----------
+// ---------- 12. 健康已是最新页复制诚实 ----------
 
-test('#58 健康已最新页复制：同样诚实无码', async () => {
+test('#58 健康已是最新页复制：同样诚实无码', async () => {
   const upToDate = () => ({ ok: true, snapshot: baseSnapshot({ latestVersion: '0.4.1', canInstall: false }), manual: null, receipt: null, queue: baseQueue() })
   const { panel, texts } = mountFor('latch-12', { status: upToDate, check: upToDate, install: () => ({ ok: false, error: 'x', errorKind: 'x' }) })
   await settled()
@@ -362,9 +362,9 @@ test('#58 失败档案：04 章给出查询键、冻结声明与现成查询', a
   assert.match(box.innerHTML, /本次查询键/, '应有查询键行')
   assert.ok(box.innerHTML.includes(seen.requestId), '查询键应带本次安装请求编号')
   assert.match(box.innerHTML, /检查.*check-1/, '查询键应带检查编号')
-  assert.match(box.innerHTML, /失败于 \d{1,2}:\d{2}:\d{2}/, '应带失败时刻')
+  assert.match(box.innerHTML, /失败时间 \d{1,2}:\d{2}:\d{2}/, '应带失败时刻')
   assert.match(box.innerHTML, /证据已冻结/, '应声明证据冻结')
-  assert.match(box.innerHTML, /凭上面的请求／检查编号/, '应有现成日志查询')
+  assert.match(box.innerHTML, /凭上方请求／检查编号/, '应有现成日志查询')
   assert.doesNotMatch(box.innerHTML, /暂无失败/, '失败时不应再说暂无失败')
   panel.unmount()
 });
@@ -376,7 +376,7 @@ test('#58 健康档案：04 章有中性行与路牌', async () => {
   await settled()
   await settled()
   assert.match(box.innerHTML, /暂无失败/, '健康态应有中性行')
-  assert.match(box.innerHTML, /深挖看日志/, '健康态仍有路牌')
+  assert.match(box.innerHTML, /请查看日志/, '健康态仍有路牌')
   panel.unmount()
 });
 
@@ -387,7 +387,7 @@ test('#58 showLogHint 关：路牌消失，失败证据行保留', async () => {
   await settled()
   await settled()
   assert.match(healthy.box.innerHTML, /暂无失败/, '中性行保留')
-  assert.doesNotMatch(healthy.box.innerHTML, /深挖看日志/, '路牌应隐藏')
+  assert.doesNotMatch(healthy.box.innerHTML, /请查看日志/, '路牌应隐藏')
   healthy.panel.unmount()
   const failed = mountFor('latch-15b', {
     status: okStatus,
@@ -400,7 +400,7 @@ test('#58 showLogHint 关：路牌消失，失败证据行保留', async () => {
   await settled()
   assert.match(failed.box.innerHTML, /本次查询键/, '证据行不受开关影响')
   assert.match(failed.box.innerHTML, /证据已冻结/, '冻结声明不受开关影响')
-  assert.doesNotMatch(failed.box.innerHTML, /深挖看日志/, '通用日志行应隐藏')
+  assert.doesNotMatch(failed.box.innerHTML, /请查看日志/, '通用日志行应隐藏')
   failed.panel.unmount()
 });
 
@@ -464,7 +464,7 @@ test('#58 轮询抛错瞬态：同挂载内一次成功读数即解除', async (
   await settled()
   await settled()
   assert.match(box.innerHTML, /更新失败/, '轮询抛错应有失败横幅')
-  assert.match(box.innerHTML, /读数瞬态失败/, '轮询抛错用瞬态文案')
+  assert.match(box.innerHTML, /瞬态读取失败/, '轮询抛错用瞬态文案')
   state.down = false
   await panel.refresh()
   await settled()
@@ -485,20 +485,20 @@ test('#58 formatLatchTime：合法回时分秒，非法回 null', async () => {
 
 // ---------- 18. volatile 不跨重挂 ----------
 
-test('#58 volatile 不跨重挂：读数瞬态失败重开即忘', async () => {
+test('#58 volatile 不跨重挂：瞬态读取失败重开即忘', async () => {
   const down = () => { throw new Error('net down') }
   const first = mountFor('latch-18', { status: down, check: down, install: down })
   await settled()
   await settled()
   assert.match(first.box.innerHTML, /更新失败/, '读数抛错应有失败横幅')
-  assert.match(first.box.innerHTML, /读数瞬态失败/, '瞬态应用瞬态文案，不说冻结')
+  assert.match(first.box.innerHTML, /瞬态读取失败/, '瞬态应用瞬态文案，不说冻结')
   assert.doesNotMatch(first.box.innerHTML, /证据已冻结/, '瞬态不说冻结')
   first.panel.unmount()
   const second = mountFor('latch-18', { status: okStatus, check: okCheck, install: () => ({ ok: true }) })
   await settled()
   await settled()
   assert.doesNotMatch(second.box.innerHTML, /更新失败/, '重开后瞬态失败不应复活')
-  assert.match(second.box.innerHTML, /有新版.*可装/, '重开后回到可装页')
+  assert.match(second.box.innerHTML, /有新版本.*可安装/, '重开后回到可更新页')
   second.panel.unmount()
 });
 
@@ -520,7 +520,7 @@ test('#58 查锁存诚实：卷宗只有时刻，没有错配的编号', async (
   await panel.act('check')
   await settled()
   assert.match(box.innerHTML, /更新失败/, '查失败应锁存')
-  assert.match(box.innerHTML, /失败于 \d{1,2}:\d{2}:\d{2}/, '应带失败时刻')
+  assert.match(box.innerHTML, /失败时间 \d{1,2}:\d{2}:\d{2}/, '应带失败时刻')
   assert.doesNotMatch(box.innerHTML, /请求 <code>/, '查锁存不得带旧安装请求编号')
   assert.doesNotMatch(box.innerHTML, /检查 <code>/, '查锁存不得带旧检查编号')
   panel.unmount()
@@ -561,7 +561,7 @@ function targetScript(job) {
   }
 }
 
-test('#100 失败目标：失败任务自带目标版，卷宗与复制诊断都写明', async () => {
+test('#100 失败目标版本：失败任务自带目标版，卷宗与复制诊断都写明', async () => {
   const script = targetScript(failedJobWith('0.4.2'))
   const { panel, box, texts } = mountFor('latch-20', script)
   await settled()
@@ -570,14 +570,14 @@ test('#100 失败目标：失败任务自带目标版，卷宗与复制诊断都
   await settled()
   await panel.refresh()
   await settled()
-  assert.match(box.innerHTML, /失败目标 0\.4\.2/, '04 应写明这次装的是哪一版，实际=' + JSON.stringify(box.innerHTML.slice(box.innerHTML.indexOf('错误信息'), box.innerHTML.indexOf('错误信息') + 600)))
+  assert.match(box.innerHTML, /失败目标版本 0\.4\.2/, '04 应写明这次装的是哪一版，实际=' + JSON.stringify(box.innerHTML.slice(box.innerHTML.indexOf('错误信息'), box.innerHTML.indexOf('错误信息') + 600)))
   await panel.act('copy-diag')
   await settled()
   assert.match(texts.at(-1) ?? '', /目标=0\.4\.2/, '复制诊断冻结证据应带目标版，实际=' + JSON.stringify(texts.at(-1)))
   panel.unmount()
 });
 
-test('#100 无目标不画行：任务没带目标版就不写失败目标', async () => {
+test('#100 无目标不画行：任务没带目标版就不写失败目标版本', async () => {
   const script = targetScript(failedJobWith(null))
   const { panel, box, texts } = mountFor('latch-21', script)
   await settled()
@@ -587,7 +587,7 @@ test('#100 无目标不画行：任务没带目标版就不写失败目标', asy
   await panel.refresh()
   await settled()
   assert.match(box.innerHTML, /更新失败/, '失败横幅仍在')
-  assert.doesNotMatch(box.innerHTML, /失败目标/, '没目标版就不画失败目标行，不猜')
+  assert.doesNotMatch(box.innerHTML, /失败目标版本/, '没目标版就不画失败目标版本行，不猜')
   await panel.act('copy-diag')
   await settled()
   assert.doesNotMatch(texts.at(-1) ?? '', /目标=/, '复制诊断也不带目标字段')

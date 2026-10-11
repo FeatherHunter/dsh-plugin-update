@@ -158,6 +158,18 @@ test('待重启横幅只有一个标记：不画印章，标记是手绘 SVG（�
     '待重启标记须是独立 flex 标记（不许用行内背景把句子劈开）',
   )
   assert.ok(css.includes('[data-kind="restart"]>div:first-child::before{content:""'), '标记走 ::before 占位，不挤正文')
+  assert.ok(
+    css.includes('>div:first-child::before{content:"";flex:none;width:20px;height:20px;margin-top:7px;'),
+    '标记须贴首行居中：27px×1.25 行盒配 20px 标，(33.75-20)/2≈7px；3px 会偏上',
+  )
+  assert.ok(
+    css.includes('[data-kind="restart"]>div:first-child{display:flex;gap:10px;align-items:flex-start}'),
+    '标记行须 flex-start（标题换两行时标仍贴首行，不许 center 飘到块中间）',
+  )
+  assert.ok(
+    css.includes('[data-kind="restart"]>div:first-child strong{margin-left:-30px;text-indent:30px}'),
+    '悬挂缩进：首行让图标位（20px＋10px），换行顶格落图标下方；不是两行文字互相对齐',
+  )
 })
 
 test('印章走属性带在根上：两个主题的内核逐字同一份，默认主题不画', () => {
@@ -177,12 +189,12 @@ test('待重启文案照原型：不带 emoji，且给「请重启DSH」入口',
   const html = renderUpdatePanelHTML(
     inputFor({ snapshot: baseSnapshot({ canInstall: false, blockedReason: 'pending-restart', latestVersion: '1.1.0', installedVersion: '1.1.0' }) }),
   )
-  assert.ok(html.includes('新版 1.1.0 已安装，重启宿主后生效。'), '文案须照原型')
+  assert.ok(html.includes('新版本 1.1.0 已安装，重启宿主后生效。'), '文案须照原型')
   assert.ok(!html.includes('⚠'), '标题里不得再有 emoji（标记由 SVG 承担）')
   assert.ok(html.includes('data-action="restart-hint"'), '须给「请重启DSH」入口')
   assert.ok(html.includes('>请重启DSH<'), '按钮文字须是「请重启DSH」')
   assert.ok(!html.includes('data-action="restart-hint" data-primary'), '诚实化：重启入口不再是主按钮')
-  assert.ok(html.includes('title="点一下走调用方流程，没有就手动重启 DSH"') || html.includes('title="Run the caller restart flow'), '悬停须是新口径（走调用方流程/手动重启DSH）')
+  assert.ok(html.includes('title="优先走调用方重启流程；若无，请手动重启 DSH"') || html.includes('title="Run the caller restart flow'), '悬停须是新口径（走调用方流程/手动重启DSH）')
 })
 
 test('「请重启DSH」入口：没给回调如实提示手动重启，给了回调就交给调用方', async () => {
@@ -207,7 +219,7 @@ test('「请重启DSH」入口：没给回调如实提示手动重启，给了�
   await panelB.refresh()
   await panelB.act('restart-hint')
   assert.equal(called, 1, '给了回调须调用它')
-  assert.ok(boxB.innerHTML.includes('已按调用方的重启流程处理'), '须如实回执')
+  assert.ok(boxB.innerHTML.includes('已按调用方重启流程处理'), '须如实回执')
   panelB.unmount()
 })
 
@@ -329,5 +341,18 @@ test('挂载：theme 可选，非法抛错，setTheme 可切', async () => {
 
 test('视图模型不受主题影响：同一快照同一横幅', () => {
   const v1 = panelViewModel({ snapshot: baseSnapshot(), manual: null, queue: baseQueue(), skippedLatest: false, lastError: null })
-  assert.equal(v1.banner.kind, 'update', '有新版即 update 横幅（与主题无关）')
+  assert.equal(v1.banner.kind, 'update', '有新版本即 update 横幅（与主题无关）')
+})
+
+test('深色手工命令块去反白：深底浅字加边框（亮底在深纸上太晃）', () => {
+  const css = UPDATE_PANEL_ARCHIVE_CSS
+  const darkIdx = css.indexOf('@media (prefers-color-scheme: dark)')
+  assert.ok(darkIdx >= 0, '须有深色媒体')
+  const darkAndAfter = css.slice(darkIdx)
+  assert.ok(
+    darkAndAfter.includes('.dsh-upd[data-theme="archive"] .dsh-upd-manual code{background:#26211a;color:#ece5d3;border:1px solid var(--dsh-update-border-strong)}'),
+    '深色命令块须是卡面微亮深底 + 浅字 + 细边框',
+  )
+  const top = css.slice(0, darkIdx)
+  assert.ok(!top.includes('.dsh-upd-manual code{background:#26211a'), '去反白只活在深色媒体里，浅色仍是原型深块')
 })

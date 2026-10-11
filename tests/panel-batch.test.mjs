@@ -187,10 +187,10 @@ describe('明细：一行一家', () => {
     assert.equal((html.match(/class="dsh-upd-brow"/g) || []).length, 3, '一行一家，恰好 N 行')
     assert.ok(html.includes('甲插件') && html.includes('乙插件') && html.includes('丙插件'))
     assert.ok(html.includes('dsh-upd-bver-cur">1.0.0'), '当前版本要照给（#71 三段式老版本）')
-    assert.ok(html.includes('dsh-upd-bver-new">1.2.0'), '远端新版要照给且走专用红（#71 只红新版）')
+    assert.ok(html.includes('dsh-upd-bver-new">1.2.0'), '最新版新版要照给且走专用红（#71 只红新版）')
     assert.ok(html.includes('dsh-upd-bver-arrow'), '箭头中性段保留（#71 第二信号之外）')
     assert.ok(html.includes('dsh-upd-bver-cur">1.5.0'), '当前版本取该家自己的运行版')
-    assert.ok(html.includes('dsh-upd-bver-new">2.0.0'), '该家自己的远端版同样三段式')
+    assert.ok(html.includes('dsh-upd-bver-new">2.0.0'), '该家自己的最新版同样三段式')
     assert.ok(html.includes('<span class="dsh-upd-updot" data-tone="todo">'), '可更新那家的灯')
     assert.ok(html.includes('data-act="row-install"'), '可更新那家有行内动作')
     panel.unmount()
@@ -198,14 +198,14 @@ describe('明细：一行一家', () => {
 
   it('每行一句可执行的状态词：来自 phase、是中文、不是相位英文', () => {
     const cases = {
-      pending: '还没查过',
-      checking: '正在查新版，稍等',
-      ready: '点「安装这家」安装 1.2.0',
-      installing: '正在安装，别动',
-      current: '已是最新，不用动',
-      done: '安装好了，不用动',
-      failed: '安装没成功，点「重试」再来一次',
-      skipped: '这一版已跳过，不用动',
+      pending: '尚未查询',
+      checking: '正在查询版本信息，请稍候。',
+      ready: '选择「安装此插件」安装 1.2.0',
+      installing: '正在安装，请勿操作。',
+      current: '已是最新，无需操作。',
+      done: '已安装完成，无需操作。',
+      failed: '安装失败，请选择「重试」。',
+      skipped: '该版本已跳过，无需操作。',
     }
     for (const [phase, word] of Object.entries(cases)) {
       const html = renderBatchPanelHTML({ rows: [rowOf({ phase })] })
@@ -218,13 +218,13 @@ describe('明细：一行一家', () => {
       if (phase !== 'pending') assert.equal(batchRowStatus(rowOf({ phase })), word)
     }
     // #71 Q3：无轮次 pending 不再误显示 wait-turn；有轮次才走执行态。
-    assert.equal(batchRowStatus(rowOf({ phase: 'pending' })), '等它，轮到就自动查新版', 'batchRowStatus 语义冻结，旧快照不动')
+    assert.equal(batchRowStatus(rowOf({ phase: 'pending' })), '请等待，轮到将自动查询版本信息。', 'batchRowStatus 语义冻结，旧快照不动')
     const inRoundSession = { version: 1, id: 's', selfKey: null, stopOnFailure: false, order: ['a'], entries: [{ key: 'a', phase: 'pending', requestId: 'r', targetVersion: null, restartRequired: false, error: null, updatedAt: 0 }], createdAt: 0, updatedAt: 0 }
     const inRound = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase: 'pending' })], session: inRoundSession, lang: 'zh' })
-    assert.ok(inRound.includes('等它，轮到就自动查新版'), '有轮次未做完仍走执行态')
-    assert.ok(inRound.includes('上一批没做完'), '轮次事实小标记保留')
+    assert.ok(inRound.includes('请等待，轮到将自动查询版本信息。'), '有轮次未做完仍走执行态')
+    assert.ok(inRound.includes('上次未完成'), '轮次事实小标记保留')
     const restart = renderBatchPanelHTML({ rows: [rowOf({ phase: 'done', restartRequired: true })] })
-    assert.ok(restart.includes('安装好了，重启宿主才生效'), '待重启要说清下一步是重启')
+    assert.ok(restart.includes('已安装完成，重启宿主后生效。'), '待重启要说清下一步是重启')
   })
 })
 
@@ -268,7 +268,7 @@ describe('总账与两个宏', () => {
     const { panel } = mountPanel(box, rows)
     await settled()
     assert.ok(
-      box.innerHTML.includes('3 家可更新 · 1 家安装中 · 1 家待重启 · 1 家失败'),
+      box.innerHTML.includes('3 个可更新 · 1 个安装中 · 1 个待重启 · 1 个失败'),
       '四类数要在同一行上对齐',
     )
     const counts = batchLedgerCounts(rows)
@@ -301,7 +301,7 @@ describe('总账与两个宏', () => {
     const idleBox = fakeContainer()
     const idle = mountPanel(idleBox, [rowOf({ key: 'b' })])
     await settled()
-    assert.match(idleBox.innerHTML, /data-act="row-install" data-key="b"[^>]*>安装这家</, '没人装时给的是「安装这家」')
+    assert.match(idleBox.innerHTML, /data-act="row-install" data-key="b"[^>]*>安装此插件</, '没人装时给的是「安装此插件」')
     assert.ok(!/data-act="check"[^>]*disabled/.test(idleBox.innerHTML), '没人装时检查更新可用')
     assert.ok(!/data-act="install"[^>]*disabled/.test(idleBox.innerHTML), '没人装时全部更新可用')
     idle.panel.unmount()
@@ -320,7 +320,7 @@ describe('失败与待重启：常驻横幅 + 行内入口', () => {
     assert.ok(html.includes('install-failed'), '稳定码要露出来')
     assert.ok(html.includes('安装执行失败，详情见诊断摘要'), '稳定码要配中文人话')
     assert.match(html, /data-act="row-install" data-key="a"[^>]*>重试</, '失败行要给行内重试')
-    assert.ok(html.includes('1 家安装失败'), '失败常驻横幅')
+    assert.ok(html.includes('1 个插件安装失败'), '失败常驻横幅')
     log.length = 0
     await panel.act('row-install')
     assert.equal(log.length, 0, '没给键就不许瞎装一家')
@@ -341,14 +341,14 @@ describe('失败与待重启：常驻横幅 + 行内入口', () => {
     assert.match(html, /data-act="restart">请重启DSH</, '顶部横幅按钮也要「请重启DSH」（无 data-key）')
     assert.ok(!html.includes('data-act="restart" data-primary'), '诚实化：批量重启入口不再是主按钮')
     assert.ok(html.includes('重启宿主以加载新版本；此为正常状态，非安装失败'), '与单插件面板同一措辞')
-    assert.ok(html.includes('1 家已安装好，重启宿主后生效。'), '待重启常驻横幅')
+    assert.ok(html.includes('1 个已安装完成，重启宿主后生效。'), '待重启常驻横幅')
     const enHtml = renderBatchPanelHTML({ rows: [{ key: 'a', title: 'A', phase: 'done', restartRequired: true, error: null, snapshot: null }], loaded: true, lang: 'en' })
     assert.match(enHtml, /data-act="restart" data-key="a">Please restart DSH</, 'en 行内也要 Please restart DSH（中英同义）')
     assert.match(enHtml, /data-act="restart">Please restart DSH</, 'en 顶部也要 Please restart DSH（中英同义）')
     const before = log.length
     await panel.act('restart')
     assert.equal(log.length, before, '重启入口不打任何电话（宿主没有重启自己的电话）')
-    assert.ok(box.innerHTML.includes('本宿主未提供重启入口：请手动重启宿主'), '没给重启流程就如实说手动重启')
+    assert.ok(box.innerHTML.includes('本宿主未提供重启入口，请手动重启宿主'), '没给重启流程就如实说手动重启')
     panel.unmount()
   })
 
@@ -367,7 +367,7 @@ describe('失败与待重启：常驻横幅 + 行内入口', () => {
     await settled()
     await panel.act('restart')
     assert.equal(called, 1)
-    assert.ok(box.innerHTML.includes('已按调用方的重启流程处理'))
+    assert.ok(box.innerHTML.includes('已按调用方重启流程处理'))
     panel.unmount()
   })
 
@@ -529,17 +529,17 @@ describe('死按钮门禁：面板里每个可点按钮都得有人接', () => {
 })
 
 describe('详情动作行：与行内同一通道', () => {
-  it('详情里「安装 X.Y.Z」与行内「安装这家」打到同一个电话、同一个 key', async () => {
+  it('详情里「安装版本 X.Y.Z」与行内「安装此插件」打到同一个电话、同一个 key', async () => {
     const rows = [rowOf({ key: 'a', title: '甲插件', targetVersion: '2.4.0' })]
     const box = fakeContainer()
     const { panel, log } = mountPanel(box, rows)
     await settled()
     await panel.act('toggle-details', 'a')
     const html = box.innerHTML
-    const rowButton = html.match(/<button type="button" data-act="row-install" data-key="a"[^>]*>安装这家<\/button>/)
-    const detailButton = html.match(/<button type="button" data-act="row-install" data-key="a"[^>]*>安装 2\.4\.0<\/button>/)
-    assert.ok(rowButton, '行内要有「安装这家」')
-    assert.ok(detailButton, '详情里要有「安装 2.4.0」')
+    const rowButton = html.match(/<button type="button" data-act="row-install" data-key="a"[^>]*>安装此插件<\/button>/)
+    const detailButton = html.match(/<button type="button" data-act="row-install" data-key="a"[^>]*>安装版本 2\.4\.0<\/button>/)
+    assert.ok(rowButton, '行内要有「安装此插件」')
+    assert.ok(detailButton, '详情里要有「安装版本 2.4.0」')
     const attrsOf = (tag) => tag.slice(0, tag.indexOf('>'))
     assert.equal(attrsOf(detailButton[0]), attrsOf(rowButton[0]), '两颗按钮走的同一条通道（属性逐字相同）')
     log.length = 0
@@ -579,11 +579,11 @@ describe('详情动作行：与行内同一通道', () => {
     const actionsA = actionsOf('a')
     assert.match(actionsA, /data-act="row-install" data-key="a"[^>]*>加入队列</, '别家在装：详情里给排队入口')
     assert.ok(!/data-act="row-install"[^>]*disabled/.test(actionsA), '排队入口要能点')
-    assert.match(actionsA, /data-act="row-skip"[^>]*>跳过这一版</, '跳过不受别家影响')
+    assert.match(actionsA, /data-act="row-skip"[^>]*>跳过该版本</, '跳过不受别家影响')
     await panel.act('toggle-details', 'a')
     await panel.act('toggle-details', 'b')
     const actionsB = actionsOf('b')
-    assert.match(actionsB, /data-act="row-install" data-key="b"[^>]*disabled>安装中…</, '正在装的那一行详情里禁自己')
+    assert.match(actionsB, /data-act="row-install" data-key="b"[^>]*disabled>正在安装…</, '正在装的那一行详情里禁自己')
     panel.unmount()
   })
 
@@ -621,7 +621,7 @@ describe('详情动作行：与行内同一通道', () => {
     assert.ok(copied[1].includes('demo'), '诊断带插件标识')
     assert.ok(copied[1].includes('<路径>'), '本机路径要换成占位符')
     assert.ok(!copied[1].includes('/home/me'), '诊断不许带本机路径')
-    assert.ok(box.innerHTML.includes('诊断已复制'), '复制后在该家详情里给回执')
+    assert.ok(box.innerHTML.includes('诊断信息已复制'), '复制后在此插件详情里给回执')
     panel.unmount()
   })
 })
@@ -637,17 +637,17 @@ describe('跳过语义：与单插件面板同一套（按插件 + 版本）', (
     const box = fakeContainer()
     const { panel } = mountPanel(box, rows)
     await settled()
-    assert.equal(statOf(box.innerHTML), '点「安装这家」安装 2.4.0（上一批没做完）')
+    assert.equal(statOf(box.innerHTML), '选择「安装此插件」安装 2.4.0（上次未完成）')
     await panel.act('row-skip', 'a')
-    assert.equal(statOf(box.innerHTML), '已跳过 2.4.0（上一批没做完）', '跳过后状态词要说已跳过')
-    assert.match(box.innerHTML, /data-act="row-resume-skip"[^>]*>恢复（2\.4\.0）</, '跳过后要给恢复入口')
-    assert.ok(!box.innerHTML.includes('>安装这家</button>'), '跳过后行内不再给安装这家')
+    assert.equal(statOf(box.innerHTML), '已跳过版本 2.4.0（上次未完成）', '跳过后状态词要说已跳过')
+    assert.match(box.innerHTML, /data-act="row-resume-skip"[^>]*>恢复提醒（2\.4\.0）</, '跳过后要给恢复入口')
+    assert.ok(!box.innerHTML.includes('>安装此插件</button>'), '跳过后行内不再给安装此插件')
     await panel.act('toggle-details', 'a')
     assert.ok(box.innerHTML.includes('data-chapter="01"'), '详情照画五章')
     assert.ok(box.innerHTML.includes('data-act="row-resume-skip"'), '详情里也给恢复')
     assert.ok(!box.innerHTML.includes('data-act="row-skip"'), '跳过后详情里不再给跳过')
     await panel.act('row-resume-skip', 'a')
-    assert.equal(statOf(box.innerHTML), '点「安装这家」安装 2.4.0（上一批没做完）', '恢复后回原状')
+    assert.equal(statOf(box.innerHTML), '选择「安装此插件」安装 2.4.0（上次未完成）', '恢复后回原状')
     panel.unmount()
   })
 
@@ -657,10 +657,10 @@ describe('跳过语义：与单插件面板同一套（按插件 + 版本）', (
     const { panel } = mountPanel(box, rows)
     await settled()
     await panel.act('row-skip', 'a')
-    assert.equal(statOf(box.innerHTML), '已跳过 2.4.0（上一批没做完）')
+    assert.equal(statOf(box.innerHTML), '已跳过版本 2.4.0（上次未完成）')
     rows[0].targetVersion = '3.0.0'
     await panel.refresh()
-    assert.equal(statOf(box.innerHTML), '点「安装这家」安装 3.0.0（上一批没做完）', '换一版即重新提醒')
+    assert.equal(statOf(box.innerHTML), '选择「安装此插件」安装 3.0.0（上次未完成）', '换一版即重新提醒')
     panel.unmount()
   })
 })
@@ -707,7 +707,7 @@ describe('后台失败：诊断降级路径（真 diag 优先，不许编造）'
       }),
     )
     assert.ok(text.includes('装完校验没过'), '真正文要进诊断：' + text)
-    assert.ok(text.includes('（来源：后台任务收尾记录）'), '要标来源，读者才知道这段不是请求回包')
+    assert.ok(text.includes('（来源：后台任务执行记录）'), '要标来源，读者才知道这段不是请求回包')
     assert.ok(text.includes('稳定码：install-failed'), '前缀码要认出来')
     assert.ok(text.includes('使用范围：web'), '使用范围一并透传（更新装到哪个范围）')
   })
@@ -802,15 +802,15 @@ describe('文案：安装不许简写成「装」', () => {
     await panel.act('toggle-details', 'b')
     await panel.act('toggle-details', 'a')
     const html = box.innerHTML
-    assert.ok(!/(?<!安)装这家/.test(html), '不许把「安装这家」简写成「装这家」')
-    assert.ok(!/(?<!安)装 ?\d+\.\d+/.test(html), '不许把「安装 2.4.0」简写成「装 2.4.0」')
+    assert.ok(!/(?<!安)装这家/.test(html), '不许把「安装此插件」简写成「装这家」')
+    assert.ok(!/(?<!安)装 ?\d+\.\d+/.test(html), '不许把「安装版本 2.4.0」简写成「装 2.4.0」')
     const labels = labelOf(html)
     assert.ok(labels.length >= 6, '按钮盘点要有量，实到 ' + labels.length)
     for (const label of labels) {
       if (label.includes('装')) assert.ok(label.includes('安装'), '按钮文案要用全称「安装」：' + label)
     }
-    assert.ok(labels.includes('安装这家'), '行内动作要用「安装这家」')
-    assert.ok(labels.includes('安装 2.4.0'), '详情动作要用「安装 2.4.0」')
+    assert.ok(labels.includes('安装此插件'), '行内动作要用「安装此插件」')
+    assert.ok(labels.includes('安装版本 2.4.0'), '详情动作要用「安装版本 2.4.0」')
     assert.ok(!/(?<!安)装好了/.test(html), '状态词不许写「装好了」')
     assert.ok(!html.includes('没装上'), '状态词不许写「没装上」')
     assert.ok(!html.includes('没装成'), '总账不许写「没装成」')
@@ -836,13 +836,13 @@ describe('文案：安装不许简写成「装」', () => {
     panel.unmount()
   })
 
-  it('状态词与总账用全称：可更新那句点名的就是「安装这家」', async () => {
+  it('状态词与总账用全称：可更新那句点名的就是「安装此插件」', async () => {
     const box = fakeContainer()
     const { panel } = mountPanel(box, [rowOf({ key: 'a', targetVersion: '2.4.0' })])
     await settled()
-    assert.ok(box.innerHTML.includes('点「安装这家」安装 2.4.0'), '状态词要写全称')
-    assert.ok(box.innerHTML.includes('逐家点「安装这家」'), '总账那句要写全称')
-    assert.ok(box.innerHTML.includes('一次安装完'), '总账那句的「安装完」也要全称')
+    assert.ok(box.innerHTML.includes('选择「安装此插件」安装 2.4.0'), '状态词要写全称')
+    assert.ok(box.innerHTML.includes('逐项选择「安装此插件」'), '总账那句要写全称')
+    assert.ok(box.innerHTML.includes('一次安装完成'), '总账那句的「安装完」也要全称')
     panel.unmount()
   })
 })
@@ -864,7 +864,7 @@ describe('排队语义：忙时也能加入队列（入队不算失败）', () =
       title: '乙插件',
       pluginId: 'b-plugin',
       targetVersion: '2.0.0',
-      // 位置 1 = waiting 队首：前面正好压着正在装的那一家（A），所以显示「前方 1 个」。
+      // 位置 1 = waiting 队首：前面正好压着正在装的那一家（A），所以显示「前方还有 1 项」。
       queue: queueView(1),
       phoneNames: {
         updateStatus: 'bp.updateStatus',
@@ -875,7 +875,7 @@ describe('排队语义：忙时也能加入队列（入队不算失败）', () =
     })
   }
 
-  it('点「加入队列」→ 还是同一张安装票；回包带位置后 B 显示排队位置且不是 failed', async () => {
+  it('选择「加入队列」→ 还是同一张安装票；回包带位置后 B 显示排队位置且不是 failed', async () => {
     const before = [
       rowOf({ key: 'a', phase: 'installing' }),
       rowOf({ key: 'b', title: '乙插件', pluginId: 'b-plugin', targetVersion: '2.0.0' }),
@@ -896,7 +896,7 @@ describe('排队语义：忙时也能加入队列（入队不算失败）', () =
       '加入队列发的还是同一张安装票（只推这一家）',
     )
     const html = box.innerHTML
-    assert.ok(html.includes('已排队 · 前方 1 个'), 'B 行要显示排队位置')
+    assert.ok(html.includes('已排队 · 前方还有 1 项'), 'B 行要显示排队位置')
     assert.ok(!html.includes('data-phase="failed"'), '排队不许显示成 failed')
     assert.match(html, /class="dsh-upd-brow" data-phase="ready" data-key="b" data-queued="1"/, 'B 行要标成排队')
     assert.ok(!html.includes('<div class="dsh-upd-banner" data-kind="failed"'), '排队不该出失败横幅')
@@ -927,11 +927,11 @@ describe('排队语义：忙时也能加入队列（入队不算失败）', () =
     assert.ok(rowHtml.includes('已排队'), '排队那行要说已排队')
     assert.ok(!rowHtml.includes('dsh-upd-bfail'), '排队不算失败：不画失败提示')
     assert.ok(!html.includes('家失败'), '总账不许把它记成失败')
-    assert.ok(html.includes('1 家可更新 · 1 家安装中'), '它算可更新（等前面装完就轮到）')
+    assert.ok(html.includes('1 个可更新 · 1 个安装中'), '它算可更新（等前面装完就轮到）')
     panel.unmount()
   })
 
-  it('老宿主回 update-busy：不画红条、不记失败，只给一句「等它装完再点」', async () => {
+  it('老宿主回 update-busy：不画红条、不记失败，只给一句「前方安装完成后再次选择」', async () => {
     const rows = [rowOf({ key: 'a', phase: 'installing' }), rowOf({ key: 'b', title: '乙插件', targetVersion: '2.0.0' })]
     const box = fakeContainer()
     const { call } = fakeCall(rows, (name) => {
@@ -943,7 +943,7 @@ describe('排队语义：忙时也能加入队列（入队不算失败）', () =
     await panel.act('row-install', 'b')
     const html = box.innerHTML
     assert.ok(!html.includes('<div class="dsh-upd-banner" data-kind="failed"'), '入队被拒也不画失败横幅')
-    assert.ok(html.includes('还没排上'), '给一句等它装完再点的回执')
+    assert.ok(html.includes('尚未排队'), '给一句前方安装完成后再次选择的回执')
     assert.ok(!html.includes('data-phase="failed"'), '不许把这一行记成失败')
     panel.unmount()
   })
@@ -953,7 +953,7 @@ describe('排队语义：忙时也能加入队列（入队不算失败）', () =
     const box = fakeContainer()
     const { panel, log } = mountPanel(box, rows)
     await settled()
-    assert.ok(box.innerHTML.includes('已排队 · 前方 3 个'), '位置 3 → 前方 3 个（含正在装的那家）')
+    assert.ok(box.innerHTML.includes('已排队 · 前方还有 3 项'), '位置 3 → 前方还有 3 项（含正在装的那家）')
     log.length = 0
     await panel.act('row-cancel-queue', 'b')
     const cancelCall = log.find((e) => e.name === 'bp.updateInstall')
@@ -1018,7 +1018,7 @@ describe('断点续跑、取消与卸载', () => {
     await panel.act('cancel')
     assert.equal(log.length, 1)
     assert.equal(log[0].name, 'life.batchCancel')
-    assert.ok(box.innerHTML.includes('已丢弃这批未完成的更新'), '取消后给一句回执')
+    assert.ok(box.innerHTML.includes('已丢弃本批未完成的更新'), '取消后给一句回执')
     panel.unmount()
   })
 
@@ -1088,7 +1088,7 @@ describe('回包宽容读', () => {
     })
     await settled()
     assert.equal((noRows.innerHTML.match(/class="dsh-upd-brow"/g) || []).length, 2, 'rows 缺失按账本补')
-    assert.ok(noRows.innerHTML.includes('等它，轮到就自动查新版'), '认不出的相位按 pending 处理')
+    assert.ok(noRows.innerHTML.includes('请等待，轮到将自动查询版本信息。'), '认不出的相位按 pending 处理')
     second.panel.unmount()
   })
 })
@@ -1098,15 +1098,15 @@ describe('#64 聚合与总账跟随语言', () => {
   it('分类账 batchLedgerText：zh 纯中文、en 纯英文（缺省 zh 零回归）', () => {
     const counts = { updatable: 3, installing: 1, pending: 2, restart: 1, failed: 1, skipped: 1, settled: 4 }
     const zh = batchLedgerText(counts)
-    assert.ok(zh.includes('3 家可更新'), 'zh 可更新')
-    assert.ok(zh.includes('1 家安装中'), 'zh 安装中')
-    assert.ok(zh.includes('2 家待查'), 'zh 待查')
+    assert.ok(zh.includes('3 个可更新'), 'zh 可更新')
+    assert.ok(zh.includes('1 个安装中'), 'zh 安装中')
+    assert.ok(zh.includes('2 个待查询'), 'zh 待查')
     assert.ok(!/[A-Za-z]/.test(zh.replace(/ · /g, '')), 'zh 不混英文：' + zh)
     const en = batchLedgerText(counts, 'en')
     assert.ok(en.includes('3 updates available'), 'en 可更新')
     assert.ok(en.includes('1 installing'), 'en 安装中')
     assert.ok(!(/[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(en)), 'en 不混中文：' + en)
-    assert.equal(batchLedgerText({ updatable: 0, installing: 0, pending: 0, restart: 0, failed: 0, skipped: 0, settled: 0 }), '还没有目标')
+    assert.equal(batchLedgerText({ updatable: 0, installing: 0, pending: 0, restart: 0, failed: 0, skipped: 0, settled: 0 }), '暂无目标')
     assert.equal(batchLedgerText({ updatable: 0, installing: 0, pending: 0, restart: 0, failed: 0, skipped: 0, settled: 0 }, 'en'), 'No targets yet')
   })
 
@@ -1119,7 +1119,7 @@ describe('#64 聚合与总账跟随语言', () => {
     assert.ok(zh.includes('更新档案'), 'zh 抬头')
     assert.ok(zh.includes('检查更新'), 'zh 宏')
     assert.ok(zh.includes('全部更新'), 'zh 宏')
-    assert.ok(zh.includes('家安装失败'), 'zh 横幅')
+    assert.ok(zh.includes('个插件安装失败'), 'zh 横幅')
     assert.ok(zh.includes('data-seal="总账"'), 'zh 印章文字')
     assert.ok(!zh.includes('Check for updates'), 'zh 不见英文宏')
     assert.ok(!zh.includes('Ledger'), 'zh 不见英文印章')
@@ -1131,7 +1131,7 @@ describe('#64 聚合与总账跟随语言', () => {
     assert.ok(en.includes('data-seal="Ledger"'), 'en 印章文字')
     assert.ok(!en.includes('检查更新'), 'en 不见中文宏')
     assert.ok(!en.includes('总账'), 'en 不见中文印章')
-    assert.ok(!en.includes('家安装失败'), 'en 不见中文横幅')
+    assert.ok(!en.includes('个插件安装失败'), 'en 不见中文横幅')
     // 行状态词属 §4.2（#65 范围）：en 下仍中文是预期的增量窗口，不在此断言。
   })
 
@@ -1155,13 +1155,13 @@ describe('#65 行、详情与回执跟随语言', () => {
   it('行状态 batchRowStatus/batchQueuedStatus：zh 纯中文、en 纯英文（缺省 zh 零回归）', () => {
     const r = (phase, extra = {}) => ({ key: 'a', title: 'A', phase, targetVersion: '2.0.0', restartRequired: false, error: null, snapshot: null, ...extra })
     // 缺省 zh
-    assert.equal(batchQueuedStatus(null), '已排队 · 等前面安装完')
-    assert.equal(batchQueuedStatus(3), '已排队 · 前方 3 个')
-    assert.equal(batchRowStatus(r('pending')), '等它，轮到就自动查新版')
-    assert.equal(batchRowStatus(r('ready')), '点「安装这家」安装 2.0.0')
+    assert.equal(batchQueuedStatus(null), '已排队 · 等待前方安装完成')
+    assert.equal(batchQueuedStatus(3), '已排队 · 前方还有 3 项')
+    assert.equal(batchRowStatus(r('pending')), '请等待，轮到将自动查询版本信息。')
+    assert.equal(batchRowStatus(r('ready')), '选择「安装此插件」安装 2.0.0')
     // zh 显式
-    assert.equal(batchQueuedStatus(1, 'zh'), '已排队 · 前方 1 个')
-    assert.equal(batchRowStatus(r('failed'), null, 'zh'), '安装没成功，点「重试」再来一次')
+    assert.equal(batchQueuedStatus(1, 'zh'), '已排队 · 前方还有 1 项')
+    assert.equal(batchRowStatus(r('failed'), null, 'zh'), '安装失败，请选择「重试」。')
     // en
     const enQueued = batchQueuedStatus(2, 'en')
     assert.ok(enQueued.includes('Queued'), 'en 排队：' + enQueued)
@@ -1178,9 +1178,9 @@ describe('#65 行、详情与回执跟随语言', () => {
   it('行内与详情动作：zh/en 各只出现当前语言（两处复用同一 key）', () => {
     const rows = [{ key: 'a', title: 'A', phase: 'ready', targetVersion: '2.4.0', restartRequired: false, error: null, snapshot: { runningVersion: '1.0.0', installedVersion: '1.0.0', latestVersion: '2.4.0', canInstall: true, blockedReason: null, job: null }, manual: 'npm i -g a@2.4.0', queue: null }]
     const zh = renderBatchPanelHTML({ rows, loaded: true, expandedKey: 'a', lang: 'zh' })
-    assert.ok(zh.includes('>安装这家</button>'), 'zh 行内')
-    assert.ok(zh.includes('>安装 2.4.0</button>'), 'zh 详情版本按钮')
-    assert.ok(zh.includes('>跳过这一版</button>'), 'zh 跳过')
+    assert.ok(zh.includes('>安装此插件</button>'), 'zh 行内')
+    assert.ok(zh.includes('>安装版本 2.4.0</button>'), 'zh 详情版本按钮')
+    assert.ok(zh.includes('>跳过该版本</button>'), 'zh 跳过')
     assert.ok(zh.includes('>复制诊断</button>'), 'zh 复制诊断')
     assert.ok(!zh.includes('Install this plugin'), 'zh 不见英文行内')
     assert.ok(!zh.includes('Skip this version'), 'zh 不见英文跳过')
@@ -1189,8 +1189,8 @@ describe('#65 行、详情与回执跟随语言', () => {
     assert.ok(en.includes('>Install 2.4.0</button>'), 'en 详情版本按钮')
     assert.ok(en.includes('>Skip this version</button>'), 'en 跳过')
     assert.ok(en.includes('>Copy diagnostics</button>'), 'en 复制诊断')
-    assert.ok(!en.includes('安装这家'), 'en 不见中文行内')
-    assert.ok(!en.includes('跳过这一版'), 'en 不见中文跳过')
+    assert.ok(!en.includes('安装此插件'), 'en 不见中文行内')
+    assert.ok(!en.includes('跳过该版本'), 'en 不见中文跳过')
     assert.ok(!en.includes('复制诊断'), 'en 不见中文复制诊断')
   })
 

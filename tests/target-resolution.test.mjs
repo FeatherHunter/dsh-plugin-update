@@ -142,7 +142,7 @@ describe('issue #3：普通依赖形态按包名解析（验收 1）', () => {
     assert.equal(out.snapshot.installedVersion, VERSION)
   })
 
-  it('有新版时 canInstall 为真：普通依赖形态一键升级可用（验收 1）', async () => {
+  it('有新版本时 canInstall 为真：普通依赖形态一键升级可用（验收 1）', async () => {
     const profileDir = makeProfile()
     tmpRoots.push(profileDir)
     const distDir = vendorAsDependency(profileDir)

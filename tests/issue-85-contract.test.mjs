@@ -92,9 +92,9 @@ describe('#85 stalled 判据：必须要求盘上有会话', () => {
       session, lang: 'zh',
     })
     assert.ok(html.includes('data-act="resume"'), '有继续')
-    assert.ok(html.includes('还剩 1 家'), '带计数')
+    assert.ok(html.includes('剩余 1 个'), '带计数')
     assert.ok(html.includes('data-act="cancel"'), '有丢弃')
-    assert.ok(html.includes('关掉面板不会中断'), '带生命周期事实')
+    assert.ok(html.includes('关闭面板不会中断更新'), '带生命周期事实')
   })
 
   it('挂载流：宿主回包无 session（只有行）→ 刷新后仍不画续跑/取消', async () => {
@@ -112,7 +112,7 @@ describe('#85 stalled 判据：必须要求盘上有会话', () => {
 })
 
 describe('#85 无会话假成功不再出现（resumed 事实）', () => {
-  it("resume 回 resumed:false → 说「没有可继续的内容」，不报已继续", async () => {
+  it("resume 回 resumed:false → 说「暂无可继续的内容」，不报已继续", async () => {
     const rows = [rowOf({ key: 'a', phase: 'done' }), rowOf({ key: 'b', phase: 'pending' })]
     const session = sessionOf([
       { key: 'a', phase: 'done' },
@@ -128,7 +128,7 @@ describe('#85 无会话假成功不再出现（resumed 事实）', () => {
     const panel = mountUpdateBatchPanel(box, { prefix: 'life', call, pollMs: 60000, autoResume: false, checkOnOpen: false })
     await settled()
     await panel.act('resume')
-    assert.ok(box.innerHTML.includes('没有可继续的内容'), '如实说无事可续，实到：' + box.innerHTML.slice(-300))
+    assert.ok(box.innerHTML.includes('暂无可继续的内容'), '如实说无事可续，实到：' + box.innerHTML.slice(-300))
     assert.ok(!box.innerHTML.includes('已继续上次'), '不许报空话成功')
     panel.unmount()
   })
@@ -142,7 +142,7 @@ describe('#85 无会话假成功不再出现（resumed 事实）', () => {
       rows: [rowOf({ key: 'a', phase: 'done' }), rowOf({ key: 'b', phase: 'pending' })],
       session, lang: 'zh',
     })
-    assert.ok(html.includes('data-act="resume" title="从上次没做完的地方接着安装，已完成的不重装"'), '继续按钮须有后果悬停，实到：' + html.slice(html.indexOf('data-act="resume"') - 20, html.indexOf('data-act="resume"') + 200))
+    assert.ok(html.includes('data-act="resume" title="从上次中断处继续安装，已完成的不会重复安装。"'), '继续按钮须有后果悬停，实到：' + html.slice(html.indexOf('data-act="resume"') - 20, html.indexOf('data-act="resume"') + 200))
     const en = renderBatchPanelHTML({
       rows: [rowOf({ key: 'a', phase: 'done' }), rowOf({ key: 'b', phase: 'pending' })],
       session, lang: 'en',

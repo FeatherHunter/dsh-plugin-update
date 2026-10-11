@@ -1,7 +1,7 @@
 /**
  * tests/issue-100-prerelease-install.test.mjs —— prerelease 通道在安装执行路径上丢失。
  *
- * 只测外部行为：查新版走 prerelease 通道看得到 rc，但安装执行（executor / service /
+ * 只测外部行为：检查更新走 prerelease 通道看得到 rc，但安装执行（executor / service /
  * host 默认链路）把 releaseChannel 弄丢，回落 stable，于是任何预发布精确版都
  * `install-failed` 且无详情（!recipe 分支不带 detail）。
  * 另 cover 面板侧：新版本到达即清旧失败锁存（#58 常驻只保同上下文）。
@@ -284,7 +284,7 @@ function snapTriple(job, latest) {
 const okQueue = () => ({ busy: false, owner: null, waiting: [], position: null })
 
 describe('issue #100：新版本到达，旧失败横幅必须让位', () => {
-  it('同上下文常驻，但三元组一变（远端出 rc.4）即清除', async () => {
+  it('同上下文常驻，但三元组一变（最新版出 rc.4）即清除', async () => {
     const state = { phase: 'idle' }
     const texts = []
     const call = async (name) => {
@@ -309,7 +309,7 @@ describe('issue #100：新版本到达，旧失败横幅必须让位', () => {
     await panel.refresh()
     await settled()
     assert.match(box.innerHTML, /更新失败/, '旧失败应锁存')
-    assert.match(box.innerHTML, /失败目标 1\.8\.0-rc\.3/, '旧失败应写明目标版')
+    assert.match(box.innerHTML, /失败目标版本 1\.8\.0-rc\.3/, '旧失败应写明目标版')
     await panel.refresh()
     await settled()
     assert.match(box.innerHTML, /更新失败/, '同上下文轮询不清除（#58 常驻仍在）')
@@ -317,8 +317,8 @@ describe('issue #100：新版本到达，旧失败横幅必须让位', () => {
     state.phase = 'new'
     await panel.refresh()
     await settled()
-    assert.doesNotMatch(box.innerHTML, /更新失败/, '远端出 rc.4 后旧失败横幅必须消失')
-    assert.match(box.innerHTML, /有新版.*可装/, '回到 rc.4 可装页')
+    assert.doesNotMatch(box.innerHTML, /更新失败/, '最新版出 rc.4 后旧失败横幅必须消失')
+    assert.match(box.innerHTML, /有新版本.*可安装/, '回到 rc.4 可更新页')
     panel.unmount()
   })
 })
@@ -335,13 +335,13 @@ describe('issue #100：让位矩阵（视图模型纯函数）', () => {
       showOthers: false, pluginId: 'p', copyNotice: null, mode: 'embedded', ...extra,
     }, 'zh')
 
-  it('旧失败 + 可装 + 远端更新 → update 页', () => {
+  it('旧失败 + 可更新 + 最新版更新 → update 页', () => {
     const v = viewOf(snap({ job: staleJob(RC_RUNNING) }))
     assert.equal(v.banner.kind, 'update')
     assert.equal(v.installEnabled, true)
   })
 
-  it('旧失败 + 不可装 + 无阻拦 → 失败页（宁留旧失败，不撒谎已最新）', () => {
+  it('旧失败 + 不可更新 + 无阻拦 → 失败页（宁留旧失败，不撒谎已是最新）', () => {
     const v = viewOf(snap({ job: staleJob(RC_RUNNING), canInstall: false }))
     assert.equal(v.banner.kind, 'failed')
   })
@@ -356,12 +356,12 @@ describe('issue #100：让位矩阵（视图模型纯函数）', () => {
     assert.equal(v.banner.kind, 'failed')
   })
 
-  it('失败目标就是当前远端 → 失败页（正当失败）', () => {
+  it('失败目标版本就是当前最新版 → 失败页（正当失败）', () => {
     const v = viewOf(snap({ job: staleJob(RC_LATEST) }))
     assert.equal(v.banner.kind, 'failed')
   })
 
-  it('任务无目标版 / 远端未知 → 失败页（信息不足不让位）', () => {
+  it('任务无目标版 / 最新版未知 → 失败页（信息不足不让位）', () => {
     assert.equal(viewOf(snap({ job: staleJob(null) })).banner.kind, 'failed')
     assert.equal(viewOf(snap({ job: staleJob(RC_RUNNING), latestVersion: null })).banner.kind, 'failed')
   })

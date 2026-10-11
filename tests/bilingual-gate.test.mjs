@@ -286,7 +286,7 @@ test('#56 字典门禁：缺 draft 标记、键名不合约定都红', () => {
 })
 
 test('#56 字典门禁：中英具名槽不同名同数即红（语序可不同，槽位必须一样）', () => {
-  const got = dictViolations({ 'entry.label.has-update': { en: 'Update available {version}', zh: '有新版 {ver}', draft: true } })
+  const got = dictViolations({ 'entry.label.has-update': { en: 'Update available {version}', zh: '有新版本 {ver}', draft: true } })
   assert.equal(got.ok, false)
   assert.match(reasonsOf(got), /具名槽不同名同数/)
 })
@@ -401,7 +401,7 @@ test('#56 诊断解析契约：真件全绿（16 键宽容读 + 15 码 ×2 形�
 })
 
 test('#56 诊断解析：三行块与单行都解析回同一组字段，顺序冻结', () => {
-  const source = '插件=demo · 版本=1.0.0→1.1.0 · 宿主=desktop · 使用范围=web · 源=未知 · 队列=不在队列里'
+  const source = '插件=demo · 版本=1.0.0→1.1.0 · 宿主=desktop · 使用范围=web · 源=未知 · 队列=未排队'
   const block = [
     '[update-diag] install-failed — 安装执行失败，详情见诊断摘要',
     '  摘要：源返回 404',
@@ -422,7 +422,7 @@ test('#56 诊断解析：三行块与单行都解析回同一组字段，顺序�
     assert.deepEqual(parsed.order, ['code', 'summary', 'source', 'remedy'])
     assert.equal(parsed.sourceFields['插件'], 'demo')
     assert.equal(parsed.sourceFields['版本'], '1.0.0→1.1.0')
-    assert.equal(parsed.sourceFields['队列'], '不在队列里')
+    assert.equal(parsed.sourceFields['队列'], '未排队')
   }
 })
 

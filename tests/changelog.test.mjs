@@ -246,15 +246,15 @@ test('面板：日志节不碰安装门控与 blockedReason', () => {
   assert.deepEqual(Object.keys(baseSnapshot()).sort(), ['blockedReason', 'canInstall', 'installedVersion', 'job', 'latestVersion', 'runningVersion'].sort(), '快照恰好六字段')
 })
 
-test('面板：有远端版才画日志节；缺日志中性提示但按钮照旧', () => {
+test('面板：有最新版才画日志节；缺日志中性提示但按钮照旧', () => {
   const html = renderUpdatePanelHTML(baseInput({ changelogMarkdown: SAMPLE }))
-  assert.match(html, /更新说明/, '有远端版即画日志节')
+  assert.match(html, /更新说明/, '有最新版即画日志节')
   assert.match(html, /新功能 A/, '区间内容进面板')
   const neutral = renderUpdatePanelHTML(baseInput({}))
   assert.match(neutral, new RegExp(CHANGELOG_NEUTRAL_HINT), '缺日志中性提示')
-  assert.match(neutral, /安装 1\.1\.0/, '中性提示不挡安装按钮')
+  assert.match(neutral, /安装版本 1\.1\.0/, '中性提示不挡安装按钮')
   const noLatest = renderUpdatePanelHTML(baseInput({ snapshot: baseSnapshot({ latestVersion: null, canInstall: false }) }))
-  assert.ok(!noLatest.includes('更新说明'), '没查过远端版不画日志节、不添噪音')
+  assert.ok(!noLatest.includes('更新说明'), '没查过最新版不画日志节、不添噪音')
 })
 
 test('面板：setChangelogMarkdown 只换日志节', async () => {
@@ -271,7 +271,7 @@ test('面板：setChangelogMarkdown 只换日志节', async () => {
   assert.match(before, new RegExp(CHANGELOG_NEUTRAL_HINT), '没传日志先中性提示')
   panel.setChangelogMarkdown(SAMPLE)
   assert.match(box.innerHTML, /新功能 A/, '换日志后重绘出内容')
-  assert.match(box.innerHTML, /安装 1\.1\.0/, '换日志不碰安装按钮')
+  assert.match(box.innerHTML, /安装版本 1\.1\.0/, '换日志不碰安装按钮')
   panel.unmount()
 })
 

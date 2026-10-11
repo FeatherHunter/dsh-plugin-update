@@ -43,7 +43,7 @@ function rowOf(overrides = {}) {
   }
 }
 
-/** 七家不同相位：可更新 / 安装中 / 待查 / 查新版中 / 已最新 / 待重启 / 失败（下游 ilife 的七目标形状）。 */
+/** 七家不同相位：可更新 / 安装中 / 待查 / 检查更新中 / 已是最新 / 待重启 / 失败（下游 ilife 的七目标形状）。 */
 function sevenRows() {
   return [
     rowOf({ key: 'bill', title: '记账', phase: 'ready', targetVersion: '1.2.0' }),
@@ -123,12 +123,12 @@ test('聚合五档各不相同，且是人话不是相位英文', () => {
   const cases = [
     ['未查', null, 'idle', '检查更新'],
     ['空表', { rows: [], error: null }, 'idle', '检查更新'],
-    ['可更新', { rows: [rowOf({ phase: 'ready' })], error: null }, 'update', '1 家可更新'],
-    ['两家可更新', { rows: [rowOf({ key: 'a', phase: 'ready' }), rowOf({ key: 'b', phase: 'ready' })], error: null }, 'update', '2 家可更新'],
+    ['可更新', { rows: [rowOf({ phase: 'ready' })], error: null }, 'update', '1 个可更新'],
+    ['两家可更新', { rows: [rowOf({ key: 'a', phase: 'ready' }), rowOf({ key: 'b', phase: 'ready' })], error: null }, 'update', '2 个可更新'],
     ['安装中', { rows: [rowOf({ phase: 'installing' })], error: null }, 'busy', '正在安装…'],
-    ['待重启', { rows: [rowOf({ phase: 'done', restartRequired: true })], error: null }, 'restart', '1 家待重启'],
-    ['失败', { rows: [rowOf({ phase: 'failed', error: 'install-failed' })], error: null }, 'failed', '1 家失败，点此查看'],
-    ['电话失败', { rows: null, error: 'check-failed' }, 'failed', '更新失败，点此查看'],
+    ['待重启', { rows: [rowOf({ phase: 'done', restartRequired: true })], error: null }, 'restart', '1 个待重启'],
+    ['失败', { rows: [rowOf({ phase: 'failed', error: 'install-failed' })], error: null }, 'failed', '1 个失败，请查看详情'],
+    ['电话失败', { rows: null, error: 'check-failed' }, 'failed', '更新失败，请查看详情'],
   ]
   for (const [name, state, kind, label] of cases) {
     assert.equal(batchEntryStateKind(state), kind, name)
@@ -145,7 +145,7 @@ test('失败优先级：失败排在待重启与可更新前面；忙仍最优�
     rowOf({ key: 'c', phase: 'failed', error: 'install-failed' }),
   ]
   assert.equal(batchEntryStateKind({ rows: mixed, error: null }), 'failed')
-  assert.equal(batchEntryLabelFor({ rows: mixed, error: null }), '1 家失败，点此查看')
+  assert.equal(batchEntryLabelFor({ rows: mixed, error: null }), '1 个失败，请查看详情')
   const withBusy = [...mixed, rowOf({ key: 'd', phase: 'installing' })]
   assert.equal(batchEntryStateKind({ rows: withBusy, error: null }), 'busy')
   assert.equal(batchEntryLabelFor({ rows: withBusy, error: null }), '正在安装…')
@@ -155,7 +155,7 @@ test('忙失败占位翻回可更新：phase=failed + error=update-busy 不算�
   const rows = [rowOf({ phase: 'failed', error: 'update-busy' })]
   const s = batchEntrySummary({ rows, error: null })
   assert.equal(s.kind, 'update')
-  assert.equal(s.label, '1 家可更新')
+  assert.equal(s.label, '1 个可更新')
   assert.equal(s.updatable, 1)
   assert.equal(s.failed, 0)
 })
@@ -169,7 +169,7 @@ test('默认挂上就是一个按钮：挂载即静默调 .batchStatus（只读�
   const entry = mountUpdateBatchEntry(box, { prefix: 'life', call, pollMs: 60000 })
   assert.match(box.innerHTML, /<button[^>]*data-dsh-upd-entry="activate"/, '挂上就是一个按钮')
   await settled()
-  assert.deepEqual(log.map((e) => e.name), ['life.batchStatus'], 'autoCheck=mount 只调 .batchStatus（只读、不联网查新版）')
+  assert.deepEqual(log.map((e) => e.name), ['life.batchStatus'], 'autoCheck=mount 只调 .batchStatus（只读、不联网检查更新）')
   // 七行里有 installing，聚合档为忙
   assert.match(box.innerHTML, /正在安装…/, '徽标即七家聚合（有安装中即忙）')
   assert.match(box.innerHTML, /data-state="busy"/, '状态如实带到 DOM 上')
@@ -246,7 +246,7 @@ test("openOn='has-update'：有事才开面板；确知没事只在原地给总�
   box2.click(CLICK_ENTRY)
   await settled()
   assert.ok(!box2.innerHTML.includes('dsh-upd-batch'), '没事就不开面板')
-  assert.match(box2.innerHTML, /已最新/, '原地给总账一句')
+  assert.match(box2.innerHTML, /已是最新/, '原地给总账一句')
   assert.match(box2.innerHTML, /data-dsh-upd-entry="activate"/, '按钮还在，可以再查')
   entry2.unmount()
 })

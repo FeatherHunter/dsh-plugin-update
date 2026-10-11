@@ -59,6 +59,7 @@ color:inherit;padding:7px 14px;cursor:pointer;margin:2px 6px 2px 0}
 .dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
 .dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}
 .dsh-upd-chap-title{font-size:14px;margin:0}
+.dsh-upd .dsh-upd-chap-title{color:var(--dsh-update-text,#1f2937);background:none;-webkit-background-clip:border-box;-webkit-text-fill-color:currentColor}
 .dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}
 .dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}
 .dsh-upd-chap-note button{margin:0}
@@ -182,8 +183,9 @@ font-family:var(--dsh-update-font-serif);font-weight:700;font-size:16px;line-hei
 .dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"] .dsh-upd-sealmini{color:var(--dsh-update-ok-text)}
 .dsh-upd[data-theme="archive"] .dsh-upd-log code{font-family:var(--dsh-update-font-mono);font-size:11px;color:var(--dsh-update-text-muted);border:1px solid var(--dsh-update-border-strong);border-radius:3px;padding:0 6px;letter-spacing:.06em}
 .dsh-upd[data-theme="archive"] .dsh-upd-manual code{display:block;background:var(--dsh-update-text);color:var(--dsh-update-bg-soft);font-family:var(--dsh-update-font-mono);font-size:12.5px;padding:12px 14px;border-radius:4px;white-space:pre-wrap;word-break:break-all}
+.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child strong{margin-left:-30px;text-indent:30px}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child{display:flex;gap:10px;align-items:flex-start}
-.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{content:"";flex:none;width:20px;height:20px;margin-top:3px;
+.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{content:"";flex:none;width:20px;height:20px;margin-top:7px;
 background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%238a5a00%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E") no-repeat center/20px 20px}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{overflow:hidden;text-overflow:ellipsis}
 .dsh-upd[data-theme="archive"] .dsh-upd-actions{flex-wrap:wrap}
@@ -207,6 +209,7 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 .dsh-upd[data-theme="archive"] .dsh-upd-banner{border:2px solid var(--dsh-update-border-strong);border-radius:4px;padding:10px 12px;font-size:14.5px;font-family:var(--dsh-update-font-serif);gap:10px;align-items:center}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{flex:1 1 auto;min-width:0;align-self:stretch}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child strong{font-family:var(--dsh-update-font-serif);font-size:27px;font-weight:700;line-height:1.25}
+.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]>div:first-child strong{font-size:24px}
 .dsh-upd[data-theme="archive"] .dsh-upd-prog{height:8px;background:var(--dsh-update-border);border-radius:4px;overflow:hidden;margin:10px 0 4px}
 .dsh-upd[data-theme="archive"] .dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary);transition:width .3s}
 .dsh-upd[data-theme="archive"] .dsh-upd-progtxt{font-size:12.5px;color:var(--dsh-update-text-muted)}
@@ -221,6 +224,7 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 .dsh-upd[data-theme="archive"] .dsh-upd-actions button:first-child:not([aria-busy="true"])::after{display:none}
 .dsh-upd[data-theme="archive"] .dsh-upd-actions button:not([data-primary="1"]){background:transparent}
 .dsh-upd[data-theme="archive"] .dsh-upd-actions button[data-action="copy-manual"],.dsh-upd[data-theme="archive"] .dsh-upd-actions button[data-action="copy-diag"]{font-size:12px;padding:4px 10px}
+.dsh-upd[data-theme="archive"] .dsh-upd-chap-note button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0;background:transparent}
 .dsh-upd[data-theme="archive"] .dsh-upd-changelog-version{margin:12px 0}
 .dsh-upd[data-theme="archive"] .dsh-upd-changelog-title{font-family:var(--dsh-update-font-mono);font-size:14px;font-weight:700}
 .dsh-upd[data-theme="archive"] .dsh-upd-changelog-date{font-weight:400;font-size:12px;color:var(--dsh-update-text-muted)}
@@ -240,17 +244,18 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 --dsh-update-bad-text:#ef8a7d;--dsh-update-bad-bg:rgba(239,138,125,.12);--dsh-update-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.45)}}
 @media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] button[data-primary="1"]{color:#141210}.dsh-upd[data-theme="archive"] button:focus-visible{outline-color:var(--dsh-update-primary-deep)}}
 @media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23e8c15a%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E")}}
+@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] .dsh-upd-manual code{background:#26211a;color:#ece5d3;border:1px solid var(--dsh-update-border-strong)}}
 @media (forced-colors: active){.dsh-upd[data-theme="archive"]{box-shadow:none}.dsh-upd[data-theme="archive"]::before{background:none;box-shadow:none;border-color:CanvasText;color:CanvasText}.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:1px solid CanvasText}.dsh-upd[data-theme="archive"] .dsh-upd-banner::before{border-color:CanvasText;color:CanvasText;background:Canvas}.dsh-upd[data-theme="archive"] button{border:1px solid ButtonText}.dsh-upd[data-theme="archive"] button[data-primary="1"]{background:ButtonFace;color:ButtonText;border-color:ButtonText}.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:none;content:"⚠"}}
 @media (prefers-reduced-motion: reduce){.dsh-upd[data-theme="archive"] *{transition:none !important;animation:none !important}}</style>
-<div class="dsh-upd" data-mode="embedded" data-plugin="demo-notes-plugin" data-seal="可装" data-seal-tone="green" data-theme="archive">
+<div class="dsh-upd" data-mode="embedded" data-plugin="demo-notes-plugin" data-seal="可更新" data-seal-tone="green" data-theme="archive">
 <div class="dsh-upd-masthead"><span class="dsh-upd-masthead-kicker">插件更新</span><span class="dsh-upd-masthead-title">更新档案 <i>卷</i></span></div>
 <div class="dsh-upd-head"><span class="dsh-upd-name">demo-notes-plugin</span><span class="dsh-upd-meta">使用范围 <b>web</b><span class="dsh-upd-proftag">profile</span></span></div>
 <div class="dsh-upd-banner" data-kind="update" data-mini="装" role="status" aria-live="polite">
-<div><span class="dsh-upd-sealmini" aria-hidden="true">装</span><strong>有新版 1.1.0 可装（当前 1.0.0）。</strong></div>
+<div><span class="dsh-upd-sealmini" aria-hidden="true">装</span><strong>有新版本 1.1.0 可安装（当前版本 1.0.0）。</strong></div>
 </div>
-<div class="dsh-upd-banner-sub">点安装即走精确版本安装；同一使用范围同时只装一个。</div>
-<div class="dsh-upd-strip"><div><span class="dsh-upd-strip-k">运行</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">磁盘</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">远端</span><span class="dsh-upd-strip-v">1.1.0</span></div></div>
-<div class="dsh-upd-body"><section class="dsh-upd-chapter" data-chapter="01"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">01</span><h3 class="dsh-upd-chap-title">检查与安装</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-actions"><button type="button" data-action="check" title="重新向官方源查一次新版（只读，不安装）">查新版</button><button type="button" data-action="install" data-primary="1" title="用精确版本安装；同一使用范围同时只装一个">安装 1.1.0</button><button type="button" data-action="skip" title="该版本不再提醒；有更新的新版本照常提醒">跳过该版本</button><button type="button" data-action="copy-manual" title="复制手工命令，粘到终端整行执行">复制手工命令</button><button type="button" data-action="copy-diag" title="复制已脱敏诊断，直接粘给插件作者">复制诊断</button></div></section>
+<div class="dsh-upd-banner-sub">选择安装将按精确版本安装；同一使用范围同时仅安装一项。</div>
+<div class="dsh-upd-strip"><div><span class="dsh-upd-strip-k">运行版</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">已安装</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">最新版</span><span class="dsh-upd-strip-v">1.1.0</span></div></div>
+<div class="dsh-upd-body"><section class="dsh-upd-chapter" data-chapter="01"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">01</span><h3 class="dsh-upd-chap-title">检查与安装</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-actions"><button type="button" data-action="check" title="重新向官方源查询版本信息（只读，不安装）">检查更新</button><button type="button" data-action="install" data-primary="1" title="按精确版本安装；同一使用范围同时仅安装一项">安装版本 1.1.0</button><button type="button" data-action="skip" title="该版本将不再提醒；更新的版本仍会正常提醒">跳过该版本</button><button type="button" data-action="copy-manual" title="复制手工命令，请粘贴至终端整行执行">复制手工命令</button><button type="button" data-action="copy-diag" title="复制已脱敏诊断，请提交至插件作者">复制诊断</button></div></section>
 <section class="dsh-upd-chapter" data-chapter="02"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">02</span><h3 class="dsh-upd-chap-title">更新日志</h3><span class="dsh-upd-chap-rule"></span><span class="dsh-upd-chap-note"><button type="button" data-action="toggle-changelog" title="展开或收起更新日志">收起更新日志</button></span></div><div class="dsh-upd-changelog-wrap"><div>更新说明（1.0.0 → 1.1.0）：</div><div class="dsh-upd-changelog-foldbox" data-open="1"><div class="dsh-upd-changelog-foldbox-inner">
 <div class="dsh-upd-changelog">
 <div class="dsh-upd-changelog-version" data-version="1.1.0">
@@ -271,9 +276,9 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 </div>
 </div>
 </div></div></div></section>
-<section class="dsh-upd-chapter" data-chapter="03"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">03</span><h3 class="dsh-upd-chap-title">更新队列</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-queue"><div class="dsh-upd-changelog-neutral">当前没有排队任务，同一使用范围一次只装一个。</div></div></section>
-<section class="dsh-upd-chapter" data-chapter="04"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">04</span><h3 class="dsh-upd-chap-title">错误信息</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断给出的是当前状态快照。</div><div class="dsh-upd-log">深挖看日志：按插件标识 <code>demo-notes-plugin</code> 过滤 <code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 三个事件。</div><div class="dsh-upd-copy dsh-upd-copy--empty" aria-hidden="true"></div></section>
-<section class="dsh-upd-chapter" data-chapter="05"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">05</span><h3 class="dsh-upd-chap-title">手工命令</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-manual"><div>手工兜底命令（复制整行执行）：</div><code>dsh plugin --profile web add --save-exact demo-notes-plugin@1.1.0 --registry=https://registry.npmjs.org/</code></div></section></div>
+<section class="dsh-upd-chapter" data-chapter="03"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">03</span><h3 class="dsh-upd-chap-title">更新队列</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-queue"><div class="dsh-upd-changelog-neutral">当前无排队任务；同一使用范围同时仅安装一项。</div></div></section>
+<section class="dsh-upd-chapter" data-chapter="04"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">04</span><h3 class="dsh-upd-chap-title">错误信息</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断提供的是当前状态快照。</div><div class="dsh-upd-log">请查看日志：按插件标识 <code>demo-notes-plugin</code> 筛选 <code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 事件。</div><div class="dsh-upd-copy dsh-upd-copy--empty" aria-hidden="true"></div></section>
+<section class="dsh-upd-chapter" data-chapter="05"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">05</span><h3 class="dsh-upd-chap-title">手工命令</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-manual"><div>手工备用命令（请复制整行执行）：</div><code>dsh plugin --profile web add --save-exact demo-notes-plugin@1.1.0 --registry=https://registry.npmjs.org/</code></div></section></div>
 </div></section><section style="margin:0 0 28px"><h2 style="font:700 15px system-ui;margin:0 0 10px;color:#ece5d3">02 · 安装中（62%）</h2><style>.dsh-upd{font:14px/1.75 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);
 background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;
 --dsh-update-ok-bg:#ecfdf5;--dsh-update-ok-border:#059669;--dsh-update-warn-bg:#fffbeb;--dsh-update-warn-border:#d97706;
@@ -335,6 +340,7 @@ color:inherit;padding:7px 14px;cursor:pointer;margin:2px 6px 2px 0}
 .dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
 .dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}
 .dsh-upd-chap-title{font-size:14px;margin:0}
+.dsh-upd .dsh-upd-chap-title{color:var(--dsh-update-text,#1f2937);background:none;-webkit-background-clip:border-box;-webkit-text-fill-color:currentColor}
 .dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}
 .dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}
 .dsh-upd-chap-note button{margin:0}
@@ -458,8 +464,9 @@ font-family:var(--dsh-update-font-serif);font-weight:700;font-size:16px;line-hei
 .dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"] .dsh-upd-sealmini{color:var(--dsh-update-ok-text)}
 .dsh-upd[data-theme="archive"] .dsh-upd-log code{font-family:var(--dsh-update-font-mono);font-size:11px;color:var(--dsh-update-text-muted);border:1px solid var(--dsh-update-border-strong);border-radius:3px;padding:0 6px;letter-spacing:.06em}
 .dsh-upd[data-theme="archive"] .dsh-upd-manual code{display:block;background:var(--dsh-update-text);color:var(--dsh-update-bg-soft);font-family:var(--dsh-update-font-mono);font-size:12.5px;padding:12px 14px;border-radius:4px;white-space:pre-wrap;word-break:break-all}
+.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child strong{margin-left:-30px;text-indent:30px}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child{display:flex;gap:10px;align-items:flex-start}
-.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{content:"";flex:none;width:20px;height:20px;margin-top:3px;
+.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{content:"";flex:none;width:20px;height:20px;margin-top:7px;
 background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%238a5a00%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E") no-repeat center/20px 20px}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{overflow:hidden;text-overflow:ellipsis}
 .dsh-upd[data-theme="archive"] .dsh-upd-actions{flex-wrap:wrap}
@@ -483,6 +490,7 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 .dsh-upd[data-theme="archive"] .dsh-upd-banner{border:2px solid var(--dsh-update-border-strong);border-radius:4px;padding:10px 12px;font-size:14.5px;font-family:var(--dsh-update-font-serif);gap:10px;align-items:center}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{flex:1 1 auto;min-width:0;align-self:stretch}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child strong{font-family:var(--dsh-update-font-serif);font-size:27px;font-weight:700;line-height:1.25}
+.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]>div:first-child strong{font-size:24px}
 .dsh-upd[data-theme="archive"] .dsh-upd-prog{height:8px;background:var(--dsh-update-border);border-radius:4px;overflow:hidden;margin:10px 0 4px}
 .dsh-upd[data-theme="archive"] .dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary);transition:width .3s}
 .dsh-upd[data-theme="archive"] .dsh-upd-progtxt{font-size:12.5px;color:var(--dsh-update-text-muted)}
@@ -497,6 +505,7 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 .dsh-upd[data-theme="archive"] .dsh-upd-actions button:first-child:not([aria-busy="true"])::after{display:none}
 .dsh-upd[data-theme="archive"] .dsh-upd-actions button:not([data-primary="1"]){background:transparent}
 .dsh-upd[data-theme="archive"] .dsh-upd-actions button[data-action="copy-manual"],.dsh-upd[data-theme="archive"] .dsh-upd-actions button[data-action="copy-diag"]{font-size:12px;padding:4px 10px}
+.dsh-upd[data-theme="archive"] .dsh-upd-chap-note button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0;background:transparent}
 .dsh-upd[data-theme="archive"] .dsh-upd-changelog-version{margin:12px 0}
 .dsh-upd[data-theme="archive"] .dsh-upd-changelog-title{font-family:var(--dsh-update-font-mono);font-size:14px;font-weight:700}
 .dsh-upd[data-theme="archive"] .dsh-upd-changelog-date{font-weight:400;font-size:12px;color:var(--dsh-update-text-muted)}
@@ -516,6 +525,7 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 --dsh-update-bad-text:#ef8a7d;--dsh-update-bad-bg:rgba(239,138,125,.12);--dsh-update-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.45)}}
 @media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] button[data-primary="1"]{color:#141210}.dsh-upd[data-theme="archive"] button:focus-visible{outline-color:var(--dsh-update-primary-deep)}}
 @media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23e8c15a%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E")}}
+@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] .dsh-upd-manual code{background:#26211a;color:#ece5d3;border:1px solid var(--dsh-update-border-strong)}}
 @media (forced-colors: active){.dsh-upd[data-theme="archive"]{box-shadow:none}.dsh-upd[data-theme="archive"]::before{background:none;box-shadow:none;border-color:CanvasText;color:CanvasText}.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:1px solid CanvasText}.dsh-upd[data-theme="archive"] .dsh-upd-banner::before{border-color:CanvasText;color:CanvasText;background:Canvas}.dsh-upd[data-theme="archive"] button{border:1px solid ButtonText}.dsh-upd[data-theme="archive"] button[data-primary="1"]{background:ButtonFace;color:ButtonText;border-color:ButtonText}.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:none;content:"⚠"}}
 @media (prefers-reduced-motion: reduce){.dsh-upd[data-theme="archive"] *{transition:none !important;animation:none !important}}</style>
 <div class="dsh-upd" data-mode="embedded" data-plugin="demo-notes-plugin" data-seal="安装中" data-seal-tone="yellow" data-theme="archive">
@@ -524,9 +534,9 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 <div class="dsh-upd-banner" data-kind="busy" data-mini="装" role="status" aria-live="polite">
 <div><span class="dsh-upd-sealmini" aria-hidden="true">装</span><strong>正在安装 1.1.0…关闭面板不会中断。</strong></div>
 </div>
-<div class="dsh-upd-banner-sub">进度按轮询自动刷新；重开面板 1 秒内恢复显示。</div>
-<div class="dsh-upd-strip"><div><span class="dsh-upd-strip-k">运行</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">磁盘</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">远端</span><span class="dsh-upd-strip-v">1.1.0</span></div></div>
-<div class="dsh-upd-body"><section class="dsh-upd-chapter" data-chapter="01"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">01</span><h3 class="dsh-upd-chap-title">检查与安装</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-actions"><button type="button" data-action="check" title="重新向官方源查一次新版（只读，不安装）" disabled>查新版</button><button type="button" data-action="install" data-primary="1" title="用精确版本安装；同一使用范围同时只装一个" disabled>安装中…</button><button type="button" data-action="copy-diag" title="复制已脱敏诊断，直接粘给插件作者">复制诊断</button></div><div class="dsh-upd-prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="60"><i class="dsh-upd-prog-bar" style="width:60%"></i></div><div class="dsh-upd-progtxt">正在安装新版…</div></section>
+<div class="dsh-upd-banner-sub">进度将自动轮询刷新；重新打开面板将在 1 秒内恢复显示。</div>
+<div class="dsh-upd-strip"><div><span class="dsh-upd-strip-k">运行版</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">已安装</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">最新版</span><span class="dsh-upd-strip-v">1.1.0</span></div></div>
+<div class="dsh-upd-body"><section class="dsh-upd-chapter" data-chapter="01"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">01</span><h3 class="dsh-upd-chap-title">检查与安装</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-actions"><button type="button" data-action="check" title="重新向官方源查询版本信息（只读，不安装）" disabled>检查更新</button><button type="button" data-action="install" data-primary="1" title="按精确版本安装；同一使用范围同时仅安装一项" disabled>正在安装…</button><button type="button" data-action="copy-diag" title="复制已脱敏诊断，请提交至插件作者">复制诊断</button></div><div class="dsh-upd-prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="60"><i class="dsh-upd-prog-bar" style="width:60%"></i></div><div class="dsh-upd-progtxt">正在安装新版本…</div></section>
 <section class="dsh-upd-chapter" data-chapter="02"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">02</span><h3 class="dsh-upd-chap-title">更新日志</h3><span class="dsh-upd-chap-rule"></span><span class="dsh-upd-chap-note"><button type="button" data-action="toggle-changelog" title="展开或收起更新日志">收起更新日志</button></span></div><div class="dsh-upd-changelog-wrap"><div>更新说明（1.0.0 → 1.1.0）：</div><div class="dsh-upd-changelog-foldbox" data-open="1"><div class="dsh-upd-changelog-foldbox-inner">
 <div class="dsh-upd-changelog">
 <div class="dsh-upd-changelog-version" data-version="1.1.0">
@@ -547,8 +557,8 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 </div>
 </div>
 </div></div></div></section>
-<section class="dsh-upd-chapter" data-chapter="03"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">03</span><h3 class="dsh-upd-chap-title">更新队列</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-queue"><div class="dsh-upd-changelog-neutral">当前没有排队任务，同一使用范围一次只装一个。</div></div></section>
-<section class="dsh-upd-chapter" data-chapter="04"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">04</span><h3 class="dsh-upd-chap-title">错误信息</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断给出的是当前状态快照。</div><div class="dsh-upd-log">深挖看日志：按插件标识 <code>demo-notes-plugin</code> 过滤 <code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 三个事件。</div><div class="dsh-upd-copy dsh-upd-copy--empty" aria-hidden="true"></div></section>
+<section class="dsh-upd-chapter" data-chapter="03"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">03</span><h3 class="dsh-upd-chap-title">更新队列</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-queue"><div class="dsh-upd-changelog-neutral">当前无排队任务；同一使用范围同时仅安装一项。</div></div></section>
+<section class="dsh-upd-chapter" data-chapter="04"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">04</span><h3 class="dsh-upd-chap-title">错误信息</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断提供的是当前状态快照。</div><div class="dsh-upd-log">请查看日志：按插件标识 <code>demo-notes-plugin</code> 筛选 <code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 事件。</div><div class="dsh-upd-copy dsh-upd-copy--empty" aria-hidden="true"></div></section>
 <section class="dsh-upd-chapter" data-chapter="05"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">05</span><h3 class="dsh-upd-chap-title">手工命令</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-manual"><div class="dsh-upd-changelog-neutral">当前没有可用的手工命令（使用范围无法识别或源码安装场景不提供）。</div></div></section></div>
 </div></section><section style="margin:0 0 28px"><h2 style="font:700 15px system-ui;margin:0 0 10px;color:#ece5d3">03 · 待重启</h2><style>.dsh-upd{font:14px/1.75 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);
 background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;
@@ -611,6 +621,7 @@ color:inherit;padding:7px 14px;cursor:pointer;margin:2px 6px 2px 0}
 .dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
 .dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}
 .dsh-upd-chap-title{font-size:14px;margin:0}
+.dsh-upd .dsh-upd-chap-title{color:var(--dsh-update-text,#1f2937);background:none;-webkit-background-clip:border-box;-webkit-text-fill-color:currentColor}
 .dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}
 .dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}
 .dsh-upd-chap-note button{margin:0}
@@ -734,8 +745,9 @@ font-family:var(--dsh-update-font-serif);font-weight:700;font-size:16px;line-hei
 .dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"] .dsh-upd-sealmini{color:var(--dsh-update-ok-text)}
 .dsh-upd[data-theme="archive"] .dsh-upd-log code{font-family:var(--dsh-update-font-mono);font-size:11px;color:var(--dsh-update-text-muted);border:1px solid var(--dsh-update-border-strong);border-radius:3px;padding:0 6px;letter-spacing:.06em}
 .dsh-upd[data-theme="archive"] .dsh-upd-manual code{display:block;background:var(--dsh-update-text);color:var(--dsh-update-bg-soft);font-family:var(--dsh-update-font-mono);font-size:12.5px;padding:12px 14px;border-radius:4px;white-space:pre-wrap;word-break:break-all}
+.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child strong{margin-left:-30px;text-indent:30px}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child{display:flex;gap:10px;align-items:flex-start}
-.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{content:"";flex:none;width:20px;height:20px;margin-top:3px;
+.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{content:"";flex:none;width:20px;height:20px;margin-top:7px;
 background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%238a5a00%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E") no-repeat center/20px 20px}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{overflow:hidden;text-overflow:ellipsis}
 .dsh-upd[data-theme="archive"] .dsh-upd-actions{flex-wrap:wrap}
@@ -759,6 +771,7 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 .dsh-upd[data-theme="archive"] .dsh-upd-banner{border:2px solid var(--dsh-update-border-strong);border-radius:4px;padding:10px 12px;font-size:14.5px;font-family:var(--dsh-update-font-serif);gap:10px;align-items:center}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{flex:1 1 auto;min-width:0;align-self:stretch}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child strong{font-family:var(--dsh-update-font-serif);font-size:27px;font-weight:700;line-height:1.25}
+.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]>div:first-child strong{font-size:24px}
 .dsh-upd[data-theme="archive"] .dsh-upd-prog{height:8px;background:var(--dsh-update-border);border-radius:4px;overflow:hidden;margin:10px 0 4px}
 .dsh-upd[data-theme="archive"] .dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary);transition:width .3s}
 .dsh-upd[data-theme="archive"] .dsh-upd-progtxt{font-size:12.5px;color:var(--dsh-update-text-muted)}
@@ -773,6 +786,7 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 .dsh-upd[data-theme="archive"] .dsh-upd-actions button:first-child:not([aria-busy="true"])::after{display:none}
 .dsh-upd[data-theme="archive"] .dsh-upd-actions button:not([data-primary="1"]){background:transparent}
 .dsh-upd[data-theme="archive"] .dsh-upd-actions button[data-action="copy-manual"],.dsh-upd[data-theme="archive"] .dsh-upd-actions button[data-action="copy-diag"]{font-size:12px;padding:4px 10px}
+.dsh-upd[data-theme="archive"] .dsh-upd-chap-note button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0;background:transparent}
 .dsh-upd[data-theme="archive"] .dsh-upd-changelog-version{margin:12px 0}
 .dsh-upd[data-theme="archive"] .dsh-upd-changelog-title{font-family:var(--dsh-update-font-mono);font-size:14px;font-weight:700}
 .dsh-upd[data-theme="archive"] .dsh-upd-changelog-date{font-weight:400;font-size:12px;color:var(--dsh-update-text-muted)}
@@ -792,17 +806,18 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 --dsh-update-bad-text:#ef8a7d;--dsh-update-bad-bg:rgba(239,138,125,.12);--dsh-update-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.45)}}
 @media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] button[data-primary="1"]{color:#141210}.dsh-upd[data-theme="archive"] button:focus-visible{outline-color:var(--dsh-update-primary-deep)}}
 @media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23e8c15a%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E")}}
+@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] .dsh-upd-manual code{background:#26211a;color:#ece5d3;border:1px solid var(--dsh-update-border-strong)}}
 @media (forced-colors: active){.dsh-upd[data-theme="archive"]{box-shadow:none}.dsh-upd[data-theme="archive"]::before{background:none;box-shadow:none;border-color:CanvasText;color:CanvasText}.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:1px solid CanvasText}.dsh-upd[data-theme="archive"] .dsh-upd-banner::before{border-color:CanvasText;color:CanvasText;background:Canvas}.dsh-upd[data-theme="archive"] button{border:1px solid ButtonText}.dsh-upd[data-theme="archive"] button[data-primary="1"]{background:ButtonFace;color:ButtonText;border-color:ButtonText}.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:none;content:"⚠"}}
 @media (prefers-reduced-motion: reduce){.dsh-upd[data-theme="archive"] *{transition:none !important;animation:none !important}}</style>
 <div class="dsh-upd" data-mode="embedded" data-plugin="demo-notes-plugin" data-seal="待重启" data-seal-tone="yellow" data-theme="archive">
 <div class="dsh-upd-masthead"><span class="dsh-upd-masthead-kicker">插件更新</span><span class="dsh-upd-masthead-title">更新档案 <i>卷</i></span></div>
 <div class="dsh-upd-head"><span class="dsh-upd-name">demo-notes-plugin</span><span class="dsh-upd-meta">使用范围 <b>web</b><span class="dsh-upd-proftag">profile</span></span></div>
 <div class="dsh-upd-banner" data-kind="restart" data-mini="启" role="status" aria-live="polite">
-<div><strong>新版 1.1.0 已安装，重启宿主后生效。</strong></div>
+<div><strong>新版本 1.1.0 已安装，重启宿主后生效。</strong></div>
 </div>
 <div class="dsh-upd-banner-sub">重启宿主以加载新版本；此为正常状态，非安装失败</div>
-<div class="dsh-upd-strip"><div><span class="dsh-upd-strip-k">运行</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">磁盘</span><span class="dsh-upd-strip-v">1.1.0</span></div><div><span class="dsh-upd-strip-k">远端</span><span class="dsh-upd-strip-v">1.1.0</span></div></div>
-<div class="dsh-upd-body"><section class="dsh-upd-chapter" data-chapter="01"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">01</span><h3 class="dsh-upd-chap-title">检查与安装</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-actions"><button type="button" data-action="check" title="重新向官方源查一次新版（只读，不安装）">查新版</button><button type="button" data-action="install" data-primary="1" title="用精确版本安装；同一使用范围同时只装一个" disabled>安装更新</button><button type="button" data-action="copy-manual" title="复制手工命令，粘到终端整行执行">复制手工命令</button><button type="button" data-action="restart-hint" title="点一下走调用方流程，没有就手动重启 DSH">请重启DSH</button><button type="button" data-action="copy-diag" title="复制已脱敏诊断，直接粘给插件作者">复制诊断</button></div></section>
+<div class="dsh-upd-strip"><div><span class="dsh-upd-strip-k">运行版</span><span class="dsh-upd-strip-v">1.0.0</span></div><div><span class="dsh-upd-strip-k">已安装</span><span class="dsh-upd-strip-v">1.1.0</span></div><div><span class="dsh-upd-strip-k">最新版</span><span class="dsh-upd-strip-v">1.1.0</span></div></div>
+<div class="dsh-upd-body"><section class="dsh-upd-chapter" data-chapter="01"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">01</span><h3 class="dsh-upd-chap-title">检查与安装</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-actions"><button type="button" data-action="check" title="重新向官方源查询版本信息（只读，不安装）">检查更新</button><button type="button" data-action="install" data-primary="1" title="按精确版本安装；同一使用范围同时仅安装一项" disabled>安装更新</button><button type="button" data-action="copy-manual" title="复制手工命令，请粘贴至终端整行执行">复制手工命令</button><button type="button" data-action="restart-hint" title="优先走调用方重启流程；若无，请手动重启 DSH">请重启DSH</button><button type="button" data-action="copy-diag" title="复制已脱敏诊断，请提交至插件作者">复制诊断</button></div></section>
 <section class="dsh-upd-chapter" data-chapter="02"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">02</span><h3 class="dsh-upd-chap-title">更新日志</h3><span class="dsh-upd-chap-rule"></span><span class="dsh-upd-chap-note"><button type="button" data-action="toggle-changelog" title="展开或收起更新日志">收起更新日志</button></span></div><div class="dsh-upd-changelog-wrap"><div>更新说明（1.0.0 → 1.1.0）：</div><div class="dsh-upd-changelog-foldbox" data-open="1"><div class="dsh-upd-changelog-foldbox-inner">
 <div class="dsh-upd-changelog">
 <div class="dsh-upd-changelog-version" data-version="1.1.0">
@@ -823,9 +838,9 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 </div>
 </div>
 </div></div></div></section>
-<section class="dsh-upd-chapter" data-chapter="03"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">03</span><h3 class="dsh-upd-chap-title">更新队列</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-queue"><div class="dsh-upd-changelog-neutral">当前没有排队任务，同一使用范围一次只装一个。</div></div></section>
-<section class="dsh-upd-chapter" data-chapter="04"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">04</span><h3 class="dsh-upd-chap-title">错误信息</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断给出的是当前状态快照。</div><div class="dsh-upd-log">深挖看日志：按插件标识 <code>demo-notes-plugin</code> 过滤 <code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 三个事件。</div><div class="dsh-upd-copy dsh-upd-copy--empty" aria-hidden="true"></div></section>
-<section class="dsh-upd-chapter" data-chapter="05"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">05</span><h3 class="dsh-upd-chap-title">手工命令</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-manual"><div>手工兜底命令（复制整行执行）：</div><code>dsh plugin --profile web add --save-exact demo-notes-plugin@1.1.0 --registry=https://registry.npmjs.org/</code></div></section></div>
+<section class="dsh-upd-chapter" data-chapter="03"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">03</span><h3 class="dsh-upd-chap-title">更新队列</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-queue"><div class="dsh-upd-changelog-neutral">当前无排队任务；同一使用范围同时仅安装一项。</div></div></section>
+<section class="dsh-upd-chapter" data-chapter="04"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">04</span><h3 class="dsh-upd-chap-title">错误信息</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断提供的是当前状态快照。</div><div class="dsh-upd-log">请查看日志：按插件标识 <code>demo-notes-plugin</code> 筛选 <code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 事件。</div><div class="dsh-upd-copy dsh-upd-copy--empty" aria-hidden="true"></div></section>
+<section class="dsh-upd-chapter" data-chapter="05"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">05</span><h3 class="dsh-upd-chap-title">手工命令</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-manual"><div>手工备用命令（请复制整行执行）：</div><code>dsh plugin --profile web add --save-exact demo-notes-plugin@1.1.0 --registry=https://registry.npmjs.org/</code></div></section></div>
 </div></section><section style="margin:0 0 28px"><h2 style="font:700 15px system-ui;margin:0 0 10px;color:#ece5d3">04 · 已是最新</h2><style>.dsh-upd{font:14px/1.75 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);
 background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;
 --dsh-update-ok-bg:#ecfdf5;--dsh-update-ok-border:#059669;--dsh-update-warn-bg:#fffbeb;--dsh-update-warn-border:#d97706;
@@ -887,6 +902,7 @@ color:inherit;padding:7px 14px;cursor:pointer;margin:2px 6px 2px 0}
 .dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
 .dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}
 .dsh-upd-chap-title{font-size:14px;margin:0}
+.dsh-upd .dsh-upd-chap-title{color:var(--dsh-update-text,#1f2937);background:none;-webkit-background-clip:border-box;-webkit-text-fill-color:currentColor}
 .dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}
 .dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}
 .dsh-upd-chap-note button{margin:0}
@@ -1010,8 +1026,9 @@ font-family:var(--dsh-update-font-serif);font-weight:700;font-size:16px;line-hei
 .dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"] .dsh-upd-sealmini{color:var(--dsh-update-ok-text)}
 .dsh-upd[data-theme="archive"] .dsh-upd-log code{font-family:var(--dsh-update-font-mono);font-size:11px;color:var(--dsh-update-text-muted);border:1px solid var(--dsh-update-border-strong);border-radius:3px;padding:0 6px;letter-spacing:.06em}
 .dsh-upd[data-theme="archive"] .dsh-upd-manual code{display:block;background:var(--dsh-update-text);color:var(--dsh-update-bg-soft);font-family:var(--dsh-update-font-mono);font-size:12.5px;padding:12px 14px;border-radius:4px;white-space:pre-wrap;word-break:break-all}
+.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child strong{margin-left:-30px;text-indent:30px}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child{display:flex;gap:10px;align-items:flex-start}
-.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{content:"";flex:none;width:20px;height:20px;margin-top:3px;
+.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{content:"";flex:none;width:20px;height:20px;margin-top:7px;
 background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%238a5a00%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E") no-repeat center/20px 20px}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{overflow:hidden;text-overflow:ellipsis}
 .dsh-upd[data-theme="archive"] .dsh-upd-actions{flex-wrap:wrap}
@@ -1035,6 +1052,7 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 .dsh-upd[data-theme="archive"] .dsh-upd-banner{border:2px solid var(--dsh-update-border-strong);border-radius:4px;padding:10px 12px;font-size:14.5px;font-family:var(--dsh-update-font-serif);gap:10px;align-items:center}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{flex:1 1 auto;min-width:0;align-self:stretch}
 .dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child strong{font-family:var(--dsh-update-font-serif);font-size:27px;font-weight:700;line-height:1.25}
+.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]>div:first-child strong{font-size:24px}
 .dsh-upd[data-theme="archive"] .dsh-upd-prog{height:8px;background:var(--dsh-update-border);border-radius:4px;overflow:hidden;margin:10px 0 4px}
 .dsh-upd[data-theme="archive"] .dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary);transition:width .3s}
 .dsh-upd[data-theme="archive"] .dsh-upd-progtxt{font-size:12.5px;color:var(--dsh-update-text-muted)}
@@ -1049,6 +1067,7 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 .dsh-upd[data-theme="archive"] .dsh-upd-actions button:first-child:not([aria-busy="true"])::after{display:none}
 .dsh-upd[data-theme="archive"] .dsh-upd-actions button:not([data-primary="1"]){background:transparent}
 .dsh-upd[data-theme="archive"] .dsh-upd-actions button[data-action="copy-manual"],.dsh-upd[data-theme="archive"] .dsh-upd-actions button[data-action="copy-diag"]{font-size:12px;padding:4px 10px}
+.dsh-upd[data-theme="archive"] .dsh-upd-chap-note button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0;background:transparent}
 .dsh-upd[data-theme="archive"] .dsh-upd-changelog-version{margin:12px 0}
 .dsh-upd[data-theme="archive"] .dsh-upd-changelog-title{font-family:var(--dsh-update-font-mono);font-size:14px;font-weight:700}
 .dsh-upd[data-theme="archive"] .dsh-upd-changelog-date{font-weight:400;font-size:12px;color:var(--dsh-update-text-muted)}
@@ -1068,20 +1087,21 @@ background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27
 --dsh-update-bad-text:#ef8a7d;--dsh-update-bad-bg:rgba(239,138,125,.12);--dsh-update-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.45)}}
 @media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] button[data-primary="1"]{color:#141210}.dsh-upd[data-theme="archive"] button:focus-visible{outline-color:var(--dsh-update-primary-deep)}}
 @media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23e8c15a%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%27/%3E%3Cline x1=%2712%27 y1=%279%27 x2=%2712%27 y2=%2713%27/%3E%3Cline x1=%2712%27 y1=%2717%27 x2=%2712.01%27 y2=%2717%27/%3E%3C/svg%3E")}}
+@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"] .dsh-upd-manual code{background:#26211a;color:#ece5d3;border:1px solid var(--dsh-update-border-strong)}}
 @media (forced-colors: active){.dsh-upd[data-theme="archive"]{box-shadow:none}.dsh-upd[data-theme="archive"]::before{background:none;box-shadow:none;border-color:CanvasText;color:CanvasText}.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:1px solid CanvasText}.dsh-upd[data-theme="archive"] .dsh-upd-banner::before{border-color:CanvasText;color:CanvasText;background:Canvas}.dsh-upd[data-theme="archive"] button{border:1px solid ButtonText}.dsh-upd[data-theme="archive"] button[data-primary="1"]{background:ButtonFace;color:ButtonText;border-color:ButtonText}.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="restart"]>div:first-child::before{background-image:none;content:"⚠"}}
 @media (prefers-reduced-motion: reduce){.dsh-upd[data-theme="archive"] *{transition:none !important;animation:none !important}}</style>
-<div class="dsh-upd" data-mode="embedded" data-plugin="demo-notes-plugin" data-seal="已最新" data-seal-tone="green" data-theme="archive">
+<div class="dsh-upd" data-mode="embedded" data-plugin="demo-notes-plugin" data-seal="已是最新" data-seal-tone="green" data-theme="archive">
 <div class="dsh-upd-masthead"><span class="dsh-upd-masthead-kicker">插件更新</span><span class="dsh-upd-masthead-title">更新档案 <i>卷</i></span></div>
 <div class="dsh-upd-head"><span class="dsh-upd-name">demo-notes-plugin</span><span class="dsh-upd-meta">使用范围 <b>web</b><span class="dsh-upd-proftag">profile</span></span></div>
 <div class="dsh-upd-banner" data-kind="done" data-mini="定" role="status" aria-live="polite">
 <div><span class="dsh-upd-sealmini" aria-hidden="true">定</span><strong>已是最新，无需更新。</strong></div>
 </div>
-<div class="dsh-upd-strip"><div><span class="dsh-upd-strip-k">运行</span><span class="dsh-upd-strip-v">1.1.0</span></div><div><span class="dsh-upd-strip-k">磁盘</span><span class="dsh-upd-strip-v">1.1.0</span></div><div><span class="dsh-upd-strip-k">远端</span><span class="dsh-upd-strip-v">1.1.0</span></div></div>
-<div class="dsh-upd-body"><section class="dsh-upd-chapter" data-chapter="01"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">01</span><h3 class="dsh-upd-chap-title">检查与安装</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-actions"><button type="button" data-action="check" title="重新向官方源查一次新版（只读，不安装）">查新版</button><button type="button" data-action="install" data-primary="1" title="用精确版本安装；同一使用范围同时只装一个" disabled>安装更新</button><button type="button" data-action="copy-diag" title="复制已脱敏诊断，直接粘给插件作者">复制诊断</button></div></section>
+<div class="dsh-upd-strip"><div><span class="dsh-upd-strip-k">运行版</span><span class="dsh-upd-strip-v">1.1.0</span></div><div><span class="dsh-upd-strip-k">已安装</span><span class="dsh-upd-strip-v">1.1.0</span></div><div><span class="dsh-upd-strip-k">最新版</span><span class="dsh-upd-strip-v">1.1.0</span></div></div>
+<div class="dsh-upd-body"><section class="dsh-upd-chapter" data-chapter="01"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">01</span><h3 class="dsh-upd-chap-title">检查与安装</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-actions"><button type="button" data-action="check" title="重新向官方源查询版本信息（只读，不安装）">检查更新</button><button type="button" data-action="install" data-primary="1" title="按精确版本安装；同一使用范围同时仅安装一项" disabled>安装更新</button><button type="button" data-action="copy-diag" title="复制已脱敏诊断，请提交至插件作者">复制诊断</button></div></section>
 <section class="dsh-upd-chapter" data-chapter="02"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">02</span><h3 class="dsh-upd-chap-title">更新日志</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-changelog-wrap"><div>更新说明（1.1.0 → 1.1.0）：</div><div class="dsh-upd-changelog-foldbox" data-open="1"><div class="dsh-upd-changelog-foldbox-inner">
 <div class="dsh-upd-changelog-neutral">作者未提供更新说明，安装不受影响。</div>
 </div></div></div></section>
-<section class="dsh-upd-chapter" data-chapter="03"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">03</span><h3 class="dsh-upd-chap-title">更新队列</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-queue"><div class="dsh-upd-changelog-neutral">当前没有排队任务，同一使用范围一次只装一个。</div></div></section>
-<section class="dsh-upd-chapter" data-chapter="04"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">04</span><h3 class="dsh-upd-chap-title">错误信息</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断给出的是当前状态快照。</div><div class="dsh-upd-log">深挖看日志：按插件标识 <code>demo-notes-plugin</code> 过滤 <code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 三个事件。</div><div class="dsh-upd-copy dsh-upd-copy--empty" aria-hidden="true"></div></section>
+<section class="dsh-upd-chapter" data-chapter="03"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">03</span><h3 class="dsh-upd-chap-title">更新队列</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-queue"><div class="dsh-upd-changelog-neutral">当前无排队任务；同一使用范围同时仅安装一项。</div></div></section>
+<section class="dsh-upd-chapter" data-chapter="04"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">04</span><h3 class="dsh-upd-chap-title">错误信息</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-changelog-neutral">暂无失败：此时复制诊断提供的是当前状态快照。</div><div class="dsh-upd-log">请查看日志：按插件标识 <code>demo-notes-plugin</code> 筛选 <code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> 事件。</div><div class="dsh-upd-copy dsh-upd-copy--empty" aria-hidden="true"></div></section>
 <section class="dsh-upd-chapter" data-chapter="05"><div class="dsh-upd-chap-head"><span class="dsh-upd-chap-no">05</span><h3 class="dsh-upd-chap-title">手工命令</h3><span class="dsh-upd-chap-rule"></span></div><div class="dsh-upd-manual"><div class="dsh-upd-changelog-neutral">当前没有可用的手工命令（使用范围无法识别或源码安装场景不提供）。</div></div></section></div>
 </div></section></div></body></html>

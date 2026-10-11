@@ -1,6 +1,6 @@
 /**
  * tests/panel-check-layout-stable.test.mjs
- * 查新版布局稳定：按钮预留宽度 + 动态区最小高度 + 查中轮询让路 + 焦点滚动保持。
+ * 检查更新布局稳定：按钮预留宽度 + 动态区最小高度 + 查中轮询让路 + 焦点滚动保持。
  * 只测外部行为，传输与容器全用假件。
  */
 import { test, describe } from 'node:test';
@@ -30,9 +30,9 @@ function countingContainer() {
   };
 }
 
-describe('查新版按钮预留宽度：忙闲同宽', () => {
-  test('单面板 CSS 预留查新版与安装宽度，且闲态预留转圈槽', () => {
-    assert.ok(UPDATE_PANEL_CSS.includes('button:first-child{min-width:8em'), '查新版按钮须有最小宽度');
+describe('检查更新按钮预留宽度：忙闲同宽', () => {
+  test('单面板 CSS 预留检查更新与安装宽度，且闲态预留转圈槽', () => {
+    assert.ok(UPDATE_PANEL_CSS.includes('button:first-child{min-width:8em'), '检查更新按钮须有最小宽度');
     assert.ok(UPDATE_PANEL_CSS.includes('button[data-primary="1"]{min-width:7em'), '安装按钮须有最小宽度');
     assert.ok(UPDATE_PANEL_CSS.includes(':not([aria-busy'), '闲态须预留转圈槽，否则忙闲差 19px');
     assert.ok(UPDATE_PANEL_CSS.includes('overflow-anchor:none'), '须关滚动锚定，防整面板漂移');
@@ -46,16 +46,16 @@ describe('查新版按钮预留宽度：忙闲同宽', () => {
   test('忙闲语义保留：文案切换但可访问性不变', () => {
     const idle = renderUpdatePanelHTML({ snapshot: baseSnapshot(), manual: null, queue: baseQueue(), pluginId: 'p', mode: 'embedded' });
     const busy = renderUpdatePanelHTML({ snapshot: baseSnapshot(), manual: null, queue: baseQueue(), pluginId: 'p', mode: 'embedded', busyAct: 'check' });
-    assert.ok(idle.includes('data-action="check"'), '闲态有查新版按钮');
+    assert.ok(idle.includes('data-action="check"'), '闲态有检查更新按钮');
     assert.ok(busy.includes('data-action="check"'), '忙态仍有同一按钮，可恢复焦点');
     assert.ok(busy.includes('aria-busy="true"'), '忙态保留 aria-busy');
     assert.ok(busy.includes('disabled'), '忙态禁用防连点');
-    assert.ok(busy.includes('正在查新版'), '忙态文案复用既有措辞，不改文案');
+    assert.ok(busy.includes('正在查询版本信息'), '忙态文案复用既有措辞，不改文案');
   });
 });
 
 describe('查中轮询让路：不与回包帧连跳', () => {
-  test('单面板查新版在途时轮询不插帧', async () => {
+  test('单面板检查更新在途时轮询不插帧', async () => {
     let statusCalls = 0;
     let releaseCheck;
     const checkGate = new Promise((r) => { releaseCheck = r; });
@@ -114,7 +114,7 @@ describe('查中轮询让路：不与回包帧连跳', () => {
 });
 
 describe('重绘保持可用：无 DOM 也不抛，渲染契约不变', () => {
-  test('假容器无 document 时查新版两帧都落盘且不抛', async () => {
+  test('假容器无 document 时检查更新两帧都落盘且不抛', async () => {
     const call = async (name) => {
       if (String(name).endsWith('.updateStatus')) return { ok: true, snapshot: baseSnapshot(), manual: null, receipt: null, queue: baseQueue() };
       if (String(name).endsWith('.updateCheck')) return { ok: true, snapshot: baseSnapshot(), manual: null, receipt: { checkId: 'c', checkedAt: 1, expiresAt: 9 }, queue: baseQueue() };

@@ -4,7 +4,7 @@
  * 只测外部行为/产物：
  *   ① 五章编号恒在且顺序为 01..05（不许跳号——现场就是 02→04→05 跳号）；
  *   ② 档案头显示「使用范围」真值 + profile 牌，缺值显示「未知」不猜；
- *   ③ 版本条三格（运行/磁盘/远端）；
+ *   ③ 版本条三格（运行/磁盘/最新版）；
  *   ④ 安装中才有进度条；已跳过才有虚框 tag；
  *   ⑤ 使用范围从宿主 includeEnv 来，调用方显式传的优先；
  *   ⑥ 卷宗抬头、状态行 27px、队列两行键值（2026-10-04 视觉定案）。
@@ -92,10 +92,10 @@ describe('档案头：使用范围是真值，缺了显示未知', () => {
 })
 
 describe('版本条与进度条、跳过行', () => {
-  it('版本条三格：运行 / 磁盘 / 远端', () => {
+  it('版本条三格：运行 / 磁盘 / 最新版', () => {
     const html = renderUpdatePanelHTML(inputFor())
-    for (const k of ['运行', '磁盘', '远端']) assert.ok(html.includes(`>${k}</span>`), `版本条缺「${k}」格`)
-    assert.ok(html.includes('1.1.0'), '远端版须进版本条')
+    for (const k of ['运行版', '已安装', '最新版']) assert.ok(html.includes(`>${k}</span>`), `版本条缺「${k}」格`)
+    assert.ok(html.includes('1.1.0'), '最新版须进版本条')
   })
 
   it('只有安装中/校验中才有进度条', () => {
@@ -111,10 +111,10 @@ describe('版本条与进度条、跳过行', () => {
     assert.ok(!idle.includes('role="progressbar"'), '空闲不该有进度条')
   })
 
-  it('已跳过这一版才画虚框 tag', () => {
+  it('已跳过该版本才画虚框 tag', () => {
     const skipped = renderUpdatePanelHTML(inputFor({ skippedLatest: true }))
     assert.ok(skipped.includes('class="dsh-upd-tag"'), '已跳过须有虚框 tag 元素')
-    assert.ok(skipped.includes('已跳过 1.1.0'), 'tag 须写明跳过的版本')
+    assert.ok(skipped.includes('已跳过版本 1.1.0'), 'tag 须写明跳过的版本')
     const idle = renderUpdatePanelHTML(inputFor())
     assert.ok(!idle.includes('class="dsh-upd-tag"'), '没跳过就不该有 tag 元素（CSS 里的类名不算）')
   })
@@ -268,6 +268,10 @@ describe('尺寸定案：状态行 27px、横幅不再给印章留位', () => {
     // #99：印章自身须 white-space:nowrap（单行章不折行），禁令收窄到标题容器——标题行窄屏必须能折行。
     assert.ok(UPDATE_PANEL_ARCHIVE_CSS.includes('.dsh-upd-banner>div:first-child{white-space:normal}'), '窄屏标题行必须能折行（27px 在窄容器里折行）')
     assert.ok(!/dsh-upd-banner>div[^{]*\{[^}]*nowrap/.test(UPDATE_PANEL_ARCHIVE_CSS), '标题行容器不许 nowrap')
+    assert.ok(
+      UPDATE_PANEL_ARCHIVE_CSS.includes('.dsh-upd-banner[data-kind="done"]>div:first-child strong{font-size:24px}'),
+      '已是最新是落定态，标题收一号 24px（其余档位仍 27px）',
+    )
   })
 })
 
@@ -289,12 +293,12 @@ describe('队列定案：两行键值 + 开关挪到 03 章标题行右端', () 
     assert.ok(!body.includes('toggle-queue'), '正文里不该再有开关')
   })
 
-  it('正文是两行键值：正在安装 / 你的顺位，顺位与前方数照给', () => {
+  it('正文是两行键值：正在安装 / 你的排队顺位，顺位与前方数照给', () => {
     const html = renderUpdatePanelHTML(inputFor({ queue: busyQueue }))
     assert.ok(html.includes('>正在安装<'), '须有「正在安装」一行')
-    assert.ok(html.includes('>你的顺位<'), '须有「你的顺位」一行')
+    assert.ok(html.includes('>你的排队顺位<'), '须有「你的排队顺位」一行')
     assert.match(html, /第 2 位/, '顺位照给')
-    assert.match(html, /前方 1 个/, '前方人数照给')
+    assert.match(html, /前方还有 1 项/, '前方人数照给')
   })
 
   it('默认不露他人标识与版本；showOthers 打开才露，并多一行排队顺序', () => {
@@ -315,7 +319,7 @@ describe('队列定案：两行键值 + 开关挪到 03 章标题行右端', () 
   it('没排队时仍是中性一句话，不画两行键值', () => {
     const html = renderUpdatePanelHTML(inputFor())
     assert.ok(!html.includes('<div class="dsh-upd-qrow"'), '空闲不该画队列行（CSS 里的类名不算）')
-    assert.ok(html.includes('当前没有排队任务'), '空闲须给中性提示')
+    assert.ok(html.includes('当前无排队任务'), '空闲须给中性提示')
   })
 })
 
@@ -332,13 +336,13 @@ describe('只读渲染：内容一字不减，动作按钮一个不留', () => {
     const html = renderUpdatePanelHTML(inputFor({}, { actions: 'none' }))
     const found = [...html.matchAll(/data-chapter="(\d\d)"/g)].map((m) => m[1])
     assert.deepEqual(found, ['01', '02', '03', '04', '05'], '五章仍须齐且按序')
-    for (const k of ['运行', '磁盘', '远端']) assert.ok(html.includes('>' + k + '</span>'), '版本条缺「' + k + '」')
+    for (const k of ['运行版', '已安装', '最新版']) assert.ok(html.includes('>' + k + '</span>'), '版本条缺「' + k + '」')
     assert.ok(html.includes('检查与安装'), '章节标题仍在')
   })
 
   it('不传 actions 即现状（动作行照画，老调用一字不动）', () => {
     const html = renderUpdatePanelHTML(inputFor())
-    assert.ok(html.includes('data-action="check"'), '默认仍画查新版')
+    assert.ok(html.includes('data-action="check"'), '默认仍画检查更新')
     assert.ok(html.includes('data-action="install"'), '默认仍画安装')
     assert.ok(html.includes('data-action="copy-diag"'), '默认仍画复制诊断')
   })
@@ -353,7 +357,7 @@ describe('只读渲染：内容一字不减，动作按钮一个不留', () => {
     const html = renderUpdatePanelHTML(inputFor({ queue: busyQueue }, { actions: 'none' }))
     assert.ok(!html.includes('data-action='), '忙队列下也不许漏出 toggle-queue 按钮（实测漏过一次）')
     assert.ok(!html.includes('<button'), '只读渲染下不该有 button 元素')
-    assert.ok(html.includes('你的顺位'), '队列内容照画')
+    assert.ok(html.includes('你的排队顺位'), '队列内容照画')
     const normal = renderUpdatePanelHTML(inputFor({ queue: busyQueue }))
     assert.ok(normal.includes('data-action="toggle-queue"'), '默认渲染仍给队列开关')
   })
@@ -364,6 +368,6 @@ describe('只读渲染：内容一字不减，动作按钮一个不留', () => {
     )
     assert.ok(installing.includes('role="progressbar"'), '进度条须照画')
     const skipped = renderUpdatePanelHTML(inputFor({ skippedLatest: true }, { actions: 'none' }))
-    assert.ok(skipped.includes('已跳过 1.1.0'), '已跳过提示须照画')
+    assert.ok(skipped.includes('已跳过版本 1.1.0'), '已跳过提示须照画')
   })
 })

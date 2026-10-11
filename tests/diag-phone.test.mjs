@@ -174,7 +174,7 @@ describe('成功形状不动（成功回包永不带 diag）', () => {
     assert.deepEqual(Object.keys(out.snapshot).sort(), ['blockedReason', 'canInstall', 'installedVersion', 'job', 'latestVersion', 'runningVersion'])
   })
 
-  it('查新版成功无 diag，凭证形状冻结', async () => {
+  it('检查更新成功无 diag，凭证形状冻结', async () => {
     const fires = []
     const host = makeHost({ fires })
     const out = await host.handlers['wf.updateCheck']({})
@@ -305,7 +305,7 @@ describe('失败回包加可选 diag（16 键目录 + 脱敏构造）', () => {
     assert.ok(!('exitCode' in out.diag), '读阶段按表禁 exitCode（错配的退出码不进载荷）')
   })
 
-  it('对抗：查新版环境失败归 read-installed（非 preflight）', async () => {
+  it('对抗：检查更新环境失败归 read-installed（非 preflight）', async () => {
     const fires = []
     const host2 = makeHost({
       fires,
@@ -316,7 +316,7 @@ describe('失败回包加可选 diag（16 键目录 + 脱敏构造）', () => {
     const out = await host2.handlers['wf.updateCheck']({})
     assert.equal(out.ok, false)
     assertDiagWellFormed(out.diag)
-    assert.equal(out.diag.stage, 'read-installed', '查新版无装前复核段，环境失败只能是读已装')
+    assert.equal(out.diag.stage, 'read-installed', '检查更新无装前复核段，环境失败只能是读已装')
     assert.equal(out.diag.route, 'disk')
   })
 

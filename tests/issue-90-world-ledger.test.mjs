@@ -2,8 +2,8 @@
  * tests/issue-90-world-ledger.test.mjs —— #90 世界账与轮次账分家 + 检查诚实语义 + 轮询放行。
  *
  * 只测外部行为（Agent Brief 验收 1–4 条；第 5 条由全量门禁覆盖）：
- *  1. 终态全 current 会话 + 更新鲜可更新知识 → 总账不再「全部已最新」，行显示新版可更新；
- *  2. 单家查新版在快照无 latestVersion 时永不显示「已是最新」（defensive 分支，只达快照层，见注）；
+ *  1. 终态全 current 会话 + 更新鲜可更新知识 → 总账不再「已全部为最新」，行显示新版可更新；
+ *  2. 单家检查更新在快照无 latestVersion 时永不显示「已是最新」（defensive 分支，只达快照层，见注）；
  *  3. 全部更新驱动多家时，收尾前即可观测中间进度（轮询不再被在途抑制）；
  *  4. 驱动进行中调检查电话：明确回忙，不用旧表冒充 fresh 结果。
  *
@@ -80,7 +80,7 @@ async function settle() {
 }
 
 describe('#90 A：终态会话不再遮挡新知识（世界账推翻）', () => {
-  it('全 current 收尾 + 更新鲜可更新知识：总账 updatable，不再全部已最新', () => {
+  it('全 current 收尾 + 更新鲜可更新知识：总账 updatable，不再已全部为最新', () => {
     const rows = ['a', 'b'].map((k) => rowOf({ key: k, phase: 'current', snapshot: snap('0.3.49') }))
     const entries = {}
     for (const r of rows) entries[r.key] = invEntry()
@@ -90,10 +90,10 @@ describe('#90 A：终态会话不再遮挡新知识（世界账推翻）', () =>
     assert.equal(counts.updatable, 2)
     assert.equal(counts.settled, 0)
     const html = renderBatchPanelHTML({ rows, session, inventory, lang: 'zh' })
-    assert.ok(!sumTextOf(html).includes('全部已最新'), '顶部不再报全部已最新')
-    assert.ok(sumTextOf(html).includes('2 家可更新'), '顶部报可更新')
-    assert.equal(countOf(html, '有新版 0.3.50'), 2, '行状态词与新知识一致')
-    assert.equal(ledgerTextOf(html), '2 家可更新', '底部总账同步')
+    assert.ok(!sumTextOf(html).includes('已全部为最新'), '顶部不再报已全部为最新')
+    assert.ok(sumTextOf(html).includes('2 个可更新'), '顶部报可更新')
+    assert.equal(countOf(html, '有新版本 0.3.50'), 2, '行状态词与新知识一致')
+    assert.equal(ledgerTextOf(html), '2 个可更新', '底部总账同步')
     assert.equal(countOf(html, '<span class="dsh-upd-updot" data-tone="todo"'), 2, '圆点与可更新同色（ready 口径；样式块不计入）')
   })
 
@@ -133,11 +133,11 @@ describe('#90 A：终态会话不再遮挡新知识（世界账推翻）', () =>
     assert.equal(counts.updatable, 1)
   })
 
-  it('R5：查过但无版本不再报已是最新，回还没查过', () => {
+  it('R5：查过但无版本不再报已是最新，回尚未查询', () => {
     const row = rowOf({ phase: 'pending' })
     assert.equal(
       batchRowKnowledgeText(row, { lastCheckedAt: 2000, installedVersion: null, latestVersion: null, canInstall: null, error: null }, 'zh'),
-      '还没查过',
+      '尚未查询',
     )
     const counts = batchLedgerCounts([row], invOf({ a: { lastCheckedAt: 2000, installedVersion: null, latestVersion: null, canInstall: null, error: null } }))
     assert.equal(counts.pending, 1)

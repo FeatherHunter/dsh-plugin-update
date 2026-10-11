@@ -149,7 +149,7 @@ describe('issue #98：缺省 stable + 已装 beta 不再坍缩成 unknown-profil
     assert.equal(out.env.profileName, 'web')
   })
 
-  it('查新版：远端 stable 更高也如实显示 latest，仍判通道阻拦、不误判无更新', async () => {
+  it('检查更新：最新版 stable 更高也如实显示 latest，仍判通道阻拦、不误判无更新', async () => {
     const profileDir = makeBetaProfile()
     tmpRoots.push(profileDir)
     const host = makeDefaultHost(profileDir, { fetchImpl: fakeLatest(STABLE_NEWER) })
@@ -255,7 +255,7 @@ describe('issue #98：缺省 stable + 已装 beta 不再坍缩成 unknown-profil
 })
 
 describe('issue #98：手工命令不给降级与通道外版本', () => {
-  it('beta 运行 + stable 远端更高 → 给升到正式版的命令', () => {
+  it('beta 运行 + stable 最新版更高 → 给升到正式版的命令', () => {
     const command = manualCommand({
       profileName: 'web',
       latestVersion: STABLE_NEWER,
@@ -270,7 +270,7 @@ describe('issue #98：手工命令不给降级与通道外版本', () => {
     assert.equal(command, `dsh plugin --profile web add --save-exact ${TARGET}@${STABLE_NEWER} --registry=${REGISTRY}`)
   })
 
-  it('beta 运行 + stable 远端更低 → 不给降级命令，回空', () => {
+  it('beta 运行 + stable 最新版更低 → 不给降级命令，回空', () => {
     const command = manualCommand({
       profileName: 'web',
       latestVersion: STABLE_OLDER,

@@ -19,7 +19,7 @@ function rowOf(o = {}) {
 }
 function checkBtn(html) {
   const m = html.match(/<button[^>]*data-action="check"[^>]*>/);
-  assert.ok(m, '须有查新版按钮');
+  assert.ok(m, '须有检查更新按钮');
   return m[0];
 }
 function installBtn(html) {
@@ -34,12 +34,12 @@ function batchBtn(html, act) {
 }
 
 describe('#87 忙守卫：installing 即置灰，单/批量一致', () => {
-  it('单面板 installing 快照：查新版与安装一起置灰（与批量宏一致）', () => {
+  it('单面板 installing 快照：检查更新与安装一起置灰（与批量宏一致）', () => {
     const html = renderUpdatePanelHTML({
       snapshot: snap({ job: { id: 'j', state: 'installing', targetVersion: '1.1.0', message: null, requestId: 'r' } }),
       manual: null, queue: queue(), pluginId: 'p', mode: 'embedded',
     });
-    assert.ok(checkBtn(html).includes('disabled'), 'installing 时查新版须置灰（批量口径）');
+    assert.ok(checkBtn(html).includes('disabled'), 'installing 时检查更新须置灰（批量口径）');
     assert.ok(installBtn(html).includes('disabled'), 'installing 时安装须置灰');
   });
   it('单面板 verifying 快照：同 installing 一起置灰', () => {
@@ -47,7 +47,7 @@ describe('#87 忙守卫：installing 即置灰，单/批量一致', () => {
       snapshot: snap({ job: { id: 'j', state: 'verifying', targetVersion: '1.1.0', message: null, requestId: 'r' } }),
       manual: null, queue: queue(), pluginId: 'p', mode: 'embedded',
     });
-    assert.ok(checkBtn(html).includes('disabled'), 'verifying 时查新版须置灰');
+    assert.ok(checkBtn(html).includes('disabled'), 'verifying 时检查更新须置灰');
     assert.ok(installBtn(html).includes('disabled'), 'verifying 时安装须置灰');
   });
   it('单面板 busyAct=check：在途两键一起置灰（与批量 inFlight 一致）', () => {
@@ -63,9 +63,9 @@ describe('#87 忙守卫：installing 即置灰，单/批量一致', () => {
       snapshot: snap(), manual: null, queue: queue(), pluginId: 'p', mode: 'embedded', busyAct: 'install',
     });
     assert.ok(installBtn(html).includes('disabled'), '装中安装置灰');
-    assert.ok(checkBtn(html).includes('disabled'), '装中查新版须跟着置灰');
+    assert.ok(checkBtn(html).includes('disabled'), '装中检查更新须跟着置灰');
   });
-  it('闲态零回归：两键都可用（快照可装）', () => {
+  it('闲态零回归：两键都可用（快照可更新）', () => {
     const html = renderUpdatePanelHTML({
       snapshot: snap(), manual: null, queue: queue(), pluginId: 'p', mode: 'embedded',
     });

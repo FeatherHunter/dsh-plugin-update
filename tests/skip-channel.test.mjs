@@ -133,7 +133,7 @@ describe('发行版比较（SemVer §11）', () => {
 })
 
 describe('通道门：默认 stable，prerelease 显式 opt-in', () => {
-  it('查新版默认不收预发布：远端预发布按版本信息无效处理', async () => {
+  it('检查更新默认不收预发布：最新版预发布按版本信息无效处理', async () => {
     await assert.rejects(
       () =>
         fetchNpmRelease(
@@ -147,7 +147,7 @@ describe('通道门：默认 stable，prerelease 显式 opt-in', () => {
     )
   })
 
-  it('prerelease 通道收预发布远端', async () => {
+  it('prerelease 通道收预发布最新版', async () => {
     const release = await fetchNpmRelease(
       fakeFetch(
         'https://registry.npmjs.org/dsh-mattpocock-skills-deck/latest',
@@ -159,7 +159,7 @@ describe('通道门：默认 stable，prerelease 显式 opt-in', () => {
     assert.equal(release.version, '0.2.0-rc.2')
   })
 
-  it('核心默认通道：预发布远端不产出可装', async () => {
+  it('核心默认通道：预发布最新版不产出可更新', async () => {
     const core = createUpdateCore(
       basePorts({
         fetchImpl: fakeFetch(
@@ -171,7 +171,7 @@ describe('通道门：默认 stable，prerelease 显式 opt-in', () => {
     await assert.rejects(() => core.check(), /invalid-release/)
   })
 
-  it('核心 prerelease 通道：预发布远端可装', async () => {
+  it('核心 prerelease 通道：预发布最新版可更新', async () => {
     const core = createUpdateCore(
       basePorts({
         releaseChannel: 'prerelease',

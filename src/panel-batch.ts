@@ -810,12 +810,13 @@ function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, strin
     const copy = failureCopy(lastError, l)
     const detail = copy?.zh ?? failureCopy('unknown', l)?.zh ?? ''
     const act = copy?.act ?? batchText('batch.banner.error-action-fallback', l)
+    // 副行出框（与单面板同口径）：色框只装标题，行动句住框外第二行居左。
     parts.push(
       '<div class="dsh-upd-banner" data-kind="failed" data-mini="阻" role="status">' +
         '<div><span class="dsh-upd-sealmini" aria-hidden="true">阻</span><strong>' + escapeHtml(batchText('batch.banner.error-title', l, { code: lastError, detail })) + '</strong></div>' +
-        '<div>' + escapeHtml(act) + '</div>' +
         '</div>',
     )
+    if (act) parts.push('<div class="dsh-upd-banner-sub">' + escapeHtml(act) + '</div>')
   }
   // 排队占位不算失败：忙时宿主会把它记成 failed+update-busy，这里翻回来。
   const failed = rows.filter((row) => asBatchPhase(row.phase) === 'failed' && !isQueueBusyRow(row))
@@ -830,25 +831,28 @@ function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, strin
         )
       })
       .join('')
+    const failedAct = batchText('batch.banner.failed-action', l)
     parts.push(
       '<div class="dsh-upd-banner" data-kind="failed" data-mini="阻" role="status">' +
         '<div><span class="dsh-upd-sealmini" aria-hidden="true">阻</span><strong>' + escapeHtml(batchText('batch.banner.failed-title', l, { n: String(failed.length) })) + '</strong></div>' +
-        '<div>' + escapeHtml(batchText('batch.banner.failed-action', l)) + '</div>' +
         '<div class="dsh-upd-blist">' + lines + '</div>' +
         '</div>',
     )
+    if (failedAct) parts.push('<div class="dsh-upd-banner-sub">' + escapeHtml(failedAct) + '</div>')
   }
   const restart = rows.filter((row) => row.restartRequired === true)
   if (restart.length > 0) {
+    const restartAct = batchText('batch.banner.restart-action', l)
+    // 措辞与单插件面板 panel.blocked.pending-restart.action 同一句（#64 按清单独立成键，英文可独立调优）；位置与单面板同口径：住框外。
     parts.push(
       '<div class="dsh-upd-banner" data-kind="restart" role="status">' +
         '<div><strong>' + escapeHtml(batchText('batch.banner.restart-title', l, { n: String(restart.length) })) + '</strong></div>' +
-        // 措辞与单插件面板 panel.blocked.pending-restart.action 同一句（#64 按清单独立成 batch.banner.restart-action 键，英文可独立调优）。
-        '<div>' + escapeHtml(batchText('batch.banner.restart-action', l)) + '</div>' +
-        '<div class="dsh-upd-blist">' + restart.map((row) => escapeHtml(titleOf(row, titles))).join('、') + '</div>' +
-        '<div><button type="button" data-act="restart">' + escapeHtml(batchText('batch.banner.restart-button', l)) + '</button></div>' +
+        // 名单居左、按钮同行居右：名单与按钮同处一行内 flex 行，窄屏换行时按钮仍靠右。
+        '<div class="dsh-upd-browline"><span class="dsh-upd-blist">' + restart.map((row) => escapeHtml(titleOf(row, titles))).join('、') + '</span>' +
+        '<button type="button" data-act="restart">' + escapeHtml(batchText('batch.banner.restart-button', l)) + '</button></div>' +
         '</div>',
     )
+    if (restartAct) parts.push('<div class="dsh-upd-banner-sub">' + escapeHtml(restartAct) + '</div>')
   }
   return parts.join('')
 }
@@ -1102,6 +1106,10 @@ export const UPDATE_BATCH_PANEL_CSS = [
   '@media (forced-colors: active){.dsh-upd-bver-new{color:CanvasText}}',
   '@media (forced-colors: active){.dsh-upd-bver-new-ok{color:CanvasText}}',
   '.dsh-upd-blist{font-size:12.5px;margin-top:2px}',
+  // 名单按钮同行：名单居左占满，按钮居右不换行；窄屏换行时按钮仍靠右。
+  '.dsh-upd-browline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
+  '.dsh-upd-browline>.dsh-upd-blist{flex:1 1 auto;min-width:0;text-align:left;margin:0}',
+  '.dsh-upd-browline>button{flex:none;margin:0;margin-left:auto}',
   '.dsh-upd-batch-ledger{margin:8px 0 0;font-size:13px;opacity:.85}',
   '.dsh-upd-batch-more{margin-top:6px}',
   '.dsh-upd-batch-more button{font-size:12px}',
@@ -1151,6 +1159,18 @@ export const UPDATE_BATCH_PANEL_ARCHIVE_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-batch-ledger{color:var(--dsh-update-text-muted)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-batch-sum{color:var(--dsh-update-text)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-brow-set{border-top-color:var(--dsh-update-border)}',
+  // 批量动作行贴原型（与单面板同口径：13px 紧凑、无最小宽、8px 间距；行内/详情/更多按钮小号 12px）。
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-macros{gap:8px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-macros button{font-size:13px;line-height:1.45;padding:6px 12px;margin:0;min-width:0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-macros button:first-child,.dsh-upd[data-theme="archive"] .dsh-upd-batch-macros button[data-primary="1"]{min-width:0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-macros button:not([data-primary="1"]){background:transparent}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-brow-actions button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0;background:transparent}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-bdetail-actions button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0;background:transparent}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-more button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0;background:transparent}',
+  // 黄框名单行（只收敛不对齐规则，不声明横幅盒体布局）：标题行拉满，名单居左，按钮同行居右。
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>.dsh-upd-browline{align-self:stretch;display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>.dsh-upd-browline .dsh-upd-blist{flex:1 1 auto;min-width:220px;text-align:left;margin:0;color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>.dsh-upd-browline button{flex:none;margin:0;margin-left:auto;font-size:13px;line-height:1.45;padding:6px 12px;min-width:0;background:transparent}',
 ].join(String.fromCharCode(10))
 
 // ---------- 挂载（多目标批量面板入口） ----------

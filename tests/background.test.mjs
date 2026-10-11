@@ -151,7 +151,7 @@ describe('后台安装不中断（#14）', () => {
 
     const { snap } = await checkAndInstall(core)
     const jobId = snap.job.id
-    // 重开即恢复（1s 内判据在实现侧体现为“同 tick 可读”，这里断言立刻可见同一任务）。
+    // 重开即恢复提醒（1s 内判据在实现侧体现为“同 tick 可读”，这里断言立刻可见同一任务）。
     const reopened = await core.status()
     assert.equal(reopened.job && reopened.job.id, jobId)
     assert.equal(reopened.job && reopened.job.state, 'installing')

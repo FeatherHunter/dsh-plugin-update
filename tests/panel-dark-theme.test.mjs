@@ -58,7 +58,7 @@ test('横幅四种状态的底色与边线都走变量，不硬编码浅色', ()
       const decls = line.slice(line.indexOf('{'))
       assert.match(decls, /background:var\(--dsh-update-[a-z]+-bg\)/, `${kind}：底色必须走变量`)
       assert.match(decls, /border-color:var\(--dsh-update-[a-z]+-border\)/, `${kind}：边线必须走变量`)
-      assert.doesNotMatch(decls, /(background|border-color):#/, `${kind}：不许硬编码颜色（深色会读不出来）`)
+      assert.doesNotMatch(decls, /(background|border-color):#/, `${kind}：不许硬编码颜色（深色会无法读取）`)
     }
   }
 })
@@ -83,6 +83,6 @@ test('深色下文字与横幅底色对比度 ≥ 4.5（浅字浅底的门）', 
     const [r, g, b, a] = m[1].split(',').map((s) => Number(s.trim()))
     const composited = [r, g, b].map((c, i) => Math.round(c * a + panel[i] * (1 - a)))
     const ratio = contrast(fg, composited)
-    assert.ok(ratio >= 4.5, `${name} 深色下对比度只有 ${ratio.toFixed(2)}：浅底浅字读不出来`)
+    assert.ok(ratio >= 4.5, `${name} 深色下对比度只有 ${ratio.toFixed(2)}：浅底浅字无法读取`)
   }
 })

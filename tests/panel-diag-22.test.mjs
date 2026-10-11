@@ -98,7 +98,7 @@ test('#22 老入口兼容：buildDiagnosticText 仍可用，电话码有行动�
 
 // ---------- errorKind 分支 ----------
 
-test('#22 按errorKind分支：errorKind=internal 时不误判为查新版失败', () => {
+test('#22 按errorKind分支：errorKind=internal 时不误判为检查更新失败', () => {
   assert.equal(failureCodeOf({ error: 'check-failed', errorKind: 'internal' }), 'internal')
   assert.equal(failureCodeOf({ error: 'check-failed', errorKind: 'check-failed' }), 'check-failed')
   assert.equal(failureCodeOf({ error: 'check-failed' }), 'check-failed', '无errorKind时回退到error')
@@ -228,10 +228,10 @@ test('#22 来源补齐缺省即省略：无diag时路由/请求/检查不出现�
   assert.ok(!block.includes('路由='), '路由缺省即省略，不占位未知')
   assert.ok(!block.includes('请求='), '请求缺省即省略')
   assert.ok(!block.includes('检查='), '检查缺省即省略')
-  assert.match(block, /本回包没有带诊断摘要/, '摘要缺省说人话，不留白')
+  assert.match(block, /本响应未携带诊断摘要/, '摘要缺省说人话，不留白')
   assert.match(block, /源=未知/, '源缺省给人话（省略本身即信息，人读不懂所以必须说）')
   assert.match(block, /插件=p/, '插件恒显')
-  assert.match(block, /不在队列里/, '队列恒显人话')
+  assert.match(block, /未排队/, '队列恒显人话')
 })
 
 // ---------- queuePos 转正前兼容 ----------
@@ -253,10 +253,10 @@ test('#22 queuePos转正前忽略：目录外键静默丢，只看队列视图',
     queuePosition: null,
     diag: { queuePos: 2 },
   })
-  assert.match(ignored, /不在队列里/, '转正前 diag.queuePos 必须忽略，不补充')
+  assert.match(ignored, /未排队/, '转正前 diag.queuePos 必须忽略，不补充')
 
   const none = buildUpdateDiagCopy({ pluginId: 'p', code: 'update-busy', detail: '' })
-  assert.match(none, /不在队列里/, '双无时说人话')
+  assert.match(none, /未排队/, '双无时说人话')
 })
 
 // ---------- 只渲染不推导 ----------

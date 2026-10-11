@@ -152,7 +152,7 @@ describe('宿主接线三电话的入参与回参', () => {
     assert.equal(fetched, 0)
   })
 
-  it('查新版联网一次：有新版即带凭证，成功包形状冻结', async () => {
+  it('检查更新联网一次：有新版本即带凭证，成功包形状冻结', async () => {
     const fires = []
     const host = makeHost({ pluginId: 'dsh-mattpocock-skills-deck', fires })
     const out = await host.handlers['wf.updateCheck']({})

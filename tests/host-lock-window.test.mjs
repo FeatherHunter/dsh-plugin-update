@@ -71,7 +71,7 @@ async function runInstallOnce(overrides) {
   __resetSharedUpdateReaderForTests()
   const host = createHostUpdate({ readerOverrides: overrides }, { pluginId: TARGET, prefix: 'demo', targetPackageName: TARGET })
   const check = await host.handlers['demo.updateCheck']({})
-  assert.equal(check.ok, true, '查新版要先成（装更新要凭证）')
+  assert.equal(check.ok, true, '检查更新要先成（装更新要凭证）')
   await host.handlers['demo.updateInstall']({ checkId: check.receipt.checkId, requestId: 'req-1' })
 }
 

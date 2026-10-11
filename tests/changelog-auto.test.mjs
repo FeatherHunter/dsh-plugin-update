@@ -210,7 +210,7 @@ describe('面板默认自动取日志', () => {
     return { call, log }
   }
 
-  it('默认即自动：有新版调一次，第二次轮询不再问', async () => {
+  it('默认即自动：有新版本调一次，第二次轮询不再问', async () => {
     const { call, log } = panelCall({ status: statusSnapshot(), changelog: { ok: true, version: '1.1.0', markdown: SAMPLE } })
     const slot = fakeContainer()
     const panel = mountUpdatePanel(slot, { pluginId: 'p', prefix: 't', call })
@@ -259,7 +259,7 @@ describe('面板默认自动取日志', () => {
     }
   })
 
-  it('无新版不问：没查到远端/装不了即不打电话', async () => {
+  it('无新版不问：没查到最新版/装不了即不打电话', async () => {
     const { call, log } = panelCall({
       status: statusSnapshot({ latestVersion: null, canInstall: false }),
       changelog: { ok: true, version: '1.1.0', markdown: SAMPLE },
@@ -426,7 +426,7 @@ describe('批量详情行按行取日志', () => {
 })
 
 describe('失败退避：同版本失败不每秒重问', () => {
-  it('面板失败记一次，轮询不再问，手动查新版可再问', async () => {
+  it('面板失败记一次，轮询不再问，手动检查更新可再问', async () => {
     const log = []
     const call = async (name, args) => {
       log.push({ name, args })
@@ -447,7 +447,7 @@ describe('失败退避：同版本失败不每秒重问', () => {
       assert.equal(log.filter((e) => e.name.endsWith('.updateChangelog')).length, 1, '失败只问一次')
       await panel.act('check')
       await settled()
-      assert.equal(log.filter((e) => e.name.endsWith('.updateChangelog')).length, 2, '手动查新版清退避')
+      assert.equal(log.filter((e) => e.name.endsWith('.updateChangelog')).length, 2, '手动检查更新清退避')
     } finally {
       panel.unmount()
     }
@@ -469,7 +469,7 @@ describe('入口件透传自动能力', () => {
     return { call, log }
   }
 
-  it('默认透传自动：打开的 dialog 有新版即取', async () => {
+  it('默认透传自动：打开的 dialog 有新版本即取', async () => {
     const { call, log } = entryCall()
     const slot = fakeContainer()
     const entry = mountUpdateEntry(slot, { pluginId: 'p', prefix: 't', call })

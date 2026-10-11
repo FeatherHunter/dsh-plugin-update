@@ -233,7 +233,7 @@ describe('对抗：竞态只许诚实失败，不许装错版', () => {
     assert.equal(installs, 0)
   })
 
-  it('B3 同版重装：无凭证可装，直接 check-expired，不调执行器', async () => {
+  it('B3 同版重装：无凭证可更新，直接 check-expired，不调执行器', async () => {
     const store = memoryStore()
     const installedVersionRef = { current: RC_RUNNING }
     const remoteRef = { current: RC_RUNNING }
@@ -320,7 +320,7 @@ describe('对抗：配方矩阵（三路由 × 双通道 × 双版本）', () =>
     })
   }
 
-  it('C2 面板可达：rc.4 可装页的按钮就是装 rc.4', () => {
+  it('C2 面板可达：rc.4 可更新页的按钮就是装 rc.4', () => {
     const view = panelViewModel(
       {
         snapshot: {

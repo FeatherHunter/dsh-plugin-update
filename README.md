@@ -212,14 +212,14 @@ const entry = mountUpdateEntry(document.getElementById('upd-entry'), {
 |---|---|---|---|
 | 摆什么 | `button` / `badge` / `inline` | `button` | 按钮；只给一个状态点；面板本体直接嵌进来 |
 | 什么时候查 | `mount` / `never` | `mount` | 进页面静默查一次（**只调 `.updateStatus`，只读**）；`never` 则只在点击时查 |
-| 点了做什么 | `has-update` / `always` / `manual` / `direct` | `has-update` | 有新版才开面板；检查完总是开；交给 `onActivate` 自己跳；点开即弹窗、不预查 |
-| 无新版摆哪 | `button` / `tooltip` / `note` | `button` | 版本即按钮本身；收进悬停；回右侧小字旧样子 |
+| 点了做什么 | `has-update` / `always` / `manual` / `direct` | `has-update` | 有新版本才开面板；检查完总是开；交给 `onActivate` 自己跳；点开即弹窗、不预查 |
+| 无新版本摆哪 | `button` / `tooltip` / `note` | `button` | 版本即按钮本身；收进悬停；回右侧小字旧样子 |
 
-按钮文案随状态自己变（按宿主语言单语渲染：中文界面纯中文、英文界面纯英文，一次只出现一种语言）：`检查更新`（还没查到）/ `已是最新 X.Y.Z`（无新版，默认即按钮本身）/ `有新版 1.1.0` / `正在安装…` / `待重启` / `更新失败，点此查看`（英文见集中字典同 key）。
+按钮文案随状态自己变（按宿主语言单语渲染：中文界面纯中文、英文界面纯英文，一次只出现一种语言）：`检查更新`（尚未查询）/ `已是最新 X.Y.Z`（无新版本，默认即按钮本身）/ `有新版本 1.1.0` / `正在安装…` / `待重启` / `更新失败，请查看详情`（英文见集中字典同 key）。
 
 语言跟随（单语）：入口件默认跟随 `document.documentElement.lang` > `navigator.languages` > 中文兜底；显式覆盖传 `locale: 'zh' | 'en' | { getActive(): string; subscribe?(cb): () => void }`（对象形态可接宿主语言服务，切换即时重绘，`unmount` 后停订；无 DOM 环境不抛，落中文）。
 
-无新版时版本号摆哪（`upToDateDisplay`，缺省 `'button'`）：`button` 即按钮本身就是`已是最新 X.Y.Z`（单按钮不占宽，可点再查，hover 回`检查更新`暗示动作；无新版中性弱边，hover 才走主色）；`tooltip` 按钮还是`检查更新`、版本收进悬停；`note` 回旧样子（按钮旁右侧小字，只在 `openOn: 'has-update'` 下点击确认无新版后出现）。旧版默认即 `note` 的样子，要回去就显式传 `upToDateDisplay: 'note'`。想连按钮都不留痕，就用 `openOn: 'always'`（检查完总是开弹窗，无新版在弹窗里看“已是最新”）或 `openOn: 'direct'`（点开即弹窗，连预查都省了，面板挂载即自查；徽标形态仍走回调口径）。
+无新版本时版本号摆哪（`upToDateDisplay`，缺省 `'button'`）：`button` 即按钮本身就是`已是最新 X.Y.Z`（单按钮不占宽，可点再查，hover 回`检查更新`暗示动作；无新版本中性弱边，hover 才走主色）；`tooltip` 按钮还是`检查更新`、版本收进悬停；`note` 回旧样子（按钮旁右侧小字，只在 `openOn: 'has-update'` 下点击确认无新版本后出现）。旧版默认即 `note` 的样子，要回去就显式传 `upToDateDisplay: 'note'`。想连按钮都不留痕，就用 `openOn: 'always'`（检查完总是开弹窗，无新版本在弹窗里看“已是最新”）或 `openOn: 'direct'`（点开即弹窗，连预查都省了，面板挂载即自查；徽标形态仍走回调口径）。
 
 按钮尺寸（跟头行其他控件同高/整体缩放）：传 `sizing` 只改按钮本体，不碰面板；不传即默认外观。`scale` 是整体缩放（默认 `1`，如 `1.2` 放大、`0.9` 缩小），原来写在容器上的 `zoom` 可整体搬进来：
 
@@ -358,7 +358,7 @@ mountUpdateBatchPanelHttp(document.querySelector('#batch'), {
 ```js
 import { mountUpdatePanel } from 'dsh-plugin-update/panel'
 
-// 与第 4 步同一行，不用加任何参数：有新版时第 02 章“更新日志”自动出现
+// 与第 4 步同一行，不用加任何参数：有新版本时第 02 章“更新日志”自动出现
 const panel = mountUpdatePanel(document.getElementById('update-slot'), {
   pluginId: 'my-notes-plugin',
   prefix: 'notes',
@@ -371,7 +371,7 @@ const panel = mountUpdatePanel(document.getElementById('update-slot'), {
 1. 包根放 `CHANGELOG.md`（文件名全大写，小写视为没有），版本节形如 `## [1.2.0] - 2026-10-05`（最新在前），分类用 `### Added/Fixed/Changed/Security`（亦收中文名 `新增/修复/变更/弃用预告/移除/安全`；面板必显展开；`Deprecated/Removed` 折叠；`Unreleased` 与空节忽略）。分类与条目必须挂在版本节下：裸条目（没有 `###` 分类行）会被忽略；全文一个版本节都读不出时面板如实说"读不出来"，不说"未提供"。
 2. `package.json` 的 `files` 白名单加上 `CHANGELOG.md`（否则发出去的包里没有它，面板永远读不到），发布前跑一次 `npm publish --dry-run` 核对。
 
-行为：有新版时面板按新版号自动取一次该版 tarball 里的全文（复用官方源 + `integrity` 校验，同一版本只取一次）；删了文件或取不到即中性提示，**安装永远不受影响**。想自己接管就传 `autoChangelog: false` 退回手动（备好文本后 `mountUpdatePanel({ changelogMarkdown })` 或 `setChangelogMarkdown` 传入，显式文本永不被覆盖）。入口件与批量面板同样自动：前者透传，后者展开行按行取。细节与边界见第 5.8 节。
+行为：有新版本时面板按新版号自动取一次该版 tarball 里的全文（复用官方源 + `integrity` 校验，同一版本只取一次）；删了文件或取不到即中性提示，**安装永远不受影响**。想自己接管就传 `autoChangelog: false` 退回手动（备好文本后 `mountUpdatePanel({ changelogMarkdown })` 或 `setChangelogMarkdown` 传入，显式文本永不被覆盖）。入口件与批量面板同样自动：前者透传，后者展开行按行取。细节与边界见第 5.8 节。
 
 安全事项必显：`### Security` 与 `Added/Fixed/Changed` 同级展开。单类超 200 条时前 200 条展开、其余收进该类内部折叠并标计数。目标版本被撤回（标题含 `[YANKED]`）时，第 02 章顶部加一条警告横幅，安装不受影响。条目开头写 `BREAKING:` 或 `不兼容:`（大小写不敏感，中英文冒号皆可）即挂破坏标记，正文不动。同一版本日志只取一次；取不到显示中性提示，安装不受影响。
 
@@ -526,9 +526,9 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 
 ### 5.8 更新说明
 
-- 有新版时面板在横幅下方展示“更新说明（当前版 → 新版）：”，按目标包内 `CHANGELOG.md`（Keep-a-Changelog 子集）渲染：`Added/Fixed/Changed/Security` 必显展开，`Deprecated/Removed` 折叠，`Unreleased` 与空节不展示。
+- 有新版本时面板在横幅下方展示“更新说明（当前版 → 新版）：”，按目标包内 `CHANGELOG.md`（Keep-a-Changelog 子集）渲染：`Added/Fixed/Changed/Security` 必显展开，`Deprecated/Removed` 折叠，`Unreleased` 与空节不展示。
 - 作者未提供说明时显示“作者未提供更新说明，安装不受影响。”——缺日志永不挡安装，不改变 `canInstall` 与 `blockedReason`。
-- 默认自动：面板看到有新版即按新版号调一次 `….updateChangelog`，回来自己填进第 02 章；同一版本只取一次，取不到即中性提示。作者侧只要写好包根 `CHANGELOG.md` 并随包发布，零新增代码。
+- 默认自动：面板看到有新版本即按新版号调一次 `….updateChangelog`，回来自己填进第 02 章；同一版本只取一次，取不到即中性提示。作者侧只要写好包根 `CHANGELOG.md` 并随包发布，零新增代码。
 - 手动模式（老用法照旧）：传 `autoChangelog: false` 即退回手动——已装版离线读本机 `node_modules/<目标包>/CHANGELOG.md`，新版按需取新版 tarball 内同名文件（复用官方源与 `integrity` 校验，取不到即回落中性提示；参考包根导出的 `readInstalledChangelogText` / `fetchReleaseChangelogText`），经 `mountUpdatePanel({ changelogMarkdown })` 或 `setChangelogMarkdown` 交给面板；显式传过的文本自动链路永不覆盖。
 - Security 必显；超限进内折叠。截断计数按类标注“共 M 条，仅显示前 N 条”（M 原始条数、N 显示数）。
 - to 版 yanked 时 02 章顶部横幅：“目标版本 X.Y.Z 已被作者撤回（yanked），安装不受影响，继续前请确认。”；中间版本只保留标题后缀。
@@ -559,7 +559,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 照第 2 节把名字换成自己的之后，逐条打勾：
 
 1. 宿主启动不报错，`update.phoneNames` 读到自家前缀的四个电话名，查状态返回六字段快照。
-2. 面板按间隔轮询到快照，能展示第 5.2 节的原因文案；有新版时安装按钮可用，无新版与待重启时按钮状态正确。
+2. 面板按间隔轮询到快照，能展示第 5.2 节的原因文案；有新版本时安装按钮可用，无新版本与待重启时按钮状态正确。
 3. 模拟一次 `pending-restart` 能看到第 5.4 节的横幅，模拟一次自动装失败能看到第 5.3 节的命令可复制执行。
 4. 第二家同机隔离与串行：两家各传自己的插件标识与电话名前缀，电话名、落盘目录、锁文件逐个不同；安装执行跨插件串行——同范围撞上时后到者报 `update-busy`，凭队列位置（第 5.7 节）重试。
 5. 整组件（第 2 节第 4 步）：同一状态下内嵌与弹窗展示同一快照、同一按钮状态、同一复制内容；点“跳过”后该版本不再提醒，新版本照常提醒，“恢复”一击可达；复制出的诊断里没有绝对路径与个人标识。
@@ -585,7 +585,7 @@ import { buildChangelogPhoneName } from 'dsh-plugin-update'
 
 buildChangelogPhoneName('notes')  // 'notes.updateChangelog'，与宿主侧同一套拼法
 
-// 面板侧：默认自动，有新版调一次；显式文本仍赢，false 退回手动
+// 面板侧：默认自动，有新版本调一次；显式文本仍赢，false 退回手动
 mountUpdatePanel(slot, { pluginId: 'my-notes-plugin', prefix: 'notes', call: host.call })
 // mountUpdatePanel(slot, { pluginId, prefix, call, autoChangelog: false })
 // mountUpdatePanel(slot, { pluginId, prefix, call, changelogMarkdown })  // 手动模式
@@ -628,7 +628,7 @@ resolveTargetPackage(name, { targetPackageDir })  // 按包名解析你的插件
 import { visibleQueueFor, queuePositionOf } from 'dsh-plugin-update'
 
 visibleQueueFor(queueState, 'my-plugin', false)  // 默认只看自己的，他人仅露正忙占位；传 true 看全量
-queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 在装，1..n = 顺位，null = 不在队里
+queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n = 顺位，null = 未排队
 ```
 
 ## 9. 兼容与稳定性

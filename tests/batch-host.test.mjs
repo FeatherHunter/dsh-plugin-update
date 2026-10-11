@@ -638,7 +638,7 @@ describe('忙时入队：驱动进行中也能加人（#25 排队语义）', () 
       host.lastRun.steps.map((step) => step.action + ':' + step.phase),
       ['check:ready', 'install:queued'],
     )
-    assert.equal(first.rows[0].queue.position, 2, '行上能读到队列位置（前方 1 个）')
+    assert.equal(first.rows[0].queue.position, 2, '行上能读到队列位置（前方还有 1 项）')
 
     // 面板「取消排队」依赖的宿主契约：showOthers=false 时 waiting 只有自己那条，requestId 能取到；
     // 撤占位走单插件 updateInstall({cancelQueued})，不碰整轮账本（batchCancel 才清整轮）。

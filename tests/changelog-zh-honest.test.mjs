@@ -4,7 +4,7 @@
  * 只测外部行为：
  *  ① 中文分类是 BUG 修：`### 新增` 等六中文名与英文完全等价（精确匹配，不做子串，
  *     `### 新增功能` 仍是未知分类）；validate 同口径（共享扫描仪），E_CATEGORY 提示如实列出中英文；
- *  ② 诚实中性行是 BUG 修：有文本但零解析节 → "日志读不出来"（无标题），不再撒谎"作者未提供"；
+ *  ② 诚实中性行是 BUG 修：有文本但零解析节 → "日志无法读取"（无标题），不再撒谎"作者未提供"；
  *     空文本仍"未提供"（零回归）；区间外旧行为不动。
  */
 import { test, describe } from 'node:test'
@@ -90,10 +90,10 @@ describe('中文分类与英文等价', () => {
   })
 })
 
-describe('诚实中性行：有文零解析即读不出来', () => {
-  test('乱文本 → "读不出来"，不再"未提供"，且无区间标题', () => {
+describe('诚实中性行：有文零解析即无法读取', () => {
+  test('乱文本 → "无法读取"，不再"未提供"，且无区间标题', () => {
     const html = renderUpdatePanelHTML(inputFor({ changelogMarkdown: '## 乱写标题\n- 游离条目\n' }))
-    assert.ok(html.includes('日志读不出来'), '须诚实说读不出来')
+    assert.ok(html.includes('日志无法读取'), '须诚实说无法读取')
     assert.ok(!html.includes('作者未提供'), '不许再撒谎未提供')
     assert.ok(!html.includes('更新说明（'), '无内容即无区间标题')
   })
@@ -105,8 +105,8 @@ describe('诚实中性行：有文零解析即读不出来', () => {
     }
   })
 
-  test('中文坏分类同样走读不出来（与英文同口径）', () => {
+  test('中文坏分类同样走无法读取（与英文同口径）', () => {
     const html = renderUpdatePanelHTML(inputFor({ changelogMarkdown: '## [1.1.0]\n\n### 坏分类\n- y\n' }))
-    assert.ok(html.includes('日志读不出来'), '坏分类即零解析节')
+    assert.ok(html.includes('日志无法读取'), '坏分类即零解析节')
   })
 })

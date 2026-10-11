@@ -1,5 +1,5 @@
 // tests/panel-busy.test.mjs —— #36：在途忙态与按钮交互反馈。
-// 点下查新版/安装到回包前的那一帧，按钮必须当即置忙（禁用 + 文案 + aria-busy），
+// 点下检查更新/安装到回包前的那一帧，按钮必须当即置忙（禁用 + 文案 + aria-busy），
 // 并发连点只发一次 call；回包后恢复。CSS 反馈类规则常驻。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -48,7 +48,7 @@ function deferredCall(handler) {
   return { call, calls, pending }
 }
 
-test('查新版：在途当即置忙，回包后恢复', async () => {
+test('检查更新：在途当即置忙，回包后恢复', async () => {
   const { mountUpdatePanel } = await import('../dist/panel.js')
   const box = fakeContainer()
   const { call, calls, pending } = deferredCall((phone) =>
@@ -61,17 +61,17 @@ test('查新版：在途当即置忙，回包后恢复', async () => {
   await tick()
   box.click({ 'data-action': 'check' })
   await tick()
-  assert.ok(box.innerHTML.includes('正在查新版…'), '在途文案当即出现')
+  assert.ok(box.innerHTML.includes('正在查询版本信息…'), '在途文案当即出现')
   assert.ok(box.innerHTML.includes('aria-busy="true"'), '在途带 aria-busy')
   assert.equal(calls.filter((c) => c === 't.updateCheck').length, 1)
-  pending.shift()() // 查新版回包
+  pending.shift()() // 检查更新回包
   await tick()
-  assert.ok(!box.innerHTML.includes('正在查新版…'), '回包后恢复')
+  assert.ok(!box.innerHTML.includes('正在查询版本信息…'), '回包后恢复')
   assert.ok(box.innerHTML.includes('0.3.1'), '回包快照落到界面')
   panel.unmount()
 })
 
-test('查新版：并发连点只发一次 call', async () => {
+test('检查更新：并发连点只发一次 call', async () => {
   const { mountUpdatePanel } = await import('../dist/panel.js')
   const box = fakeContainer()
   const calls = []
@@ -128,12 +128,12 @@ test('入口件：点击后在途置忙，挂起时不再像死按钮', async ()
   const entry = mountUpdateEntry(box, { pluginId: 'p', prefix: 't', call, autoCheck: 'never' })
   box.click({ 'data-dsh-upd-entry': 'activate' })
   await tick()
-  assert.ok(box.innerHTML.includes('正在查新版…'), '入口件在途文案出现')
+  assert.ok(box.innerHTML.includes('正在查询版本信息…'), '入口件在途文案出现')
   assert.ok(box.innerHTML.includes('disabled'), '入口件按钮在途禁用')
   release()
   await tick()
   await tick()
-  assert.ok(!box.innerHTML.includes('正在查新版…'), '回包后恢复')
+  assert.ok(!box.innerHTML.includes('正在查询版本信息…'), '回包后恢复')
   entry.unmount()
 })
 

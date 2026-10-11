@@ -149,33 +149,33 @@ describe('#71 Q3：永远显示当前版 + 四态', () => {
     assert.deepEqual(batchRowVersionParts(rowOf({ phase: 'pending', snapshot: null }), null), { current: null, latest: null, hasUpdate: false })
   })
 
-  it('四态状态词：有新版 / 已是最新 / 还没查过 / 查失败；失败红只给错误行', () => {
+  it('四态状态词：有新版本 / 已是最新 / 尚未查询 / 查失败；失败红只给错误行', () => {
     const upd = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase: 'pending', snapshot: snap('0.3.42') })], session: emptySession(), inventory: { version: 1, updatedAt: 1, entries: { a: { lastCheckedAt: 1, installedVersion: '0.3.42', latestVersion: '0.3.44', canInstall: true, error: null } } }, lang: 'zh' })
-    assert.ok(upd.includes('有新版 0.3.44') && !upd.includes('等它，轮到就自动查新版'), '有新版不再 wait-turn')
+    assert.ok(upd.includes('有新版本 0.3.44') && !upd.includes('请等待，轮到将自动查询版本信息。'), '有新版本不再 wait-turn')
     const cur = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase: 'pending', snapshot: snap('0.3.44') })], session: emptySession(), inventory: { version: 1, updatedAt: 1, entries: { a: { lastCheckedAt: 1, installedVersion: '0.3.44', latestVersion: '0.3.44', canInstall: true, error: null } } }, lang: 'zh' })
     assert.ok(cur.includes('已是最新'), '已是最新')
     const never = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase: 'pending', snapshot: snap('0.3.42') })], session: emptySession(), lang: 'zh' })
-    assert.ok(never.includes('还没查过') && !never.includes('等它，轮到就自动查新版'), '无知识回还没查过，不再误 wait-turn')
+    assert.ok(never.includes('尚未查询') && !never.includes('请等待，轮到将自动查询版本信息。'), '无知识回尚未查询，不再误 wait-turn')
     assert.ok(rowMainOf(never, 'a').includes('dsh-upd-bver">0.3.42'), '无知识仍显示当前版')
     const failedKnow = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase: 'pending', snapshot: snap('0.3.42') })], session: emptySession(), inventory: { version: 1, updatedAt: 1, entries: { a: { lastCheckedAt: 1, installedVersion: null, latestVersion: null, canInstall: null, error: 'check-failed' } } }, lang: 'zh' })
-    assert.ok(failedKnow.includes('这次没查到'), '查失败中性文案')
+    assert.ok(failedKnow.includes('本次未能查询'), '查失败中性文案')
     assert.ok(!rowMainOf(failedKnow, 'a').includes('dsh-upd-bver-new'), '查失败版本不变红')
     assert.ok(!rowMainOf(failedKnow, 'a').includes('dsh-upd-bfail'), '知识查失败不画错误红行')
     const failedRow = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase: 'failed', error: 'install-failed', snapshot: snap('0.3.42') })], lang: 'zh' })
     assert.ok(rowMainOf(failedRow, 'a').includes('dsh-upd-bfail'), '失败红只给错误行')
   })
 
-  it('batchRowPendingStatus：非 pending 回 null；pending 无知识回还没查过', () => {
+  it('batchRowPendingStatus：非 pending 回 null；pending 无知识回尚未查询', () => {
     assert.equal(batchRowPendingStatus(rowOf({ phase: 'ready' }), null, 'zh'), null)
-    assert.equal(batchRowPendingStatus(rowOf({ phase: 'pending' }), null, 'zh'), '还没查过')
+    assert.equal(batchRowPendingStatus(rowOf({ phase: 'pending' }), null, 'zh'), '尚未查询')
     assert.ok((batchRowPendingStatus(rowOf({ phase: 'pending' }), { lastCheckedAt: 1, installedVersion: '0.3.42', latestVersion: '0.3.44', canInstall: true, error: null }, 'zh') || '').includes('0.3.44'))
   })
 
   it('有轮次未做完仍走执行态：知识不顶掉 wait-turn', () => {
     const session = { version: 1, id: 's', selfKey: null, stopOnFailure: false, order: ['a'], entries: [{ key: 'a', phase: 'pending', requestId: 'r', targetVersion: null, restartRequired: false, error: null, updatedAt: 0 }], createdAt: 0, updatedAt: 0 }
     const html = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase: 'pending', snapshot: snap('1.0.0') })], session, inventory: { version: 1, updatedAt: 1, entries: { a: { lastCheckedAt: 1, installedVersion: '1.0.0', latestVersion: '2.0.0', canInstall: true, error: null } } }, lang: 'zh' })
-    assert.ok(html.includes('等它，轮到就自动查新版'), '轮次中仍 wait-turn')
-    assert.ok(html.includes('上一批没做完'), '轮次标记保留')
+    assert.ok(html.includes('请等待，轮到将自动查询版本信息。'), '轮次中仍 wait-turn')
+    assert.ok(html.includes('上次未完成'), '轮次标记保留')
     assert.ok(!rowMainOf(html, 'a').includes('dsh-upd-bver-new'), '轮次中版本不提前 →，只显当前')
   })
 })

@@ -135,7 +135,7 @@ describe('#88对照·跳过：非法版本不许 toast 撒谎（与单面板同�
     panel.unmount();
   });
 
-  it('对照·合法版本：详情 row-skip 照常记跳过给恢复（守卫只拦非法）', async () => {
+  it('对照·合法版本：详情 row-skip 照常记跳过给恢复提醒（守卫只拦非法）', async () => {
     const box = fakeContainer();
     const rows = [rowOf({ key: 'a', targetVersion: '2.4.0' })];
     const { call } = fakeBatchCall(rows);

@@ -132,7 +132,7 @@ test('安装按钮状态跟随快照 installability，不另写规则', async ()
   await settled()
   await settled()
   assert.ok(!/data-action="install"[^>]*disabled/.test(box2.innerHTML), 'canInstall 为真时安装按钮可用')
-  assert.match(box2.innerHTML, /安装 1\.1\.0/, '按钮文案带上远端版本号')
+  assert.match(box2.innerHTML, /安装版本 1\.1\.0/, '按钮文案带上最新版号')
   panel2.unmount()
 })
 
@@ -177,7 +177,7 @@ test('待重启横幅：新版号 + 重启指引，只给重启与手工命令�
   assert.match(box.innerHTML, /1\.1\.0/, '横幅说清新版号是多少')
   assert.match(box.innerHTML, /重启/, '横幅说清重启后才生效')
   assert.match(box.innerHTML, /data-action="install"[^>]*disabled/, '待重启期间不再提供安装按钮')
-  assert.match(box.innerHTML, /手工兜底命令/, '待重启期间保留手工命令入口')
+  assert.match(box.innerHTML, /手工备用命令/, '待重启期间保留手工命令入口')
   panel.unmount()
 })
 
@@ -215,7 +215,7 @@ test('排队可见开关：默认藏他人明细，显式才看全量，位置�
   const panel = mountUpdatePanel(box, { pluginId: 'p', call, pollMs: 60000 })
   await panel.refresh()
   assert.ok(!box.innerHTML.includes('other-plugin'), '默认不露他人标识')
-  assert.match(box.innerHTML, /第 1 位/, '位置照给（新队列设计：你的顺位一行）')
+  assert.match(box.innerHTML, /第 1 位/, '位置照给（新队列设计：你的排队顺位一行）')
   await panel.act('toggle-queue')
   const lastStatus = log.filter((e) => e.name.endsWith('.updateStatus')).pop()
   assert.equal(lastStatus.args.showOthers, true, '切换后重查带 showOthers')
@@ -259,7 +259,7 @@ test('已跳过版本留在同一横幅行展示为“已跳过 X · 恢复”',
   const box = fakeContainer()
   const panel = mountUpdatePanel(box, { pluginId: 'p', call, skipStore, pollMs: 60000 })
   await panel.refresh()
-  assert.match(box.innerHTML, /已跳过 1\.1\.0/, '跳过展示在同一横幅行')
+  assert.match(box.innerHTML, /已跳过版本 1\.1\.0/, '跳过展示在同一横幅行')
   assert.match(box.innerHTML, /data-action="reset-skip"/, '恢复入口一击可达，不藏进设置页')
   assert.match(box.innerHTML, /data-action="install"[^>]*disabled/, '跳过即免打扰，不再给安装按钮')
   await panel.act('reset-skip')
@@ -355,10 +355,10 @@ test('诊断文本带上使用范围：装错 profile 时这是第一信息；�
   }
   const withProfile = buildDiagnosticText({ ...base, profileName: 'desktop' })
   assert.match(withProfile, /使用范围：desktop/, '给了使用范围就要出现在宿主那一行')
-  assert.match(withProfile, /宿主：cli \/ 使用范围：desktop \/ 队列：不在队列里/, '位置在宿主与队列之间')
+  assert.match(withProfile, /宿主：cli \/ 使用范围：desktop \/ 队列：未排队/, '位置在宿主与队列之间')
   const without = buildDiagnosticText(base)
   assert.ok(!without.includes('使用范围'), '不给就一个字都不多')
-  assert.match(without, /宿主：cli \/ 队列：不在队列里/, '旧格式原样')
+  assert.match(without, /宿主：cli \/ 队列：未排队/, '旧格式原样')
 })
 
 // ---------- 双形态行为等价 ----------
@@ -377,7 +377,7 @@ test('双形态只测行为等价：同一起始状态，内核展示同一快�
   const embedded = renderUpdatePanelHTML({ ...input, mode: 'embedded' })
   const dialog = renderUpdatePanelHTML({ ...input, mode: 'dialog' })
   // 外层包裹不同（弹窗多一层 overlay + 关闭按钮），内核文本同一份：
-  for (const marker of ['有新版 1.1.0 可装', 'data-action="install"', 'data-action="copy-diag"', '手工兜底命令', '深挖看日志']) {
+  for (const marker of ['有新版本 1.1.0 可安装', 'data-action="install"', 'data-action="copy-diag"', '手工备用命令', '请查看日志']) {
     assert.ok(embedded.includes(marker), '内嵌含 ' + marker)
     assert.ok(dialog.includes(marker), '弹窗含 ' + marker)
   }
@@ -416,7 +416,7 @@ test('安装自动带凭证：mount 自动查已拿凭证时安装直接复用�
   assert.equal(checkAt, -1, '已有凭证时安装不另查，直接复用自动查的凭证')
   assert.ok(installAt >= 0, '安装电话已发出')
   const installArgs = log[installAt].args
-  assert.equal(installArgs.checkId, 'check-1', '装更新带回查新版的凭证')
+  assert.equal(installArgs.checkId, 'check-1', '装更新带回检查更新的凭证')
   assert.ok(typeof installArgs.requestId === 'string' && installArgs.requestId.length >= 1, '请求编号自带')
   panel.unmount()
 })

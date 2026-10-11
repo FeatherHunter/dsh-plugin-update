@@ -4,7 +4,7 @@
   "keys": {
     "batch-entry.action.checking": {
       "en": "Checking for updates…",
-      "zh": "正在查新版…",
+      "zh": "正在查询版本信息…",
       "draft": true
     },
     "batch-entry.label.busy": {
@@ -14,7 +14,7 @@
     },
     "batch-entry.label.failed": {
       "en": "{count} failed — View details",
-      "zh": "{count} 家失败，点此查看",
+      "zh": "{count} 个失败，请查看详情",
       "draft": true
     },
     "batch-entry.label.idle": {
@@ -24,12 +24,12 @@
     },
     "batch-entry.label.restart": {
       "en": "{count} restarts required",
-      "zh": "{count} 家待重启",
+      "zh": "{count} 个待重启",
       "draft": true
     },
     "batch-entry.label.update": {
       "en": "{count} updates available",
-      "zh": "{count} 家可更新",
+      "zh": "{count} 个可更新",
       "draft": true
     },
     "batch.action.check": {
@@ -59,7 +59,7 @@
     },
     "batch.action.discard": {
       "en": "Discard this unfinished batch (installed ones stay)",
-      "zh": "丢弃这批未完成的更新（已完成的保留）",
+      "zh": "丢弃本批未完成的更新（已完成的将保留）。",
       "draft": true
     },
     "batch.action.install-all": {
@@ -69,17 +69,17 @@
     },
     "batch.action.install-all-title": {
       "en": "Submit all updatable plugins at once; one idempotency key per session",
-      "zh": "把有新版的几家一次提交；同一会话同一幂等编号",
+      "zh": "将有更新的插件一次提交；同一会话使用同一幂等编号。",
       "draft": true
     },
     "batch.action.resume": {
       "en": "Continue the unfinished batch ({count} left)",
-      "zh": "继续上次未完成的更新（还剩 {count} 家）",
+      "zh": "继续上次未完成的更新（剩余 {count} 个）。",
       "draft": true
     },
     "batch.action.resume-title": {
       "en": "Continue from where it stopped; installed ones stay",
-      "zh": "从上次没做完的地方接着安装，已完成的不重装",
+      "zh": "从上次中断处继续安装，已完成的不会重复安装。",
       "draft": true
     },
     "batch.banner.error-action-fallback": {
@@ -89,7 +89,7 @@
     },
     "batch.banner.error-title": {
       "en": "Failed this time ({code}): {detail}.",
-      "zh": "这次没成功（{code}）：{detail}。",
+      "zh": "本次执行失败（{code}）：{detail}。",
       "draft": true
     },
     "batch.banner.failed-action": {
@@ -99,7 +99,7 @@
     },
     "batch.banner.failed-title": {
       "en": "{n} failed to install.",
-      "zh": "{n} 家安装失败。",
+      "zh": "{n} 个插件安装失败。",
       "draft": true
     },
     "batch.banner.loading": {
@@ -119,17 +119,17 @@
     },
     "batch.banner.restart-title": {
       "en": "{n} installed; restart the host to take effect.",
-      "zh": "{n} 家已安装好，重启宿主后生效。",
+      "zh": "{n} 个已安装完成，重启宿主后生效。",
       "draft": true
     },
     "batch.diag.source-job": {
       "en": "(Source: background job record)",
-      "zh": "（来源：后台任务收尾记录）",
+      "zh": "（来源：后台任务执行记录）",
       "draft": true
     },
     "batch.fact.close-safe": {
       "en": "Closing this panel won't stop it — progress is saved on disk.",
-      "zh": "关掉面板不会中断：进度已写盘，回来可继续。",
+      "zh": "关闭面板不会中断更新：进度已保存，可随时返回继续。",
       "draft": true
     },
     "batch.header.title": {
@@ -139,77 +139,77 @@
     },
     "batch.hint.done": {
       "en": "All up to date; nothing to do.",
-      "zh": "全部已最新，没有要做的。",
+      "zh": "已全部为最新，无需操作。",
       "draft": true
     },
     "batch.hint.empty": {
       "en": "No targets yet: select “Check for updates” to see which plugins have updates.",
-      "zh": "还没有目标：点「检查更新」看看哪几家有新版。",
+      "zh": "暂无目标：请选择「检查更新」查看哪些插件有更新。",
       "draft": true
     },
     "batch.hint.error": {
       "en": "Last run failed: follow the red banner below.",
-      "zh": "刚才那次没成功：看下面的红条，照它说的做一次。",
+      "zh": "上次执行失败：请按下方红色横幅提示操作。",
       "draft": true
     },
     "batch.hint.failed": {
       "en": "{n} failed to install; retry each one from the failure notes below.",
-      "zh": "{n} 家安装失败；照下面的失败提示逐家重试。",
+      "zh": "{n} 个插件安装失败；请按下方失败提示逐项重试。",
       "draft": true
     },
     "batch.hint.installing-auto": {
       "en": "Installing {a}; the next starts automatically.",
-      "zh": "正在安装 {a} 家，安装完自动下一家。",
+      "zh": "正在安装 {a} 个，完成后自动安装下一项。",
       "draft": true
     },
     "batch.hint.installing-queueable": {
       "en": "Installing {a}; {b} more can join the queue.",
-      "zh": "正在安装 {a} 家；还有 {b} 家可以点「加入队列」排队等。",
+      "zh": "正在安装 {a} 个；另有 {b} 个可选择「加入队列」等待。",
       "draft": true
     },
     "batch.hint.pending": {
       "en": "{n} not checked yet; select “Check for updates” for a round.",
-      "zh": "{n} 家还没查过；点「检查更新」查一轮。",
+      "zh": "{n} 个尚未查询；请选择「检查更新」查询一轮。",
       "draft": true
     },
     "batch.hint.restart": {
       "en": "{n} installed; restart the host to take effect.",
-      "zh": "{n} 家已安装好，重启宿主后生效。",
+      "zh": "{n} 个已安装完成，重启宿主后生效。",
       "draft": true
     },
     "batch.hint.updatable": {
       "en": "{n} updates available; select “Update all” to install at once, or install each one inline.",
-      "zh": "{n} 家可更新；点「全部更新」一次安装完，也可以逐家点「安装这家」。",
+      "zh": "{n} 个可更新；请选择「全部更新」一次安装完成，也可逐项选择「安装此插件」。",
       "draft": true
     },
     "batch.notice.auto-resumed": {
       "en": "Auto-continued the unfinished batch ({count} left).",
-      "zh": "已自动继续上次未完成的更新（还剩 {count} 家）。",
+      "zh": "已自动继续上次未完成的更新（剩余 {count} 个）。",
       "draft": true
     },
     "batch.notice.busy-cancel": {
       "en": "An install is running and cannot be stopped.",
-      "zh": "正在装的那一家停不了。",
+      "zh": "正在安装的项无法停止。",
       "draft": true
     },
     "batch.notice.cancel-confirm": {
       "en": "Click again to confirm discard.",
-      "zh": "再点一次确认丢弃。",
+      "zh": "请再次选择以确认丢弃。",
       "draft": true
     },
     "batch.notice.discarded": {
       "en": "Discarded this unfinished batch (installed ones stay).",
-      "zh": "已丢弃这批未完成的更新（已完成的保留）。",
+      "zh": "已丢弃本批未完成的更新（已完成的将保留）。",
       "draft": true
     },
     "batch.notice.no-resume": {
       "en": "Nothing to continue.",
-      "zh": "没有可继续的内容。",
+      "zh": "暂无可继续的内容。",
       "draft": true
     },
     "batch.notice.resumed": {
       "en": "Continued the unfinished batch ({count} left).",
-      "zh": "已继续上次未完成的更新（还剩 {count} 家）。",
+      "zh": "已继续上次未完成的更新（剩余 {count} 个）。",
       "draft": true
     },
     "batch.row-action.cancel-queue": {
@@ -234,22 +234,22 @@
     },
     "batch.row-action.install-generic": {
       "en": "Install the new version",
-      "zh": "安装 新版",
+      "zh": "安装新版本",
       "draft": true
     },
     "batch.row-action.install-row": {
       "en": "Install this plugin",
-      "zh": "安装这家",
+      "zh": "安装此插件",
       "draft": true
     },
     "batch.row-action.install-version": {
       "en": "Install {version}",
-      "zh": "安装 {version}",
+      "zh": "安装版本 {version}",
       "draft": true
     },
     "batch.row-action.installing": {
       "en": "Installing…",
-      "zh": "安装中…",
+      "zh": "正在安装…",
       "draft": true
     },
     "batch.row-action.queue": {
@@ -274,42 +274,42 @@
     },
     "batch.row-action.skip": {
       "en": "Skip this version",
-      "zh": "跳过这一版",
+      "zh": "跳过该版本",
       "draft": true
     },
     "batch.row-action.unskip": {
       "en": "Restore ({version})",
-      "zh": "恢复（{version}）",
+      "zh": "恢复提醒（{version}）",
       "draft": true
     },
     "batch.row.checking": {
       "en": "Checking for updates; please wait",
-      "zh": "正在查新版，稍等",
+      "zh": "正在查询版本信息，请稍候。",
       "draft": true
     },
     "batch.row.cta-generic": {
       "en": "Select “Install this plugin” to install the new version",
-      "zh": "点「安装这家」安装新版",
+      "zh": "选择「安装此插件」安装新版本",
       "draft": true
     },
     "batch.row.cta-version": {
       "en": "Select “Install this plugin” to install {version}",
-      "zh": "点「安装这家」安装 {version}",
+      "zh": "选择「安装此插件」安装 {version}",
       "draft": true
     },
     "batch.row.current": {
       "en": "Up to date",
-      "zh": "已是最新，不用动",
+      "zh": "已是最新，无需操作。",
       "draft": true
     },
     "batch.row.done": {
       "en": "Installed; nothing to do",
-      "zh": "安装好了，不用动",
+      "zh": "已安装完成，无需操作。",
       "draft": true
     },
     "batch.row.done-restart": {
       "en": "Installed; restart the host to take effect",
-      "zh": "安装好了，重启宿主才生效",
+      "zh": "已安装完成，重启宿主后生效。",
       "draft": true
     },
     "batch.row.error-label": {
@@ -319,62 +319,62 @@
     },
     "batch.row.failed": {
       "en": "Last check failed",
-      "zh": "这次没查到",
+      "zh": "本次未能查询",
       "draft": true
     },
     "batch.row.failed-retry": {
       "en": "Install failed; select “Retry” to try again",
-      "zh": "安装没成功，点「重试」再来一次",
+      "zh": "安装失败，请选择「重试」。",
       "draft": true
     },
     "batch.row.installing": {
       "en": "Installing; please wait",
-      "zh": "正在安装，别动",
+      "zh": "正在安装，请勿操作。",
       "draft": true
     },
     "batch.row.never": {
       "en": "Not checked yet",
-      "zh": "还没查过",
+      "zh": "尚未查询",
       "draft": true
     },
     "batch.row.queued-generic": {
       "en": "Queued · waiting for the running install to finish",
-      "zh": "已排队 · 等前面安装完",
+      "zh": "已排队 · 等待前方安装完成",
       "draft": true
     },
     "batch.row.queued-n": {
       "en": "Queued · {n} ahead",
-      "zh": "已排队 · 前方 {n} 个",
+      "zh": "已排队 · 前方还有 {n} 项",
       "draft": true
     },
     "batch.row.skipped": {
       "en": "Skipped {version}",
-      "zh": "已跳过 {version}",
+      "zh": "已跳过版本 {version}",
       "draft": true
     },
     "batch.row.skipped-idle": {
       "en": "This version is skipped; nothing to do",
-      "zh": "这一版已跳过，不用动",
+      "zh": "该版本已跳过，无需操作。",
       "draft": true
     },
     "batch.row.unfinished-tag": {
       "en": "unfinished last time",
-      "zh": "上一批没做完",
+      "zh": "上次未完成",
       "draft": true
     },
     "batch.row.unknown": {
       "en": "Unknown state; select “Check for updates” to check again",
-      "zh": "状态认不出，点「检查更新」重查一次",
+      "zh": "状态无法识别，请选择「检查更新」重新查询。",
       "draft": true
     },
     "batch.row.update": {
       "en": "Update available {version}",
-      "zh": "有新版 {version}",
+      "zh": "有新版本 {version}",
       "draft": true
     },
     "batch.row.wait-turn": {
       "en": "Waiting for its turn; it will check automatically",
-      "zh": "等它，轮到就自动查新版",
+      "zh": "请等待，轮到将自动查询版本信息。",
       "draft": true
     },
     "batch.seal.ledger": {
@@ -389,97 +389,97 @@
     },
     "batch.summary.empty": {
       "en": "No targets yet",
-      "zh": "还没有目标",
+      "zh": "暂无目标",
       "draft": true
     },
     "batch.summary.failed": {
       "en": "{n} failed",
-      "zh": "{n} 家失败",
+      "zh": "{n} 个失败",
       "draft": true
     },
     "batch.summary.installing": {
       "en": "{n} installing",
-      "zh": "{n} 家安装中",
+      "zh": "{n} 个安装中",
       "draft": true
     },
     "batch.summary.pending": {
       "en": "{n} not checked",
-      "zh": "{n} 家待查",
+      "zh": "{n} 个待查询",
       "draft": true
     },
     "batch.summary.restart": {
       "en": "{n} restart required",
-      "zh": "{n} 家待重启",
+      "zh": "{n} 个待重启",
       "draft": true
     },
     "batch.summary.settled": {
       "en": "{n} up to date",
-      "zh": "{n} 家已最新",
+      "zh": "{n} 个已是最新",
       "draft": true
     },
     "batch.summary.skipped": {
       "en": "{n} skipped",
-      "zh": "{n} 家已跳过",
+      "zh": "{n} 个已跳过",
       "draft": true
     },
     "batch.summary.updatable": {
       "en": "{n} updates available",
-      "zh": "{n} 家可更新",
+      "zh": "{n} 个可更新",
       "draft": true
     },
     "batch.toast.cancel-fail": {
       "en": "Could not cancel the queue (it may have started installing); see the latest state below.",
-      "zh": "取消排队没成功（可能已经开始装了）：看下面最新状态。",
+      "zh": "取消排队失败（可能已开始安装）：请查看下方最新状态。",
       "draft": true
     },
     "batch.toast.cancel-ok": {
       "en": "Queue cancelled: this plugin will not wait.",
-      "zh": "已取消排队：这一家不等了。",
+      "zh": "已取消排队：此插件将不再等待。",
       "draft": true
     },
     "batch.toast.cancel-unavailable": {
       "en": "This row carries no phone or ID to cancel the queue; try again after the next refresh.",
-      "zh": "这一行没带取消排队要用的电话名或编号，暂不能取消：等下一次刷新再看。",
+      "zh": "此行缺少取消排队所需的信息，暂无法取消；请待下次刷新后重试。",
       "draft": true
     },
     "batch.toast.copy-diag-ok": {
       "en": "Diagnostics copied; paste it to the plugin author (already redacted).",
-      "zh": "诊断已复制，直接粘给插件作者即可（已脱敏）。",
+      "zh": "诊断信息已复制，请提交至插件作者（已脱敏）。",
       "draft": true
     },
     "batch.toast.copy-fail": {
       "en": "Copy failed; please select the info above manually.",
-      "zh": "复制失败，请手动选中上面的信息。",
+      "zh": "复制失败，请手动选择上方信息。",
       "draft": true
     },
     "batch.toast.copy-manual-ok": {
       "en": "Manual command copied; paste the full line into the terminal to run it.",
-      "zh": "手工命令已复制，粘到终端整行执行即可。",
+      "zh": "手工命令已复制，请粘贴至终端整行执行。",
       "draft": true
     },
     "batch.toast.queue-missed": {
       "en": "Another install is running: this plugin is not queued yet; try again after it finishes.",
-      "zh": "前面还在装：这一家还没排上，等那家装完再点一次。",
+      "zh": "前方仍在安装：此插件尚未排队，请待前方安装完成后再次选择。",
       "draft": true
     },
     "batch.toast.restart-delegated": {
       "en": "Handled by the caller’s restart flow; the new version takes effect after restart.",
-      "zh": "已按调用方的重启流程处理；重启后新版生效。",
+      "zh": "已按调用方重启流程处理；重启后新版本生效。",
       "draft": true
     },
     "batch.toast.restart-failed": {
       "en": "Restart entry failed; please restart the host manually. The new version takes effect after restart.",
-      "zh": "重启入口调用失败：请手动重启宿主，重启后新版生效。",
+      "zh": "重启入口调用失败，请手动重启宿主；重启后新版本生效。",
       "draft": true
     },
     "batch.toast.restart-manual": {
       "en": "This host provides no restart entry; please restart the host manually. The new version takes effect after restart.",
-      "zh": "本宿主未提供重启入口：请手动重启宿主，重启后新版生效。",
+      "zh": "本宿主未提供重启入口，请手动重启宿主；重启后新版本生效。",
       "draft": true
     },
     "batch.toast.skipped": {
       "en": "Skipped {version}: no further reminders for this version; select “Restore” to undo.",
-      "zh": "已跳过 {version}：这一版不再提醒；点「恢复」可撤销。",
+      "zh": "已跳过版本 {version}：该版本不再提醒；选择「恢复提醒」可撤销。",
       "draft": true
     },
     "batch.toast.unskipped-all": {
@@ -489,7 +489,7 @@
     },
     "batch.toast.unskipped-version": {
       "en": "Restored {version}: reminders for this version are back on.",
-      "zh": "已恢复 {version}：这一版会照常提醒。",
+      "zh": "已恢复 {version}：该版本将正常提醒。",
       "draft": true
     },
     "changelog.breaking.aria": {
@@ -514,7 +514,7 @@
     },
     "changelog.security.note": {
       "en": "Remaining entries are collapsed to keep the panel fast. See the original text.",
-      "zh": "为保持面板性能，其余条目已折叠，可查看原文。",
+      "zh": "为保持面板性能，其余条目已折叠，请查看原文。",
       "draft": true
     },
     "changelog.security.summary": {
@@ -549,7 +549,7 @@
     },
     "diag.fallback.http-status": {
       "en": "Source returned {status}. Retry still failed.",
-      "zh": "源返回 {status}，重试仍失败",
+      "zh": "数据源返回 {status}，重试后仍失败。",
       "draft": true
     },
     "diag.fallback.incompatible-node": {
@@ -584,7 +584,7 @@
     },
     "diag.fallback.rate-limited": {
       "en": "Source returned 429. Too many requests this minute.",
-      "zh": "源返回 429，这一分钟请求太多",
+      "zh": "数据源返回 429，本分钟请求过于频繁。",
       "draft": true
     },
     "diag.fallback.read-installed": {
@@ -619,7 +619,7 @@
     },
     "entry.action.checking": {
       "en": "Checking for updates…",
-      "zh": "正在查新版…",
+      "zh": "正在查询版本信息…",
       "draft": true
     },
     "entry.label.busy": {
@@ -629,12 +629,12 @@
     },
     "entry.label.failed": {
       "en": "Update failed — View details",
-      "zh": "更新失败，点此查看",
+      "zh": "更新失败，请查看详情",
       "draft": true
     },
     "entry.label.has-update": {
       "en": "Update available {version}",
-      "zh": "有新版 {version}",
+      "zh": "有新版本 {version}",
       "draft": true
     },
     "entry.label.idle": {
@@ -654,22 +654,22 @@
     },
     "panel.action.check": {
       "en": "Check for updates",
-      "zh": "查新版",
+      "zh": "检查更新",
       "draft": true
     },
     "panel.action.check-title": {
       "en": "Check the official source once more (read-only, never installs)",
-      "zh": "重新向官方源查一次新版（只读，不安装）",
+      "zh": "重新向官方源查询版本信息（只读，不安装）",
       "draft": true
     },
     "panel.action.checking-busy": {
       "en": "Checking for updates…",
-      "zh": "正在查新版…",
+      "zh": "正在查询版本信息…",
       "draft": true
     },
     "panel.action.checking-busy-title": {
       "en": "Checking the official source; please wait",
-      "zh": "正在向官方源查询，请稍候",
+      "zh": "正在向官方源查询版本信息，请稍候",
       "draft": true
     },
     "panel.action.copy-diag": {
@@ -679,7 +679,7 @@
     },
     "panel.action.copy-diag-title": {
       "en": "Copy redacted diagnostics for the plugin author",
-      "zh": "复制已脱敏诊断，直接粘给插件作者",
+      "zh": "复制已脱敏诊断，请提交至插件作者",
       "draft": true
     },
     "panel.action.copy-manual": {
@@ -689,17 +689,17 @@
     },
     "panel.action.copy-manual-title": {
       "en": "Copy the manual command; paste the full line into the terminal",
-      "zh": "复制手工命令，粘到终端整行执行",
+      "zh": "复制手工命令，请粘贴至终端整行执行",
       "draft": true
     },
     "panel.action.dismiss": {
       "en": "Got it",
-      "zh": "知道了",
+      "zh": "已知晓",
       "draft": true
     },
     "panel.action.dismiss-title": {
       "en": "Acknowledge the failure and return; next check or install will re-evaluate",
-      "zh": "确认已知晓该失败：回到可装页，下次查/装将重新评估",
+      "zh": "确认已知晓该失败：返回可安装页，下次查询或安装将重新评估",
       "draft": true
     },
     "panel.action.install": {
@@ -709,17 +709,17 @@
     },
     "panel.action.install-title": {
       "en": "Install the exact version; one install per scope at a time",
-      "zh": "用精确版本安装；同一使用范围同时只装一个",
+      "zh": "按精确版本安装；同一使用范围同时仅安装一项",
       "draft": true
     },
     "panel.action.install-version": {
       "en": "Install {latest}",
-      "zh": "安装 {latest}",
+      "zh": "安装版本 {latest}",
       "draft": true
     },
     "panel.action.installing": {
       "en": "Installing…",
-      "zh": "安装中…",
+      "zh": "正在安装…",
       "draft": true
     },
     "panel.action.installing-busy": {
@@ -739,7 +739,7 @@
     },
     "panel.action.restart-host-title": {
       "en": "Run the caller restart flow if available, otherwise restart DSH manually",
-      "zh": "点一下走调用方流程，没有就手动重启 DSH",
+      "zh": "优先走调用方重启流程；若无，请手动重启 DSH",
       "draft": true
     },
     "panel.action.retry-install": {
@@ -754,17 +754,17 @@
     },
     "panel.action.skip-title": {
       "en": "This version will no longer notify; newer versions still will",
-      "zh": "该版本不再提醒；有更新的新版本照常提醒",
+      "zh": "该版本将不再提醒；更新的版本仍会正常提醒",
       "draft": true
     },
     "panel.action.unskip": {
       "en": "Restore ({version})",
-      "zh": "恢复（{version}）",
+      "zh": "恢复提醒（{version}）",
       "draft": true
     },
     "panel.action.unskip-title": {
       "en": "Undo skip; this version will remind again",
-      "zh": "撤销跳过，该版本重新提醒",
+      "zh": "撤销跳过，该版本将重新提醒",
       "draft": true
     },
     "panel.banner.done": {
@@ -774,7 +774,7 @@
     },
     "panel.banner.error.action-fallback": {
       "en": "Copy the diagnostics for the plugin author; see the log channel for details.",
-      "zh": "复制诊断发给插件作者；深挖看日志通道。",
+      "zh": "请复制诊断信息提交至插件作者；详情请查看日志通道。",
       "draft": true
     },
     "panel.banner.error.title": {
@@ -784,7 +784,7 @@
     },
     "panel.banner.installing-action": {
       "en": "Progress refreshes automatically; reopening the panel restores the view within a second.",
-      "zh": "进度按轮询自动刷新；重开面板 1 秒内恢复显示。",
+      "zh": "进度将自动轮询刷新；重新打开面板将在 1 秒内恢复显示。",
       "draft": true
     },
     "panel.banner.installing-title": {
@@ -799,17 +799,17 @@
     },
     "panel.banner.restart-title": {
       "en": "Version {latest} is installed; restart the host to take effect.",
-      "zh": "新版 {latest} 已安装，重启宿主后生效。",
+      "zh": "新版本 {latest} 已安装，重启宿主后生效。",
       "draft": true
     },
     "panel.banner.update-action": {
       "en": "Install runs the exact version; only one install runs per scope at a time.",
-      "zh": "点安装即走精确版本安装；同一使用范围同时只装一个。",
+      "zh": "选择安装将按精确版本安装；同一使用范围同时仅安装一项。",
       "draft": true
     },
     "panel.banner.update-title": {
       "en": "Update available: {latest} (current: {running}).",
-      "zh": "有新版 {latest} 可装（当前 {running}）。",
+      "zh": "有新版本 {latest} 可安装（当前版本 {running}）。",
       "draft": true
     },
     "panel.blocked.channel-mismatch.action": {
@@ -929,12 +929,12 @@
     },
     "panel.changelog.unavailable": {
       "en": "Could not read logs; install is unaffected.",
-      "zh": "日志读不出来，安装不受影响。",
+      "zh": "更新日志无法读取，安装不受影响。",
       "draft": true
     },
     "panel.changelog.unavailable-empty": {
       "en": "No release found yet; logs will show after a check.",
-      "zh": "还没查到新版；查到后再显示日志。",
+      "zh": "尚未查询到新版本；查询到后将显示更新日志。",
       "draft": true
     },
     "panel.chapter.changelog": {
@@ -1064,7 +1064,7 @@
     },
     "panel.diag.copy.no-detail": {
       "en": "(This response carries no diagnostic summary; it will be completed when phone-side diag lands)",
-      "zh": "（本回包没有带诊断摘要，等电话侧 diag 落定后补齐）",
+      "zh": "（本响应未携带诊断摘要，待诊断信息就绪后补全）",
       "draft": true
     },
     "panel.diag.copy.unknown": {
@@ -1074,7 +1074,7 @@
     },
     "panel.diag.copy.unknown-package": {
       "en": "(Unknown package)",
-      "zh": "(未知包)",
+      "zh": "（未知插件包）",
       "draft": true
     },
     "panel.diag.header": {
@@ -1094,12 +1094,12 @@
     },
     "panel.diag.label.installed": {
       "en": "Installed: {version}",
-      "zh": "已装：{version}",
+      "zh": "已安装：{version}",
       "draft": true
     },
     "panel.diag.label.latest": {
       "en": "Latest: {version}",
-      "zh": "远端：{version}",
+      "zh": "最新版：{version}",
       "draft": true
     },
     "panel.diag.label.manual": {
@@ -1129,7 +1129,7 @@
     },
     "panel.diag.queue.absent": {
       "en": "Not queued",
-      "zh": "不在队列里",
+      "zh": "未排队",
       "draft": true
     },
     "panel.diag.queue.installing": {
@@ -1149,37 +1149,37 @@
     },
     "panel.error.code-note": {
       "en": "The line above tells you what to do; to report upstream, paste “Copy diagnostics” as a whole (already redacted).",
-      "zh": "上一条中文说明就是要用户做的事；要往上游报，用「复制诊断」整段粘（已脱敏）。",
+      "zh": "上方中文说明即需执行的操作；如需向上游反馈，请使用「复制诊断」整段粘贴（已脱敏）。",
       "draft": true
     },
     "panel.error.evidence-frozen": {
       "en": "Evidence frozen: the code, versions, and IDs in copied diagnostics are from the failure moment and do not refresh with polling; the next check or install will update them.",
-      "zh": "证据已冻结：复制诊断里的码、版本、编号都取自失败时刻，不随轮询刷新；下一次查新版或安装会更新它。",
+      "zh": "证据已冻结：复制诊断中的稳定码、版本与编号均取自失败时刻，不随轮询刷新；下次查询版本信息或安装将更新。",
       "draft": true
     },
     "panel.error.evidence-transient": {
       "en": "Transient read failure: it clears on the next successful read; if it persists, troubleshoot by stable code.",
-      "zh": "读数瞬态失败：下一次成功读数会自动解除；一直出现再按稳定码排查。",
+      "zh": "瞬态读取失败：下次成功读取将自动解除；若持续出现，请按稳定码排查。",
       "draft": true
     },
     "panel.error.failed-at": {
       "en": "Failed at {time}",
-      "zh": "失败于 {time}",
+      "zh": "失败时间 {time}",
       "draft": true
     },
     "panel.error.log-follow": {
       "en": "Match the request/check IDs above in {eFail}; baseline timing in {eCall}, execution result in {eExec}.",
-      "zh": "凭上面的请求／检查编号在 {eFail} 里对上；基线耗时看 {eCall}，执行结果看 {eExec}。",
+      "zh": "凭上方请求／检查编号在 {eFail} 中匹配；基线耗时请查看 {eCall}，执行结果请查看 {eExec}。",
       "draft": true
     },
     "panel.error.log-hint": {
       "en": "Check logs: filter by plugin ID {pluginId} for events {e1}, {e2}, {e3}.",
-      "zh": "深挖看日志：按插件标识 {pluginId} 过滤 {e1}、{e2}、{e3} 三个事件。",
+      "zh": "请查看日志：按插件标识 {pluginId} 筛选 {e1}、{e2}、{e3} 事件。",
       "draft": true
     },
     "panel.error.no-failure": {
       "en": "No failure: copying diagnostics gives the current state snapshot.",
-      "zh": "暂无失败：此时复制诊断给出的是当前状态快照。",
+      "zh": "暂无失败：此时复制诊断提供的是当前状态快照。",
       "draft": true
     },
     "panel.error.query-check": {
@@ -1189,7 +1189,7 @@
     },
     "panel.error.query-keys": {
       "en": "Query keys: {keys} (use them to match in logs).",
-      "zh": "本次查询键：{keys}（拿着它们去日志里对）。",
+      "zh": "本次查询键：{keys}（可凭此在日志中检索匹配）。",
       "draft": true
     },
     "panel.error.query-request": {
@@ -1199,7 +1199,7 @@
     },
     "panel.error.target-version": {
       "en": "Failed target {version}",
-      "zh": "失败目标 {version}",
+      "zh": "失败目标版本 {version}",
       "draft": true
     },
     "panel.failure.check-expired.action": {
@@ -1284,7 +1284,7 @@
     },
     "panel.footer.note": {
       "en": "Closing never interrupts updates; come back anytime",
-      "zh": "关闭不影响更新，可随时回来查看",
+      "zh": "关闭窗口，更新不受影响，可随时返回查看。",
       "draft": true
     },
     "panel.manual.absent": {
@@ -1294,7 +1294,7 @@
     },
     "panel.manual.heading": {
       "en": "Manual fallback command (copy the full line to run):",
-      "zh": "手工兜底命令（复制整行执行）：",
+      "zh": "手工备用命令（请复制整行执行）：",
       "draft": true
     },
     "panel.masthead.kicker": {
@@ -1324,7 +1324,7 @@
     },
     "panel.progress.installing": {
       "en": "Installing new version…",
-      "zh": "正在安装新版…",
+      "zh": "正在安装新版本…",
       "draft": true
     },
     "panel.progress.verifying": {
@@ -1334,22 +1334,22 @@
     },
     "panel.queue.busy-other": {
       "en": "Another plugin is installing; retry later.",
-      "zh": "前方有其他插件在安装，稍后重试。",
+      "zh": "前方有其他插件正在安装，请稍后重试。",
       "draft": true
     },
     "panel.queue.busy-queued": {
       "en": "An install is running ahead; this plugin is #{n} in queue. Install when it reaches the front.",
-      "zh": "前方有安装在进行，本插件排第 {n} 位，到队首再点安装。",
+      "zh": "前方有安装正在进行，本插件排第 {n} 位；到队首后请选择安装。",
       "draft": true
     },
     "panel.queue.busy-self": {
       "en": "Installing (this plugin is installing).",
-      "zh": "正在安装（本插件在装）。",
+      "zh": "本插件正在安装。",
       "draft": true
     },
     "panel.queue.empty": {
       "en": "No queued tasks; one install per scope at a time.",
-      "zh": "当前没有排队任务，同一使用范围一次只装一个。",
+      "zh": "当前无排队任务；同一使用范围同时仅安装一项。",
       "draft": true
     },
     "panel.queue.other": {
@@ -1364,22 +1364,22 @@
     },
     "panel.queue.pos-ahead": {
       "en": "{n} ahead",
-      "zh": "前方 {n} 个",
+      "zh": "前方还有 {n} 项",
       "draft": true
     },
     "panel.queue.pos-n": {
       "en": "Position {n}",
-      "zh": "第 {n} 位",
+      "zh": "排队第 {n} 位",
       "draft": true
     },
     "panel.queue.pos-next": {
       "en": "You are next",
-      "zh": "下一个就是你",
+      "zh": "下一位就是你",
       "draft": true
     },
     "panel.queue.row-idle-note": {
       "en": "One install per scope at a time",
-      "zh": "同一使用范围一次只装一个",
+      "zh": "同一使用范围同时仅安装一项",
       "draft": true
     },
     "panel.queue.row-installing": {
@@ -1389,7 +1389,7 @@
     },
     "panel.queue.row-installing-note": {
       "en": "You are next when it finishes",
-      "zh": "装完自动轮到你",
+      "zh": "安装完成后自动轮到你",
       "draft": true
     },
     "panel.queue.row-order": {
@@ -1399,7 +1399,7 @@
     },
     "panel.queue.row-position": {
       "en": "Your position",
-      "zh": "你的顺位",
+      "zh": "你的排队顺位",
       "draft": true
     },
     "panel.queue.self": {
@@ -1414,7 +1414,7 @@
     },
     "panel.queue.toggle-hide": {
       "en": "Hide others",
-      "zh": "隐藏他人明细",
+      "zh": "隐藏其他插件明细",
       "draft": true
     },
     "panel.queue.toggle-show": {
@@ -1449,7 +1449,7 @@
     },
     "panel.seal.done.text": {
       "en": "Up to date",
-      "zh": "已最新",
+      "zh": "已是最新",
       "draft": true
     },
     "panel.seal.failed.mini": {
@@ -1459,7 +1459,7 @@
     },
     "panel.seal.failed.text": {
       "en": "Failed — Retry available",
-      "zh": "受阻",
+      "zh": "失败",
       "draft": true
     },
     "panel.seal.idle.mini": {
@@ -1499,77 +1499,77 @@
     },
     "panel.seal.update.text": {
       "en": "Update available",
-      "zh": "可装",
+      "zh": "可更新",
       "draft": true
     },
     "panel.skip.line-note": {
       "en": "Select “Restore” to undo; this version will remind again.",
-      "zh": "点「恢复」可撤销，之后这一版还会再提醒。",
+      "zh": "选择「恢复提醒」可撤销，该版本此后仍会提醒。",
       "draft": true
     },
     "panel.skip.line-tag": {
       "en": "Skipped {version}",
-      "zh": "已跳过 {version}",
+      "zh": "已跳过版本 {version}",
       "draft": true
     },
     "panel.skip.skipped-action": {
       "en": "Select “Restore” to be reminded of this version again; newer versions will still notify.",
-      "zh": "点“恢复”可重新提醒该版本；有更新的新版本会照常提醒。",
+      "zh": "选择「恢复提醒」可重新提醒该版本；更新的版本仍会正常提醒。",
       "draft": true
     },
     "panel.skip.skipped-title": {
       "en": "Skipped {latest}",
-      "zh": "已跳过 {latest}",
+      "zh": "已跳过版本 {latest}",
       "draft": true
     },
     "panel.strip.installed": {
       "en": "Installed",
-      "zh": "磁盘",
+      "zh": "已安装",
       "draft": true
     },
     "panel.strip.latest": {
       "en": "Latest",
-      "zh": "远端",
+      "zh": "最新版",
       "draft": true
     },
     "panel.strip.running": {
       "en": "Running",
-      "zh": "运行",
+      "zh": "运行版",
       "draft": true
     },
     "panel.toast.checking": {
       "en": "Checking for updates…",
-      "zh": "正在查新版…",
+      "zh": "正在查询版本信息…",
       "draft": true
     },
     "panel.toast.copy-diag-fail": {
       "en": "Copy failed; please select the info above manually.",
-      "zh": "复制失败，请手动选中上面的信息。",
+      "zh": "复制失败，请手动选择上方信息。",
       "draft": true
     },
     "panel.toast.copy-diag-ok": {
       "en": "Diagnostics copied; paste it to the plugin author (already redacted).",
-      "zh": "诊断已复制，直接粘给插件作者即可（已脱敏）。",
+      "zh": "诊断信息已复制，请提交至插件作者（已脱敏）。",
       "draft": true
     },
     "panel.toast.copy-manual-fail": {
       "en": "Copy failed; please select the command above manually.",
-      "zh": "复制失败，请手动选中上面的命令。",
+      "zh": "复制失败，请手动选择上方命令。",
       "draft": true
     },
     "panel.toast.copy-manual-ok": {
       "en": "Manual command copied; paste the full line into the terminal to run it.",
-      "zh": "手工命令已复制，粘到终端整行执行即可。",
+      "zh": "手工命令已复制，请粘贴至终端整行执行。",
       "draft": true
     },
     "panel.toast.copy-state-ok": {
       "en": "Current state copied (no failure); paste it to the plugin author (already redacted).",
-      "zh": "已复制当前状态（无失败），直接粘给插件作者即可（已脱敏）。",
+      "zh": "当前状态已复制（无失败），请提交至插件作者（已脱敏）。",
       "draft": true
     },
     "panel.toast.failure-dismissed": {
       "en": "Failure acknowledged; it will be re-evaluated on the next check or install.",
-      "zh": "已确认该失败提示；下次查新版或安装将重新评估。",
+      "zh": "已确认该失败提示；下次查询版本信息或安装将重新评估。",
       "draft": true
     },
     "panel.toast.installing": {
@@ -1579,17 +1579,17 @@
     },
     "panel.toast.restart-delegated": {
       "en": "Handled by the caller’s restart flow; the new version takes effect after restart.",
-      "zh": "已按调用方的重启流程处理；重启后新版生效。",
+      "zh": "已按调用方重启流程处理；重启后新版本生效。",
       "draft": true
     },
     "panel.toast.restart-failed": {
       "en": "Restart entry failed; please restart the host manually. The new version takes effect after restart.",
-      "zh": "重启入口调用失败：请手动重启宿主，重启后新版生效。",
+      "zh": "重启入口调用失败，请手动重启宿主；重启后新版本生效。",
       "draft": true
     },
     "panel.toast.restart-manual": {
       "en": "This host provides no restart entry; please restart the host manually. The new version takes effect after restart.",
-      "zh": "本宿主未提供重启入口：请手动重启宿主，重启后新版生效。",
+      "zh": "本宿主未提供重启入口，请手动重启宿主；重启后新版本生效。",
       "draft": true
     }
   }

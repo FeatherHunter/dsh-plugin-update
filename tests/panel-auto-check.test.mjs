@@ -93,7 +93,7 @@ test('pendingAutoCheck 纯函数：仅 installing/verifying 与在途抑制', ()
   // 同范围忙、凭证过期、各类阻拦一律不抑制：快照侧只看 job state，blocked 照发起
   assert.equal(pendingAutoCheck(baseSnapshot({ canInstall: false, blockedReason: 'pending-restart' }), null), true, '待重启阻拦仍发起')
   assert.equal(pendingAutoCheck(baseSnapshot({ canInstall: false, blockedReason: 'incompatible-node' }), null), true, 'Node 不兼容仍发起')
-  assert.equal(pendingAutoCheck(baseSnapshot({ latestVersion: null, canInstall: false }), null), true, '没远端仍发起（正是要去问远端）')
+  assert.equal(pendingAutoCheck(baseSnapshot({ latestVersion: null, canInstall: false }), null), true, '没最新版仍发起（正是要去问最新版）')
 })
 
 // ---------- 正常 mount 查一次 ----------
@@ -108,7 +108,7 @@ test('正常 mount：status 后自动查一次，远端版本一次可见', asyn
   const checkHits = log.filter((e) => e.name.endsWith('.updateCheck')).length
   assert.equal(statusHits, 1, '首个只读刷新一次，实际=' + JSON.stringify(log.map((e) => e.name)))
   assert.equal(checkHits, 1, 'mount 自动查一次，实际=' + JSON.stringify(log.map((e) => e.name)))
-  assert.match(box.innerHTML, /1\.1\.0/, '远端版本号一次可见')
+  assert.match(box.innerHTML, /1\.1\.0/, '最新版号一次可见')
   panel.unmount()
 })
 
@@ -191,7 +191,7 @@ test('慢网不双发：自动查在途时手动点不另发，只认一次', as
   await settled()
   // 此时自动查应在途（status 已回，check 挂起）
   assert.equal(calls.filter((c) => c.endsWith('.updateCheck')).length, 1, '自动查已发出一次')
-  assert.match(box.innerHTML, /正在查新版/, '在途提示复用手动同一文案')
+  assert.match(box.innerHTML, /正在查询版本信息/, '在途提示复用手动同一文案')
   // 手动连点不应双发
   await panel.act('check')
   await panel.act('check')
@@ -249,7 +249,7 @@ test('手动查仍立即重问：自动成功后手动再查仍发电话', async
 
 // ---------- 轮询永不查 ----------
 
-test('轮询永不查新版：后续 refresh 只读本地', async () => {
+test('轮询永不检查更新：后续 refresh 只读本地', async () => {
   const { call, log } = fakeCall()
   const box = fakeContainer()
   const panel = mountUpdatePanel(box, { pluginId: 'p', call, pollMs: 60000 })
