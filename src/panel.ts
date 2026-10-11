@@ -78,6 +78,16 @@ export interface UpdateThemeTokens {
   entryFontSize?: string; entryPadding?: string; entryBorderRadius?: string;
   /** 入口件整体缩放（对应 CSS `zoom`），须为大于 0 的有限数。 */
   entryScale?: number;
+  /** 面板正文字号基准（默认 `14px`；传了只改变量值，不改结构）。 */
+  panelFontSize?: string;
+  /** 面板章节标题字号（默认主题 `14px` / 档案卷 `17px`；批量标题 `15px` / 档案卷 `21px` 同走此键，各自回退不同）。 */
+  panelChapterFontSize?: string;
+  /** 面板横幅标题字号（默认跟随正文继承 / 档案卷 `27px`、已最新 `24px`；传了即固定值）。 */
+  panelBannerTitleFontSize?: string;
+  /** 面板日志字号（默认 `13px` 系：手册/队列/日志/更新日志体；档案卷日志体 `13.5px`、命令块 `12.5px` 各自回退不同）。 */
+  panelLogFontSize?: string;
+  /** 面板小字字号（副行/注脚系：默认 `11px`–`12.5px` 按规则回退不同，传了即统一固定值）。 */
+  panelSmallFontSize?: string;
 }
 
 /** 语义键 → CSS 变量（顺序即序列化顺序，输出稳定可测）。 */
@@ -100,6 +110,11 @@ const THEME_TOKEN_VARS: { [K in keyof UpdateThemeTokens]-?: string } = {
   radiusBadge: '--dsh-update-radius-badge',
   entryFontSize: '--dsh-update-entry-font-size', entryPadding: '--dsh-update-entry-padding',
   entryBorderRadius: '--dsh-update-entry-border-radius', entryScale: '--dsh-update-entry-scale',
+  panelFontSize: '--dsh-update-panel-font-size',
+  panelChapterFontSize: '--dsh-update-panel-chapter-font-size',
+  panelBannerTitleFontSize: '--dsh-update-panel-banner-title-font-size',
+  panelLogFontSize: '--dsh-update-panel-log-font-size',
+  panelSmallFontSize: '--dsh-update-panel-small-font-size',
 };
 
 /** 颜色键集合：只收 hex 或英文名单词（含 transparent/currentColor）。 */
@@ -1012,7 +1027,7 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
 // ---------- 渲染（纯函数：同一视图 → 同一内核 HTML；内外摆放只差外层包裹） ----------
 
 export const UPDATE_PANEL_CSS = [
-  '.dsh-upd{font:14px/1.75 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);',
+  '.dsh-upd{font:var(--dsh-update-panel-font-size,14px)/1.75 system-ui,"Microsoft YaHei",sans-serif;color:var(--dsh-update-text,#1f2937);',
   'background:var(--dsh-update-bg,#ffffff);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:8px;padding:12px 14px;max-width:560px;',
   // 横幅配色走变量（浅色默认 + 深色覆盖，见下方 dark 媒体块）：硬编码浅色会让深色下
   // 「浅底 + 浅字」读不出来（现场回归：默认主题深色模式更新横幅白底浅字）。
@@ -1029,9 +1044,9 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-update-bad-border);background:var(--dsh-update-bad-bg)}',
   '.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}',
   '.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-update-busy-border);background:var(--dsh-update-busy-bg)}',
-  '.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}',
-  '.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:4px 0;font-size:13px}',
-  '.dsh-upd-changelog-wrap{margin:4px 0 0;font-size:13px}',
+  '.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:var(--dsh-update-panel-log-font-size,12px);word-break:break-all}',
+  '.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:4px 0;font-size:var(--dsh-update-panel-log-font-size,13px)}',
+  '.dsh-upd-changelog-wrap{margin:4px 0 0;font-size:var(--dsh-update-panel-log-font-size,13px)}',
   '.dsh-upd-changelog-title{font-weight:700;margin:0 0 4px}',
   '.dsh-upd-changelog-version{margin:6px 0}',
   '.dsh-upd-changelog-catname{font-weight:600;margin:6px 0 2px}',
@@ -1039,12 +1054,12 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-changelog li{margin:2px 0}',
   '.dsh-upd-changelog-fold{margin:4px 0}',
   '.dsh-upd-changelog-fold>summary{cursor:pointer}',
-  '.dsh-upd-changelog-count{font-size:12px;opacity:.7;margin:2px 0 4px}',
-  '.dsh-upd-changelog-yanked{border-left:4px solid var(--dsh-update-warn-border,#d97706);background:var(--dsh-update-warn-bg,#fffbeb);padding:6px 10px;margin:6px 0;font-size:13px}',
-  '.dsh-upd-breaking-badge{display:inline-block;font-size:11px;font-weight:700;border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:baseline}',
+  '.dsh-upd-changelog-count{font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.7;margin:2px 0 4px}',
+  '.dsh-upd-changelog-yanked{border-left:4px solid var(--dsh-update-warn-border,#d97706);background:var(--dsh-update-warn-bg,#fffbeb);padding:6px 10px;margin:6px 0;font-size:var(--dsh-update-panel-log-font-size,13px)}',
+  '.dsh-upd-breaking-badge{display:inline-block;font-size:var(--dsh-update-panel-small-font-size,11px);font-weight:700;border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:baseline}',
   '.dsh-upd-changelog-security-more{margin:4px 0 6px}',
-  '.dsh-upd-changelog-security-more>summary{cursor:pointer;font-size:12px;opacity:.8}',
-  '.dsh-upd-changelog-more-note{font-size:12px;opacity:.7;margin:2px 0 4px}',
+  '.dsh-upd-changelog-security-more>summary{cursor:pointer;font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.8}',
+  '.dsh-upd-changelog-more-note{font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.7;margin:2px 0 4px}',
   '.dsh-upd-changelog-neutral{color:inherit;opacity:.8}',
   '.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}',
   '.dsh-upd-overlay .dsh-upd{background:var(--dsh-update-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}',
@@ -1075,28 +1090,28 @@ export const UPDATE_PANEL_CSS = [
   // 两个主题共用同一份内核 HTML（见 renderUpdatePanelHTML 的注释），画不画是皮肤决定的事。
   '.dsh-upd-masthead{display:none}',
   '.dsh-upd-name{font-weight:700}',
-  '.dsh-upd-meta{font-size:12.5px;opacity:.75}',
-  '.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:11px;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}',
-  '.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;font-size:12.5px}',
+  '.dsh-upd-meta{font-size:var(--dsh-update-panel-small-font-size,12.5px);opacity:.75}',
+  '.dsh-upd-proftag{font-family:Consolas,Menlo,monospace;font-size:var(--dsh-update-panel-small-font-size,11px);border:1px solid var(--dsh-update-border,#d1d5db);border-radius:3px;padding:0 5px;margin-left:6px;letter-spacing:.06em}',
+  '.dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;font-size:var(--dsh-update-panel-small-font-size,12.5px)}',
   '.dsh-upd-strip>div{flex:1 1 110px;min-width:0;padding:6px 10px;border-left:1px solid var(--dsh-update-border,#e5e7eb)}',
   '.dsh-upd-strip>div:first-child{border-left:0}',
-  '.dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.14em;opacity:.7}',
-  '.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:12.5px;word-break:break-all}',
+  '.dsh-upd-strip-k{display:block;font-size:var(--dsh-update-panel-small-font-size,11px);letter-spacing:.14em;opacity:.7}',
+  '.dsh-upd-strip-v{font-family:Consolas,Menlo,monospace;font-size:var(--dsh-update-panel-small-font-size,12.5px);word-break:break-all}',
   '.dsh-upd-chapter{margin-top:18px;padding-top:14px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}',
   // 右下角独立 footer 区（#47 定案 A）：与第一章 actions 脱钩，右对齐，一次找到。
   '.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}',
-  '.dsh-upd-foot-note{margin-right:auto;font-size:12px;opacity:.7}',
+  '.dsh-upd-foot-note{margin-right:auto;font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.7}',
   '.dsh-upd-footer button{margin:0}',
   '.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}',
-  '.dsh-upd-chap-no{font-size:13px;font-style:italic;opacity:.6}',
-  '.dsh-upd-chap-title{font-size:14px;margin:0}',
+  '.dsh-upd-chap-no{font-size:var(--dsh-update-panel-chapter-font-size,13px);font-style:italic;opacity:.6}',
+  '.dsh-upd-chap-title{font-size:var(--dsh-update-panel-chapter-font-size,14px);margin:0}',
   // —— 宿主样式隔离：章节标题是裸 h3，宿主全局 h3 规则（如渐变标题字）会直接命中它，
   // 而继承来的根颜色输给任何直接命中的规则。双 class 显式钉死颜色并洗掉背景裁剪，
   // 深色宿主下即回近白正文，档案卷下跟纸墨变量走（宿主 !important 另议，见测试）。
   '.dsh-upd .dsh-upd-chap-title{color:var(--dsh-update-text,#1f2937);background:none;-webkit-background-clip:border-box;-webkit-text-fill-color:currentColor}',
   '.dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border,#e5e7eb);transform:translateY(-3px)}',
   // 03 章标题行右端的开关（问题 3 定案：按钮形态、挪到标题行）。
-  '.dsh-upd-chap-note{flex:none;font-size:12px;opacity:.75}',
+  '.dsh-upd-chap-note{flex:none;font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.75}',
   '.dsh-upd-chap-note button{margin:0}',
   // 更新队列两行键值（用户定案的设计）：结构两主题共用，皮肤各自收敛。
   '.dsh-upd-qrow{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;padding:6px 0;min-width:0}',
@@ -1104,21 +1119,21 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-qdot{width:8px;height:8px;border-radius:50%;flex:none;align-self:center;background:currentColor;opacity:.5}',
   '.dsh-upd-qdot[data-tone="busy"]{background:var(--dsh-update-warn-border,#d97706);opacity:1}',
   '.dsh-upd-qdot[data-tone="you"]{background:var(--dsh-update-primary,#2563eb);opacity:1}',
-  '.dsh-upd-qk{flex:none;width:5.5em;font-size:12px;opacity:.7}',
+  '.dsh-upd-qk{flex:none;width:5.5em;font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.7}',
   '.dsh-upd-qv{font-weight:600}',
-  '.dsh-upd-qn{margin-left:auto;font-size:12px;opacity:.7}',
-  '.dsh-upd-qseq{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}',
+  '.dsh-upd-qn{margin-left:auto;font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.7}',
+  '.dsh-upd-qseq{font-family:Consolas,Menlo,monospace;font-size:var(--dsh-update-panel-small-font-size,12px);word-break:break-all}',
   '.dsh-upd-prog{height:8px;background:var(--dsh-update-border,#e5e7eb);border-radius:4px;overflow:hidden;margin:10px 0 4px}',
   '.dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary,#2563eb);transition:width .3s}',
-  '.dsh-upd-progtxt{font-size:12.5px;opacity:.75}',
-  '.dsh-upd-skipline{font-size:13px;margin-top:8px}',
+  '.dsh-upd-progtxt{font-size:var(--dsh-update-panel-small-font-size,12.5px);opacity:.75}',
+  '.dsh-upd-skipline{font-size:var(--dsh-update-panel-log-font-size,13px);margin-top:8px}',
   // 骨架微光：只在首帧 loading 出现；reduced-motion 下静止占位，不断语义。
   '.dsh-upd-skv{display:inline-block;min-width:64px;border-radius:3px;color:transparent !important;user-select:none;',
   'background:linear-gradient(90deg,var(--dsh-update-border,#e5e7eb) 25%,var(--dsh-update-bg-soft,#f3f4f6) 50%,var(--dsh-update-border,#e5e7eb) 75%);',
   'background-size:200% 100%;animation:dsh-upd-shimmer 1.2s linear infinite}',
   '@keyframes dsh-upd-shimmer{to{background-position:-200% 0}}',
-  '.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:12px}',
-  '.dsh-upd-err{font-size:13px;margin:0 0 6px}',
+  '.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:var(--dsh-update-panel-small-font-size,12px)}',
+  '.dsh-upd-err{font-size:var(--dsh-update-panel-log-font-size,13px);margin:0 0 6px}',
   // —— 全按钮交互反馈（#36：悬停/按下/过渡/在途忙态；浅深双主题通用写法，不碰上面的既有串）——
   '.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}',
   '.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-update-focus,#2563eb)}',
@@ -1155,7 +1170,9 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-banner{min-height:3.4em;display:flex;flex-direction:column;justify-content:center}',
   '.dsh-upd-banner{animation:none}',
   // —— 横幅副行：色框之外的第二行补充说明（居左小字；两主题共用结构，皮肤各自收敛）——
-  '.dsh-upd-banner-sub{font-size:12.5px;opacity:.75;margin:2px 0 8px;text-align:left}',
+  '.dsh-upd-banner-sub{font-size:var(--dsh-update-panel-small-font-size,12.5px);opacity:.75;margin:2px 0 8px;text-align:left}',
+  // —— 横幅标题字号参数化（#103）：默认跟随正文继承，传 panelBannerTitleFontSize 即固定值 ——
+  '.dsh-upd-banner>div:first-child strong{font-size:var(--dsh-update-panel-banner-title-font-size,inherit)}',
   // #99 真节点行内章：默认主题不画（Archive 串里才显示）；节点常驻 DOM（双主题内核逐字同一份）。
   '.dsh-upd-banner>div:first-child>.dsh-upd-sealmini{display:none}',
   '.dsh-upd-copy{min-height:1.75em}',
@@ -1229,7 +1246,7 @@ export const UPDATE_PANEL_ARCHIVE_CSS = [
   // 印章占位：首行（横幅/状态行）右侧留出 120px，文字不许压到印章上（原型 .filehead padding-right:120px）
   // —— 卷宗抬头（原型 :195-203 的刊头，主题切换按钮按用户口径去掉）：只有 Archive 档案卷才显示 ——
   '.dsh-upd[data-theme="archive"] .dsh-upd-masthead{display:block;padding:0 0 8px;margin:0 0 8px;border-bottom:1px solid var(--dsh-update-border)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-masthead-kicker{display:block;font-size:11px;letter-spacing:.35em;color:var(--dsh-update-text-muted);margin-bottom:3px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-masthead-kicker{display:block;font-size:var(--dsh-update-panel-small-font-size,11px);letter-spacing:.35em;color:var(--dsh-update-text-muted);margin-bottom:3px}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title{font-family:var(--dsh-update-font-serif);font-size:26px;font-weight:700;line-height:1.2}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title i{color:var(--dsh-update-primary);font-style:normal}',
   // 横幅不再给大印章留 124px：实测（headless 量盒子）印章盒底边 y=109，横幅正文顶边 y=108、
@@ -1238,8 +1255,8 @@ export const UPDATE_PANEL_ARCHIVE_CSS = [
   // —— 更新队列（03 章）Archive 皮肤 ——
   '.dsh-upd[data-theme="archive"] .dsh-upd-qrow{padding:6px 0}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-qk{width:66px;letter-spacing:.18em}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-qv{font-family:var(--dsh-update-font-serif);font-size:16px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-qn{font-family:var(--dsh-update-font-mono);font-size:11.5px;color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-qv{font-family:var(--dsh-update-font-serif);font-size:var(--dsh-update-panel-small-font-size,16px)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-qn{font-family:var(--dsh-update-font-mono);font-size:var(--dsh-update-panel-small-font-size,11.5px);color:var(--dsh-update-text-muted)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-qseq{color:var(--dsh-update-text-muted)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-chap-note{color:var(--dsh-update-text-muted)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-body .dsh-upd-chap-head{background:var(--dsh-update-bg)}',
@@ -1260,8 +1277,8 @@ export const UPDATE_PANEL_ARCHIVE_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="busy"] .dsh-upd-sealmini{color:var(--dsh-update-warn-text)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="blocked"] .dsh-upd-sealmini,.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="failed"] .dsh-upd-sealmini{color:var(--dsh-update-bad-text)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"] .dsh-upd-sealmini{color:var(--dsh-update-ok-text)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-log code{font-family:var(--dsh-update-font-mono);font-size:11px;color:var(--dsh-update-text-muted);border:1px solid var(--dsh-update-border-strong);border-radius:3px;padding:0 6px;letter-spacing:.06em}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-manual code{display:block;background:var(--dsh-update-text);color:var(--dsh-update-bg-soft);font-family:var(--dsh-update-font-mono);font-size:12.5px;padding:12px 14px;border-radius:4px;white-space:pre-wrap;word-break:break-all}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-log code{font-family:var(--dsh-update-font-mono);font-size:var(--dsh-update-panel-log-font-size,11px);color:var(--dsh-update-text-muted);border:1px solid var(--dsh-update-border-strong);border-radius:3px;padding:0 6px;letter-spacing:.06em}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-manual code{display:block;background:var(--dsh-update-text);color:var(--dsh-update-bg-soft);font-family:var(--dsh-update-font-mono);font-size:var(--dsh-update-panel-log-font-size,12.5px);padding:12px 14px;border-radius:4px;white-space:pre-wrap;word-break:break-all}',
   // 待重启标记：手绘 SVG 当**独立 flex 标记**放在文字块左侧（原型 :446 `.mark` 是独立节点），
   // 不能用行内背景——那样换行时三角会落在句子中间把话劈开（现场回归）。
   // 标记贴首行居中：标题 27px×1.25 行高≈33.75px 行盒，标 20px，(33.75-20)/2≈7px；
@@ -1280,39 +1297,39 @@ export const UPDATE_PANEL_ARCHIVE_CSS = [
   // —— 档案头（原型 :208-211 `.filehead`：serif 插件名 22px + 使用范围 + profile 牌；右侧留章位）——
   '.dsh-upd[data-theme="archive"] .dsh-upd-head{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;padding-right:120px}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-name{font-family:var(--dsh-update-font-serif);font-size:22px;font-weight:700}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-meta{width:100%;font-size:12.5px;color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-meta{width:100%;font-size:var(--dsh-update-panel-small-font-size,12.5px);color:var(--dsh-update-text-muted)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-meta b{color:var(--dsh-update-text);font-weight:600}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-proftag{font-family:var(--dsh-update-font-mono);font-size:11px;color:var(--dsh-update-text-muted);border:1px solid var(--dsh-update-border-strong);border-radius:3px;padding:0 6px;margin-left:8px;letter-spacing:.06em}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-proftag{font-family:var(--dsh-update-font-mono);font-size:var(--dsh-update-panel-small-font-size,11px);color:var(--dsh-update-text-muted);border:1px solid var(--dsh-update-border-strong);border-radius:3px;padding:0 6px;margin-left:8px;letter-spacing:.06em}',
   // —— 版本条（原型 :216 `.strip`：三格，格间一线，左上小写标签 + 等宽值）——
-  '.dsh-upd[data-theme="archive"] .dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border);border-radius:4px;overflow:hidden;font-size:12.5px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-strip{display:flex;flex-wrap:wrap;margin:8px 0 0;border:1px solid var(--dsh-update-border);border-radius:4px;overflow:hidden;font-size:var(--dsh-update-panel-small-font-size,12.5px)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-strip>div{flex:1 1 120px;padding:6px 10px;border-left:1px solid var(--dsh-update-border)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-strip>div:first-child{border-left:0}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-strip-k{display:block;font-size:11px;letter-spacing:.2em;color:var(--dsh-update-text-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-strip-v{font-family:var(--dsh-update-font-mono);font-size:13px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-strip-k{display:block;font-size:var(--dsh-update-panel-small-font-size,11px);letter-spacing:.2em;color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-strip-v{font-family:var(--dsh-update-font-mono);font-size:var(--dsh-update-panel-small-font-size,13px)}',
   // —— 章节（原型 :218-245：01–05 编号 + 衬线标题 + 细线）——
   '.dsh-upd[data-theme="archive"] .dsh-upd-chapter{margin-top:16px;padding-top:10px;border-top:1px solid var(--dsh-update-border)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-chap-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-no{font-family:var(--dsh-update-font-serif);font-style:italic;font-size:15px;color:var(--dsh-update-text-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-title{font-family:var(--dsh-update-font-serif);font-size:17px;margin:0;letter-spacing:.1em}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-no{font-family:var(--dsh-update-font-serif);font-style:italic;font-size:var(--dsh-update-panel-chapter-font-size,15px);color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-chap-title{font-family:var(--dsh-update-font-serif);font-size:var(--dsh-update-panel-chapter-font-size,17px);margin:0;letter-spacing:.1em}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-chap-rule{flex:1;border-top:1px solid var(--dsh-update-border);transform:translateY(-4px)}',
   // —— 横幅即状态行 / 待重启横幅（原型 :81-85 `.restart-banner`：2px 边框、圆角 4、内边距 12/16、衬线；右侧留章位）——
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:2px solid var(--dsh-update-border-strong);border-radius:4px;padding:10px 12px;font-size:14.5px;font-family:var(--dsh-update-font-serif);gap:10px;align-items:center}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner{border:2px solid var(--dsh-update-border-strong);border-radius:4px;padding:10px 12px;font-size:var(--dsh-update-panel-font-size,14.5px);font-family:var(--dsh-update-font-serif);gap:10px;align-items:center}',
   // #99 标题行拉满：纵向 flex + align-items:center 会把短标题收成窄块居中（章跟着偏右）；
   // 原型状态行是整行块居左，这里 stretch 回去（副行已移出框体为独立兄弟节点，不吃本条）。
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{flex:1 1 auto;min-width:0;align-self:stretch}',
   // 状态行字号照原型 .status-line=27px（实测去掉横幅右侧占位后可写 486px > 428px，一行放得下）
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child strong{font-family:var(--dsh-update-font-serif);font-size:27px;font-weight:700;line-height:1.25}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child strong{font-family:var(--dsh-update-font-serif);font-size:var(--dsh-update-panel-banner-title-font-size,27px);font-weight:700;line-height:1.25}',
   // 已是最新是落定态，标题收一号 24px（其余档位仍 27px；只动 done，不碰原型行）。
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]>div:first-child strong{font-size:24px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner[data-kind="done"]>div:first-child strong{font-size:var(--dsh-update-panel-banner-title-font-size,24px)}',
   // —— 进度条 / 跳过行（原型 :132-133 `.prog`、:129-131 `.skipline .tag`）——
   '.dsh-upd[data-theme="archive"] .dsh-upd-prog{height:8px;background:var(--dsh-update-border);border-radius:4px;overflow:hidden;margin:10px 0 4px}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-prog-bar{display:block;height:100%;background:var(--dsh-update-primary);transition:width .3s}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-progtxt{font-size:12.5px;color:var(--dsh-update-text-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-skipline{font-size:13px;margin-top:8px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-tag{display:inline-block;border:1px dashed var(--dsh-update-border-strong);border-radius:3px;padding:1px 8px;margin-right:8px;font-family:var(--dsh-update-font-mono);font-size:12px}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-err{font-size:13px;margin:0 0 6px;color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-progtxt{font-size:var(--dsh-update-panel-small-font-size,12.5px);color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-skipline{font-size:var(--dsh-update-panel-log-font-size,13px);margin-top:8px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-tag{display:inline-block;border:1px dashed var(--dsh-update-border-strong);border-radius:3px;padding:1px 8px;margin-right:8px;font-family:var(--dsh-update-font-mono);font-size:var(--dsh-update-panel-small-font-size,12px)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-err{font-size:var(--dsh-update-panel-log-font-size,13px);margin:0 0 6px;color:var(--dsh-update-text-muted)}',
   // —— 横幅副行（框外第二行居左小字；色框只装标题，原型状态行是裸文本）——
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner-sub{color:var(--dsh-update-text-muted);font-size:12.5px;text-align:left;margin:2px 0 8px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner-sub{color:var(--dsh-update-text-muted);font-size:var(--dsh-update-panel-small-font-size,12.5px);text-align:left;margin:2px 0 8px}',
   // —— 动作行贴原型（d5-paper :119-125 `.btn`：13px 紧凑、无最小宽、8px 间距；复制类小按钮 12px）——
   '.dsh-upd[data-theme="archive"] .dsh-upd-actions{gap:8px;min-height:0}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-actions button{font-size:13px;line-height:1.45;padding:6px 12px;margin:0;min-width:0}',
@@ -1326,9 +1343,9 @@ export const UPDATE_PANEL_ARCHIVE_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-chap-note button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0;background:transparent}',
   // —— 日志贴原型（d5-paper :137-144 `.logver`：版本 mono 粗体、分类头隐藏、条目前缀红字）——
   '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-version{margin:12px 0}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-title{font-family:var(--dsh-update-font-mono);font-size:14px;font-weight:700}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-date{font-weight:400;font-size:12px;color:var(--dsh-update-text-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog ul{margin:6px 0 0 2px;padding-left:18px;font-size:13.5px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-title{font-family:var(--dsh-update-font-mono);font-size:var(--dsh-update-panel-log-font-size,14px);font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-date{font-weight:400;font-size:var(--dsh-update-panel-small-font-size,12px);color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog ul{margin:6px 0 0 2px;padding-left:18px;font-size:var(--dsh-update-panel-log-font-size,13.5px)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-changelog li{margin:3px 0}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-catname{display:none}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-cat[data-cat="Added"] ul li::before{content:"Added · ";color:var(--dsh-update-primary);font-weight:700}',

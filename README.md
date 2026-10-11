@@ -172,8 +172,9 @@ mountUpdatePanel(el, { pluginId: 'p', prefix: 'notes', call,
 | 字体阴影 | `fontSans`、`fontSerif`、`fontMono`、`shadow` |
 | 圆角 | `radiusPanel`、`radiusButton`、`radiusBadge` |
 | 入口件尺寸 | `entryFontSize`、`entryPadding`、`entryBorderRadius`、`entryScale`（数字，大于 0） |
+| 面板字号（#103） | `panelFontSize`（正文基准，默认 `14px`）、`panelChapterFontSize`（章节标题，默认 `14px`／档案卷 `17px`，批量标题 `15px`／档案卷 `21px` 同键）、`panelBannerTitleFontSize`（横幅标题，默认继承正文／档案卷 `27px`、已最新 `24px`）、`panelLogFontSize`（日志，默认 `13px`系）、`panelSmallFontSize`（小字副行/注脚，默认 `11px`–`12.5px`按规则回退） |
 
-三条约束：颜色只收 hex（`#rgb`／`#rrggbb`／`#rrggbbaa`）或英文名单词（含 `transparent`），`rgb()`／`color-mix()` 请自行换算成 hex；其余值走注入检查（分号引号括号等不许过，见 `sizing` 同口径）；未知键与非法值挂载即抛错，不静默吞掉。被覆盖的 token 不再跟随深色模式（内联值固定，调用方自己保证深浅可读）。
+三条约束：颜色只收 hex（`#rgb`／`#rrggbb`／`#rrggbbaa`）或英文名单词（含 `transparent`），`rgb()`／`color-mix()` 请自行换算成 hex；其余值走注入检查（分号引号括号等不许过，见 `sizing` 同口径）；未知键与非法值挂载即抛错，不静默吞掉。被覆盖的 token 不再跟随深色模式（内联值固定，调用方自己保证深浅可读，字号类同理：传了即固定值，不跟媒体查询走）。
 
 类型定义随包分发（`dsh-plugin-update/panel` 的 `.d.ts`），不用自编译；面板离线可读，与包版本绑定。
 
