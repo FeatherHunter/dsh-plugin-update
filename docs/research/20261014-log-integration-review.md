@@ -148,7 +148,7 @@
 | README §10「失败退避重试 2 次后丢弃并计数」「一批 50 行、间隔 1 秒、环形 200 行」 | ✅ 一致 | `src/log/client-queue.ts:84-89`：`CLIENT_LOG_MAX_QUEUE=200`、`BATCH_SIZE=50`、`FLUSH_MS=1000`、`MAX_RETRIES=2`、`RETRY_DELAYS_MS=[250,1000]`、`SEND_TIMEOUT_MS=5000`；后台切换立即冲刷 `:349-365` |
 | README §10 客户端只收 5 个事件 | ✅ 一致 | `src/log/client-queue.ts:100-106`；`src/host.ts:1213` 拒收非白名单 |
 | README §10（`:690`）「稳态一天不超过 50 行，一个操作日不超过 500 行」 | ✅ 装置实测通过（**带限定语**） | 我实跑 `node .tmp/log-verify/run.mjs budget` → `pass 8/8`：A1/A2 86400 次同状态/同相位 → 1 行；A3 稳态 24h 常驻 2 行；B1 600 次轮询 → 0 行；C1/C2「安装/批量当天」= **事件面模型 37 行**（不是真安装，见 `docs/research/20261014-log-isolation-verification.md` §5）；D1 开关关着 50 条 ondemand info 全 `skipped`。报告若写「实测一次真安装 ≤500 行」就是夸大 |
-| README `:13`「零运行时依赖。当前版本 `0.10.0`」 | ❌ 过期 | `package.json:3` `"version": "0.16.0"`；`package.json:81-83` `dependencies: { "dsh-log": "^0.3.1" }`（`:82`）；`README.md:680` 自己已写「`0.15.0` 起 dsh-log 是第一个运行期依赖」 |
+| README `:13`「零运行时依赖。当前版本 `0.10.0`」 | ✅ 复核后已修（原 ❌ 过期） | 原状：`package.json:3` `"version": "0.16.0"`；`package.json:81-83` `dependencies: { "dsh-log": "^0.3.1" }`（`:82`）；`README.md:680` 自己已写「`0.15.0` 起 dsh-log 是第一个运行期依赖」。已改为「要求 Node 22 或更高。当前版本 `0.16.0`，运行期依赖只有一个：`dsh-log ^0.3.1`（0.15.0 起，见第 10 节）」，同屏 `:17`「四个电话」→「五个电话」（补 `logAppend`）、`:570`「四个电话名」→「五个电话名」。**发布物仍未修**：npm 上 0.16.0 tarball 里的 README 还是旧行——仓库修好 ≠ npm 页修好，要重新发一版才生效 |
 | `src/` 下零 `console.*` | ✅ 一致 | `grep -n "console\." src/` 零命中 |
 
 ---
@@ -182,3 +182,20 @@
 - 「`from:'batch'` 无测试」→ 加「电话层已有断言（`tests/host-log.test.mjs:216-226`），缺的是批量链端到端一条」。
 - 「快照提交 `34b00e6`」→ 改为「`798e2ec`（其后两次提交：`b81c5d4` #124、`798e2ec` #123 发版定格）」。
 - 引用 README §10 的命名空间算法时别照抄「截 32 位」→ 实际截 24 位（D11）。
+
+---
+
+## 7. 复核后的处置（本轮已落，收口清单）
+
+**已在仓库改掉（本轮）**
+
+- D11/D12（命名空间口径）：`README.md:686` 按实现改写（无损分支原样通过；有损分支截 24 位 + `-hash6`，合计 ≤31），并把「不同 `pluginId` 永不共目录」限定为「无损分支保证；有损分支 24 位指纹概率性隔离」；同处更正 `README.md:640`、`CONTEXT.md:26`、`CHANGELOG.md:59`（0.15.0 条目原文）、`src/log/namespace.ts:9-12` 的不变量注释。
+- D13（追链口径）：`README.md:562` 与 `README.md:703` 不再把 `--trace <traceId>` 当既有能力；事件目录 §4 规则 2 改成「三件套只由 dsh-log 客户端 SDK 注入，本包自建落点不带」。
+- 第一屏（报告 §12.3 第 15 条）：`README.md:13` 由「零运行时依赖。当前版本 `0.10.0`」改为「要求 Node 22 或更高。当前版本 `0.16.0`，运行期依赖只有一个：`dsh-log ^0.3.1`（0.15.0 起）」；`README.md:17` 四个电话 → 五个电话、`README.md:570` 四个电话名 → 五个电话名。
+
+**明确仍未做（留给下一版，别在文案里当既有能力写）**
+
+- npm 上已发布的 `0.16.0` tarball 内 README 仍是旧行：要 npm 页正确，必须再发一版（`0.16.1` 一类的文档补丁版）。
+- 发布门禁没有「README 声明的版本／依赖面与 `package.json` 一致」「文档枚举值与 `event-list.update.json` 一致」这两道检查（报告 §12.3 的建议）。
+- 自建落点的 `traceId`/`spanId` 铸造（要追链就得改走 SDK 建链包装 + 字段白名单加两格）。
+- 报告 §12.3 第 16 条里写到的 `update.panel.mount{mode:'http'}` 未登记、`update.changelog.parse{source}` 实际值 `'npm'` 等事件清单层的小差异（D4/D5），本轮未动。

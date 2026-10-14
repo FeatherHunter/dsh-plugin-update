@@ -178,20 +178,23 @@ details[open] summary::before{content:"▾ "}
 <aside>
   <h1 class="brand">日志系统集成成果报告<small>dsh-plugin-update · dsh-log 0.3.1</small></h1>
   <nav id="toc">
-    <a href="#s0">0 · 一页结论</a>
-    <a href="#s1">1 · 目的地与实现形态</a>
-    <a href="#s2">2 · 总体架构</a>
-    <a href="#s3">3 · 日志内核四件套</a>
-    <a href="#s4" class="sub">命名空间 · 登记表 · 路由 · 发射口</a>
-    <a href="#s5">4 · 19 环节事件面</a>
-    <a href="#s6">5 · 面板侧通道</a>
-    <a href="#s7">6 · 隔离与不覆盖</a>
-    <a href="#s8">7 · 噪声与预算</a>
-    <a href="#s9">8 · 脱敏与可聚合</a>
-    <a href="#s10">9 · 验证与证据链</a>
-    <a href="#s11">10 · 集成方视角</a>
-    <a href="#s12">11 · 不变量清单</a>
-    <a href="#s12">12 · 已知缺口</a>
+    <a href="#s0">00 · 一页结论</a>
+    <a href="#s1">01 · 目的地与实现形态</a>
+    <a href="#s2">02 · 总体架构</a>
+    <a href="#s3">03 · 日志内核四件套</a>
+    <a href="#s3" class="sub">命名空间 · 登记表 · 路由 · 发射口</a>
+    <a href="#s4">04 · 19 环节事件面</a>
+    <a href="#s4" class="sub">含 4.2.1 动作取值表</a>
+    <a href="#s5">05 · 面板侧通道</a>
+    <a href="#s6">06 · 隔离与不覆盖</a>
+    <a href="#s7">07 · 噪声与预算</a>
+    <a href="#s8">08 · 脱敏与可聚合</a>
+    <a href="#s9">09 · 验证与证据链</a>
+    <a href="#s10">10 · 集成方视角</a>
+    <a href="#s10" class="sub">含 10.3 交日志这一页</a>
+    <a href="#s11">11 · 不变量清单</a>
+    <a href="#s12">12 · 已知缺口（16 条）</a>
+    <a href="#s12" class="sub">12.1 事件面 · 12.2 代码 · 12.3 文档</a>
     <a href="#s13">13 · 复现命令</a>
   </nav>
   <div class="side-foot">
@@ -252,7 +255,7 @@ details[open] summary::before{content:"▾ "}
 
 <div class="note ok">
   <p class="t">一句话结论</p>
-  <p>日志集成已经<b>功能闭环、有实证</b>：19/19 环节接上、事件表 28 条成册、隔离三场景实测全过、预算 8/8 达标、全量测试 0 失败。剩下的不是「日志能不能用」，而是<b>发布收口</b>（票 #123）与几条如实登记的边界（跨进程同目录只承诺「交错不覆写」、文档面个别措辞滞后）——见第 12 节。</p>
+  <p>日志集成已经<b>功能闭环、有实证，并且已经发布</b>：19 个环节全部接上（26 条事件有真实发射点）、隔离三场景实测全过、预算 8/8 达标、全量测试 0 失败、<code>0.16.0</code> 已定格、地图十张子票全关。剩下的是<b>如实登记的边界</b>：2 条死条目、3 处枚举取值与规格不符、有损派生名只是概率性隔离、跨进程同目录只承诺「交错不覆写」、README 第一屏措辞滞后——共 16 条，见第 12 节。</p>
 </div>
 
 <!-- ============ 1 ============ -->
@@ -270,8 +273,8 @@ details[open] summary::before{content:"▾ "}
     </tr>
     <tr>
       <td>第三方能用一条 <code>npx dsh-log tail &lt;dir&gt;</code> 把日志交给我们</td>
-      <td>日志目录 = <code>&lt;homeDir&gt;/logs/&lt;派生命名空间&gt;/</code>，文件 = <code>YYYY-MM-DD.log</code>；开关文件 <code>log-switch-&lt;派生名&gt;.json</code>；交付命令写进 README §11</td>
-      <td class="src"><code>src/host.ts:726-728</code><br><code>src/log/namespace.ts:89-91</code><br><code>README.md:688-699</code></td>
+      <td>日志目录 = <code>&lt;homeDir&gt;/logs/&lt;派生命名空间&gt;/</code>，文件 = <code>YYYY-MM-DD.log</code>；开关文件 <code>log-switch-&lt;派生名&gt;.json</code>；交付命令写进 README §11，<b>并由面板错误章的路牌直接递到用户手上（0.16.0 起）</b></td>
+      <td class="src"><code>src/host.ts:726-728</code> · <code>updateLogDirFor</code><br><code>src/log/namespace.ts:89-91</code><br><code>README.md:686-709</code></td>
     </tr>
     <tr>
       <td>同一份 DSH 里多个用更新系统的插件各写各的目录、互不覆盖、互不夺行</td>
@@ -285,8 +288,8 @@ details[open] summary::before{content:"▾ "}
     </tr>
     <tr>
       <td>（前提）事件面三档 + 边沿触发 + 噪声预算（稳态 ≤50 行/天）</td>
-      <td>档位写进清单 <code>kind</code>；边沿判据由清单 <code>guard</code> 文本驱动 + 调用点自管指纹；轮询成功行在发射侧一条不发</td>
-      <td class="src"><code>src/log/manifest.ts:96-113</code><br><code>src/host.ts:845-855</code></td>
+      <td>档位写进清单 <code>kind</code>；边沿判据由清单 <code>guard</code> 文本驱动 + 调用点自管指纹（<b>实际只覆盖 2 条事件</b>）；轮询成功行在发射侧一条不发</td>
+      <td class="src"><code>src/log/manifest.ts:96-113</code><br><code>src/log/emit.ts:183</code><br><code>src/host.ts:857-868</code></td>
     </tr>
     <tr>
       <td>（前提）规格与门禁＝两份 ADR + 19 环节事件目录 + 清单迁 0.3.1</td>
@@ -462,8 +465,8 @@ details[open] summary::before{content:"▾ "}
   <div class="card">
     <h4>三条不变量（测试逐条钉住）</h4>
     <ol style="margin-bottom:0">
-      <li>已经是合法命名空间的 id <b>原样通过</b>（目录名与集成方写的标识一致）。</li>
-      <li>不同 raw 标识<b>永不</b>派生出同一个名字（含空格、点、大写、超长、中文、空串）。</li>
+      <li>已经是合法命名空间的 id <b>原样通过</b>（目录名与集成方写的标识一致）；合法标识最长 32 字符走无损分支。</li>
+      <li>有损分支：<code>SLUG_CHARS = 24</code> + <code>-</code> + <code>HASH_CHARS = 6</code> = 31 ≤ 32，<b>概率性不重名</b> —— 见第 6 节边界实测（5000 个同前缀超长标识里 1 组撞名）。</li>
       <li>返回值恒满足 dsh-log 的 pluginId 形状（小写字母数字连字符，1..32）。</li>
     </ol>
     <p class="src" style="margin-bottom:0">tests/log-kernel.test.mjs</p>
@@ -593,16 +596,17 @@ details[open] summary::before{content:"▾ "}
     <tr><td>⑬</td><td>单项失败（批量）</td><td>中立</td><td><code>update.batch.entry.fail</code>（目标标识恒 hash8）</td><td>warn</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 落点由 <code>BatchRunDeps.logFor</code> 注入</td></tr>
     <tr><td>⑭</td><td>总账</td><td>客户端渲染</td><td><code>update.batch.summary</code>（宿主侧汇总后发）</td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 面板只渲染、不重复发</td></tr>
     <tr><td>⑮</td><td>重启宿主</td><td>客户端触发</td><td><code>update.restart.outcome</code></td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-warn">死条目</span> 零发射点、且不在客户端白名单</td></tr>
-    <tr><td>⑯</td><td>语言选择</td><td>客户端</td><td><code>update.lang.applied</code></td><td>info</td><td><span class="tag t-on">ondemand</span></td><td><span class="tag t-ok">已接</span> 在客户端白名单内</td></tr>
+    <tr><td>⑯</td><td>语言选择</td><td>客户端</td><td><code>update.lang.applied</code>（<code>source</code> 四值，含 <code>'default'</code>）</td><td>info</td><td><span class="tag t-on">ondemand</span></td><td><span class="tag t-ok">已接</span> 在客户端白名单内</td></tr>
     <tr><td>⑰</td><td>主题渲染</td><td>客户端</td><td><code>update.panel.state</code>（theme/tokensApplied/fallback）；非法值并入 <code>update.panel.render.fail</code></td><td>info / error</td><td><span class="tag t-on">ondemand</span> + <span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 在客户端白名单内</td></tr>
-    <tr><td>⑱</td><td>落盘决策</td><td>Node</td><td><code>update.store.fail</code>；锁异常 <code>update.lock.anomaly</code></td><td>warn</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 原 <code>catch {}</code> 静默点共 13 处</td></tr>
-    <tr><td>⑲</td><td>复制诊断</td><td>客户端</td><td><code>update.panel.action</code>（<code>copy-diagnostics</code>，附 <code>bytes</code>/<code>truncated</code>）</td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> <b>内容绝不进日志</b></td></tr>
+    <tr><td>⑱</td><td>落盘决策</td><td>Node</td><td><code>update.store.fail</code>；锁异常 <code>update.lock.anomaly</code></td><td>warn</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> <code>src/store.ts</code> 共 <b>16 处</b>落点（<code>:303</code>–<code>:641</code>），同一操作同因连续失败只记首次</td></tr>
+    <tr><td>⑲</td><td>复制诊断</td><td>客户端</td><td><code>update.panel.action</code>（<code>action:'copy-diag'</code>，附 <code>bytes</code>/<code>truncated</code>）</td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> <b>内容绝不进日志</b></td></tr>
   </tbody>
 </table>
 
 <div class="note warn">
-  <p class="t">这张表里有两行需要打星号（见第 12 节）</p>
-  <p>⑩ <code>update.install.retry</code> 与 ⑮ <code>update.restart.outcome</code> 按规格「归 #122 由客户端经 <code>logAppend</code> 落盘」。但宿主侧 <code>logAppendRows()</code> 只收 <b>5 个客户端事件</b>（<code>update.panel.mount</code> / <code>.action</code> / <code>.render.fail</code> / <code>.state</code> / <code>update.lang.applied</code>），这两个事件不在白名单里。它们是否有真实发射点、是否被这条路拒收，是本报告交付前由独立复核专门核对的项（第 12 节按复核结论定稿）。</p>
+  <p class="t">第 12 节 #1：两条死条目与两处取值口径</p>
+  <p>⑩ <code>update.install.retry</code> 与 ⑮ <code>update.restart.outcome</code> 在规格里写「归 #122 由客户端经 <code>logAppend</code> 落盘」，独立复核结论是：<b><code>src/</code> 内零发射点</b>，且都不在客户端白名单（<code>src/log/client-queue.ts:100-106</code> 恰 5 个），即便有人发也会被 <code>src/host.ts:1213</code> 计入 <code>dropped</code>。所以「28 条覆盖 19/19」的旧表述不成立，正确说法是 <b>26 条有发射点 + 2 条死条目</b>。</p>
+  <p>另有三处文档取值与实现不符，均已在第 12 节列明：<code>update.panel.action</code> 实际 11 值（<code>copy-diag</code>／<code>restart-hint</code>，没有 <code>retry</code>／<code>restart</code>）、<code>update.panel.mount.mode</code> 实际只有 <code>'panel'</code>／<code>'http'</code>（<code>'batch'</code>／<code>'entry-batch'</code> 无实现）、<code>update.changelog.parse.source</code> 实际恒为 <code>'npm'</code>。</p>
 </div>
 
 <h3>4.1 三条跨环节的全局规则</h3>
@@ -613,9 +617,9 @@ details[open] summary::before{content:"▾ "}
     <p class="src" style="margin-bottom:0">src/host.ts:840-855</p>
   </div>
   <div class="card">
-    <h4>② 关联（traceId / spanId）</h4>
-    <p style="margin:0;font-size:13.4px">规格写的是：每条行带 <code>traceId</code>（一次用户意图）与 <code>spanId</code>（一次尝试），住 <code>fields</code> 里，供 dsh-log 的 <code>traceChain</code> 串链。<b>注意：截至本报告核对，<code>src/</code> 内 grep <code>traceId|spanId|traceChain</code> 零命中</b> —— 这一条属于「规格已定、实现未见」的差异，登记在第 12 节。</p>
-    <p class="src" style="margin-bottom:0">事件目录 §4 规则 2 · §12 差异 #4</p>
+    <h4>② 关联（traceId / spanId）——归因已修正</h4>
+    <p style="margin:0;font-size:13.4px">dsh-log <b>客户端 SDK</b>会自动为它自己发出的行铸造 <code>traceId</code>／<code>spanId</code>／<code>seq</code>（<code>node_modules/dsh-log/dist/client/write.js:108-127</code> 的 <code>ensureTraceForLevel</code>／<code>ensureSpanId</code>），这是引擎自带能力，<b>不需要本包实现</b>。本包的<b>自建落点</b>走的是 <code>src/log/sink.ts:56-63</code> 里那句 <code>store.log(level,event,fields)</code> —— 直调底层 <code>store.log</code> 三参入口，不经过 SDK 的建链包装，因此<b>本包自己写出的行不带三件套</b>，追链只能追 SDK 自己发的行。<b>正确说法是「自建落点／自建客户端通道追不到链」，不是「规格承诺了实现没做」</b>（第 12 节 #4）。</p>
+    <p class="src" style="margin-bottom:0">node_modules/dsh-log/dist/client/write.js:108-127 · src/log/sink.ts:56-63 · 第 12 节 #4</p>
   </div>
   <div class="card">
     <h4>③ 脱敏（ADR-0006）</h4>
@@ -626,20 +630,44 @@ details[open] summary::before{content:"▾ "}
 
 <h3>4.2 事件表内容分布</h3>
 <table>
-  <caption>随包 <code>event-list.update.json</code> 的 28 个事件（按用途分组）</caption>
+  <caption>随包 <code>event-list.update.json</code> 的 28 个事件（按用途分组）；带 <b>★</b> 者为「有登记、零发射点」的死条目</caption>
   <thead><tr><th style="width:16%">组</th><th style="width:11%">档位</th><th>事件</th></tr></thead>
   <tbody>
     <tr><td>旧三件（形状冻结）</td><td><span class="tag t-res">resident</span></td><td><code>host.call</code> · <code>host.call.fail</code> · <code>update.install.exec</code> —— 本次只改「发不发」，字段一字不动</td></tr>
     <tr><td>接线自陈</td><td><span class="tag t-res">resident</span></td><td><code>update.wire.ready</code>（<code>logSink: external|self|off</code> + <code>logDirHash</code>；目录只给 hash8，不给路径）</td></tr>
-    <tr><td>检查链</td><td>混合</td><td><code>update.check.start</code> · <code>update.check.done</code> · <code>update.check.fail</code> · <code>update.registry.fetch</code> · <code>update.channel.decide</code> · <code>update.status.changed</code> · <code>update.poll</code></td></tr>
-    <tr><td>安装链</td><td><span class="tag t-res">resident</span></td><td><code>update.install.request</code> · <code>update.install.verify</code> · <code>update.install.retry</code> · <code>update.restart.outcome</code></td></tr>
+    <tr><td>检查链</td><td>混合</td><td><code>update.check.start</code> · <code>update.check.done</code> · <code>update.check.fail</code>（<code>stage</code> 实际只落 <code>'fetch'</code>／<code>'channel'</code>）· <code>update.registry.fetch</code>（<code>/http</code> 变体零接线）· <code>update.channel.decide</code> · <code>update.status.changed</code> · <code>update.poll</code></td></tr>
+    <tr><td>安装链</td><td><span class="tag t-res">resident</span></td><td><code>update.install.request</code> · <code>update.install.verify</code> · ★<code>update.install.retry</code> · ★<code>update.restart.outcome</code>（后两条零发射点、也不在客户端白名单）</td></tr>
     <tr><td>批量链</td><td><span class="tag t-res">resident</span></td><td><code>update.batch.entry.request</code> · <code>update.batch.entry.fail</code> · <code>update.batch.summary</code></td></tr>
     <tr><td>队列与锁</td><td><span class="tag t-res">resident</span></td><td><code>update.queue.transition</code>（四相位 queued/running/done/reclaimed）· <code>update.lock.anomaly</code>（两 kind）</td></tr>
-    <tr><td>落盘与文档</td><td>混合</td><td><code>update.store.fail</code> · <code>update.changelog.parse</code></td></tr>
-    <tr><td>面板／入口</td><td>混合</td><td><code>update.panel.mount</code> · <code>update.panel.action</code> · <code>update.panel.render.fail</code> · <code>update.panel.state</code> · <code>update.lang.applied</code></td></tr>
+    <tr><td>落盘与文档</td><td>混合</td><td><code>update.store.fail</code>（<code>src/store.ts</code> 16 处落点）· <code>update.changelog.parse</code>（<code>source</code> 实际恒为 <code>'npm'</code>）</td></tr>
+    <tr><td>面板／入口</td><td>混合</td><td><code>update.panel.mount</code>（<code>mode</code> ∈ <code>'panel'</code>／<code>'http'</code>）· <code>update.panel.action</code>（11 值，见下）· <code>update.panel.render.fail</code> · <code>update.panel.state</code> · <code>update.lang.applied</code>（<code>source</code> 四值含 <code>'default'</code>）</td></tr>
     <tr><td>自监控</td><td><span class="tag t-self">selfmon</span></td><td><code>update.log.degraded</code>（6 个 reason：<code>no-dsh-log</code>/<code>lease-conflict</code>/<code>write-fail</code>/<code>emit-threw</code>/<code>unknown-field</code>/<code>unknown-event</code>）</td></tr>
   </tbody>
 </table>
+
+<h4 style="margin:22px 0 6px;font-size:14.5px">4.2.1 <code>update.panel.action.action</code> 的 11 个实际取值（<code>src/panel.ts:198-210</code>）</h4>
+<table>
+  <caption>类型联合体与 <code>data-action</code> 一一对应；<code>src/panel.ts:2722</code> 把 <code>kind</code> 原样写进日志。规格文档里写的 <code>retry</code>／<code>copy-diagnostics</code>／<code>restart</code> 与实际不符。</caption>
+  <thead><tr><th style="width:26%">实际值</th><th style="width:24%">对应界面动作</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>check</code></td><td>查新版</td><td>用户主动触发一次检查</td></tr>
+    <tr><td><code>install</code></td><td>安装更新</td><td>宿主侧同时落 <code>update.install.request</code></td></tr>
+    <tr><td><code>skip</code></td><td>跳过此版本</td><td>只改本地偏好</td></tr>
+    <tr><td><code>reset-skip</code></td><td>恢复该版本</td><td>取消跳过</td></tr>
+    <tr><td><code>copy-manual</code></td><td>复制手工命令</td><td>只记动作名，命令原文不进日志</td></tr>
+    <tr><td><code>copy-diag</code></td><td>复制诊断</td><td><b>规格写作 <code>copy-diagnostics</code>，实现与测试都锁 <code>copy-diag</code></b>（<code>tests/panel-log.test.mjs:197-199</code>）；附 <code>bytes</code>／<code>truncated</code></td></tr>
+    <tr><td><code>toggle-queue</code></td><td>展开／收起排队</td><td>纯视图态</td></tr>
+    <tr><td><code>toggle-changelog</code></td><td>展开／收起更新日志</td><td>纯视图态</td></tr>
+    <tr><td><code>restart-hint</code></td><td>重启提示</td><td><b>规格写作 <code>restart</code></b>；这条动作全程不发任何日志行，<code>update.restart.outcome</code> 因此永远没有内容</td></tr>
+    <tr><td><code>close-view</code></td><td>关闭详情</td><td>纯视图态</td></tr>
+    <tr><td><code>dismiss-failure</code></td><td>收起失败横幅</td><td>纯视图态</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <p class="t">另外两处「文档取值 ≠ 实际取值」，同属第 12 节 #1</p>
+  <p><b><code>update.panel.mount.mode</code></b>：实现只会写 <code>'panel'</code>（摆放形态）与 <code>'http'</code>（HTTP 直挂，<code>src/http.ts:353</code>）；规格里承诺的 <code>'batch'</code>／<code>'entry-batch'</code> 没有实现——批量入口件 <code>src/entry-batch.ts:498</code> 不传 <code>clientLog</code>，批量面板也零发射。<b><code>update.changelog.parse.source</code></b>：<code>src/host.ts:1071</code> 是写死的 <code>'npm'</code>，规格里的 <code>tarball</code>／<code>installed</code>／<code>release</code> 三个值从未出现。</p>
+</div>
 
 <details>
   <summary>字段白名单是怎么生成「人可读的诚实」的：三个例子</summary>
@@ -739,6 +767,7 @@ details[open] summary::before{content:"▾ "}
     <ul style="margin-bottom:0">
       <li><b>跨进程没有协调</b>，这是设计承诺：两个进程同写一棵目录只保证「交错、不整篇覆写」，不保证行序、不保证去重。</li>
       <li><b>单行 &gt; 4096 字节时引擎不再切块</b>（实测 8001 字节行 → 1 块 8001 字节），而 <code>O_APPEND</code> 的大块写不保证原子。上游别环境下量到「40 行里 2 行读不出来」；<b>本机 200 次重叠的 8KB/64KB 单行追加里一条半行都没出现</b> —— 如实登记为理论残留风险，不是本机现象。</li>
+      <li><b>有损派生名是概率性隔离，不是绝对隔离</b>：命名空间的有损分支只留 <code>sha256 前 6 位</code>（24 位十六进制），两个不同 <code>pluginId</code> 若前 24 字符相同、指纹前 6 位又撞上，就会派生到同一棵目录。本报告实跑 <code>deriveLogNamespace</code> 探针：<b>5000 个同前缀超长标识里出现 1 组撞名</b>（<code>plugin-aplugin-aplugin-a-770cdb</code>）。合法标识（无损分支）仍保证原样通过、绝不撞名；<b>「不同 pluginId 永不共目录」这句只对无损分支成立</b>。</li>
       <li>谁要拿这一条做承诺，请照同一装置在目标环境（尤其宿主自己的文件服务）复量一次。</li>
     </ul>
     <p class="src" style="margin-bottom:0">同上 §3、§5</p>
@@ -765,9 +794,15 @@ details[open] summary::before{content:"▾ "}
 </table>
 
 <div class="note">
+  <p class="t">口径声明：37 行是「事件面模型」，不是真装一次</p>
+  <p>表里 C1／C2 两条断言的 <b>37 行</b>由装置按事件面模型逐环节累加得出（一次安装＋一次批量会触及的事件各算一行），<b>并非真跑一次安装</b>；预算要验的是「量级 ≤ 500」，模型已经足够回答这个问题，但它不能当作「真装一次的实测行数」引用。真装一次的行数取决于实际重试、失败与队列相位变化次数。</p>
+  <p class="src" style="margin-bottom:0">.tmp/log-verify/run.mjs budget · 断言 C1/C2</p>
+</div>
+
+<div class="note">
   <p class="t">那次不达标是怎么修的（机制，不是玄学）</p>
-  <p>首测机制定位在 <code>src/host.ts:796</code>／<code>:898</code>：电话成功时<b>无条件</b>发 <code>host.call</code>；清单里 <code>host.call</code> 的 guard 虽然写着「成功且状态未变时轮询不发」，但 <code>isEdgeEvent</code> 只认 guard 文本里带「边沿触发」四个字的事件（只有 <code>update.status.changed</code> 与 <code>update.queue.transition</code> 命中），宿主侧也没实现「状态未变就不发」。于是 1 秒一拍 = 86400 行/天。</p>
-  <p>修法落在 <code>src/host.ts:845-855</code>：<code>isStatusPoll</code> 认出轮询电话，算快照指纹，<b>只有「上次算得出、这次算得出、且与上次不同」才留一行</b>；指纹算不出来时宁多发一行，也不误吞一次状态变化；失败行 <code>host.call.fail</code> 不受影响；<code>host.call</code> 的名字与五键形状一字未动。</p>
+  <p>首测机制定位在电话成功路径上：<code>host.call</code> 成功时<b>无条件</b>发一行；清单里 <code>host.call</code> 的 guard 虽然写着「成功且状态未变时轮询不发」，但 <code>isEdgeEvent</code> 只认 guard 文本里带「边沿触发」四个字的事件（只有 <code>update.status.changed</code> 与 <code>update.queue.transition</code> 命中，其余 26 条不含），宿主侧也没实现「状态未变就不发」。于是 1 秒一拍 = 86400 行/天。</p>
+  <p>修法落在 <code>src/host.ts:857-868</code>（#124 线）：<code>isStatusPoll</code> 认出轮询电话，算快照指纹，<b>只有「上次算得出、这次算得出、且与上次不同」才留一行</b>；<b>第一次轮询没有可比的上次，同样抑制</b>（<code>previous === null</code> 即 <code>pollSuppressed</code>）；指纹算不出来时宁多发一行，也不误吞一次状态变化；失败行 <code>host.call.fail</code> 不受影响；<code>host.call</code> 的名字与五键形状一字未动。</p>
 </div>
 
 <div class="grid3">
@@ -819,8 +854,9 @@ details[open] summary::before{content:"▾ "}
   <tbody>
     <tr><td><b>L1 后向断言</b></td><td><code>tests/host-log.test.mjs</code>、<code>tests/store-log.test.mjs</code>、<code>tests/batch-log.test.mjs</code>、<code>tests/log-kernel.test.mjs</code>、<code>tests/client-log.test.mjs</code>、<code>tests/panel-log.test.mjs</code></td><td>逐事件的<b>负向断言</b>：序列化结果里不出现绝对路径形状、<code>scheme://</code>、令牌形状、<code>键=值</code> 凭据形状、邮箱形状；字段名集合与清单完全一致；内核三不变量；客户端队列的环形/退避/丢弃口径</td></tr>
     <tr><td><b>L2 缝探针</b></td><td>在<b>真落盘路径</b>上跑一次完整安装（真 homeDir／真锁／真队列，只假网络与子进程）</td><td><code>update.queue.transition</code> <b>三相位齐</b>：<code>queued{position:1}</code> → <code>running{waitedMs:8}</code> → <code>done</code>；<code>update.install.request</code>、<code>update.install.verify</code>、<code>update.check.done</code>、<code>update.channel.decide</code>、<code>update.status.changed</code> 各就其位</td></tr>
-    <tr><td><b>L3 真机隔离装置</b></td><td><code>node .tmp/log-verify/run.mjs</code>（s1/s2/s3/budget）</td><td>三隔离场景 + 预算 8 条；被测字节有 sha256 可查（<code>ee63864a…</code> 首测 / <code>0c414635…</code> 复验）；<b>复验由独立会话复跑</b>，不是转述自述</td></tr>
-    <tr><td><b>L4 全量回归</b></td><td><code>npm test</code></td><td><b>1124 例：1123 过 / 1 跳过 / 0 失败</b>（本报告写作时复跑，212 个 suite，7.5 秒）</td></tr>
+    <tr><td><b>L3 真机隔离装置</b></td><td><code>node .tmp/log-verify/run.mjs</code>（s1/s2/s3/budget）</td><td>三隔离场景 + 预算 8 条；<b>定稿时（HEAD <code>798e2ec</code>／0.16.0）本报告复跑 <code>budget</code> 仍为 8/8</b>，被测 dist sha256 <code>49efa516b6a75909…</code>；早前两轮被测字节有 <code>ee63864a…</code>（首测）／<code>0c414635…</code>（复验）可查</td></tr>
+    <tr><td><b>L4 全量回归</b></td><td><code>npm test</code></td><td><b>1125 例：1124 过 / 1 跳过 / 0 失败</b>（本报告定稿时复跑，212 个 suite，7.5 秒）</td></tr>
+    <tr><td><b>L5 独立复核</b></td><td>另一会话按 <code>文件:行号</code> 逐条回查本报告的每项断言</td><td>结论写在 <code>docs/research/20261014-log-integration-review.md</code>：<b>14 条出入</b>（含 2 条死条目、3 处取值不符、1 处归因错误、1 处不变量被反例打破）已全部回灌进本报告第 4／6／7／12 节；复核同时确认「所有实际发射字段名都在白名单内、级别与档位逐条一致」</td></tr>
   </tbody>
 </table>
 
@@ -841,7 +877,8 @@ details[open] summary::before{content:"▾ "}
       <li>面板侧挂载组件后，客户端日志自动经 <code>&lt;prefix&gt;.logAppend</code> 回宿主落盘；</li>
       <li>19 个环节的事件自动打点，字段与级别已按清单定稿；</li>
       <li>轮询噪声已治理，稳态预算 0 行/天，不需要你调优；</li>
-      <li>多插件共存由机制保证（目录分离 + 登记表 + 路由表），不需要你协调别人。</li>
+      <li>多插件共存由机制保证（目录分离 + 登记表 + 路由表），不需要你协调别人；</li>
+      <li>面板错误章自带日志路牌（<b>0.16.0 起</b>）：把 <code>updateLogDirFor(pluginId, homeDir)</code> 的结果传给挂载项的 <code>logDir</code>，面板就会直接写出真实目录与现成的 <code>npx dsh-log tail &lt;该目录&gt;</code>；不传则退回算式与命令模板，绝不指一个不存在的值。</li>
     </ul>
   </div>
   <div class="card">
@@ -884,6 +921,23 @@ details[open] summary::before{content:"▾ "}
 </div>
 <p class="src">序列来自缝探针实测（事件目录 §3.1「实测证据」）；行内 <code>…</code> 为省略的数值或时间戳，五键形状 <code>{v:3,ts,level,event,fields}</code> 是真实的。</p>
 
+<h3>10.3 交日志这一页：第三方拿到手的是什么（0.16.0 起）</h3>
+<div class="grid2">
+  <div class="card">
+    <h4>三样东西递到手上</h4>
+    <ul style="margin-bottom:0">
+      <li><b>目录</b>：<code>&lt;DSH_HOME&gt;/logs/&lt;派生命名空间&gt;/</code>，按天一个 <code>YYYY-MM-DD.log</code>，5 MB 封存、14 天保留；</li>
+      <li><b>一条命令</b>：<code>npx dsh-log tail &lt;该目录&gt;</code>（可加 <code>--since</code>／<code>--level</code>／<code>--json</code>）；面板错误章的路牌会把这条命令连同真实路径一起写出来；</li>
+      <li><b>一张清单</b>：<code>event-list.update.json</code> 里 28 条事件的级别、档位、字段白名单与 guard，第三方按清单就能解析与聚合。</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>路牌的实现（<code>#123</code>）</h4>
+    <p style="margin:0;font-size:13.4px">宿主侧 <code>updateLogDirFor(pluginId, homeDir)</code>（<code>src/host.ts</code>）用与落盘<b>同一个算式</b>算出目录：<code>updateLogRootDir(homeDir ?? DSH_HOME ?? ~/.dsh)</code> + <code>deriveLogNamespace(pluginId)</code>，经挂载项 <code>logDir</code> 传给面板；面板只在<b>拿到真值</b>时写实路径与实命令，否则退回 <code>&lt;DSH_HOME&gt;/logs/&lt;derived&gt;</code> 与 <code>npx dsh-log tail &lt;log-dir&gt;</code> 模板。<b>电话回包一个字不改</b>：使用范围那栏仍只回范围名与宿主种类，日志行里只有 <code>logDirHash</code>，绝不出现路径。</p>
+    <p class="src" style="margin-bottom:0">src/host.ts · src/entry.ts · src/panel.ts · README §10/§11</p>
+  </div>
+</div>
+
 <!-- ============ 11 ============ -->
 <h2 id="s11"><span class="num">11</span>不变量清单：改动时会被打红的地方</h2>
 <p class="sub">这份清单的价值在于「以后谁改这块，哪条会红」。每条都有测试或清单钉住。</p>
@@ -894,11 +948,11 @@ details[open] summary::before{content:"▾ "}
     <tr><td>1</td><td>落盘行恒五键 <code>{v:3,ts,level,event,fields}</code>，<code>v === 3</code></td><td><code>parseLogRow</code> 断言 · 门禁 <code>src/gate.ts</code></td><td>读侧工具与第三方解析当场分叉</td></tr>
     <tr><td>2</td><td>事件名与字段名集合与 <code>event-list.update.json</code> 完全一致（多一个少一个都红）</td><td>各事件的负向断言用例 · 发射口 <code>checkLogFields</code></td><td>整行被丢弃并记 <code>update.log.degraded{reason:'unknown-field'}</code></td></tr>
     <tr><td>3</td><td>旧三事件（<code>host.call</code>/<code>host.call.fail</code>/<code>update.install.exec</code>）形状冻结，只改「发不发」</td><td><code>tests/phones.test.mjs</code>、<code>tests/routes.test.mjs</code> 逐字锁死</td><td>集成方日志解析断代</td></tr>
-    <tr><td>4</td><td>合法 pluginId 原样通过；不同 raw 标识永不共目录</td><td><code>tests/log-kernel.test.mjs</code></td><td>两插件共享目录 → 两个写者 → 互相吃行</td></tr>
+    <tr><td>4</td><td>合法 pluginId（≤32、形状合法）原样通过、绝不撞名；<b>有损派生名只是概率性不撞名</b>（sha256 前 6 位）</td><td><code>tests/log-kernel.test.mjs</code>；第 6 节边界实测（5000 个同前缀超长标识 → 1 组撞名）</td><td>两插件共享目录 → 两个写者 → 互相吃行（仅当有损派生撞名时才发生）</td></tr>
     <tr><td>5</td><td>同一日志目录同进程只有一个句柄（跨副本共用登记表）</td><td>登记表实现 + 待接落点/引用计数</td><td>后建库者整篇覆写先写者的文件（10 行剩 9 行）</td></tr>
     <tr><td>6</td><td>取不到落点即丢弃计数，绝不回退到别人的 sink</td><td><code>router.resolve()</code> 回 <code>null</code> 的语义 + 发射口 <code>no-sink</code> 分支</td><td>串台：别的插件的目录里出现你的行（比丢行更坏，因为看不出来）</td></tr>
-    <tr><td>7</td><td>轮询成功行零常驻；<b>第一次也不发</b>；失败行不受影响</td><td>预算断言 B 层（600 次 → 0 行）· <code>src/host.ts:845-855</code></td><td>回到 86400 行/天，现场 99.3% 噪声原样复现</td></tr>
-    <tr><td>8</td><td>常驻（resident）事件必须边沿触发</td><td>清单 <code>guard</code> 标注 + 发射口指纹去重</td><td>常驻行按次落盘，噪声预算立刻击穿</td></tr>
+    <tr><td>7</td><td>轮询成功行零常驻；<b>第一次也不发</b>；失败行不受影响</td><td>预算断言 B 层（600 次 → 0 行）· <code>src/host.ts:857-868</code></td><td>回到 86400 行/天，现场 99.3% 噪声原样复现</td></tr>
+    <tr><td>8</td><td><b>只有 <code>update.status.changed</code> 与 <code>update.queue.transition</code> 两条</b>常驻事件受边沿指纹去重保护（清单 guard 里带「边沿触发」四字才命中）</td><td>清单 <code>guard</code> 标注 + 发射口 <code>isEdgeEvent</code>／<code>fieldFingerprint</code>（<code>emit.ts:183-191</code>）</td><td>误以为「所有 resident 都边沿」→ 新加常驻事件按次落盘，噪声预算立刻击穿</td></tr>
     <tr><td>9</td><td>日志行不出现路径/URL/令牌/邮箱/宿主原话/命令</td><td>ADR-0006 · 逐事件负向断言 · <code>sanitizeLogFields</code></td><td>留存面出真实数据；第三方贴 issue 即泄敏</td></tr>
     <tr><td>10</td><td>客户端只能交回 5 个白名单事件</td><td><code>isClientLogEvent</code> · <code>logAppendRows</code></td><td>客户端可伪造宿主事实（如 <code>update.install.exec</code>），日志可信度归零</td></tr>
     <tr><td>11</td><td><code>logAppend</code> 不产生 <code>host.call</code> 行；整条路永不外抛</td><td>宿主侧直接进表、不走 <code>loggedPhone</code>；客户端各层 try/catch</td><td>日志给日志制造噪声；或日志故障拖垮面板更新功能</td></tr>
@@ -909,57 +963,137 @@ details[open] summary::before{content:"▾ "}
 
 <!-- ============ 12 ============ -->
 <h2 id="s12"><span class="num">12</span>已知缺口与待收口事项</h2>
-<p class="sub">如实登记，不替实现圆场。前三条来自票面自述，第四、五条是本次核对代码时发现的文档面差异，第六条是流程状态。</p>
+<p class="sub">如实登记，不替实现圆场。本节在交付前由<b>独立复核会话</b>按 <code>文件:行号</code> 逐条回查过一遍（复核记录：<code>docs/research/20261014-log-integration-review.md</code>），下面每一条都带可核对的行号。</p>
 
+<h3>12.1 事件面与规格不符（复核发现，已回灌第 4 节）</h3>
 <table>
-  <thead><tr><th style="width:4%">#</th><th style="width:26%">缺口</th><th style="width:44%">现状</th><th>影响</th></tr></thead>
+  <thead><tr><th style="width:4%">#</th><th style="width:26%">缺口</th><th style="width:44%">现状（含行号）</th><th>影响</th></tr></thead>
   <tbody>
     <tr>
       <td>1</td>
-      <td><code>entry.fail.exitCode</code> 的真路径未接</td>
-      <td>事件表里有这个字段，但真实退出码路径上还没有实测断言（票 #124 正文与评论里登记）</td>
-      <td>入口件安装失败的退出码在日志里可能缺格；<b>字段存在 ≠ 值一定出现</b></td>
+      <td><b>两条死条目：<code>update.install.retry</code>／<code>update.restart.outcome</code></b></td>
+      <td>两条都在随包清单里登记为 resident，但 <code>src/</code> 内<b>零发射点</b>；也不在客户端白名单 <code>src/log/client-queue.ts:100-106</code>（恰 5 个）。即便有人发，也会被 <code>src/host.ts:1213</code> 判为非法事件计入 <code>dropped</code>。<code>src/panel.ts</code> 的 <code>case 'restart-hint'</code> 全程无日志行</td>
+      <td>「28 事件覆盖 19/19 环节」不成立，正确口径是 <b>26 条有发射点 + 2 条死条目</b>；「失败重试」与「重启结果」两个环节在日志里是空的</td>
     </tr>
     <tr>
       <td>2</td>
-      <td><code>from:'batch'</code> 缺端到端断言</td>
-      <td>安装电话的 <code>from</code> 只进日志、不改老调用形状；批量宿主会传 <code>'batch'</code>，但没有一条端到端用例把它从批量路径一路断言到落盘行</td>
-      <td>批量安装的日志里 <code>from</code> 取值可能被静默退化成默认 <code>'panel'</code>，而没人发现</td>
+      <td><b><code>update.panel.action.action</code> 取值不符</b></td>
+      <td>实际 11 值（<code>src/panel.ts:198-210</code>，<code>:2722</code> 原样写入）。规格里的 <code>retry</code> <b>从不发射</b>；<code>restart</code> 实为 <code>restart-hint</code>；<code>copy-diagnostics</code> 实为 <code>copy-diag</code>（<code>tests/panel-log.test.mjs:197-199</code> 锁的就是 <code>copy-diag</code>）；另有 6 个未登记值</td>
+      <td>按规格写解析规则的第三方会漏统计 6 个动作、并永远等不到 <code>retry</code>／<code>copy-diagnostics</code> 两行</td>
     </tr>
     <tr>
       <td>3</td>
-      <td><code>releaseLock</code> unlink 真失败的内层分支无测试</td>
-      <td><code>update.lock.anomaly{kind:'release-failed'}</code> 的分支存在，但没有一条用例真的让 unlink 失败</td>
-      <td>锁释放异常这条诊断路径是「写了没验」的状态</td>
+      <td><b><code>update.panel.mount.mode</code> 取值不符</b></td>
+      <td>实现只会写 <code>'panel'</code> 与 <code>'http'</code>（<code>src/http.ts:353</code>）；规格承诺的 <code>'batch'</code>／<code>'entry-batch'</code> <b>无实现</b> —— 批量入口件 <code>src/entry-batch.ts:498</code> 不传 <code>clientLog</code>，批量面板全文零发射</td>
+      <td>批量面板的挂载事件根本不会出现；而 HTTP 直挂会落一个规格里没写的 <code>'http'</code></td>
     </tr>
     <tr>
       <td>4</td>
-      <td><b>关联字段 <code>traceId</code> / <code>spanId</code> 未见实现</b></td>
-      <td>规格（事件目录 §4 规则 2）要求每条行带这两个字段以支持 dsh-log 的 <code>traceChain</code>；<code>src/</code> 内 grep <code>traceId|spanId|traceChain</code> <b>零命中</b></td>
-      <td>按 trace 追一次完整链路的能力目前<b>不具备</b>；<code>npx dsh-log tail --trace &lt;id&gt;</code> 这条用法在 README §11 里已写出，但行里没有可追的字段 —— <b>要么补实现，要么把这条用法从文档里撤下</b></td>
+      <td><code>update.changelog.parse.source</code> 取值不符</td>
+      <td>实现写死 <code>'npm'</code>（<code>src/host.ts:1071</code>），规格里的 <code>tarball</code>／<code>installed</code>／<code>release</code> 三值从未出现</td>
+      <td>「更新日志是从哪来的」这一格事实上没有信息量</td>
     </tr>
     <tr>
       <td>5</td>
-      <td><b>文档面滞后（README 开头）</b></td>
-      <td><code>README.md:13</code> 仍写「零运行时依赖。当前版本 <code>0.10.0</code>」，而 <code>package.json</code> 是 <code>0.16.0</code> 且 <code>dependencies</code> 里有 <code>dsh-log@^0.3.1</code></td>
-      <td>这是用户手册的第一屏，与本次集成直接冲突（「零运行期依赖」正是 ADR-0005 显式破掉的那条）——需要在发布收口时改掉，否则集成方会按错误前提判断</td>
+      <td><code>update.check.fail.stage</code> 只落两值</td>
+      <td>类型声明四值（<code>src/service.ts:38</code>），实际赋值点只有 <code>'fetch'</code>（<code>:308</code>）与 <code>'channel'</code>（<code>:400/463/493</code>）；<code>'compare'</code>／<code>'verify'</code> 无赋值点</td>
+      <td>按四值写穷举的解析方要为空分支留路</td>
     </tr>
     <tr>
       <td>6</td>
-      <td>发布收口未完成（票 #123）</td>
-      <td>地图 #117 十张子票已关 9 张，只剩 <b>#123（发布与对外交接：0.15.0 + 交日志一页）</b>；其名义阻塞 #120/#122/#125/#124 已全部关闭</td>
-      <td><b>代码成果已闭环，但还没发布</b>；实现仍在工作区（<code>git 34b00e6</code> 是快照提交 + 未提交改动），发布面与文档面要一起收口</td>
+      <td><code>update.registry.fetch</code> 的 <code>/http</code> 变体零接线</td>
+      <td>全仓唯一发射点在 <code>src/service.ts:337</code>（<code>makeFetchNoter</code>）；HTTP 直挂路径没有任何打点，也不在客户端白名单</td>
+      <td>用 HTTP 直挂的集成方拿不到取数阶段的日志</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td><code>update.lang.applied.source</code> 少列一值</td>
+      <td>类型为四值 <code>'override'|'dom'|'navigator'|'default'</code>（<code>src/lang.ts:77</code>），规格只列了三值</td>
+      <td>落 <code>'default'</code> 时解析方可能当成未知值丢弃</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td><code>update.store.fail</code> 落点数与规格描述不符</td>
+      <td>实际落点 <b>16 处</b>（<code>src/store.ts:303</code>、<code>316</code>、<code>323</code>、<code>339</code>、<code>348</code>、<code>360</code>、<code>373</code>、<code>379</code>、<code>394</code>、<code>407</code>、<code>564</code>、<code>580</code>、<code>603</code>、<code>613</code>、<code>626</code>、<code>641</code>）；文档面写的「13 处」只是其中原先静默的那一部分</td>
+      <td>把 13 当全集引用会低估覆盖（也低估噪声面）</td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td><b>「resident 必须边沿触发」不是机器规则</b></td>
+      <td>28 条清单里只有 2 条 <code>guard</code> 含「边沿触发」（<code>update.status.changed</code>、<code>update.queue.transition</code>），发射口指纹去重也只覆盖这 2 条（<code>src/log/emit.ts:183</code>）</td>
+      <td>新增 resident 事件若不自带边沿，噪声会按次累积；预算保护不是自动的</td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td><b>命名空间有损分支会撞名（不变量被反例打破）</b></td>
+      <td>有损派生只留 <code>sha256 前 6 位</code>（<code>src/log/namespace.ts:23/73</code>）。本报告实跑探针：<b>5000 个同前缀超长标识 → 1 组撞名</b>（<code>plugin-aplugin-aplugin-a-770cdb</code>）</td>
+      <td>「不同 pluginId 永不共目录」只对无损分支成立；有损分支是概率性隔离，撞上就是两个写者共目录</td>
+    </tr>
+    <tr>
+      <td>11</td>
+      <td><b>关联字段的归因被写错（已在第 4 节修正）</b></td>
+      <td><code>traceId</code>／<code>spanId</code>／<code>seq</code> 由 dsh-log <b>客户端 SDK</b> 自动注入（<code>node_modules/dsh-log/dist/client/write.js:108-127</code>）；本包自建落点走 <code>src/log/sink.ts:56-63</code> 直调 <code>store.log</code> 三参入口，<b>不经过建链包装</b>，落盘行里没有三件套（实测落盘行为 <code>{"probe":2}</code>）</td>
+      <td>正确说法是「自建落点／自建客户端通道追不到链」，不是「规格承诺了实现没做」。要追链只能追 SDK 自己发的行</td>
     </tr>
   </tbody>
 </table>
 
-<div class="note warn">
-  <p class="t">第 4 条与第 5 条的处理建议</p>
-  <p><b>第 4 条</b>：先把「哪一端是对的」定下来。若 <code>traceChain</code> 是这次集成的承诺，就补 <code>traceId</code>/<code>spanId</code> 的铸造与注入（发射口已支持 <code>fingerprint</code> 与 <code>always</code>，字段白名单也要同步加两格）；若不补，就把 README §11 的 <code>--trace</code> 用法与事件目录 §4 规则 2 一起降级为「规划中」，别让第三方按不存在的字段去追链。</p>
-  <p><b>第 5 条</b>：属发布收口票 #123 的最小改动面 —— 改一行 README 开头，并让发布门禁把「README 声明的版本 / 依赖面与 package.json 一致」纳入检查，避免下次再滞后。</p>
+<h3>12.2 代码缺口（票 #124 自述，复核逐条限定后成立）</h3>
+<table>
+  <thead><tr><th style="width:4%">#</th><th style="width:26%">缺口</th><th style="width:44%">现状</th><th>影响</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>12</td>
+      <td><code>entry.fail.exitCode</code> 的真路径未接</td>
+      <td>事件表里有这个字段，但真实退出码路径上还没有端到端断言</td>
+      <td>入口件安装失败的退出码在日志里可能缺格；<b>字段存在 ≠ 值一定出现</b></td>
+    </tr>
+    <tr>
+      <td>13</td>
+      <td><code>from:'batch'</code> 缺端到端断言</td>
+      <td><b>电话层已有断言</b>（<code>tests/host-log.test.mjs:216-226</code>）；缺的是「批量路径 → 一路到落盘行」的端到端用例</td>
+      <td>批量安装的日志里 <code>from</code> 取值可能在更长的链路上被静默退化，而没人发现</td>
+    </tr>
+    <tr>
+      <td>14</td>
+      <td><code>releaseLock</code> unlink 真失败的内层分支无测试</td>
+      <td><code>update.lock.anomaly{kind:'release-failed'}</code> 的内层分支（<code>src/store.ts:370-375</code>）没有被真的让 unlink 失败；现有测试走的是外层（<code>:377-381</code>）</td>
+      <td>锁释放异常这条诊断路径是「写了没验」的状态</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>12.3 文档面滞后（发布收口应一并处理）</h3>
+<table>
+  <thead><tr><th style="width:4%">#</th><th style="width:26%">缺口</th><th style="width:44%">现状</th><th>影响</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>15</td>
+      <td><b>README 第一屏与实现冲突</b>——复核后已在仓库修正</td>
+      <td>原状：<code>README.md:13</code> 写「零运行时依赖。当前版本 <code>0.10.0</code>」，而 <code>package.json</code> 是 <code>0.16.0</code> 且 <code>dependencies</code> 里有 <code>dsh-log@^0.3.1</code>。已改为「要求 Node 22 或更高。当前版本 <code>0.16.0</code>，运行期依赖只有一个：<code>dsh-log ^0.3.1</code>（0.15.0 起，见第 10 节）」；同屏 <code>README.md:17</code>「四个电话」→「五个电话」（补 <code>logAppend</code>），<code>README.md:570</code>「四个电话名」→「五个电话名」</td>
+      <td>这是用户手册第一屏，与本次集成直接冲突（「零运行期依赖」正是 ADR-0005 显式破掉的那条）——集成方会按错误前提判断。<b>仓库已修 ≠ npm 页已修</b>：已发布的 0.16.0 tarball 内 README 仍是旧行，要在 npm 上生效须再发一版</td>
+    </tr>
+    <tr>
+      <td>16</td>
+      <td>README 命名空间描述与实现口径不一致——复核后已在仓库修正</td>
+      <td>原状：<code>README.md:686</code> 写「截 32 位」+ <code>hash6</code>；实现是<b>合法标识（1–32 位）走无损分支原样通过</b>，有损分支截 <code>SLUG_CHARS = 24</code> 再补 <code>-hash6</code>（合计 ≤31，<code>src/log/namespace.ts:23</code>）。已按实现改写，并把「不同 <code>pluginId</code> 永不共目录」限定成「无损分支保证；有损分支按 24 位指纹概率性隔离」。同一处更正落到 <code>README.md:640</code>、<code>CONTEXT.md:26</code>、<code>CHANGELOG.md:59</code>（0.15.0 条目原文）与 <code>src/log/namespace.ts:9-12</code> 的注释</td>
+      <td>集成方按「32 位截断」推自己的目录名会算错；按「永不共目录」做安全假设会被反例打破</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note ok">
+  <p class="t">已经收口的部分（不再是缺口）</p>
+  <p><b>#123 发布与对外交接已关闭</b>：地图 #117 的十张子票全部关闭；<code>0.16.0</code> 已在 <code>package.json</code> 定格，CHANGELOG／README／<code>docs/maintainers.md</code> 同步更新，错误章日志路牌（<code>updateLogDirFor</code> + 面板 <code>logDir</code>）落地并带测试（<code>tests/panel.test.mjs</code>）。地图 Notes 里列为「雾」的三件事，第 2 件（面板是否该把 <code>dsh-log tail</code> 命令递到手上）已由 #123 定论为<b>做</b>；第 1 件（跨进程同目录只承诺「交错不覆写」）与第 3 件（ondemand 事件的带内调试开关）仍维持「不做」。</p>
 </div>
 
-<h3>12.1 规格里两处「明确不做」是决定，不是遗漏</h3>
+<div class="note warn">
+  <p class="t">第 11 条与第 15/16 条的处理建议</p>
+  <p><b>第 11 条</b>：把 README §11 的 <code>--trace</code> 用法与事件目录 §4 规则 2 的措辞改成「仅 dsh-log 客户端 SDK 发出的行可追链；本包自建落点的行不带 <code>traceId</code>」（<b>复核后已改</b>：<code>README.md:562</code>、<code>README.md:703</code>、事件目录 §4 规则 2）；若确实要追链，就得让自建落点改走 SDK 的建链包装（发射口已支持 <code>fingerprint</code> 与 <code>always</code>，字段白名单也要同步加两格）——<b>这条实现未做</b>，属下一版的可选项。</p>
+  <p><b>第 15／16 条</b>：属发布收口的最小改动面 —— 改 README 第一屏与 §11 的命名空间段落（<b>复核后已改</b>：<code>README.md:13/17/570/640/686</code>、<code>CONTEXT.md:26</code>、<code>CHANGELOG.md:59</code>、<code>src/log/namespace.ts:9-12</code>），并建议发布门禁把「README 声明的版本／依赖面与 <code>package.json</code> 一致」「文档里的枚举值与 <code>event-list.update.json</code> 一致」纳入检查（<b>仍未做</b>，属下一版的事）。已发布的 0.16.0 tarball 内 README 仍是旧行，npm 页要跟着正确须再发一版。</p>
+</div>
+
+<h3>12.4 规格里两处「明确不做」是决定，不是遗漏</h3>
 <div class="grid2">
   <div class="card">
     <h4><code>update.lock.anomaly{kind:'busy-timeout'}</code> 不做</h4>
@@ -977,12 +1111,12 @@ details[open] summary::before{content:"▾ "}
 
 <div class="code-card">
   <div class="hd">从零复现这份报告的全部结论</div>
-  <pre><code># ① 全量回归（本报告基线：1124 例 / 1123 过 / 1 跳过 / 0 失败）
+  <pre><code># ① 全量回归（本报告基线：1125 例 / 1124 过 / 1 跳过 / 0 失败）
 npm test
 
 # ② 隔离与预算实测装置（真电话 / 真落点 / 真清单 / 真文件字节；装置已 gitignore，可重建）
 node .tmp/log-verify/run.mjs            # 全跑：s1 s2 s3 budget
-node .tmp/log-verify/run.mjs budget     # 只复跑预算断言（8 条，应 8/8）
+node .tmp/log-verify/run.mjs budget     # 只复跑预算断言（8 条，应 8/8；HEAD 798e2ec 复跑仍 8/8）
 
 # ③ 单跑日志内核与各侧事件断言
 node --test tests/log-kernel.test.mjs tests/host-log.test.mjs tests/store-log.test.mjs \
@@ -991,7 +1125,10 @@ node --test tests/log-kernel.test.mjs tests/host-log.test.mjs tests/store-log.te
 # ④ 命名空间派生（有损必带指纹）
 node -e "… deriveLogNamespace('My.Plugin') …"   # → my-plugin-&lt;sha256 前 6 位&gt;
 
-# ⑤ 第三方视角：读日志
+# ⑤ 有损派生撞名的反例（第 6 节 / 第 12 节 #10 的那组）
+node .tmp/ns-probe.mjs                  # 5000 个同前缀超长标识 → 打印 1 组撞名
+
+# ⑥ 第三方视角：读日志
 npx dsh-log tail "$DSH_HOME/logs/&lt;派生命名空间&gt;" --since 2h --level warn
 npx dsh-log tail "$DSH_HOME/logs" --json &gt; update.log</code></pre>
 </div>
@@ -1005,6 +1142,7 @@ npx dsh-log tail "$DSH_HOME/logs" --json &gt; update.log</code></pre>
     <tr><td><code>docs/adr/0006-log-rows-carry-codes-not-prose.md</code></td><td>行只承载稳定码的决策（含三类允许值、负向断言口径、README 张力的解法）</td></tr>
     <tr><td><code>docs/research/20261014-log-event-catalog.md</code></td><td>事件目录：19 环节 × 事件/级别/档位/字段/脱敏 + §3.1 接线状态（函数级落点）</td></tr>
     <tr><td><code>docs/research/20261014-log-isolation-verification.md</code></td><td>隔离与预算实测记录（三场景 + 负对照 + 首测/复验两轮数字 + 测不到的边界）</td></tr>
+    <tr><td><code>docs/research/20261014-log-integration-review.md</code></td><td><b>独立复核记录</b>：本报告每项断言的逐条回查（16 条出入 + 确认无误项，每条带 <code>文件:行号</code>）</td></tr>
     <tr><td><code>docs/research/20261014-dsh-log-031-api.md</code></td><td>上游 dsh-log 0.3.1 的 API 表面与落盘语义（一手取证）</td></tr>
     <tr><td><code>docs/research/20261014-update-logging-inventory.md</code></td><td>本包 19 环节可观测性盘点与多插件共存风险（改造前的基线）</td></tr>
     <tr><td><code>docs/research/20261014-dsh-host-logging-surface.md</code></td><td>DSH 宿主侧能提供什么日志能力（结论：几乎没有，所以必须自建落点）</td></tr>
@@ -1014,9 +1152,10 @@ npx dsh-log tail "$DSH_HOME/logs" --json &gt; update.log</code></pre>
 </table>
 
 <div class="foot">
-  <p><b>关于这份报告</b>：全部事实取自当前工作区的代码、随包清单与实测记录，测试数字由本报告写作时实跑得出。凡「文档承诺 vs 实现」有出入处（第 12 节 #4、#5）已单列，未做圆场。</p>
-  <p><b>范围</b>：本报告只覆盖地图 #117 的日志系统集成线（子票 #118／#119／#120／#121／#122／#124／#125／#126／#127 已关，#123 待收口）；同一工作区并行进行的 changelog 展示线（#116 等）不在本报告内。</p>
-  <p><b>版本口径</b>：代码状态 = <code>git 34b00e6</code> 快照 + 未提交工作区改动（<code>src/host.ts</code>、<code>src/store.ts</code>、<code>src/service.ts</code>、<code>src/batch-run.ts</code>、<code>src/host-batch.ts</code>、<code>src/reader.ts</code>、<code>src/ports.ts</code>、<code>docs/**</code>、<code>tests/*log*.test.mjs</code>）；包版本 <code>0.16.0</code>；依赖 <code>dsh-log ^0.3.1</code>（实测安装 <code>0.3.1</code>）。</p>
+  <p><b>关于这份报告</b>：全部事实取自 <code>git 798e2ec</code> 的代码、随包清单与实测记录，测试数字与预算断言由本报告定稿时实跑得出，并逐条经独立复核会话回查。凡「文档承诺 vs 实现」有出入处（第 12 节 16 条）已单列，未做圆场。</p>
+  <p><b>范围</b>：本报告只覆盖地图 #117 的日志系统集成线；该地图十张子票<b>已全部关闭</b>（#118／#119／#120／#121／#122／#123／#124／#125／#126／#127），<code>0.16.0</code> 已定格。同一工作区并行进行的 changelog 展示线（#116 等）不在本报告内。</p>
+  <p><b>版本口径</b>：代码状态 = <code>git 798e2ec</code>（工作区干净）；包版本 <code>0.16.0</code>；依赖 <code>dsh-log ^0.3.1</code>（实测安装 <code>0.3.1</code>）；<code>src/log/</code> 8 文件 1333 行；全量测试 1125 例（1124 过 / 1 跳过 / 0 失败）；预算装置 8/8。</p>
+  <p><b>定稿后追加</b>：<code>cd151fc</code> 给错误章路牌补了一条挂载级测试（<code>tests/panel.test.mjs</code>），当前基线为 <b>1126 例 / 1125 过 / 1 跳过 / 0 失败</b>；同一轮按 §12.3 第 15／16 条修掉了 README 第一屏与命名空间段落（<b>仓库已修，npm 上的 0.16.0 tarball 未修</b>）。</p>
 </div>
 </main>
 </div>

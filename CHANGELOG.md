@@ -56,7 +56,7 @@
 - `mergeUpdateEvents(myManifest, updateEvents)`（`#120`）：把本包事件表并进集成方的清单——本包有、对方没有的补进去，两边都有的字段取并集、级别与归类仍按对方声明，不一致的记进 `conflicts`。
 - `lintEventList(manifest)`（`#120`）：整份清单过尺子，红＝结构或引用错（事件名不合契约、`codes`/`rules` 引用名不合法、自报计数对不上），黄＝可疑不拦（字段表为空、字段里出现自由文本键——`ADR-0006` 管这条）。
 - `parseLogRow(row)` 与 `LOG_ROW_VERSION`（`#120`）：落盘行断言，五键 `v`/`ts`/`level`/`event`/`fields`，`v` 必须是 3，多键少键都报中文错。
-- 日志内核 `dsh-plugin-update/log`（`#121`）：派生命名空间 `deriveLogNamespace`（合法标识原样通过；有损映射补 `-<sha256 原文前 6 位>`，空标识回退 `plugin-<hash6>`；不同标识永不共目录）、同进程登记表 `acquireOwnLog` / `releaseOwnLog`（`globalThis` 上按目录引用计数，同一目录只有一个 dsh-log 实例；撞租约退避重试后降级、绝不外抛、降级带冷却）、按插件标识的 O(1) 路由表 `createLogRouter`（取不到落点即丢弃计数，绝不回退到别人的 sink）、唯一发射口 `emitUpdateLog`（脱敏 + 字段白名单 + 准入短路 + 边沿预算守卫；落点抛错只计数不外抛）。宿主侧原来那个模块级共享落点（最后接线的插件收走所有行）就此消失，同进程多插件不再串台。
+- 日志内核 `dsh-plugin-update/log`（`#121`）：派生命名空间 `deriveLogNamespace`（合法标识原样通过；有损映射补 `-<sha256 原文前 6 位>`，空标识回退 `plugin-<hash6>`；无损分支下不同标识不共目录，有损分支为 24 位指纹的概率性隔离——原文写「不同标识永不共目录」，复核更正）、同进程登记表 `acquireOwnLog` / `releaseOwnLog`（`globalThis` 上按目录引用计数，同一目录只有一个 dsh-log 实例；撞租约退避重试后降级、绝不外抛、降级带冷却）、按插件标识的 O(1) 路由表 `createLogRouter`（取不到落点即丢弃计数，绝不回退到别人的 sink）、唯一发射口 `emitUpdateLog`（脱敏 + 字段白名单 + 准入短路 + 边沿预算守卫；落点抛错只计数不外抛）。宿主侧原来那个模块级共享落点（最后接线的插件收走所有行）就此消失，同进程多插件不再串台。
 - 事件表的运行时读取 `loadUpdateEventTable` / `buildUpdateManifest(pluginId, 集成方清单)`（`#121`）：读随包 `event-list.update.json` 并换标识；集成方给了自己的清单就并进去（冲突如实回报）。读不到清单只少一层字段守卫，绝不静默不写日志。
 - `tests/log-kernel.test.mjs`（`#121`）：26 例——派生映射表与两条不变量、路由 A/B 隔离、登记表引用计数与降级三态、发射口四条纪律，外加一条真引擎端到端（真装 dsh-log 0.3.1 → 真落一份文件 → 读回五键行）。
 

@@ -10,11 +10,11 @@
 
 给 DSH 插件加「检查更新 / 安装更新」能力的 npm 包。宿主侧一段接线，面板侧挂一个现成组件，装不上时给用户一条可复制的手工命令。
 
-要求 Node 22 或更高，零运行时依赖。当前版本 `0.10.0`。
+要求 Node 22 或更高。当前版本 `0.16.0`，运行期依赖只有一个：[`dsh-log`](https://www.npmjs.com/package/dsh-log) `^0.3.1`（0.15.0 起，见第 10 节）。
 
 装上它你会拿到六样东西：
 
-- **四个电话**：查状态（只读本地）、查新版（用户点了才联网一次）、装更新（拿凭证提交）、取日志（按版取更新日志，全文或空）。电话指宿主对外提供的方法。
+- **五个电话**：查状态（只读本地）、查新版（用户点了才联网一次）、装更新（拿凭证提交）、取日志（按版取更新日志，全文或空）、交日志（面板把攒下的日志行交回宿主落盘，0.16.0 起）。电话指宿主对外提供的方法。
 - **一套落盘**：任务状态、安装锁、回滚凭据，按「插件标识 + 使用范围」隔离，多插件互不干扰。
 - **面板要的派生取值**：电话名与轮询间隔，构建期从本包生成，面板里不写死。
 - **一个现成整组件**：默认内嵌、可切弹窗，调用者传参指定；轮询、安装门控、中文一句话、待重启横幅、手工命令展示与复制、排队可见开关、跳过与恢复、诊断一键复制、**更新日志自动展示**全在组件内部消化。
@@ -559,7 +559,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 8. 装完版本号没变：先看是否 `pending-restart`（第 5.4 节），是则重启宿主；不是则按第 5.2 节的表查原因。
 9. 第三方 Desktop 自动装失败但命令能装：检查桌面当前激活的使用范围是不是插件所在的那一个；对不上时自动装一定诚实失败，复制第 5.3 节的命令手工执行。
 10. 官方桌面版（使用范围名 `desktop`）装不上：看任务里的 `message`，形如 `install-failed: <宿主原话>`，里面带着宿主的错误码（例如 `operation-error`）。`message` 可能带详情，**匹配请匹配前缀错误码，不要整串相等**；日志里这条路的路由是 `desktop-manager`。
-11. 还定位不到：打开调试日志（第 10 节），用 `npx dsh-log tail <日志目录>` 看（`--since 2h`、`--level warn`、`--trace <traceId>`、`--json` 都好用）。日志按插件标识分目录，同一台机器上多个用更新系统的插件**各写各的、不相互覆盖**；三个旧事件 `host.call`、`host.call.fail`、`update.install.exec` 照旧，`update.*` 是本包按环节新增的事件（全表见包内 `event-list.update.json`）。日志里不记命令与路径原文。
+11. 还定位不到：打开调试日志（第 10 节），用 `npx dsh-log tail <日志目录>` 看（`--since 2h`、`--level warn`、`--json` 都好用）。**`--trace <traceId>` 在本包自建落点的行上追不到链**：本包落盘的行里不带 `traceId`/`spanId`（这套三件套只由 dsh-log 的**客户端 SDK 写入路径**注入，即集成方把客户端实例当 `logCtx` 传进来时才存在），按时间窗加事件名筛更实在。日志按插件标识分目录，同一台机器上多个用更新系统的插件**各写各的、不相互覆盖**；三个旧事件 `host.call`、`host.call.fail`、`update.install.exec` 照旧，`update.*` 是本包按环节新增的事件（全表见包内 `event-list.update.json`）。日志里不记命令与路径原文。
 12. 以依赖形态接入后一直显示「安装位置在使用中途变了」（`installation-changed`）：`0.1.x` 的已知缺陷（拿「本包自己住在哪」推断目标包位置，依赖形态下恒失败）；升到 `0.2.0` 即修复。
 13. 报 `unknown-profile` 但使用范围名与目录都没问题：本包按包名找不到你的插件包。让集成方传 `readerOverrides.targetPackageDir`，或把本包装成插件包的依赖（别装到别的 `node_modules` 树里）。
 
@@ -567,7 +567,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 
 照第 2 节把名字换成自己的之后，逐条打勾：
 
-1. 宿主启动不报错，`update.phoneNames` 读到自家前缀的四个电话名，查状态返回六字段快照。
+1. 宿主启动不报错，`update.phoneNames` 读到自家前缀的五个电话名，查状态返回六字段快照。
 2. 面板按间隔轮询到快照，能展示第 5.2 节的原因文案；有新版本时安装按钮可用，无新版本与待重启时按钮状态正确。
 3. 模拟一次 `pending-restart` 能看到第 5.4 节的横幅，模拟一次自动装失败能看到第 5.3 节的命令可复制执行。
 4. 第二家同机隔离与串行：两家各传自己的插件标识与电话名前缀，电话名、落盘目录、锁文件逐个不同；安装执行跨插件串行——同范围撞上时后到者报 `update-busy`，凭队列位置（第 5.7 节）重试。
@@ -637,7 +637,7 @@ parseLogRow({ v: 3, ts: '2026-10-14T21:00:00.000Z', level: 'info', event: 'updat
 ```js
 import { deriveLogNamespace, acquireOwnLog, releaseOwnLog, emitUpdateLog, loadUpdateEventTable } from 'dsh-plugin-update/log'
 
-deriveLogNamespace('My.Plugin')   // 'my-plugin-<hash6>'：有损派生必带指纹，不同标识永不共目录
+deriveLogNamespace('My.Plugin')   // 'my-plugin-<hash6>'：有损派生必带 24 位指纹（同前缀下概率性区分）；合法标识原样通过
 const got = await acquireOwnLog({ logsRoot, namespace, prefix: 'wf', eventList })
 //   同目录复用同一个句柄（引用计数）；建不起来就降级：{ sink: null, reason: 'no-dsh-log' | 'lease-conflict' | 'write-fail' }
 emitUpdateLog('info', 'host.call', fields, { pluginId })   // 唯一发射口：脱敏 + 字段白名单 + 准入短路 + 预算守卫
@@ -683,7 +683,7 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 **同进程同目录只有一个句柄。**本包在同进程内用一张挂在 `globalThis` 上的登记表按目录复用实例（引用计数到零才释放）：一个进程里出现两份本包副本（顶层一份、别的插件嵌套一份）时，第二份拿到的是**同一个**实例，不会出现谁把谁的日志吃掉。拿不到 `dsh-log`（没装、版本不对）或目录已被占用时**降级成「没有落点」**：事件照发、主流程零影响，并记一条 `update.log.degraded`（`reason` 是 `no-dsh-log` / `lease-conflict` / `write-fail`）。两个进程共用同一目录不在承诺内（dsh-log 只能事后诊断 `foreign-write`）。
 
-**落点：一个插件一棵目录。**`<homeDir>/logs/<派生命名空间>/`，`homeDir` 默认取 `DSH_HOME`，没有则 `~/.dsh`。命名空间由 `pluginId` 派生：转小写 → 非 `[a-z0-9-]` 换 `-` → 折叠连续 `-` → 去首尾 → 截 32 位；**只要这一步有损（换过字符或被截断），就补 `-<sha256 原文前 6 位>`**，空结果回退 `plugin-<hash6>`。两条不变量：合法标识原样通过；不同 `pluginId` 永不共目录。这就是「同一份 DSH 里多个用更新系统的插件日志不相互覆盖」的机制（开关文件同一套命名：`log-switch-<派生名>.json`）。
+**落点：一个插件一棵目录。**`<homeDir>/logs/<派生命名空间>/`，`homeDir` 默认取 `DSH_HOME`，没有则 `~/.dsh`。命名空间由 `pluginId` 派生：转小写 → 非 `[a-z0-9-]` 换 `-` → 折叠连续 `-` → 去首尾。**本身就是合法标识（小写字母数字连字符、1–32 位）的直接原样当目录名**；只有这一步有损（换过字符或被截断）才走有损分支：slug 截 24 位 + `-<sha256 原文前 6 位>`（合计 ≤31；slug 被吃光则回退 `plugin-<hash6>`）。两条不变量：合法标识原样通过；**无损分支下不同 `pluginId` 不共目录**（有损分支靠 24 位指纹区分，属概率性隔离——同一 24 位前缀的有损标识足够多时理论上可能撞名）。这就是「同一份 DSH 里多个用更新系统的插件日志不相互覆盖」的机制（开关文件同一套命名：`log-switch-<派生名>.json`）。
 
 **事件：三个旧事件形状冻结，`update.*` 按环节铺开。**`host.call`、`host.call.fail`、`update.install.exec` 的字段一字不动；新增事件按 19 个环节（检查、源查询、通道、安装、校验、重试、队列、批量、重启、面板…）命名，全表与字段白名单在包内 `event-list.update.json`，是实现的唯一事实源。日志行**只承载稳定码与参数**，人话留给面板与诊断渲染（ADR-0006）——所以日志里不会出现「安装失败：……」这类句子。
 
@@ -700,7 +700,7 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 ```sh
 npx dsh-log tail <DSH_HOME>/logs/<派生命名空间>              # 看某一个插件的日志
 npx dsh-log tail <DSH_HOME>/logs --since 2h --level warn     # 所有插件、最近两小时的告警及以上
-npx dsh-log tail <dir> --trace <traceId>                     # 追一次请求链路（按 fields.traceId）
+npx dsh-log tail <dir> --trace <traceId>                     # 追链：只对 dsh-log 客户端 SDK 落下的行有效（本包自建落点不带 traceId）
 npx dsh-log tail <dir> --json > update.log                   # 导出原始 JSON 行（给脚本或工单用）
 ```
 
