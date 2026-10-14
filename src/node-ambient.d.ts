@@ -1,10 +1,18 @@
 /**
  * src/node-ambient.d.ts —— 本包触碰的 Node 内建能力最小形状。
  *
- * 为什么不用 @types/node：包定死零运行时依赖（规格 #581 第 5 条底座），加 @types/node 等于
- * 给每个消费者带一份类型依赖；本文件只声明本包实际用到的几个函数形状，调用处照旧传真值，
- * 类型检查只认这里写的形状。新增 Node 能力先补这里，再在实现里用。
+ * 为什么不用 @types/node：本包只把 `dsh-log` 当运行期依赖（ADR-0005），不为类型再带一份依赖 ——
+ * 加了 @types/node 就等于让每个消费者跟着装它。本文件只声明本包实际用到的几个函数形状，
+ * 调用处照旧传真值，类型检查只认这里写的形状。新增 Node 能力先补这里，再在实现里用。
  */
+
+declare module 'node:async_hooks' {
+  // 宿主侧链上下文（src/log/trace.ts）：只用到「在一段调用里带上一个环境值」这一件事。
+  export class AsyncLocalStorage<T> {
+    getStore(): T | undefined
+    run<R>(store: T, callback: (...args: unknown[]) => R, ...args: unknown[]): R
+  }
+}
 
 declare module 'node:crypto' {
   export function createHash(algorithm: string): {

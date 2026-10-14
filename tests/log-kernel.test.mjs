@@ -407,8 +407,9 @@ describe('日志内核：真引擎端到端（dsh-log 0.3.1 真落一份文件�
 describe('日志内核：面板侧只许引用无 node: 依赖的纯类型与客户端通道', () => {
   it('浏览器侧入口不 import 会拖进 node: 的内核模块', () => {
     const browserFiles = ['panel.ts', 'client.ts', 'entry.ts', 'entry-batch.ts', 'panel-batch.ts', 'http.ts']
-    // 浏览器安全的只有客户端通道（#122：面板唯一的报日志出口）；其余会把 node: 内建拖进打包器。
-    const forbidden = /\.\.?\/log\/(index|namespace|emit|manifest|registry)\.js$/
+    // 浏览器安全的只有客户端通道（#122：面板唯一的报日志出口）；其余会把 node: 内建拖进打包器
+    // （`trace` 也在列：宿主侧链上下文要 node:async_hooks）。
+    const forbidden = /\.\.?\/log\/(index|namespace|emit|manifest|registry|trace)\.js$/
     for (const name of browserFiles) {
       const raw = readFileSync(join(PKG_DIR, 'src', name), 'utf8')
       const text = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^A-Za-z0-9_$:])\/\/.*$/gm, '$1')

@@ -615,7 +615,7 @@ manualCommand({ ... })          // 手工兜底命令的形状，与宿主侧同
 **事件清单检查器**（纯函数，不新增日志事件；形状对齐日志包 `dsh-log` 0.3.1）：
 
 ```js
-import { parseEventListManifest, lintEventFields, computeEventCounts, lintEventList, mergeUpdateEvents, parseLogRow } from 'dsh-plugin-update'
+import { parseEventListManifest, lintEventFields, computeEventCounts, lintEventList, mergeUpdateEvents, parseLogRow, stripReservedLogFields } from 'dsh-plugin-update'
 
 const manifest = parseEventListManifest(myEventList)   // myEventList 是对象，先自己读盘
 lintEventFields(manifest, 'host.call', ['method', 'pluginId'])   // { ok, severity: 'none' | 'warn' | 'error', ... }
@@ -623,8 +623,11 @@ computeEventCounts(manifest)                                      // { resident,
 lintEventList(manifest)                                           // 整份过尺子：{ ok, red, yellow, counts }
 mergeUpdateEvents(myEventList, updateEvents)                      // 把本包的事件表并进你的清单
 
-// 落盘行断言（0.3.1 的行格式恒五键 v/ts/level/event/fields，v 必须是 3）
-parseLogRow({ v: 3, ts: '2026-10-14T21:00:00.000Z', level: 'info', event: 'update.check.done', fields: {} })
+// 落盘行断言（0.3.1 的行格式恒五键 v/ts/level/event/fields，v 必须是 3；ts 是毫秒数 Date.now()）
+parseLogRow({ v: 3, ts: 1792009014642, level: 'info', event: 'update.check.done', fields: {} })
+
+// 拿清单量一条**读回来的行**之前，先摘掉引擎保留名（traceId/spanId/seq），否则带链的行会被判黄
+lintEventFields(manifest, row.event, stripReservedLogFields(Object.keys(row.fields)))
 ```
 
 事件清单的每条要写四样：事件名、级别（`error`/`warn`/`info`/`debug`）、允许字段（之外的键一律不记）、脱敏引用（`codes` 是截断或散列代号，`rules` 是具名正则名——都只记引用名，不记原文）。
@@ -688,6 +691,8 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 **事件：三个旧事件形状冻结，`update.*` 按环节铺开。**`host.call`、`host.call.fail`、`update.install.exec` 的字段一字不动；新增事件按 19 个环节（检查、源查询、通道、安装、校验、重试、队列、批量、重启、面板…）命名，全表与字段白名单在包内 `event-list.update.json`，是实现的唯一事实源。日志行**只承载稳定码与参数**，人话留给面板与诊断渲染（ADR-0006）——所以日志里不会出现「安装失败：……」这类句子。
 
 **噪声预算。**轮询看状态**一条常驻行都不落**——第一次也不算事件（它的第一次观测没有可比的上次），状态真变了才留一条 `update.status.changed` 供追溯；稳态一天不超过 50 行，一个操作日不超过 500 行。`info` 只在调试开关打开或事件是常驻时落盘；`warn`、`error` 始终落盘。检查电话与安装电话另各收一个**只进日志**的可选参数（`trigger`、`from`），不传即老样子。
+
+**开关：默认关着，改了要重启。**`info` 的准入由 dsh-log 的开关文件决定：`<DSH_HOME>/logs/log-switch-<派生命名空间>.json`，内容就是 `{ "enabled": false }`，默认关。注意它在 `logs/` **根下**、与日志目录平级，不是目录里的文件（`pluginId` 恰为 `wf` 时文件名退化为 `log-switch.json`）。两件事要知道：① 它只管**按需**事件——`warn`/`error` 与常驻事件不受它影响（本包 26 条事件里 19 条恒落、7 条受它管）；② dsh-log 在实例启动时把开关读进内存后**永久缓存**，运行中改这个 JSON 对活着的实例无效，**要重启宿主**才生效。本包不注册 dsh-log 的宿主日志电话（`logGetSwitch`/`logSetSwitch` 等六个都不注册），所以没有「在面板里拧开关」这条路。
 
 **面板侧的日志（`0.16.0` 起）。**面板跑在浏览器闭包里，落盘是宿主的事，中间隔着 `….logAppend` 电话：面板把行攒进一个有界环形缓冲（缺省 200 行，满了挤掉最老的并计数），按批交回宿主（缺省一批 50 行、间隔 1 秒；页面切到后台立即冲刷一次），失败退避重试 2 次后丢弃并计数 —— 整条路**永不外抛**，日志坏了不挡更新。宿主侧这一头是协议面：只收五个客户端事件（`update.panel.mount` / `update.panel.action` / `update.panel.render.fail` / `update.panel.state` / `update.lang.applied`），级别必须是 `debug`/`info`/`warn`/`error`，字段必须过本包事件清单，超量（一次 200 行以上）、过期（10 分钟以上的旧行）、形状不对一律计入回包的 `dropped`，**不产生 `host.call` 行**（不给日志自己制造噪声）。面板默认自建这条通道（电话名从前缀派生）；`mountUpdatePanel` 的 `clientLog` 选项可以换成你自己的通道或明确关掉：`{ channel }` 注入、`{ mount: 'entry' }` 记挂载点、`null` 关闭。入口件与 HTTP 直挂已经替你传好挂载点。
 

@@ -81,7 +81,7 @@
       "[dsh-plugin-update] 日志行非法：event 必须是非空字符串",
       "[dsh-plugin-update] 日志行非法：fields 必须是对象（可为空对象）",
       "[dsh-plugin-update] 日志行非法：level 只许 error、warn、info、debug",
-      "[dsh-plugin-update] 日志行非法：ts 必须是非空字符串",
+      "[dsh-plugin-update] 日志行非法：ts 必须是有限数（dsh-log 落盘的是 Date.now() 毫秒数）",
       "[dsh-plugin-update] 日志行非法：只收对象（五键 v、ts、level、event、fields）",
       "[dsh-plugin-update] 日志行非法：有不认识的键",
       "[dsh-plugin-update] 日志行非法：格式版本 v 只认",

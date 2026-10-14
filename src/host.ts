@@ -35,6 +35,7 @@ import { isClientLogEvent, LOG_LEVELS } from './log/client-queue.js'
 import { acquireOwnLog, logDirHash } from './log/registry.js'
 import { updateLogRouter } from './log/router.js'
 import { createPendingSink, sinkFromLogCtx, type LogSink } from './log/sink.js'
+import { withLogTrace } from './log/trace.js'
 import { fetchNpmVersionRelease, isVersionAllowedInChannel, updateError, validReleaseVersion, validRequestId } from './service.js'
 import { createUpdateDiskPorts, createUpdateExecutor, createUpdateQueuePorts } from './store.js'
 import { createUpdateReader, defaultHomeDir, resolveProfileName, resolveTargetPackage } from './reader.js'
@@ -839,7 +840,21 @@ function loggedPhone(
   /** 轮询抑制记忆（#124）：只有 `updateStatus` 用得上；不传即完全不抑制（默认等于现状）。 */
   pollMemory?: StatusPollMemory,
 ): (args: Record<string, unknown>) => Promise<Record<string, unknown>> {
-  return async function (args: Record<string, unknown>): Promise<Record<string, unknown>> {
+  /**
+   * 一次电话 = 一条链（`0.16.4` 起，需 dsh-log 0.3.3 的 `store.trace()`）。
+   * 链挂在**路由表给这个插件的落点**上：发射口只认与落点同源的链，所以 A 插件的链
+   * 绝不会写到 B 插件的目录里。落点还没接上（自建实例是异步的）或集成方注入的是
+   * 客户端实例时，`withLogTrace` 拿不到链，发射口退回原来的 `fire` —— 既有行为不变。
+   */
+  const sinkForPhone = (): LogSink | null => {
+    try {
+      return updateLogRouter.resolve(pluginId) ?? null
+    } catch {
+      return null
+    }
+  }
+
+  async function runPhone(args: Record<string, unknown>): Promise<Record<string, unknown>> {
     const t0 = Date.now()
     // 行统一从唯一发射口出去：落点按插件标识从路由表取（不再有「模块级最后一个落点」这种串台入口）。
     const emit = (level: string, event: string, fields: Record<string, unknown>): void => {
@@ -944,6 +959,10 @@ function loggedPhone(
       return { ok: false, ...payload, ...(diag ? { diag } : {}), ...envPatch, ...queuePatch }
     }
   }
+
+  return async function (args: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return withLogTrace(sinkForPhone(), () => runPhone(args))
+  }
 }
 
 /**
@@ -959,7 +978,16 @@ function loggedChangelogPhone(
     readerOverrides: ReaderOverrides
   },
 ): (args: Record<string, unknown>) => Promise<Record<string, unknown>> {
-  return async function (args: Record<string, unknown>): Promise<Record<string, unknown>> {
+  // 与 `loggedPhone` 同一条纪律：一次电话 = 一条链（0.16.4 起）。
+  const sinkForPhone = (): LogSink | null => {
+    try {
+      return updateLogRouter.resolve(pluginId) ?? null
+    } catch {
+      return null
+    }
+  }
+
+  async function runChangelogPhone(args: Record<string, unknown>): Promise<Record<string, unknown>> {
     const t0 = Date.now()
     const emit = (level: string, event: string, fields: Record<string, unknown>): void => {
       emitUpdateLog(level, event, fields, { pluginId })
@@ -996,6 +1024,10 @@ function loggedChangelogPhone(
       }
       return { ok: false, ...payload, ...(diag ? { diag } : {}) }
     }
+  }
+
+  return async function (args: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return withLogTrace(sinkForPhone(), () => runChangelogPhone(args))
   }
 }
 

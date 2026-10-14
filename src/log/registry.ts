@@ -57,6 +57,12 @@ export interface OwnLogAcquireInput {
   prefix: string
   /** 交给 dsh-log 的事件清单（对象形式；读不到随包清单时可以是 null）。 */
   eventList?: GateEventList | null
+  /**
+   * 写进启动头 `host.start` 行的「这个目录是谁写的」版本号（dsh-log 0.3.3 的 `pluginVersion`）。
+   * 不给就用**本包自己的版本**（`ownPackageVersion()`）—— 自建目录里落的都是本包的事件，
+   * 交日志时对方第一个要问的就是「这堆行出自哪一版」。
+   */
+  pluginVersion?: string
   /** 测试缝：换掉 `import('dsh-log/node')`（默认动态 import 真实包）。 */
   loader?: () => Promise<unknown>
   /** 撞租约时的退避表（默认 [50, 250, 1000] 毫秒，三次之后降级）。 */

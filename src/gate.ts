@@ -221,8 +221,24 @@ export interface GateLintFieldsResult extends GateFieldCheck {
   severity: 'none' | 'warn' | 'error'
 }
 
+// 引擎保留名：dsh-log 0.3.3 起，宿主侧写入路径会在**每一条链内行**的 fields 里追加这三个键
+// （traceId / spanId / seq，见 dsh-log 的 src/core/trace.ts）。它们由引擎注入，不在任何事件的
+// fields 声明里，也不该被要求声明 —— 所以「拿清单量一条**读回来的行**」之前先摘掉它们。
+//
+// 生产者侧不受影响：`emitUpdateLog` 的白名单在注入**之前**跑，那时这三个键还不存在，
+// 所以清单仍然是「我们允许自己发什么」的唯一事实源；这里豁免的是读侧那把尺子。
+export const RESERVED_LOG_FIELDS = ['traceId', 'spanId', 'seq'] as const
+
+// 从一批字段键里摘掉引擎保留名。量落盘行（`parseLogRow` 之后）时先过这一道，
+// 再交给 `lintEventFields`，否则每条带链的行都会因为这三个键被判黄。
+export function stripReservedLogFields(fieldNames: string[]): string[] {
+  const reserved = new Set<string>(RESERVED_LOG_FIELDS)
+  return (Array.isArray(fieldNames) ? fieldNames : []).filter((field) => !reserved.has(field))
+}
+
 // 字段白名单检查（0.3.1 名字）：拿插件自己的清单当尺子，量一批实际字段键。
 // 未知事件名算红（拼错名或漏登记），未知字段键算黄（带回名单，不误伤已知字段）。
+// 这把尺子是**字面**的：给它什么就量什么 —— 读落盘行请先 `stripReservedLogFields`。
 export function lintEventFields(
   manifest: GateEventList,
   eventName: string,
@@ -293,7 +309,8 @@ export function lintEventList(manifest: GateEventList): GateListLintResult {
 
 export interface GateLogRow {
   v: 3
-  ts: string
+  // 毫秒时间戳（`Date.now()`）—— dsh-log 的行构造器 `core/row.js` 写的就是数，不是字符串。
+  ts: number
   level: GateEventLevel
   event: string
   fields: Record<string, unknown>
@@ -309,7 +326,9 @@ export function parseLogRow(value: unknown): GateLogRow {
   if (input['v'] !== LOG_ROW_VERSION) {
     throw new Error('[dsh-plugin-update] 日志行非法：格式版本 v 只认 ' + LOG_ROW_VERSION + '（收到 ' + JSON.stringify(input['v']) + '）')
   }
-  if (!isNonEmptyString(input['ts'])) throw new Error('[dsh-plugin-update] 日志行非法：ts 必须是非空字符串')
+  if (typeof input['ts'] !== 'number' || !Number.isFinite(input['ts'])) {
+    throw new Error('[dsh-plugin-update] 日志行非法：ts 必须是有限数（dsh-log 落盘的是 Date.now() 毫秒数）')
+  }
   if ((EVENT_LEVELS as readonly string[]).indexOf(input['level'] as string) < 0) {
     throw new Error('[dsh-plugin-update] 日志行非法：level 只许 error、warn、info、debug')
   }
@@ -325,7 +344,7 @@ export function parseLogRow(value: unknown): GateLogRow {
   }
   return {
     v: LOG_ROW_VERSION,
-    ts: input['ts'] as string,
+    ts: input['ts'] as number,
     level: input['level'] as GateEventLevel,
     event: input['event'] as string,
     fields: fields as Record<string, unknown>

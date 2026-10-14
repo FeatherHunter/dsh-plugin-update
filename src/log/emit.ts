@@ -19,6 +19,7 @@
  */
 import { sanitizeDetail } from '../redaction.js'
 import { NOOP_SINK, type LogSink } from './sink.js'
+import { currentLogTraceFor } from './trace.js'
 import { updateLogRouter } from './router.js'
 import { checkLogFields, currentUpdateEventTable, isEdgeEvent } from './manifest.js'
 
@@ -100,6 +101,16 @@ export function fieldFingerprint(fields: Record<string, unknown>): string {
   return parts.join('&')
 }
 
+/**
+ * 把一行交给落点 —— 环境里**属于这个落点**的链存在时走链（自动带 traceId/spanId/seq），
+ * 否则走原来的 `fire` 一字不变。判据是对象同一性：A 插件的链绝不写到 B 插件的落点上。
+ */
+function writeRow(sink: LogSink, level: string, event: string, fields: Record<string, unknown>): void {
+  const trace = currentLogTraceFor(sink)
+  if (trace) trace.log(level, event, fields)
+  else sink.fire(level, event, fields)
+}
+
 export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
   const counts: LogEmitterCounts = { emitted: 0, suppressed: 0, skipped: 0, dropped: 0, droppedByReason: {} }
   const degraded = new Set<string>()
@@ -134,7 +145,7 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
           /* 准入判据坏了也照发：selfmon 行的意义就是「别的东西坏了」 */
         }
       }
-      sink.fire('warn', 'update.log.degraded', { reason: code })
+      writeRow(sink, 'warn', 'update.log.degraded', { reason: code })
     } catch {
       /* 自监控自己坏掉时保持沉默：任何外抛都比丢一行更坏 */
     }
@@ -189,7 +200,7 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
         }
         seen.set(event, fingerprint)
       }
-      sink.fire(level, event, sanitized)
+      writeRow(sink, level, event, sanitized)
       counts.emitted++
       return true
     } catch (error) {

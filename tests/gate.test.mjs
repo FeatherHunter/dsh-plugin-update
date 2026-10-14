@@ -282,25 +282,30 @@ describe('门禁模板：事件表合并与落盘行断言', () => {
     assert.throws(() => mergeUpdateEvents(makeSample(), 'update.json'), /自己读成对象再传入/)
   })
 
-  it('落盘行断言：v === 3 且恒五键', () => {
+  it('落盘行断言：v === 3 且恒五键，ts 是毫秒数', () => {
     const row = {
       v: LOG_ROW_VERSION,
-      ts: '2026-10-14T21:00:00.000Z',
+      ts: 1792009014642,
       level: 'info',
       event: 'update.check.done',
       fields: { ok: true, current: '0.15.0' }
     }
     assert.equal(parseLogRow(row).v, 3)
+    assert.equal(parseLogRow(row).ts, 1792009014642)
     assert.equal(LOG_ROW_VERSION, 3)
   })
 
-  it('落盘行断言：版本不是 3、多键、fields 不是对象都报中文错', () => {
-    const base = { v: 3, ts: '2026-10-14T21:00:00.000Z', level: 'info', event: 'update.check.done', fields: {} }
+  it('落盘行断言：版本不是 3、多键、fields 不是对象、ts 不是毫秒数都报中文错', () => {
+    const base = { v: 3, ts: 1792009014642, level: 'info', event: 'update.check.done', fields: {} }
     assert.throws(() => parseLogRow({ ...base, v: 2 }), /格式版本 v 只认 3/)
     assert.throws(() => parseLogRow({ ...base, extra: 1 }), /不认识的键 extra/)
     assert.throws(() => parseLogRow({ ...base, fields: [] }), /fields 必须是对象/)
     assert.throws(() => parseLogRow({ ...base, level: 'fatal' }), /level 只许/)
     assert.throws(() => parseLogRow('row.json'), /只收对象/)
+    // dsh-log 的行构造器写的是 Date.now()（core/row.js: `ts: Date.now()`）——
+    // ISO 字符串看着更像人话，但没有任何一台引擎会写出来，放行它等于把尺子做松。
+    assert.throws(() => parseLogRow({ ...base, ts: '2026-10-14T21:00:00.000Z' }), /ts 必须是有限数/)
+    assert.throws(() => parseLogRow({ ...base, ts: Number.NaN }), /ts 必须是有限数/)
   })
 })
 

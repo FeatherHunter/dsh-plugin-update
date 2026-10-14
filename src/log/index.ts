@@ -10,8 +10,11 @@
  * 都会拖进 Node 内建模块。
  */
 export { deriveLogNamespace, logDirKey, logSwitchFileName, hashToken, LOG_NAMESPACE_MAX_CHARS } from './namespace.js'
-export { createNoopSink, createPendingSink, isLogSinkLike, sinkFromLogCtx, sinkFromStore, NOOP_SINK, type LogSink, type PendingLogSink } from './sink.js'
+export { createNoopSink, createPendingSink, isLogSinkLike, sinkFromLogCtx, sinkFromStore, NOOP_SINK, type LogSink, type LogTraceHandle, type PendingLogSink } from './sink.js'
 export { createLogRouter, updateLogRouter, type LogRouter } from './router.js'
+// 宿主侧链上下文（`0.16.4` 起，需要 dsh-log 0.3.3 的 `store.trace()`）：本文件会拖进 `node:async_hooks`，
+// 浏览器侧不要引 —— 面板侧的链由 dsh-log 的客户端 SDK 管，不从这里走。
+export { currentLogTraceFor, withLogTrace, withLogTraceStep } from './trace.js'
 export {
   createLogEmitter,
   emitUpdateLog,
@@ -34,6 +37,9 @@ export {
   UPDATE_EVENT_LIST_FILE,
   __resetUpdateEventTableForTests,
 } from './manifest.js'
+// 引擎保留名与读侧豁免（0.16.4 起，需要 dsh-log 0.3.3 的宿主侧链）：拿清单量**落盘行**之前
+// 先 `stripReservedLogFields`，否则每条带链的行都会因为 traceId/spanId/seq 被判黄。
+export { RESERVED_LOG_FIELDS, stripReservedLogFields } from '../gate.js'
 export {
   acquireOwnLog,
   describeOwnLogRegistry,
