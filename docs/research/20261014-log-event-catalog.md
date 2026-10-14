@@ -1,6 +1,6 @@
 # 日志事件目录：19 环节 → 事件码 / 级别 / 档位 / 字段 / 脱敏
 
-- 日期：2026-10-14
+- 日期：2026-10-14（**2026-10-15 契约回填**：本文件的「事件名 / 字段 / 取值」三处与随包清单、实现对齐；见文末 §7）
 - 本票：[规格定稿](https://github.com/FeatherHunter/dsh-plugin-update/issues/119)（地图 [本包全面集成 dsh-log 0.3.1](https://github.com/FeatherHunter/dsh-plugin-update/issues/117)）
 - 上游事实源：`docs/research/20261014-update-logging-inventory.md`（19 环节清单与逐条 `文件:行号`）、`docs/research/20261014-dsh-log-031-api.md`、`docs/research/20261014-dsh-host-logging-surface.md`
 - 立规的两份 ADR：[ADR-0005 运行期依赖与落盘归属](https://github.com/FeatherHunter/dsh-plugin-update/blob/main/docs/adr/0005-dsh-log-as-first-runtime-dependency.md)、[ADR-0006 行只承载稳定码](https://github.com/FeatherHunter/dsh-plugin-update/blob/main/docs/adr/0006-log-rows-carry-codes-not-prose.md)
@@ -10,9 +10,9 @@
 
 - **环节 ≠ 事件**：一个事件可以承载多个环节的边沿（例如 `update.panel.mount` 同时是 ① 和面板/入口/批量三处挂载点），一个环节（⑫ 队列与锁）也可以有两个事件。下表每行给出该环节的落点事件与它贡献的字段。
 - 档位（dsh-log 的 `kind`）：
-  - **resident**——调试开关关着也落盘，因此**必须边沿触发**（不变量，铁律）；
+  - **resident**——dsh-log 的准入判定对清单声明 `kind:'resident'` 的事件直接放行，**调试开关关着也落盘**，所以必须低频。**「必须边沿触发」不是机器规则**：全仓只有 `update.status.changed` 与 `update.queue.transition` 两条在发射侧做了指纹去重（`src/log/emit.ts` 的 `isEdgeEvent` 只认这两条），其余靠各自的守卫（例如 `guard:'接线一次一条'`）与「一个流程只发一次」的落点纪律；新增常驻事件时**守卫要自己写**，引擎不会拦你。
   - **ondemand**——开关打开才落盘，可以逐次打点；
-  - **selfmon**——本包日志接线自身的降级，永不外抛。
+  - **selfmon**——本包日志接线自身的降级，永不外抛。`update.log.degraded` 是 `warn`，按 dsh-log 的紧急级规则恒放行，不受 `kind` 影响。
 - 级别：`error` 用于「本包坏了/渲染失败」；`warn` 用于「这次操作没成，但系统还活着」；`info` 用于「做成了、走到哪一步了」。
 - 侧：**Node** = 只许在 `import 'node:'` 的五个文件里发射；**中立** = 不依赖 DOM 也不依赖 node（可两边跑）；**客户端** = 面板/入口件里，只能经本包自己的 `logAppend` 电话（#122）。
 - 既有三个事件名（`host.call`、`host.call.fail`、`update.install.exec`）**形状冻结**，被 `tests/phones.test.mjs:222/232`、`tests/routes.test.mjs:106` 逐字锁死：本次只改「发不发」，不改字段。
@@ -23,20 +23,18 @@
 | --- | --- | --- | --- |
 | `update.wire.ready` | info | `logSink: 'external'\|'self'\|'off'`、`logDirHash` | 接线自陈（外部实例/自建/关）。目录只给 hash8，不给路径 |
 | `update.check.done` | info | `ok: true`、`current`、`latest`、`channel`、`source`、`latencyMs` | 版本号经中央校验器规范化；`source` 只给白名单主机名（复用 `resolveRegistryHost`）、**不带路径与账号** |
-| `update.check.fail` | warn | `stage: 'fetch'\|'compare'\|'channel'\|'verify'`、`errorKind`、`httpStatus?` | 稳定码，无自由文本 |
+| `update.check.fail` | warn | `stage: 'fetch'\|'compare'\|'channel'\|'verify'`、`errorKind`、`httpStatus?` | 稳定码，无自由文本。四个值都是**合法值**，但**实际可达三个**：`fetch`（取数失败，`src/service.ts:308`）、`channel`（通道判定不认，`:400/:463/:493` 的 `withStage(..., 'channel')`）、`verify`（`stageOfError()` 的兜底：非 `check-failed` 又没贴阶段）。`compare` 在白名单里但**没有生产者** |
 | `update.status.changed` | info | `kind: 'update-available'\|'up-to-date'\|'unknown'`、`latest?` | 轮询的**边沿**：状态没变就不发（见 §4） |
 | `update.install.request` | info | `from: 'panel'\|'entry'\|'batch'`、`current`、`latest`、`checkAgeMs` | 不含凭证；`checkId`/`requestId` 不进日志（关联靠 `traceId`） |
 | `update.install.verify` | info | `result: 'completed'\|'restart-required'\|'failed'\|'interrupted'`、`installedVersion`、`pendingRestart: boolean` | 枚举 + 版本号 |
-| `update.install.retry` | warn | `attempt: number`、`of: number`、`errorKind`、`waitedMs?` | 把「第 N 次重试」与首次失败分开，无需新增标识 |
 | `update.batch.entry.request` | info | `total`、`ownCount`、`foreignCount` | 只给数量，不给插件标识清单 |
 | `update.batch.entry.fail` | warn | `targetHash`、`errorKind`、`exitCode?` | 目标标识一律 hash8（绝不给包名/路径原文） |
 | `update.batch.summary` | info | `total`、`ok`、`failed`、`skipped`、`durationMs` | 总账的机器可读版；面板渲染文本不进日志 |
 | `update.queue.transition` | info | `phase: 'queued'\|'running'\|'done'\|'reclaimed'`、`waitedMs?`、`position?` | 相位边沿，禁止每次轮询都发。相位是**队列自己的**三相位（取号 / 安装中 / 摘牌）加全局锁陈旧回收成功这一个真跃迁；`checking`/`installing`/`settling`/`idle` 是面板任务词，队列里没有这些相位（#124 落地时按实现收紧，见 §3.1） |
 | `update.lock.anomaly` | warn | `kind: 'stale-owner'\|'release-failed'`、`ageMs?` | 拥有者标识只记 hash8，不记原文。`busy-timeout` **不做**：本包两条抢锁路径都是「看一眼，不陈旧就当场认输」（`tryAcquireLock` 不等待；`tryAcquireGlobalLock` 的 `timeoutMs` 是**陈旧阈值**不是等待超时），没有「等到超时」这条路径，不为了凑齐词汇造一条（见 §3.1） |
 | `update.store.fail` | warn | `op: 'read-job'\|'write-job'\|'acquire-lock'\|'reclaim-stale-owner'\|'release-lock'\|'read-snapshot'\|'write-backup'\|'write-queue'\|'read-global-lock'\|'acquire-global-lock'\|'release-global-lock'`、`reason` | 现在 `catch {}` 静默吞的点。`op` 是**真正失败的那个动作**（比「state-read/state-write」粗归类更能定位）；`reason` 是 `error.code` 过白名单后的小写稳定码（`enoent`/`eacces`/`eexist`/… 共 25 个），拿不到码退 `'throw'`、连错误对象都不是退 `'unknown'`，绝不放 `message`/路径。同一操作**同一原因**连续失败只记首次（原因变了再记一条，成功即清）。`dirHash`/`ownerHash` 是清单里的可选格、**当前不发**：日志本来就按插件分目录（目录即定位），hash8 反向不可用，发了只是噪声 |
-| `update.restart.outcome` | info | `outcome: 'delegated'\|'manual'\|'failed'`、`route?` | `route` 只给枚举名，不给宿主 URL |
-| `update.panel.mount` | info | `mode: 'embedded'\|'dialog'\|'entry'\|'entry-batch'\|'batch'`、`theme`、`lang`、`pollMs` | 全是枚举与数字 |
-| `update.panel.action` | info | `action: 'check'\|'install'\|'retry'\|'restart'\|'copy-diagnostics'\|'skip'`、`bytes?`、`truncated?` | 复制诊断只记体量与是否截断，**绝不记内容** |
+| `update.panel.mount` | info | `mode`、`theme`、`lang`、`pollMs` | 全是枚举与数字。`mode` 的**可达四值**：`'entry'`（`src/entry.ts:590` 的 `clientLog:{mount:'entry'}`）、`'http'`（`src/http.ts:353` 的默认挂载点名）、以及没给挂载点名时退回的面板 `mode` 选项 `'embedded'\|'dialog'`（`src/panel.ts:41` `UpdatePanelMode`）。**`'batch'` / `'entry-batch'` 不可达**：批量两处挂载点都不传 `clientLog`，报的是面板 `mode`（批量面板传 `'dialog'`） |
+| `update.panel.action` | info | `action`、`bytes?`、`truncated?` | 取值**十一**个，与 `src/panel.ts:199-210` 的 `UpdatePanelActionKind` 一字不差：`'check'`、`'install'`、`'skip'`、`'reset-skip'`、`'copy-manual'`、`'copy-diag'`、`'toggle-queue'`、`'toggle-changelog'`、`'restart-hint'`、`'close-view'`、`'dismiss-failure'`。复制诊断只记体量与是否截断，**绝不记内容**（`bytes`/`truncated` 只跟着 `'copy-diag'` 走） |
 | `update.panel.render.fail` | error | `kind: 'container'\|'plugin-id'\|'call'\|'poll-ms'\|'mode'\|'theme'\|'unknown'` | 挂载校验 `throw` 的六种原因 + 渲染期兜底；无自由文本 |
 | `update.log.degraded` | warn | `reason: 'no-dsh-log'\|'lease-conflict'\|'write-fail'\|'emit-threw'\|'unknown-field'\|'unknown-event'` | selfmon：日志接线自己的坏消息（含字段白名单丢弃计数） |
 
@@ -45,11 +43,11 @@
 | 事件码 | 级别 | 字段白名单 | 说明与脱敏 |
 | --- | --- | --- | --- |
 | `update.check.start` | info | `trigger: 'auto'\|'user'\|'batch'\|'entry'`、`source` | ② 的关键：把「用户点了」与「自动触发」分开 |
-| `update.registry.fetch` | info | `httpStatus`、`latencyMs`、`cacheHit: boolean` | 只记白名单主机名与状态码，**不记完整 URL**（ADR-0001 规则 3） |
+| `update.registry.fetch` | info | `httpStatus`、`latencyMs`、`registryHost` | 只记白名单主机名与状态码，**不记完整 URL**（ADR-0001 规则 3）。**`cacheHit` 不是字段**：本包的缓存命中发生在取数之前（命中就根本不取数），到了取数点就一定是未命中——恒为 `false` 的格子只是噪声，已从随包清单删除（见 §4 第 2 条） |
 | `update.channel.decide` | info | `channel`、`reason: 'stable'\|'prerelease'\|'mismatch'\|'invalid'`、`from`、`to` | 版本号规范化后入行 |
-| `update.changelog.parse` | info | `entries: number`、`truncated: boolean`、`degraded: boolean`、`source: 'tarball'\|'installed'\|'release'` | 解析失败只记 `degraded` + 稳定码；原文留给人话出口 |
+| `update.changelog.parse` | info | `entries: number`、`truncated: boolean`、`degraded: boolean`、`source` | 解析失败只记 `degraded` + 稳定码；原文留给人话出口。**`source` 恒为 `'npm'`**（`src/host.ts:1071` 写死）：本包只从 npm 取变更日志，`'tarball'`/`'installed'`/`'release'` 三个值从未出现 |
 | `update.poll` | info | `state`、`latencyMs` | 轮询全量（排查用）；稳态靠 resident 的 `update.status.changed` |
-| `update.lang.applied` | info | `lang`、`source: 'dom'\|'navigator'\|'override'` | 语言标签已规范化 |
+| `update.lang.applied` | info | `lang`、`source` | 语言标签已规范化。`source` 是**四个值**（`src/lang.ts:77` `LangSignalSource`）：`'override'`（集成方传了 locale）、`'dom'`（`html[lang]`）、`'navigator'`、`'default'`（都没有时的兜底） |
 | `update.panel.state` | info | `state: 'ready'\|'busy'\|'error'`、`theme`、`tokensApplied: number`、`fallback: boolean` | 主题只记枚举名与 token 数，**不记 CSS 值原文**（防注入面） |
 
 ## 3. 19 环节 × 落点（覆盖 19/19，逐行给全：事件码 / 级别 / 档位 / 接线票）
@@ -62,21 +60,23 @@
 | ④ | npm registry 查询（`src/service.ts:274`、`:346`） | 中立 | `update.registry.fetch` | info | ondemand | **#124**（`/http` 变体落 `src/http.ts:230`，走 **#122**） |
 | ⑤ | 版本比较/通道判定（`src/service.ts:107`、`:127`、`:147`） | 中立 | `update.channel.decide`；失败码并入 `update.check.fail.stage:'channel'` | info / warn | ondemand + resident | **#124** |
 | ⑥ | changelog 获取与解析（`src/changelog-io.ts:265`、`src/changelog.ts:266`） | Node IO + 中立解析 | `update.changelog.parse`；既有 `host.call`（`kind:'update-changelog'`）保留 | info | ondemand | **#124** |
-| ⑦ | 用户点击安装（`src/panel.ts:1594`、`:2760`） | 客户端 | `update.panel.action`（`action:'install'\|'retry'\|'restart'`）+ 宿主侧 `update.install.request` | info | resident | **#122** + **#124** |
+| ⑦ | 用户点击安装（`src/panel.ts:2760` `case 'install'`） | 客户端 | `update.panel.action`（`action:'install'`）+ 宿主侧 `update.install.request` | info | resident | **#122** + **#124** |
 | ⑧ | 安装执行（`src/store.ts:1180`，三条路由） | Node | 既有 `update.install.exec`（5 键，形状不动） | info | resident | 已存在；**#124** 只改「发不发」与行列归属 |
 | ⑨ | 安装后校验（`src/service.ts:475`、`src/reader.ts:342`） | Node | `update.install.verify` | info | resident | **#124** |
-| ⑩ | 失败重试（`src/panel.ts:868`、`src/panel-batch.ts:926`） | 客户端 | `update.install.retry`（`attempt`/`of`） | warn | resident | **#124** + **#122**（按钮动作） |
-| ⑪ | 批量面板入队（`src/host-batch.ts:579`） | Node | `update.batch.entry.request`；挂载点并入 `update.panel.mount`（`mode:'batch'`） | info | resident | **#124** + **#122** |
+| ⑩ | 失败重试（单插件 `src/panel.ts` 的重试按钮；批量 `src/panel-batch.ts:920` `data-act="row-install"`） | 客户端 | `update.panel.action`（`action:'install'` —— 重试就是再发一次安装；批量侧同一动作）。**没有 `update.install.retry` 这个事件**：本包**没有自动重试**，`attempt`/`of` 那套「第 N 次重试」不存在 | info | resident | **#122** |
+| ⑪ | 批量面板入队（`src/host-batch.ts:579`） | Node | `update.batch.entry.request`；挂载点并入 `update.panel.mount` | info | resident | **#124** + **#122** |
 | ⑫ | 队列两阶段/全局锁（`src/queue.ts`、`src/store.ts:287/349`） | Node | `update.queue.transition`、`update.lock.anomaly` | info / warn | resident | **#124** |
 | ⑬ | 单项失败（批量）（`src/batch-run.ts:122`、`:159`） | 中立 | `update.batch.entry.fail` | warn | resident | **#124** |
 | ⑭ | 总账（`src/panel-batch.ts:242`、`:283`） | 客户端渲染 | `update.batch.summary`（宿主侧汇总后发） | info | resident | **#124**；面板只渲染、**不重复发** |
-| ⑮ | 重启宿主（`src/panel.ts:2760`、`src/panel-batch.ts:2122`） | 客户端触发 | `update.restart.outcome` | info | resident | **#122** 发 → **#124** 落盘 |
+| ⑮ | 重启宿主（单插件 `src/panel.ts` `case 'restart-hint'`；批量 `src/panel-batch.ts:926` `data-act="restart"`） | 客户端触发 | `update.panel.action`（`action:'restart-hint'`）。**没有 `update.restart.outcome` 这个事件**：宿主没有重启自己的电话（代码原话），本包只做入口、**观测不到重启结果** | info | resident | **#122** |
 | ⑯ | 语言选择（`src/lang.ts:80`） | 客户端 | `update.lang.applied` | info | ondemand | **#122** |
 | ⑰ | 主题渲染（`src/panel.ts:51`、`:154`、`:1847`） | 客户端 | `update.panel.state`（`theme`/`tokensApplied`/`fallback`）；非法值并入 `update.panel.render.fail` | info / error | ondemand + resident | **#122** |
 | ⑱ | 落盘决策（`src/store.ts:62`、`:118`，state/锁/备份） | Node | `update.store.fail`；锁异常 `update.lock.anomaly` | warn | resident | **#124** |
-| ⑲ | 复制诊断（`src/panel.ts:450`、`:592`） | 客户端 | `update.panel.action`（`action:'copy-diagnostics'`，附 `bytes`/`truncated`） | info | resident | **#122** |
+| ⑲ | 复制诊断（`src/panel.ts:450` `buildDiagnosticText`、`:592` `buildUpdateDiagCopy`） | 客户端 | `update.panel.action`（`action:'copy-diag'`，附 `bytes`/`truncated`） | info | resident | **#122** |
 
-**覆盖自查：19 行齐，每行都有事件码、级别、档位、接线票；没有未填项、没有推迟到实现票再定的事件。**
+**覆盖自查：19 行齐，每行都有事件码、级别、档位、接线票；没有未填项。**
+
+**两条曾登记为「事件」的环节已改判（2026-10-15 契约回填）**：⑩ 失败重试与 ⑮ 重启宿主**都有日志**，但落的是 `update.panel.action` 的对应取值，不是 `update.install.retry` / `update.restart.outcome` —— 后两个名字**从未有过发射点，且它们描述的行为（自动重试的第 N 次、重启的结果）在本包里不存在**（无自动重试；宿主没有重启自己的电话）。这两个事件名已从随包清单 `event-list.update.json` 删除（28 → 26 条）。**原判据「归 #122」是错的**：#122 的客户端白名单恰好 5 个事件，不含这两个名字。
 
 ### 3.1 接线状态（#124 落地后：谁在哪个函数里发）
 
@@ -85,26 +85,26 @@
 | 环节 | 事件 | 唯一落点（函数） | 状态 |
 | --- | --- | --- | --- |
 | ② | `update.check.start` | `src/host.ts` 检查电话包装（调用方报了 `trigger` 才发；面板/入口的「自动」由 #122 在客户端自报） | ✅ 宿主侧可选入参 |
-| ③ | `update.check.done` / `update.check.fail` | `src/service.ts` 核心 `check()`（`stage` 四值 `fetch`/`compare`/`channel`/`verify`，取数阶段钉在错误对象上；`httpStatus` 只有真拿到状态码才有） | ✅ |
-| ④ | `update.registry.fetch` | `src/service.ts` `makeFetchNoter()`（两个取数函数共用；`/http` 变体走 #122，Node 侧不重复发） | ✅（`cacheHit` 不发，见下） |
+| ③ | `update.check.done` / `update.check.fail` | `src/service.ts` 核心 `check()`（`stage` 四个合法值 `fetch`/`compare`/`channel`/`verify`，取数阶段钉在错误对象上；`httpStatus` 只有真拿到状态码才有）。**可达三值**：`fetch`（`:308`）、`channel`（`:400/:463/:493`）、`verify`（`stageOfError()` 兜底）；`compare` 无生产者 | ✅ |
+| ④ | `update.registry.fetch` | `src/service.ts` `makeFetchNoter()`（两个取数函数共用；`/http` 变体走 #122，Node 侧不重复发） | ✅（`cacheHit` 已从清单删除，见下） |
 | ⑤ | `update.channel.decide` | `src/service.ts` 核心 `noteChannelDecision()`（一次成功检查一条；`reason` 四值 `stable`/`prerelease`/`mismatch`/`invalid`） | ✅ |
-| ⑥ | `update.changelog.parse` | `src/host.ts` 变更日志电话包装（`source:'tarball'`；`entries`/`truncated`/`degraded` 来自 `parseChangelogReport()`） | ✅ |
+| ⑥ | `update.changelog.parse` | `src/host.ts` 变更日志电话包装（**`source` 恒 `'npm'`**，`src/host.ts:1071` 写死；`entries`/`truncated`/`degraded` 来自 `parseChangelogReport()`） | ✅ |
 | ⑦ | `update.install.request` | `src/service.ts` 核心 `install()`（过闸门之后、开工之前一条） | ✅ |
 | ⑧ | `update.install.exec` | 既有 `src/store.ts` 执行器的 `emitInstall()`（形状不动） | 已存在 |
 | ⑨ | `update.install.verify` | `src/service.ts` 核心 `runBackground()` 的终态跃迁 + `healedJob()` 的掉线换算（只在真跃迁时发） | ✅ |
-| ⑩ | `update.install.retry` | 客户端按钮动作 → #122 的 `logAppend` 通道落盘 | 归 #122（宿主不重复发） |
+| ⑩ | `update.panel.action{action:'install'}` | 客户端按钮动作 → #122 的 `logAppend` 通道落盘（重试按钮就是再发一次安装；**本包没有自动重试**，所以没有「第 N 次」） | 归 #122（宿主不重复发） |
 | ⑪ | `update.batch.entry.request` | `src/host-batch.ts` `noteEntryRequest()`（会话建起/复用时一条，按会话编号去重） | ✅ |
 | ⑫ | `update.queue.transition` / `update.lock.anomaly` | `src/store.ts` `writeQueue()`、`tryAcquireLock()`、`tryAcquireGlobalLock()`、`releaseLock()`、`releaseGlobalLock()`（只在乎「真写盘且相位真变」「真删掉旧锁且真抢到手」） | ✅ |
 | ⑬ | `update.batch.entry.fail` | `src/batch-run.ts` `noteEntryFail()`（中立文件，落点由 `BatchRunDeps.logFor` 注入） | ✅ |
 | ⑭ | `update.batch.summary` | `src/host-batch.ts` `noteBatchSummary()`（**收尾边沿**：每次从「没收尾」变成「收尾」记一条；用户重试装成后再收尾会再记一条。面板只渲染） | ✅ |
-| ⑮ | `update.restart.outcome` | 客户端 → #122 的 `logAppend` 通道落盘 | 归 #122 |
+| ⑮ | `update.panel.action{action:'restart-hint'}` | 客户端 → #122 的 `logAppend` 通道落盘（**宿主没有重启自己的电话**，本包只做入口，观测不到重启结果） | 归 #122 |
 | ⑯⑰⑲① | `update.lang.applied` / `update.panel.state` / `update.panel.action` / `update.panel.mount` | 客户端 → #122 的 `logAppend` 通道落盘 | 归 #122 |
-| ⑱ | `update.store.fail` | `src/store.ts` `createStoreLog().fail()` 的 13 个落点（原 `catch {}` 或「换成归类码」的位置） | ✅ |
+| ⑱ | `update.store.fail` | `src/store.ts` `createStoreLog().fail()` 的 **16 个落点**（`:303`–`:641`，原 `catch {}` 或「换成归类码」的位置） | ✅ |
 
 **三条落地口径（备案）**
 
 1. **轮询的第一次观测不算事件**：`updateStatus` 的成功行在发射侧一律不发（`src/host.ts` 的电话包装）。判据是「上次算得出指纹、这次算得出、且与上次不同」才留一行；第一次没有可比的上次，所以也不留——这就是 §6「N ≥ 100 次零常驻行」的字面口径（实测 600 次 → 0 行）。指纹算不出来时宁多发一行，不吞变化；失败行 `host.call.fail` 不受影响；名字与五键形状一字不动。
-2. `update.registry.fetch.cacheHit` **不发**：本包的缓存命中发生在取数之前（命中就根本不取数），到了取数点就一定是未命中——发一个恒为 `false` 的格子只是噪声。
+2. `update.registry.fetch.cacheHit` **不存在**：本包的缓存命中发生在取数之前（命中就根本不取数），到了取数点就一定是未命中——恒为 `false` 的格子只是噪声。**2026-10-15 契约回填：已从随包清单 `event-list.update.json` 删除该字段名**（清单是发布的契约，声明一个永不出现的格子会把第三方聚合器带偏）。
 3. **只进日志的可选入参**（不改老调用形状、不参与任何决策）：检查电话多认 `trigger`（没自报就不发 `update.check.start`）、安装电话多认 `from`（没自报按 `'panel'`，批量宿主传 `'batch'`）。
 4. **缝都在宿主侧接**：中立文件（`service.ts`/`changelog.ts`/`queue.ts`/`batch-run.ts`）不 import node、也不认识插件标识，发射口一律由宿主侧**绑好标识**后注入（`src/host.ts` 的 `logPortFor()`；队列与全局锁按当次动作方取口，行落动作方自己的目录）。
 
@@ -129,12 +129,12 @@
 | --- | --- | --- |
 | `src/panel.ts:1999` `mountUpdatePanel` | ① | #122：`update.panel.mount` + 校验失败 `update.panel.render.fail` |
 | `src/panel.ts:1981` `pendingAutoCheck` | ② | #122：并入 `update.check.start.trigger='auto'` |
-| `src/panel.ts:2760` `case 'restart-hint'` | ⑮ | #122：`update.restart.outcome`（三种结局各一值） |
-| `src/panel.ts:450` `buildDiagnosticText`、`:592` `buildUpdateDiagCopy` | ⑲ | #122：`update.panel.action{action:'copy-diagnostics', bytes, truncated}`；**内容不进日志** |
+| `src/panel.ts` `case 'restart-hint'` | ⑮ | #122：`update.panel.action{action:'restart-hint'}`。**没有 `update.restart.outcome` 这个事件**：宿主没有重启自己的电话，本包只做入口、观测不到重启结局，「三种结局各一值」不存在 |
+| `src/panel.ts:450` `buildDiagnosticText`、`:592` `buildUpdateDiagCopy` | ⑲ | #122：`update.panel.action{action:'copy-diag', bytes, truncated}`；**内容不进日志**（取值是 `'copy-diag'`，不是 `'copy-diagnostics'`） |
 | `src/panel.ts:1533` `renderUpdatePanelKernel`、`:1847` `renderUpdatePanelHTML` | ⑰ | #122：`update.panel.state`（主题枚举 + token 数） |
-| `src/entry.ts:351` `mountUpdateEntry` | ① | #122：`update.panel.mount{mode:'entry'}` |
-| `src/entry-batch.ts:308` `mountUpdateBatchEntry` | ① | #122：`update.panel.mount{mode:'entry-batch'}` |
-| `src/panel-batch.ts:1533` `mountUpdateBatchPanel` | ①⑪ | #122：`update.panel.mount{mode:'batch'}`；入队事实由 #124 在宿主侧发 `update.batch.entry.request` |
+| `src/entry.ts:351` `mountUpdateEntry` | ① | #122：`update.panel.mount{mode:'entry'}`（`src/entry.ts:590` 传 `clientLog:{mount:'entry'}`） |
+| `src/entry-batch.ts:308` `mountUpdateBatchEntry` | ① | #122：**不传 `clientLog`**，所以报的是面板 `mode`（`'dialog'` 或 `'embedded'`），**不是 `'entry-batch'`** |
+| `src/panel-batch.ts:1553` `mountUpdateBatchPanel` | ①⑪ | #122：**不传 `clientLog`**，报面板 `mode`（`'dialog'` 或 `'embedded'`），**不是 `'batch'`**；入队事实由 #124 在宿主侧发 `update.batch.entry.request` |
 | `src/panel-batch.ts:242/283` `batchLedgerCounts`/`batchLedgerText` | ⑭ | 客户端**不发**：账本由宿主侧汇总成 `update.batch.summary`（#124）；面板只渲染，避免同一事实两处发 |
 | `src/lang.ts:80` `resolveLang` | ⑯ | #122：`update.lang.applied` |
 | `src/http.ts:230` `createHttpCall` | ④ | HTTP 变体在客户端闭包里跑：经 #122 的通道发 `update.registry.fetch`；Node 侧同一发射口（#124）不发第二条 |
@@ -148,3 +148,29 @@
 - 轮询抑制生效的判据：连续 N 次 `updateStatus`（N ≥ 100）**零常驻行**（实测见 §3.1「实测证据」）。
 - 每个事件至少一条负向断言用例（ADR-0006 §4）；字段名集合与 `event-list.update.json`（#120 产出）必须完全一致。
 - 真机对账口径（#125）：两个假插件 `verify-a` / `verify-b` 各自目录行数 = 各自的发射数，互无 `foreign-write` 诊断。
+
+## 7. 契约回填（2026-10-15）：本文件曾许过、实现没给的四处
+
+本文件是**意图稿**（写于实现之前），随包清单 `event-list.update.json` 是**发布的契约**。定稿后逐条对账，四处对不上，已按实现改正本文件与清单：
+
+| # | 本文件曾写 | 实现实际 | 处理 |
+| --- | --- | --- | --- |
+| 1 | `update.install.retry`（⑩，`attempt`/`of`） | **无此事件、无此行为**：本包没有自动重试，重试按钮就是再发一次安装 → `update.panel.action{action:'install'}` | 事件名从清单**删除**（28 → 26），本文件 ⑩ 行改判 |
+| 2 | `update.restart.outcome`（⑮，三结局） | **无此事件、无此行为**：宿主没有重启自己的电话 → `update.panel.action{action:'restart-hint'}` | 事件名从清单**删除**（28 → 26），本文件 ⑮ 行改判 |
+| 3 | `update.registry.fetch.cacheHit: boolean` | 字段**从未出现过**（命中就不取数，到取数点必未命中） | 字段名从清单**删除**，§4 第 2 条改述 |
+| 4 | `update.panel.mount.mode: 'embedded'\|'dialog'\|'entry'\|'entry-batch'\|'batch'` | 可达**四值**：`'entry'`、`'http'`、`'embedded'`、`'dialog'`。批量两处挂载点不传 `clientLog`，报的是面板 `mode` | 本文件 §1 与 §5 改正；**清单字段名不变**（`mode` 仍是自由字符串，不锁枚举） |
+
+**同批改正（本文件写错、清单本来就对）**：`update.panel.action.action` 是 **11 值**（原文只列 6 个，`copy-diagnostics` 实为 `copy-diag`）；`update.changelog.parse.source` **恒 `'npm'`**（原文写 `'tarball'`）；`update.check.fail.stage` 四值合法但**可达三值**（`compare` 无生产者）；`update.lang.applied.source` 是**四值**（补 `'default'`）；`update.store.fail` 落点 **16 处**（原文写 13）。
+
+### 7.1 三条已知边界（**记录，不修**）
+
+1. **丢弃计数不接**：dsh-log 的 `getDroppedCount()` / `setOnDrop()` 是 `createLogStore` 的返回方法（`dist/store.d.ts:31/39`），本包自建落点走 `src/log/sink.ts` 的 `sinkFromStore()` 包装、**没有接这两个口**。因此「有多少行被准入拦掉」今天在磁盘上看不见——`emitRow()` 的未登记字段计数走 `update.log.degraded`，但引擎级的 skip 与 drop 不计数。
+2. **trace 只有一半**：`buildRowText(level, event, fields)`（`dist/core/row.js:16`）的签名里**没有 trace 槽位**；`store.log(level, event, fields)`（`dist/store.d.ts:23`）是**三参**入口。`traceId`/`spanId` 只由 dsh-log 的**客户端 SDK 写入路径**注入（`dist/client/write.js:110-123` 的 `ensureTraceForLevel`/`ensureSpanId`）。⇒ 本包自建落点的行**永远不带三件套**，`--trace` 在本包自己的行上追不到链。要接得上，只能走集成方传进来的客户端实例（客人模式），或等上游给宿主侧入口。
+3. **上游那条路牌是错的**：dsh-log 的 `USAGE` 写 `dsh-log tail <目录...>`，但 `dist/cli.js:31` **没有子命令解析**（`const paths = options.paths.length > 0 ? options.paths : ['.']`）——`tail` 被当成一个不存在的路径，先往 stderr 打 `dsh-log: 没找到日志目录：tail`（**退出码仍为 0，日志照常输出**）。干净形式是 `dsh-log <目录>`。本包已把面板路牌与 README 全部改成无 `tail` 形式（2026-10-15）；上游的 `USAGE` 与解析器不一致**留作上游事项**。
+4. **上游导出落地后，路牌怎么指**（一句话备案，不单列工作项）：今天面板错误章的路牌只给**目录** + `dsh-log <目录>`；若上游将来把「打包导出」做成读侧能调的东西（见设计说明 §11.5 ②），路牌应改成指向**那个产物**（一个文件），而不是再加一条命令 —— 判据是「用户拿到手就能贴进 issue」。在那之前不加。
+
+### 7.2 明确不做（本轮已判）
+
+- **跨进程租约**：实测两个进程各写 1200 行 × ~3 KB 到同一目录，**2400 条一条不少**；引擎发 `log.persist.fail{reason:'foreign-write'}`（`warn`，恒放行）可事后诊断，重试缓冲不丢行。这是引擎**有意**的设计（「跨进程可观测」），不是缺陷。
+- **清单合并上游化**（`mergeUpdateEvents` 交给 dsh-log 做）：本包已有纯函数实现，属策略问题不是能力缺口。
+- **开关热更新**：dsh-log 的开关是**实例级闩锁**（`switch-file.js:25-28` `if (switchLoaded) return getSwitchState()`），改 JSON 是重启级旋钮；且上游口径是「对账以宿主为准」。本包 ADR-0005 已把自己定为**只当客人**，不自建开关通道。

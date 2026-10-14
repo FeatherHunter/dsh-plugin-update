@@ -101,12 +101,21 @@ describe('门禁模板：空模板与本包事件表随包发布', () => {
     assert.deepEqual(linted.red, [], '本包事件表不该有红')
     assert.deepEqual(linted.yellow, [], '本包事件表不该有黄')
     assert.equal(linted.ok, true)
-    assert.deepEqual(linted.counts, { resident: 20, ondemand: 7, selfmon: 1 })
+    // 0.16.3 契约回填：删掉两条零发射点事件（update.install.retry / update.restart.outcome）
+    // 与一个从未出现的字段名（update.registry.fetch.cacheHit），常驻 20 → 18、总数 28 → 26。
+    assert.deepEqual(linted.counts, { resident: 18, ondemand: 7, selfmon: 1 })
     // 冻结的三个旧事件名与字段一字不动。
     const events = manifest.events
     assert.deepEqual(events['host.call'].fields, ['method', 'latencyMs', 'ok', 'kind', 'pluginId'])
     assert.deepEqual(events['host.call.fail'].fields, ['method', 'kind', 'errorHash', 'pluginId'])
     assert.deepEqual(events['update.install.exec'].fields, ['route', 'ok', 'exitCode', 'durationMs', 'pluginId'])
+    // 契约回填的负向断言：这三样不许再回到清单里（清单是发布出去的契约，声明了就得真发）。
+    assert.equal(events['update.install.retry'], undefined, '零发射点的事件不该留在随包清单里')
+    assert.equal(events['update.restart.outcome'], undefined, '零发射点的事件不该留在随包清单里')
+    assert.ok(
+      !events['update.registry.fetch'].fields.includes('cacheHit'),
+      '恒为 false 的字段名不该留在随包清单里'
+    )
   })
 })
 

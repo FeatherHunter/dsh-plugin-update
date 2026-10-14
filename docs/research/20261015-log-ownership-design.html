@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>日志归属与身份模型 · dsh-plugin-update × dsh-log 0.3.1</title>
+<style>
+:root{
+  --paper:#f7f5f1; --paper-2:#fffefb; --ink:#16181c; --ink-2:#3d434e; --ink-3:#6c7480;
+  --line:#e3ded4; --line-2:#efeae1;
+  --node:#2f5fd0; --node-bg:#eef2fd;
+  --neutral:#0b8f86; --neutral-bg:#e7f6f4;
+  --client:#b8760a; --client-bg:#fdf3e2;
+  --warn:#b3261e; --warn-bg:#fdeceb;
+  --ok:#1c7a45; --ok-bg:#e9f6ee;
+  --code-bg:#f2efe9; --code-ink:#2a2f38;
+  --shadow:0 1px 2px rgba(20,20,30,.05), 0 8px 24px -18px rgba(20,20,30,.35);
+  --mono:ui-monospace,SFMono-Regular,"Cascadia Mono","JetBrains Mono",Consolas,"Liberation Mono",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","PingFang SC","Microsoft YaHei","Hiragino Sans GB",sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype","Songti SC","Noto Serif SC",Georgia,serif;
+}
+html[data-theme="dark"]{
+  --paper:#12141a; --paper-2:#171a21; --ink:#eef1f6; --ink-2:#c2c8d4; --ink-3:#8b93a3;
+  --line:#272c36; --line-2:#1f242c;
+  --node:#8fb0ff; --node-bg:#1a2130;
+  --neutral:#4fd6c9; --neutral-bg:#14231f;
+  --client:#e0a44a; --client-bg:#2a2113;
+  --warn:#ff8a80; --warn-bg:#2c1a19;
+  --ok:#6ede9a; --ok-bg:#152418;
+  --code-bg:#1b2029; --code-ink:#dfe5ef;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -20px rgba(0,0,0,.8);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth; scroll-padding-top:24px}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:15.5px;line-height:1.75;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+a{color:var(--node);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--node) 35%,transparent)}
+a:hover{border-bottom-color:var(--node)}
+code,kbd{font-family:var(--mono);font-size:.86em;background:var(--code-bg);color:var(--code-ink);
+  padding:.12em .38em;border-radius:4px;border:1px solid var(--line-2);white-space:nowrap}
+pre{margin:0;overflow:auto}
+pre code{display:block;white-space:pre;background:transparent;border:0;padding:0;font-size:12.6px;line-height:1.62}
+.wrap{display:grid;grid-template-columns:272px minmax(0,1fr);gap:0;max-width:1480px;margin:0 auto}
+aside{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:26px 18px 40px 26px;
+  border-right:1px solid var(--line);background:linear-gradient(180deg,var(--paper-2),var(--paper))}
+.brand{font-family:var(--serif);font-size:17px;font-weight:700;letter-spacing:.01em;line-height:1.35;margin:0 0 4px}
+.brand small{display:block;font-family:var(--sans);font-weight:500;font-size:11.5px;color:var(--ink-3);
+  letter-spacing:.06em;text-transform:uppercase;margin-top:6px}
+nav{margin-top:18px}
+nav a{display:block;padding:4.5px 10px 4.5px 12px;font-size:13.2px;color:var(--ink-2);border:0;
+  border-left:2px solid transparent;border-radius:0 5px 5px 0;line-height:1.45}
+nav a:hover{background:var(--line-2);color:var(--ink)}
+nav a.active{color:var(--node);border-left-color:var(--node);background:var(--node-bg);font-weight:600}
+.side-foot{margin-top:22px;padding-top:14px;border-top:1px solid var(--line);font-size:11.6px;color:var(--ink-3);line-height:1.6}
+.themebtn{margin-top:12px;width:100%;cursor:pointer;font:inherit;font-size:12.5px;padding:7px 10px;
+  background:var(--paper-2);color:var(--ink-2);border:1px solid var(--line);border-radius:7px}
+.themebtn:hover{border-color:var(--node);color:var(--node)}
+main{padding:44px 52px 120px;min-width:0}
+header.hero{border-bottom:2px solid var(--ink);padding-bottom:22px;margin-bottom:30px}
+.eyebrow{font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);font-weight:600;
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.eyebrow .dot{width:5px;height:5px;border-radius:50%;background:var(--node);display:inline-block}
+h1{font-family:var(--serif);font-size:36px;line-height:1.2;margin:12px 0 10px;letter-spacing:-.015em;font-weight:700}
+.lede{font-size:15.5px;color:var(--ink-2);max-width:74ch;margin:0}
+.lede strong{color:var(--ink)}
+.meta-strip{display:flex;gap:26px;flex-wrap:wrap;margin-top:20px;font-size:12.6px;color:var(--ink-3)}
+.meta-strip b{display:block;color:var(--ink);font-size:13.4px;font-weight:600;font-family:var(--mono)}
+h2{font-family:var(--serif);font-size:25px;margin:54px 0 6px;padding-top:16px;letter-spacing:-.01em;font-weight:700}
+h2 .num{font-family:var(--mono);font-size:13px;color:var(--node);font-weight:600;margin-right:10px;
+  vertical-align:2px;letter-spacing:.04em}
+h3{font-size:17px;margin:32px 0 8px;letter-spacing:-.005em;font-weight:700}
+h4{font-size:14.2px;margin:22px 0 6px;font-weight:700;color:var(--ink-2)}
+p{margin:10px 0;max-width:80ch}
+ul,ol{margin:10px 0;padding-left:22px;max-width:82ch}
+li{margin:5px 0}
+li::marker{color:var(--ink-3)}
+hr{border:0;border-top:1px solid var(--line);margin:40px 0}
+.card{background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:18px 0;box-shadow:var(--shadow)}
+.card > :first-child{margin-top:0} .card > :last-child{margin-bottom:0}
+.card h4{margin-top:0}
+.note{border-left:3px solid var(--node);background:var(--node-bg);padding:13px 16px;border-radius:0 9px 9px 0;margin:18px 0}
+.note.warn{border-left-color:var(--warn);background:var(--warn-bg)}
+.card.warn{border-left:3px solid var(--warn)}
+.note.ok{border-left-color:var(--ok);background:var(--ok-bg)}
+.note > :first-child{margin-top:0} .note > :last-child{margin-bottom:0}
+.note .tag{display:block;font-size:11.4px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+  color:var(--ink-3);margin-bottom:4px}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13.4px}
+th,td{text-align:left;padding:8px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.8px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:700;
+  border-bottom:1.5px solid var(--line)}
+tbody tr:hover{background:var(--line-2)}
+td code,th code{white-space:normal}
+.tbl-wrap{overflow-x:auto}
+.code{border:1px solid var(--line);border-radius:10px;background:var(--code-bg);padding:12px 14px;margin:14px 0}
+.code .cap{font-family:var(--mono);font-size:11.4px;color:var(--ink-3);margin-bottom:7px;letter-spacing:.03em}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin:20px 0}
+.vcard{background:var(--paper-2);border:1px solid var(--line);border-left:3px solid var(--node);
+  border-radius:0 10px 10px 0;padding:14px 16px;box-shadow:var(--shadow)}
+.vcard.bad{border-left-color:var(--warn)} .vcard.good{border-left-color:var(--ok)}
+.vcard .k{font-size:11.6px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+.vcard .v{font-size:14.6px;margin-top:5px;color:var(--ink);line-height:1.6}
+.flow{display:grid;gap:8px;margin:16px 0}
+.step{display:grid;grid-template-columns:26px minmax(0,1fr);gap:12px;align-items:start;
+  background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:11px 14px}
+.step .n{font-family:var(--mono);font-size:12.4px;font-weight:700;color:var(--node);padding-top:2px}
+.step .t{font-size:13.8px;color:var(--ink-2);line-height:1.65}
+.step .t b{color:var(--ink)}
+.step.dead{border-left:3px solid var(--warn)}
+.kv{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 18px;margin:14px 0;font-size:13.6px}
+.kv dt{font-family:var(--mono);font-size:12.6px;color:var(--ink-3);padding-top:2px}
+.kv dd{margin:0;color:var(--ink-2)}
+.src{font-family:var(--mono);font-size:12px;color:var(--ink-3);white-space:nowrap}
+@media (max-width:1040px){.wrap{grid-template-columns:1fr}aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}main{padding:28px 20px 80px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<aside>
+  <p class="brand">日志归属与身份模型<small>dsh-plugin-update × dsh-log 0.3.1</small></p>
+  <nav id="toc">
+    <a href="#s1">1 · 身份模型：库没有身份</a>
+    <a href="#s2">2 · 落点模型：一插件一棵目录</a>
+    <a href="#s3">3 · 隔离的三道闸</a>
+    <a href="#s4">4 · 引擎与策略的分界</a>
+    <a href="#s5">5 · 两个租约键与那个冲突</a>
+    <a href="#s6">6 · 降级的形状：安全但不可见</a>
+    <a href="#s7">7 · 兼容的三层方案</a>
+    <a href="#s8">8 · 开关归属：一个还是两个</a>
+    <a href="#s9">9 · 两张图：本子归谁，开关跟谁</a>
+    <a href="#s10">10 · 常驻由谁决定，会不会经常维护</a>
+    <a href="#s11">11 · 要 dsh-log 做的开发点（实测）</a>
+  </nav>
+  <div class="side-foot">
+    依据：仓库 <span class="src">HEAD 49de267</span>（0.16.2）<br>
+    dsh-log <span class="src">0.3.1</span> 官方产物<br>
+    实测：2026-10-15 于本工作区<br>
+    <button class="themebtn" id="themebtn" type="button">切换深浅色</button>
+  </div>
+</aside>
+
+<main>
+<header class="hero">
+  <div class="eyebrow"><span class="dot"></span><span>日志归属</span><span>·</span><span>身份与租约</span><span>·</span><span>冲突与兼容</span></div>
+  <h1>本包不是插件，是库；库没有身份</h1>
+  <p class="lede">这一条决定了下面全部的形状 —— <strong>目录怎么起名、开关归谁、什么时候会撞、撞了之后会怎样</strong>。</p>
+  <div class="meta-strip">
+    <div>本包版本<b>0.16.3</b></div>
+    <div>日志引擎<b>dsh-log 0.3.1</b></div>
+    <div>落盘代码<b>0 行</b></div>
+    <div>策略层<b>8 文件 1344 行</b></div>
+    <div>租约键<b>2 个</b></div>
+  </div>
+</header>
+
+<!-- ============ 1 ============ -->
+<h2 id="s1"><span class="num">01</span>身份模型：库没有身份</h2>
+
+<p>集成方调用本包时，<code>pluginId</code> 与 <code>prefix</code> 都是<strong>集成方传进来的</strong>，本包一个默认值都没有，缺任一直接抛错。</p>
+
+<div class="code">
+  <div class="cap">src/config.ts:88-95 —— 两个入参都必填，没有回退</div>
+<pre><code>export function assertPluginId(value: unknown): string {
+  // …
+  throw new Error('[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ' + JSON.stringify(value) + '）')</code></pre>
+</div>
+
+<p>而本包的"身份产物"全部由这两个入参派生 —— 这一行就是全部答案：</p>
+
+<div class="code">
+  <div class="cap">src/host.ts:1020</div>
+<pre><code>wireUpdateLog(logHomeDir, config.prefix, pluginId, deriveLogNamespace(pluginId), deps.logCtx, deps.logEventList)</code></pre>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>本包的什么</th><th>从哪来</th></tr></thead>
+<tbody>
+<tr><td>日志目录 <code>logs/&lt;命名空间&gt;/</code></td><td><code>deriveLogNamespace(</code>集成方传的 <code>pluginId)</code> <span class="src">src/log/namespace.ts:65</span></td></tr>
+<tr><td>开关文件 <code>log-switch-&lt;命名空间&gt;.json</code></td><td>同一个命名空间 <span class="src">src/log/namespace.ts:90</span></td></tr>
+<tr><td>五个电话名 <code>&lt;prefix&gt;.*</code></td><td>集成方传的 <code>prefix</code></td></tr>
+<tr><td>事件清单的标识</td><td>集成方传的 <code>pluginId</code> <span class="src">src/gate.ts:150</span></td></tr>
+<tr><td>安装锁的持有者记录、跳过盘路径</td><td>集成方传的 <code>pluginId</code> <span class="src">src/host-batch.ts:667,711</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>同一个包，两种角色</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>角色</th><th>谁提供 pluginId</th><th>有没有"自己的开关"</th></tr></thead>
+<tbody>
+<tr><td><strong>作为插件</strong>被独立安装（DSH 里直接装 <code>dsh-plugin-update</code>）</td><td>它自己 <span class="src">src/entry.ts:362-366</span></td><td><strong>有</strong>。此时它扮演的是"宿主插件"</td></tr>
+<tr><td><strong>作为库</strong>被别的插件 <code>import</code> 进自己的代码</td><td>那个宿主插件</td><td><strong>没有</strong>。此时它是"被嵌入的零件"</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="verdict">
+  <div class="vcard bad">
+    <div class="k">不是这样</div>
+    <div class="v">"宿主插件集成了本包之后，本包<strong>丧失了</strong>它的开关" —— 它从来没有过开关。</div>
+  </div>
+  <div class="vcard good">
+    <div class="k">是这样</div>
+    <div class="v">本包<strong>借宿主插件的身份活着</strong>：宿主插件的那棵日志树，就是本包的行落下去的地方。</div>
+  </div>
+</div>
+
+<div class="note">
+  <span class="tag">为什么这个语义是故意的</span>
+  <p>如果本包另开一份开关，宿主插件打开调试后会发现"我开了开关，可这个插件的日志还是不出来" —— 用户眼里的"这个插件的日志"就被劈成两棵树、两个开关。ADR-0005 的判据正对着这件事：<strong>同一日志目录同时只许一个写者，本包永远只当第二个人，不当第二个主人。</strong></p>
+</div>
+
+<!-- ============ 2 ============ -->
+<h2 id="s2"><span class="num">02</span>落点模型：一插件一棵目录</h2>
+
+<p>根由本包算，叶由本包覆盖，引擎只负责把树建起来。</p>
+
+<dl class="kv">
+  <dt>日志根</dt><dd><code>&lt;homeDir&gt;/logs</code>，<code>homeDir</code> 取 <code>DSH_HOME</code>，没有则 <code>~/.dsh</code> <span class="src">src/host.ts:726-727</span></dd>
+  <dt>插件目录</dt><dd><code>&lt;homeDir&gt;/logs/&lt;派生命名空间&gt;/</code> <span class="src">src/host.ts:739-740</span></dd>
+  <dt>日志文件</dt><dd><code>YYYY-MM-DD.log</code>（按天分桶；封存件 <code>YYYY-MM-DD.&lt;N&gt;.log</code>）—— dsh-log 的 <code>daily</code> 默认，本包不覆盖</dd>
+  <dt>开关文件</dt><dd><code>&lt;homeDir&gt;/logs/log-switch-&lt;命名空间&gt;.json</code>，写在<strong>根目录</strong>而非插件目录内 <span class="src">src/log/namespace.ts:90-92</span></dd>
+</dl>
+
+<h3>覆盖了引擎的哪一个默认值</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>项</th><th>dsh-log 的默认</th><th>本包传的值</th><th>结果</th></tr></thead>
+<tbody>
+<tr><td>根 <code>cacheDir</code></td><td>无默认，必填</td><td><code>&lt;homeDir&gt;/logs</code></td><td><code>&lt;DSH_HOME&gt;/logs</code></td></tr>
+<tr><td>叶 <code>logDirName</code></td><td><code>logs-&lt;pluginId&gt;</code></td><td><code>&lt;命名空间&gt;</code></td><td><code>logs/&lt;命名空间&gt;/</code></td></tr>
+<tr><td><code>switchFileName</code></td><td><code>log-switch-&lt;pluginId&gt;.json</code></td><td><code>log-switch-&lt;命名空间&gt;.json</code></td><td>同名（仅换命名空间口径）</td></tr>
+<tr><td><code>fileNamePolicy</code></td><td><code>daily</code></td><td>不覆盖</td><td><code>YYYY-MM-DD.log</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>为什么必须覆盖 <code>logDirName</code>：</strong>根已经是 <code>&lt;homeDir&gt;/logs</code>，若再照默认拼一层，就成了 <code>&lt;homeDir&gt;/logs/logs-&lt;id&gt;/</code> —— 双层 <code>logs</code>。现场三家插件的惯例是 <code>logs/</code> 当根、插件名当叶子。</p>
+
+<h3>命名空间派生 <span class="src">src/log/namespace.ts:65</span></h3>
+
+<p>转小写 → 非 <code>[a-z0-9-]</code> 换 <code>-</code> → 折叠连续 <code>-</code> → 去首尾。<strong>本身就是合法标识的直接原样当目录名</strong>；只有这一步有损才走有损分支：slug 截 24 位 + <code>-&lt;sha256 原文前 6 位&gt;</code>，slug 被吃光则回退 <code>plugin-&lt;hash6&gt;</code>。</p>
+
+<div class="code">
+  <div class="cap">实测（构建产物，非文档抄写）</div>
+<pre><code>"dsh-plugin-update"  -> dsh-plugin-update                无损，原样通过
+"ilife"              -> ilife                            无损，原样通过
+"My.Plugin"          -> my-plugin-fb637b                 有损，带指纹
+"my-plugin"          -> my-plugin                        无损，原样通过
+"插件甲"             -> plugin-b28215                    全损，回退前缀 + 指纹
+""                   -> plugin-e3b0c4                     回退
+"a" × 40             -> aaaaaaaaaaaaaaaaaaaaaaaa-e33cdf  截断，带指纹
+"wf"（保留名）       -> wf                               开关退化成 log-switch.json</code></pre>
+</div>
+
+<p>第 3 行与第 4 行是这套设计的关键对照：只做小写化的话，<code>My.Plugin</code> 与 <code>my-plugin</code> 会撞成同一个目录 —— 那正是"两个插件互相覆盖"。现在前者带 <code>-fb637b</code>，两者永不共目录。</p>
+
+<!-- ============ 3 ============ -->
+<h2 id="s3"><span class="num">03</span>隔离的三道闸</h2>
+
+<div class="grid2">
+  <div class="card">
+    <h4>闸一 · 目录派生</h4>
+    <p><strong>无损分支是单射</strong>：合法标识原样通过，不同 raw 标识不共目录。<strong>有损分支是概率性的</strong>：靠 24 位 slug 前缀 + 6 位 sha256 指纹区分，理论上可撞（该口径已写进 <span class="src">src/log/namespace.ts:9-12</span>）。</p>
+  </div>
+  <div class="card">
+    <h4>闸二 · 进程内登记表</h4>
+    <p>挂在 <code>globalThis</code> 上的 <code>Map&lt;目录 realpath, LogHandle&gt;</code> + 引用计数：同目录复用同一个句柄，归零才释放。Windows 下目录键折叠大小写，否则 <code>Logs</code> 与 <code>logs</code> 会拿到两个句柄、两个写者又回来了。<span class="src">src/log/registry.ts:142-155</span></p>
+  </div>
+  <div class="card">
+    <h4>闸三 · 路由表</h4>
+    <p>一个 <code>pluginId</code> 一个落点；取不到就回 <code>null</code>，发射口按"丢弃并计数"处理，<strong>绝不回退到别人的 sink</strong>。<span class="src">src/log/router.ts:56</span></p>
+  </div>
+</div>
+
+<div class="note warn">
+  <span class="tag">闸三的判据</span>
+  <p><strong>串台比丢行更坏：丢行看得出来，串台看不出来。</strong></p>
+</div>
+
+<p>改造前这里是模块级 <code>let phoneLogCtx</code>：谁最后调一次建库函数就覆盖谁（单向、不清零）。同一份 DSH 里装两个用本更新系统的插件时，<strong>后装的那个会把前一个的日志行一并收走</strong> —— 日志互相覆盖的根因在这里，不在文件格式。</p>
+
+<div class="code">
+  <div class="cap">实测：4 个标识、同一进程 → 4 棵目录，各自一个文件</div>
+<pre><code>dsh-plugin-update     -> dir=dsh-plugin-update     reason=null
+My.Plugin             -> dir=my-plugin-fb637b      reason=null
+my-plugin             -> dir=my-plugin             reason=null
+dsh-opencode-palette  -> dir=dsh-opencode-palette  reason=null
+
+logs/dsh-opencode-palette/  ["2026-10-15.log"]
+logs/dsh-plugin-update/     ["2026-10-15.log"]
+logs/my-plugin/             ["2026-10-15.log"]
+logs/my-plugin-fb637b/      ["2026-10-15.log"]</code></pre>
+</div>
+
+<!-- ============ 4 ============ -->
+<h2 id="s4"><span class="num">04</span>引擎与策略的分界</h2>
+
+<p>dsh-log 不决定"树在哪"，但树内部的一切它全包。分界点就是 <code>cacheDir</code> 这一条硬规矩：</p>
+
+<div class="code">
+  <div class="cap">dsh-log 0.3.1 · dist/node.js —— 位置是调用方的事</div>
+<pre><code>// 它不决定日志写到哪：目录由调用方通过 cacheDir 传入，本入口不读任何环境变量、
+// 也不带任何默认路径。位置是调用方的事，本入口只负责把写文件这条路铺好。
+if (!deps || typeof deps.cacheDir !== 'string' || deps.cacheDir === '') {
+  throw new Error('[dsh-log] 建 Node 日志库必须给 cacheDir：日志写到哪由调用方决定，本入口不猜位置');
+}</code></pre>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>关于目录的这件事</th><th>谁负责</th></tr></thead>
+<tbody>
+<tr><td>日志树放在哪</td><td><strong>调用方</strong>（<code>cacheDir</code> 必填，无默认，不读环境变量）</td></tr>
+<tr><td>根目录建出来</td><td>dsh-log（<code>mkdir recursive</code>）</td></tr>
+<tr><td>叶子目录叫什么</td><td>dsh-log 有默认 <code>logs-&lt;pluginId&gt;</code>，<strong>可覆盖</strong></td></tr>
+<tr><td>开关文件叫什么</td><td>dsh-log 有默认 <code>log-switch-&lt;pluginId&gt;.json</code>，<strong>可覆盖</strong></td></tr>
+<tr><td>同一目录只许一个写者</td><td>dsh-log（目录租约 + realpath 归一）</td></tr>
+<tr><td>按天分桶 / 超限封存 / 过期清理</td><td>dsh-log（<code>daily</code> + <code>maxSize</code> + <code>maxDays</code>）</td></tr>
+<tr><td>读侧认目录（CLI 往下看一层）</td><td>dsh-log</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>本包那一层：纯策略，零落盘</h3>
+
+<p><code>src/log/</code> 共 8 个文件 1344 行，<strong>一行都不写盘</strong>：全目录唯一的文件系统调用是 <code>readFileSync</code> 读本包随包发布的 <code>event-list.update.json</code> <span class="src">src/log/manifest.ts:11</span>，连日志文件都不碰。</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>#</th><th>本包提供的语义</th><th>翻译了什么</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>位置语义</td><td><code>DSH_HOME</code> → <code>&lt;homeDir&gt;/logs</code>。dsh-log 不知道 <code>DSH_HOME</code> 是什么，它要同时跑在 DSH 宿主与独立 Node 程序里，猜路径在两边都错 —— 所以它<strong>故意</strong>不猜</td></tr>
+<tr><td>2</td><td>身份语义</td><td><code>pluginId</code> → 命名空间。"不同标识不共目录"这条不变量引擎没有，是本包加的</td></tr>
+<tr><td>3</td><td>覆盖 <code>logDirName</code></td><td>去掉 <code>logs-</code> 前缀，对齐现场惯例。用的是引擎公开的覆盖缝，不是绕过它</td></tr>
+<tr><td>4</td><td>归属语义</td><td>按 <code>pluginId</code> 路由；取不到就丢弃计数，绝不回退</td></tr>
+<tr><td>5</td><td>降级语义</td><td>建库失败 → no-op 落点，<strong>绝不外抛</strong>。引擎在这两种情况下是抛错的，把"日志坏了不能挡住更新"翻译成降级是本包的事</td></tr>
+<tr><td>6</td><td>内容语义</td><td>行只承载稳定码 + 字段白名单 + 写前脱敏 + 准入短路 + 预算守卫</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ============ 5 ============ -->
+<h2 id="s5"><span class="num">05</span>两个租约键与那个冲突</h2>
+
+<p>dsh-log 的排他判定有<strong>两个键</strong>，任一同名即判冲突。而这两个键的默认派生源是<strong>同一个</strong> <code>pluginId</code>：</p>
+
+<div class="code">
+  <div class="cap">dsh-log 0.3.1 · dist/config/resolve.js:20-29</div>
+<pre><code>const logDirName = input.logDirName !== undefined
+    ? input.logDirName
+    : pluginId === 'wf' ? LEGACY_LOG_DIR_NAME : LEGACY_LOG_DIR_NAME + '-' + pluginId;   // logs-&lt;id&gt;
+const switchFileName = input.switchFileName !== undefined
+    ? input.switchFileName
+    : pluginId === 'wf' ? LEGACY_SWITCH_FILE_NAME : 'log-switch-' + pluginId + '.json';</code></pre>
+</div>
+
+<p>开关文件写在 <code>cacheDir</code> <strong>根目录</strong>下，是日志目录的兄弟而不是孩子：</p>
+
+<div class="code">
+  <div class="cap">dsh-log 0.3.1 · dist/node.js</div>
+<pre><code>// 目录先建好：开关文件直接写在根目录下，包不建它的父目录。
+await mkdir(cacheDir, { recursive: true });</code></pre>
+</div>
+
+<h3>于是出现这一整类问题：两个目录不同，却被同一个开关文件判成冲突</h3>
+
+<p>场景：宿主插件自己建了引擎实例（<code>pluginId: 'b'</code>，目录默认 <code>logs-b</code>），又集成了本包但<strong>没把实例传进来</strong>（未传 <code>logCtx</code>）。本包自建时用覆盖后的目录名 <code>b</code>，开关名仍从同一个 <code>pluginId</code> 派生。</p>
+
+<div class="code">
+  <div class="cap">实测：三种组合</div>
+<pre><code>B 建库成功（默认 logDirName = logs-b，switch = log-switch-b.json）
+
+A: logDirName=b,      switch=log-switch-b.json
+   -> 抛错: [dsh-log] 该开关文件已有活跃写者：…\log-switch-b.json；
+            同一目录多实例会互相覆盖日志。若上一个实例已结束，请先 release() 再接管。
+
+A: logDirName=b,      switch=log-switch-a.json
+   -> 建库成功（无冲突）
+
+A: logDirName=logs-b, switch=log-switch-b.json
+   -> 抛错: [dsh-log] 该目录已有活跃写者：…\logs-b；同一目录多实例会互相覆盖日志。…</code></pre>
+</div>
+
+<div class="verdict">
+  <div class="vcard bad">
+    <div class="k">第 1 行 · 关键</div>
+    <div class="v">目录 <code>logs-b</code> 与 <code>b</code> <strong>根本不同</strong>，但开关文件同名 → 照样撞。<strong>撞的可以只是开关文件。</strong></div>
+  </div>
+  <div class="vcard good">
+    <div class="k">第 2 行 · 出路</div>
+    <div class="v">只换开关名 → <strong>建库成功</strong>。冲突不是"两个写者必然存在"，只是命名撞了。</div>
+  </div>
+</div>
+
+<div class="note">
+  <span class="tag">引擎侧的接口瑕疵</span>
+  <p>租约有两个键（目录 + 开关文件），两个键的默认派生源却是同一个 <code>pluginId</code>，又各自允许被覆盖 —— 于是<strong>覆盖了目录的人，会被没覆盖的开关文件撞上</strong>。</p>
+</div>
+
+<!-- ============ 6 ============ -->
+<h2 id="s6"><span class="num">06</span>降级的形状：安全但不可见</h2>
+
+<p>撞上之后不是覆盖、不是写一半，而是<strong>整体放弃</strong>。链路上每一环都是"不抛、不覆盖、只丢"：</p>
+
+<div class="flow">
+  <div class="step"><div class="n">01</div><div class="t">建库抛错 → 按 <code>LEASE_SHAPE = /占用|写者|租约|lease|lock|接管/i</code> 判因 → <code>reason: 'lease-conflict'</code> → 返回 <code>sink: null</code>，<strong>绝不外抛</strong> <span class="src">src/log/registry.ts:96,198-201</span></div></div>
+  <div class="step"><div class="n">02</div><div class="t">建库前先把路由绑到一个 <strong>pending 落点</strong>（先收后转），建好了按序灌进真落点 <span class="src">src/host.ts:769-770</span></div></div>
+  <div class="step"><div class="n">03</div><div class="t">降级回调里发 <code>update.log.degraded</code> —— 此刻路由还绑着 pending，于是这行进的是<strong>缓冲区</strong> <span class="src">src/host.ts:779</span></div></div>
+  <div class="step dead"><div class="n">04</div><div class="t"><code>pending.attach(null)</code>：把目标设成 <code>NOOP_SINK</code>，<strong>并把缓冲区冲进 no-op</strong> → 那条降级行消失 <span class="src">src/host.ts:788</span></div></div>
+  <div class="step dead"><div class="n">05</div><div class="t"><code>unbind</code> 之后才发 <code>update.wire.ready {logSink:'off'}</code> → 路由已空 → 也丢弃 <span class="src">src/host.ts:789-790</span></div></div>
+</div>
+
+<div class="code">
+  <div class="cap">src/host.ts:779 —— 代码自己承认了这件事</div>
+<pre><code>// 建不起来的坏消息只能如实记下（此刻没有落点可写，所以这行多半也到不了任何文件）。
+emitUpdateLog('warn', 'update.log.degraded', { reason }, { pluginId })</code></pre>
+</div>
+
+<div class="verdict">
+  <div class="vcard bad">
+    <div class="k">集成方实际观测到</div>
+    <div class="v">磁盘<strong>零行</strong>、面板<strong>零提示</strong>。宿主插件会以为日志在正常工作。</div>
+  </div>
+  <div class="vcard">
+    <div class="k">唯一的程序化出口</div>
+    <div class="v"><code>lastOwnLogDegraded()</code> <span class="src">src/log/registry.ts:119</span>。查消费者：<strong>只有测试在用</strong>，面板与诊断面都没接。</div>
+  </div>
+</div>
+
+<div class="note warn">
+  <span class="tag">缺口</span>
+  <p>降级本身是<strong>安全</strong>的（不挡主流程、不覆盖别人），但<strong>不可见</strong>。日志系统自己坏了，没有任何人被告知。</p>
+</div>
+
+<!-- ============ 7 ============ -->
+<h2 id="s7"><span class="num">07</span>兼容的三层方案</h2>
+
+<div class="card">
+  <h4>第一层 · 让它可见（零风险）</h4>
+  <ul>
+    <li>把"你自己也接了 dsh-log 就必须传 <code>logCtx</code>"从<strong>一个选项</strong>提成<strong>前置条件</strong>。</li>
+    <li>把 <code>lastOwnLogDegraded()</code> 接到面板"复制诊断"、日志路牌、快照只读字段。</li>
+  </ul>
+  <p><strong>收益</strong>：冲突从"没人知道"变成"面板上写着原因"。<strong>风险</strong>：零（新增只读字段走破冰）。</p>
+</div>
+
+<div class="card">
+  <h4>第二层 · 冲突时回退到自有开关（小改动，需一次破冰）</h4>
+  <ol>
+    <li>先按对齐命名试 <code>log-switch-&lt;ns&gt;.json</code>（这样宿主插件的开关能管本包）；</li>
+    <li>若抛的是<strong>开关文件占用</strong> → 换 <code>log-switch-&lt;ns&gt;-update.json</code> 再试一次；</li>
+    <li>若连目录也被占 → 再用 <code>&lt;ns&gt;-update</code> + 同名开关。</li>
+  </ol>
+  <p>第 2 步的可行性已被第 5 节的实测第 2 行证明。<strong>效果</strong>：从"一行都不写"变成"照写，只是开关独立"。</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>代价</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>位置不再唯一确定</td><td>冲突情形下目录/开关变成第二套。缓解：面板路牌给实际路径（已有"挂载项 logDir 直通错误章"的测试）</td></tr>
+        <tr><td>按需事件等于长期关闭</td><td>回退形态下宿主插件的开关管不到本包，而本包没有翻转开关的电话。对照现状（零行）仍是净赚</td></tr>
+        <tr><td>需破冰</td><td><code>update.wire.ready</code> 的 <code>logSink</code> 要加枚举值（如 <code>'self-fallback'</code>）并在清单里声明</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <h4>第三层 · 向上游提两个需求（本包一行不改）</h4>
+  <ol>
+    <li><strong>开关文件应该跟着日志目录走</strong>（放进目录内，或键里带上 <code>logDirName</code>），而不是只跟 <code>pluginId</code> 走。这样"目录不同、开关同名相撞"这一整类问题从根上消失。</li>
+    <li><strong>给一个"按目录查活跃实例"的只读出口</strong>。有了它，本包在冲突时可以直接<strong>复用宿主插件的实例</strong>（当客人，不建第二个写者），冲突彻底消解，宿主插件一行代码都不用改。已确认 <code>dsh-log/node</code> 的导出面只有 <code>createNodeFileService</code> / <code>createNodeTimer</code> / <code>createNodeHostLog</code> / <code>createQuickLog</code> —— <strong>没有这类出口</strong>。</li>
+  </ol>
+  <p class="src">第 2 条的精确边界见 8.6：它只在两个插件<strong>派生出同一个目录</strong>时生效，不会让本包找到宿主插件。</p>
+</div>
+
+<div class="card">
+  <h4>另有现成做法：给本包一个不同的 <code>pluginId</code>（副作用超出日志）</h4>
+  <p>宿主插件可以传 <code>pluginId: 'b-update'</code> 而 <code>prefix</code> 仍传 <code>'b'</code> —— 本包立刻有了独立目录与独立开关，<strong>零代码改动</strong>。但 <code>pluginId</code> 管的不只是日志：它还是事件清单的标识、安装锁的持有者记录、跳过盘的路径组成。拿它当"日志开关旋钮"是用大锤敲小钉子。</p>
+</div>
+
+<h2 id="s8"><span class="num">08</span>开关归属：为什么是一个，而不是两个</h2>
+
+<p>这一节回答两个问题：上游把<strong>开关改成跟着目录走</strong>、再加一个<strong>"按目录查活跃实例"的只读出口</strong>之后，能不能保证"B 的日志和 A 的日志两种都在，且 B 两种都看得到"；以及 A 没有自己的开关时，B 该怎么控制 A 的啰嗦程度。答案要从开关到底是什么开始。</p>
+
+<div class="card">
+  <h4>8.1 前提纠正：开关不是日志的总闸</h4>
+  <p>引擎的准入判定只有三句话（<span class="src">dsh-log 0.3.1 · dist/engine/pipeline.js:192-198</span>）：</p>
+  <pre><code>function isEnabled(level, event) {
+  if (isUrgentLevel(level)) return true;                                    // error/warn 恒放行
+  if (typeof event === 'string' &amp;&amp; RESIDENT_EVENTS.has(event)) return true;  // 常驻恒放行
+  return getSwitchEnabled() === true;                                       // 其余才看开关
+}</code></pre>
+  <p>三个分类：<strong>紧急</strong>（error/warn）、<strong>常驻</strong>（<code>kind === 'resident'</code>）、<strong>残差</strong>（其余）。<strong>开关只管第三类。</strong>常驻名单是「引擎固定 43 条 ∪ 调用方清单里标了 resident 的事件」（<span class="src">pipeline.js:182-188</span>）—— 这正是本包那 18 条 resident 声明的意义：<em>不必为了几行轨迹去打开全局开关</em>。</p>
+  <p>本包 26 个事件按这套判定落下去：</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th style="white-space:nowrap">分类</th><th style="white-space:nowrap">条数</th><th style="white-space:nowrap">受开关管</th><th>是哪些</th></tr></thead>
+      <tbody>
+        <tr><td>紧急级别</td><td>7</td><td>否</td><td><code>host.call.fail</code> <code>update.batch.entry.fail</code> <code>update.check.fail</code> <code>update.lock.anomaly</code> <code>update.panel.render.fail</code> <code>update.store.fail</code> <code>update.log.degraded</code></td></tr>
+        <tr><td>常驻 info</td><td>12</td><td>否</td><td><code>host.call</code> <code>update.wire.ready</code> <code>update.queue.transition</code> <code>update.status.changed</code> <code>update.install.request</code> <code>update.install.exec</code> <code>update.install.verify</code> <code>update.check.done</code> <code>update.batch.entry.request</code> <code>update.batch.summary</code> <code>update.panel.mount</code> <code>update.panel.action</code></td></tr>
+        <tr><td>残差 info</td><td>7</td><td><strong>是</strong></td><td><code>update.poll</code> <code>update.registry.fetch</code> <code>update.check.start</code> <code>update.changelog.parse</code> <code>update.channel.decide</code> <code>update.lang.applied</code> <code>update.panel.state</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>所以"A 没有开关 → 低级别日志打不出来"的真实含义是：<strong>A 的 7 条噪音不打。</strong>诊断一次更新失败要看的证据行（<code>check.fail</code>、<code>install.verify</code>、<code>store.fail</code>、<code>lock.anomaly</code>、<code>queue.transition</code>、<code>panel.render.fail</code>）全在恒放行的 19 条里。<strong>啰嗦程度与可观测性不是同一个旋钮</strong> —— 引擎把证据类做成级别与常驻属性，把体积类留给开关，这是有意的分工。</p>
+</div>
+
+<div class="card">
+  <h4>8.2 开关是 sink 的属性，不是 producer 的属性</h4>
+  <dl class="kv">
+    <dt>形状</dt><dd><code>{ "enabled": boolean }</code>，整份覆写（0.3.0 删掉了从没被读过的 <code>sampleRate</code>）</dd>
+    <dt>位置</dt><dd><code>cacheDir</code> 根下，与日志目录<strong>平级</strong>，不在日志目录里</dd>
+    <dt>命名</dt><dd>从 <code>pluginId</code> 派生（<span class="src">switch-file.js:21-46</span>）</dd>
+    <dt>约束谁</dt><dd>写进<strong>那个目录</strong>的所有行，不分属主</dd>
+  </dl>
+  <p>本包给所有插件传的是同一个 <code>cacheDir = &lt;homeDir&gt;/logs</code>，所以所有开关文件都落在同一个根下，只靠文件名区分。</p>
+  <div class="note">
+    <span class="tag">范畴错误</span>
+    <p>"A 的开关"不是一个东西。存在的只有<strong>"A 写进去的那个目录的开关"</strong>。一个 sink 只能有一个闸 —— 这一句就决定了下面全部结论。</p>
+  </div>
+</div>
+
+<div class="card">
+  <h4>8.3 于是"两个还是一个"不是选择题，是拓扑的推论</h4>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>形态</th><th>A 写在哪</th><th>sink 数</th><th>开关数</th><th>B 自己的查询看得到 A 吗</th></tr></thead>
+      <tbody>
+        <tr><td><strong>客人模式</strong>（B 传 <code>logCtx</code>）</td><td>B 的目录</td><td>1</td><td>1（B 的）</td><td>看得到</td></tr>
+        <tr><td>自有目录（A 自建）</td><td>A 自己的目录</td><td>2</td><td>2</td><td><strong>看不到</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>因为读侧是按桶隔离的（<span class="src">dsh-log 0.3.1 · dist/host/query.js:20-21</span>）：</p>
+  <pre><code>if (wantPlugin !== config.pluginId)
+    return { ok: true, entries: [], denied: true };</code></pre>
+  <p>一个 <code>logQuery</code> 只读自己的桶，问别的插件标识得到的是空集 + <code>denied</code>。跨桶唯一的路是 <code>aggregateLogQuery(requester, sources, grants, args)</code>（<span class="src">dist/host/aggregate.js:13</span>）：自己搭 <code>sources</code> 清单、自己授权、自己知道对方的标识与目录。人（终端）两条都看得到 —— <code>dsh-log &lt;logsRoot&gt;</code> 往下探一层，把每个目录都列出来。</p>
+</div>
+
+<div class="card">
+  <h4>8.4 两个开关不是"多一个控制"，是"少一条读取路径"</h4>
+  <p>自有目录形态下，B 拿到独立开关的代价是：B 自己的 <code>logQuery</code> 对 A 返回 <code>denied</code>，B 必须另建一套聚合接线才能看见 A。<strong>独立性不是白拿的，它把"一条读取路径"换成了"一套跨桶读取"。</strong>所以"B 要 2 个开关还是一个"这个问题问反了 —— 该问的是"B 要几条读取路径"。</p>
+</div>
+
+<div class="card">
+  <h4>8.5 三个实测硬边界：决定"能不能真的拧到"</h4>
+  <div class="step"><div class="n">01</div><div class="t"><b>开关是实例级闩锁。</b>每个实例一辈子只从盘上读一次开关（<span class="src">switch-file.js:25-28</span>）：<code>if (switchLoaded) return getSwitchState()</code>。所以<strong>改 JSON 文件是重启级旋钮，对活着的实例无效</strong>；运行期只有一条路 —— <code>setSwitch()</code>（<span class="src">switch-file.js:83</span>），对外就是 <code>logSetSwitch</code> 电话。</div></div>
+  <div class="step dead"><div class="n">02</div><div class="t"><b>本包一个电话都没注册。</b><code>grep "logSetSwitch|logGetSwitch|logQuery|registerHostLogPhones" src/</code> → 无匹配。dsh-log 0.3.1 有六个宿主日志电话（<span class="src">dist/host.d.ts:22</span>）：<code>logBatch</code> / <code>logExport</code> / <code>logClear</code> / <code>logGetSwitch</code> / <code>logSetSwitch</code> / <code>logQuery</code>；本包走的是 <code>dsh-log/node</code> 的 <code>createNodeHostLog</code>，那个入口明说"不注册电话"（<span class="src">dist/node.d.ts:42</span>）。<strong>所以今天 B 没有任何程序化旋钮</strong>：既开不了 A 的开关，也查不到 A 的行。这是比"两个还是一个"更前置的缺口 —— <strong>开关存在，但没有人能拧它。</strong></div></div>
+  <div class="step"><div class="n">03</div><div class="t"><b>客人模式走的是集成方那台引擎。</b>本包调的是 <code>logCtx.fire(...)</code> 而不是 <code>store.log(...)</code>，<code>isEnabled</code> 也取自那台引擎（<span class="src">src/log/sink.ts:47-48</span>）；本包只把闸的判断<strong>原样委托</strong>出去（<span class="src">src/log/emit.ts:172-174</span>），自己不做任何级别过滤。"一个开关"的机制来源就在这里。</div></div>
+</div>
+
+<div class="card">
+  <h4>8.6 上游那两点修好，保证什么、不保证什么</h4>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>上游改动</th><th>保证到</th><th>不保证</th></tr></thead>
+      <tbody>
+        <tr><td>开关文件跟着日志目录走</td><td><strong>不互相覆盖。</strong>两个 sink 各自独立、各自有开关，"目录不同、开关同名相撞"这一整类问题消失</td><td>不改变拓扑：A 仍可能在自己的目录里，B 仍看不到它</td></tr>
+        <tr><td>按目录查活跃实例</td><td><strong>同目录相撞时不再抛错，改为复用</strong>（从硬失败变成当客人）</td><td><strong>不会让 A 找到 B。</strong>A 知道的是共享根和自己的目录名（由自己的 pluginId 派生），不知道 B 的目录名</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>第 2 条的边界要说清：它只在 <strong>A、B 恰好派生出同一个目录</strong>时生效 —— 那取决于 B 是否按现场惯例把 <code>logDirName</code> 覆盖成裸名（<code>logs/&lt;插件名&gt;/</code>），而不是用引擎默认的 <code>logs-&lt;id&gt;</code>。两种情况都存在，所以它是有用的兜底，但不是发现机制。</p>
+  <div class="note warn">
+    <span class="tag">安全 ≠ 可见</span>
+    <p>两点修好买到的是「不互相覆盖 + 谁都不会静默变成零行」，<strong>不是"B 看得到 A"</strong>。可见性是读侧的事，读侧要的是「A 写进 B 的桶」或「B 搭聚合」—— 与那两点无关。</p>
+  </div>
+</div>
+
+<div class="card">
+  <h4>8.7 结论：一个开关，而且是免费的</h4>
+  <ul>
+    <li>客人模式 = 1 个 sink = 1 个开关 = 1 条读取路径。<strong>A 的 21 条证据行不受开关管，B 永远拿得到</strong>；A 的 7 条噪音与 B 自己的残差行同闸 —— 而噪音本来就按体积分类，不分属主。</li>
+    <li>所以"B 既看得到 A，又管得住 A 的啰嗦程度"的正确形状就是<strong>客人模式 + 一个开关</strong>。两个开关的形态会自动丢掉"一个视角"。</li>
+    <li>还有一条死角（第 6 节已说）：最该被看见的那行是 <code>update.log.degraded</code>，而它记的正是"本包建库失败"—— 建库失败意味着没有 sink，这行哪儿都写不进去（<span class="src">src/host.ts:779</span> 的注释自己承认了）。<strong>保证 B 看得到 A 的最有效办法，是保证 A 有一个能用的 sink。</strong>上游那两点对这件事的真正价值在这里。</li>
+  </ul>
+</div>
+
+<div class="note ok">
+  <span class="tag">要的是契约，不是巧合</span>
+  <p>"A 写进 B 的 sink"今天取决于 <strong>B 是否记得把 <code>logCtx</code> 交给 A</strong>。要让它从巧合变成保证，只有一条路：把"你也有 dsh-log 就必须给 <code>logCtx</code>"提成前置条件（第 7 节第一层），并在建库失败时把 <code>lastOwnLogDegraded()</code> 露到面板上。</p>
+</div>
+
+<h2 id="s9"><span class="num">09</span>两张图：本子归谁，开关跟谁</h2>
+
+<div class="card">
+  <h4>9.1 常驻表不是白名单，是例外放行</h4>
+  <p>一个具体的困惑值得当场跑一遍：<em>我想打一行 <code>debug</code>，结果被无视了 —— 是因为它不在常驻表里吗？</em><strong>不是。是因为开关默认是关的。</strong>下面是实测（一个自建 dsh-log 实例，清单里只声明了一条常驻事件）：</p>
+  <pre><code>开关初始状态: {"enabled":false}
+
+--- isEnabled 逐个问（开关关着）---
+  isEnabled(error, demo.err)           = true
+  isEnabled(warn,  demo.warn)          = true
+  isEnabled(info,  demo.normal.info)   = false
+  isEnabled(debug, demo.normal.info)   = false
+  isEnabled(info,  demo.resident.info) = true
+  isEnabled(debug, demo.resident.info) = true
+
+--- 开关关着时逐条写 ---
+  error/demo.err           → queued
+  warn/demo.warn           → queued
+  info/demo.normal.info    → skipped      ← 被无视
+  debug/demo.normal.info   → skipped      ← 被无视
+  info/demo.resident.info  → queued
+  debug/demo.resident.info → queued
+丢弃计数 getDroppedCount() = 0
+
+磁盘上只有 4 行：error / warn / info(常驻) / debug(常驻)
+打开开关后同样 6 条全部 queued，文件变 10 行</code></pre>
+  <div class="grid2">
+    <div class="vcard good"><div class="k">要点一</div><div class="v">常驻表<strong>只能加权限，不能减</strong>。不在表里 ≠ 被拦；真正的拦是开关。表是开关的<strong>例外名单</strong>。</div></div>
+    <div class="vcard good"><div class="k">要点二</div><div class="v">常驻<strong>按事件名，不按级别</strong>。标了常驻的事件连 <code>debug</code> 都照落 —— 实测 <code>isEnabled</code> 对 <code>debug</code> 级别的常驻事件仍返 <code>true</code>。</div></div>
+    <div class="vcard bad"><div class="k">要点三</div><div class="v">被无视是<strong>静默的</strong>：<code>getDroppedCount() = 0</code>。skip 不算丢行 —— 你写了、磁盘上没有、也没有任何计数提示。</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h4>9.2 那为什么还要有常驻表</h4>
+  <p>引擎有两个互相打架的职责：<strong>证据要够</strong> 与 <strong>盘不能爆</strong>。最钝的工具是全局开关 —— 开＝全落，关＝只剩 error/warn。但两头都不对：<em>关着的时候你仍然需要那几行关键轨迹</em>，否则事后无从复盘。于是需要一个中间类：<strong>按体积算不值、按证据算值</strong>的行。</p>
+  <dl class="kv">
+    <dt>为什么按事件名</dt><dd>体积是<strong>事件</strong>的属性，不是级别的属性。<code>update.poll</code> 一秒一行（体积大、证据少）；<code>update.install.verify</code> 一次安装一行（体积小、证据大）。两条都是 <code>info</code> —— 级别分不开它们，事件名能。</dd>
+    <dt>为什么必须事先登记</dt><dd>"这几行一定在"是对读日志的人的<strong>承诺</strong>。承诺只能写在事前清单上 —— 这就是 resident 的语义，也是它为什么是清单而不是运行时判断。</dd>
+    <dt>代价</dt><dd>判断权在生产者的清单里，且在运行期之前。<strong>忘了登记 → 那条就落进开关管辖。</strong>本包那 7 条就是这么落进去的（见 8.1）。</dd>
+  </dl>
+</div>
+
+<div class="card">
+  <h4>9.3 两种落法：日志本归谁</h4>
+  <p>A 的行必须落到某个文件里。B 已经有一本日志本（B 自己建的 dsh-log 实例），于是只有两种落法：</p>
+  <div class="grid2">
+    <div>
+      <p><strong>落法一 · 用 B 那本</strong>（客人模式）</p>
+      <pre><code>&lt;homeDir&gt;/logs/
+├── log-switch-b.json        ← 唯一的开关
+└── logs-b/
+    └── 2026-10-15.log       ← B 的行 + A 的行
+                                 混在同一个文件里</code></pre>
+      <p>B 的面板读的就是这个文件 → <strong>两种都在，一次看全</strong>。开关只有一个 → B 一按，B 的啰嗦行和 A 的啰嗦行一起开关。</p>
+    </div>
+    <div>
+      <p><strong>落法二 · 自己再开一本</strong>（自有目录）</p>
+      <pre><code>&lt;homeDir&gt;/logs/
+├── log-switch-b.json        ← B 的开关
+├── log-switch-a.json        ← A 的开关
+├── logs-b/
+│   └── 2026-10-15.log       ← 只有 B 的行
+└── a/
+    └── 2026-10-15.log       ← 只有 A 的行</code></pre>
+      <p>B 的面板只读 <code>logs-b/</code> → <strong>看不到 A</strong>。要看到，B 得另用 <code>aggregateLogQuery</code> 同时读两本，还得知道 A 的目录名 —— 这就叫"接线"。</p>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h4>9.4 谁决定用哪种？—— <code>logCtx</code> 递不递</h4>
+  <dl class="kv">
+    <dt>logCtx 是什么</dt><dd>一个对象，有 <code>fire(level, event, fields)</code> 方法 —— 就是集成方手里那支"写日志的笔"（<span class="src">src/log/sink.ts:42-50</span>）</dd>
+    <dt>可不可选</dt><dd><code>createHostUpdate(deps: { …, logCtx?: LogCtx, … })</code> —— <strong>可选</strong>（<span class="src">src/host.ts:1011</span>）</dd>
+    <dt>默认</dt><dd>不递 → 本包自己开一本 → <strong>自有目录</strong></dd>
+  </dl>
+  <div class="note warn">
+    <span class="tag">今天的默认</span>
+    <p>默认形态是<strong>自有目录</strong>。所以"B 看得到 A"今天<strong>不是保证</strong>，取决于 B 有没有递笔。</p>
+  </div>
+  <p>怎么知道自己处在哪种形态：<code>update.wire.ready</code> 这行常驻 info 带着 <code>logSink</code> 字段，三种取值（<span class="src">src/host.ts:766 / 785 / 790</span>）：</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th><code>logSink</code></th><th>形态</th><th>开关归谁</th><th>B 读得到 A 吗</th></tr></thead>
+      <tbody>
+        <tr><td><code>'external'</code></td><td>客人模式</td><td>B 的</td><td>读得到</td></tr>
+        <tr><td><code>'self'</code></td><td>自有目录</td><td>A 自己的</td><td>读不到</td></tr>
+        <tr><td><code>'off'</code></td><td>降级（无落点）</td><td>不存在</td><td>没有行可读</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="src">这行是"接线一次一条"的常驻事件，不受开关管 —— 也就是说：无论开关什么状态，你都能从日志里读出这台实例处在哪种形态。</p>
+</div>
+
+<h2 id="s10"><span class="num">10</span>常驻由谁决定，会不会经常维护</h2>
+
+<div class="card">
+  <h4>10.1 三层，各管各的</h4>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>谁</th><th>决定什么</th><th>在哪</th><th>怎么生效</th></tr></thead>
+      <tbody>
+        <tr><td>dsh-log 维护者</td><td><strong>固定表 43 条</strong>（DSH 宿主侧自己的事件）</td><td><code>dist/core/resident.js:22-35</code></td><td>写死在引擎里，随 dsh-log 发版</td></tr>
+        <tr><td><strong>事件清单的持有者</strong></td><td>清单里每个事件的 <code>kind</code></td><td><code>event-list.update.json</code></td><td>建库时读一次，与固定表<strong>取并集</strong></td></tr>
+        <tr><td>引擎</td><td>把两者并起来</td><td><code>residentEventSet()</code></td><td><code>BUILTIN_RESIDENT_EVENTS ∪ declaredResidentEvents(manifest)</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note ok">
+    <span class="tag">关键</span>
+    <p><strong>对本包那 26 条事件，常驻与否是本包自己声明的</strong> —— 不需要 dsh-log 配合，也不需要发 dsh-log 新版。第三方并表时同理：<code>mergeUpdateEvents</code> 字段取并集，<strong>级别与归类仍按你自己的声明</strong>（README §10）。</p>
+  </div>
+  <p>一个顺带的观察：dsh-log 的固定 43 条里已经有 <code>host.call</code>、<code>host.call.fail</code>、<code>update.install.exec</code> —— 那是本包最老的三个事件。所以那张固定表背着"DSH 宿主侧既有惯例"的历史包袱，<strong>清单声明才是给外部插件准备的正路</strong>（<code>resident.js</code> 注释原话：第三方插件终于有一条"不用打开开关就能让某类 info 落盘"的正路）。</p>
+</div>
+
+<div class="card">
+  <h4>10.2 会增长，但不会"额外"维护 —— 而且判据是一条规则</h4>
+  <p>先消除最坏的那个想象：<strong>不需要动 dsh-log。</strong>加一条常驻事件 = 改本包自己的清单一个字段 + 发本包一个版本。</p>
+  <p>再消除"忘了更新"：<strong><code>kind</code> 是清单的必填项，漏了当场抛错。</strong>实测四种残缺清单：</p>
+  <pre><code>缺 kind     → 抛错  [dsh-log] 事件清单 eventList 非法：事件 a.b 的 kind 只许 resident、ondemand、selfmon
+kind 写错    → 抛错  [dsh-log] 事件清单 eventList 非法：事件 a.b 的 kind 只许 resident、ondemand、selfmon
+缺 level     → 抛错  [dsh-log] 事件清单 eventList 非法：事件 a.b 的 level 只许 error、warn、info、debug
+缺 fields    → 抛错  [dsh-log] 事件清单 eventList 非法：事件 a.b 的 fields 必须是字符串数组</code></pre>
+  <p>所以在<strong>字段层面</strong>，"忘了更新常驻表"不可能发生 —— 建库直接拒绝启动（<span class="src">dist/config/event-list.js:90-91</span>）。</p>
+  <p>判据也不是感觉，是一条硬规则（<span class="src">docs/research/20261014-log-event-catalog.md §0:12-15</span>）：</p>
+  <dl class="kv">
+    <dt>resident</dt><dd>调试开关关着也落盘，<strong>因此必须边沿触发</strong>（不变量，铁律）</dd>
+    <dt>ondemand</dt><dd>开关打开才落盘，<strong>可以逐次打点</strong></dd>
+    <dt>selfmon</dt><dd>本包日志接线自身的降级，永不外抛</dd>
+  </dl>
+  <div class="note">
+    <span class="tag">翻译成人话</span>
+    <p>加事件时问一句：<strong>"它会不会重复发？"</strong> 会（轮询／逐帧／每次调用都发）→ 只能是 <code>ondemand</code>；只在状态真变了、或一次操作一次 → 才可以 <code>resident</code>。</p>
+  </div>
+  <p>这就是为什么 <code>update.poll</code> 是 ondemand 而 <code>update.status.changed</code> 是 resident —— 两条都是 info、都跟轮询有关，但一条逐次打点、一条只发边沿。</p>
+</div>
+
+<div class="card">
+  <h4>10.3 三道门：标错会被抓住</h4>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>门</th><th>抓什么</th><th>出处</th></tr></thead>
+      <tbody>
+        <tr><td>引擎建库抛错</td><td><code>kind</code> 缺 / 写错 / 不认识</td><td><code>dist/config/event-list.js:90-91</code></td></tr>
+        <tr><td>噪声预算门</td><td>把逐次打点的事件错标成 resident → 稳态行数爆炸</td><td>600 次轮询 → 0 行；24h 稳态外推 0 行；事件面 37 行（<code>node .tmp/log-verify/run.mjs budget</code> 8/8）</td></tr>
+        <tr><td>负向断言门</td><td>字段名集合与清单不一致（多一个少一个都红）</td><td>ADR-0006 决策 4</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <h4>10.4 诚实地说：这张表确实被漏过</h4>
+  <p>dsh-log 自己的历史就记着两次（<span class="src">dist/core/resident.js:16-21</span> 的历史注释）：</p>
+  <ul>
+    <li><code>naming.summary</code> 加事件时只进了附录与计数门禁、<strong>漏了写侧名单</strong> → 开关关着时被静默拦掉（#782 补记）</li>
+    <li><code>git.exec</code> / <code>git.exec.fail</code> 补进后，常驻数由 <strong>41 变 43</strong>（#817 补记）</li>
+  </ul>
+  <p>那次教训换来一个结构性改进：写侧名单现在是<strong>单源</strong>（<code>core/resident.js</code> 一处，宿主 <code>engine/pipeline</code> 与客户端 <code>client/write</code> 共用一份）—— 从前两边各抄一份、漂移过，那正是 #731 的根因。</p>
+  <div class="note ok">
+    <span class="tag">结论</span>
+    <p>会增长（26 条会随事件增加），但增长的动作是<strong>"加事件时填一个必填字段"</strong>：漏填由引擎拦，标错由噪声预算门拦。真正需要人判断的只有一件事 —— <strong>这条行值不值得在开关关着时也占一份盘</strong>。这个判断本包已经替你做过 26 次，以后每加一个事件做一次，判据写在 catalog §0 与 README §10。</p>
+  </div>
+</div>
+
+<h2 id="s11"><span class="num">11</span>要 dsh-log 做的开发点（经对抗式审查修订）</h2>
+
+<p class="lede">上一版这一节列了四条，按"会不会真出事"排。经对抗式复查：<strong>撤下三条</strong>（其中两条的证据被实测推翻），一条改判，另补两条<strong>真正对着目的地的</strong> —— 它们一直摆在那里，我第一遍没看见。</p>
+
+<div class="card">
+  <h4>11.0 审查怎么做的</h4>
+  <p>对每一条问三个问题：</p>
+  <ol>
+    <li><strong>现象是真的吗？</strong> 重跑，不看注释看行为。</li>
+    <li><strong>这是引擎的缺陷，还是它明确的设计选择？</strong> 去读它自己写的注释。</li>
+    <li><strong>这件事该谁付钱？</strong> 我们改一行能解决，还是必须它发版？</li>
+  </ol>
+  <p>上一版四条里：两条的<strong>证据被实测推翻</strong>；一条在要求它<strong>推翻自己的设计</strong>；一条在要求它<strong>替所有人定策略</strong>。而真正该提的两条，是从"我们的目的地还差什么"推出来的，不是从"我读代码时撞见了什么"。</p>
+  <div class="note warn">
+    <span class="tag">教训</span>
+    <p>第一版的四条全部来自<strong>读代码时的偶遇</strong>（注释与代码不一致、门闩、租约），没有一条来自<strong>目的地的反推</strong>。偶遇发现的缺陷看起来"实在"，但往往既不是最贵的、也不是最该由上游修的。</p>
+  </div>
+</div>
+
+<div class="card warn">
+  <h4>11.1 撤下①：跨进程租约 —— 我的证据是错的</h4>
+  <p>上一版写的是「跨进程拦不住 → 越过封存线会丢批 → 另一方毫无感知」。重跑之后，<strong>三条全错</strong>：</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>我上一版的主张</th><th>实测反证</th></tr></thead>
+      <tbody>
+        <tr><td>越过封存线会丢批</td><td>两个进程各发 1200 条，落盘 <strong>2400 条一条不少</strong>（父 1200 + 子 1200）。写盘失败会进<strong>重试位</strong>，退避后再来</td></tr>
+        <tr><td>失败只躺在一份没人读的 <code>ready</code> 回执里</td><td>引擎自己写了一条 <strong>warn 自监控行</strong>，就在同一个日志文件里：<code>{"level":"warn","event":"log.persist.fail","fields":{"pluginId":"shared","op":"writeBatch","reason":"foreign-write","dirHash":"ea82f282"}}</code></td></tr>
+        <tr><td>引擎对跨进程没有机制</td><td>它<strong>主动检测</strong>：自己上次写完的长度与读回来的长度对不上，就判定"有别的写者动过这份文件"</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>它自己的代码注释写得很清楚（<span class="src">dist/engine/pipeline.js:740-744</span>）：</p>
+  <pre><code>// 跨进程可观测：读回来的长度与我们自己上次写完的长度对不上 → 有别的写者动过这份文件。
+// 读失败（readOk 为假）不算：那是读不出来，不是被人改过。
+if (readOk &amp;&amp; fileName === expectedFileName &amp;&amp; expectedFileBytes &gt;= 0 &amp;&amp; existingBytes !== expectedFileBytes) {
+    notePersistFail('writeBatch', 'foreign-write', logDir);
+}</code></pre>
+  <p>重试位那段注释同样是明写的：</p>
+  <pre><code>// 写盘失败（重试 1 次后仍失败）：这批行**不丢**——放回重试位，退避后再来（#23 审查必改 R2）。
+// 只有撑到内存上限才丢最旧的普通行，且那一次要响（计数 + onDrop）。</code></pre>
+  <div class="note warn">
+    <span class="tag">判决：撤下</span>
+    <p>引擎对跨进程的态度是<strong>容忍 + 观测 + 重试 + 计数</strong>，不是"忘了加锁" —— 那四个字「跨进程可观测」就是它替这件事写的注释。要求它改成文件系统级互斥，等于要求它推翻一个<strong>它明确写下来的设计选择</strong>，而且我们自己的 ADR-0005 早就把跨进程划到承诺之外。这一条不该提。</p>
+  </div>
+</div>
+
+<div class="card">
+  <h4>11.2 降级②：<code>tail</code> 子命令 —— 真，但该我们自己改</h4>
+  <p>现象仍然成立（<code>dsh-log tail &lt;dir&gt;</code> 会多吐一句 <code>没找到日志目录：tail</code>，日志照常输出）。但对抗式一问"该谁付钱"，结论变了：</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th></th><th>开发前</th><th>开发后</th></tr></thead>
+      <tbody>
+        <tr><td>dsh-log 的解析器</td><td>任何非 <code>-</code> 开头的词都当路径 → <code>tail</code> 被当成一个不存在的目录</td><td>忽略前导 <code>tail</code>；<strong>代价</strong>：一个真名叫 <code>tail</code> 的目录从此扫不到</td></tr>
+        <tr><td>它的 USAGE</td><td>写 <code>dsh-log tail &lt;目录...&gt;</code>，与解析器不一致</td><td>改成 <code>dsh-log &lt;目录...&gt;</code> 即与代码一致</td></tr>
+        <tr><td><strong>我们的文档</strong></td><td>README §11 四个例子、面板路牌全带 <code>tail</code> → 用户看到警告</td><td>去掉 <code>tail</code> 三个字 → <strong>今天就干净</strong>（<span class="src">0.16.3 已改</span>）</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note ok">
+    <span class="tag">判决：我们改，不是它改 —— 已执行</span>
+    <p>把 <code>tail</code> 从我们的文档里删掉，是<strong>一行改动、零风险、立刻生效</strong>，而且两种上游修法它都兼容（它忽略 <code>tail</code> 也好、改 USAGE 也好，我们不带 <code>tail</code> 的写法都对）。<strong>要求上游改而自己不改，是让用户替我们的等待付时间。</strong>上游那条只作为"文档与实现对齐"的顺手一提，不值得单独排期。<strong><code>0.16.3</code> 已落地</strong>：面板路牌与 README §11 的命令一律写成 <code>npx dsh-log &lt;目录&gt;</code>，并在 README §11 与本节写明「为什么不要写 <code>tail</code>」。</p>
+  </div>
+</div>
+
+<div class="card">
+  <h4>11.3 降级③：开关热更新 —— 在要一个我们说过不要的能力</h4>
+  <p>现象成立（<code>switchLoaded</code> 一次性门闩，运行中改开关文件不生效）。但这条<strong>在要的东西和我们的 ADR 直接冲突</strong>：</p>
+  <ul>
+    <li>受益的唯一路径是「第三方在运行中打开<strong>另一个实例</strong>的日志」—— 那正是"第二个主人"的行为，ADR-0005 明确写了<strong>本包永远只当客人</strong>。</li>
+    <li>它自己的设计说明也把开关定为<strong>宿主权威</strong>：<span class="src">dist/engine/switch-file.js:21-22</span>「开关从盘上读回…重启后保持，<strong>对账以宿主为准</strong>」。让文件变成活通道，等于给它造出第二个权威。</li>
+    <li>我们支持的路径（B 把自己的 <code>logCtx</code> 传给 A）<strong>不受影响</strong> —— 开关在 B 建库时读，B 自己的开关照常即时生效。</li>
+  </ul>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th></th><th>开发前</th><th>开发后</th></tr></thead>
+      <tbody>
+        <tr><td>第三方打开别人实例的 info</td><td>必须重启对方</td><td>不用重启</td></tr>
+        <tr><td>这条能力我们想要吗</td><td colspan="2"><strong>不想要</strong> —— 它是"第二个主人"，我们拒绝过的耦合</td></tr>
+        <tr><td>我们真正需要的</td><td>不知道"改开关要重启"</td><td>把这句写进 README 即可，<strong>无需上游改动</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <span class="tag">判决：降为文档事实</span>
+    <p>不是缺口，是边界。我们自己把它写清楚（"开关改动需重启实例"），比要求上游拆掉门闩更对。</p>
+  </div>
+</div>
+
+<div class="card">
+  <h4>11.4 撤下④：清单合并上游化 —— 不该替所有人定策略</h4>
+  <p>引擎刻意把 <code>eventList</code> 当成一份<strong>普通数据输入</strong>（一个实例一份清单），合并是<strong>策略问题</strong>：同名事件谁的 <code>level</code> 说了算？谁的 <code>kind</code> 说了算？我们的答案（"字段取并集，级别与归类按声明方"）只是<strong>我们这一家的答案</strong>。推到上游等于要求它替所有人裁一次，是范围蔓延。</p>
+  <p>而且我们本来就需要它 —— <code>mergeUpdateEvents</code> 留在包内即可，第三方集成时用得上，用不上也不欠谁的。</p>
+  <div class="note warn">
+    <span class="tag">判决：撤下</span>
+  </div>
+</div>
+
+<h3>11.5 真正该提的两条：从目的地反推</h3>
+
+<p>目的地是三件事：<strong>每个环节可交日志</strong>、<strong>多插件不覆盖</strong>、<strong>第三方一条命令把日志交给我们</strong>。拿它当尺子量一遍，缺口只有两处 —— 都在"读"这一侧。</p>
+
+<div class="card warn">
+  <h4>① 宿主侧写入路径拿不到 trace 上下文（追链只对客户端行有效）</h4>
+  <p>这不是"我们忘了传参"，是<strong>结构上没有位置</strong>：</p>
+  <ul>
+    <li>宿主侧行构造是 <code>buildRowText(level, event, fields)</code>（<span class="src">dist/core/row.js:16</span>）—— 三个参数，<strong>没有 trace 槽</strong>。</li>
+    <li>store 的写入面是 <code>log(level, event, fields)</code>（<span class="src">dist/store.d.ts:23</span>）—— 同样三个。</li>
+    <li>建链只长在<strong>客户端写入路径</strong>里：<code>ensureTraceForLevel(level)</code> → <code>ensureSpanId()</code> → <code>out.traceId / out.spanId</code>（<span class="src">dist/client/write.js:110-123</span>）。</li>
+  </ul>
+  <p>后果正好打在价值最高的地方：本包<strong>多步链全在宿主侧</strong>（查 → 判 → 装 → 验），而它们一条都追不了；<code>--trace</code> 只对面板侧那 5 个客户端事件有效。</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th></th><th>开发前</th><th>开发后</th></tr></thead>
+      <tbody>
+        <tr><td>宿主侧的行</td><td>只有 <code>ts</code> + 事件名 + 字段，无法把"一次用户意图"串起来</td><td>带 <code>traceId</code>/<code>spanId</code>，与客户端行同一套链</td></tr>
+        <tr><td><code>dsh-log --trace &lt;id&gt;</code></td><td>只命中面板那 5 个事件</td><td>能命中 <code>update.check.start → …done → install.request → install.exec → restart.outcome</code> 整条链</td></tr>
+        <tr><td>我们要写的东西</td><td>每次操作在日志里按时间窗+事件名人工筛</td><td>一条命令看完整条链</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <span class="tag">要什么</span>
+    <p>让宿主侧写入路径也能带 trace 上下文 —— 形式随它（<code>store.log</code> 收一个可选的 trace 参数、或提供一个 <code>withTrace()</code> 包装）。<strong>这是目的地"每个环节可交日志"里唯一还没闭环的一环。</strong></p>
+  </div>
+</div>
+
+<div class="card warn">
+  <h4>② 打包导出只能在宿主里做，读侧拿不到（"交日志"少一件最好的产物）</h4>
+  <p>引擎<strong>已经有</strong>一份理想的交接产物：<code>handleLogExport()</code>（<span class="src">dist/store.d.ts:63-105</span>）产出的是<strong>自包含文本 + 摘要</strong> —— 摘要里带 <code>pluginVersion</code>、<code>os</code>、<code>cwd</code>、<code>logSwitch</code>、启动头（pid / startedAt / dir）。这正是"把日志交给我们"最需要的东西：对方不用解释环境，我们不用猜。</p>
+  <p>但它是 <strong>store 的方法</strong>，而 CLI 是纯读侧（它的承诺原话：「本命令不写、不改、不删任何文件（包括不写缓存与状态）」），所以<strong>手里只有一个日志目录的第三方，拿不到这份产物</strong> —— 只能 <code>--json</code> 倒原始行。</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th></th><th>开发前</th><th>开发后</th></tr></thead>
+      <tbody>
+        <tr><td>第三方交日志</td><td><code>--json &gt; update.log</code>，<strong>没有环境上下文</strong>（版本、系统、开关状态、启动头都要人另说）</td><td>一条命令产出<strong>自包含卷宗</strong>，环境信息随包走</td></tr>
+        <tr><td>我们收到的工单</td><td>一堆裸行 + 来回追问"你什么版本、什么系统、开关开了吗"</td><td>打开就有答案</td></tr>
+        <tr><td>前置条件</td><td>必须有人在宿主里把 <code>logExport</code> 电话接上</td><td>只有目录也能产出</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <span class="tag">要什么</span>
+    <p>让读侧也能产出 <code>handleLogExport</code> 那种带摘要的自包含导出（<code>dsh-log export &lt;dir&gt;</code>，或把摘要能力暴露成纯读函数）。<strong>代码已经写好了，缺的只是到达路径。</strong></p>
+  </div>
+</div>
+
+<div class="card">
+  <h4>11.6 我们自己的行动项（不该记在 dsh-log 头上）</h4>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>事项</th><th>现状</th><th>依据</th></tr></thead>
+      <tbody>
+        <tr><td>文档去掉 <code>tail</code></td><td><strong>已做（<code>0.16.3</code>）</strong> —— README §11 四例 + 面板路牌全部改成 <code>npx dsh-log &lt;目录&gt;</code>，并写明为什么不要写 <code>tail</code></td><td>11.2：一行改动，立刻干净</td></tr>
+        <tr><td>事件清单契约回填</td><td><strong>已做（<code>0.16.3</code>）</strong> —— 删掉两条零发射点事件（28 → 26）与一个从未出现的字段名，事件目录新增 §7 逐条备案</td><td>清单是发布出去的契约，声明一个永不出现的格子会把第三方聚合器带偏</td></tr>
+        <tr><td>接 <code>getDroppedCount()</code> / <code>setOnDrop()</code></td><td><strong>没接</strong> —— <code>sinkFromStore</code> 只包了 <code>log</code> 与 <code>isEnabled</code></td><td>引擎给了这两个口子（<span class="src">dist/store.d.ts:31/39</span>），我们没读；行被丢时本包无从知道，而 <code>update.log.degraded</code> 正是为这件事准备的</td></tr>
+        <tr><td>接 <code>getLastPersistFail()</code></td><td><strong>没接</strong></td><td>弱：引擎已自记 <code>log.persist.fail</code> warn 行（11.1）。接了只是把降级信号收敛到我们自己的事件上，可选</td></tr>
+        <tr><td>README 写清"开关改动需重启"</td><td>没写</td><td>11.3：实测事实，不写就等人试出来</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note ok">
+    <span class="tag">排序</span>
+    <p>①（宿主侧 trace）与 ②（读侧导出）是<strong>对外提的两条</strong>；文档去 <code>tail</code>、接 <code>getDroppedCount</code>、写清开关语义是<strong>我们自己就该做的三条</strong>，都不依赖上游发版。</p>
+  </div>
+</div>
+
+<hr>
+<div class="note ok">
+  <span class="tag">一句话</span>
+  <p>身份是宿主的，位置是本包算的，机制是引擎的，租约是引擎判的 —— 本包负责的全部是<strong>决定</strong>：<strong>这棵树在哪、叫什么、每一行归谁、写不了怎么办</strong>。</p>
+</div>
+
+</main>
+</div>
+
+<script>
+(function(){
+  var root=document.documentElement, btn=document.getElementById('themebtn');
+  var saved=null; try{saved=localStorage.getItem('dsh-log-design-theme')}catch(e){}
+  if(saved==='dark'||(!saved&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)){
+    root.setAttribute('data-theme','dark');
+  }
+  btn.addEventListener('click',function(){
+    var next=root.getAttribute('data-theme')==='dark'?'light':'dark';
+    if(next==='dark')root.setAttribute('data-theme','dark');else root.removeAttribute('data-theme');
+    try{localStorage.setItem('dsh-log-design-theme',next)}catch(e){}
+  });
+  var links=[].slice.call(document.querySelectorAll('#toc a'));
+  var targets=links.map(function(a){return document.querySelector(a.getAttribute('href'))}).filter(Boolean);
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(!en.isIntersecting)return;
+        links.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+en.target.id)});
+      });
+    },{rootMargin:'-15% 0px -70% 0px',threshold:0});
+    targets.forEach(function(t){io.observe(t)});
+  }
+})();
+</script>
+</body>
+</html>

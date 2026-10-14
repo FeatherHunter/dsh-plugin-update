@@ -220,6 +220,10 @@ details[open] summary::before{content:"▾ "}
   </div>
 </header>
 
+<div class="note warn" style="margin-top:18px">
+  <p><span class="t">快照声明（2026-10-15 补）</span>：本报告是 <code>git 798e2ec</code> / <code>0.16.0</code> 那一刻的快照，<strong>正文与结论保持原样</strong>。此后 <code>0.16.3</code> 做了一次<strong>契约回填</strong>：随包清单删掉两条零发射点事件（<code>update.install.retry</code>、<code>update.restart.outcome</code>）与一个从未出现的字段名（<code>update.registry.fetch.cacheHit</code>），<strong>28 条 → 26 条（常驻 18 / 按需 7 / 自监控 1）</strong>。所以下文凡出现「28 事件 / 常驻 20 / 2 条死条目」处，读作<strong>定稿时的实测值</strong>；现行口径见 <code>docs/research/20261014-log-event-catalog.md</code> §7 与 <code>CHANGELOG.md</code> 的 <code>0.16.3</code> 节。</p>
+</div>
+
 <!-- ============ 0 ============ -->
 <h2 id="s0"><span class="num">00</span>一页结论</h2>
 <p class="sub">先给结论，再给机制、证据与缺口。读这一节就能判断这份集成是否达到了目的地。</p>
@@ -1156,6 +1160,7 @@ npx dsh-log tail "$DSH_HOME/logs" --json &gt; update.log</code></pre>
   <p><b>范围</b>：本报告只覆盖地图 #117 的日志系统集成线；该地图十张子票<b>已全部关闭</b>（#118／#119／#120／#121／#122／#123／#124／#125／#126／#127），<code>0.16.0</code> 已定格。同一工作区并行进行的 changelog 展示线（#116 等）不在本报告内。</p>
   <p><b>版本口径</b>：代码状态 = <code>git 798e2ec</code>（工作区干净）；包版本 <code>0.16.0</code>；依赖 <code>dsh-log ^0.3.1</code>（实测安装 <code>0.3.1</code>）；<code>src/log/</code> 8 文件 1333 行；全量测试 1125 例（1124 过 / 1 跳过 / 0 失败）；预算装置 8/8。</p>
   <p><b>定稿后追加</b>：<code>cd151fc</code> 给错误章路牌补了一条挂载级测试（<code>tests/panel.test.mjs</code>），当前基线为 <b>1126 例 / 1125 过 / 1 跳过 / 0 失败</b>；同一轮按 §12.3 第 15／16 条修掉了 README 第一屏与命名空间段落（<b>仓库已修，npm 上的 0.16.0 tarball 未修</b>）。</p>
+  <p><b>2026-10-15 契约回填（本报告是快照，不改历史结论）</b>：本报告定稿时随包清单是 <b>28 条事件</b>，其中 <code>update.install.retry</code>、<code>update.restart.outcome</code> 两条零发射点（第 12 节 #1 的「2 条死条目」）。<code>0.16.3</code> 起这两个事件名与 <code>update.registry.fetch.cacheHit</code> 字段名已从 <code>event-list.update.json</code> <b>删除</b>，清单现为 <b>26 条（常驻 18 / 按需 7 / 自监控 1）</b>；第 12 节其余 14 条出入按「记录不修」备案。逐条改动见 <code>docs/research/20261014-log-event-catalog.md</code> §7，版本说明见 <code>CHANGELOG.md</code> 的 <code>0.16.3</code> 节。<b>本报告的正文与结论保持定稿时原样</b>——它记录的是 <code>798e2ec</code> 那一刻的事实。</p>
 </div>
 </main>
 </div>

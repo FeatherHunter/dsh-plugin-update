@@ -495,7 +495,7 @@ test('类型定义随包分发：公开入口有 .d.ts，不要求调用方自�
 
 // ---------- #123 错误章路牌：目录与现成命令 ----------
 
-test('#123 路牌给真目录：传入 logDir 就写实路径 + npx dsh-log tail 命令；不传则退回算式', () => {
+test('#123 路牌给真目录：传入 logDir 就写实路径 + npx dsh-log 命令（不带 tail）；不传则退回算式', () => {
   const input = {
     snapshot: baseSnapshot(),
     manual: 'cmd',
@@ -510,16 +510,17 @@ test('#123 路牌给真目录：传入 logDir 就写实路径 + npx dsh-log tail
   const dir = 'C:\\Users\\x\\.dsh\\logs\\abc123def'
   const withDir = renderUpdatePanelHTML({ ...input, logDir: dir })
   assert.ok(withDir.includes(dir), '给了真目录就写进路牌，不叫用户自己去推命名空间')
-  assert.ok(withDir.includes('npx dsh-log tail ' + dir), '路牌给一条能直接抄的命令')
+  assert.ok(withDir.includes('npx dsh-log ' + dir), '路牌给一条能直接抄的命令')
+  assert.ok(!withDir.includes('dsh-log tail'), '命令不带 tail：0.3.1 的解析器会把它当成一个不存在的目录')
 
   const without = renderUpdatePanelHTML(input)
   assert.ok(!without.includes('abc123def'), '没给目录就不编一个（宁可给算式）')
   assert.ok(without.includes('&lt;DSH_HOME&gt;/logs/&lt;derived&gt;'), '退回算式：目录长这样')
-  assert.ok(without.includes('npx dsh-log tail &lt;log-dir&gt;'), '退回命令模板：占位不装真路径')
+  assert.ok(without.includes('npx dsh-log &lt;log-dir&gt;'), '退回命令模板：占位不装真路径')
 
   const hidden = renderUpdatePanelHTML({ ...input, logDir: dir, showLogHint: false })
   assert.ok(!hidden.includes(dir), 'showLogHint:false 必须把新目录行一并藏掉')
-  assert.ok(!hidden.includes('npx dsh-log tail'), '命令也跟着藏，不半藏')
+  assert.ok(!hidden.includes('npx dsh-log'), '命令也跟着藏，不半藏')
 })
 
 test('#123 路牌在真挂载链上：挂载项 logDir 一路走到错误章（渲染函数之外的那一跳）', async () => {
@@ -535,7 +536,7 @@ test('#123 路牌在真挂载链上：挂载项 logDir 一路走到错误章（�
   await settled()
   assert.ok(tried.length >= 1, '挂载即查一次，且这次查失败（错误章由此出现）')
   assert.ok(box.innerHTML.includes(dir), '挂载项 logDir 直通到错误章路牌，不只在渲染函数里成立')
-  assert.ok(box.innerHTML.includes('npx dsh-log tail ' + dir), '路牌给的是能直接抄的命令')
+  assert.ok(box.innerHTML.includes('npx dsh-log ' + dir), '路牌给的是能直接抄的命令')
   panel.unmount()
 
   const box2 = fakeContainer()

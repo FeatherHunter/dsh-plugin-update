@@ -1,5 +1,7 @@
 # 日志系统集成成果 · 独立复核（log-verifier）
 
+> **2026-10-15 契约回填（本文件是快照，不改历史结论）**：复核时随包清单是 28 事件；`0.16.3` 起 `update.install.retry`、`update.restart.outcome` 两个事件名与 `update.registry.fetch.cacheHit` 字段名已从 `event-list.update.json` **删除**，清单现为 **26 条（常驻 18 / 按需 7 / 自监控 1）**。本文件 §1、§4、§5 里「28 条 / 2 条死条目 / 13 处 store.fail」等计数是**复核当时的实测值**，保持原样；现行口径与逐条处理见 `docs/research/20261014-log-event-catalog.md` §7 与 `CHANGELOG.md` 的 `0.16.3` 节。本复核查出的其余条目按「记录不修」备案（见目录 §7.1／§7.2）。
+
 复核对象：`docs/research/20261014-log-integration-report.html`（1051 行）、`docs/research/20261014-log-event-catalog.md`（150 行）、`event-list.update.json`（28 事件）。
 
 **快照与免责**：

@@ -258,7 +258,7 @@ export interface UpdatePanelOptions {
    */
   profileName?: string | null
   /**
-   * 本插件日志目录（#123）：给错误章路牌用，只在传了的时候写实路径 + 现成的 `npx dsh-log tail <dir>`。
+   * 本插件日志目录（#123）：给错误章路牌用，只在传了的时候写实路径 + 现成的 `npx dsh-log <dir>`。
    * 不传（或空串）即退回目录算式 `<DSH_HOME>/logs/<派生命名空间>` 与命令模板——路牌不指不存在的值。
    * 目录由宿主侧算：`updateLogDirFor(pluginId, homeDir)`（与落盘同一算式、同一派生规则）。
    * 电话回包一个字不改：使用范围那栏仍然只回范围名与宿主种类，绝不回目录路径。
@@ -1861,7 +1861,9 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
       const logDirKnown = typeof logDirInput === 'string' && logDirInput.trim() ? logDirInput.trim() : null
       // 占位符一律 ASCII：中文只许存文案源（src/bilingual.ts），路径与命令里的尖括号不译。
       const logDirShown = logDirKnown ?? '<DSH_HOME>/logs/<derived>'
-      const logCmdShown = logDirKnown ? `npx dsh-log tail ${logDirKnown}` : 'npx dsh-log tail <log-dir>'
+      // 命令不带 `tail`：dsh-log 0.3.1 的解析器把非 `-` 开头的词一律当路径，
+      // 而它的 USAGE 写着 `tail` —— 带上就会多吐一句「没找到日志目录：tail」。
+      const logCmdShown = logDirKnown ? `npx dsh-log ${logDirKnown}` : 'npx dsh-log <log-dir>'
       errLines.push(
         `<div class="dsh-upd-log">${copyText('panel.error.log-hint', l, {
           dir: `<code>${escapeHtml(logDirShown)}</code>`,

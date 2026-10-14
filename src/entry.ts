@@ -112,7 +112,7 @@ export interface UpdateEntryOptions {
   profileName?: string
   /**
    * 本插件日志目录（#123）：透传给面板错误章路牌。
-   * 给了就写实路径 + 现成的 `npx dsh-log tail <dir>`；不传即退回目录算式与命令模板（不给不存在的值）。
+   * 给了就写实路径 + 现成的 `npx dsh-log <dir>`；不传即退回目录算式与命令模板（不给不存在的值）。
    * 目录由宿主侧算：`updateLogDirFor(pluginId, homeDir)`（与落盘同一算式、同一派生规则）。
    */
   logDir?: string

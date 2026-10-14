@@ -559,7 +559,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 8. 装完版本号没变：先看是否 `pending-restart`（第 5.4 节），是则重启宿主；不是则按第 5.2 节的表查原因。
 9. 第三方 Desktop 自动装失败但命令能装：检查桌面当前激活的使用范围是不是插件所在的那一个；对不上时自动装一定诚实失败，复制第 5.3 节的命令手工执行。
 10. 官方桌面版（使用范围名 `desktop`）装不上：看任务里的 `message`，形如 `install-failed: <宿主原话>`，里面带着宿主的错误码（例如 `operation-error`）。`message` 可能带详情，**匹配请匹配前缀错误码，不要整串相等**；日志里这条路的路由是 `desktop-manager`。
-11. 还定位不到：打开调试日志（第 10 节），用 `npx dsh-log tail <日志目录>` 看（`--since 2h`、`--level warn`、`--json` 都好用）。**`--trace <traceId>` 在本包自建落点的行上追不到链**：本包落盘的行里不带 `traceId`/`spanId`（这套三件套只由 dsh-log 的**客户端 SDK 写入路径**注入，即集成方把客户端实例当 `logCtx` 传进来时才存在），按时间窗加事件名筛更实在。日志按插件标识分目录，同一台机器上多个用更新系统的插件**各写各的、不相互覆盖**；三个旧事件 `host.call`、`host.call.fail`、`update.install.exec` 照旧，`update.*` 是本包按环节新增的事件（全表见包内 `event-list.update.json`）。日志里不记命令与路径原文。
+11. 还定位不到：打开调试日志（第 10 节），用 `npx dsh-log <日志目录>` 看（`--since 2h`、`--level warn`、`--json` 都好用）。**命令里不要写 `tail`**：`dsh-log` 0.3.1 的解析器把非 `-` 开头的词一律当路径，写 `tail` 它会去找一个叫 `tail` 的目录并多吐一句「没找到日志目录：tail」（日志照常输出）。**`--trace <traceId>` 在本包自建落点的行上追不到链**：本包落盘的行里不带 `traceId`/`spanId`（这套三件套只由 dsh-log 的**客户端 SDK 写入路径**注入，即集成方把客户端实例当 `logCtx` 传进来时才存在），按时间窗加事件名筛更实在。日志按插件标识分目录，同一台机器上多个用更新系统的插件**各写各的、不相互覆盖**；三个旧事件 `host.call`、`host.call.fail`、`update.install.exec` 照旧，`update.*` 是本包按环节新增的事件（全表见包内 `event-list.update.json`）。日志里不记命令与路径原文。
 12. 以依赖形态接入后一直显示「安装位置在使用中途变了」（`installation-changed`）：`0.1.x` 的已知缺陷（拿「本包自己住在哪」推断目标包位置，依赖形态下恒失败）；升到 `0.2.0` 即修复。
 13. 报 `unknown-profile` 但使用范围名与目录都没问题：本包按包名找不到你的插件包。让集成方传 `readerOverrides.targetPackageDir`，或把本包装成插件包的依赖（别装到别的 `node_modules` 树里）。
 
@@ -628,7 +628,7 @@ parseLogRow({ v: 3, ts: '2026-10-14T21:00:00.000Z', level: 'info', event: 'updat
 ```
 
 事件清单的每条要写四样：事件名、级别（`error`/`warn`/`info`/`debug`）、允许字段（之外的键一律不记）、脱敏引用（`codes` 是截断或散列代号，`rules` 是具名正则名——都只记引用名，不记原文）。
-`kind` 分三类只为计数服务：`resident` 常驻、`ondemand` 按需、`selfmon` 自监控。空模板见包内的 `event-list.template.json`；**本包自己的事件表见 `event-list.update.json`**（28 个事件：常驻 20、按需 7、自监控 1），第二家可以整份并进自己的清单（`mergeUpdateEvents`，字段取并集，级别与归类仍按你的声明）。
+`kind` 分三类只为计数服务：`resident` 常驻、`ondemand` 按需、`selfmon` 自监控。空模板见包内的 `event-list.template.json`；**本包自己的事件表见 `event-list.update.json`**（26 个事件：常驻 18、按需 7、自监控 1），第二家可以整份并进自己的清单（`mergeUpdateEvents`，字段取并集，级别与归类仍按你的声明）。
 清单要以**对象**传入：字符串或数组会被拦下并给出中文说明，不静默修补。
 `checkEventFields` 与 `checkEventCounts` 是 `0.16.0` 之前的旧名（`0.13.0` 及更早已发布版本里就是这两个名字），保留一版、行为不变，新代码用 `lintEventFields` 与 `computeEventCounts`。
 
@@ -658,7 +658,7 @@ updateLogDirFor('notes', process.env.DSH_HOME)   // 家目录：显式入参 > D
 ```
 
 把它传给面板挂载项的 `logDir`（`mountUpdatePanel` / `mountUpdatePanelHttp`，入口件同名选项），
-错误章路牌就写出**具体路径**与现成的 `npx dsh-log tail <dir>` 命令；不传则退回目录算式与命令模板（第 11 节）。
+错误章路牌就写出**具体路径**与现成的 `npx dsh-log <dir>` 命令；不传则退回目录算式与命令模板（第 11 节）。
 
 **跨插件队列**（纯函数，面板侧同名函数见 `dist/client.js`，可进浏览器闭包）：
 
@@ -693,19 +693,21 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 **不自动上报。**日志只落本地磁盘，本包不会替你把它发给任何人——什么时候交、交给谁由你决定（下一节给了现成命令）。
 
-## 11. 把日志交给我们（`npx dsh-log tail <dir>`）
+## 11. 把日志交给我们（`npx dsh-log <dir>`）
 
 日志包自带只读命令行，不必装进项目（`npx` 临时取一次）：
 
 ```sh
-npx dsh-log tail <DSH_HOME>/logs/<派生命名空间>              # 看某一个插件的日志
-npx dsh-log tail <DSH_HOME>/logs --since 2h --level warn     # 所有插件、最近两小时的告警及以上
-npx dsh-log tail <dir> --trace <traceId>                     # 追链：只对 dsh-log 客户端 SDK 落下的行有效（本包自建落点不带 traceId）
-npx dsh-log tail <dir> --json > update.log                   # 导出原始 JSON 行（给脚本或工单用）
+npx dsh-log <DSH_HOME>/logs/<派生命名空间>              # 看某一个插件的日志
+npx dsh-log <DSH_HOME>/logs --since 2h --level warn     # 所有插件、最近两小时的告警及以上
+npx dsh-log <dir> --trace <traceId>                     # 追链：只对 dsh-log 客户端 SDK 落下的行有效（本包自建落点不带 traceId）
+npx dsh-log <dir> --json > update.log                   # 导出原始 JSON 行（给脚本或工单用）
 ```
+
+**命令里不要写 `tail`。**`dsh-log` 自带文档写的是 `dsh-log tail <目录>`，但它 0.3.1 的解析器把非 `-` 开头的词一律当成路径 —— 写 `tail` 它会去找一个叫 `tail` 的目录，多吐一句「没找到日志目录：tail」（日志照常输出、退出码仍是 0）。上面四行是能直接抄的形式。
 
 提 issue 或找我们时请一并给上四样：① 本包版本（`npm ls dsh-plugin-update`）；② 你的 `pluginId` 与日志目录名；③ 出问题的时间窗；④ 面板错误页的「复制诊断」文本（含稳定码与宿主原话）。有这四样，绝大多数问题不用来回问。
 
-**面板已经把这条命令递到手上（`0.16.0` 起）。**错误章的日志路牌在面板里给出现成命令：宿主/入口把上一条的 `updateLogDirFor(...)` 结果传给面板挂载项的 `logDir` 时写**具体路径** + `npx dsh-log tail <该路径>`；没传（例如老宿主）则写 `<DSH_HOME>/logs/<派生命名空间>` 的算式与命令模板——路牌宁可说「目录长这样、命令长这样」，也不指一个不存在的值。「使用范围」那栏照旧只回范围名与宿主种类：**电话回包不带任何目录路径**（日志行里也只有一个 `logDirHash`）。
+**面板已经把这条命令递到手上（`0.16.0` 起）。**错误章的日志路牌在面板里给出现成命令：宿主/入口把上一条的 `updateLogDirFor(...)` 结果传给面板挂载项的 `logDir` 时写**具体路径** + `npx dsh-log <该路径>`；没传（例如老宿主）则写 `<DSH_HOME>/logs/<派生命名空间>` 的算式与命令模板——路牌宁可说「目录长这样、命令长这样」，也不指一个不存在的值。「使用范围」那栏照旧只回范围名与宿主种类：**电话回包不带任何目录路径**（日志行里也只有一个 `logDirHash`）。
 
 日志在写入前就脱敏（绝对路径、URL 里的账密、令牌、凭据、邮箱五类换成占位符，规则见 `src/redaction.ts`），可以放心贴；贴之前扫一眼仍是好习惯。

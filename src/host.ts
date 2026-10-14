@@ -722,7 +722,7 @@ function emitInstallLog(level: string, event: string, fields: Record<string, unk
   emitUpdateLog(level, event, fields)
 }
 
-/** 日志根目录：`<homeDir>/logs`（现场三家插件都在这里，`dsh-log tail <DSH_HOME>/logs` 一条命令横扫全部）。 */
+/** 日志根目录：`<homeDir>/logs`（现场三家插件都在这里，`dsh-log <DSH_HOME>/logs` 一条命令横扫全部）。 */
 function updateLogRootDir(homeDir: unknown): string {
   return join(String(homeDir ?? ''), 'logs')
 }
@@ -731,7 +731,7 @@ function updateLogRootDir(homeDir: unknown): string {
  * 本插件日志目录（`#123`）：`<homeDir>/logs/<派生命名空间>` —— 与落盘、与 README 里的派生规则同一个算式。
  *
  * 给面板挂载项的 `logDir` 用：宿主/入口把它传给 `mountUpdatePanel`（或 `mountUpdatePanelHttp`），
- * 面板错误章的路牌就能给出一条能直接抄的 `npx dsh-log tail <dir>`；不传时路牌退回算式与命令模板，
+ * 面板错误章的路牌就能给出一条能直接抄的 `npx dsh-log <dir>`；不传时路牌退回算式与命令模板，
  * 绝不给一个并不存在的值。家目录优先级与其余入口一致：显式 `homeDir` > `DSH_HOME` > `~/.dsh`。
  */
 export function updateLogDirFor(pluginId: string, homeDir?: string | null): string {

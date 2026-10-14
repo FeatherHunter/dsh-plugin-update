@@ -58,12 +58,6 @@
       "fields": ["result", "installedVersion", "pendingRestart"],
       "guard": "一次安装一条"
     },
-    "update.install.retry": {
-      "level": "warn",
-      "kind": "resident",
-      "fields": ["attempt", "of", "errorKind", "waitedMs"],
-      "guard": "一次重试一条"
-    },
     "update.batch.entry.request": {
       "level": "info",
       "kind": "resident",
@@ -103,12 +97,6 @@
       "codes": ["H_DIR"],
       "guard": "同一操作连续失败只记首次"
     },
-    "update.restart.outcome": {
-      "level": "info",
-      "kind": "resident",
-      "fields": ["outcome", "route"],
-      "guard": "一次重启一条"
-    },
     "update.panel.mount": {
       "level": "info",
       "kind": "resident",
@@ -135,7 +123,7 @@
     "update.registry.fetch": {
       "level": "info",
       "kind": "ondemand",
-      "fields": ["httpStatus", "latencyMs", "cacheHit", "registryHost"]
+      "fields": ["httpStatus", "latencyMs", "registryHost"]
     },
     "update.channel.decide": {
       "level": "info",

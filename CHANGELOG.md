@@ -4,6 +4,25 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
+## [0.16.3] - 2026-10-15
+
+**契约回填**：把随包事件清单从「意图稿」改成「实现真给的东西」，并清掉一条会误导使用者的命令。**事件名与字段名有删减（28 → 26）**，其余形状不动、行为不变、不加依赖（`dsh-log ^0.3.1` 仍是唯一运行期依赖）。
+
+### Removed
+- **`update.install.retry`（事件）**：从 `event-list.update.json` 删除。本包**没有自动重试** —— 面板上的重试按钮就是再发一次安装，落 `update.panel.action{action:'install'}`。原条目声明的 `attempt`/`of`（「第 N 次重试」）在本包里没有任何生产者，`src/` 全仓零发射点、`tests/` 零引用。
+- **`update.restart.outcome`（事件）**：从 `event-list.update.json` 删除。**宿主没有重启自己的电话**（代码原话），本包只做入口（`update.panel.action{action:'restart-hint'}`），观测不到重启结局；原条目声明的 `outcome` 三值同样零生产者。
+- **`update.registry.fetch.cacheHit`（字段名）**：从清单删除。缓存命中发生在取数之前（命中就根本不取数），到了取数点必未命中 —— 恒为 `false` 的格子只是噪声。该字段名**从未在任何落盘行里出现过**，删掉不影响已解析的行。
+
+### Changed
+- **事件清单计数**：**26 个事件**（常驻 18、按需 7、自监控 1）。README §10 与 `docs/maintainers.md` 同步。
+- **事件目录契约回填**（`docs/research/20261014-log-event-catalog.md`，新增 §7）：除上面三条外，改正四处「本文件写错、随包清单本来就对」的地方 —— `update.panel.action.action` 是 **11 值**（`'copy-diag'` 不是 `'copy-diagnostics'`）；`update.changelog.parse.source` **恒 `'npm'`**；`update.check.fail.stage` 四个值合法但**可达三值**（`compare` 无生产者）；`update.lang.applied.source` 是**四值**（补 `'default'`）；`update.store.fail` 落点 **16 处**。§0 的「常驻必须边沿触发（铁律）」改述为「**不是机器规则**：全仓只有 `update.status.changed` 与 `update.queue.transition` 两条受指纹去重保护」。
+- **面板日志路牌与 README 去掉 `tail`**：`dsh-log` 0.3.1 的 `USAGE` 写 `dsh-log tail <目录>`，但 `dist/cli.js` 没有子命令解析 —— `tail` 被当成一个不存在的路径，先往 stderr 吐一句「没找到日志目录：tail」（日志照常输出、退出码仍是 0）。本包所有面向使用者的命令改成 `npx dsh-log <目录>`，并在 README §11 写明为什么不要写 `tail`。
+
+### Added
+- **事件目录 §7「契约回填」**：逐条列出「本文件曾许过、实现没给」的四处（含上面三条 + 挂载点 `mode` 的可达四值），并把三条**记录但不修**的边界备案：① 丢弃计数不接（dsh-log 的 `getDroppedCount()`/`setOnDrop()` 本包没有接）；② trace 只有一半（`buildRowText` 与 `store.log` 都没有 trace 槽位，`traceId`/`spanId` 只由 dsh-log 客户端 SDK 的写入路径注入）；③ 上游 `USAGE` 与解析器不一致。另记三条**明确不做**：跨进程租约（实测两进程各 1200 行 × ~3 KB 共 2400 条一条不少）、清单合并上游化、开关热更新（引擎的开关是实例级闩锁，改 JSON 是重启级旋钮）。
+
+门禁（**发版定格**）：`npm test` **1126 例：1125 过 / 0 失败 / 1 跳过**（`tests/gate.test.mjs` 新增三条契约回填负向断言：两个事件名与一个字段名不许再回到清单里）；`npm run build`（`node build.mjs`，产出 `dist/` 与 `.d.ts`）与 `npm run typecheck`（`tsc -p tsconfig.json`）过；`npm run gate:bilingual` **三道硬门禁过**；噪声预算装置 `node .tmp/log-verify/run.mjs budget` **8/8 过**（被测 `dist` 66 文件 / sha256 `b81e1a539f82e3d2…`，跑动期间 `dist` 未被改写）；`npm publish --dry-run` **73 文件**（281.3 kB 压缩 / 991.9 kB 解包）。`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（320 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
+
 ## [0.16.2] - 2026-10-15
 
 对外「介绍面」统一补丁：npm 页、GitHub 仓库页、用户手册三处对同一件事的说法对齐，并清掉仓库树里混进来的会话垃圾。**不改行为、不改形状、不改落盘契约、不加依赖**（`dsh-log ^0.3.1` 仍是唯一运行期依赖）。
@@ -82,7 +101,7 @@
 - 块级渲染 `renderChangelogBlocks(lines)`（导出，纯函数、永不抛错）：条目第二行起按行分派成嵌套 `<ul>`／`<ol class="dsh-upd-md-list-ol">`、`<pre><code>`、`<blockquote>`、`<div class="dsh-upd-md-para">`；认不出的行当正文显示，不丢字。
 - 双主题块级样式：默认主题加 `.dsh-upd-md-pre/.dsh-upd-md-precode/.dsh-upd-md-quote/.dsh-upd-md-list(+ -ol)/.dsh-upd-md-para`，档案卷同名规则加 `[data-theme="archive"]` 作用域只换肤（纸色代码底、左侧细线引用、朱红列表符号）；默认串仍不含 `data-theme` 字样（既有断言不变）。
 - 子条目位置上的有序列表 `1. …` → `<ol>`（顶格编号行仍按段落忽略，免得正文里的编号行变成条目）。
-- 随包事件清单 `event-list.update.json`（`#120`）：本包 28 个事件的全表（常驻 20、按需 7、自监控 1），含字段白名单、级别、散列代号与守卫说明，是事件与字段的唯一事实源。
+- 随包事件清单 `event-list.update.json`（`#120`）：本包事件的全表，含字段白名单、级别、散列代号与守卫说明，是事件与字段的唯一事实源。**首发时是 28 个事件（常驻 20、按需 7、自监控 1）；`0.16.3` 契约回填后是 26 个（常驻 18、按需 7、自监控 1）**——删掉的两条见 `0.16.3` 节。
 - `mergeUpdateEvents(myManifest, updateEvents)`（`#120`）：把本包事件表并进集成方的清单——本包有、对方没有的补进去，两边都有的字段取并集、级别与归类仍按对方声明，不一致的记进 `conflicts`。
 - `lintEventList(manifest)`（`#120`）：整份清单过尺子，红＝结构或引用错（事件名不合契约、`codes`/`rules` 引用名不合法、自报计数对不上），黄＝可疑不拦（字段表为空、字段里出现自由文本键——`ADR-0006` 管这条）。
 - `parseLogRow(row)` 与 `LOG_ROW_VERSION`（`#120`）：落盘行断言，五键 `v`/`ts`/`level`/`event`/`fields`，`v` 必须是 3，多键少键都报中文错。
