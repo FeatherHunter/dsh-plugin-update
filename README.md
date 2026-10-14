@@ -10,7 +10,7 @@
 
 给 DSH 插件加「检查更新 / 安装更新」能力的 npm 包。宿主侧一段接线，面板侧挂一个现成组件，装不上时给用户一条可复制的手工命令。
 
-要求 Node 22 或更高。运行期依赖只有一个：[`dsh-log`](https://www.npmjs.com/package/dsh-log) `^0.3.1`（0.16.0 起，见第 10 节）。当前版本见上方徽章与 `package.json`（此处不写死版本号，免得跟着发布漂）。
+要求 Node 22 或更高。运行期依赖只有一个：[`dsh-log`](https://www.npmjs.com/package/dsh-log) `^0.3.4`（`0.16.0` 起引入，`0.16.4` 起下限抬到 `0.3.4`，见第 10 节）。当前版本见上方徽章与 `package.json`（此处不写死版本号，免得跟着发布漂）。
 
 装上它你会拿到六样东西：
 
@@ -559,7 +559,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 8. 装完版本号没变：先看是否 `pending-restart`（第 5.4 节），是则重启宿主；不是则按第 5.2 节的表查原因。
 9. 第三方 Desktop 自动装失败但命令能装：检查桌面当前激活的使用范围是不是插件所在的那一个；对不上时自动装一定诚实失败，复制第 5.3 节的命令手工执行。
 10. 官方桌面版（使用范围名 `desktop`）装不上：看任务里的 `message`，形如 `install-failed: <宿主原话>`，里面带着宿主的错误码（例如 `operation-error`）。`message` 可能带详情，**匹配请匹配前缀错误码，不要整串相等**；日志里这条路的路由是 `desktop-manager`。
-11. 还定位不到：打开调试日志（第 10 节），用 `npx dsh-log <日志目录>` 看（`--since 2h`、`--level warn`、`--json` 都好用）。**命令里不要写 `tail`**：`dsh-log` 0.3.1 的解析器把非 `-` 开头的词一律当路径，写 `tail` 它会去找一个叫 `tail` 的目录并多吐一句「没找到日志目录：tail」（日志照常输出）。**`--trace <traceId>` 在本包自建落点的行上追不到链**：本包落盘的行里不带 `traceId`/`spanId`（这套三件套只由 dsh-log 的**客户端 SDK 写入路径**注入，即集成方把客户端实例当 `logCtx` 传进来时才存在），按时间窗加事件名筛更实在。日志按插件标识分目录，同一台机器上多个用更新系统的插件**各写各的、不相互覆盖**；三个旧事件 `host.call`、`host.call.fail`、`update.install.exec` 照旧，`update.*` 是本包按环节新增的事件（全表见包内 `event-list.update.json`）。日志里不记命令与路径原文。
+11. 还定位不到：打开调试日志（第 10 节），用 `npx dsh-log <日志目录>` 看（`--since 2h`、`--level warn`、`--json` 都好用）。**命令里不要写 `tail`**：`dsh-log` 0.3.1 的解析器把非 `-` 开头的词一律当路径，写 `tail` 它会去找一个叫 `tail` 的目录并多吐一句「没找到日志目录：tail」（日志照常输出）。**`--trace <traceId>` 现在对本包自建落点的行也有效**（`0.16.4` 起）：一次电话一条链，同一通电话里的多行共享一个 `traceId`、`spanId` 分步骤边界（集成方注入客户端实例时照旧由 dsh-log 的客户端 SDK 建链）。按时间窗加事件名筛仍然好使。日志按插件标识分目录，同一台机器上多个用更新系统的插件**各写各的、不相互覆盖**；三个旧事件 `host.call`、`host.call.fail`、`update.install.exec` 照旧，`update.*` 是本包按环节新增的事件（全表见包内 `event-list.update.json`）。日志里不记命令与路径原文。
 12. 以依赖形态接入后一直显示「安装位置在使用中途变了」（`installation-changed`）：`0.1.x` 的已知缺陷（拿「本包自己住在哪」推断目标包位置，依赖形态下恒失败）；升到 `0.2.0` 即修复。
 13. 报 `unknown-profile` 但使用范围名与目录都没问题：本包按包名找不到你的插件包。让集成方传 `readerOverrides.targetPackageDir`，或把本包装成插件包的依赖（别装到别的 `node_modules` 树里）。
 
@@ -678,15 +678,17 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 向后兼容的扩展：新增可选配置键、新增可选 `readerOverrides`（如 `targetPackageDir`）、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。
 
-## 10. 日志（dsh-log 0.3.1）
+## 10. 日志（dsh-log 0.3.4）
 
-`0.16.0` 起本包把 [`dsh-log`](https://www.npmjs.com/package/dsh-log) `^0.3.1` 作为**第一个运行期依赖**（决策与理由见 `docs/adr/0005-dsh-log-as-first-runtime-dependency.md`）。
+`0.16.0` 起本包把 [`dsh-log`](https://www.npmjs.com/package/dsh-log) 作为**第一个运行期依赖**，`0.16.4` 起下限是 `^0.3.4`（决策与理由见 `docs/adr/0005-dsh-log-as-first-runtime-dependency.md`）。下限为什么跟着抬：链上下文（下一段）要 `0.3.3` 起才有，`0.3.1`/`0.3.2` 上本包只会**静默没有链**；`0.3.4` 另修了启动头幂等与目录摘要的诚实性。
 
 **归属：谁建的实例谁说话。**集成方传了日志出口（宿主侧 `createHostUpdate({ logCtx })`），本包就用它的实例落盘，绝不另建第二个；没传，本包自建一份。两种情况下事件名、字段、级别完全一样。
 
 **同进程同目录只有一个句柄。**本包在同进程内用一张挂在 `globalThis` 上的登记表按目录复用实例（引用计数到零才释放）：一个进程里出现两份本包副本（顶层一份、别的插件嵌套一份）时，第二份拿到的是**同一个**实例，不会出现谁把谁的日志吃掉。拿不到 `dsh-log`（没装、版本不对）或目录已被占用时**降级成「没有落点」**：事件照发、主流程零影响，并记一条 `update.log.degraded`（`reason` 是 `no-dsh-log` / `lease-conflict` / `write-fail`）。两个进程共用同一目录不在承诺内（dsh-log 只能事后诊断 `foreign-write`）。
 
 **落点：一个插件一棵目录。**`<homeDir>/logs/<派生命名空间>/`，`homeDir` 默认取 `DSH_HOME`，没有则 `~/.dsh`。命名空间由 `pluginId` 派生：转小写 → 非 `[a-z0-9-]` 换 `-` → 折叠连续 `-` → 去首尾。**本身就是合法标识（小写字母数字连字符、1–32 位）的直接原样当目录名**；只有这一步有损（换过字符或被截断）才走有损分支：slug 截 24 位 + `-<sha256 原文前 6 位>`（合计 ≤31；slug 被吃光则回退 `plugin-<hash6>`）。两条不变量：合法标识原样通过；**无损分支下不同 `pluginId` 不共目录**（有损分支靠 24 位指纹区分，属概率性隔离——同一 24 位前缀的有损标识足够多时理论上可能撞名）。这就是「同一份 DSH 里多个用更新系统的插件日志不相互覆盖」的机制（开关文件同一套命名：`log-switch-<派生名>.json`）。
+
+**启动头自述（`0.16.4` 起）。**建库时 dsh-log 会在目录里写一行 `host.start`（`0.3.4` 起幂等：同一个实例只写一行），本包在那一行填 `pluginVersion` —— 本包自己的版本号（`ownPackageVersion()` 读随包 `package.json`，可用 `acquireOwnLog({ pluginVersion })` 覆盖成你那一版），`os` 由引擎记。交日志时对方先看这一行，就知道「这堆行出自哪一版」。
 
 **事件：三个旧事件形状冻结，`update.*` 按环节铺开。**`host.call`、`host.call.fail`、`update.install.exec` 的字段一字不动；新增事件按 19 个环节（检查、源查询、通道、安装、校验、重试、队列、批量、重启、面板…）命名，全表与字段白名单在包内 `event-list.update.json`，是实现的唯一事实源。日志行**只承载稳定码与参数**，人话留给面板与诊断渲染（ADR-0006）——所以日志里不会出现「安装失败：……」这类句子。
 
@@ -705,7 +707,7 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 ```sh
 npx dsh-log <DSH_HOME>/logs/<派生命名空间>              # 看某一个插件的日志
 npx dsh-log <DSH_HOME>/logs --since 2h --level warn     # 所有插件、最近两小时的告警及以上
-npx dsh-log <dir> --trace <traceId>                     # 追链：只对 dsh-log 客户端 SDK 落下的行有效（本包自建落点不带 traceId）
+npx dsh-log <dir> --trace <traceId>                     # 追链：本包自建落点 0.16.4 起一次电话一条链（客户端 SDK 的行照旧）
 npx dsh-log <dir> --json > update.log                   # 导出原始 JSON 行（给脚本或工单用）
 ```
 

@@ -54,7 +54,7 @@ npm publish
 
 `npm run build` 就是 `node build.mjs`；`npm test` 带 `pretest`，会先 build 再跑测试。
 
-本包唯一的运行期依赖是 `dsh-log@^0.3.1`（决策见 `docs/adr/0005-dsh-log-as-first-runtime-dependency.md`）。纪律：**只有 `src/log/**` 能碰它**，而且是按需动态取（拿不到就降级，绝不外抛）；`tests/gate.test.mjs` 递归扫 `src/` 全树，别处出现 `dsh-log` 或任何别家外部包即红。
+本包唯一的运行期依赖是 `dsh-log@^0.3.4`（决策见 `docs/adr/0005-dsh-log-as-first-runtime-dependency.md`）。下限跟着链上下文抬过一档：`store.trace()` 要 `0.3.3` 起，`0.3.4` 起启动头幂等且记 `os`（见 CHANGELOG 的 `0.16.4` 节）。纪律：**只有 `src/log/**` 能碰它**，而且是按需动态取（拿不到就降级，绝不外抛）；`tests/gate.test.mjs` 递归扫 `src/` 全树，别处出现 `dsh-log` 或任何别家外部包即红。
 
 ## 发布面（npm 页 / GitHub 仓库页 / Release）
 

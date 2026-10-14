@@ -9,9 +9,9 @@
  * 只由接线层记一条 `update.log.degraded`。宁可少一层守卫，也不因为读不到清单就静默不写日志。
  */
 import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { parseEventListManifest, lintEventFields, mergeUpdateEvents, type GateEventList, type GateEventEntry } from '../gate.js'
+import { packageRoot } from './own-version.js'
 
 /** 随包清单的文件名（`package.json files` 白名单里要有它，发布门禁会核）。 */
 export const UPDATE_EVENT_LIST_FILE = 'event-list.update.json'
@@ -38,9 +38,8 @@ export function loadUpdateEventTable(): GateEventList | null {
   if (loaded) return cached
   loaded = true
   try {
-    // dist/log/manifest.js 往上三层即包根（发布后就是 node_modules/dsh-plugin-update/）。
-    const pkgRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))))
-    const path = join(pkgRoot, UPDATE_EVENT_LIST_FILE)
+    // 包根算式与 own-version.ts 共用一份（dist/log/*.js 往上三层）。
+    const path = join(packageRoot(), UPDATE_EVENT_LIST_FILE)
     const text = readFileSync(path, 'utf8')
     cached = parseEventListManifest(JSON.parse(text) as unknown)
   } catch {

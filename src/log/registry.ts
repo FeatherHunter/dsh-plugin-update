@@ -17,6 +17,7 @@
 import { join } from 'node:path'
 import { hashToken, logDirKey, logSwitchFileName } from './namespace.js'
 import { sinkFromStore, type LogSink } from './sink.js'
+import { ownPackageVersion } from './own-version.js'
 import type { GateEventList } from '../gate.js'
 
 /** 登记表在 globalThis 上的键（Symbol.for：跨副本、跨包副本同名同键）。 */
@@ -164,6 +165,7 @@ export async function acquireOwnLog(input: OwnLogAcquireInput): Promise<OwnLogAc
       const reason = state.degraded.get(key)?.reason ?? 'no-dsh-log'
       return { ...base, reason }
     }
+    const pluginVersion = resolvePluginVersion(input.pluginVersion)
     const load = input.loader ?? (() => import('dsh-log/node') as Promise<unknown>)
     let mod: unknown
     try {
@@ -183,6 +185,7 @@ export async function acquireOwnLog(input: OwnLogAcquireInput): Promise<OwnLogAc
           prefix: String(input.prefix ?? 'wf'),
           logDirName: namespace,
           switchFileName: logSwitchFileName(namespace),
+          ...(pluginVersion ? { pluginVersion } : {}),
           ...(input.eventList ? { eventList: input.eventList as unknown as Record<string, unknown> } : {}),
         })) as unknown
         store = resolveOwnLogStore(created)
@@ -233,6 +236,20 @@ export async function acquireOwnLog(input: OwnLogAcquireInput): Promise<OwnLogAc
   } catch {
     return { ...base, reason: 'write-fail' }
   }
+}
+
+/**
+ * 启动头 `host.start` 里那一格「这个目录是哪一版写的」：调用方给了就用给的（集成方自己的版本），
+ * 没给就用**本包版本**（`ownPackageVersion()`），都没有就不带这个键。
+ *
+ * 为什么必须在建库时定：dsh-log **0.3.4 起启动头幂等**（`writeStartupHeader` 第二次调用直接返回
+ * 首写结果），建库那一刻没给就再也补不上——晚一步传等于永远写不进去。
+ */
+function resolvePluginVersion(given: string | undefined): string | null {
+  const one = typeof given === 'string' ? given.trim() : ''
+  if (one) return one
+  const own = ownPackageVersion()
+  return own && own.trim() !== '' ? own.trim() : null
 }
 
 /**

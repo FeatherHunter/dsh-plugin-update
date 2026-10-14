@@ -6,7 +6,7 @@
  *   2. 登记表：同目录同进程只有一个句柄、引用计数到零才释放、撞租约降级而不抛、冷却不永久死；
  *   3. 路由：每个插件标识各写各的落点，取不到就丢弃计数，绝不回退到别人的 sink；
  *   4. 唯一发射口四条纪律：字段白名单 / 脱敏 / 准入短路 / 预算守卫，且落点抛错不外抛。
- * 外加一条真引擎端到端：真装 dsh-log 0.3.1，真落一份文件，真读出五键行。
+ * 外加一条真引擎端到端：真装 dsh-log 0.3.4，真落一份文件，真读出五键行（含启动头那一行）。
  */
 import { describe, it, after, before } from 'node:test'
 import assert from 'node:assert/strict'
@@ -32,6 +32,7 @@ const {
   lastOwnLogDegraded,
   buildUpdateManifest,
   loadUpdateEventTable,
+  ownPackageVersion,
   isEdgeEvent,
   sanitizeLogFields,
   __resetOwnLogRegistryForTests,
@@ -264,6 +265,42 @@ describe('日志内核：登记表（同进程一个目录一个句柄）', () =
     assert.equal(got.reason, 'write-fail')
     __resetOwnLogRegistryForTests()
   })
+
+  it('建库配置带上 pluginVersion：默认本包版本（0.3.4 起启动头幂等，只能在建库那一次给）', async () => {
+    __resetOwnLogRegistryForTests()
+    const seen = []
+    const loader = async () => ({
+      createNodeHostLog: async (_deps, config) => {
+        seen.push(config)
+        return {
+          log: () => {},
+          isEnabled: () => true,
+          release: () => {},
+          getDroppedCount: () => 0,
+          getLastPersistFail: () => null,
+        }
+      },
+    })
+    const own = ownPackageVersion()
+    assert.ok(own, '本包 package.json 的版本必须读得到（读不到就没法写启动头）')
+    assert.match(own, /^\d+\.\d+\.\d+$/)
+    const first = await acquireOwnLog({ logsRoot: '/tmp/kernel-g', namespace: 'plugin-g', prefix: 'wf', loader })
+    assert.ok(first.sink)
+    assert.equal(seen.length, 1, '建库只调一次')
+    assert.equal(seen[0].pluginVersion, own, '没显式给就用本包版本')
+    assert.equal(seen[0].pluginId, 'plugin-g', '别的建库配置不受影响')
+    __resetOwnLogRegistryForTests()
+    // 显式给了就用给的（集成方想写自己那一版）
+    const second = await acquireOwnLog({ logsRoot: '/tmp/kernel-h', namespace: 'plugin-h', prefix: 'wf', loader, pluginVersion: '9.9.9' })
+    assert.ok(second.sink)
+    assert.equal(seen[1].pluginVersion, '9.9.9')
+    // 空白字符串按「没给」处理（不写一个空格进启动头）
+    __resetOwnLogRegistryForTests()
+    const third = await acquireOwnLog({ logsRoot: '/tmp/kernel-i', namespace: 'plugin-i', prefix: 'wf', loader, pluginVersion: '   ' })
+    assert.ok(third.sink)
+    assert.equal(seen[2].pluginVersion, own)
+    __resetOwnLogRegistryForTests()
+  })
 })
 
 describe('日志内核：唯一发射口的四条纪律', () => {
@@ -356,7 +393,7 @@ describe('日志内核：唯一发射口的四条纪律', () => {
   })
 })
 
-describe('日志内核：真引擎端到端（dsh-log 0.3.1 真落一份文件）', () => {
+describe('日志内核：真引擎端到端（dsh-log 0.3.4 真落一份文件）', () => {
   let tempRoot = ''
   before(() => {
     __resetOwnLogRegistryForTests()
@@ -401,6 +438,11 @@ describe('日志内核：真引擎端到端（dsh-log 0.3.1 真落一份文件�
     assert.equal(row.fields.logSink, 'self')
     assert.equal(row.fields.logDirHash, 'deadbeef')
     assert.ok(describeOwnLogRegistry().size >= 1)
+    // 启动头（dsh-log 建库时自己写的那一行）：0.3.4 起幂等，只许一行；本包版本与 os 都记上。
+    const headers = parsed.filter((r) => r.event === 'host.start')
+    assert.equal(headers.length, 1, '启动头只许一行（0.3.4 起同实例幂等）')
+    assert.equal(headers[0].fields.pluginVersion, ownPackageVersion(), '启动头要写清「这目录是哪一版写的」')
+    assert.ok('os' in headers[0].fields, '0.3.4 起启动头记 os')
   })
 })
 
@@ -409,7 +451,7 @@ describe('日志内核：面板侧只许引用无 node: 依赖的纯类型与客
     const browserFiles = ['panel.ts', 'client.ts', 'entry.ts', 'entry-batch.ts', 'panel-batch.ts', 'http.ts']
     // 浏览器安全的只有客户端通道（#122：面板唯一的报日志出口）；其余会把 node: 内建拖进打包器
     // （`trace` 也在列：宿主侧链上下文要 node:async_hooks）。
-    const forbidden = /\.\.?\/log\/(index|namespace|emit|manifest|registry|trace)\.js$/
+    const forbidden = /\.\.?\/log\/(index|namespace|emit|manifest|registry|trace|own-version)\.js$/
     for (const name of browserFiles) {
       const raw = readFileSync(join(PKG_DIR, 'src', name), 'utf8')
       const text = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^A-Za-z0-9_$:])\/\/.*$/gm, '$1')
@@ -429,7 +471,7 @@ describe('日志内核：面板侧只许引用无 node: 依赖的纯类型与客
   it('内核里只有登记表一处动态 import dsh-log/node（运行期唯一外部依赖）', () => {
     const raw = readFileSync(join(PKG_DIR, 'src', 'log', 'registry.ts'), 'utf8')
     assert.match(raw, /import\('dsh-log\/node'\)/)
-    const files = ['namespace.ts', 'sink.ts', 'router.ts', 'emit.ts', 'manifest.ts', 'index.ts']
+    const files = ['namespace.ts', 'sink.ts', 'router.ts', 'emit.ts', 'manifest.ts', 'index.ts', 'own-version.ts']
     for (const name of files) {
       const text = readFileSync(join(PKG_DIR, 'src', 'log', name), 'utf8')
       assert.ok(!/from\s+['"]dsh-log/.test(text), name + ' 不该直接 import dsh-log（只有登记表按需动态取）')
