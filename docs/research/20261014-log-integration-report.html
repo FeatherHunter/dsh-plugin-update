@@ -195,9 +195,10 @@ details[open] summary::before{content:"▾ "}
     <a href="#s13">13 · 复现命令</a>
   </nav>
   <div class="side-foot">
-    证据截至 <code>git 34b00e6</code> + 未提交工作区<br>
-    全量测试 <b>1124 例 / 0 失败</b><br>
-    生成：2026-10-14 · 地图 <a href="https://github.com/FeatherHunter/dsh-plugin-update/issues/117">#117</a>
+    证据截至 <code>git 798e2ec</code>（0.16.0 定格）<br>
+    全量测试 <b>1125 例 / 0 失败</b><br>
+    独立复核 <code>docs/research/20261014-log-integration-review.md</code><br>
+    生成：2026-10-15 · 地图 <a href="https://github.com/FeatherHunter/dsh-plugin-update/issues/117">#117</a>
     <button class="themebtn" id="themebtn" type="button">切换深色 / 浅色</button>
   </div>
 </aside>
@@ -210,9 +211,9 @@ details[open] summary::before{content:"▾ "}
   <div class="meta-strip">
     <div>包版本<b>0.16.0（日志面 0.15.0 起）</b></div>
     <div>运行期依赖<b>dsh-log ^0.3.1（第一个）</b></div>
-    <div>事件表<b>28 事件 / 19 环节全覆盖</b></div>
+    <div>事件表<b>28 事件 / 19 环节 · 26 条有发射点</b></div>
     <div>内核代码<b>src/log/ 8 文件 · 1333 行</b></div>
-    <div>全量测试<b>1124 例 · 1123 过 · 1 跳过 · 0 失败</b></div>
+    <div>全量测试<b>1125 例 · 1124 过 · 1 跳过 · 0 失败</b></div>
   </div>
 </header>
 
@@ -221,19 +222,19 @@ details[open] summary::before{content:"▾ "}
 <p class="sub">先给结论，再给机制、证据与缺口。读这一节就能判断这份集成是否达到了目的地。</p>
 
 <div class="kpis">
-  <div class="kpi c-ok"><div class="v">19 / 19</div><div class="k">环节有事件落点（规格清单与实现逐条对齐，无未填项）</div></div>
+  <div class="kpi c-ok"><div class="v">19 / 19</div><div class="k">环节有事件落点；28 条清单里 <b>26 条有发射点</b>，2 条死条目如实登记（第 12 节 #1）</div></div>
   <div class="kpi c-node"><div class="v">28</div><div class="k">随包事件表条目：常驻 20 / 按需 7 / 自监控 1</div></div>
   <div class="kpi c-neutral"><div class="v">0 串台</div><div class="k">两棵目录各写各的；同 pluginId 两份模块副本只出一个写者</div></div>
   <div class="kpi c-client"><div class="v">0 行</div><div class="k">600 次真机轮询 <code>updateStatus</code> 的常驻落盘行数</div></div>
   <div class="kpi c-ok"><div class="v">8 / 8</div><div class="k">预算断言全过（含 86400 次同状态 → 1 行）</div></div>
-  <div class="kpi c-node"><div class="v">1124</div><div class="k">全量测试例数，0 失败（本报告写作时复跑）</div></div>
+  <div class="kpi c-node"><div class="v">1125</div><div class="k">全量测试例数，0 失败（定稿时复跑）</div></div>
 </div>
 
 <div class="grid2">
   <div class="card">
     <h4>三条需求各自的交付物</h4>
     <ul>
-      <li><b>每个环节都能交日志</b> → 28 事件覆盖 19 个环节；宿主／中立侧 11 个环节逐环节落到函数级唯一发射口，客户端 11 个落点走 <code>&lt;prefix&gt;.logAppend</code> 电话回宿主。</li>
+      <li><b>每个环节都能交日志</b> → 19 个环节逐环节落到函数级唯一发射口（宿主／中立侧 11 个环节 + 客户端 11 个落点走 <code>&lt;prefix&gt;.logAppend</code> 电话回宿主）；随包事件表 28 条，<b>26 条有真实发射点</b>，2 条（<code>update.install.retry</code>、<code>update.restart.outcome</code>）至今零发射点且不在客户端白名单，已按死条目登记。</li>
       <li><b>第三方能把日志交给我们</b> → 落盘是 dsh-log 0.3.1 的标准五键行，一条 <code>npx dsh-log tail &lt;dir&gt;</code> 即可交出；目录、开关文件、命名空间规则全部写进 README §10／§11。</li>
       <li><b>多插件互不覆盖</b> → 每插件一棵目录 + <code>globalThis</code> 登记表（同目录单句柄）+ 按 <code>pluginId</code> 路由表，三件东西合起来取代了旧实现里那个「后注册者夺走前一个落点」的模块级变量。</li>
     </ul>
@@ -565,10 +566,10 @@ details[open] summary::before{content:"▾ "}
 
 <!-- ============ 4 ============ -->
 <h2 id="s4"><span class="num">04</span>19 环节事件面：从 3 个事件到一张登记册</h2>
-<p class="sub">集成前：3 个事件名、5 个发射点、19 个环节里 16 个为零。集成后：28 条事件覆盖 19/19 环节，每条的级别、档位、字段白名单都在随包 <code>event-list.update.json</code> 里登记，未登记即不落盘。</p>
+<p class="sub">集成前：3 个事件名、5 个发射点、19 个环节里 16 个为零。集成后：19 个环节全部落到事件上，随包 <code>event-list.update.json</code> 登记 28 条事件的级别、档位与字段白名单，未登记即不落盘；<b>其中 26 条有真实发射点，2 条为死条目</b>（第 12 节 #1）。</p>
 
 <div class="legend">
-  <span><i style="background:var(--neutral)"></i>resident 常驻（开关关着也落，因此必须边沿触发）</span>
+  <span><i style="background:var(--neutral)"></i>resident 常驻（开关关着也落；28 条里只有 2 条真带「边沿触发」守卫）</span>
   <span><i style="background:var(--client)"></i>ondemand 按需（开关打开才落，可逐次打点）</span>
   <span><i style="background:var(--selfmon)"></i>selfmon 自监控（接线自身降级，永不外抛）</span>
 </div>
@@ -577,21 +578,21 @@ details[open] summary::before{content:"▾ "}
   <caption>19 环节 × 落点事件。侧栏「Node」= 只许在 <code>import 'node:'</code> 的五个文件里发射；「中立」= 不依赖 DOM 也不依赖 node；「客户端」= 面板／入口件，只能经 <code>logAppend</code> 电话。</caption>
   <thead><tr><th style="width:3%">#</th><th style="width:19%">环节</th><th style="width:7%">侧</th><th style="width:26%">落点事件</th><th style="width:9%">级别</th><th style="width:10%">档位</th><th>接线状态</th></tr></thead>
   <tbody>
-    <tr><td>①</td><td>面板打开／挂载</td><td>客户端</td><td><code>update.panel.mount</code>；校验失败 <code>update.panel.render.fail</code></td><td>info / error</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 经 logAppend</td></tr>
+    <tr><td>①</td><td>面板打开／挂载</td><td>客户端</td><td><code>update.panel.mount</code>（<code>mode</code> 实际取值 <code>'panel'</code>／<code>'http'</code>）；校验失败 <code>update.panel.render.fail</code></td><td>info / error</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 经 logAppend</td></tr>
     <tr><td>②</td><td>自动检查更新</td><td>客户端</td><td><code>update.check.start</code>（<code>trigger:'auto'</code>）</td><td>info</td><td><span class="tag t-on">ondemand</span></td><td><span class="tag t-ok">已接</span> 客户端自报</td></tr>
     <tr><td>③</td><td>单插件 check</td><td>Node + 客户端</td><td><code>update.check.done</code> / <code>update.check.fail</code> / <code>update.check.start</code>；既有 <code>host.call</code>·<code>host.call.fail</code> 保留</td><td>info / warn</td><td><span class="tag t-res">resident</span> + <span class="tag t-on">ondemand</span></td><td><span class="tag t-ok">已接</span> <code>service.ts</code> 核心 <code>check()</code></td></tr>
-    <tr><td>④</td><td>npm registry 查询</td><td>中立</td><td><code>update.registry.fetch</code></td><td>info</td><td><span class="tag t-on">ondemand</span></td><td><span class="tag t-ok">已接</span> <code>makeFetchNoter()</code>；<code>/http</code> 变体走客户端</td></tr>
-    <tr><td>⑤</td><td>版本比较／通道判定</td><td>中立</td><td><code>update.channel.decide</code>；失败码并入 <code>update.check.fail.stage:'channel'</code></td><td>info / warn</td><td><span class="tag t-on">ondemand</span> + <span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> <code>noteChannelDecision()</code></td></tr>
-    <tr><td>⑥</td><td>changelog 获取与解析</td><td>Node IO + 中立</td><td><code>update.changelog.parse</code>；既有 <code>host.call</code>（<code>kind:'update-changelog'</code>）保留</td><td>info</td><td><span class="tag t-on">ondemand</span></td><td><span class="tag t-ok">已接</span> 变更日志电话包装</td></tr>
-    <tr><td>⑦</td><td>用户点击安装</td><td>客户端</td><td><code>update.panel.action</code>（install/retry/restart）+ 宿主侧 <code>update.install.request</code></td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 两侧各司其职</td></tr>
+    <tr><td>④</td><td>npm registry 查询</td><td>中立</td><td><code>update.registry.fetch</code></td><td>info</td><td><span class="tag t-on">ondemand</span></td><td><span class="tag t-ok">已接</span> <code>makeFetchNoter()</code>（唯一发射点 <code>src/service.ts:337</code>）；<code>/http</code> 变体<b>零接线</b></td></tr>
+    <tr><td>⑤</td><td>版本比较／通道判定</td><td>中立</td><td><code>update.channel.decide</code>；失败码并入 <code>update.check.fail.stage</code>（实际只落 <code>'fetch'</code> 与 <code>'channel'</code>）</td><td>info / warn</td><td><span class="tag t-on">ondemand</span> + <span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> <code>noteChannelDecision()</code></td></tr>
+    <tr><td>⑥</td><td>changelog 获取与解析</td><td>Node IO + 中立</td><td><code>update.changelog.parse</code>（<code>source</code> 实际恒为 <code>'npm'</code>）；既有 <code>host.call</code>（<code>kind:'update-changelog'</code>）保留</td><td>info</td><td><span class="tag t-on">ondemand</span></td><td><span class="tag t-ok">已接</span> 变更日志电话包装</td></tr>
+    <tr><td>⑦</td><td>用户点击安装</td><td>客户端</td><td><code>update.panel.action</code>（11 个值，见 §4.2）+ 宿主侧 <code>update.install.request</code></td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 两侧各司其职</td></tr>
     <tr><td>⑧</td><td>安装执行</td><td>Node</td><td>既有 <code>update.install.exec</code>（5 键，形状不动）</td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">既有</span> 只改「发不发」与归属</td></tr>
     <tr><td>⑨</td><td>安装后校验</td><td>Node</td><td><code>update.install.verify</code></td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 终态跃迁 + 掉线换算</td></tr>
-    <tr><td>⑩</td><td>失败重试</td><td>客户端</td><td><code>update.install.retry</code>（<code>attempt</code>/<code>of</code>）</td><td>warn</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-warn">归属客户端通道</span></td></tr>
-    <tr><td>⑪</td><td>批量面板入队</td><td>Node</td><td><code>update.batch.entry.request</code>；挂载点并入 <code>update.panel.mount</code>（<code>mode:'batch'</code>）</td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> <code>noteEntryRequest()</code> 按会话去重</td></tr>
+    <tr><td>⑩</td><td>失败重试</td><td>客户端</td><td><code>update.install.retry</code>（<code>attempt</code>/<code>of</code>）</td><td>warn</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-warn">死条目</span> 零发射点、且不在客户端白名单</td></tr>
+    <tr><td>⑪</td><td>批量面板入队</td><td>Node</td><td><code>update.batch.entry.request</code>；挂载点并入 <code>update.panel.mount</code>（<code>mode</code> 实际只落 <code>'panel'</code>／<code>'http'</code>）</td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> <code>noteEntryRequest()</code> 按会话去重</td></tr>
     <tr><td>⑫</td><td>队列两阶段／全局锁</td><td>Node</td><td><code>update.queue.transition</code>、<code>update.lock.anomaly</code></td><td>info / warn</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 只在乎「真写盘且相位真变」</td></tr>
     <tr><td>⑬</td><td>单项失败（批量）</td><td>中立</td><td><code>update.batch.entry.fail</code>（目标标识恒 hash8）</td><td>warn</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 落点由 <code>BatchRunDeps.logFor</code> 注入</td></tr>
     <tr><td>⑭</td><td>总账</td><td>客户端渲染</td><td><code>update.batch.summary</code>（宿主侧汇总后发）</td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 面板只渲染、不重复发</td></tr>
-    <tr><td>⑮</td><td>重启宿主</td><td>客户端触发</td><td><code>update.restart.outcome</code></td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-warn">归属客户端通道</span></td></tr>
+    <tr><td>⑮</td><td>重启宿主</td><td>客户端触发</td><td><code>update.restart.outcome</code></td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-warn">死条目</span> 零发射点、且不在客户端白名单</td></tr>
     <tr><td>⑯</td><td>语言选择</td><td>客户端</td><td><code>update.lang.applied</code></td><td>info</td><td><span class="tag t-on">ondemand</span></td><td><span class="tag t-ok">已接</span> 在客户端白名单内</td></tr>
     <tr><td>⑰</td><td>主题渲染</td><td>客户端</td><td><code>update.panel.state</code>（theme/tokensApplied/fallback）；非法值并入 <code>update.panel.render.fail</code></td><td>info / error</td><td><span class="tag t-on">ondemand</span> + <span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 在客户端白名单内</td></tr>
     <tr><td>⑱</td><td>落盘决策</td><td>Node</td><td><code>update.store.fail</code>；锁异常 <code>update.lock.anomaly</code></td><td>warn</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 原 <code>catch {}</code> 静默点共 13 处</td></tr>
