@@ -1,12 +1,26 @@
 {
   "name": "dsh-plugin-update",
-  "version": "0.16.1",
-  "description": "可复用的更新系统装成的 npm 包：任何 DSH 插件照文档能集成检查更新等功能（地图 #579）",
+  "version": "0.16.2",
+  "description": "给 DSH 插件加「检查更新 / 安装更新」能力的 npm 包：宿主一段接线 + 面板一个现成组件，查新版、装更新、失败兜底、更新日志与多插件日志一次包掉",
   "license": "MIT",
   "author": "王辰浩",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "self-update",
+    "updater",
+    "plugin-update",
+    "changelog",
+    "typescript",
+    "dsh-log"
+  ],
+  "homepage": "https://github.com/FeatherHunter/dsh-plugin-update#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/FeatherHunter/dsh-plugin-update.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FeatherHunter/dsh-plugin-update/issues"
   },
   "engines": {
     "node": ">=22"

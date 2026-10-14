@@ -7,10 +7,16 @@ dist/
 # 临时件
 .tmp-publish-status.json
 .tmp-publish-*.log
+.tmp-*
 tests/.tmp/
 
 # 会话临时件（探针、实证装置、一次性脚本）
 .tmp/
+
+# 会话中间件（票正文草稿、交接稿、pre-merge 副本、本地工具状态）
+.local/
+.merge-backup/
+.dsh-im/
 
 # 会话临时件与视觉工具产物
 .scratch/

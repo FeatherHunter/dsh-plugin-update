@@ -2,6 +2,24 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
+
+## [0.16.2] - 2026-10-15
+
+对外「介绍面」统一补丁：npm 页、GitHub 仓库页、用户手册三处对同一件事的说法对齐，并清掉仓库树里混进来的会话垃圾。**不改行为、不改形状、不改落盘契约、不加依赖**（`dsh-log ^0.3.1` 仍是唯一运行期依赖）。
+
+### Changed
+- **`package.json` 元数据**：`description` 从「可复用的更新系统装成的 npm 包：…（地图 #579）」换成面向使用者的口径——旧句把内部地图号写上了 npm 页，而 npm 页的「About」与搜索结果都直接取这句。新增 `keywords`（`dsh` / `dsh-plugin` / `self-update` / `updater` / `plugin-update` / `changelog` / `typescript` / `dsh-log`）与 `homepage`（本仓 README）、`bugs`（本仓 Issues），npm 页从此有标签与可点的来源、问题入口。
+- **README 的版本归属按「装得到的版本」说话**（`:13`、`:536`、`:604`、`:633`、`:635`、`:680`）：`0.14.0` / `0.15.0` 从未上过 npm，原先那几处「`0.15.0` 起有 dsh-log」「`0.15.0` 之前的旧名」会把集成方指到一个装不到的版本号（`0.16.1` 只改对了依赖与版本号两处，归属仍留在 `0.15.0`）。改齐为 `0.16.0` 起；旧名那处补明是「`0.13.0` 及更早已发布版本」的名字。**只动版本归属，能力描述一字未改。**
+
+### Added
+- `scripts/release-notes.mjs`：按版本号从 `CHANGELOG.md` 里取该节正文打印（`--title` 只打标题、`--check` 只校验该版本节在不在），GitHub Release 的说明直接用它生成——Release 与 CHANGELOG 同一份来源，不再手抄一遍。
+
+### Fixed
+- **仓库树里混进来的会话垃圾**：`.local/`（内票正文草稿、`state/gh/device-id`）、`.merge-backup/`（pre-merge 副本与验证页）、`.dsh-vision-router/`（整屏截图 12 张）、`.scratch/`（交接稿）、根上的 `.tmp-issue70-body.md` 与 `.tmp-probe-{before,after}.json`——共 **27 个文件约 1.9 MB**，全都只是本地会话产物，却跟着公开仓库一起 clone。从版本库移除（`git rm --cached`，本地文件原样保留，**未改写历史**），并把 `.local/`、`.merge-backup/`、`.tmp-*`、`.dsh-im/` 补进 `.gitignore`；`.dsh-vision-router/` 与 `.scratch/` 本就在忽略表里，只是先于规则入了库。
+
+门禁（**发版定格**）：`npm test` **1126 例：1125 过 / 0 失败 / 1 跳过**（比 `0.16.0` 那行多 1 例：复核阶段补的挂载级路牌测试）；`npm run build`（含 `tsc --noEmit`）与 `npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（文案源 grep 扫描 33 个源文件 0 违规 / 字典快照 320 个 key 0 违规 / 15 码与诊断解析契约）；`npm publish --dry-run` **73 文件**（279.7 kB 压缩 / 987.5 kB 解包——`scripts/` 不在 `files` 白名单，新增的发布说明脚本不进包）。本版不碰发射侧与面板渲染，噪声预算装置没有重跑；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（320 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
+
 ## [0.16.1] - 2026-10-15
 
 纯文档补丁：不改行为、不改形状、不改落盘契约、不加依赖。起因是对抗式复核（`docs/research/20261014-log-integration-review.md`）查出用户手册与实现不一致，而 `0.16.0` 的 tarball 已经带着这些错行上了 npm——所以补一版，让 npm 页跟着对（票 `#132`）。
@@ -50,6 +68,8 @@
 
 ## [0.15.0] - 2026-10-14
 
+> 未单独发到 npm：这一节的内容随 `0.16.0` 首发。
+
 ### Changed
 - **破坏性**：条目正文保留行边界（`#116` 返工的一半）——`ChangelogEntry.sections` 的**单个条目现在可能是多行字符串**（嵌套子条目、围栏代码块、引用块按行留在一起），旧版是「一切压成一行」。集成方若对条目做过 `\n` 假设或按整串做字符串比较，需要跟着改；只做展示的集成方（`renderChangelogHTML`）零改动。迁移说明见 README §5.8。
 - **计数口径变化**：嵌套子条目不再各占一条，`sections` 数组长度与 `counts` 只按**父条目**算（同输入下 `Added: 6` 会变成 `Added: 3`）。理由：块级渲染要靠父子关系，子项各占一条时层次不可恢复。
@@ -82,6 +102,8 @@
 门禁：`npm test` 1016 例（1015 过 / 0 失败 / 1 跳过既有）；`npm run build`（含 `tsc --noEmit`）与 `npm run gate:bilingual` 均过。
 
 ## [0.14.0] - 2026-10-14
+
+> 未单独发到 npm：这一节的内容随 `0.16.0` 首发。
 
 ### Added
 - 更新日志行内 Markdown 渲染（#109 地图 / #115 落地）：条目正文不再原样显示语法符号——`` `行内代码` ``、`**粗体**`、`*斜体*`、`~~删除线~~`、`[文本](https://…)`、`<https://…>` 与裸 URL 都渲染成样式；图片 `![alt](url)` 只出占位（`data-src` + alt／地址），**永不产出 `<img>`、不发任何网络请求**。支持面按野外取样定（`docs/research/20261014-changelog-markdown-constructs.md`：行内代码 4914 处/81 份、粗体 4742/26、绝对链接 6286、裸 URL 6671、图片 8；表格/脚注/emoji 短码/`<details>` 野外 0 例，不做）。

@@ -10,7 +10,7 @@
 
 给 DSH 插件加「检查更新 / 安装更新」能力的 npm 包。宿主侧一段接线，面板侧挂一个现成组件，装不上时给用户一条可复制的手工命令。
 
-要求 Node 22 或更高。运行期依赖只有一个：[`dsh-log`](https://www.npmjs.com/package/dsh-log) `^0.3.1`（0.15.0 起，见第 10 节）。当前版本见上方徽章与 `package.json`（此处不写死版本号，免得跟着发布漂）。
+要求 Node 22 或更高。运行期依赖只有一个：[`dsh-log`](https://www.npmjs.com/package/dsh-log) `^0.3.1`（0.16.0 起，见第 10 节）。当前版本见上方徽章与 `package.json`（此处不写死版本号，免得跟着发布漂）。
 
 装上它你会拿到六样东西：
 
@@ -533,7 +533,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 - 条目第二行起按块级渲染：缩进子条目 → 嵌套 `<ul>`／`<ol>`，围栏代码块 `` ```lang `` → `<pre><code>`（语言标注只做识别、不进可见文本），引用块 `>` → `<blockquote>`，顶格段落 → `<div class="dsh-upd-md-para">`。单条超 500 字按行截断，截断处补 `…`、其后整行丢弃。
 - **非六类小节名照收（0.16.0 起）**：`### Patch Changes`、`### 🚀 Enhancement`、`### 修复 1.2 的 bug` 这类作者自定小节名不再丢内容——标题原样显示、条目照收，进 `ChangelogEntry.otherSections`（`renderChangelogHTML` 直接画）。版本标题也放宽到 1–4 级任意标题、setext 下划线、两段版本号（`## 1.0`）与标题任意位置的版本号；`# Changelog`／`## License` 这类不会被误当版本节。
 - **不会消失（0.16.0 起）**：认不出的块（HTML 注释、`<details>`、表格行、任务清单）按原文落进兜底段落显示；分隔线 `---`／`***` 画成横线；文件超 64 KiB 或版本被截时面板补一行说明。表格／任务清单暂时没有专有形态（表格不画成表格、任务清单不画复选框），但内容一定看得见——保真优先于花活。
-- **集成方注意（0.15.0 起）**：`parseChangelog` 的 `ChangelogEntry.sections` 里**单个条目可能是多行字符串**（旧版一律压成一行），且嵌套子条目不再各占一条——`sections` 长度与 `counts` 只按父条目算。只走 `renderChangelogHTML` 的集成方零改动；自己解析 `sections` 的请改掉「一条一行」的假设。
+- **集成方注意（0.16.0 起）**：`parseChangelog` 的 `ChangelogEntry.sections` 里**单个条目可能是多行字符串**（旧版一律压成一行），且嵌套子条目不再各占一条——`sections` 长度与 `counts` 只按父条目算。只走 `renderChangelogHTML` 的集成方零改动；自己解析 `sections` 的请改掉「一条一行」的假设。
 - **集成方注意（0.16.0 起）**：`parseChangelog` 新增 `otherSections`（结构见 `ChangelogEntry`；不读它也不影响 `sections`）；`validateChangelog` 的 Code 表改了——`E_CATEGORY` 下线（非六类小节名不再丢内容），新增 `E_BULLET_ORPHAN`（版本节之外的条目，确实是 Error），`W_CATEGORY_OTHER` 替代前者作为提示。想区分「被截断」就改用 `parseChangelogReport(markdown)` 读 `truncation`（比 `parseChangelog` 多一层信息，形状不变）；面板在文件超 64 KiB 或版本被截时会补一行说明。
 - 日志里的链接可点：默认开新窗口（桌面宿主交给系统浏览器，面板本身不会被导航走）；想自己接管就传 `mountUpdatePanel({ openLink })`（一次性替换缺省行为，抛错只吞）。只认 `http/https`，其余协议按纯文本渲染。
 - 作者未提供说明时显示“作者未提供更新说明，安装不受影响。”——缺日志永不挡安装，不改变 `canInstall` 与 `blockedReason`。
@@ -601,7 +601,7 @@ mountUpdatePanel(slot, { pluginId: 'my-notes-plugin', prefix: 'notes', call: hos
 ```
 
 - 入口件（`dsh-plugin-update/entry`）把 `autoChangelog / changelogMarkdown` 透传给面板 dialog/inline；批量面板（`dsh-plugin-update/panel-batch`）展开行自动调该行自己的 `updateChangelog`（无新增批量电话，`autoChangelog: false` 可关整批）；HTTP 版（`dsh-plugin-update/http`）白名单已放行，默认路径即达。
-- 面板侧日志（`0.15.0` 起，第 10 节）：`mountUpdatePanel` 默认按前缀自建客户端日志通道，电话名即 `<prefix>.logAppend`；`clientLog: { channel }` 换成你自己的通道、`{ mount: 'entry' }` 改挂载点名字、`null` 明确关掉。入口件（`entry`）与 HTTP 直挂（`http`）已经替你传好挂载点，HTTP 白名单也已放行 `logAppend`。
+- 面板侧日志（`0.16.0` 起，第 10 节）：`mountUpdatePanel` 默认按前缀自建客户端日志通道，电话名即 `<prefix>.logAppend`；`clientLog: { channel }` 换成你自己的通道、`{ mount: 'entry' }` 改挂载点名字、`null` 明确关掉。入口件（`entry`）与 HTTP 直挂（`http`）已经替你传好挂载点，HTTP 白名单也已放行 `logAppend`。
 
 **客户端入口**（`dist/client.js`，构建期打包用）：
 
@@ -630,9 +630,9 @@ parseLogRow({ v: 3, ts: '2026-10-14T21:00:00.000Z', level: 'info', event: 'updat
 事件清单的每条要写四样：事件名、级别（`error`/`warn`/`info`/`debug`）、允许字段（之外的键一律不记）、脱敏引用（`codes` 是截断或散列代号，`rules` 是具名正则名——都只记引用名，不记原文）。
 `kind` 分三类只为计数服务：`resident` 常驻、`ondemand` 按需、`selfmon` 自监控。空模板见包内的 `event-list.template.json`；**本包自己的事件表见 `event-list.update.json`**（28 个事件：常驻 20、按需 7、自监控 1），第二家可以整份并进自己的清单（`mergeUpdateEvents`，字段取并集，级别与归类仍按你的声明）。
 清单要以**对象**传入：字符串或数组会被拦下并给出中文说明，不静默修补。
-`checkEventFields` 与 `checkEventCounts` 是 0.15.0 之前的旧名，保留一版、行为不变，新代码用 `lintEventFields` 与 `computeEventCounts`。
+`checkEventFields` 与 `checkEventCounts` 是 `0.16.0` 之前的旧名（`0.13.0` 及更早已发布版本里就是这两个名字），保留一版、行为不变，新代码用 `lintEventFields` 与 `computeEventCounts`。
 
-**日志内核**（`dsh-plugin-update/log`，0.15.0 起；宿主侧零件，浏览器闭包别引它 —— 唯一例外是 `createClientLogChannel`，它零 `node:` 依赖，面板侧就是引它，见第 10 节）：
+**日志内核**（`dsh-plugin-update/log`，0.16.0 起；宿主侧零件，浏览器闭包别引它 —— 唯一例外是 `createClientLogChannel`，它零 `node:` 依赖，面板侧就是引它，见第 10 节）：
 
 ```js
 import { deriveLogNamespace, acquireOwnLog, releaseOwnLog, emitUpdateLog, loadUpdateEventTable } from 'dsh-plugin-update/log'
@@ -677,7 +677,7 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 ## 10. 日志（dsh-log 0.3.1）
 
-`0.15.0` 起本包把 [`dsh-log`](https://www.npmjs.com/package/dsh-log) `^0.3.1` 作为**第一个运行期依赖**（决策与理由见 `docs/adr/0005-dsh-log-as-first-runtime-dependency.md`）。
+`0.16.0` 起本包把 [`dsh-log`](https://www.npmjs.com/package/dsh-log) `^0.3.1` 作为**第一个运行期依赖**（决策与理由见 `docs/adr/0005-dsh-log-as-first-runtime-dependency.md`）。
 
 **归属：谁建的实例谁说话。**集成方传了日志出口（宿主侧 `createHostUpdate({ logCtx })`），本包就用它的实例落盘，绝不另建第二个；没传，本包自建一份。两种情况下事件名、字段、级别完全一样。
 

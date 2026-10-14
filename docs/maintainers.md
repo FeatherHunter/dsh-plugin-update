@@ -56,6 +56,29 @@ npm publish
 
 本包唯一的运行期依赖是 `dsh-log@^0.3.1`（决策见 `docs/adr/0005-dsh-log-as-first-runtime-dependency.md`）。纪律：**只有 `src/log/**` 能碰它**，而且是按需动态取（拿不到就降级，绝不外抛）；`tests/gate.test.mjs` 递归扫 `src/` 全树，别处出现 `dsh-log` 或任何别家外部包即红。
 
+## 发布面（npm 页 / GitHub 仓库页 / Release）
+
+读者见到的是三张脸，同一件事得同一句话：**npm 页**（`description` + `keywords` + tarball 里的 README）、**GitHub 仓库页**（About 的 description / homepage / topics，以及 Releases 页）、**用户手册**（README）。发版时按这个顺序对齐：
+
+1. **`package.json`**：`description` 用面向使用者的口径、**不写内部票号**（npm 页与搜索引擎都直接取这句）；`keywords` 与 GitHub 的 topics 用同一批词；`homepage` 指本仓 README、`bugs` 指本仓 Issues——npm 页据此出可点的「仓库 / 问题」入口。
+2. **GitHub About**（`gh` 已登录同账号即可）：
+   ```sh
+   gh api -X PATCH repos/FeatherHunter/dsh-plugin-update -f description="…与 package.json 同一句…" -f homepage="https://www.npmjs.com/package/dsh-plugin-update"
+   gh api -X PUT repos/FeatherHunter/dsh-plugin-update/topics -f 'names[]=dsh' -f 'names[]=dsh-plugin' -f 'names[]=self-update'
+   ```
+3. **tag + Release**：`v<版本>` 打在发版提交上（`git tag -a v0.16.2 -m "0.16.2"` 后 `git push origin v0.16.2`）；Release 说明**从 CHANGELOG 取**，别手抄：
+   ```sh
+   node scripts/release-notes.mjs 0.16.2 > .tmp-release-notes.md
+   gh release create v0.16.2 --title "v0.16.2" --notes-file .tmp-release-notes.md
+   ```
+4. **复核**：`npm view dsh-plugin-update@<版本> description keywords homepage`、仓库页 About、Release 页各看一眼——三面一致才算齐。
+
+两条已踩过的坑：
+
+- **npm 页只跟着新版本变**：改完 `package.json` 或 README 却不发版，npm 页一动不动（tarball 里的 README 也一样）。所以「统一介绍面」这类改动必须跟一次 patch 发布，改完就发。
+- **`0.14.0` 与 `0.15.0` 没有单独发到 npm**（registry 上从 `0.13.0` 直接到 `0.16.0`，两节内容随 `0.16.0` 首发）：对外文字一律按**装得到的版本**说话。README 里原先几处「`0.15.0` 起」已改成 `0.16.0` 起；CHANGELOG 那两节保留原编号，但标题下带「未单独发到 npm」注记。
+- **打 tag 与发 Release 从 `0.16.0` 起**：`v0.16.0`、`v0.16.1`、`v0.16.2` 都打了（annotated tag 指到各自的发版提交）；更早的版本只有 CHANGELOG 记录、没有 tag；`0.14.0` / `0.15.0` 从未发布，也没有 tag。
+
 ## 发布白名单
 
 `package.json` 的 `files` 共 7 项：`dist`、`derive-client-values.mjs`、`event-list.template.json`、`event-list.update.json`、`README.md`、`CHANGELOG.md`、`LICENSE`（另加隐含的 `package.json`；`dist` 是目录，**src 下每个 TS 都会带上对应 JS 与 `.d.ts`**——加模块不必改白名单，但要跑一次 `npm publish --dry-run` 核对文件数）。
@@ -92,7 +115,7 @@ npm run gate:bilingual:release    # 再加第四道：零 draft 放行（合入�
 - **15 码与诊断解析契约**：9 阻塞 + 5 电话 + internal 各有文案且只按稳定码分支；诊断两种复制形态
   （三行块 / 单行）都能解析回同一组字段，顺序冻结（码 → 摘要 → 来源 → 怎么办）。
 - **零 draft 放行**：字典里还有 `draft: true` 就红——母语 + 域内双签转正才放行合入/发版（#53 立约，见 #57）。
-  截至 `0.16.0`，字典里 **320 个 key 全部仍是 `draft: true`**（`node scripts/bilingual-gate.mjs --release` 实测），所以 `--release` 是**如实红**，不是坏门禁；转正是逐键的母语评审 + 域内双签，属独立工作，不由发版票代签。历次发版（0.9.0–0.13.0）的门禁行同样记「`--release` 仍如实红，非阻断」。
+  截至 `0.16.2`，字典里 **320 个 key 全部仍是 `draft: true`**（`node scripts/bilingual-gate.mjs --release` 实测），所以 `--release` 是**如实红**，不是坏门禁；转正是逐键的母语评审 + 域内双签，属独立工作，不由发版票代签。历次发版（0.9.0–0.13.0）的门禁行同样记「`--release` 仍如实红，非阻断」。
 - 失败可复现：`tests/bilingual-gate.test.mjs` 随 `npm test` 跑，它既断言本仓现在三道硬门禁全绿，
   也在临时目录里造违规，断言门禁红在哪一行（新散落中文、空英文、槽位不齐、顺序反了、解析不回字段都会红）。
 
@@ -116,7 +139,7 @@ node tests/verify-log-count.js
 
 ## 改动纪律
 
-- **冻结项**：默认电话名、入参回参形状、配置写法（只经函数入参注入）、配方五键形状、事件字段基线（三个旧事件各加必填 `pluginId`）、默认旧路径。动冻结项先走一次破冰讨论，结论写进对应 issue 并同步 README。`0.15.0` 有一处破冰：第四个动作名 `updateChangelog`（`#38`，`0.4.0` 起就有）；`0.16.0` 追加第五个动作名 `logAppend`（`#122`，面板侧日志通道）。两处都只在既有名字之后**追加**，老三电话与 `updateChangelog` 一字不动，`tests/{config,phones,queue,batch-host,gate}.test.mjs` 里「电话名一字不差」那几条断言同步扩到五个。
+- **冻结项**：默认电话名、入参回参形状、配置写法（只经函数入参注入）、配方五键形状、事件字段基线（三个旧事件各加必填 `pluginId`）、默认旧路径。动冻结项先走一次破冰讨论，结论写进对应 issue 并同步 README。**至今只破冰一次**：`0.16.0` 追加第五个电话名 `logAppend`（`#122`，面板侧日志通道）——`updateChangelog` 是 `0.4.0` 起就有的第四个名字，不算破冰项。追加只在既有名字之后，老三电话与 `updateChangelog` 一字不动，`tests/{config,phones,queue,batch-host,gate}.test.mjs` 里「电话名一字不差」那几条断言同步扩到五个。
 - **取值可增**：宿主种类与路由取值属向后兼容扩展；新增时同步改 README 与 `docs/host-install-exits.md`，调用方不认新值就当普通宿主处理。
 - **`0.16.0` 的破冰（`#124` 日志接线）**：两处。(1) 检查电话多认一个可选入参 `trigger`、安装电话多认一个可选入参 `from`，两者**只进日志行**（`update.check.start.trigger`、`update.install.request.from`），不参与决策、不改回参形状，老调用一字不动（README 第 10 节已同步）。(2) `host.call` 的**发射政策**收紧：`updateStatus` 的成功行是每秒一次的轮询噪声，一条都不发（第一次也算「没有可比的上次」；只有状态真变了才留一行），`host.call` 的**名字与五键形状不变**，失败行 `host.call.fail` 不受影响。事件名、字段名与枚举值的事实源仍是 `event-list.update.json` 与 `docs/research/20261014-log-event-catalog.md`（§3.1 记了逐环节落点与实测证据）。
 - **提交**：只 `git add` 自己声明的路径；本仓可能同时有别的写者，提交前后各看一眼 `git log`。

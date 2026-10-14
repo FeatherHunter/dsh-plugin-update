@@ -405,7 +405,7 @@ export interface GateCountCheck {
   problems: string[]
 }
 
-// @deprecated 0.15.0 起改用 lintEventFields（日志包 0.3.1 的名字）；本名保留一版，下个大版本删。
+// @deprecated 0.16.0 起改用 lintEventFields（日志包 0.3.1 的名字）；本名保留一版，下个大版本删。
 // 行为与旧版一致：未知事件与未知字段都算不通过。
 export function checkEventFields(
   manifest: GateEventList,
@@ -416,7 +416,7 @@ export function checkEventFields(
   return { ok: linted.ok, unknownEvent: linted.unknownEvent, unknownFields: linted.unknownFields }
 }
 
-// @deprecated 0.15.0 起改用 computeEventCounts（现算条数）；本名保留一版，下个大版本删。
+// @deprecated 0.16.0 起改用 computeEventCounts（现算条数）；本名保留一版，下个大版本删。
 // 旧语义：拿清单里自报的 counts 与实际条数对账；清单没写 counts 就无账可对，直接算过（0.3.1 起不写 counts）。
 export function checkEventCounts(manifest: GateEventList): GateCountCheck {
   const actual = computeEventCounts(manifest)
