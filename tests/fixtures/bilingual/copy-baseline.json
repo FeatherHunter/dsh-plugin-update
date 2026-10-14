@@ -16,16 +16,16 @@
       "弃用预告",
       "文件超 64K，仅校验前 64K",
       "新增",
-      "未知分类，其下条目已被忽略；仅收 Added/Fixed/Changed/Deprecated/Removed/Security，亦收中文名（新增/修复/变更/弃用预告/移除/安全）",
       "未解析到任何版本节，面板将显示中性提示",
       "条",
       "条，仅显示前",
       "疑似破坏标记误写（缺冒号/拼写接近/位置疑似放错），请检查是否想写 BREAKING:/不兼容:",
       "移除",
-      "该条目不在版本节与分类下，已被忽略",
+      "该条目不在任何版本节之下，已被忽略",
       "该标题不是合法版本号，其下条目已被忽略，请改成 ## [x.y.z] 形态",
       "该版本已被标记撤回（yanked），安装不受影响，继续前请确认",
-      "该类共 M 条，仅显示前 N 条"
+      "该类共 M 条，仅显示前 N 条",
+      "非六类小节名（也不在别名表里），按作者原文标题原样显示、不丢内容；六类名：Added/Fixed/Changed/Deprecated/Removed/Security，亦收中文名（新增/修复/变更/弃用预告/移除/安全）与并列写法（Fixed / 修复）"
     ],
     "src/client.ts": [
       "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到"
@@ -71,8 +71,6 @@
     ],
     "src/gate.ts": [
       "[dsh-plugin-update] 事件清单 eventList 非法：",
-      "[dsh-plugin-update] 事件清单 eventList 非法：counts 必须是含三类计数的对象",
-      "[dsh-plugin-update] 事件清单 eventList 非法：counts.",
       "[dsh-plugin-update] 事件清单 eventList 非法：events 必须是事件名到条目的对象",
       "[dsh-plugin-update] 事件清单 eventList 非法：version 现在只认 1（收到",
       "[dsh-plugin-update] 事件清单 eventList 非法：事件",
@@ -80,22 +78,43 @@
       "[dsh-plugin-update] 事件清单 eventList 非法：只收对象形式（空模板见包内的 event-list.template.json）",
       "[dsh-plugin-update] 事件清单 eventList 非法：路径形式请调用方自己读成对象再传入，更新包不读盘",
       "[dsh-plugin-update] 事件清单计数对不上：",
+      "[dsh-plugin-update] 日志行非法：event 必须是非空字符串",
+      "[dsh-plugin-update] 日志行非法：fields 必须是对象（可为空对象）",
+      "[dsh-plugin-update] 日志行非法：level 只许 error、warn、info、debug",
+      "[dsh-plugin-update] 日志行非法：ts 必须是非空字符串",
+      "[dsh-plugin-update] 日志行非法：只收对象（五键 v、ts、level、event、fields）",
+      "[dsh-plugin-update] 日志行非法：有不认识的键",
+      "[dsh-plugin-update] 日志行非法：格式版本 v 只认",
+      "不合契约：只许小写点分（如 update.check.done）",
+      "不是合法的散列或截断代号（如 H_CWD）",
+      "两边声明不一致：级别",
+      "为",
       "事件",
+      "事件名",
+      "像自由文本：日志行只承载稳定码（见 ADR-0006）",
       "必须是字符串数组",
       "必须是对象",
-      "必须是非负整数",
       "有不认识的键",
       "条",
       "条，清单自报",
+      "清单自报 counts.",
       "的 codes",
+      "的 codes 里",
       "的 fields",
       "的 guard 必须是字符串",
+      "的 guard 是空串：要么写清守卫，要么整条不写",
       "的 kind 只许 resident、ondemand、selfmon",
       "的 level 只许 error、warn、info、debug",
       "的 rules",
+      "的 rules 引用未登记规则名",
+      "的字段",
+      "的字段表为空：确认它真的只带必要字段",
       "类实际",
       "里字段名重复：",
-      "里有空字段名"
+      "里有空字段名",
+      "（收到",
+      "，实际",
+      "，归类"
     ],
     "src/host-batch.ts": [
       "[dsh-plugin-update] 批量目标清单 targets 必填：至少一个目标",
@@ -130,10 +149,19 @@
       "超时或取消",
       "非 2xx（"
     ],
+    "src/log/emit.ts": [
+      "日志事件不合清单：",
+      "日志行缺 pluginId：无法路由到落点"
+    ],
+    "src/log/manifest.ts": [
+      "边沿触发"
+    ],
+    "src/log/registry.ts": [
+      "dsh-log/node 建库回的形状里没有可用的 store"
+    ],
     "src/panel-batch.ts": [
       "/* 批量面板的 Archive 皮肤：只换颜色/字体/间距；根上的大印章由 UPDATE_PANEL_ARCHIVE_CSS 负责。 */",
       "/* 批量面板（#25）：类名沿用 dsh-upd-* 前缀；默认（最小）主题，Archive 皮肤见 UPDATE_BATCH_PANEL_ARCHIVE_CSS。 */",
-      "/* 详情复用单插件内核：不许嵌套滚动——中性化 overlay 的 max-height/overflow，自身也不给 overflow。 */",
       "<div class=\"dsh-upd-banner\" data-kind=\"failed\" data-mini=\"阻\" role=\"status\">",
       "<div><span class=\"dsh-upd-sealmini\" aria-hidden=\"true\">阻</span><strong>",
       "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到",

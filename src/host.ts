@@ -13,15 +13,14 @@
 
 import { realpath } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { sep } from 'node:path'
+import { join, sep } from 'node:path'
 import {
   DEFAULT_CONFIRMATION_TTL_MS,
   DEFAULT_CHECK_TIMEOUT_MS,
   DEFAULT_INSTALL_TIMEOUT_MS,
   buildPhoneNames,
   resolveUpdateConfig,
-  type ChangelogPhoneAction,
-  type PhoneAction,
+  type PhoneNames,
   type UpdateConfigInput,
 } from './config.js'
 import { manualCommand } from './commands.js'
@@ -29,6 +28,13 @@ import { fetchReleaseChangelogText } from './changelog-io.js'
 import { shouldFetchChangelog } from './changelog.js'
 import { buildDiag } from './diag.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL } from './log-events.js'
+import { emitUpdateLog } from './log/emit.js'
+import { buildUpdateManifest, checkLogFields, currentUpdateEventTable, primeUpdateEventTable } from './log/manifest.js'
+import { deriveLogNamespace } from './log/namespace.js'
+import { isClientLogEvent, LOG_LEVELS } from './log/client-queue.js'
+import { acquireOwnLog, logDirHash } from './log/registry.js'
+import { updateLogRouter } from './log/router.js'
+import { createPendingSink, sinkFromLogCtx, type LogSink } from './log/sink.js'
 import { fetchNpmVersionRelease, isVersionAllowedInChannel, updateError, validReleaseVersion, validRequestId } from './service.js'
 import { createUpdateDiskPorts, createUpdateExecutor, createUpdateQueuePorts } from './store.js'
 import { createUpdateReader, defaultHomeDir, resolveProfileName, resolveTargetPackage } from './reader.js'
@@ -51,8 +57,19 @@ import {
 
 export { buildChangelogPhoneName, buildPhoneName, buildPhoneNames, resolveUpdateConfig } from './config.js'
 export type { ChangelogPhoneAction, PhoneAction, UpdateConfigInput } from './config.js'
-// 门禁模板检查器（#584，对象形式，更新包不读盘；经包根转出口，第二家可达）。
-export { parseEventListManifest, checkEventFields, checkEventCounts } from './gate.js'
+// 门禁模板检查器（#584 落地；#120 起形状对齐日志包 0.3.1：清单不写自报计数、字段检查分两档、
+// 落盘行断言 v === 3。对象形式，更新包不读盘；经包根转出口，第二家可达）。
+export {
+  LOG_ROW_VERSION,
+  computeEventCounts,
+  lintEventFields,
+  lintEventList,
+  mergeUpdateEvents,
+  parseEventListManifest,
+  parseLogRow,
+  checkEventFields,
+  checkEventCounts
+} from './gate.js'
 export type {
   GateEventLevel,
   GateEventKind,
@@ -60,6 +77,10 @@ export type {
   GateEventCounts,
   GateEventList,
   GateFieldCheck,
+  GateLintFieldsResult,
+  GateListLintResult,
+  GateLogRow,
+  GateMergeResult,
   GateCountCheck
 } from './gate.js'
 export { containingPackage, defaultHomeDir, profileNameValid, registrySpec, resolveTargetPackage } from './reader.js'
@@ -667,14 +688,71 @@ function wantsEnv(args: Record<string, unknown>): boolean {
   return !!args && args['includeEnv'] === true
 }
 
-type LogCtx = { fire: (level: string, event: string, fields: Record<string, unknown>) => void } | null
-let phoneLogCtx: LogCtx = null
+/**
+ * 落点类型：与既有生态的 `logCtx` 同形（只有 `fire`，可选 `isEnabled`）。
+ * 名字保留是因为集成方的 deps 类型引用了它；实现已迁进内核（`src/log/sink.ts`）。
+ */
+type LogCtx = LogSink | null
 
 /** 安装执行结果进日志（常驻事件 update.install.exec，由执行器在跨边界调用后发）。 */
 function emitInstallLog(level: string, event: string, fields: Record<string, unknown>): void {
-  try {
-    if (phoneLogCtx && typeof phoneLogCtx.fire === 'function') phoneLogCtx.fire(level, event, fields)
-  } catch {}
+  emitUpdateLog(level, event, fields)
+}
+
+/** 日志根目录：`<homeDir>/logs`（现场三家插件都在这里，`dsh-log tail <DSH_HOME>/logs` 一条命令横扫全部）。 */
+function updateLogRootDir(homeDir: unknown): string {
+  return join(String(homeDir ?? ''), 'logs')
+}
+
+/**
+ * 接线日志：把落点挂进路由表，并如实记一条 `update.wire.ready`。
+ *
+ * 归属规则（ADR-0005 决策 2）：集成方给了 `logCtx` 就用它的实例，本包绝不再开第二个写者；
+ * 没给就自建 dsh-log 实例（同一目录在同一进程里只有一个句柄，由内核登记表兜住，跨副本也只有一个）；
+ * 自建失败就降级成「没有落点」并**解绑** —— 之后每一行都计入丢弃，绝不回退到别人的 sink。
+ *
+ * 建库是异步的（`dsh-log/node` 要动态 import 再读盘），而 `createHostUpdate` 是同步契约，
+ * 所以先接一个「先收后转」的待接落点：建好了按序灌进真落点，建不起来就整体丢弃。
+ */
+function wireUpdateLog(
+  homeDir: string,
+  prefix: string,
+  pluginId: string,
+  namespace: string,
+  integratorLogCtx: unknown,
+  integratorEventList: unknown
+): void {
+  const logsRoot = updateLogRootDir(homeDir)
+  const namespaceDirHash = logDirHash(`${logsRoot}${sep}${namespace}`)
+  const external = sinkFromLogCtx(integratorLogCtx)
+  if (external) {
+    updateLogRouter.bind(pluginId, external)
+    emitUpdateLog('info', 'update.wire.ready', { logSink: 'external', logDirHash: namespaceDirHash }, { pluginId })
+    return
+  }
+  const pending = createPendingSink()
+  updateLogRouter.bind(pluginId, pending.sink)
+  void (async (): Promise<void> => {
+    const built = await buildUpdateManifest(namespace, integratorEventList)
+    const got = await acquireOwnLog({
+      logsRoot,
+      namespace,
+      prefix,
+      eventList: built.manifest,
+      onDegrade: (reason) => {
+        // 建不起来的坏消息只能如实记下（此刻没有落点可写，所以这行多半也到不了任何文件）。
+        emitUpdateLog('warn', 'update.log.degraded', { reason }, { pluginId })
+      },
+    })
+    if (got.sink) {
+      pending.attach(got.sink)
+      emitUpdateLog('info', 'update.wire.ready', { logSink: 'self', logDirHash: logDirHash(got.dir) }, { pluginId })
+      return
+    }
+    pending.attach(null)
+    updateLogRouter.unbind(pluginId, pending.sink)
+    emitUpdateLog('info', 'update.wire.ready', { logSink: 'off', logDirHash: namespaceDirHash }, { pluginId })
+  })()
 }
 
 /** 电话回包里的可选队列视图（#15）：只在调用方显式要时才带，不传即与改造前一字不差。 */
@@ -705,10 +783,9 @@ function loggedPhone(
 ): (args: Record<string, unknown>) => Promise<Record<string, unknown>> {
   return async function (args: Record<string, unknown>): Promise<Record<string, unknown>> {
     const t0 = Date.now()
+    // 行统一从唯一发射口出去：落点按插件标识从路由表取（不再有「模块级最后一个落点」这种串台入口）。
     const emit = (level: string, event: string, fields: Record<string, unknown>): void => {
-      try {
-        if (phoneLogCtx && typeof phoneLogCtx.fire === 'function') phoneLogCtx.fire(level, event, fields)
-      } catch {}
+      emitUpdateLog(level, event, fields, { pluginId })
     }
     const safeArgs = args && typeof args === 'object' ? (args as Record<string, unknown>) : {}
     try {
@@ -813,9 +890,7 @@ function loggedChangelogPhone(
   return async function (args: Record<string, unknown>): Promise<Record<string, unknown>> {
     const t0 = Date.now()
     const emit = (level: string, event: string, fields: Record<string, unknown>): void => {
-      try {
-        if (phoneLogCtx && typeof phoneLogCtx.fire === 'function') phoneLogCtx.fire(level, event, fields)
-      } catch {}
+      emitUpdateLog(level, event, fields, { pluginId })
     }
     const safeArgs = args && typeof args === 'object' ? (args as Record<string, unknown>) : {}
     try {
@@ -853,7 +928,7 @@ function loggedChangelogPhone(
 }
 
 export interface HostUpdate {
-  phoneNames: Record<PhoneAction, string> & Record<ChangelogPhoneAction, string>
+  phoneNames: PhoneNames
   handlers: Record<string, (args: Record<string, unknown>) => Promise<Record<string, unknown>>>
 }
 
@@ -861,10 +936,16 @@ export interface HostUpdate {
  * 建宿主更新能力：一次调用得到该插件的一组电话名与处理器（调用方负责注册进自己的电话表）。
  * 配置只经函数入参注入（冻结写法，第 11 条），插件标识必填，其余可选。
  */
-export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktopPnpm?: unknown; pluginManager?: unknown; readerOverrides?: ReaderOverrides } = {}, configInput: UpdateConfigInput): HostUpdate {
+export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEventList?: unknown; desktopPnpm?: unknown; pluginManager?: unknown; readerOverrides?: ReaderOverrides } = {}, configInput: UpdateConfigInput): HostUpdate {
   const config = resolveUpdateConfig(configInput)
   const pluginId = config.pluginId
-  phoneLogCtx = deps.logCtx ?? phoneLogCtx
+  // 日志接线：先起随包清单的加载，再按「外部实例优先、没有才自建」挂落点（ADR-0005）。
+  // 家目录与 getSharedReader（第 417 行）同一优先级：显式覆盖 > 配置 > DSH_HOME/家目录。
+  const logOverrides = (deps.readerOverrides ?? {}) as ReaderOverrides
+  const logHomeDir =
+    logOverrides.homeDir ?? config.homeDir ?? defaultHomeDir(logOverrides.env ?? process.env, logOverrides.osHome ?? homedir())
+  primeUpdateEventTable()
+  wireUpdateLog(logHomeDir, config.prefix, pluginId, deriveLogNamespace(pluginId), deps.logCtx, deps.logEventList)
   // 宿主上下文：探测宿主种类（桌面 / 普通 DSH）并接上执行零件（子进程口子、桌面服务）。
   const ctx = deps.ctx ?? null
   if (deps.desktopPnpm) sharedDesktopPnpm = deps.desktopPnpm
@@ -1000,6 +1081,67 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktop
       throw error
     }
   }
+  /**
+   * 客户端日志电话（#122）：面板侧的行经这里写进本插件的**同一个** log handle —— 单写者语义不变。
+   *
+   * 三条纪律：
+   *   1. **永不抛**：形状坏成什么样都只回 `{ accepted, dropped }`（面板侧据此计数，不会因为日志把功能搞挂）。
+   *   2. **不自我放大**：这个电话**不产生 `host.call` 行**（否则每送一批日志就多一行电话日志），
+   *      所以它不经过 `loggedPhone`，直接进表。
+   *   3. **口径分明**：协议层拒收（形状不对 / 级别不认识 / 不是客户端事件 / 字段不合清单 / 超量 / 过期）
+   *      计入 `dropped`；**引擎因调试开关关掉而 skip 的按需行不计 drop**（那是准入，不是丢行）。
+   */
+  const LOG_APPEND_MAX_ROWS = 200
+  const LOG_APPEND_MAX_FIELD_CHARS = 4096
+  const LOG_APPEND_STALE_MS = 10 * 60_000
+  function logAppendRows(args: Record<string, unknown>): { accepted: number; dropped: number } {
+    let accepted = 0
+    let dropped = 0
+    try {
+      const raw = args && typeof args === 'object' ? (args as Record<string, unknown>)['rows'] : undefined
+      if (!Array.isArray(raw)) return { accepted: 0, dropped: 0 }
+      const rows = raw.slice(0, LOG_APPEND_MAX_ROWS)
+      dropped += Math.max(0, raw.length - rows.length)
+      let nowMs = 0
+      try {
+        nowMs = Date.now()
+      } catch {
+        nowMs = 0
+      }
+      const table = currentUpdateEventTable()
+      for (const row of rows) {
+        if (!row || typeof row !== 'object' || Array.isArray(row)) {
+          dropped++
+          continue
+        }
+        const r = row as Record<string, unknown>
+        const level = r['level']
+        const event = r['event']
+        const fields = r['fields']
+        const ts = r['ts']
+        if (typeof level !== 'string' || !(LOG_LEVELS as readonly string[]).includes(level)) { dropped++; continue }
+        if (typeof event !== 'string' || !isClientLogEvent(event)) { dropped++; continue }
+        if (!fields || typeof fields !== 'object' || Array.isArray(fields)) { dropped++; continue }
+        if (typeof ts !== 'number' || !Number.isFinite(ts)) { dropped++; continue }
+        if (nowMs > 0 && nowMs - ts > LOG_APPEND_STALE_MS) { dropped++; continue }
+        const keys = Object.keys(fields as Record<string, unknown>)
+        let size = 0
+        try {
+          size = JSON.stringify(fields)?.length ?? 0
+        } catch {
+          size = LOG_APPEND_MAX_FIELD_CHARS + 1
+        }
+        if (size > LOG_APPEND_MAX_FIELD_CHARS) { dropped++; continue }
+        if (table && !checkLogFields(event, keys, table)) { dropped++; continue }
+        emitUpdateLog(level, event, fields as Record<string, unknown>, { pluginId })
+        accepted++
+      }
+    } catch {
+      // 电话永不抛：任何意外都只回计数（面板侧的丢弃计数是唯一诚实的说法）。
+    }
+    return { accepted, dropped }
+  }
+
   const handlers: Record<string, (args: Record<string, unknown>) => Promise<Record<string, unknown>>> = {
     [phoneNames.updateStatus]: loggedPhone(phoneNames.updateStatus, 'update-status', pluginId, readStatus, {
       config,
@@ -1017,6 +1159,8 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; desktop
       config,
       readerOverrides,
     }),
+    [phoneNames.logAppend]: async (args: Record<string, unknown>): Promise<Record<string, unknown>> =>
+      logAppendRows(args && typeof args === 'object' ? args : {}),
   }
   return { phoneNames, handlers }
 }

@@ -73,37 +73,66 @@ function readNavigatorLangs(): string[] {
   }
 }
 
-/**
- * 解出当前语言：显式覆盖 > html[lang] > navigator.languages > zh。
- * 纯函数（除读全局信号外无副作用）；无信号永不抛，落 zh。
- */
-export function resolveLang(override?: LocaleOption): AppLang {
-  // 1. 显式覆盖：对象服务先问 getActive，字符串直接归一。
+/** 语言信号的来源（#122 写进 `update.lang.applied` 的 source：日志要说清「这次语言是哪来的」）。 */
+export type LangSignalSource = 'override' | 'dom' | 'navigator' | 'default'
+
+/** 显式覆盖里取出非空标签否：对象服务 getActive 抛错/回空串即当这次没信号（继续往下找，不直接落 zh）。 */
+function overrideTagOf(override?: LocaleOption): string | null {
   if (override !== null && typeof override === 'object') {
     try {
       const fn = (override as LocaleService).getActive
       if (typeof fn === 'function') {
         const v = (fn as () => unknown).call(override)
-        if (typeof v === 'string' && v.trim()) return normalizeLangTag(v)
-        // 空串即当这次没信号，继续往下找（不直接落 zh，让 html/navigator 还有机会）。
+        if (typeof v === 'string' && v.trim()) return v
       }
     } catch {
       // 服务抛了即当无信号，继续往下找。
     }
-  } else if (typeof override === 'string' && override.trim()) {
-    return normalizeLangTag(override)
+    return null
   }
-  // 2. html[lang]
-  const docLang = readDocumentLang()
-  if (docLang !== null) return normalizeLangTag(docLang)
-  // 3. navigator.languages / language：取第一个可归一的非空信号。
-  const navs = readNavigatorLangs()
-  for (const c of navs) {
-    // 空已过滤；归一后 zh/en 都是有效信号（无信号才落 zh，这里有信号就按口径走）。
-    return normalizeLangTag(c)
+  if (typeof override === 'string' && override.trim()) return override
+  return null
+}
+
+/**
+ * 解出当前语言的信号来源（与 `resolveLang` 同一套优先级，且共用同一份实现，不许两处各写一遍）。
+ * `'default'` = 显式覆盖 / html[lang] / navigator 三路都没有信号，落历史行为 zh。
+ */
+export function langSignalSource(override?: LocaleOption): LangSignalSource {
+  if (overrideTagOf(override) !== null) return 'override'
+  if (readDocumentLang() !== null) return 'dom'
+  if (readNavigatorLangs().length > 0) return 'navigator'
+  return 'default'
+}
+
+/**
+ * 解出当前语言：显式覆盖 > html[lang] > navigator.languages > zh。
+ * 纯函数（除读全局信号外无副作用）；无信号永不抛，落 zh。
+ */
+export function resolveLang(override?: LocaleOption): AppLang {
+  switch (langSignalSource(override)) {
+    case 'override': {
+      // 1. 显式覆盖：对象服务先问 getActive，字符串直接归一。
+      const tag = overrideTagOf(override)
+      return tag === null ? 'zh' : normalizeLangTag(tag)
+    }
+    case 'dom': {
+      // 2. html[lang]
+      const docLang = readDocumentLang()
+      return docLang === null ? 'zh' : normalizeLangTag(docLang)
+    }
+    case 'navigator': {
+      // 3. navigator.languages / language：取第一个可归一的非空信号。
+      for (const c of readNavigatorLangs()) {
+        // 空已过滤；归一后 zh/en 都是有效信号（无信号才落 zh，这里有信号就按口径走）。
+        return normalizeLangTag(c)
+      }
+      return 'zh'
+    }
+    default:
+      // 4. 完全无信号 → zh（零回归）。
+      return 'zh'
   }
-  // 4. 完全无信号 → zh（零回归）。
-  return 'zh'
 }
 
 // ---------- 模块级单例订阅 ----------

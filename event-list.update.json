@@ -1,0 +1,172 @@
+{
+  "version": 1,
+  "pluginId": "dsh-plugin-update",
+  "events": {
+    "host.call": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["method", "latencyMs", "ok", "kind", "pluginId"],
+      "guard": "一次电话一条；成功且状态未变时轮询不发"
+    },
+    "host.call.fail": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": ["method", "kind", "errorHash", "pluginId"],
+      "codes": ["H_ERR"],
+      "guard": "一次失败电话一条"
+    },
+    "update.install.exec": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["route", "ok", "exitCode", "durationMs", "pluginId"],
+      "guard": "一次安装执行一条"
+    },
+    "update.wire.ready": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["logSink", "logDirHash"],
+      "codes": ["H_DIR"],
+      "guard": "接线一次一条"
+    },
+    "update.check.done": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["ok", "current", "latest", "channel", "source", "latencyMs"],
+      "guard": "一次 check 一条"
+    },
+    "update.check.fail": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": ["stage", "errorKind", "httpStatus"],
+      "guard": "一次 check 一条"
+    },
+    "update.status.changed": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["kind", "latest"],
+      "guard": "边沿触发：状态未变不发"
+    },
+    "update.install.request": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["from", "current", "latest", "checkAgeMs"],
+      "guard": "一次用户意图一条"
+    },
+    "update.install.verify": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["result", "installedVersion", "pendingRestart"],
+      "guard": "一次安装一条"
+    },
+    "update.install.retry": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": ["attempt", "of", "errorKind", "waitedMs"],
+      "guard": "一次重试一条"
+    },
+    "update.batch.entry.request": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["total", "ownCount", "foreignCount"],
+      "guard": "一批一条"
+    },
+    "update.batch.entry.fail": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": ["targetHash", "errorKind", "exitCode"],
+      "codes": ["H_TARGET"],
+      "guard": "一个目标失败一条"
+    },
+    "update.batch.summary": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["total", "ok", "failed", "skipped", "durationMs"],
+      "guard": "一批一条"
+    },
+    "update.queue.transition": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["phase", "waitedMs", "position"],
+      "guard": "相位边沿触发：相位没变不发"
+    },
+    "update.lock.anomaly": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": ["kind", "ageMs", "ownerHash"],
+      "codes": ["H_OWNER"],
+      "guard": "一次异常一条"
+    },
+    "update.store.fail": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": ["op", "reason", "dirHash"],
+      "codes": ["H_DIR"],
+      "guard": "同一操作连续失败只记首次"
+    },
+    "update.restart.outcome": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["outcome", "route"],
+      "guard": "一次重启一条"
+    },
+    "update.panel.mount": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["mode", "theme", "lang", "pollMs"],
+      "guard": "一次挂载一条"
+    },
+    "update.panel.action": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["action", "bytes", "truncated"],
+      "guard": "一次点击一条"
+    },
+    "update.panel.render.fail": {
+      "level": "error",
+      "kind": "resident",
+      "fields": ["kind"],
+      "guard": "一次失败一条"
+    },
+    "update.check.start": {
+      "level": "info",
+      "kind": "ondemand",
+      "fields": ["trigger", "source"]
+    },
+    "update.registry.fetch": {
+      "level": "info",
+      "kind": "ondemand",
+      "fields": ["httpStatus", "latencyMs", "cacheHit", "registryHost"]
+    },
+    "update.channel.decide": {
+      "level": "info",
+      "kind": "ondemand",
+      "fields": ["channel", "reason", "from", "to"]
+    },
+    "update.changelog.parse": {
+      "level": "info",
+      "kind": "ondemand",
+      "fields": ["entries", "truncated", "degraded", "source"]
+    },
+    "update.poll": {
+      "level": "info",
+      "kind": "ondemand",
+      "fields": ["state", "latencyMs"]
+    },
+    "update.lang.applied": {
+      "level": "info",
+      "kind": "ondemand",
+      "fields": ["lang", "source"]
+    },
+    "update.panel.state": {
+      "level": "info",
+      "kind": "ondemand",
+      "fields": ["state", "theme", "tokensApplied", "fallback"]
+    },
+    "update.log.degraded": {
+      "level": "warn",
+      "kind": "selfmon",
+      "fields": ["reason"],
+      "guard": "日志管道自己的故障行，始终落盘；同一原因只记首次"
+    }
+  }
+}

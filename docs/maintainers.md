@@ -54,11 +54,14 @@ npm publish
 
 `npm run build` 就是 `node build.mjs`；`npm test` 带 `pretest`，会先 build 再跑测试。
 
+本包唯一的运行期依赖是 `dsh-log@^0.3.1`（决策见 `docs/adr/0005-dsh-log-as-first-runtime-dependency.md`）。纪律：**只有 `src/log/**` 能碰它**，而且是按需动态取（拿不到就降级，绝不外抛）；`tests/gate.test.mjs` 递归扫 `src/` 全树，别处出现 `dsh-log` 或任何别家外部包即红。
+
 ## 发布白名单
 
-`package.json` 的 `files` 共 6 项：`dist`、`derive-client-values.mjs`、`event-list.template.json`、`README.md`、`CHANGELOG.md`、`LICENSE`（另加隐含的 `package.json`；`dist` 是目录，**src 下每个 TS 都会带上对应 JS 与 `.d.ts`**——加模块不必改白名单，但要跑一次 `npm publish --dry-run` 核对文件数）。
+`package.json` 的 `files` 共 7 项：`dist`、`derive-client-values.mjs`、`event-list.template.json`、`event-list.update.json`、`README.md`、`CHANGELOG.md`、`LICENSE`（另加隐含的 `package.json`；`dist` 是目录，**src 下每个 TS 都会带上对应 JS 与 `.d.ts`**——加模块不必改白名单，但要跑一次 `npm publish --dry-run` 核对文件数）。
 
-包出口共 9 个子路径：`.`（宿主侧）、`./panel`、`./client`、`./batch`（多目标批量宿主入口）、`./panel-batch`（批量面板）、`./entry`（更新入口件）、`./entry-batch`（批量感知入口件：一颗按钮看 N 家聚合，点开即批量面板）、`./http`（HTTP 万能插头：createHttpCall 单三电话 + 批量五电话同一内核 + 面板/入口/批量面板直挂）、`./package.json`。新增能力一律**新开子路径**，不改既有入口的形状。
+包出口共 10 个子路径：`.`（宿主侧）、`./log`（日志内核：派生命名空间 / 登记表 / 路由 / 唯一发射口 / 随包事件表 / 客户端通道）、`./panel`、`./client`、`./batch`（多目标批量宿主入口）、`./panel-batch`（批量面板）、`./entry`（更新入口件）、`./entry-batch`（批量感知入口件：一颗按钮看 N 家聚合，点开即批量面板）、`./http`（HTTP 万能插头：createHttpCall 单五电话 + 批量五电话同一内核 + 面板/入口/批量面板直挂）、`./package.json`。新增能力一律**新开子路径**，不改既有入口的形状。
+其中浏览器安全面只有 `src/log/client-queue.ts`（零 `node:` 依赖）与 `src/log/{sink,router}.ts`：`panel.ts` 只许运行期引 `./log/client-queue.js`，其余 `src/log/**` 只许 `import type`（`tests/log-kernel.test.mjs` 会红）。
 加新文件进包时同步改 `files`，并重跑 `npm publish --dry-run` 确认文件数。
 
 ## 本包门禁
@@ -105,7 +108,7 @@ node tests/verify-log-fields.js
 node tests/verify-log-count.js
 ```
 
-日志门禁的 55 事件对照仍以消费方的 `research/489-appendix.md` 与 `tests/verify-log-*.js` 为准；本包只给格式与检查器，不复刻那张表，免得两处对照要双写同步。
+日志门禁的 55 事件对照仍以消费方的 `research/489-appendix.md` 与 `tests/verify-log-*.js` 为准；本包只给格式与检查器，不复刻那张表，免得两处对照要双写同步。本包自己的事件表是随包的 `event-list.update.json`（0.3.1 形状，28 事件），新增/删除事件与字段要同步它，`npm test` 里的 `tests/gate.test.mjs` 会拿 `lintEventList` 整份过尺子（有红有黄即红）。
 
 ## 宿主契约
 
@@ -113,6 +116,6 @@ node tests/verify-log-count.js
 
 ## 改动纪律
 
-- **冻结项**：默认电话名、入参回参形状、配置写法（只经函数入参注入）、配方五键形状、事件字段基线（三个事件各加必填 `pluginId`）、默认旧路径。动冻结项先走一次破冰讨论，结论写进对应 issue 并同步 README。
+- **冻结项**：默认电话名、入参回参形状、配置写法（只经函数入参注入）、配方五键形状、事件字段基线（三个旧事件各加必填 `pluginId`）、默认旧路径。动冻结项先走一次破冰讨论，结论写进对应 issue 并同步 README。`0.15.0` 有两处破冰：第四个动作名 `updateChangelog`（`#38`）与第五个动作名 `logAppend`（`#122`，面板侧日志通道）；两处都只在既有四个名字之后**追加**，老三电话与 `updateChangelog` 一字不动，`tests/{config,phones,queue,batch-host,gate}.test.mjs` 里「电话名一字不差」那几条断言同步扩到五个。
 - **取值可增**：宿主种类与路由取值属向后兼容扩展；新增时同步改 README 与 `docs/host-install-exits.md`，调用方不认新值就当普通宿主处理。
 - **提交**：只 `git add` 自己声明的路径；本仓可能同时有别的写者，提交前后各看一眼 `git log`。

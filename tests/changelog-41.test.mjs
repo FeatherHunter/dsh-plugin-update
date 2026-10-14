@@ -136,13 +136,29 @@ test('validate 行号与码表：E 报行号，W 预告截断与撤回', functio
   assert.equal(v.ok, false, '有 Error 即 ok false');
   const byCode = {};
   for (const d of v.diagnostics) { byCode[d.code] = d; }
-  assert.ok(byCode.E_VERSION_TITLE, '非法版本标题报 E');
-  assert.equal(byCode.E_VERSION_TITLE.line, 3);
-  assert.ok(byCode.E_CATEGORY, '未知分类报 E');
+  // 0.16.0 口径变化：#41 当时「非六类小节名」整节丢内容，所以报 E_CATEGORY；现在按作者原文标题照收，
+  // 降为 W_CATEGORY_OTHER。真正的内容丢失只剩「版本节外的孤儿条目」，仍是 E 且报行号。
+  assert.ok(byCode.E_BULLET_ORPHAN, '版本节外孤儿条目报 E');
+  assert.equal(byCode.E_BULLET_ORPHAN.line, 6, 'E 报行号（第 6 行 `- x` 在版本标题之前）');
+  assert.ok(!byCode.E_CATEGORY, '内容不再丢，就不该再报 E_CATEGORY');
+  assert.ok(byCode.W_CATEGORY_OTHER, '非六类小节名降为 W');
+  assert.equal(byCode.W_CATEGORY_OTHER.line, 10);
   assert.ok(byCode.W_BREAKING_MAYBE, '疑似误写报 W');
   let sorted = true;
   for (let i = 1; i < v.diagnostics.length; i++) { if (v.diagnostics[i].line < v.diagnostics[i-1].line) sorted = false; }
   assert.equal(sorted, true, '诊断按行号排序');
+  // 像版本标题却取不出号（`## 1`）：其下条目进不了任何版本节 ⇒ 仍诚实报 E_VERSION_TITLE
+  const vBad = validateChangelog(lines(['# C', '', '## 1', '', '### Added', '- x']));
+  assert.equal(vBad.diagnostics[0].code, 'E_VERSION_TITLE');
+  assert.equal(vBad.diagnostics[0].line, 3, 'E 报坏标题行号');
+  // 两段版本号 `## 1.0` 不再是坏标题：0.16.0 起当版本节收（真实日志里 79 处此前整节丢字）
+  const mdTwo = lines(['# C', '', '## 1.0', '', '### Added', '- x']);
+  assert.ok(!validateChangelog(mdTwo).diagnostics.some(function(d) { return d.code === 'E_VERSION_TITLE'; }), '两段版本号是合法版本节');
+  assert.equal(parseChangelog(mdTwo)[0].version, '1.0');
+  // 带正文的两段号标题（`### 修复 1.2 的 bug`）不许被误升级成版本节
+  const mdInline = lines(['# C', '', '## [1.1.0]', '', '### 修复 1.2 的 bug', '- x']);
+  assert.equal(parseChangelog(mdInline)[0].version, '1.1.0', '版本节仍是 1.1.0');
+  assert.equal(parseChangelog(mdInline).length, 1, '带正文的两段号不开新版本节');
   const mdYank = lines(['# C', '', '## [1.1.0] [YANKED]', '', '### Added', '- A']);
   const vy = validateChangelog(mdYank);
   assert.ok(vy.diagnostics.some(function(d) { return d.code === 'W_YANKED'; }), '撤回报 W_YANKED');
@@ -160,19 +176,21 @@ test('validate 行号与码表：E 报行号，W 预告截断与撤回', functio
   assert.equal(validateChangelog(null).diagnostics[0].code, 'W_EMPTY');
 });
 
-test('validate 与 parse 共享扫描仪：有 Error 必丢内容（总量性质）', function() {
+test('validate 与 parse 共享扫描仪：Error 处内容确实丢（0.16.0 口径）', function() {
   const md = lines(['# C', '', '## 坏标题', '', '### Added', '- 被丢1', '', '## [1.1.0]', '', '### 坏分类', '- 被丢2', '', '### Added', '- 好条目']);
   const v = validateChangelog(md);
   const errs = v.diagnostics.filter(function(d) { return d.code.charAt(0) === 'E'; });
-  assert.ok(errs.length >= 2, '至少两条 Error');
-  const bulletLines = md.split(String.fromCharCode(10)).filter(function(l) { return l.trim().charAt(0) === '-' && l.includes('被丢'); });
-  assert.ok(bulletLines.length >= 2, '被丢条目行存在');
+  assert.ok(errs.length >= 1, '版本标题之前的条目找不到归属 ⇒ 报 E（其内容确实丢）');
   const parsed = parseChangelog(md);
-  let kept = 0;
-  for (const e of parsed) { for (const k of Object.keys(e.sections)) { kept += e.sections[k].length; } }
-  assert.ok(kept < bulletLines.length + 1, 'Error 存在即解析丢内容（被丢条目未进收录）');
-  const good = parseChangelog(lines(['# C', '', '## [1.1.0]', '', '### Added', '- 好条目']));
-  assert.equal(JSON.stringify(parsed[parsed.length-1].sections.Added), JSON.stringify(good[0].sections.Added), '好条目收录不受坏行污染');
+  const kept = [];
+  for (const e of parsed) {
+    for (const k of Object.keys(e.sections)) { for (const s of e.sections[k]) kept.push(s); }
+    for (const os of (e.otherSections || [])) { for (const s of os.items) kept.push(s); }
+  }
+  assert.ok(!kept.some(function(s) { return s.indexOf('被丢1') >= 0; }), 'Error 点上的内容确实未进收录');
+  assert.ok(kept.some(function(s) { return s.indexOf('被丢2') >= 0; }), '非六类小节名下的条目 0.16.0 起照收');
+  assert.ok(kept.some(function(s) { return s.indexOf('好条目') >= 0; }), '好条目收录不受污染');
+  assert.equal(JSON.stringify(parsed[parsed.length-1].sections.Added), JSON.stringify(['好条目']), '六类小节不被非六类小节污染');
 });
 
 test('shouldFetchChangelog 纯策略：记住不再问，手动总问，轮询按退避', function() {

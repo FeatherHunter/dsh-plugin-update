@@ -154,6 +154,7 @@ export type BatchPanelActionKind =
   | 'row-copy-manual'
   | 'row-copy-diag'
   | 'toggle-details'
+  | 'detail-close'
   | 'restart'
   | 'close'
   | 'toggle-check-on-open'
@@ -760,10 +761,27 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
     '<div class="dsh-upd dsh-upd-batch" data-mode="' + mode + '" data-seal="' + escapeHtml(seal.text) +
     '" data-seal-tone="' + seal.tone + '"' + attr + tokensAttr + '>\n' + kernel + '\n</div>'
   const body = mode === 'dialog' ? '<div class="dsh-upd-overlay" data-mode="dialog">' + root + '</div>' : root
+  // 详情默认弹窗（#108）：展开行以 sibling dialog 呈现（与批量底叠放，内层 z-index+1）；行内不再内嵌，默认即弹窗。
+  let detailDialog = ''
+  if (expandedKey !== null) {
+    const target = rows.find((row) => row.key === expandedKey) ?? null
+    if (target !== null) {
+      const rawSkipped = skippedVersions[target.key]
+      const skippedForDialog = typeof rawSkipped === 'string' && rawSkipped ? rawSkipped : null
+      detailDialog = detailDialogHTML(target, {
+        ...ctx,
+        expanded: true,
+        skipped: skippedForDialog,
+        notice: target.key === detailNoticeKey ? notice : null,
+        changelogMarkdown:
+          typeof changelogs[target.key] === 'string' ? (changelogs[target.key] as string) : null,
+      })
+    }
+  }
   const css = archive
     ? [UPDATE_PANEL_CSS, UPDATE_BATCH_PANEL_CSS, UPDATE_PANEL_ARCHIVE_CSS, UPDATE_BATCH_PANEL_ARCHIVE_CSS].join(String.fromCharCode(10))
     : [UPDATE_PANEL_CSS, UPDATE_BATCH_PANEL_CSS].join(String.fromCharCode(10))
-  return '<style>' + css + '</style>\n' + body
+  return '<style>' + css + '</style>\n' + body + (detailDialog ? '\n' + detailDialog : '')
 }
 
 /** 一句话总账：先答「有没有事」（#64 单语：缺省 zh 零回归）。 */
@@ -933,15 +951,7 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
     '<span class="dsh-upd-bstat">' + escapeHtml(rowStatusText) + (ctx.inRound && !queued ? '（' + escapeHtml(batchText('batch.row.unfinished-tag', ctx.lang)) + '）' : '') + '</span>' +
     failLine +
     '</button>'
-  const detail = ctx.expanded
-    ? '<div class="dsh-upd-bdetail" data-key="' + keyAttr + '">' +
-      detailActionsHTML(row, ctx) +
-      (ctx.notice !== null
-        ? '<div class="dsh-upd-bdetail-notice" role="status">' + escapeHtml(ctx.notice) + '</div>'
-        : '') +
-      detailHTML(row, ctx) +
-      '</div>'
-    : ''
+  // 详情默认弹窗（#108：删内嵌展开路径——行内不再叠 `.dsh-upd-bdetail`，展开走弹窗 sibling overlay，见 detailDialogHTML）。
   return (
     '<div class="dsh-upd-brow-set" data-key="' + keyAttr + '">' +
     '<div class="dsh-upd-brow" data-phase="' + escapeHtml(phase) + '" data-key="' + keyAttr + '"' +
@@ -949,37 +959,8 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
     main +
     '<span class="dsh-upd-brow-actions">' + actions.join('') + '</span>' +
     '</div>' +
-    detail +
     '</div>'
   )
-}
-
-/**
- * 该家的详情 = 单插件内核原样（renderUpdatePanelHTML），不另写一套。
- * 只读渲染（`actions: 'none'`）：内核不画动作按钮，动作行由批量面板自己出（见 detailActionsHTML）。
- */
-function detailHTML(row: BatchRowView, ctx: RowRenderContext): string {
-  const html = renderUpdatePanelHTML({
-    snapshot: asSnapshotLike(row.snapshot),
-    manual: typeof row.manual === 'string' ? row.manual : null,
-    changelogMarkdown: typeof ctx.changelogMarkdown === 'string' ? ctx.changelogMarkdown : null,
-    queue: asQueueLike(row.queue),
-    // 跳过是面板本地记录（与单插件面板同一套语义）：内核按「已跳过」画 tag 与提示行，
-    // 恢复按钮由上面的动作行提供，措辞与内核提示里的「恢复」对得上。
-    skippedLatest: ctx.skipped !== null,
-    lastError: row.error,
-    errorKind: row.error,
-    mode: 'embedded',
-    showOthers: false,
-    pluginId: pluginIdOf(row),
-    copyNotice: null,
-    theme: ctx.theme,
-    themeTokens: ctx.themeTokens,
-    profileName: typeof row.profileName === 'string' && row.profileName ? row.profileName : null,
-    hostKind: typeof row.hostKind === 'string' && row.hostKind ? row.hostKind : null,
-    actions: 'none',
-  }, ctx.lang)
-  return stripActionButtons(html)
 }
 
 /**
@@ -1048,6 +1029,65 @@ function detailActionsHTML(row: BatchRowView, ctx: RowRenderContext): string {
  */
 function stripActionButtons(html: string): string {
   return html.replace(/<button\b[^>]*data-action=[^>]*>[\s\S]*?<\/button>/g, '')
+}
+
+/**
+ * 详情默认弹窗（#108，按 #107 决议 B 落地）。
+ * 复用单插件内核 dialog 只读（85vh/遮罩/圆角不动）+ 批量自出动作行前置为固定栏 + 内核 footer 同位复刻（右下独立区）。
+ * - 动作行置顶固定栏：利用已有 `:has(>.dsh-upd-body)>:not(.dsh-upd-body){flex:none}` 契约，不随 body 滚，零新 CSS 契约；
+ * - 关闭=B：右下 footer（`panel.footer.note` + `panel.footer.close`，bilingual 零新增键），通道走批量 `data-act="detail-close"`（内核 `data-action` 在批量挂载无接收端，沿用文案与位置、不新开发关闭件）；
+ * - 滚动：弹窗内 body 走内核 `overflow-y:auto` + 章节头 sticky（推翻旧 `overflow:visible` 中性化，仅弹窗内，批量底不动）；
+ * - 嵌套：内层 overlay 高一层（CSS `z-index:10000`），Esc/关闭只清 `expandedKey`，不碰批量 dialog 的 `onCloseRequested`。
+ */
+function detailFooterHTML(row: BatchRowView, ctx: RowRenderContext): string {
+  const keyAttr = escapeHtml(row.key)
+  return (
+    '<div class="dsh-upd-footer"><span class="dsh-upd-foot-note">' + escapeHtml(batchText('panel.footer.note', ctx.lang)) + '</span>' +
+    '<button type="button" data-act="detail-close" data-key="' + keyAttr + '" title="' + escapeHtml(batchText('panel.footer.close-title', ctx.lang)) + '">' +
+    escapeHtml(batchText('panel.footer.close', ctx.lang)) + '</button></div>'
+  )
+}
+
+function detailDialogHTML(row: BatchRowView, ctx: RowRenderContext): string {
+  const keyAttr = escapeHtml(row.key)
+  const kernel = renderUpdatePanelHTML({
+    snapshot: asSnapshotLike(row.snapshot),
+    manual: typeof row.manual === 'string' ? row.manual : null,
+    changelogMarkdown: typeof ctx.changelogMarkdown === 'string' ? ctx.changelogMarkdown : null,
+    queue: asQueueLike(row.queue),
+    skippedLatest: ctx.skipped !== null,
+    lastError: row.error,
+    errorKind: row.error,
+    mode: 'dialog',
+    showOthers: false,
+    pluginId: pluginIdOf(row),
+    copyNotice: null,
+    theme: ctx.theme,
+    themeTokens: ctx.themeTokens,
+    profileName: typeof row.profileName === 'string' && row.profileName ? row.profileName : null,
+    hostKind: typeof row.hostKind === 'string' && row.hostKind ? row.hostKind : null,
+    actions: 'none',
+  }, ctx.lang)
+  const stripped = stripActionButtons(kernel)
+  // 外层 batch 已带一份 panel CSS：内核自带的 `<style>` 去掉，免得弹窗 sibling 里再挂一份（DOM 只留 overlay）。
+  const withoutStyle = stripped.replace(/^<style>[\s\S]*?<\/style>\s*/, '')
+  const bar =
+    '<div class="dsh-upd-bdetail-dialog-bar" data-detail-bar="' + keyAttr + '">' +
+    detailActionsHTML(row, ctx) +
+    '</div>' +
+    (ctx.notice !== null
+      ? '<div class="dsh-upd-bdetail-notice" role="status">' + escapeHtml(ctx.notice) + '</div>'
+      : '')
+  const withBar = withoutStyle
+    .replace(
+      '<div class="dsh-upd-overlay"',
+      '<div class="dsh-upd-overlay dsh-upd-bdetail-dialog" data-detail-key="' + keyAttr + '"',
+    )
+    .replace('<div class="dsh-upd-body">', bar + '<div class="dsh-upd-body">')
+  const footer = detailFooterHTML(row, ctx)
+  const at = withBar.lastIndexOf('</div></div>')
+  if (at < 0) return withBar + footer
+  return withBar.slice(0, at) + footer + withBar.slice(at)
 }
 
 function dotToneOf(
@@ -1119,12 +1159,10 @@ export const UPDATE_BATCH_PANEL_CSS = [
   '.dsh-upd-bdetail-actions{margin:0 0 6px}',
   '.dsh-upd .dsh-upd-bdetail-actions button{font-size:12.5px}',
   '.dsh-upd-bdetail-notice{margin:0 0 6px;font-size:var(--dsh-update-panel-small-font-size,12.5px);opacity:.85}',
-  '/* 详情复用单插件内核：不许嵌套滚动——中性化 overlay 的 max-height/overflow，自身也不给 overflow。 */',
-  '.dsh-upd-bdetail{margin:2px 0 10px;overflow:visible}',
-  '.dsh-upd .dsh-upd-bdetail .dsh-upd{max-width:none}',
-  '.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd{max-height:none;overflow:visible}',
-  '.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body{overflow:visible}',
-  '.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd-body .dsh-upd-chap-head{position:static}',
+  '/* Detail dialog (#108): reuse kernel dialog scroll (body scroll + sticky heads); batch actions as fixed bar; legacy inline overflow:visible retired with inline removal. */',
+  '.dsh-upd-overlay.dsh-upd-bdetail-dialog{z-index:10000}',
+  '.dsh-upd-bdetail-dialog-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;margin-bottom:8px;border-bottom:1px dashed var(--dsh-update-border,#e5e7eb)}',
+  '.dsh-upd-bdetail-dialog-bar .dsh-upd-bdetail-actions{margin:0}',
   '@media (prefers-color-scheme: dark){.dsh-upd-batch-title i{color:var(--dsh-update-focus,#93c5fd)}}',
   '@media (prefers-reduced-motion: reduce){.dsh-upd-batch *{transition:none !important;animation:none !important}}',
   // Batch check layout stability: reserve macro width + rows/summary heights + no scroll anchoring jumps.
@@ -2072,6 +2110,13 @@ export function mountUpdateBatchPanel(
         maybeAutoRowChangelog(expandedKey)
         return
       }
+      // 详情弹窗关闭（#108 决议 B 嵌套归属）：只清 expandedKey 重绘批量，不碰批量 dialog 的 onCloseRequested；批量 Esc 才走 entry-batch close。
+      case 'detail-close': {
+        if (expandedKey === null) return
+        expandedKey = null
+        render()
+        return
+      }
       // 「请重启DSH」：宿主没有重启自己的电话，只做入口——调用方给了 onRestartRequested 就交给它，
       // 没给就如实说「请手动重启」，不假装能重启（与单插件面板逐字同一口径）。
       case 'restart': {
@@ -2111,10 +2156,16 @@ export function mountUpdateBatchPanel(
   }
 
   function onKeyDown(ev: unknown): void {
-    // Esc 关弹窗：焦点在面板内时按键冒泡到容器；与「关闭」按钮同口径（可配落地，不动宿主）。
+    // Esc 关弹窗：详情弹窗优先（只清 expandedKey，不碰批量 onCloseRequested）；批量底无展开时才走批量关闭。
     try {
       const e = ev as { key?: unknown } | null | undefined
-      if (!mounted || mode !== 'dialog' || !e || e.key !== 'Escape') return
+      if (!mounted || !e || e.key !== 'Escape') return
+      if (expandedKey !== null) {
+        expandedKey = null
+        render()
+        return
+      }
+      if (mode !== 'dialog') return
       void requestDialogClose()
     } catch {
       // 按坏了也不挡更新。

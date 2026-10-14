@@ -97,16 +97,16 @@ function fakeBatchCall(rows) {
 }
 
 function detailActionsOf(html, key) {
-  const at = html.indexOf('<div class="dsh-upd-bdetail" data-key="' + key + '"');
-  assert.ok(at >= 0, key + ' 的详情要展开着');
+  const at = html.indexOf('dsh-upd-bdetail-dialog" data-detail-key="' + key + '"');
+  assert.ok(at >= 0, key + ' 的详情弹窗要开着');
   const start = html.indexOf('<span class="dsh-upd-bdetail-actions"', at);
-  assert.ok(start >= 0, key + ' 的详情要有自出动作行');
+  assert.ok(start >= 0, key + ' 的详情弹窗要有自出动作行');
   return html.slice(start, html.indexOf('</span>', start));
 }
 
 function detailNoticeOf(html, key) {
-  const at = html.indexOf('<div class="dsh-upd-bdetail" data-key="' + key + '"');
-  assert.ok(at >= 0, key + ' 的详情要展开着');
+  const at = html.indexOf('dsh-upd-bdetail-dialog" data-detail-key="' + key + '"');
+  assert.ok(at >= 0, key + ' 的详情弹窗要开着');
   const start = html.indexOf('<div class="dsh-upd-bdetail-notice"', at);
   if (start < 0) return null;
   return html.slice(start, html.indexOf('</div>', start));

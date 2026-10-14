@@ -149,15 +149,29 @@ export function resolveUpdateConfig(input: UpdateConfigInput): ResolvedUpdateCon
   return { pluginId, prefix, targetPackageName, registryUrl, homeDir, checkTimeoutMs, confirmationTtlMs, installTimeoutMs, panelPollMs, releaseChannel }
 }
 
-// 四个电话名拼法（#38：三个旧名一字不动，另加更新日志电话；只读旧三键的调用逐字不变）。
-export function buildPhoneNames(prefix: string): Record<PhoneAction, string> & Record<ChangelogPhoneAction, string> {
+// 客户端日志电话（#122 破冰）：面板侧把客户端行交回宿主半区写同一个 log handle。
+// 名字进 buildPhoneNames 是为了「电话名只从前缀派生，不写字面量」这条纪律不破。
+export const LOG_APPEND_ACTION = 'logAppend' as const
+export type LogPhoneAction = typeof LOG_APPEND_ACTION
+
+/** 电话名表：电话名只从这里算（集成方遍历 host.handlers 注册，多出来的键老代码不用管）。 */
+export type PhoneNames = Record<PhoneAction, string> & Record<ChangelogPhoneAction, string> & Record<LogPhoneAction, string>
+
+// 五个电话名拼法（#38：三个旧名一字不动，另加更新日志电话；#122 加客户端日志电话；只读旧键的调用逐字不变）。
+export function buildPhoneNames(prefix: string): PhoneNames {
   const checked = assertPrefix(prefix, '电话名前缀 prefix')
   return {
     updateStatus: checked + '.updateStatus',
     updateCheck: checked + '.updateCheck',
     updateInstall: checked + '.updateInstall',
     updateChangelog: checked + '.updateChangelog',
+    logAppend: checked + '.' + LOG_APPEND_ACTION,
   }
+}
+
+// 客户端日志电话名单个拼法（面板侧复用，不写字面量）。
+export function buildLogAppendPhoneName(prefix: string): string {
+  return buildPhoneNames(prefix).logAppend
 }
 
 // 更新日志电话名单个拼法（面板/批量/HTTP 复用，不写字面量）。

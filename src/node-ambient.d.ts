@@ -13,6 +13,12 @@ declare module 'node:crypto' {
   export function randomUUID(): string
 }
 
+declare module 'node:fs' {
+  // 只用于「随包事件清单」的同步读取：字段白名单的判据必须当场就有（异步读会让同一份代码
+  // 在清单没加载完时放行、加载完后拒收，行为不确定）。只读一个小 JSON，读一次进程内缓存。
+  export function readFileSync(path: string, encoding: string): string
+}
+
 declare module 'node:fs/promises' {
   export function mkdir(path: string, options?: { recursive?: boolean; mode?: number }): Promise<string | undefined>
   export function open(

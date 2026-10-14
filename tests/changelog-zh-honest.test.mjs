@@ -68,19 +68,23 @@ describe('中文分类与英文等价', () => {
     assert.equal(e.date, '2026-10-02', '日期照收')
   })
 
-  test('子串不算：`### 新增功能` 仍是未知分类', () => {
+  test('子串不算：`### 新增功能` 不收进 Added（0.16.0 起按原文标题当自定义小节收）', () => {
     const md = '## [1.1.0]\n\n### 新增功能\n- x\n'
-    assert.deepEqual(parseChangelog(md), [], '整节无可见内容即丢弃')
+    const e = parseChangelog(md)[0]
+    assert.deepEqual(e.sections.Added, [], '子串不算：不进 Added')
+    assert.deepEqual(e.otherSections.map((s) => s.title), ['新增功能'], '标题原样保留')
+    assert.deepEqual(e.otherSections[0].items, ['x'], '条目不再丢字')
     const v = validateChangelog(md)
-    assert.ok(v.diagnostics.some((d) => d.code === 'E_CATEGORY'), '仍报 E_CATEGORY')
+    assert.ok(v.diagnostics.some((d) => d.code === 'W_CATEGORY_OTHER'), '降为提示（非六类小节名）')
+    assert.equal(v.ok, true, '按原文渲染即不算失败')
   })
 
-  test('validate 对中文全绿，E 提示如实列出中英文', () => {
+  test('validate 对中文全绿，提示文案如实列出中英文', () => {
     const v = validateChangelog(ZH_MD)
     assert.equal(v.ok, true, '中文合规即 ok')
-    assert.ok(!v.diagnostics.some((d) => d.code === 'E_CATEGORY'), '中文名不再报 E')
-    assert.ok(CHANGELOG_VALIDATE_HINTS.E_CATEGORY.includes('新增'), 'E 提示须列中文名')
-    assert.ok(CHANGELOG_VALIDATE_HINTS.E_CATEGORY.includes('Added'), 'E 提示仍列英文名')
+    assert.ok(!v.diagnostics.some((d) => d.code === 'W_CATEGORY_OTHER'), '中文名不报提示')
+    assert.ok(CHANGELOG_VALIDATE_HINTS.W_CATEGORY_OTHER.includes('新增'), '提示须列中文名')
+    assert.ok(CHANGELOG_VALIDATE_HINTS.W_CATEGORY_OTHER.includes('Added'), '提示仍列英文名')
   })
 
   test('面板照画中文节内容', () => {
@@ -105,8 +109,10 @@ describe('诚实中性行：有文零解析即无法读取', () => {
     }
   })
 
-  test('中文坏分类同样走无法读取（与英文同口径）', () => {
+  test('中文坏分类不再「无法读取」（0.16.0 起按作者原标题显示，内容不再丢）', () => {
     const html = renderUpdatePanelHTML(inputFor({ changelogMarkdown: '## [1.1.0]\n\n### 坏分类\n- y\n' }))
-    assert.ok(html.includes('日志无法读取'), '坏分类即零解析节')
+    assert.ok(!html.includes('日志无法读取'), '内容能渲染就不许说读不出')
+    assert.ok(html.includes('坏分类'), '作者原标题原样露出')
+    assert.ok(html.includes('y'), '条目内容露出')
   })
 })

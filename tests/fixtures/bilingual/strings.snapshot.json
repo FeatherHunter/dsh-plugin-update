@@ -527,6 +527,16 @@
       "zh": "共 {m} 条，仅显示前 {n} 条",
       "draft": true
     },
+    "changelog.truncated.file": {
+      "en": "This log is larger than 64 KiB; only the first part is rendered.",
+      "zh": "日志过长，超出上限的部分没有渲染。",
+      "draft": true
+    },
+    "changelog.truncated.versions": {
+      "en": "{n} more versions are hidden.",
+      "zh": "其后还有 {n} 个版本未显示。",
+      "draft": true
+    },
     "changelog.yanked.banner": {
       "en": "Version {version} was yanked by the author. Install is not affected. Please confirm before proceeding.",
       "zh": "目标版本 {version} 已被作者撤回（yanked），安装不受影响，继续前请确认。",

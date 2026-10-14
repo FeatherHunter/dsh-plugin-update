@@ -135,8 +135,10 @@ test('工具自身随包发布（files 白名单含它），否则消费方拿�
   assert.ok(MANIFEST.files.includes('derive-client-values.mjs'), 'package.json#files 应包含 derive-client-values.mjs')
 })
 
-test('包内不自带 esbuild：工具从消费方仓库借，不把构建依赖塞进运行期依赖', () => {
-  assert.equal(MANIFEST.dependencies, undefined, '运行期依赖应为空（零运行时依赖）')
+test('包内不自带 esbuild：工具从消费方仓库借，构建依赖不进运行期依赖', () => {
+  const deps = MANIFEST.dependencies || {}
+  assert.equal(deps.esbuild, undefined, 'esbuild 只能是消费方的构建依赖')
+  assert.deepEqual(Object.keys(deps), ['dsh-log'], '运行期依赖只有 dsh-log 一个（ADR-0005）')
 })
 
 // 路径注释归一：打包器写的是「相对当前目录」的路径，cwd 换了就会变成 ../ 开头。

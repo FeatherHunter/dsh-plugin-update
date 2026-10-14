@@ -24,6 +24,28 @@ export type EnvironmentKind = 'desktop' | 'desktop-manager' | 'cli'
 /** 版本通道（#16）：默认只推 stable；prerelease 须调用方显式 opt-in。 */
 export type ReleaseChannel = 'stable' | 'prerelease'
 
+/**
+ * 安装意图的来源（#124 日志接线）：面板、入口件、批量驱动器三处共用同一个安装电话，
+ * 行里只记枚举名。核心只把它透传进 `update.install.request`，不参与任何决策。
+ * 默认（调用方没报）按 `'panel'`——电话的既有调用方是面板。
+ */
+export type InstallSource = 'panel' | 'entry' | 'batch'
+
+/** 检查更新的触发起因（#124）：手动点、面板自动、批量驱动、入口件。默认按 `'user'`。 */
+export type CheckTrigger = 'auto' | 'user' | 'batch' | 'entry'
+
+/**
+ * 日志发射口（#124）：中立文件（core / 批量驱动器）不许 import `node:`，所以由 Node 侧的
+ * 建口人把**已经绑好插件标识**的发射函数递进来；不递即不记（默认值等于现状，老调用一字不动）。
+ * 实现方只许调唯一发射口 `emitUpdateLog`，且永不外抛（发射口自身已吃掉所有异常）。
+ */
+export type UpdateLogPort = (
+  level: string,
+  event: string,
+  fields: Record<string, unknown>,
+  opts?: { always?: boolean; fingerprint?: string }
+) => void
+
 /** 装不了的原因（装前不满足条件只给原因不给装，见通用方案复用清单）。 */
 export type BlockedReason =
   | 'unknown-profile'
@@ -199,6 +221,12 @@ export interface UpdatePorts {
   targetPackageName?: string
   /** 官方源：默认等于现状地址（规格 #591 第 4 条）。 */
   registryUrl?: string
+  /**
+   * 白名单源主机名（#124，可选）：Node 侧用 `redaction.resolveRegistryHost` 解析后注入，
+   * 核心只把它填进 `update.registry.fetch.registryHost` 与 `update.check.done.source` 两格；
+   * 不注入（或源不在白名单）即省略该格——省略本身即信息（ADR-0006：行里不许出现完整 URL）。
+   */
+  registryHost?: string | null
   /** 版本通道：默认 stable（与旧行为一字不差），显式传 prerelease 才收预发布（#16）。 */
   releaseChannel?: ReleaseChannel
   /** 安装时限毫秒：默认 15 分钟（规格 #591 第 5 条）。 */
@@ -220,6 +248,11 @@ export interface UpdatePorts {
    * 测试一律给假的，不真跑。
    */
   runInstall?: (args: { version: string; profileName: string | null; environmentKind: EnvironmentKind; releaseChannel?: ReleaseChannel }) => void | Promise<void>
+  /**
+   * 日志发射口（#124，可选）：核心里的稳定边沿（检查成败、通道判定、安装意图与装后校验）经它出去。
+   * 递进来的函数必须已经绑好插件标识（路由用），不递即不记——老调用方行为一字不动。
+   */
+  emitLog?: UpdateLogPort
 }
 
 /** 对外三个方法（进度不单独给方法，调用方轮询查状态）。 */
@@ -231,8 +264,10 @@ export interface UpdateCore {
   /**
    * 装更新：拿检查编号加请求编号提交。
    * 只读半程诚实失败（unsupported），安装票再实现。
+   * `from` 是 #124 的加法扩展（可选，缺省按 `'panel'`）：调用方自报安装意图来自哪里，
+   * 只进日志行 `update.install.request.from`，不参与任何决策；老调用方不传即现状。
    */
-  install(args: { checkId: string; requestId: string }): Promise<UpdateSnapshot>
+  install(args: { checkId: string; requestId: string; from?: InstallSource }): Promise<UpdateSnapshot>
 }
 
 /**

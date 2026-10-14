@@ -579,6 +579,8 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
       // 面板点「关闭」即走入口件的完整关闭（收 dialog + 还原按钮 + 重查一次），不再是面板自己停轮询。
       onCloseRequested: () => close(),
       call: panelCall,
+      // 客户端日志（#122）：挂载点名字写进 update.panel.mount，第三方一眼看出是入口件挂的。
+      clientLog: { mount: 'entry' },
     } as Parameters<typeof mountUpdatePanel>[1])
     panelMode = mode
   }

@@ -1,7 +1,8 @@
 /**
- * tests/gate.test.mjs —— 门禁模板自查（#584 落地门禁模板）。
+ * tests/gate.test.mjs —— 门禁模板自查（#584 落地门禁模板；#120 迁到日志包 0.3.1 形状）。
  *
- * 给第二个接入更新包的插件照抄：字段白名单与三类计数检查、空模板随包发布、
+ * 给第二个接入更新包的插件照抄：字段白名单两档检查、三类计数现算、整份清单过尺子、
+ * 事件表合并、落盘行 v === 3 断言、空模板与本包自己的事件表随包发布、
  * 双前缀串扰（两家同机不串电话名目录锁）、无新依赖、数组无 shell。
  * 只用 Node 自带测试能力（node:test），不引入新的测试框架。
  * 网络、落盘（除隔离断言的临时目录）、子进程、桌面服务全用假件或临时目录，不碰真机。
@@ -19,7 +20,17 @@ const PKG_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 const gateUrl = pathToFileURL(path.join(PKG_DIR, 'dist', 'gate.js')).href + '?x=' + Date.now()
 const gate = await import(gateUrl)
-const { parseEventListManifest, checkEventFields, checkEventCounts } = gate
+const {
+  LOG_ROW_VERSION,
+  parseEventListManifest,
+  lintEventFields,
+  computeEventCounts,
+  lintEventList,
+  mergeUpdateEvents,
+  parseLogRow,
+  checkEventFields,
+  checkEventCounts
+} = gate
 const host = await import(pathToFileURL(path.join(PKG_DIR, 'dist', 'host.js')).href + '?x=' + Date.now())
 const store = await import(pathToFileURL(path.join(PKG_DIR, 'dist', 'store.js')).href + '?x=' + Date.now())
 
@@ -27,12 +38,15 @@ function shortHash(text) {
   return createHash('sha256').update(String(text)).digest('hex').slice(0, 24)
 }
 
-// 一份手写小清单：两常驻、一按需、一自监控，计数自报一致。
+function readUpdateTable() {
+  return JSON.parse(readFileSync(path.join(PKG_DIR, 'event-list.update.json'), 'utf8'))
+}
+
+// 一份手写小清单（0.3.1 形状：不写自报计数）：两常驻、一按需、一自监控。
 function makeSample() {
   return {
     version: 1,
     pluginId: 'my-plugin',
-    counts: { resident: 2, ondemand: 1, selfmon: 1 },
     events: {
       'host.call': {
         level: 'info',
@@ -62,57 +76,130 @@ function makeSample() {
   }
 }
 
-describe('门禁模板：空模板随包发布', () => {
-  it('空模板合法：读包内模板，验形通过，计数全零一致', () => {
+describe('门禁模板：空模板与本包事件表随包发布', () => {
+  it('空模板合法：读包内模板，验形通过，三类计数全零（0.3.1 起清单不写自报计数）', () => {
     const raw = readFileSync(path.join(PKG_DIR, 'event-list.template.json'), 'utf8')
-    const manifest = parseEventListManifest(JSON.parse(raw))
+    const parsed = JSON.parse(raw)
+    assert.equal('counts' in parsed, false, '模板不再带自报计数')
+    const manifest = parseEventListManifest(parsed)
     assert.equal(manifest.version, 1)
     assert.deepEqual(Object.keys(manifest.events), [])
-    assert.deepEqual(checkEventCounts(manifest), { ok: true, problems: [] })
+    assert.deepEqual(computeEventCounts(manifest), { resident: 0, ondemand: 0, selfmon: 0 })
   })
 
-  it('模板进发布白名单：files 含模板，npm pack 能带上', () => {
+  it('模板与本包事件表都进发布白名单：files 含两份清单与 dist', () => {
     const pkg = JSON.parse(readFileSync(path.join(PKG_DIR, 'package.json'), 'utf8'))
     assert.ok(Array.isArray(pkg.files))
     assert.ok(pkg.files.includes('event-list.template.json'))
+    assert.ok(pkg.files.includes('event-list.update.json'))
     assert.ok(pkg.files.includes('dist'))
+  })
+
+  it('本包事件表过整份尺子全绿：无红无黄，三类条数与现算一致', () => {
+    const manifest = parseEventListManifest(readUpdateTable())
+    const linted = lintEventList(manifest)
+    assert.deepEqual(linted.red, [], '本包事件表不该有红')
+    assert.deepEqual(linted.yellow, [], '本包事件表不该有黄')
+    assert.equal(linted.ok, true)
+    assert.deepEqual(linted.counts, { resident: 20, ondemand: 7, selfmon: 1 })
+    // 冻结的三个旧事件名与字段一字不动。
+    const events = manifest.events
+    assert.deepEqual(events['host.call'].fields, ['method', 'latencyMs', 'ok', 'kind', 'pluginId'])
+    assert.deepEqual(events['host.call.fail'].fields, ['method', 'kind', 'errorHash', 'pluginId'])
+    assert.deepEqual(events['update.install.exec'].fields, ['route', 'ok', 'exitCode', 'durationMs', 'pluginId'])
   })
 })
 
-describe('门禁模板：字段白名单与三类计数检查', () => {
-  it('白名单通过：清单里的事件配清单里的字段，全过', () => {
+describe('门禁模板：字段白名单两档与三类计数现算', () => {
+  it('白名单通过：清单里的事件配清单里的字段，severity 为 none', () => {
     const manifest = parseEventListManifest(makeSample())
-    const got = checkEventFields(manifest, 'host.call', ['method', 'latencyMs', 'ok', 'kind', 'pluginId'])
-    assert.deepEqual(got, { ok: true, unknownEvent: false, unknownFields: [] })
+    assert.deepEqual(lintEventFields(manifest, 'host.call', ['method', 'latencyMs', 'ok', 'kind', 'pluginId']), {
+      ok: true,
+      severity: 'none',
+      unknownEvent: false,
+      unknownFields: []
+    })
   })
 
-  it('白名单揪出未知字段：把名单带回，不误伤已知字段', () => {
+  it('未知字段算黄：名单带回、不误伤已知字段，且不拦上线（severity 为 warn）', () => {
     const manifest = parseEventListManifest(makeSample())
-    const got = checkEventFields(manifest, 'host.call', ['method', 'token'])
+    const got = lintEventFields(manifest, 'host.call', ['method', 'token'])
     assert.equal(got.ok, false)
+    assert.equal(got.severity, 'warn')
     assert.equal(got.unknownEvent, false)
     assert.deepEqual(got.unknownFields, ['token'])
   })
 
-  it('未知事件名算不通过：拼错名或漏登记都拦下', () => {
+  it('未知事件名算红：拼错名或漏登记都拦下（severity 为 error）', () => {
     const manifest = parseEventListManifest(makeSample())
-    const got = checkEventFields(manifest, 'host.call2', ['method'])
-    assert.deepEqual(got, { ok: false, unknownEvent: true, unknownFields: [] })
+    assert.deepEqual(lintEventFields(manifest, 'host.call2', ['method']), {
+      ok: false,
+      severity: 'error',
+      unknownEvent: true,
+      unknownFields: []
+    })
   })
 
-  it('计数检查通过：三类实际条数与自报一致', () => {
+  it('计数现算：三类实际条数按 kind 数出来', () => {
+    const manifest = parseEventListManifest(makeSample())
+    assert.deepEqual(computeEventCounts(manifest), { resident: 2, ondemand: 1, selfmon: 1 })
+  })
+
+  it('旧清单带着自报计数也照收：收下但不参与判断，0.3.1 起不再是必填', () => {
+    const sample = makeSample()
+    sample.counts = { resident: 2, ondemand: 1, selfmon: 1 }
+    const manifest = parseEventListManifest(sample)
+    assert.deepEqual(manifest.counts, { resident: 2, ondemand: 1, selfmon: 1 })
+    assert.deepEqual(lintEventList(manifest).red, [])
+  })
+
+  it('自报计数对不上被揪出：整份尺子给红，弃用壳给 problems', () => {
+    const sample = makeSample()
+    sample.counts = { resident: 1, ondemand: 1, selfmon: 1 }
+    const manifest = parseEventListManifest(sample)
+    const linted = lintEventList(manifest)
+    assert.equal(linted.ok, false)
+    assert.equal(linted.red.length, 1)
+    assert.match(linted.red[0], /自报 counts\.resident/)
+    const legacy = checkEventCounts(manifest)
+    assert.equal(legacy.ok, false)
+    assert.equal(legacy.problems.length, 1)
+    assert.match(legacy.problems[0], /resident/)
+  })
+
+  it('弃用壳行为与旧版一致：清单没写 counts 就直接算过', () => {
     const manifest = parseEventListManifest(makeSample())
     assert.deepEqual(checkEventCounts(manifest), { ok: true, problems: [] })
+    assert.deepEqual(checkEventFields(manifest, 'host.call', ['method']), {
+      ok: true,
+      unknownEvent: false,
+      unknownFields: []
+    })
+    assert.deepEqual(checkEventFields(manifest, 'host.call2', ['method']), {
+      ok: false,
+      unknownEvent: true,
+      unknownFields: []
+    })
   })
 
-  it('计数对不上被揪出：增删事件不同步改 counts 就红', () => {
+  it('整份尺子揪出引用名错误：codes 不是代号、rules 引用未登记规则名', () => {
     const sample = makeSample()
-    sample.counts.resident = 1
-    const manifest = parseEventListManifest(sample)
-    const got = checkEventCounts(manifest)
-    assert.equal(got.ok, false)
-    assert.equal(got.problems.length, 1)
-    assert.match(got.problems[0], /resident/)
+    sample.events['log.persist.fail'].codes = ['cwd-hash']
+    sample.events['chain.cache.miss'].rules = ['R_NO_SUCH_RULE']
+    const linted = lintEventList(parseEventListManifest(sample))
+    assert.equal(linted.ok, false)
+    assert.equal(linted.red.length, 2)
+    assert.match(linted.red.join('\n'), /不是合法的散列或截断代号/)
+    assert.match(linted.red.join('\n'), /引用未登记规则名/)
+  })
+
+  it('整份尺子给黄：字段里出现自由文本键（ADR-0006 管这条）', () => {
+    const sample = makeSample()
+    sample.events['chain.cache.miss'].fields = ['keyHash', 'message']
+    const linted = lintEventList(parseEventListManifest(sample))
+    assert.equal(linted.ok, true, '黄不拦')
+    assert.equal(linted.yellow.length, 1)
+    assert.match(linted.yellow[0], /自由文本/)
   })
 
   it('非法形状直接报中文错：级别写错', () => {
@@ -135,11 +222,76 @@ describe('门禁模板：字段白名单与三类计数检查', () => {
     assert.throws(() => parseEventListManifest([]), /只收对象形式/)
   })
 
-  it('宿主入口同样导出检查器：包根可达', () => {
-    assert.equal(typeof host.parseEventListManifest, 'function')
-    assert.equal(typeof host.checkEventFields, 'function')
-    assert.equal(typeof host.checkEventCounts, 'function')
-    assert.deepEqual(checkEventCounts(host.parseEventListManifest(makeSample())), { ok: true, problems: [] })
+  it('宿主入口同样导出新检查器与旧壳：包根可达', () => {
+    for (const name of [
+      'parseEventListManifest',
+      'lintEventFields',
+      'computeEventCounts',
+      'lintEventList',
+      'mergeUpdateEvents',
+      'parseLogRow',
+      'checkEventFields',
+      'checkEventCounts'
+    ]) {
+      assert.equal(typeof host[name], 'function', '包根应导出 ' + name)
+    }
+    assert.equal(host.LOG_ROW_VERSION, 3)
+    assert.deepEqual(host.computeEventCounts(host.parseEventListManifest(makeSample())), {
+      resident: 2,
+      ondemand: 1,
+      selfmon: 1
+    })
+  })
+})
+
+describe('门禁模板：事件表合并与落盘行断言', () => {
+  it('合并：本包有、对方没有的事件补进去，对方的清单标识不变', () => {
+    const merged = mergeUpdateEvents(makeSample(), readUpdateTable())
+    assert.equal(merged.manifest.pluginId, 'my-plugin')
+    assert.ok(merged.added.includes('update.check.done'))
+    assert.ok(merged.merged.includes('host.call'))
+    assert.deepEqual(merged.conflicts, [], '两边声明一致时不该报冲突')
+    // 合并结果自己是合法清单：过一遍解析与尺子。
+    const reparsed = parseEventListManifest(merged.manifest)
+    assert.deepEqual(lintEventList(reparsed).red, [])
+  })
+
+  it('合并：两边都有时字段取并集，级别与归类仍按对方声明', () => {
+    const sample = makeSample()
+    sample.events['update.check.done'] = { level: 'debug', kind: 'ondemand', fields: ['ok', 'extra'] }
+    const merged = mergeUpdateEvents(sample, readUpdateTable())
+    const entry = merged.manifest.events['update.check.done']
+    assert.equal(entry.level, 'debug', '级别按对方')
+    assert.equal(entry.kind, 'ondemand', '归类按对方')
+    assert.deepEqual(entry.fields, ['ok', 'extra', 'current', 'latest', 'channel', 'source', 'latencyMs'])
+    assert.equal(merged.conflicts.length, 1)
+    assert.match(merged.conflicts[0], /update\.check\.done/)
+  })
+
+  it('合并：两份都必须是对象形式（更新包不读盘）', () => {
+    assert.throws(() => mergeUpdateEvents('mine.json', readUpdateTable()), /自己读成对象再传入/)
+    assert.throws(() => mergeUpdateEvents(makeSample(), 'update.json'), /自己读成对象再传入/)
+  })
+
+  it('落盘行断言：v === 3 且恒五键', () => {
+    const row = {
+      v: LOG_ROW_VERSION,
+      ts: '2026-10-14T21:00:00.000Z',
+      level: 'info',
+      event: 'update.check.done',
+      fields: { ok: true, current: '0.15.0' }
+    }
+    assert.equal(parseLogRow(row).v, 3)
+    assert.equal(LOG_ROW_VERSION, 3)
+  })
+
+  it('落盘行断言：版本不是 3、多键、fields 不是对象都报中文错', () => {
+    const base = { v: 3, ts: '2026-10-14T21:00:00.000Z', level: 'info', event: 'update.check.done', fields: {} }
+    assert.throws(() => parseLogRow({ ...base, v: 2 }), /格式版本 v 只认 3/)
+    assert.throws(() => parseLogRow({ ...base, extra: 1 }), /不认识的键 extra/)
+    assert.throws(() => parseLogRow({ ...base, fields: [] }), /fields 必须是对象/)
+    assert.throws(() => parseLogRow({ ...base, level: 'fatal' }), /level 只许/)
+    assert.throws(() => parseLogRow('row.json'), /只收对象/)
   })
 })
 
@@ -157,18 +309,19 @@ describe('门禁模板：双前缀串扰（两家同机不串电话名目录锁�
     rmSync(profileDir, { recursive: true, force: true })
   })
 
-  it('电话名互不相撞：默认 wf 与新前缀拼出的三名字全不同', () => {
+  it('电话名互不相撞：默认 wf 与新前缀拼出的名字全不同', () => {
     const { buildPhoneNames } = host
     const first = buildPhoneNames('wf')
     const second = buildPhoneNames('other')
-    for (const action of ['updateStatus', 'updateCheck', 'updateInstall']) {
+    for (const action of ['updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'logAppend']) {
       assert.notEqual(first[action], second[action])
     }
     assert.deepEqual(first, {
       updateStatus: 'wf.updateStatus',
       updateCheck: 'wf.updateCheck',
       updateInstall: 'wf.updateInstall',
-      updateChangelog: 'wf.updateChangelog'
+      updateChangelog: 'wf.updateChangelog',
+      logAppend: 'wf.logAppend'
     })
   })
 
@@ -201,22 +354,33 @@ describe('门禁模板：双前缀串扰（两家同机不串电话名目录锁�
 })
 
 describe('门禁模板：无新依赖与数组无 shell', () => {
-  it('零运行时依赖：package.json 无 dependencies，包内不引用外部包', async () => {
+  it('唯一运行期依赖是 dsh-log：包内不引用别家外部包，且只有日志内核按需取它', async () => {
     const pkg = JSON.parse(readFileSync(path.join(PKG_DIR, 'package.json'), 'utf8'))
     const deps = pkg.dependencies || {}
-    assert.deepEqual(Object.keys(deps), [])
+    assert.deepEqual(Object.keys(deps), ['dsh-log'], '运行期依赖只有 dsh-log 一个（ADR-0005）')
     const { readdirSync } = await import('node:fs')
     const srcDir = path.join(PKG_DIR, 'src')
-    const files = readdirSync(srcDir).filter((n) => n.endsWith('.ts'))
-    assert.ok(files.includes('gate.ts'))
-    for (const name of files) {
-      const raw = readFileSync(path.join(srcDir, name), 'utf8')
+    // 递归扫：日志内核拆进了 src/log/，只扫顶层会把它漏掉。
+    const walk = (dir) =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+        entry.isDirectory() ? walk(path.join(dir, entry.name)) : [path.join(dir, entry.name)]
+      )
+    const files = walk(srcDir).filter((n) => n.endsWith('.ts'))
+    assert.ok(files.some((n) => n.endsWith(path.join('log', 'registry.ts'))), '日志内核文件在内')
+    for (const file of files) {
+      const rel = path.relative(PKG_DIR, file).split(path.sep).join('/')
+      const raw = readFileSync(file, 'utf8')
       // 去注释后再扫导入，避免注释里的示例命令被误伤。
       const text = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^A-Za-z0-9_$:])\/\/.*$/gm, '$1')
-      for (const m of text.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
-        const spec = m[1]
-        const ok = spec.startsWith('./') || spec.startsWith('../') || spec.startsWith('node:')
-        assert.ok(ok, name + ' 不引用外部包（命中 ' + spec + '）')
+      const specs = [
+        ...[...text.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]),
+        ...[...text.matchAll(/import\s*\(\s*['"]([^'"]+)['"]/g)].map((m) => m[1]),
+      ]
+      for (const spec of specs) {
+        const local = spec.startsWith('./') || spec.startsWith('../') || spec.startsWith('node:')
+        // 唯一例外：日志内核按需动态取 dsh-log（拿不到就降级，不外抛）。
+        const kernelTakesDshLog = rel.startsWith('src/log/') && (spec === 'dsh-log' || spec.startsWith('dsh-log/'))
+        assert.ok(local || kernelTakesDshLog, rel + ' 不引用外部包（命中 ' + spec + '）')
       }
     }
   })

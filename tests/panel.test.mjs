@@ -477,9 +477,9 @@ test('面板轮询口径与宿主侧同一套：下限 250 毫秒', () => {
   assert.throws(() => mountUpdatePanel(fakeContainer(), { pluginId: 'p', pollMs: 1000 }), /call/, '传输函数必填')
 })
 
-test('零运行时依赖：面板不拖 Node 专属能力', () => {
+test('唯一运行期依赖是 dsh-log：面板不拖 Node 专属能力', () => {
   const manifest = JSON.parse(readFileSync(join(PKG_DIR, 'package.json'), 'utf8'))
-  assert.equal(manifest.dependencies, undefined, '运行期依赖应为空')
+  assert.deepEqual(Object.keys(manifest.dependencies || {}), ['dsh-log'], '唯一运行期依赖应是 dsh-log（ADR-0005）')
   const source = readFileSync(join(PKG_DIR, 'src', 'panel.ts'), 'utf8')
   assert.ok(!/from 'node:/.test(source), '面板源码不得出现 node: 导入（浏览器闭包进不去）')
 })

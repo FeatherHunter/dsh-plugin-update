@@ -14,11 +14,13 @@ import type {
   CheckResult,
   EnvironmentView,
   FetchImpl,
+  InstallSource,
   MinimalResponse,
   ReleaseInfo,
   UpdateCore,
   UpdateErrorCode,
   UpdateJob,
+  UpdateLogPort,
   UpdatePorts,
   UpdateSnapshot,
 } from './ports.js'
@@ -31,6 +33,36 @@ export const CONFIRMATION_TTL_MS = 10 * 60_000
 export const RECHECK_WINDOW_MS = 2_000
 export const MAX_METADATA_BYTES = 256 * 1024
 export const INTEGRITY_PATTERN = '^sha512-[A-Za-z0-9+/]{86}==$'
+
+/** 取数阶段（#124）：`update.check.fail.stage` 与 `update.registry.fetch` 的定位用，四个合法值。 */
+type FetchStage = 'fetch' | 'compare' | 'channel' | 'verify'
+
+/**
+ * 给错误贴一个取数阶段（#124）：核心只用它写 `update.check.fail.stage`，不参与归类决策。
+ * 贴不上的按码兜底——`check-failed` 是没连上/没取到（fetch），其余是拿到了但内容或通道不认（verify）。
+ */
+function stageOfError(error: unknown): FetchStage {
+  const stage = (error as { stage?: unknown } | null)?.stage
+  if (stage === 'fetch' || stage === 'compare' || stage === 'channel' || stage === 'verify') return stage
+  return (error as { code?: unknown } | null)?.code === 'check-failed' ? 'fetch' : 'verify'
+}
+
+/** 稳定码（#124）：行里只许稳定码，不许自由文本；没有码就给 `internal`（与 diag 同一口径）。 */
+function stableCodeOf(error: unknown): string {
+  const code = (error as { code?: unknown } | null)?.code
+  return typeof code === 'string' && code ? code : 'internal'
+}
+
+/** HTTP 状态码（#124）：只有取数阶段真的带回来才写，不猜。 */
+function httpStatusOfError(error: unknown): number | null {
+  const status = (error as { httpStatus?: unknown } | null)?.httpStatus
+  return typeof status === 'number' && Number.isInteger(status) ? status : null
+}
+
+/** 安装意图来源（#124）：认不出或没报都按 `panel`（电话的既有调用方是面板）。 */
+function installSourceOf(value: unknown): InstallSource {
+  return value === 'entry' || value === 'batch' ? value : 'panel'
+}
 
 /**
  * 请求编号是否合法（#19 收紧：非空、去空格后 1 到 128 个字符，且为不透明编号形状）。
@@ -259,11 +291,50 @@ function httpStatusOf(response: MinimalResponse | null): number | null {
 }
 
 function checkFailedWithStatus(response: MinimalResponse | null): Error & { code: UpdateErrorCode; httpStatus?: number } {
-  const err = updateError('check-failed') as Error & { code: UpdateErrorCode; httpStatus?: number }
+  const err = updateError('check-failed') as Error & { code: UpdateErrorCode; httpStatus?: number; stage?: FetchStage }
   const status = httpStatusOf(response)
   if (status !== null) err.httpStatus = status
+  // 阶段钉在错误上（#124）：`update.check.fail.stage` 只许四值，取数阶段就是 fetch。
+  err.stage = 'fetch'
   return err
 }
+
+/** 给错误贴阶段（#124，贴不上不改行为）。 */
+function withStage<T extends Error>(error: T, stage: FetchStage): T {
+  try {
+    ;(error as { stage?: FetchStage }).stage = stage
+  } catch {
+    /* 冻结对象等怪情况：贴不上就算了，行里的 stage 按码兜底 */
+  }
+  return error
+}
+/**
+ * 取数打点器（#124）：`update.registry.fetch` 的唯一落点。只记状态码、耗时与白名单主机名，
+ * 不带 URL、不带账号（ADR-0001 规则 3）；没给发射口就什么也不做（默认等于现状）。
+ *
+ * `cacheHit` 这一格不发：本包的缓存命中发生在取数之前（命中就根本不取数，也就不发这行），
+ * 到了取数点就是未命中——发一个恒为 false 的格子只是噪声（接线结论记在事件目录里）。
+ */
+function makeFetchNoter(
+  emitLog: UpdateLogPort | undefined,
+  registryHost: string | null | undefined,
+): (httpStatus: number | null, startedAt: number) => void {
+  const port = typeof emitLog === 'function' ? emitLog : null
+  const host = typeof registryHost === 'string' && registryHost ? registryHost : null
+  if (!port) return () => {}
+  return (httpStatus: number | null, startedAt: number): void => {
+    try {
+      port('info', 'update.registry.fetch', {
+        ...(httpStatus === null ? {} : { httpStatus }),
+        latencyMs: Math.max(0, Date.now() - startedAt),
+        ...(host ? { registryHost: host } : {}),
+      })
+    } catch {
+      /* 记日志绝不挡取数：注入方可能是第三方实现，坏了就当没记 */
+    }
+  }
+}
+
 /**
  * 问官方源的最新版接口，只接受名字对得上、版本号合法正式版、
  * 包地址与完整性校验全合规的返回，否则按版本信息无效处理。
@@ -274,12 +345,22 @@ function checkFailedWithStatus(response: MinimalResponse | null): Error & { code
 export async function fetchNpmRelease(
   fetchImpl: FetchImpl,
   timeoutMs: number = CHECK_TIMEOUT_MS,
-  opts?: { targetPackageName?: string; registryUrl?: string; releaseChannel?: ReleaseChannel },
+  opts?: {
+    targetPackageName?: string
+    registryUrl?: string
+    releaseChannel?: ReleaseChannel
+    /** 日志发射口（#124，可选）：取数这一次的事实（状态码/耗时/白名单主机名）经它出去。 */
+    emitLog?: UpdateLogPort
+    /** 白名单源主机名（#124，可选）：不在白名单即省略该格，绝不落完整 URL。 */
+    registryHost?: string | null
+  },
 ): Promise<ReleaseInfo> {
   const targetName = opts?.targetPackageName ?? PACKAGE_NAME
   const registry = opts?.registryUrl ?? NPM_REGISTRY
   const channel: ReleaseChannel = opts?.releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
+  const noteFetch = makeFetchNoter(opts?.emitLog, opts?.registryHost)
   let response: MinimalResponse | null = null
+  const startedAt = Date.now()
   try {
     response = await fetchImpl(`${registry}${encodeURIComponent(targetName)}/latest`, {
       headers: { accept: 'application/json' },
@@ -287,8 +368,10 @@ export async function fetchNpmRelease(
       signal: timeoutSignal(timeoutMs),
     })
   } catch {
+    noteFetch(null, startedAt)
     throw updateError('check-failed')
   }
+  noteFetch(httpStatusOf(response), startedAt)
   try {
     if (!response.ok) throw checkFailedWithStatus(response)
     const declared = Number(response.headers.get('content-length'))
@@ -301,7 +384,11 @@ export async function fetchNpmRelease(
       engines?: { node?: unknown }
       dist?: { tarball?: unknown; integrity?: unknown }
     }
-    if (value.name !== targetName || !isVersionAllowedInChannel(value.version, channel)) throw updateError('invalid-release')
+    if (value.name !== targetName) throw updateError('invalid-release')
+    // 通道门单独贴 stage（#124）：远端版本不被本通道接受，是「通道判定」不是「版本信息坏掉」。
+    if (!isVersionAllowedInChannel(value.version, channel)) {
+      throw withStage(updateError('invalid-release'), 'channel')
+    }
     const version = value.version
     const nodeRange = value.engines?.node
     if (nodeRange !== undefined && typeof nodeRange !== 'string') throw updateError('invalid-release')
@@ -346,16 +433,27 @@ export async function fetchNpmRelease(
 export async function fetchNpmVersionRelease(
   fetchImpl: FetchImpl,
   timeoutMs: number = CHECK_TIMEOUT_MS,
-  opts: { targetPackageName?: string; registryUrl?: string; releaseChannel?: ReleaseChannel; version: string },
+  opts: {
+    targetPackageName?: string
+    registryUrl?: string
+    releaseChannel?: ReleaseChannel
+    version: string
+    /** 日志发射口（#124，可选）：与 fetchNpmRelease 同一格取数事实（更新日志电话取版本文档时也走这里）。 */
+    emitLog?: UpdateLogPort
+    /** 白名单源主机名（#124，可选）：不在白名单即省略，绝不落完整 URL。 */
+    registryHost?: string | null
+  },
 ): Promise<ReleaseInfo> {
   const targetName = opts?.targetPackageName ?? PACKAGE_NAME
   const registry = opts?.registryUrl ?? NPM_REGISTRY
   const channel: ReleaseChannel = opts?.releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
   const version = opts?.version
+  const noteFetch = makeFetchNoter(opts?.emitLog, opts?.registryHost)
   if (typeof version !== 'string' || !validReleaseVersion(version) || !isVersionAllowedInChannel(version, channel)) {
-    throw updateError('invalid-release')
+    throw withStage(updateError('invalid-release'), 'channel')
   }
   let response: MinimalResponse | null = null
+  const startedAt = Date.now()
   try {
     response = await fetchImpl(`${registry}${encodeURIComponent(targetName)}/${encodeURIComponent(version)}`, {
       headers: { accept: 'application/json' },
@@ -363,8 +461,10 @@ export async function fetchNpmVersionRelease(
       signal: timeoutSignal(timeoutMs),
     })
   } catch {
+    noteFetch(null, startedAt)
     throw updateError('check-failed')
   }
+  noteFetch(httpStatusOf(response), startedAt)
   try {
     if (!response.ok) throw checkFailedWithStatus(response)
     const declared = Number(response.headers.get('content-length'))
@@ -377,8 +477,10 @@ export async function fetchNpmVersionRelease(
       engines?: { node?: unknown }
       dist?: { tarball?: unknown; integrity?: unknown }
     }
-    if (value.name !== targetName || value.version !== version || !isVersionAllowedInChannel(value.version, channel)) {
-      throw updateError('invalid-release')
+    if (value.name !== targetName || value.version !== version) throw updateError('invalid-release')
+    // 通道门单独贴 stage（#124）：与 fetchNpmRelease 同一口径。
+    if (!isVersionAllowedInChannel(value.version, channel)) {
+      throw withStage(updateError('invalid-release'), 'channel')
     }
     const nodeRange = value.engines?.node
     if (nodeRange !== undefined && typeof nodeRange !== 'string') throw updateError('invalid-release')
@@ -427,8 +529,28 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
   const targetPackageName = ports.targetPackageName ?? PACKAGE_NAME
   const registryUrl = ports.registryUrl ?? NPM_REGISTRY
   const releaseChannel: ReleaseChannel = ports.releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
+  // 日志发射口（#124）：中立文件不 import node，发射函数由建口人**绑好插件标识**后注入；
+  // 不注入即不记——默认等于现状，老调用一字不动。行的四纪律（脱敏/白名单/准入/预算）都在发射口里。
+  const logPort: UpdateLogPort | null = typeof ports.emitLog === 'function' ? ports.emitLog : null
+  // 白名单源主机名（#124）：同样由 Node 侧解析后注入，不在白名单即省略该格（省略本身即信息）。
+  const registryHost = typeof ports.registryHost === 'string' && ports.registryHost ? ports.registryHost : null
+  /** 行只从唯一发射口出；发射口坏了也绝不挡检查与安装（注入方可能是第三方实现）。 */
+  function emit(level: string, event: string, fields: Record<string, unknown>, opts?: { always?: boolean }): void {
+    if (!logPort) return
+    try {
+      logPort(level, event, fields, opts)
+    } catch {
+      /* 记日志绝不挡功能 */
+    }
+  }
   function fetchRelease(): Promise<ReleaseInfo> {
-    return fetchNpmRelease(ports.fetchImpl, checkTimeoutMs, { targetPackageName, registryUrl, releaseChannel })
+    return fetchNpmRelease(ports.fetchImpl, checkTimeoutMs, {
+      targetPackageName,
+      registryUrl,
+      releaseChannel,
+      emitLog: logPort ?? undefined,
+      registryHost,
+    })
   }
   let checked: CheckedState | null = null
   let checking: Promise<CheckResult> | null = null
@@ -512,7 +634,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
         checked?.installationKey === env.installationKey &&
         newer,
     )
-    return {
+    const snapshot: UpdateSnapshot = {
       runningVersion,
       installedVersion: env.installedVersion ?? null,
       latestVersion: checked?.release.version ?? null,
@@ -520,6 +642,53 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       blockedReason,
       job,
     }
+    // 主状态边沿（#124）：快照每次算出来都对一次账，只有真的变了才落一行。
+    noteStatusChanged(snapshot)
+    return snapshot
+  }
+
+  /** 主状态三值（#124）：与快照「有没有新版」同一判据，不许出现第二套口径。 */
+  function statusKindOf(snapshot: UpdateSnapshot): 'update-available' | 'up-to-date' | 'unknown' {
+    if (!snapshot.latestVersion) return 'unknown'
+    try {
+      const newer =
+        isVersionAllowedInChannel(snapshot.runningVersion, releaseChannel) &&
+        isVersionAllowedInChannel(snapshot.latestVersion, releaseChannel) &&
+        compareReleaseVersions(snapshot.latestVersion, snapshot.runningVersion) === 1
+      return newer ? 'update-available' : 'up-to-date'
+    } catch {
+      return 'unknown'
+    }
+  }
+  let lastStatusKind: string | null = null
+  /**
+   * `update.status.changed` 的唯一落点（#124）：常驻行的铁律是边沿触发，所以状态没变就一条不发；
+   * 变了就强制落（`always`）——发射口的去重记忆按事件名走，多插件同进程会互相压，本处自己把关。
+   */
+  function noteStatusChanged(snapshot: UpdateSnapshot): void {
+    const kind = statusKindOf(snapshot)
+    if (kind === lastStatusKind) return
+    lastStatusKind = kind
+    emit(
+      'info',
+      'update.status.changed',
+      { kind, ...(snapshot.latestVersion ? { latest: snapshot.latestVersion } : {}) },
+      { always: true },
+    )
+  }
+
+  /**
+   * 通道判定（#124）：一次成功检查落一行。四值是相互排斥的判定结果，不是自由文本：
+   * 版本形状都不像版本 → `invalid`；形状像但有一条不被本通道接受 → `mismatch`；都收 → 本通道名。
+   */
+  function noteChannelDecision(current: string, latest: string): void {
+    const shapeOk = validVersion(current) && validVersion(latest)
+    let reason: 'stable' | 'prerelease' | 'mismatch' | 'invalid'
+    if (!shapeOk) reason = 'invalid'
+    else if (!isVersionAllowedInChannel(current, releaseChannel) || !isVersionAllowedInChannel(latest, releaseChannel)) {
+      reason = 'mismatch'
+    } else reason = releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
+    emit('info', 'update.channel.decide', { channel: releaseChannel, reason, from: current, to: latest })
   }
 
   function jobsEqual(a: UpdateJob | null, b: UpdateJob | null): boolean {

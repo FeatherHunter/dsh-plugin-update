@@ -17,21 +17,23 @@
 // 与错误架构子地图的分工：回包形状由子地图定，本组件只承诺“有、够、已脱敏”——
 // 平时一句话、旁边常驻复制诊断；复制文本经 redactForCopy 收干净后再交出去。
 
-import { buildChangelogPhoneName, buildPhoneNames, DEFAULT_PANEL_POLL_MS, MIN_PANEL_POLL_MS } from './config.js'
+import { buildChangelogPhoneName, buildLogAppendPhoneName, buildPhoneNames, DEFAULT_PANEL_POLL_MS, MIN_PANEL_POLL_MS } from './config.js'
 import { COPY_BUDGET_CHARS, sanitizeForCopy } from './redaction.js'
 import { compareReleaseVersions, validReleaseVersion } from './service.js'
 import {
   changelogForUpdate,
-  parseChangelog,
+  parseChangelogReport,
   renderChangelogHTML,
   shouldFetchChangelog,
+  truncationNoteHTML,
   yankedBannerHTML,
 } from './changelog.js'
 import { visibleQueueFor, type UpdateQueueState, type VisibleQueue } from './queue.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } from './log-events.js'
+import { createClientLogChannel, type ClientLogChannel, type ClientLogEvent } from './log/client-queue.js'
 import type { BlockedReason, UpdateSnapshot } from './ports.js'
 import { copyText, type BilingualKey } from './bilingual.js'
-import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
+import { langSignalSource, normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
 
 // ---------- 公开类型（完整类型定义：公开入口一律有类型，不做源码级复用） ----------
 
@@ -185,6 +187,14 @@ export type UpdatePanelCall = (
 /** 复制文本的出口：不传即尝试浏览器剪贴板，都没有则只留“已生成、请手动复制”提示。 */
 export type UpdatePanelCopyText = (text: string) => void | Promise<void>
 
+/**
+ * 更新日志里链接（`[文本](https://…)`／裸 URL）的落地（#111 定稿）：
+ * 不传即 `window.open(url, "_blank", "noopener,noreferrer")`——桌面宿主把新窗口交给系统浏览器，
+ * web 宿主开新标签页；面板正文**永不被导航走**（渲染的锚恒带 `target="_blank"`）。
+ * 传了就交给调用方（想走自己的外链/内嵌浏览器都行）；抛错只吞，不挡更新。
+ */
+export type UpdatePanelOpenLink = (url: string) => void | Promise<void>
+
 /** 面板可点的动作（与 HTML 里 data-action 一一对应，测试走同一条路）。 */
 export type UpdatePanelActionKind =
   | 'check'
@@ -198,6 +208,19 @@ export type UpdatePanelActionKind =
   | 'restart-hint'
   | 'close-view'
   | 'dismiss-failure'
+
+/**
+ * 客户端日志选项（#122）：
+ * - 不传：面板按 `pluginId` / `prefix` / `call` 自建一条通道（宿主有 `<prefix>.logAppend` 电话就落盘；
+ *   老宿主或 HTTP 网关没这条路由时静默降级，只记账不外抛）。
+ * - 传 `{ channel }`：用调用方的通道（面板不碰它的生命周期，调用方自己 dispose）；
+ *   `{ channel: null }` 即彻底关掉客户端日志（一行都不发）。
+ * - `mount`：挂载点名字，写进 `update.panel.mount` 的 `mode` 字段（入口件 / HTTP 直挂 / 批量面板各报各的）。
+ */
+export interface UpdatePanelClientLogOptions {
+  channel?: ClientLogChannel | null
+  mount?: string
+}
 
 export interface UpdatePanelOptions {
   /** 插件标识：必填，与宿主侧 createHostUpdate 传的 pluginId 一致。 */
@@ -219,6 +242,13 @@ export interface UpdatePanelOptions {
   /** 与宿主通话的函数（面板侧唯一的宿主接触面）。 */
   call: UpdatePanelCall
   copyText?: UpdatePanelCopyText
+  /**
+   * 客户端日志（#122）：不传即自建（宿主有 `<prefix>.logAppend` 就落盘）；`{ channel: null }` 即关掉。
+   * 客户端事件只有五个：mount / action / render.fail（常驻）与 state / lang.applied（按需）。
+   */
+  clientLog?: UpdatePanelClientLogOptions | null
+  /** 日志链接的落地（可选）：不传即开新窗口（桌面宿主交系统浏览器）；见 UpdatePanelOpenLink。 */
+  openLink?: UpdatePanelOpenLink
   skipStore?: PanelSkipStore
   /** 宿主种类（调用方知道就传进诊断文本；不传就用宿主 includeEnv 回的宿主种类，再没有显示“未知”）。 */
   hostKind?: string | null
@@ -1060,7 +1090,26 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-changelog-security-more{margin:4px 0 6px}',
   '.dsh-upd-changelog-security-more>summary{cursor:pointer;font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.8}',
   '.dsh-upd-changelog-more-note{font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.7;margin:2px 0 4px}',
+  // 文档级截断说明（0.16.0）：切掉多少写在日志块头上，不再静默丢字。
+  '.dsh-upd-changelog-truncnote{font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.8;border-left:3px solid var(--dsh-update-border,#d1d5db);padding:2px 0 2px 8px;margin:4px 0 6px}',
   '.dsh-upd-changelog-neutral{color:inherit;opacity:.8}',
+  // —— 日志行内 Markdown（#110 取样：行内代码 4914 处/81 份是主力，粗体 4742/26，链接 6286+裸 URL 6671）——
+  // 只上最小可用样式：颜色/底色一律走现有 token（第三方 themeTokens 覆盖即生效），不新增配色体系。
+  '.dsh-upd-md-code{font-family:var(--dsh-update-font-mono,Consolas,Menlo,monospace);font-size:.92em;background:var(--dsh-update-bg-soft,#f3f4f6);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:3px;padding:0 3px;word-break:break-word}',
+  '.dsh-upd-md-link{color:var(--dsh-update-primary,#2563eb);text-decoration:underline;text-underline-offset:2px;cursor:pointer;word-break:break-all}',
+  '.dsh-upd-md-del{opacity:.7}',
+  '.dsh-upd-md-img{display:inline-block;max-width:100%;border:1px dashed var(--dsh-update-border,#d1d5db);border-radius:3px;padding:0 4px;font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.85;word-break:break-all}',
+  // —— 日志块级 Markdown（嵌套子条目 / 引用块 / 围栏代码块 / 续行段落，见 #116 返工后的解析层）——
+  // 面板正文只有 400–460px 宽：代码块横向滚动而不是撑破面板，列表缩进收紧，引用块只留一条左边线。
+  '.dsh-upd-md-pre{margin:6px 0;padding:7px 9px;max-width:100%;overflow-x:auto;background:var(--dsh-update-bg-soft,#f3f4f6);border:1px solid var(--dsh-update-border,#e5e7eb);border-radius:4px}',
+  '.dsh-upd-md-precode{display:block;font-family:var(--dsh-update-font-mono,Consolas,Menlo,monospace);font-size:.9em;white-space:pre;background:none;border:0;padding:0}',
+  '.dsh-upd-md-quote{margin:6px 0;padding:1px 0 1px 9px;border-left:3px solid var(--dsh-update-border,#d1d5db);color:var(--dsh-update-text-muted,#4b5563)}',
+  '.dsh-upd-md-list{margin:4px 0;padding-left:18px;list-style:disc}',
+  '.dsh-upd-md-list-ol{margin:4px 0;padding-left:20px;list-style:decimal}',
+  '.dsh-upd-md-list li,.dsh-upd-md-list-ol li{margin:2px 0}',
+  '.dsh-upd-md-para{margin:4px 0}',
+  // 分隔线（`---`／`***`）：作者拿它切版本或小节，别让它以字面 `---` 混在正文里（jimp 类日志常见）。
+  '.dsh-upd-md-hr{margin:8px 0;border:0;border-top:1px solid var(--dsh-update-border,#e5e7eb)}',
   '.dsh-upd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}',
   '.dsh-upd-overlay .dsh-upd{background:var(--dsh-update-bg,#ffffff);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}',
   // —— 弹窗高度让渡契约（#93，headless 量盒子实测）——
@@ -1294,6 +1343,8 @@ export const UPDATE_PANEL_ARCHIVE_CSS = [
   // footer 只换肤（#47 定案 A + Archive 约束：不换 DOM 顺序；复制诊断永不隐藏，本串不动它）。
   '.dsh-upd[data-theme="archive"] .dsh-upd-footer{margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-foot-note{color:var(--dsh-update-text-muted)}',
+  // footer 关闭幽灵统一（#108：与 actions 非主按钮同口径——缺覆盖吃到底层 button-bg 灰填充；只给透明底，沿用 border-strong/text 纸墨，不独立设色；字号/内边距跟 footer 现状走）。
+  '.dsh-upd[data-theme="archive"] .dsh-upd-footer button{background:transparent}',
   // —— 档案头（原型 :208-211 `.filehead`：serif 插件名 22px + 使用范围 + profile 牌；右侧留章位）——
   '.dsh-upd[data-theme="archive"] .dsh-upd-head{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;padding-right:120px}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-name{font-family:var(--dsh-update-font-serif);font-size:22px;font-weight:700}',
@@ -1348,12 +1399,28 @@ export const UPDATE_PANEL_ARCHIVE_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-changelog ul{margin:6px 0 0 2px;padding-left:18px;font-size:var(--dsh-update-panel-log-font-size,13.5px)}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-changelog li{margin:3px 0}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-catname{display:none}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-cat[data-cat="Added"] ul li::before{content:"Added · ";color:var(--dsh-update-primary);font-weight:700}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-cat[data-cat="Fixed"] ul li::before{content:"Fixed · ";color:var(--dsh-update-primary);font-weight:700}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-cat[data-cat="Changed"] ul li::before{content:"Changed · ";color:var(--dsh-update-primary);font-weight:700}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-cat[data-cat="Security"] ul li::before{content:"Security · ";color:var(--dsh-update-primary);font-weight:700}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-fold[data-cat="Deprecated"] ul li::before{content:"Deprecated · ";color:var(--dsh-update-text-muted);font-weight:700}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-fold[data-cat="Removed"] ul li::before{content:"Removed · ";color:var(--dsh-update-text-muted);font-weight:700}',
+  // 作者自定义小节（data-cat="other"）：档案卷没有「类名前缀」可补，标题必须自己显示出来，
+  // 否则整段内容会变成没有出处的一堆条目（六类之外唯一需要露出标题的分支）。
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-cat[data-cat="other"] .dsh-upd-changelog-catname{display:block;font-size:var(--dsh-update-panel-small-font-size,12.5px);color:var(--dsh-update-primary);font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-truncnote{border-left-color:var(--dsh-update-border-strong);opacity:1;color:var(--dsh-update-text-muted)}',
+  // 前缀只给「正文自己没写类名」的顶层**散文**条目：嵌套子列表（.dsh-upd-md-list）的 li 不是 cat 的直接子级，
+  // 正文已写 `**Added** · …` 的条目标了 data-cat-lead、整条是代码块/引用块的标了 data-cat-block（见 renderChangelogItem）
+  //——否则会出现「Added · Added · …」，或在代码块前挂一个孤零零的「Added ·」。
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-cat[data-cat="Added"]>ul>li:not([data-cat-lead]):not([data-cat-block])::before{content:"Added · ";color:var(--dsh-update-primary);font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-cat[data-cat="Fixed"]>ul>li:not([data-cat-lead]):not([data-cat-block])::before{content:"Fixed · ";color:var(--dsh-update-primary);font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-cat[data-cat="Changed"]>ul>li:not([data-cat-lead]):not([data-cat-block])::before{content:"Changed · ";color:var(--dsh-update-primary);font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-cat[data-cat="Security"]>ul>li:not([data-cat-lead]):not([data-cat-block])::before{content:"Security · ";color:var(--dsh-update-primary);font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-fold[data-cat="Deprecated"]>ul>li:not([data-cat-lead]):not([data-cat-block])::before{content:"Deprecated · ";color:var(--dsh-update-text-muted);font-weight:700}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-changelog-fold[data-cat="Removed"]>ul>li:not([data-cat-lead]):not([data-cat-block])::before{content:"Removed · ";color:var(--dsh-update-text-muted);font-weight:700}',
+  // —— 档案卷：行内 Markdown 只换肤（纸色底、朱红链接、去掉下划线改细底线，贴原型 .logver 的手记感）——
+  '.dsh-upd[data-theme="archive"] .dsh-upd-md-code{background:var(--dsh-update-bg-soft);border-color:var(--dsh-update-border);color:var(--dsh-update-primary-deep);border-radius:2px;padding:0 3px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-md-link{color:var(--dsh-update-primary);text-decoration:none;border-bottom:1px solid currentColor}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-md-img{border-color:var(--dsh-update-border-strong);color:var(--dsh-update-text-muted)}',
+  // —— 档案卷：块级 Markdown 同样只换肤（纸色代码块、墨色引用边线、列表缩进收紧）——
+  '.dsh-upd[data-theme="archive"] .dsh-upd-md-pre{background:var(--dsh-update-bg-soft);border-color:var(--dsh-update-border);border-radius:2px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-md-quote{border-left-color:var(--dsh-update-border-strong);color:var(--dsh-update-text-muted)}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-md-list,.dsh-upd[data-theme="archive"] .dsh-upd-md-list-ol{padding-left:16px}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-md-hr{border-top-color:var(--dsh-update-border-strong)}',
   '@media (max-width:640px){.dsh-upd[data-theme="archive"]{padding:10px 12px}.dsh-upd[data-theme="archive"]::before{top:12px;right:12px;width:56px;height:56px;font-size:15px;box-shadow:inset 0 0 0 4px var(--dsh-update-bg),inset 0 0 0 5px currentColor}.dsh-upd[data-theme="archive"] .dsh-upd-masthead-title{font-size:19px}.dsh-upd[data-theme="archive"] .dsh-upd-banner{padding-right:16px}.dsh-upd[data-theme="archive"] .dsh-upd-banner .dsh-upd-sealmini{min-width:28px;height:28px;font-size:14px;line-height:20px}.dsh-upd[data-theme="archive"] .dsh-upd-banner>div:first-child{white-space:normal}}',
   '@media (prefers-color-scheme: dark){.dsh-upd[data-theme="archive"]{--dsh-update-bg-soft:#141210;--dsh-update-bg:#1e1a15;--dsh-update-text:#ece5d3;--dsh-update-text-muted:#a89c83;',
   '--dsh-update-border:#3a3226;--dsh-update-border-strong:#5c4e3b;--dsh-update-primary:#e0684e;--dsh-update-primary-deep:#f0866b;',
@@ -1614,7 +1681,8 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
     if (snapshot && snapshot.latestVersion) {
       try {
         const mdText = typeof changelogMarkdown === 'string' ? changelogMarkdown : ''
-        const entries = parseChangelog(mdText)
+        const report = parseChangelogReport(mdText)
+        const entries = report.entries
         const ranged = changelogForUpdate(
           entries,
           snapshot.runningVersion,
@@ -1624,10 +1692,10 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         // 有文本但一个版本节都读不出：诚实说读不出来，不说"未提供"。
         // 空文本仍走"未提供"；有解析节但区间外仍走旧中性（区间外是另一回事，不在此改）。
         if (ranged.length === 0 && mdText.trim() && entries.length === 0) {
-          inner = `<div class="dsh-upd-changelog-wrap"><div class="dsh-upd-changelog-neutral">${escapeHtml(copyText('panel.changelog.unavailable', l))}</div></div>`
+          inner = `<div class="dsh-upd-changelog-wrap"><div class="dsh-upd-changelog-neutral">${escapeHtml(copyText('panel.changelog.unavailable', l))}</div>${truncationNoteHTML(report.truncation, l)}</div>`
           hasLog = false
         } else {
-          const changelogHTML = renderChangelogHTML(ranged, { lang: l })
+          const changelogHTML = renderChangelogHTML(ranged, { lang: l, truncated: report.truncation })
           const fromText = String(snapshot.runningVersion ?? '')
           const toText = String(snapshot.latestVersion ?? '')
           const rangeTitle =
@@ -1918,6 +1986,22 @@ function getTimer(): { set(fn: () => void, ms: number): unknown; clear(handle: u
   }
 }
 
+/**
+ * 日志链接缺省落地：开新窗口。用 `noopener,noreferrer` 且**不带** `location` 回退——
+ * 拿不到 `window.open` 时宁可不跳，也绝不把宿主面板导航走（面板是宿主页面的一部分）。
+ */
+function defaultOpenLink(url: string): void {
+  try {
+    if (!/^https?:\/\//i.test(String(url || ''))) return
+    const g = globalThis as Record<string, unknown>
+    const w = g['window'] as { open?: (u: string, t?: string, f?: string) => unknown } | undefined
+    const open = w && typeof w.open === 'function' ? w.open : null
+    if (open && w) open.call(w, url, '_blank', 'noopener,noreferrer')
+  } catch {
+    // 开窗失败不挡更新，也不改当前页地址。
+  }
+}
+
 async function defaultCopyText(text: string): Promise<void> {
   try {
     const holder = (globalThis as Record<string, unknown>)['navigator'] as
@@ -1959,22 +2043,61 @@ export function pendingAutoCheck(
  * ```
  */
 export function mountUpdatePanel(container: UpdatePanelContainer, options: UpdatePanelOptions): UpdatePanelController {
+  // 客户端日志（#122）：先把调用方给的通道读出来 —— 这样「挂载校验失败」也能如实记一行
+  // （自建通道要等 call 校验过才建得起来：没有传输就没有地方可报）。
+  const logOptionRead =
+    options && typeof options === 'object' ? (options as { clientLog?: UpdatePanelClientLogOptions | null }).clientLog : undefined
+  const clientLogDisabled = logOptionRead === null
+  const clientLogMountName =
+    logOptionRead && typeof logOptionRead === 'object' && typeof logOptionRead.mount === 'string' && logOptionRead.mount
+      ? logOptionRead.mount
+      : ''
+  let clientLog: ClientLogChannel | null =
+    logOptionRead && typeof logOptionRead === 'object' && logOptionRead.channel ? logOptionRead.channel : null
+  let clientLogOwned = false
+  /** 客户端行出口：没有通道就什么都不做（每一处调用点都不必自己判空）。 */
+  function logClient(level: string, event: ClientLogEvent, fields: Record<string, unknown>): void {
+    const channel = clientLog
+    if (!channel) return
+    try {
+      channel.emit(level, event, fields)
+    } catch {
+      // 报日志永不外抛：日志坏了不挡面板。
+    }
+  }
+  function logMountFailure(kind: string): void {
+    logClient('error', 'update.panel.render.fail', { kind })
+  }
   if (!container || typeof container.innerHTML !== 'string') {
+    logMountFailure('container')
     throw new Error('[dsh-plugin-update] 挂载面板需要一个有 innerHTML 的容器')
   }
   if (!options || typeof options !== 'object') {
+    logMountFailure('plugin-id')
     throw new Error('[dsh-plugin-update] 挂载面板缺少配置：插件标识 pluginId 必填')
   }
   const pluginId = options.pluginId
   if (typeof pluginId !== 'string' || !pluginId) {
+    logMountFailure('plugin-id')
     throw new Error(`[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ${JSON.stringify(pluginId)}）`)
   }
   if (typeof options.call !== 'function') {
+    logMountFailure('call')
     throw new Error('[dsh-plugin-update] 挂载面板需要传输函数 call（面板调宿主电话的唯一接触面）')
   }
   const prefix = options.prefix === undefined ? 'wf' : options.prefix
   const phoneNames = buildPhoneNames(prefix)
   const changelogPhone = buildChangelogPhoneName(prefix)
+  // 自建通道（调用方没给、也没明确关掉时）：电话名只从前缀派生，缺 `<prefix>.logAppend` 的老宿主
+  // 会在投递时失败 —— 通道自己退避重试后丢弃计数，一个异常都不往上冒。
+  if (!clientLog && !clientLogDisabled) {
+    try {
+      clientLog = createClientLogChannel({ call: options.call, phoneName: buildLogAppendPhoneName(prefix) })
+      clientLogOwned = true
+    } catch {
+      clientLog = null
+    }
+  }
   // 自动日志（#38）：默认开；显式传过 changelogMarkdown 或显式关即退回手动。
   const autoChangelogEnabled = typeof options.changelogMarkdown !== 'string' && options.autoChangelog !== false
   let manualChangelogOverride = typeof options.changelogMarkdown === 'string'
@@ -1988,16 +2111,21 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   const pollMs =
     options.pollMs === undefined ? DEFAULT_PANEL_POLL_MS : options.pollMs
   if (typeof pollMs !== 'number' || !Number.isFinite(pollMs) || pollMs < MIN_PANEL_POLL_MS) {
+    logMountFailure('poll-ms')
     throw new Error(`[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ${JSON.stringify(options.pollMs)}）`)
   }
   let mode: UpdatePanelMode = options.mode ?? 'embedded'
   if (mode !== 'embedded' && mode !== 'dialog') {
+    logMountFailure('mode')
     throw new Error(`[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ${JSON.stringify(options.mode)}）`)
   }
   if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive') {
+    logMountFailure('theme')
     throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ${JSON.stringify(options.theme)}）`)
   }
   let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
+  // 主题是调用方点名的还是我们兜到默认的：写进 update.panel.state 的 fallback（面板自己不让主题退回，这是唯一口径）。
+  const themeExplicit = options.theme !== undefined
   // 主题变量覆盖：挂载时校验（非法即抛，与 theme 同口径）；合法存下，每次 render 拼到根上。
   themeTokensStyleFor(options.themeTokens ?? undefined)
   let themeTokens: UpdateThemeTokens | undefined = options.themeTokens
@@ -2015,6 +2143,52 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   function currentLang(): AppLang {
     return resolveLang(localeOpt)
   }
+  /** 语言行（按需）：语言真的变了才发（挂载时发首次）；source 与 resolveLang 同一份判据。 */
+  let loggedLang: AppLang | null = null
+  function logLangApplied(): void {
+    const lang = currentLang()
+    if (lang === loggedLang) return
+    loggedLang = lang
+    logClient('info', 'update.lang.applied', { lang, source: langSignalSource(localeOpt) })
+  }
+  /**
+   * 状态行（按需）：状态 / 主题 / 主题变量条数 / 是否兜默认 里任一项变了才发（轮询每秒重算也不会灌满）。
+   * `fallback` 的口径：调用方没点名主题、面板兜到默认即 true（面板对非法主题是「当场抛」，没有静默退回）。
+   */
+  let loggedState = ''
+  /** copy-diag 动作行专用的两个数：-1 表示这次动作没复制诊断。 */
+  let actionBytes = -1
+  let actionTruncated = false
+  /** UTF-8 字节数（不依赖 TextEncoder：面板侧只许引无 node: 的纯代码）。 */
+  function utf8ByteLength(text: string): number {
+    let bytes = 0
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i)
+      if (code < 0x80) bytes += 1
+      else if (code < 0x800) bytes += 2
+      else if (code >= 0xd800 && code <= 0xdbff && i + 1 < text.length) {
+        bytes += 4
+        i++
+      } else bytes += 3
+    }
+    return bytes
+  }
+  function logPanelState(): void {
+    const state = busyAct ? 'busy' : latch || snapshot?.job?.state === 'failed' ? 'error' : 'ready'
+    let tokensApplied = 0
+    if (themeTokens) {
+      for (const key of Object.keys(themeTokens)) {
+        if ((themeTokens as Record<string, unknown>)[key] !== undefined) tokensApplied++
+      }
+    }
+    const key = `${state}|${theme}|${tokensApplied}|${themeExplicit ? 'x' : 'd'}`
+    if (key === loggedState) return
+    loggedState = key
+    logClient('info', 'update.panel.state', { state, theme, tokensApplied, fallback: !themeExplicit })
+  }
+  // 挂载行（常驻）：一次挂载一条；挂载点名字由入口件 / HTTP 直挂 / 批量面板传进来，缺省即摆放形态。
+  logClient('info', 'update.panel.mount', { mode: clientLogMountName || mode, theme, lang: currentLang(), pollMs })
+  logLangApplied()
   let showOthers = options.showOthers === true
   // 更新日志折叠（视图态：只影响 02 章展示，不调电话；换肤/轮询不丢）。
   let changelogCollapsed = false
@@ -2024,6 +2198,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   // 上次落盘的 HTML：逐字相同即跳过赋值（闪烁根治的比较基线）。
   let lastHTML = ''
   const copyTextOut = options.copyText ?? defaultCopyText
+  const openLinkOut = options.openLink ?? defaultOpenLink
   const skipStore = options.skipStore ?? createBrowserSkipStore(pluginId)
   const hostKind = typeof options.hostKind === 'string' && options.hostKind ? options.hostKind : null
   // 使用范围（profile）：宿主经 includeEnv 回真值，调用方也能显式覆盖。
@@ -2317,6 +2492,16 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
 
   function render(): void {
     if (!mounted) return
+    // 渲染期兜底（#122 清单里的 kind:'unknown'）：渲染坏了如实记一行，别把轮询计时器带崩。
+    try {
+      paint()
+    } catch {
+      logClient('error', 'update.panel.render.fail', { kind: 'unknown' })
+    }
+  }
+
+  /** 真正的渲染体（原来就叫 render；#122 加兜底后拆成「壳 + 体」，逻辑一字不动）。 */
+  function paint(): void {
     // Toast 过期（#37）：transient 提示只活 5 秒；戳在赋值点打（sayCopy），轮询重绘不续命。
     // busy 在途提示由 finally 清，这里只管过期。
     if (!copyNotice) noticeExpiresAt = 0
@@ -2358,6 +2543,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       lastHTML = nextHTML
       setStableHTML(container, nextHTML)
     }
+    // 状态行（按需）：画完再算 —— 状态行是给第三方看「面板此刻什么状态」的，不是渲染输入。
+    logPanelState()
   }
 
   function applyStatusReply(reply: Record<string, unknown>, via: 'refresh' | 'check' | 'install'): void {
@@ -2501,6 +2688,21 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
 
   async function act(kind: UpdatePanelActionKind, arg?: string): Promise<void> {
     if (!mounted) return
+    // 动作行（常驻）：用户每点一下记一条，含提前 return 的分支；bytes/truncated 只由 copy-diag 那段回填。
+    actionBytes = -1
+    actionTruncated = false
+    try {
+      await runAction(kind, arg)
+    } finally {
+      logClient('info', 'update.panel.action', {
+        action: kind,
+        ...(actionBytes >= 0 ? { bytes: actionBytes, truncated: actionTruncated } : {}),
+      })
+    }
+  }
+
+  /** 原来的动作分发体（#122 加动作行后拆成「壳 + 体」，逻辑一字不动）。 */
+  async function runAction(kind: UpdatePanelActionKind, arg?: string): Promise<void> {
     copyNotice = null
     switch (kind) {
       case 'check': {
@@ -2654,6 +2856,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
             `来源：${envBits.join(' · ')}`,
           ].map((s) => redactForCopy(s))
           const text = diagCopyFormat === 'line' ? segs.join(' · ') : segs.join('\n')
+          actionBytes = utf8ByteLength(text)
+          actionTruncated = text.length >= PANEL_DIAG_MAX_CHARS
           try {
             await copyTextOut(text)
             sayCopyKey('panel.toast.copy-state-ok')
@@ -2690,6 +2894,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           format: diagCopyFormat,
           lang: currentLang(),
         })
+        actionBytes = utf8ByteLength(text)
+        actionTruncated = text.length >= PANEL_DIAG_MAX_CHARS
         try {
           await copyTextOut(text)
           sayCopyKey('panel.toast.copy-diag-ok')
@@ -2775,6 +2981,20 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     try {
       const t = ev as {
         target?: { closest?: (sel: string) => { getAttribute?: (n: string) => string | null } | null } | null
+        preventDefault?: () => void
+      }
+      // 日志里的链接先于动作分支：渲染期只认 http/https，这里再筛一次（纵深防御），
+      // 落地走 options.openLink，缺省开新窗口——面板正文永不被导航走。
+      const anchor = t?.target && typeof t.target.closest === 'function' ? t.target.closest('a[data-openlink][href]') : null
+      const href = anchor?.getAttribute ? anchor.getAttribute('href') : null
+      if (href && /^https?:\/\//i.test(href)) {
+        if (typeof t?.preventDefault === 'function') t.preventDefault()
+        try {
+          void Promise.resolve(openLinkOut(href)).catch(() => {})
+        } catch {
+          // 落地抛错只吞：外链开不出来不挡更新。
+        }
+        return
       }
       const btn = t?.target && typeof t.target.closest === 'function' ? t.target.closest('[data-action]') : null
       const kind = btn?.getAttribute ? btn.getAttribute('data-action') : null
@@ -2842,12 +3062,22 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     } catch {
       // 拆不掉也不挡。
     }
+    // 自建通道（含它没发完的队列）随面板一起停；调用方注入的通道归调用方管，我们只停手。
+    if (clientLogOwned && clientLog) {
+      try {
+        clientLog.dispose()
+      } catch {
+        // 停不掉也不挡。
+      }
+    }
     // 卸载只停轮询：绝不调安装/取消电话，安装在宿主进程内继续跑。
   }
 
   // #61 v2 语言跟随：已挂载控件即时重绘，unmount 后停订（单例观察者，显式 locale 对象亦经同一出口）。
+  // #122 语言行也挂在这个出口上：语言真的变了才落一行（与重绘同一判据，不会因为重绘而多发）。
   const unsubLang = subscribeLang(() => {
     render()
+    logLangApplied()
   }, localeOpt)
   // 首绘即 loading：先做一次只读本地的状态刷新，拿到活体快照后再判定是否自动查一次（#48）。
   // 轮询心跳永远只做只读本地的状态刷新，不触发查新版；自动查复用手动查同一通路（act('check')），
@@ -2934,9 +3164,11 @@ export {
   hasVisibleSections,
   isUnreleasedVersion,
   parseChangelog,
+  parseChangelogReport,
   renderChangelogHTML,
   renderChangelogNeutral,
   renderChangelogSection,
   selectChangelogEntries,
+  truncationNoteHTML,
 } from './changelog.js'
-export type { ChangelogCategory, ChangelogEntry } from './changelog.js'
+export type { ChangelogCategory, ChangelogEntry, ChangelogOtherSection, ChangelogParseReport, ChangelogTruncation } from './changelog.js'

@@ -152,19 +152,25 @@ test('对抗：版本号在标题任意位置出现即收', () => {
   assert.equal(e?.date, '2026-09-30')
 })
 
-test('对抗：顶格段落不改写条目原文，缩进换行不断裂', () => {
+test('对抗：顶格段落不并进上一条（0.16.0 起独立成段收），缩进换行按行保留', () => {
   const md = '## [1.1.0] - 2026-09-30\n\n### Added\n- A\n\nNote: 顶格段落不是条目的一部分\n- B\n  缩进换行是同一条\n'
   const added = parseChangelog(md)[0]?.sections.Added ?? []
-  assert.deepEqual(added, ['A', 'B 缩进换行是同一条'], '顶格段落丢弃、缩进换行拼接')
+  // #116 返工：缩进续行**保留行边界**（此前拼成一行 `B 缩进换行是同一条`）——块级渲染要靠行边界
+  // 分嵌套列表/引用块/围栏，压成一行就再也分不出来；顶格段落 0.16.0 起另起一段收（此前直接丢字），
+  // 但绝不并进上一条——「不改写作者原文」这条口径没变。
+  assert.deepEqual(added, ['A', 'Note: 顶格段落不是条目的一部分', 'B\n  缩进换行是同一条'], '顶格段落独立成段、缩进换行按行保留')
   const hash = '## [1.1.0]\n\n### Added\n- A\n###\n'
   assert.deepEqual(parseChangelog(hash)[0]?.sections.Added, ['A'], '残缺标题行永不进条目')
 })
 
-test('对抗：围栏代码块里的 ## 不是标题', () => {
+test('对抗：围栏代码块里的 ## 不是标题（0.16.0 起围栏内容本身不再丢）', () => {
   const md = '## [1.1.0]\n\n### Added\n- A\n\n```sh\n## 这是安装示例里的注释\n```\n\n### Fixed\n- B\n'
-  const e = parseChangelog(md)[0]
-  assert.deepEqual(e?.sections.Added, ['A'])
+  const entries = parseChangelog(md)
+  assert.equal(entries.length, 1, '围栏里的 ## 不得制造第二个版本节')
+  const e = entries[0]
+  assert.deepEqual(e?.sections.Added, ['A', '```sh\n## 这是安装示例里的注释\n```'], '代码块作为独立块收进本条（此前整段静默丢字）')
   assert.deepEqual(e?.sections.Fixed, ['B'])
+  assert.match(renderChangelogHTML(entries), /<pre class="dsh-upd-md-pre">/, '渲染成 <pre>，不直通 HTML')
 })
 
 test('对抗：[YANKED] 只做文本提示，不做机器信号', () => {

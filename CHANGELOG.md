@@ -2,6 +2,86 @@
 
 格式为 Keep-a-Changelog 子集：`Added/Fixed/Changed` 必写，`Deprecated/Removed/Security` 有则透传，`Unreleased` 面板忽略，禁止 git-log 直倒。面板缺日志时中性提示，不挡安装。
 
+## [0.16.0] - 2026-10-14
+
+### Changed
+- **破坏性（形状）**：`ChangelogEntry` 新增 `otherSections: Array<{ title: string; items: string[]; count: number }>`——**非六类小节名的整节内容不再被丢弃**，按作者原标题原样收进来（此前 `### Patch Changes` / `### 🚀 Enhancement` / 无小节名的裸条目全部静默消失）。只读 `sections` 的集成方零改动；想显示作者自定义小节的集成方读 `otherSections`（`renderChangelogHTML` 已经画）。
+- **破坏性（诊断码）**：`E_CATEGORY` 下线——非六类小节名不再丢内容，改报 `W_CATEGORY_OTHER`（提示，不拦）；新增 `E_BULLET_ORPHAN`（版本节之外的条目，其内容确实进不了任何版本节，仍是 Error）。`E_VERSION_TITLE` 语义收窄为「像版本标题却取不出号」（`## 1`、`## 2026-10-14`）；`## 1.0` 这种两段版本号 0.16.0 起是合法版本节，内容照收。
+- 版本标题识别放宽到 1–4 级任意标题 + setext（`===`/`---` 下划线）＋ 标题任意位置的版本号：`# v0.14.0 (Mon Jun 29 2020)`、`#### 🚀 Enhancement` 这类真实日志（jimp 形态）不再整节丢字。闸门仍是「看起来是版本节」：`# Changelog`、`## License`、`### 修复 1.2 的 bug` 不会被误当版本节（两段号必须标题里除它只剩装饰）。
+- **顶格内容不再丢**：顶格段落、顶格引用（`>`）、顶格围栏代码块都收进条目（此前静默丢弃，围栏里的内容此前整段丢掉）；一律转义，永不直通 HTML。空行是段落边界——顶格块另起一条，缩进行照旧并进当前条目。
+- 截断不再静默：文件超 64 KiB 时面板补一行说明，版本被截时再补一行（`changelog.truncated.file` / `changelog.truncated.versions`）——少了条目、为什么少，读者看得见。
+- **冻结面追加第五个电话名 `logAppend`（`#122`，破冰结论见 issue）**：只在既有四个名字之后追加，`updateStatus` / `updateCheck` / `updateInstall` / `updateChangelog` 一字不动；`tests/{config,phones,queue,batch-host,gate}.test.mjs` 里「电话名一字不差」的断言同步扩到五个，HTTP 白名单放行 `logAppend`，批量宿主按目标自动带上（每个目标各自的 `<前缀>.logAppend`）。
+- 随包事件清单的读取由**异步**改**同步**（`readFileSync`，进程内缓存一次）：字段白名单的判据必须当场就有——异步读会让同一行「先放行、后拒收」，行为随微任务时序漂移（`#122` 抓到的真实差异）。读不到清单时照旧放行 + 记一条 `update.log.degraded`。
+
+### Added
+- `parseChangelogReport(markdown)`（新导出）返回 `{ entries, truncation }`，把「被截断」作为数据交出来（`truncation` 含 `chars`/`tailVersions`/`entries`/`sections`/`sectionItems`/`items`）；`parseChangelog` 仍是 `.entries` 的薄封装，老集成方零改动。
+- 未知小节按作者原标题显示（`otherSections` + `.dsh-upd-changelog-cat[data-cat="other"]`）——六类之外的节不必再「要么改名、要么消失」。
+- 双主题为块级与自定义小节补样式（默认主题直接生效，档案卷 `[data-theme="archive"]` 只换肤）。
+- 分隔线 `---`／`***` 渲染成 `<hr class="dsh-upd-md-hr">`（不再以字面三个短横混在正文里）；setext 下划线标题（`标题` + `===`／`---`）先转 ATX 再走同一套判据，转换**保持行号不变**（`validateChangelog` 的诊断仍指向原文件行号）。
+- 保真口径写成了可执行断言：`tests/changelog-fidelity-116.test.mjs`（22 例）——① 无未声明丢失：源文件里每条内容行的签名都要出现在渲染结果里，允许缺失的只有已声明的截断与 `E_BULLET_ORPHAN`；② 幻影版本 = 0：渲染出的每个版本节都能在源文件里找到版本号 token；③ 负例语料 `# Changelog`／`# 更新日志`／`# <插件名>` 不得成为版本节。认不出的块（HTML 注释、`<details>`、表格行）落进 `<div class="dsh-upd-md-para">` 按原文显示。
+- **面板侧的日志通道（`#122`）**：面板跑在浏览器闭包里，落盘在宿主，中间隔着新电话 `….logAppend`。客户端侧 `createClientLogChannel`（`dsh-plugin-update/log` 导出，零 `node:` 依赖）做三件事：有界环形缓冲（缺省 200 行，满了挤掉最老的并计数）、按批投递（缺省 50 行 / 1 秒，页面切后台立即冲刷，失败退避重试 2 次后丢弃并计数）、**永不外抛**（没通道、电话没接上、回包形状不对都只计数）。宿主侧那一头是协议面：只收五个客户端事件（`update.panel.mount` / `update.panel.action` / `update.panel.render.fail` / `update.panel.state` / `update.lang.applied`），级别、字段、条数（一次 200 行）、新鲜度（10 分钟内）逐个把关，回 `{ accepted, dropped }` 且不给日志自己制造 `host.call` 行。
+- 面板自动接上这条通道：`mountUpdatePanel` 默认按前缀自建（电话名 `<prefix>.logAppend`），`clientLog: { channel }` 注入自己的、`{ mount }` 改挂载点名字、`null` 明确关掉；入口件与 HTTP 直挂已传好挂载点。面板记五行：挂载、每个用户动作（复制诊断时带字节数与是否截断）、渲染兜底失败、状态变化、语言判定来源；状态与语言按指纹去重，轮询不会把它灌满。
+- `event-list.update.json` 增五行客户端事件（`#122`），字段白名单与 `guard` 说明随表发布；`tests/client-log.test.mjs`（17 例）与 `tests/panel-log.test.mjs`（6 例）把缓冲、退避、丢弃计数、协议面收放与面板五行全钉住。
+
+### Fixed
+- 保真审计（`.tmp/audit-fidelity-v2.mjs`，本机 88 份 CHANGELOG；插件语料 = 8 份 DSH 插件**副本**）：**看不到的内容行从 26.7% 降到 1.5%**（覆盖率 73.3% → 98.5%），一份都显示不出的插件文件 0/8；**幻影版本 0**。残留 10 行 = 8 行文件前言（首个版本标题之前的体例说明）+ 2 条非版本节下的条目（`validateChangelog` 报 `E_BULLET_ORPHAN` 明说，不是静默丢）。
+- 档案卷皮肤在整条是代码块/引用块时不再补一个孤零零的「Added ·」（`data-cat-block="1"`）。
+- 顶格块与上一条之间隔了空行就另起一条：此前围栏代码块后面的顶格引用会被粘进同一条（空行在 Markdown 里就是段落边界）。
+- 客户端日志行不再有「渠道没就绪就静默丢」的第三种状态（`#122`）：丢弃只有两个出口——缓冲挤掉或投递失败，都计入 `dropped()`；宿主回包里的 `dropped` 也照加，第三方看到的数字就是真丢了多少行。
+
+门禁：`npm run build`（含 `tsc --noEmit`）过；`npm run gate:bilingual` 四道硬门禁过；本轮 changelog 面积（`tests/changelog*.test.mjs`）**111 例全过**；`npm publish --dry-run` 73 文件。全量 `npm test` 里另有失败，全部来自**并行开发中的 dsh-log 日志线**（`tests/gate.test.mjs`、`tests/queue.test.mjs`、`tests/panel-log.test.mjs` 里尚未跟改的冻结表与新契约），与本轮 changelog 改动无关——那个数字在并行线收尾前不稳定，故不在此处钉死。
+（2026-10-14 晚补记：并行日志线已跟改完冻结表与新契约，全量 `npm test` **1099 例：1098 过 / 0 失败 / 1 跳过**；上段那个「另有失败」此刻已不成立。）
+
+## [0.15.0] - 2026-10-14
+
+### Changed
+- **破坏性**：条目正文保留行边界（`#116` 返工的一半）——`ChangelogEntry.sections` 的**单个条目现在可能是多行字符串**（嵌套子条目、围栏代码块、引用块按行留在一起），旧版是「一切压成一行」。集成方若对条目做过 `\n` 假设或按整串做字符串比较，需要跟着改；只做展示的集成方（`renderChangelogHTML`）零改动。迁移说明见 README §5.8。
+- **计数口径变化**：嵌套子条目不再各占一条，`sections` 数组长度与 `counts` 只按**父条目**算（同输入下 `Added: 6` 会变成 `Added: 3`）。理由：块级渲染要靠父子关系，子项各占一条时层次不可恢复。
+- 缩进（≥2 空格或 1 个 tab）的围栏代码块与引用块现在归属所在条目：`` ```lang `` → `<pre class="dsh-upd-md-pre"><code>`，`>` → `<blockquote class="dsh-upd-md-quote">`；**顶格**围栏与顶格引用照旧不进条目（保持既有「顶格内容不当条目正文」的对抗口径）。
+- 单条截断（500 字）改为**按行累加**：装不下的那一行不再硬塞碎屑，只给已收正文补 `…`，截断点之后的行整行丢弃。
+- **事件清单与检查器迁到 `dsh-log` 0.3.1 形状**（`#120`）：清单不再要求自报计数（旧清单带着 `counts` 照收，只是不参与判断），条数由 `computeEventCounts` 现算；字段检查分两档（未知字段黄、未知事件红）；落盘行加 `v === 3` 断言。集成方已有的清单不用改。
+- **运行期依赖从零变成一个**（`#121`，`ADR-0005`）：`dependencies` 加 `dsh-log@^0.3.1`。集成方零改动（传了 `logCtx` 照旧优先，本包绝不另建实例）；没传 `logCtx` 的插件从此有日志可交，拿不到 dsh-log 时降级成「没有落点」，主流程零影响。门禁的「零依赖」断言随之改成「唯一依赖是 dsh-log，且只有 `src/log/**` 能动态取它」，并改成递归扫 `src/` 全树。
+
+### Added
+- 块级渲染 `renderChangelogBlocks(lines)`（导出，纯函数、永不抛错）：条目第二行起按行分派成嵌套 `<ul>`／`<ol class="dsh-upd-md-list-ol">`、`<pre><code>`、`<blockquote>`、`<div class="dsh-upd-md-para">`；认不出的行当正文显示，不丢字。
+- 双主题块级样式：默认主题加 `.dsh-upd-md-pre/.dsh-upd-md-precode/.dsh-upd-md-quote/.dsh-upd-md-list(+ -ol)/.dsh-upd-md-para`，档案卷同名规则加 `[data-theme="archive"]` 作用域只换肤（纸色代码底、左侧细线引用、朱红列表符号）；默认串仍不含 `data-theme` 字样（既有断言不变）。
+- 子条目位置上的有序列表 `1. …` → `<ol>`（顶格编号行仍按段落忽略，免得正文里的编号行变成条目）。
+- 随包事件清单 `event-list.update.json`（`#120`）：本包 28 个事件的全表（常驻 20、按需 7、自监控 1），含字段白名单、级别、散列代号与守卫说明，是事件与字段的唯一事实源。
+- `mergeUpdateEvents(myManifest, updateEvents)`（`#120`）：把本包事件表并进集成方的清单——本包有、对方没有的补进去，两边都有的字段取并集、级别与归类仍按对方声明，不一致的记进 `conflicts`。
+- `lintEventList(manifest)`（`#120`）：整份清单过尺子，红＝结构或引用错（事件名不合契约、`codes`/`rules` 引用名不合法、自报计数对不上），黄＝可疑不拦（字段表为空、字段里出现自由文本键——`ADR-0006` 管这条）。
+- `parseLogRow(row)` 与 `LOG_ROW_VERSION`（`#120`）：落盘行断言，五键 `v`/`ts`/`level`/`event`/`fields`，`v` 必须是 3，多键少键都报中文错。
+- 日志内核 `dsh-plugin-update/log`（`#121`）：派生命名空间 `deriveLogNamespace`（合法标识原样通过；有损映射补 `-<sha256 原文前 6 位>`，空标识回退 `plugin-<hash6>`；不同标识永不共目录）、同进程登记表 `acquireOwnLog` / `releaseOwnLog`（`globalThis` 上按目录引用计数，同一目录只有一个 dsh-log 实例；撞租约退避重试后降级、绝不外抛、降级带冷却）、按插件标识的 O(1) 路由表 `createLogRouter`（取不到落点即丢弃计数，绝不回退到别人的 sink）、唯一发射口 `emitUpdateLog`（脱敏 + 字段白名单 + 准入短路 + 边沿预算守卫；落点抛错只计数不外抛）。宿主侧原来那个模块级共享落点（最后接线的插件收走所有行）就此消失，同进程多插件不再串台。
+- 事件表的运行时读取 `loadUpdateEventTable` / `buildUpdateManifest(pluginId, 集成方清单)`（`#121`）：读随包 `event-list.update.json` 并换标识；集成方给了自己的清单就并进去（冲突如实回报）。读不到清单只少一层字段守卫，绝不静默不写日志。
+- `tests/log-kernel.test.mjs`（`#121`）：26 例——派生映射表与两条不变量、路由 A/B 隔离、登记表引用计数与降级三态、发射口四条纪律，外加一条真引擎端到端（真装 dsh-log 0.3.1 → 真落一份文件 → 读回五键行）。
+
+### Fixed
+- 真实管线里缩进围栏内容此前**整段被丢弃**（`inFence` 直接 `continue`），现在收进所属条目的 `<pre><code>`；缩进引用块此前被并成上一行正文（`> ` 变普通字符），现在是 `<blockquote>`。
+- 续行不再被 `replace(/\s+/g,' ')` 拍平（那是块级渲染分不出层次的主因）。
+- 档案卷皮肤的类名前缀不再钻进新加的嵌套子列表：选择器从 `… ul li::before` 收紧为 `… > ul > li:not([data-cat-lead])::before`，子项不会再多出「Added ·」、有序子项不再显示成「1. Added · 先跑门禁」。
+- 条目正文已经以类名开头时不再补前缀（`**Added** · …` / `Added: …` / `新增 · …` 会被 `renderChangelogItem` 标上 `data-cat-lead="1"`，档案卷皮肤据此跳过），消除面板上的「Added · Added · …」重复；`Addendum`／`新增功能` 这类不算类名开头，前缀照旧。
+
+### Deprecated
+- 门禁检查器的两个旧名 `checkEventFields`、`checkEventCounts`（`#120`）：保留一版、行为不变（`checkEventCounts` 在清单没写 `counts` 时直接算过），新代码用日志包 0.3.1 的名字 `lintEventFields` 与 `computeEventCounts`；下个大版本删旧名。
+
+门禁：`npm test` 1016 例（1015 过 / 0 失败 / 1 跳过既有）；`npm run build`（含 `tsc --noEmit`）与 `npm run gate:bilingual` 均过。
+
+## [0.14.0] - 2026-10-14
+
+### Added
+- 更新日志行内 Markdown 渲染（#109 地图 / #115 落地）：条目正文不再原样显示语法符号——`` `行内代码` ``、`**粗体**`、`*斜体*`、`~~删除线~~`、`[文本](https://…)`、`<https://…>` 与裸 URL 都渲染成样式；图片 `![alt](url)` 只出占位（`data-src` + alt／地址），**永不产出 `<img>`、不发任何网络请求**。支持面按野外取样定（`docs/research/20261014-changelog-markdown-constructs.md`：行内代码 4914 处/81 份、粗体 4742/26、绝对链接 6286、裸 URL 6671、图片 8；表格/脚注/emoji 短码/`<details>` 野外 0 例，不做）。
+- 导出行内渲染纯函数 `renderChangelogInline(text)` 与支持面常量 `CHANGELOG_MD_INLINE`（零依赖、纯函数、永不抛错）。
+- 面板链接落地 `openLink?: (url: string) => void | Promise<void>`（#111 定稿）：不传即 `window.open(url, "_blank", "noopener,noreferrer")`——桌面宿主交系统浏览器、web 宿主开新标签页，面板正文永不被导航走；传了即交给集成方，抛错只吞。
+
+### Changed
+- 双主题同一份 DOM 只换 CSS：`UPDATE_PANEL_CSS` 加最小可用样式（代码底色、朱红链接、虚线图片占位），档案卷 `UPDATE_PANEL_ARCHIVE_CSS` 只换肤（纸色底、细底线链接）；两套都走现有 token，第三方 `themeTokens` 覆盖即生效。
+- `renderChangelogItem` 改走行内渲染；公开解析形状零变化（`ChangelogEntry.sections` 仍是原文数组、截断仍在解析期按字符切、计数不变），集成方读 `parseChangelog` 的结果一字不改；截断悬空标记（截在 `` ` `` 或 `**` 中间）渲染期兜底剥掉，配平的照渲染。
+- 预览件 `docs/research/20261014-changelog-md-preview.html`（#114）：真实日志 + 边界样本的双主题并排预览，由本包渲染器直接产出。
+
+### Security
+- HTML 永不直通：一切文本先转义再拼标签（野外真反例 `dsh-im<channel>` 当文本显示）；链接与图片只认 http/https，`javascript:`／`data:`／`file:`／相对路径一律按字面文本；未闭合标记按字面输出，输出永远标签配平。
+
+门禁：`npm test` 1006 例（1005 过 / 0 失败 / 1 跳过既有）。
+
 ## [0.13.0] - 2026-10-11
 
 ### Added

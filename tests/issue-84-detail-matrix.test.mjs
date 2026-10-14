@@ -100,10 +100,10 @@ function fakeCall(rows, reply) {
 }
 
 function detailActionsOf(html, key) {
-  const at = html.indexOf('<div class="dsh-upd-bdetail" data-key="' + key + '"');
-  assert.ok(at >= 0, key + ' 的详情要展开着');
+  const at = html.indexOf('dsh-upd-bdetail-dialog" data-detail-key="' + key + '"');
+  assert.ok(at >= 0, key + ' 的详情弹窗要开着');
   const start = html.indexOf('<span class="dsh-upd-bdetail-actions"', at);
-  assert.ok(start >= 0, key + ' 的详情要有自出动作行');
+  assert.ok(start >= 0, key + ' 的详情弹窗要有自出动作行');
   return html.slice(start, html.indexOf('</span>', start));
 }
 
@@ -296,7 +296,7 @@ describe('#84矩阵·跳过：详情与行内同一通道', () => {
 // ---------- 死按钮摘净＋不嵌套滚动（绿基线） ----------
 
 describe('#84矩阵·死按钮与滚动', () => {
-  it('详情里没有 data-action 死按钮：内核残留整颗摘掉', async () => {
+  it('详情弹窗里没有 data-action 死按钮：内核残留整颗摘掉（含 footer，批量只认 data-act）', async () => {
     const busyQueue = { busy: true, owner: null, waiting: [{ pluginId: 'other', requestId: 'r', targetVersion: '9.9.9', enqueuedAt: 1 }], position: 2 };
     const box = fakeContainer();
     const { call } = fakeCall([rowOf({ key: 'a', queue: busyQueue, manual: 'npm i -g demo@1.2.0' })]);
@@ -306,16 +306,17 @@ describe('#84矩阵·死按钮与滚动', () => {
     await settled();
     await panel.act('toggle-details', 'a');
     const html = box.innerHTML;
-    assert.ok(!/\bdata-action=/.test(html.slice(html.indexOf('dsh-upd-bdetail'))), '详情里不许有内核 data-action');
+    assert.ok(!/\bdata-action=/.test(html.slice(html.indexOf('dsh-upd-bdetail-dialog'))), '详情弹窗里不许有内核 data-action');
     panel.unmount();
   });
 
-  it('详情不嵌套滚动：dialog 下详情仍 embedded，CSS 中性化 overlay 滚动', () => {
+  it('详情默认弹窗可滚：dialog sibling + 内层高一层 + 固定栏，旧内嵌中性化退役', () => {
     const html = renderBatchPanelHTML({ rows: [rowOf()], mode: 'dialog', expandedKey: 'a' });
-    assert.ok(html.includes('data-mode="embedded"'), '详情内嵌');
+    assert.ok(html.includes('dsh-upd-bdetail-dialog'), '详情是 dialog sibling（默认弹窗）');
+    assert.ok(!html.includes('<div class="dsh-upd-bdetail"'), '内嵌路径已删');
     assert.ok(
-      UPDATE_BATCH_PANEL_CSS.includes('.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd{max-height:none;overflow:visible}'),
-      'overlay 里的详情中性化滚动',
+      UPDATE_BATCH_PANEL_CSS.includes('.dsh-upd-overlay.dsh-upd-bdetail-dialog{z-index:10000}'),
+      '内层 overlay 高一层',
     );
   });
 });

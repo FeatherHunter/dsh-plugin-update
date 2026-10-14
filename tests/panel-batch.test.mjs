@@ -399,7 +399,7 @@ describe('失败与待重启：常驻横幅 + 行内入口', () => {
     const html = box.innerHTML
     assert.ok(html.includes('<div class="dsh-upd-banner" data-kind="failed"'), '失败横幅常驻')
     assert.ok(html.includes('<div class="dsh-upd-banner" data-kind="restart"'), '待重启横幅常驻')
-    assert.ok(!html.includes('<div class="dsh-upd-bdetail"'), '没点开详情，横幅不许藏进抽屉')
+    assert.ok(!html.includes('data-detail-key='), '没点开详情，横幅不许藏进抽屉')
     panel.unmount()
   })
 })
@@ -407,28 +407,29 @@ describe('失败与待重启：常驻横幅 + 行内入口', () => {
 // ---------- 详情：复用单插件内核，且只读 ----------
 
 describe('详情：复用单插件内核，且只读', () => {
-  it('点一行展开：详情就是单插件内核（五章编号 + 复制诊断），再点收起', async () => {
+  it('点一行展开：详情弹窗就是单插件内核（五章编号 + 复制诊断），再点收起', async () => {
     const box = fakeContainer()
     const { panel, log } = mountPanel(box, [rowOf({ key: 'a', title: '甲插件' })])
     await settled()
-    assert.ok(!box.innerHTML.includes('<div class="dsh-upd-bdetail"'), '默认全收起')
+    assert.ok(!box.innerHTML.includes('data-detail-key='), '默认全收起，无弹窗')
     await panel.act('toggle-details', 'a')
     const html = box.innerHTML
-    assert.ok(html.includes('<div class="dsh-upd-bdetail"'), '展开该家详情')
-    const detail = html.slice(html.indexOf('<div class="dsh-upd-bdetail"'))
+    assert.ok(html.includes('data-detail-key="a"'), '点详情默认弹 dialog')
+    assert.ok(!html.includes('<div class="dsh-upd-bdetail"'), '内嵌路径已删')
+    const detail = html.slice(html.indexOf('dsh-upd-overlay dsh-upd-bdetail-dialog'))
     assert.deepEqual(
       [...detail.matchAll(/data-chapter="(\d\d)"/g)].map((m) => m[1]),
       ['01', '02', '03', '04', '05'],
-      '详情就是单插件内核那五章',
+      '详情弹窗就是单插件内核那五章',
     )
-    assert.ok(detail.includes('data-plugin="a"'), '详情按插件标识指向该家')
+    assert.ok(detail.includes('data-plugin="a"'), '详情弹窗按插件标识指向该家')
     assert.ok(detail.includes('data-act="row-copy-diag"'), '复制诊断改由批量面板自己出（真能点）')
-    assert.ok(!/\bdata-action=/.test(detail), '只读内核里不许再有 data-action 按钮')
+    assert.ok(!/\bdata-action=/.test(detail), '只读内核里不许再有 data-action 按钮（含 footer，批量只认 data-act）')
     const before = log.length
     clickAct(box, null) // 点到没有 data-act 的空处：批量面板不接这条线
     assert.equal(log.length, before)
     await panel.act('toggle-details', 'a')
-    assert.ok(!box.innerHTML.includes('<div class="dsh-upd-bdetail"'), '再点收起')
+    assert.ok(!box.innerHTML.includes('data-detail-key='), '再点收起')
     panel.unmount()
   })
 
@@ -437,7 +438,7 @@ describe('详情：复用单插件内核，且只读', () => {
     const { panel, log } = mountPanel(box, [rowOf({ key: 'a' })])
     await settled()
     clickAct(box, 'toggle-details', 'a')
-    assert.ok(box.innerHTML.includes('<div class="dsh-upd-bdetail"'), '点行本身也展开')
+    assert.ok(box.innerHTML.includes('data-detail-key="a"'), '点行本身也弹弹窗')
     log.length = 0
     clickAct(box, 'check')
     await settled()
@@ -445,13 +446,13 @@ describe('详情：复用单插件内核，且只读', () => {
     panel.unmount()
   })
 
-  it('详情不嵌套滚动：dialog 形态下详情仍是 embedded，且 CSS 中性化 overlay 滚动', () => {
+  it('详情默认弹窗可滚：dialog sibling + 内层高一层，旧内嵌中性化退役', () => {
     const html = renderBatchPanelHTML({ rows: [rowOf()], mode: 'dialog', expandedKey: 'a' })
     assert.ok(html.includes('data-mode="dialog"'), '批量面板自己是弹窗')
-    assert.ok(html.includes('data-mode="embedded"'), '详情是内嵌（不叠第二层滚动壳）')
+    assert.ok(html.includes('data-detail-key="a"'), '详情是 dialog sibling（默认弹窗）')
     assert.ok(
-      UPDATE_BATCH_PANEL_CSS.includes('.dsh-upd-overlay .dsh-upd-bdetail .dsh-upd{max-height:none;overflow:visible}'),
-      'overlay 里的详情要中性化 max-height/overflow',
+      UPDATE_BATCH_PANEL_CSS.includes('.dsh-upd-overlay.dsh-upd-bdetail-dialog{z-index:10000}'),
+      '内层 overlay 高一层',
     )
   })
 })
@@ -570,8 +571,8 @@ describe('详情动作行：与行内同一通道', () => {
     const { panel } = mountPanel(box, rows)
     await settled()
     const actionsOf = (key) => {
-      const at = box.innerHTML.indexOf('<div class="dsh-upd-bdetail" data-key="' + key + '"')
-      assert.ok(at >= 0, key + ' 的详情要展开着')
+      const at = box.innerHTML.indexOf('dsh-upd-bdetail-dialog" data-detail-key="' + key + '"')
+      assert.ok(at >= 0, key + ' 的详情弹窗要开着')
       const start = box.innerHTML.indexOf('<span class="dsh-upd-bdetail-actions"', at)
       return box.innerHTML.slice(start, box.innerHTML.indexOf('</span>', start))
     }

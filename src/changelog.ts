@@ -40,8 +40,13 @@ export const CHANGELOG_MAX_CHARS = 64 * 1024
 export const CHANGELOG_MAX_ENTRIES = 100
 /** 每类条目上限：超限只取前 N 条。 */
 export const CHANGELOG_MAX_BULLETS_PER_SECTION = 200
-/** 单条上限（字符）：超限在尾部截断并加省略号。 */
+/** 单条上限（字符）：超限在尾部截断并加省略号（含换行，多行条目按行累加）。 */
 export const CHANGELOG_MAX_BULLET_CHARS = 500
+/**
+ * 条目内嵌套层级上限（渲染与解析共用同一折算：2 空格/制表符 = 1 级）。
+ * 3 级足够画真实日志（子条目 + 子条目的续行），再深就贴边了——封顶也把递归深度钉死在常数上。
+ */
+export const CHANGELOG_MAX_ENTRY_DEPTH = 3
 
 /** 六类全集（Keep-a-Changelog #types 节）。 */
 export const CHANGELOG_ALL_CATEGORIES = [
@@ -69,6 +74,17 @@ export const CHANGELOG_CATEGORY_ZH: Record<ChangelogCategory, string> = {
   Security: '安全',
 }
 
+/**
+ * 作者自定义小节（非六类的 `###` 标题、以及版本节下没有分类标题的裸条目）。
+ * `title` 保留作者原文（`''` = 无标题的隐式小节）；`count` 是截断前条数（与六类 counts 同义）。
+ * 这块是**渲染层**的兜底：解析层不猜分类（归因污染比漏收更坏），只把作者的标题原样带出来。
+ */
+export interface ChangelogOtherSection {
+  title: string
+  items: string[]
+  count?: number
+}
+
 /** 一节版本（Unreleased 也保留在解析结果里，渲染与区间筛选时忽略）。 */
 export interface ChangelogEntry {
   /** 归一化版本号：`Unreleased` 或发行版本号（如 `1.2.3`、`1.2.3-rc.1`）。 */
@@ -84,6 +100,54 @@ export interface ChangelogEntry {
   sections: Record<ChangelogCategory, string[]>
   /** 每类原始条数（截断前计数，只记数字不留文本；缺省视为与 sections 等长）。 */
   counts?: Record<ChangelogCategory, number>
+  /** 非六类小节（文档顺序；缺省/空数组 = 该版本只有六类内容，旧调用方零感知）。 */
+  otherSections?: ChangelogOtherSection[]
+}
+
+/**
+ * 解析期的“丢字账本”（渲染层据此把截断写在面板上，不再静默丢）。
+ * 三个上限各自计数：`chars` = 文件超过 64 KiB 被切（附 tailVersions = 被切掉那头还有几个版本标题）；
+ * `entries` = 超过 100 个版本节被切；`sections` = 某类/某小节超过 200 条被切（附 items = 被切条数）；
+ * `items` = 单条超过 500 字被截（渲染层已在条目尾部给 `…`，此处只报数）。
+ */
+export interface ChangelogTruncation {
+  chars: boolean
+  tailVersions: number
+  entries: number
+  sections: number
+  sectionItems: number
+  items: number
+}
+
+/** 解析结果（entries 是冻结公开形状；truncation 是 0.16.0 新增的附加通道）。 */
+export interface ChangelogParseReport {
+  entries: ChangelogEntry[]
+  truncation: ChangelogTruncation
+}
+
+/** 六类名的**无歧义**同义词（changesets / semantic-release / 中文写法）。
+ *  只收「换个说法但指的是同一类」的词；`Patch Changes`、`Chores`、`Documentation` 这类
+ *  语义含混的一律不猜，按作者原文当自定义小节展示（归因污染比漏收更坏）。 */
+export const CHANGELOG_CATEGORY_ALIASES: Record<string, ChangelogCategory> = {
+  'bug fixes': 'Fixed',
+  fixes: 'Fixed',
+  fix: 'Fixed',
+  'bug fix': 'Fixed',
+  features: 'Added',
+  feature: 'Added',
+  feat: 'Added',
+  'security fixes': 'Security',
+  'security fix': 'Security',
+  deprecations: 'Deprecated',
+  removals: 'Removed',
+  修复: 'Fixed',
+  新增: 'Added',
+  特性: 'Added',
+  变更: 'Changed',
+  改动: 'Changed',
+  移除: 'Removed',
+  弃用: 'Deprecated',
+  安全: 'Security',
 }
 
 function emptySections(): Record<ChangelogCategory, string[]> {
@@ -106,12 +170,32 @@ function normalizeCategory(raw: string): ChangelogCategory | null {
   if (t === 'deprecated') return 'Deprecated'
   if (t === 'removed') return 'Removed'
   if (t === 'security') return 'Security'
+  // 无歧义同义词（`Bug Fixes`、`Features`、`修复`…）：changesets / semantic-release 模板大量在用。
+  // 见 CHANGELOG_CATEGORY_ALIASES 的收词口径——含混的一律不收，宁可当自定义小节原样显示。
+  const alias = CHANGELOG_CATEGORY_ALIASES[t]
+  if (alias) return alias
   // 中文名（与 CHANGELOG_CATEGORY_ZH 同一表，不另起第二映射；精确匹配，不做子串，
   // 免得「新增功能」这类标题被误收到 Added——归因污染比漏收更坏）。
   for (const k of CHANGELOG_ALL_CATEGORIES) {
     if (t === CHANGELOG_CATEGORY_ZH[k]) return k
   }
   return null
+}
+
+/** 中英并排/并列写法（`Fixed / 修复`、`Security | 安全`）：各段归一到同一类才算数，否则交回自定义小节。 */
+function normalizeCategoryMulti(raw: string): ChangelogCategory | null {
+  const t = String(raw || '').trim()
+  if (!t) return null
+  const parts = t.split(/[/|·、,，;；+]/).map((s) => s.trim()).filter((s) => !!s)
+  if (parts.length <= 1) return normalizeCategory(t)
+  let acc: ChangelogCategory | null = null
+  for (const part of parts) {
+    const cat = normalizeCategory(part)
+    if (!cat) return null
+    if (acc === null) acc = cat
+    else if (acc !== cat) return null
+  }
+  return acc
 }
 
 /** 是否 Unreleased（大小写不敏感，前后空白忽略）。 */
@@ -126,18 +210,75 @@ function extractVersionDateAndYanked(title: string): { version: string | null; d
   if (/unreleased/i.test(t)) return { version: 'Unreleased', date: null, yanked }
   // 对抗复查收紧：版本号在标题任意位置出现即收（`## Version 1.1.0`、无空格 `##[1.1.0]`、
   // 可链接标题 `## [1.1.0](url) - date` 均可；此前只看首 token/首括号，真实日志大量漏收）。
-  // 取第一个命中的三段形态；日期用连字符，不会误命中版本号的点分形态。
-  const vm = t.match(/(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)/)
+  // 取第一个命中的版本号形态（0.16.0 起两段也算：`## 1.0` 在真实日志里 79 处、此前整节丢字）；
+  // 日期用连字符，不会误命中版本号的点分形态。
+  const vm = t.match(RE_VERSION_TOKEN)
   if (!vm) return { version: null, date: null, yanked: false }
   const dm = t.match(/(\d{4}-\d{2}-\d{2})/)
   return { version: vm[1], date: dm ? dm[1] : null, yanked }
 }
 
+/** 单行文本：折叠空白并按预算截断（单行场景口径自 #23 起不变）。 */
 function truncateBullet(text: string): string {
   const t = String(text || '').replace(/\s+/g, ' ').trim()
   if (!t) return ''
   if (t.length <= CHANGELOG_MAX_BULLET_CHARS) return t
   return `${t.slice(0, CHANGELOG_MAX_BULLET_CHARS - 1)}…`
+}
+
+/** 行首缩进折算的嵌套层级（2 空格/制表符 = 1 级，封顶 CHANGELOG_MAX_ENTRY_DEPTH）。 */
+function indentLevel(line: string): number {
+  const raw = (String(line || '').match(/^[ \t]*/) || [''])[0]
+  let n = 0
+  for (const ch of raw) n += ch === '\t' ? 2 : 1
+  return Math.min(CHANGELOG_MAX_ENTRY_DEPTH, Math.floor(n / 2))
+}
+
+/**
+ * 有序条目 `1. `/`1) `（`RE_BULLET` 只管 `-*+`，这里另认一支）。
+ * 只在**子条目**位置上被录用：顶格编号行按既有口径仍当段落忽略，免得正文里的编号行变成条目。
+ */
+function matchOrderedBody(line: string): string | null {
+  const m = String(line || '').match(/^\s*\d{1,9}[.)]\s+(.+?)\s*$/)
+  return m ? String(m[1] !== undefined && m[1] !== null ? m[1] : '') : null
+}
+
+/**
+ * 结构感知截断：按行累加，装不下的行**不再硬塞碎屑**，而是给已收的正文补 `…`（截断看得见）。
+ * 与旧的「拼成一行再切」不同，这里**保留换行**——块级渲染（嵌套列表/引用块/围栏代码块）
+ * 全靠行边界，压成一行就再也分不出来了。
+ */
+function truncateEntryLines(lines: readonly string[], ledger?: ChangelogTruncation): string {
+  const out: string[] = []
+  let truncated = false
+  for (const raw of lines) {
+    const line = String(raw === null || raw === undefined ? '' : raw).replace(/[ \t]+$/, '')
+    if (!line) continue
+    const next = out.length > 0 ? out.join('\n') + '\n' + line : line
+    if (next.length <= CHANGELOG_MAX_BULLET_CHARS) { out.push(line); continue }
+    truncated = true
+    break
+  }
+  const text = out.join('\n')
+  if (!truncated) return text
+  if (ledger) ledger.items += 1
+  if (text.length < CHANGELOG_MAX_BULLET_CHARS) return text + '…'
+  return text.slice(0, CHANGELOG_MAX_BULLET_CHARS - 1) + '…'
+}
+
+/** 缓冲区最后一行是不是列表项/围栏（空行分段只对段落有意义：段落之间分段，列表项之间不断）。 */
+function bufEndsWithItem(lines: readonly string[]): boolean {
+  const last = Array.isArray(lines) && lines.length > 0 ? String(lines[lines.length - 1] || '') : ''
+  if (!last) return false
+  if (RE_FENCE_TOGGLE.test(last)) return true
+  return /^[ \t]*(?:[-*+]|\d{1,9}[.)])\s+/.test(last)
+}
+
+/** 嵌套子条目的规范写法：保留原标记（`-`/`*`/`+`/`1.`）与层级缩进（每级 2 空格）。 */
+function canonicalNestedItem(line: string, level: number, body: string): string {
+  const m = String(line || '').match(/^[ \t]*(?:([-*+])|(\d{1,9}[.)]))\s+/)
+  const marker = m && m[2] ? m[2] : (m && m[1] ? m[1] : '-')
+  return '  '.repeat(Math.max(1, level)) + marker + ' ' + String(body || '').replace(/\s+/g, ' ').trim()
 }
 
 /**
@@ -155,6 +296,70 @@ export const RE_VERSION_DATE = /(\d{4}-\d{2}-\d{2})/;
 export const RE_YANKED = /\[YANKED\]/i;
 export const RE_UNRELEASED = /unreleased/i;
 
+/** 版本号 token（两段起；`1.0`、`1.2.3`、`v2.0-rc.1` 都算）。三段形态之外的 `## 1.0` 是真实日志
+ *  里 79 处「整节丢字」的根源（#116 取样），0.16.0 起按版本节收。 */
+const RE_VERSION_TOKEN = /(\d+\.\d+(?:\.\d+)*(?:-[0-9A-Za-z.-]+)?)/;
+
+/**
+ * 标题**除版本号外只剩装饰**（`## 1.0`、`## [1.2] - 2026-10-14`、`## v0.14`）。
+ * 只认「纯版本标题」是为了不把 `### 修复 1.2 的 bug` 这种带正文的小节标题误升级成版本节。
+ */
+function isPlainVersionTitle(text: string): boolean {
+  const t = String(text || '').trim()
+  if (!t) return false
+  if (!/(?:^|[^\d.])v?\d+\.\d+(?![\d.])/.test(t)) return false
+  const core = t
+    .replace(/\[YANKED\]/gi, ' ')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, ' ')
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/（[^）]*）/g, ' ')
+    .replace(/\d{4}-\d{2}-\d{2}/g, ' ')
+    .replace(/[\[\]()（）【】]/g, ' ')
+    .replace(/^[\s#>*_\-\u2014\u2013:：|]+/, '')
+    .replace(/[\s#>*_\-\u2014\u2013:：|]+$/, '')
+    .trim()
+  return /^v?\d+\.\d+$/.test(core)
+}
+
+/**
+ * 像版本标题但**取不出**版本号：`## 1`、`## 2026-10-14`（连点都没有的号）。
+ * 这种标题下的内容归属不了任何版本，必须诚实报 E_VERSION_TITLE，别装作没事。
+ */
+export function isVersionIshWithoutNumber(text: unknown): boolean {
+  const t = String(text !== null && text !== undefined ? text : '').trim()
+  if (!t) return false
+  if (extractVersionDateAndYanked(t).version) return false
+  return /^\s*v?\d+\s*(?:$|[\u2014\u2013\-(（])/.test(t)
+}
+
+/** 该行能不能当 setext 标题的**标题行**（下一行是 `===`／`---` 下划线）。 */
+function isSetextTextCandidate(line: string): boolean {
+  const t = String(line === null || line === undefined ? '' : line)
+  if (!t.trim()) return false
+  if (/^[ \t]/.test(t)) return false
+  if (/^\s{0,3}#{1,6}\s/.test(t)) return false
+  if (/^\s*(?:[-*+]|\d{1,9}[.)])\s+/.test(t)) return false
+  if (/^\s*>/.test(t)) return false
+  if (/^\s*\|/.test(t)) return false
+  if (isFenceToggle(t)) return false
+  return true
+}
+
+/**
+ * setext 下划线标题（`标题` + `===`／`---`）转成 ATX 形态再走同一套判据（#116 野外 2 份文件 47 处）。
+ * **保持行数不变**——下划线那行清空而不是删掉，validate 的行号才仍然对得上原文件。
+ */
+function normalizeSetextHeadings(lines: readonly string[]): string[] {
+  const out = lines.map((l) => String(l === null || l === undefined ? '' : l))
+  for (let i = 0; i + 1 < out.length; i++) {
+    const m = out[i + 1].match(/^ {0,3}(={3,}|-{3,})\s*$/)
+    if (!m || !isSetextTextCandidate(out[i])) continue
+    out[i] = (m[1].charAt(0) === '=' ? '# ' : '## ') + out[i].trim()
+    out[i + 1] = ''
+  }
+  return out
+}
+
 export function matchVersionHeading(line: unknown): string | null {
   try {
     const s = String(line !== null && line !== undefined ? line : '');
@@ -162,6 +367,39 @@ export function matchVersionHeading(line: unknown): string | null {
     if (!m) return null;
     return String(m[1] !== undefined && m[1] !== null ? m[1] : '').trim();
   } catch { return null; }
+}
+
+/** 任意层级标题（1–6 级；`#` 后空格可选，兼容 `##[1.1.0]` 这种真实写法）。 */
+export const RE_ANY_HEADING = /^\s{0,3}(#{1,6})\s*(.+?)\s*$/
+
+/**
+ * 标题文本是否**看起来是版本节**：含三段版本号（可带预发布后缀）、纯两段版本标题，或 `Unreleased`。
+ * 这个判据是「不再产幻影版本」的闸门：`# Changelog`、`## 关于本包`、`## License` 都过不去，
+ * 不会被当成版本节去挂条目；`### 修复 1.2 的 bug` 也过不去（带正文的两段号不算版本标题）。
+ */
+export function looksLikeVersionHeading(text: unknown): boolean {
+  const t = String(text !== null && text !== undefined ? text : '').trim()
+  if (!t) return false
+  if (RE_UNRELEASED.test(t)) return true
+  if (RE_VERSION_NUM.test(t)) return true
+  return isPlainVersionTitle(t)
+}
+
+/** 拆任意层级标题（认不出回 null）。 */
+export function matchAnyHeading(line: unknown): { level: number; text: string } | null {
+  try {
+    const s = String(line !== null && line !== undefined ? line : '')
+    const m = s.match(RE_ANY_HEADING)
+    if (!m) return null
+    return { level: (m[1] || '').length, text: String(m[2] !== undefined && m[2] !== null ? m[2] : '').trim() }
+  } catch { return null }
+}
+
+/** 任意层级里的**版本节**标题（1–4 级 + looksLikeVersionHeading；5–6 级当小节标题）。 */
+export function matchVersionHeadingAny(line: unknown): string | null {
+  const h = matchAnyHeading(line)
+  if (!h || h.level > 4) return null
+  return looksLikeVersionHeading(h.text) ? h.text : null
 }
 
 export function matchCategoryHeading(line: unknown): string | null {
@@ -263,95 +501,271 @@ export function shouldFetchChangelog(opts: { hasCache: boolean; failedAt: number
   } catch { return true; }
 }
 
-export function parseChangelog(markdown: unknown): ChangelogEntry[] {
+/** 条目正文的目标小节：六类之一，或作者自定义小节。 */
+type SectionDest = { cat: ChangelogCategory } | { other: ChangelogOtherSection }
+/** 正在攒的一条条目正文（多行文本 + 它要落进哪个小节）。 */
+type EntryBuf = { lines: string[]; dest: SectionDest }
+
+/** 追加一个自定义小节；紧邻的空标题隐式小节（还没收到条目）直接改名复用，免得留下两个空块。 */
+function ensureOther(cur: ChangelogEntry, title: string): ChangelogOtherSection {
+  const list = cur.otherSections ?? (cur.otherSections = [])
+  const last = list[list.length - 1]
+  if (title && last && last.title === '' && last.items.length === 0) {
+    last.title = title.slice(0, 120)
+    return last
+  }
+  const sec: ChangelogOtherSection = { title: title.slice(0, 120), items: [], count: 0 }
+  list.push(sec)
+  return sec
+}
+
+/** 被切掉的尾巴里还有几个版本节标题（只说数，不解析内容）。 */
+function countVersionHeadings(tail: string): number {
+  let n = 0
+  for (const line of String(tail || '').split('\n')) {
+    if (matchVersionHeadingAny(line) !== null) n += 1
+  }
+  return n
+}
+
+/**
+ * 解析 CHANGELOG Markdown（纯函数，永不抛错）：
+ * 非字符串/空串回 []；超长截断后解析（切掉多少记进 truncation，不再静默）；
+ * 版本节 = 1–4 级标题且文本像版本号（没有版本号的标题当**小节标题**，其内容不再丢）；
+ * 六类之外的 `###` 与「版本节下没有分类标题的裸条目」进 otherSections（保留作者标题，不猜分类）；
+ * 空节忽略；Unreleased 保留（渲染与区间时忽略）。
+ */
+export function parseChangelogReport(markdown: unknown): ChangelogParseReport {
+  const ledger: ChangelogTruncation = { chars: false, tailVersions: 0, entries: 0, sections: 0, sectionItems: 0, items: 0 }
   try {
-    if (typeof markdown !== 'string' || !markdown.trim()) return []
+    if (typeof markdown !== 'string' || !markdown.trim()) return { entries: [], truncation: ledger }
     let text = markdown.replace(/\r\n/g, '\n')
-    if (text.length > CHANGELOG_MAX_CHARS) text = text.slice(0, CHANGELOG_MAX_CHARS)
-    const lines = text.split('\n')
+    if (text.length > CHANGELOG_MAX_CHARS) {
+      ledger.chars = true
+      ledger.tailVersions = countVersionHeadings(text.slice(CHANGELOG_MAX_CHARS))
+      text = text.slice(0, CHANGELOG_MAX_CHARS)
+    }
+    const lines = normalizeSetextHeadings(text.split('\n'))
     const entries: ChangelogEntry[] = []
     let cur: ChangelogEntry | null = null
-    let curCat: ChangelogCategory | null = null
+    // 当前小节：六类之一，或作者自定义小节（含 title='' 的隐式小节）。
+    let bucket: { cat: ChangelogCategory } | { other: ChangelogOtherSection } | null = null
     // 围栏代码块里的 `##` 不是标题（如安装示例里的注释）：进围栏即暂停标题/条目识别，出围栏恢复。
     let inFence = false
+    // 当前正在攒的条目正文（多行：第一行是条目正文，后续行是嵌套子条目/续行/引用/代码块）。
+    // 攒到下一个条目、下一个标题或文件结尾才落进目标小节 —— 这样块级结构才留得住。
+    let buf: EntryBuf | null = null
+    // 闭包写、外层读的变量在 TS 里会被收窄成 null（这里显式取一次，别让类型窄化骗过编译器）。
+    const bufNow = (): EntryBuf | null => buf
+    // 非 null 表示「当前围栏属于这条条目」：内容收进它，渲染层画 <pre><code>（此前整段静默丢字）。
+    let fenceTo: string[] | null = null
+    // 开栏那一行的缩进：代码内容按同样宽度去缩进，免得面板里整体右移一截。
+    let fenceIndent = 0
+    // 空行只记边界（块级渲染靠它分段），不落字。
+    let pendingBlank = false
+    const destOf = (): { cat: ChangelogCategory } | { other: ChangelogOtherSection } | null => {
+      if (!bucket) return null
+      return 'cat' in bucket ? { cat: bucket.cat } : { other: bucket.other }
+    }
+    // 版本节下没有分类标题就出现的条目：开一个无标题隐式小节接收，绝不丢字也不猜分类。
+    const ensureDest = (): { cat: ChangelogCategory } | { other: ChangelogOtherSection } | null => {
+      const d = destOf()
+      if (d) return d
+      if (!cur) return null
+      const other = ensureOther(cur as ChangelogEntry, '')
+      bucket = { other }
+      return { other }
+    }
+    const flushBuf = (): void => {
+      const pending = buf
+      buf = null
+      pendingBlank = false
+      if (!pending || !cur) return
+      const text = truncateEntryLines(pending.lines, ledger)
+      if (!text) return
+      const c = cur as ChangelogEntry
+      if ('cat' in pending.dest) {
+        c.sections[pending.dest.cat].push(text)
+        try { if (c.counts) c.counts[pending.dest.cat] += 1 } catch {}
+      } else {
+        pending.dest.other.items.push(text)
+        pending.dest.other.count = (pending.dest.other.count ?? 0) + 1
+      }
+    }
+    const openBuf = (first: string, dest: { cat: ChangelogCategory } | { other: ChangelogOtherSection }): void => {
+      buf = { lines: [first], dest }
+    }
     const pushCurrent = (): void => {
+      flushBuf()
       if (!cur) return
-      const hasAny = (CHANGELOG_ALL_CATEGORIES as readonly string[]).some(
-        (c) => (cur as ChangelogEntry).sections[c as ChangelogCategory].length > 0,
-      )
-      // 空节忽略：六类全空的版本不收录（Unreleased 空节同样忽略）。
+      const e = cur as ChangelogEntry
+      const hasAny = (CHANGELOG_ALL_CATEGORIES as readonly string[]).some((c) => e.sections[c as ChangelogCategory].length > 0)
+        || (e.otherSections ?? []).some((s) => s.items.length > 0)
+      // 空节忽略：六类与自定义小节全空的版本不收录（Unreleased 空节同样忽略）。
       if (!hasAny) return
-      // 每类封顶（文件顺序前 N 条）。
+      // 每类封顶（文件顺序前 N 条），切掉的条数记账（渲染层把「共 N 条，只显示前 M 条」写在面板上）。
       for (const c of CHANGELOG_ALL_CATEGORIES) {
-        const list = cur.sections[c]
+        const list = e.sections[c]
         if (list.length > CHANGELOG_MAX_BULLETS_PER_SECTION) {
-          cur.sections[c] = list.slice(0, CHANGELOG_MAX_BULLETS_PER_SECTION)
+          ledger.sections += 1
+          ledger.sectionItems += list.length - CHANGELOG_MAX_BULLETS_PER_SECTION
+          e.sections[c] = list.slice(0, CHANGELOG_MAX_BULLETS_PER_SECTION)
         }
       }
-      entries.push(cur)
+      for (const s of e.otherSections ?? []) {
+        if (s.items.length > CHANGELOG_MAX_BULLETS_PER_SECTION) {
+          ledger.sections += 1
+          ledger.sectionItems += s.items.length - CHANGELOG_MAX_BULLETS_PER_SECTION
+          s.items = s.items.slice(0, CHANGELOG_MAX_BULLETS_PER_SECTION)
+        }
+      }
+      entries.push(e)
     }
     for (const rawLine of lines) {
       const line = String(rawLine ?? '')
-      // 围栏开关行本身不进条目。
+      // 围栏：开关行自己不进条目；**缩进**围栏（属于上一条的用法示例）内容挂到当前条目下，
+      // 渲染层画 <pre><code>；顶格围栏在版本节内同样收（它也是作者的原文），版本节之外仍忽略。
       if (isFenceToggle(line)) {
-        inFence = !inFence
-        continue
-      }
-      if (inFence) continue
-      // 版本标题：`## ` 开头但非 `###`（三级是分类标题）。
-      // 对抗复查收紧：`##` 后空格可选（`##[1.1.0]` 也是合法标题；此前漏收还会把下属条目
-      // 错挂到上一个版本——归因污染比漏收更坏）。
-      const versionTitle = matchVersionHeading(line)
-      if (versionTitle !== null) {
-        pushCurrent()
-        cur = null
-        curCat = null
-        const title = versionTitle
-        const { version, date, yanked } = extractVersionDateAndYanked(title)
-        if (!version) continue
-        cur = { version, date, yanked, sections: emptySections(), counts: emptyCounts() }
-        continue
-      }
-      // 分类标题：`### Added` 等六类（英文大小写不敏感，亦收中文名，`###` 后空格同样可选），其余三级标题直接无视。
-      const catTitle = matchCategoryHeading(line)
-      if (catTitle !== null) {
-        const cat = normalizeCategory(catTitle)
-        curCat = cur && cat && isCategoryName(cat) ? cat : null
-        continue
-      }
-      // 条目：`- `/`* `/`+ ` 开头。
-      const bulletBody = matchBulletBody(line)
-      if (bulletBody !== null && cur && curCat) {
-        const item = truncateBullet(bulletBody)
-        if (item) { cur.sections[curCat].push(item); try { if (cur.counts) cur.counts[curCat] += 1; } catch {} }
-        continue
-      }
-      // 续行（#23 对抗复查收紧，此前太贪把顶格段落拼进上一条，直接改写条目原文）：
-      // 只有缩进行才拼到上一条（markdown 换行惯例）；顶格文本视为段落忽略；
-      // 任何 `#` 开头行永不进条目（此前裸 `###` 会被拼进上一条）。
-      const trimmed = line.trim()
-      if (trimmed && !trimmed.startsWith('#') && /^\s/.test(line) && cur && curCat) {
-        const list = cur.sections[curCat]
-        if (list.length > 0) {
-          const merged = truncateBullet(`${list[list.length - 1]} ${trimmed}`)
-          if (merged) list[list.length - 1] = merged
+        if (inFence) {
+          inFence = false
+          if (fenceTo) { fenceTo.push('```'); fenceTo = null }
+          continue
+        }
+        inFence = true
+        const lead = ((line.match(/^[ \t]*/) || [''])[0] || '').length
+        fenceIndent = lead
+        const b0 = bufNow()
+        if (lead > 0 && b0) {
+          fenceTo = b0.lines
+          fenceTo.push('```' + line.replace(/^[ \t]*(?:`{3,}|~{3,})\s*/, '').trim())
+          continue
+        }
+        const dest = ensureDest()
+        flushBuf()
+        if (dest) {
+          openBuf('```' + line.replace(/^[ \t]*(?:`{3,}|~{3,})\s*/, '').trim(), dest)
+          const b1 = bufNow()
+          fenceTo = b1 ? b1.lines : null
+        } else {
+          fenceTo = null
         }
         continue
       }
-      // 空行、顶格段落、标题残件：一律忽略（宁可丢字，不改写作者原文）。
+      if (inFence) {
+        if (fenceTo) {
+          const lead = ((line.match(/^[ \t]*/) || [''])[0] || '').length
+          fenceTo.push(line.slice(Math.min(fenceIndent, lead)).replace(/[ \t]+$/, ''))
+        }
+        continue
+      }
+      // 标题：1–4 级且像版本号 → 新版本节；不像版本号的标题 → 小节标题（六类走分类，其余保留原文标题）。
+      const head = matchAnyHeading(line)
+      if (head) {
+        const vTitle = head.level <= 4 && looksLikeVersionHeading(head.text) ? head.text : null
+        if (vTitle !== null) {
+          pushCurrent()
+          cur = null
+          bucket = null
+          const { version, date, yanked } = extractVersionDateAndYanked(vTitle)
+          if (!version) continue
+          cur = { version, date, yanked, sections: emptySections(), counts: emptyCounts() }
+          continue
+        }
+        // `## 1`（连点都没有的号）这类像版本、却取不出号；`## 1.0` 已走上一条按版本节收（0.16.0）。
+        // 取不出号的标题下内容归属不了任何版本，结束当前节后忽略——但 validate 会诚实报 E_VERSION_TITLE。
+        if (isVersionIshWithoutNumber(head.text)) {
+          if (cur) {
+            pushCurrent()
+            cur = null
+            bucket = null
+          }
+          continue
+        }
+        if (cur) {
+          flushBuf()
+          const cat = normalizeCategoryMulti(head.text)
+          if (cat && isCategoryName(cat)) bucket = { cat }
+          else bucket = { other: ensureOther(cur as ChangelogEntry, head.text) }
+          continue
+        }
+        // 版本节之前/之外的标题（文件头的 `# Changelog`、`## 体例说明`、`## License`）：不是发行内容，忽略。
+        continue
+      }
+      // 条目：`- `/`* `/`+ ` 开头（缩进 ≥2 空格的算上一条的**子条目**，不再拍平成同级兄弟）；
+      // 子条目位置上的 `1. ` 走有序列表；顶格编号行仍不当条目（正文里的编号行很常见），按段落收字。
+      const bulletBody = matchBulletBody(line)
+      const orderedBody = bulletBody === null ? matchOrderedBody(line) : null
+      const body = bulletBody !== null ? bulletBody : orderedBody
+      if (body !== null) {
+        const level = indentLevel(line)
+        const b = bufNow()
+        if (level > 0 && b && !(pendingBlank && !bufEndsWithItem(b.lines))) {
+          b.lines.push(canonicalNestedItem(line, level, body))
+          pendingBlank = false
+          continue
+        }
+        if (bulletBody !== null) {
+          const b2 = bufNow()
+          if (pendingBlank && b2 && !bufEndsWithItem(b2.lines)) flushBuf()
+          flushBuf()
+          const dest = ensureDest()
+          if (body.replace(/\s+/g, ' ').trim().length > CHANGELOG_MAX_BULLET_CHARS) ledger.items += 1
+          const item = truncateBullet(body)
+          if (dest && item) openBuf(item, dest)
+          continue
+        }
+        // 顶格有序行：当段落正文收（不当条目），留字不猜结构。
+      }
+      const trimmed = line.trim()
+      if (!trimmed) { pendingBlank = true; continue }
+      // 任何 `#` 开头行永不进条目（标题分支没认出来的标题残件，如 `####`）。
+      if (trimmed.startsWith('#')) continue
+      // 版本节内的其余文本（顶格段落、引用块、缩进续行）：一律按原文收进当前小节，不再丢字。
+      // 版本节之外（文件头的体例说明等）仍忽略——那不是某个版本的内容。
+      if (cur) {
+        const dest = ensureDest()
+        if (!dest) continue
+        const bp = bufNow()
+        // 顶格块（段落/引用）与上一条之间隔了空行 ⇒ 另起一条：Markdown 里空行就是段落边界，
+        // 硬并进上一条会把「围栏代码块后面的顶格引用」粘成同一条（0.16.0 块级口径）。
+        // 缩进行（含子条目续行、缩进引用）照旧并进当前条目——它属于那条。
+        if (bp && pendingBlank && !/^[ \t]/.test(line)) flushBuf()
+        // 引用行与缩进续行按原文层级规范化保留（块级渲染靠它分层），顶格段落原样收字。
+        const isQuote = trimmed === '>' || trimmed.startsWith('> ')
+        const text = isQuote
+          ? '> ' + trimmed.replace(/^>\s?/, '')
+          : /^[ \t]/.test(line)
+            ? '  '.repeat(Math.max(1, indentLevel(line))) + trimmed
+            : trimmed.replace(/[ \t]+$/, '')
+        const bp2 = bufNow()
+        if (bp2) bp2.lines.push(text)
+        else openBuf(text, dest)
+        pendingBlank = false
+      }
     }
     pushCurrent()
-    return entries.slice(0, CHANGELOG_MAX_ENTRIES)
+    if (entries.length > CHANGELOG_MAX_ENTRIES) {
+      ledger.entries = entries.length - CHANGELOG_MAX_ENTRIES
+      return { entries: entries.slice(0, CHANGELOG_MAX_ENTRIES), truncation: ledger }
+    }
+    return { entries, truncation: ledger }
   } catch {
-    return []
+    return { entries: [], truncation: ledger }
   }
 }
 
-/** 该节是否有可见内容（六类任一非空）。 */
+/** 兼容口：只要条目数组（既有调用方与测试用的就是它）。 */
+export function parseChangelog(markdown: unknown): ChangelogEntry[] {
+  return parseChangelogReport(markdown).entries
+}
+
+/** 该节是否有可见内容（六类任一非空，或自定义小节里有条目）。 */
 export function hasVisibleSections(entry: ChangelogEntry | null | undefined): boolean {
   if (!entry || typeof entry !== 'object') return false
   try {
-    return CHANGELOG_ALL_CATEGORIES.some((c) => Array.isArray(entry.sections?.[c]) && entry.sections[c].length > 0)
+    if (CHANGELOG_ALL_CATEGORIES.some((c) => Array.isArray(entry.sections?.[c]) && entry.sections[c].length > 0)) return true
+    const other = entry.otherSections
+    return Array.isArray(other) && other.some((s) => Array.isArray(s?.items) && s.items.length > 0)
   } catch {
     return false
   }
@@ -440,6 +854,211 @@ function escapeChangelogHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
+/**
+ * 行内 Markdown 支持面（野外取样结论见 `docs/research/20261014-changelog-markdown-sample.md`）：
+ * `code`／`**strong**`／`*em*`／`~~del~~`／`[文本](http(s) URL)`／`<http(s) URL>`／裸 URL／`![alt](url)` 占位块。
+ *
+ * 契约（改这块不许破）：
+ * - **永不直通 HTML**：一切文本先转义再拼标签（野外反例：作者原文里的 `dsh-im<channel>`）；
+ * - **只认 http/https**：`javascript:`、`data:`、`file:` 等一律按字面文本输出，永不产出可点协议；
+ * - **未闭合标记按字面输出**：渲染器不猜、不吞字，输出永远标签配平（截断可能把 `**` 切成一半）；
+ * - **不联网**：图片只出占位（`data-src`），不产出 `<img>`、不发任何请求；
+ * - 纯函数、永不抛错、无副作用。
+ */
+export const CHANGELOG_MD_INLINE = ['code', 'strong', 'em', 'del', 'link', 'autolink', 'url', 'image'] as const
+
+/** 链接目标长度上限：超长一律按字面文本（防畸形输入把面板撑爆）。 */
+const MD_URL_MAX = 2048
+/** 行内递归上限：`**a *b* c**` 这类嵌套只进两层，再深按字面输出。 */
+const MD_MAX_DEPTH = 2
+
+function isHttpUrl(u: string): boolean {
+  return /^https?:\/\//i.test(String(u || ''))
+}
+
+/**
+ * 截断（`truncateBullet` 按字符切）可能把 `` ` ``／`**` 从中间切开，留下悬空标记。
+ * 只在**标记确实没被消费掉**时才剥：渲染一遍，若可见文本里还留着裸标记串，说明它没配上对，
+ * 就把源码里最后那个同类标记删掉再渲染（最多三轮）；配平的一对渲染后是标签，可见文本里没有裸标记，原样保留。
+ *
+ * 只处理 `**`／`__`／`~~`／`` ` `` 这四种成对标记：单个 `*`／`_` 在 URL 与算式里太常见，
+ * 误删风险大于收益。
+ */
+function renderInlineTailAware(s: string): string {
+  let src = s
+  let out = renderInlineMarkdown(src, 0)
+  if (!s.endsWith('…')) return out
+  for (let round = 0; round < 3; round++) {
+    let visible = ''
+    try {
+      visible = out.replace(/<code[^>]*>[\s\S]*?<\/code>/g, '').replace(/<[^>]*>/g, '')
+    } catch {
+      break
+    }
+    const m = visible.match(/\*\*|__|~~|`/)
+    if (!m) break
+    const marker = m[0]
+    const at = src.lastIndexOf(marker)
+    if (at < 0) break
+    src = src.slice(0, at) + src.slice(at + marker.length)
+    out = renderInlineMarkdown(src, 0)
+  }
+  return out
+}
+
+/** `[文本](url)` 扫描（返回结束下标；畸形/超长一律 null，交给字面输出）。 */
+function matchBracketLink(s: string, openIdx: number): { text: string; url: string; end: number } | null {
+  try {
+    if (s[openIdx] !== '[') return null
+    const close = s.indexOf(']', openIdx + 1)
+    if (close < 0 || s[close + 1] !== '(') return null
+    const urlEnd = s.indexOf(')', close + 2)
+    if (urlEnd < 0) return null
+    const raw = s.slice(close + 2, urlEnd).trim()
+    if (!raw || raw.length > MD_URL_MAX) return null
+    const url = raw.split(/\s+/)[0] || ''
+    if (!url) return null
+    return { text: s.slice(openIdx + 1, close), url, end: urlEnd + 1 }
+  } catch { return null }
+}
+
+/** 裸 URL 收尾：尾部句读（含中文标点）不算 URL；右括号只在没配平时才丢。 */
+function trimBareUrl(raw: string): string {
+  let u = String(raw || '')
+  while (u.length > 0 && /[.,;:!?'"”’、。，；：！？]/.test(u[u.length - 1] as string)) u = u.slice(0, -1)
+  while (u.endsWith(')')) {
+    const open = (u.match(/\(/g) || []).length
+    const close = (u.match(/\)/g) || []).length
+    if (close <= open) break
+    u = u.slice(0, -1)
+  }
+  return u
+}
+
+function mdAnchor(url: string, inner: string): string {
+  return '<a class="dsh-upd-md-link" data-openlink="1" href="' + escapeChangelogHtml(url) +
+    '" target="_blank" rel="noopener noreferrer">' + inner + '</a>'
+}
+
+function renderInlineMarkdown(text: string, depth: number): string {
+  const s = String(text ?? '')
+  if (!s) return ''
+  if (depth > MD_MAX_DEPTH) return escapeChangelogHtml(s)
+  let out = ''
+  let i = 0
+  const n = s.length
+  while (i < n) {
+    const c = s[i] as string
+    // 1) 反斜杠转义：`\*` 按字面星号
+    if (c === '\\' && i + 1 < n && /[\\`*_~[\]()!<>#|]/.test(s[i + 1] as string)) {
+      out += escapeChangelogHtml(s[i + 1] as string)
+      i += 2
+      continue
+    }
+    // 2) 行内代码：反引号串（1–3 个）成对才认
+    if (c === '`') {
+      let ticks = 1
+      while (i + ticks < n && s[i + ticks] === '`' && ticks < 3) ticks++
+      const fence = '`'.repeat(ticks)
+      const end = s.indexOf(fence, i + ticks)
+      if (end > i + ticks) {
+        out += '<code class="dsh-upd-md-code">' + escapeChangelogHtml(s.slice(i + ticks, end)) + '</code>'
+        i = end + ticks
+        continue
+      }
+    }
+    // 3) 图片：只出占位（不产出 <img>，不联网；非 http/https 一律按字面文本）
+    if (c === '!' && s[i + 1] === '[') {
+      const img = matchBracketLink(s, i + 1)
+      if (img && isHttpUrl(img.url)) {
+        const alt = img.text.trim() || img.url
+        out += '<span class="dsh-upd-md-img" data-src="' + escapeChangelogHtml(img.url) + '" title="' +
+          escapeChangelogHtml(img.url) + '">' + renderInlineMarkdown(alt, depth + 1) + '</span>'
+        i = img.end
+        continue
+      }
+    }
+    // 4) 链接：只认 http/https
+    if (c === '[') {
+      const lk = matchBracketLink(s, i)
+      if (lk && isHttpUrl(lk.url)) {
+        out += mdAnchor(lk.url, renderInlineMarkdown(lk.text, depth + 1))
+        i = lk.end
+        continue
+      }
+    }
+    // 5) autolink `<https://…>`
+    if (c === '<') {
+      const m = s.slice(i).match(/^<(https?:\/\/[^<>\s]+)>/i)
+      if (m) {
+        out += mdAnchor(m[1] as string, escapeChangelogHtml(m[1] as string))
+        i += (m[0] as string).length
+        continue
+      }
+    }
+    // 6) 裸 URL（只吃 ASCII URL 字符：后面紧贴中文时不把汉字吞进链接）
+    if ((c === 'h' || c === 'H') && /^https?:\/\//i.test(s.slice(i, i + 8))) {
+      const m = s.slice(i).match(/^https?:\/\/[A-Za-z0-9\-._~:/?#@!$&*+,;=%()[\]]+/i)
+      if (m) {
+        const url = trimBareUrl(m[0] as string)
+        if (url.length > 8) {
+          out += mdAnchor(url, escapeChangelogHtml(url))
+          i += url.length
+          continue
+        }
+      }
+    }
+    // 7) 强调族：`**strong**` / `*em*` / `__strong__` / `_em_`
+    if (c === '*' || c === '_') {
+      let run = 1
+      while (i + run < n && s[i + run] === c && run < 2) run++
+      const marker = c.repeat(run)
+      const prev = i > 0 ? (s[i - 1] as string) : ''
+      const inWord = c === '_' && /[0-9A-Za-z\u4e00-\u9fff]/.test(prev)
+      if (!inWord) {
+        const end = s.indexOf(marker, i + run)
+        if (end > i + run) {
+          const inner = s.slice(i + run, end)
+          // 首尾不许空白（`3 * 4 * 5` 不是斜体），不跨行
+          if (inner.trim() === inner && !inner.includes('\n')) {
+            const tag = run === 2 ? 'strong' : 'em'
+            out += '<' + tag + '>' + renderInlineMarkdown(inner, depth + 1) + '</' + tag + '>'
+            i = end + run
+            continue
+          }
+        }
+      }
+    }
+    // 8) 删除线
+    if (c === '~' && s[i + 1] === '~') {
+      const end = s.indexOf('~~', i + 2)
+      if (end > i + 2) {
+        out += '<del class="dsh-upd-md-del">' + renderInlineMarkdown(s.slice(i + 2, end), depth + 1) + '</del>'
+        i = end + 2
+        continue
+      }
+    }
+    // 9) 其余：逐字转义（HTML 永不直通）
+    out += escapeChangelogHtml(c)
+    i++
+  }
+  return out
+}
+
+/**
+ * 行内 Markdown → HTML（公开纯函数，永不抛错）。
+ * 输入非字符串/空串回空串；任何异常一律退回「全转义原文」，绝不让日志把面板搞崩。
+ */
+export function renderChangelogInline(text: unknown): string {
+  try {
+    const s = String(text !== null && text !== undefined ? text : '')
+    if (!s) return ''
+    return renderInlineTailAware(s)
+  } catch {
+    try { return escapeChangelogHtml(String(text !== null && text !== undefined ? text : '')) } catch { return '' }
+  }
+}
+
 /** 计数元数据取值（缺省视为与 sections 等长，只记数字）。 */
 export function countsOf(entry: ChangelogEntry | null | undefined): Record<ChangelogCategory, number> {
   try {
@@ -479,21 +1098,176 @@ export function yankedBannerHTML(version: unknown, lang?: AppLang | string | nul
   } catch { return ''; }
 }
 
-/** 单条目 HTML（含破坏标记徽标与前缀加粗，正文一字不动；#66 徽标与无障碍名入字典单语，lang 缺省 zh 零回归）。 */
-export function renderChangelogItem(item: string, lang?: AppLang | string | null): string {
+/**
+ * 列表项识别（`- `/`* `/`+ `/`1. `/`1) `，缩进折算成层级）：块级渲染的入口判据。
+ * 与解析层 `RE_BULLET` 同源同义，但不共用正则——那边只管顶格/缩进的条目归属，这边要拆标记与层级。
+ */
+function matchListItem(line: string): { depth: number; ordered: boolean; text: string } | null {
+  const m = String(line || '').match(/^([ \t]*)(?:([-*+])|(\d{1,9}[.)]))[ \t]+(.*)$/)
+  if (!m) return null
+  return { depth: indentLevel(m[1] || ''), ordered: m[3] !== undefined && m[3] !== null, text: m[4] || '' }
+}
+
+/**
+ * 一组列表项 → 嵌套 `<ul>`/`<ol>`（按缩进递归，深度已被解析层封顶在 `CHANGELOG_MAX_ENTRY_DEPTH`）。
+ * 返回 { html, next }：next 是消费到的下标，供上层继续扫。
+ */
+function renderListItems(items: Array<{ depth: number; ordered: boolean; text: string }>, start: number, base: number): { html: string; next: number } {
+  const first = items[start]
+  const tag = first && first.ordered ? 'ol' : 'ul'
+  const cls = tag === 'ol' ? 'dsh-upd-md-list-ol' : 'dsh-upd-md-list'
+  let html = '<' + tag + ' class="' + cls + '">'
+  let i = start
+  while (i < items.length && items[i].depth >= base) {
+    const it = items[i]
+    if (it.depth > base) {
+      // 更深一层：挂进上一个还没关的 <li>
+      const sub = renderListItems(items, i, it.depth)
+      html += sub.html
+      i = sub.next
+      continue
+    }
+    html += '<li>' + renderChangelogInline(it.text)
+    i += 1
+    const nextItem = items[i]
+    if (nextItem && nextItem.depth > base) {
+      const sub = renderListItems(items, i, nextItem.depth)
+      html += sub.html
+      i = sub.next
+    }
+    html += '</li>'
+  }
+  html += '</' + tag + '>'
+  return { html, next: i }
+}
+
+/**
+ * 块级渲染：把条目第一行**之后**的行渲染成嵌套列表 / 引用块 / 围栏代码块 / 续行段落。
+ * 纯函数、永不抛错、一切文本先转义；认不出来的行按续行段落处理（宁可当正文，不丢字）。
+ */
+/** 分隔线（`---`／`***`／`___`，中间可有空格）：作者的版本/小节切分线，渲染成 `<hr>`。 */
+function isThematicBreak(line: unknown): boolean {
+  const t = String(line === null || line === undefined ? '' : line)
+  return /^ {0,3}([-*_])(?:\s*\1){2,}\s*$/.test(t)
+}
+
+export function renderChangelogBlocks(lines: readonly string[]): string {
+  try {
+    const src = Array.isArray(lines) ? lines.map((x) => String(x === null || x === undefined ? '' : x)) : []
+    const out: string[] = []
+    let para: string[] = []
+    const flushPara = (): void => {
+      if (!para.length) return
+      out.push('<div class="dsh-upd-md-para">' + renderChangelogInline(para.join(' ')) + '</div>')
+      para = []
+    }
+    let i = 0
+    while (i < src.length) {
+      const line = src[i]
+      if (isFenceToggle(line)) {
+        flushPara()
+        const code: string[] = []
+        i += 1
+        while (i < src.length && !isFenceToggle(src[i])) { code.push(src[i]); i += 1 }
+        if (i < src.length) i += 1
+        out.push('<pre class="dsh-upd-md-pre"><code class="dsh-upd-md-precode">' + escapeChangelogHtml(code.join(String.fromCharCode(10))) + '</code></pre>')
+        continue
+      }
+      if (/^[ \t]*>/.test(line)) {
+        flushPara()
+        const quote: string[] = []
+        while (i < src.length && /^[ \t]*>/.test(src[i])) { quote.push(src[i].replace(/^[ \t]*>[ \t]?/, '')); i += 1 }
+        out.push('<blockquote class="dsh-upd-md-quote">' + renderChangelogInline(quote.join(' ')) + '</blockquote>')
+        continue
+      }
+      if (isThematicBreak(line)) {
+        flushPara()
+        out.push('<hr class="dsh-upd-md-hr">')
+        i += 1
+        continue
+      }
+      const li = matchListItem(line)
+      if (li) {
+        flushPara()
+        const items: Array<{ depth: number; ordered: boolean; text: string }> = []
+        while (i < src.length) {
+          const head = matchListItem(src[i])
+          if (!head) break
+          let text = head.text
+          i += 1
+          // 该子项自己的续行（更深缩进、无标记）并进这一项，不再另起一段
+          while (i < src.length && !matchListItem(src[i]) && !isFenceToggle(src[i]) && !/^[ \t]*>/.test(src[i]) && !isThematicBreak(src[i])) {
+            const extra = src[i].trim()
+            if (extra) text += ' ' + extra
+            i += 1
+          }
+          items.push({ depth: head.depth, ordered: head.ordered, text })
+        }
+        // 列表的基准层取第一项的层级：全组都是子条目时不再套一层空 `<ul>`。
+        out.push(renderListItems(items, 0, items.length > 0 ? items[0].depth : 0).html)
+        continue
+      }
+      const text = line.trim()
+      if (text) para.push(text)
+      i += 1
+    }
+    flushPara()
+    return out.join('')
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * 条目正文是否已经以本类名开头（`**Added** · …`、`` `Fixed` ``、`Added: …`、`新增 · …`）。
+ * 档案卷皮肤用 CSS 给每条补一次红字类名前缀（原型 `.logver`），正文自己写了类名时就不该再补，
+ * 否则面板上会出现「Added · Added · …」。判定只认「名字 + 边界」，`Addendum`／`新增功能` 不算。
+ */
+function leadsWithCategoryName(item: string, cat: ChangelogCategory): boolean {
+  const first = String(item !== null && item !== undefined ? item : '').split(String.fromCharCode(10))[0].trim()
+  if (!first) return false
+  const bare = first.replace(/^[*_`~\s]+/, '')
+  for (const name of [String(cat), CHANGELOG_CATEGORY_ZH[cat]]) {
+    if (!name) continue
+    if (bare.slice(0, name.length).toLowerCase() !== name.toLowerCase()) continue
+    const next = bare.slice(name.length, name.length + 1)
+    if (!next) return true
+    if (/[\s·:：,，)）\]】\-—–、。.;；/|｜*_`~]/.test(next)) return true
+  }
+  return false
+}
+
+/** 单条目 HTML（含破坏标记徽标与前缀加粗，正文走行内 Markdown 渲染；#66 徽标与无障碍名入字典单语，lang 缺省 zh 零回归）。 */
+export function renderChangelogItem(item: string, lang?: AppLang | string | null, cat?: ChangelogCategory | string | null): string {
   try {
     const l = normalizeLangTag(lang ?? 'zh')
     const s = String(item !== null && item !== undefined ? item : '');
     if (!s) return '';
-    const split = splitBreakingPrefix(s);
-    if (!split) return '<li>' + escapeChangelogHtml(s) + '</li>';
-    const head = escapeChangelogHtml(split.head);
-    const prefix = escapeChangelogHtml(split.prefix);
-    const rest = escapeChangelogHtml(split.rest);
+    const nlIdx = s.indexOf(String.fromCharCode(10));
+    const firstLine = nlIdx === -1 ? s : s.slice(0, nlIdx);
+    // 第一行本身就是块级构造（顶格围栏 / 引用 / 列表项）：整条交给块级渲染——它是独立块，不是「条目正文」。
+    // 档案卷皮肤据此跳过红字类名前缀（免得在代码块前面挂一个孤零零的「Added ·」）。
+    if (/^[ \t]*(?:```|~~~|>|[-*+][ \t]|\d{1,9}[.)][ \t]|[-*_]{3,}\s*$)/.test(firstLine)) {
+      const blockLead = cat && isCategoryName(String(cat)) ? ' data-cat-block="1"' : '';
+      const blockHtml = renderChangelogBlocks(s.split(String.fromCharCode(10)));
+      return blockHtml ? '<li' + blockLead + '>' + blockHtml + '</li>' : '';
+    }
+    // 多行条目：第一行是条目正文（破坏标记徽标只认第一行），其余行交给块级渲染。
+    const head = firstLine;
+    const tail = nlIdx === -1 ? [] : s.slice(nlIdx + 1).split(String.fromCharCode(10));
+    const tailHtml = renderChangelogBlocks(tail);
+    // 档案卷皮肤据此跳过重复的类名前缀（皮肤用，默认主题不看这个属性）。
+    const lead = cat && isCategoryName(String(cat)) && leadsWithCategoryName(head, String(cat) as ChangelogCategory) ? ' data-cat-lead="1"' : '';
+    if (!head) return tailHtml ? '<li' + lead + '>' + tailHtml + '</li>' : '';
+    const split = splitBreakingPrefix(head);
+    if (!split) return '<li' + lead + '>' + renderChangelogInline(head) + tailHtml + '</li>';
+    const headHtml = renderChangelogInline(split.head);
+    const prefix = renderChangelogInline(split.prefix);
+    const rest = renderChangelogInline(split.rest);
     const badgeText = copyText('changelog.breaking.badge', l)
     const badgeAria = copyText('changelog.breaking.aria', l)
     const badge = '<span class="dsh-upd-breaking-badge" role="img" aria-label="' + escapeChangelogHtml(badgeAria) + '">' + escapeChangelogHtml(badgeText) + '</span> ';
-    return '<li>' + head + badge + '<strong>' + prefix + '</strong>' + rest + '</li>';
+    return '<li' + lead + '>' + headHtml + badge + '<strong>' + prefix + '</strong>' + rest + tailHtml + '</li>';
   } catch { return ''; }
 }
 
@@ -530,7 +1304,7 @@ export function renderChangelogSection(entry: ChangelogEntry, lang?: AppLang | s
       parts.push('<ul>');
       for (const item of items) {
         if (!item) continue;
-        const li = renderChangelogItem(item, l);
+        const li = renderChangelogItem(item, l, cat);
         if (li) parts.push(li);
       }
       parts.push('</ul>');
@@ -554,11 +1328,13 @@ export function renderChangelogSection(entry: ChangelogEntry, lang?: AppLang | s
       parts.push('<ul>');
       for (const item of items) {
         if (!item) continue;
-        const li = renderChangelogItem(item, l);
+        const li = renderChangelogItem(item, l, cat);
         if (li) parts.push(li);
       }
       parts.push('</ul></details>');
     }
+    // 六类之外的小节（作者自定义 `### 标题` / 没写分类标题的裸条目）：六类之后按原文顺序补上。
+    for (const block of renderOtherSections(entry, l)) parts.push(block);
     parts.push('</div>');
     return parts.join(String.fromCharCode(10));
   } catch {
@@ -575,17 +1351,69 @@ export function renderChangelogNeutral(lang?: AppLang | string | null): string {
   } catch { return ''; }
 }
 
+/** 自定义小节 HTML（作者自己的 `### 标题` 或没写分类标题的裸条目）：标题原样保留，只做行内渲染。 */
+function renderOtherSections(entry: ChangelogEntry, l: AppLang | string): string[] {
+  const out: string[] = []
+  const list = Array.isArray(entry.otherSections) ? entry.otherSections : []
+  for (const s of list) {
+    const items = Array.isArray(s?.items) ? s.items : []
+    if (items.length === 0) continue
+    const title = String(s.title || '').trim()
+    out.push('<div class="dsh-upd-changelog-cat" data-cat="other">')
+    if (title) out.push('<div class="dsh-upd-changelog-catname">' + renderChangelogInline(title) + '</div>')
+    const total = typeof s.count === 'number' && s.count > items.length ? s.count : items.length
+    if (total > items.length) out.push(truncatedNoteHTML(total, items.length, l))
+    out.push('<ul>')
+    for (const item of items) {
+      if (!item) continue
+      const li = renderChangelogItem(item, l, null)
+      if (li) out.push(li)
+    }
+    out.push('</ul>')
+    out.push('</div>')
+  }
+  return out
+}
+
+/**
+ * 文档级截断说明（0.16.0 起：切掉多少写在面板上，不再静默丢）。
+ * 三个上限各有各的话：文件 64 KiB、版本节 100 个；单类 200 条由 `truncatedNoteHTML` 在小节头上说。
+ */
+export function truncationNoteHTML(tr: ChangelogTruncation | null | undefined, lang?: AppLang | string | null): string {
+  try {
+    const l = normalizeLangTag(lang ?? 'zh')
+    if (!tr || typeof tr !== 'object') return ''
+    const parts: string[] = []
+    if (tr.chars === true) {
+      parts.push(copyText('changelog.truncated.file', l))
+      const n = Number(tr.tailVersions) || 0
+      if (n > 0) parts.push(copyText('changelog.truncated.versions', l, { n: String(n) }))
+    }
+    const droppedEntries = Number(tr.entries) || 0
+    if (droppedEntries > 0) {
+      parts.push(copyText('changelog.truncated.count', l, {
+        n: String(CHANGELOG_MAX_ENTRIES),
+        m: String(CHANGELOG_MAX_ENTRIES + droppedEntries),
+      }))
+    }
+    if (parts.length === 0) return ''
+    return '<div class="dsh-upd-changelog-truncnote">' + escapeChangelogHtml(parts.join(' ')) + '</div>'
+  } catch { return '' }
+}
+
 /**
  * 区间渲染 HTML（纯函数）：
  * entries 非数组/空、无可见区间内容一律回中性提示；
  * Unreleased 与空节永不渲染；输出已转义，可直接拼进面板。
+ * `opts.truncated`（0.16.0 新增，可选）：解析期的丢字账本，有丢就在日志块头上说明。
  */
 export function renderChangelogHTML(
   entries: unknown,
-  opts?: { from?: string | null; to?: string | null; lang?: AppLang | string | null },
+  opts?: { from?: string | null; to?: string | null; lang?: AppLang | string | null; truncated?: ChangelogTruncation | null },
 ): string {
   try {
     const l = normalizeLangTag((opts as { lang?: unknown } | undefined)?.lang ?? 'zh')
+    const note = truncationNoteHTML((opts as { truncated?: ChangelogTruncation | null } | undefined)?.truncated, l)
     if (!Array.isArray(entries) || entries.length === 0) return renderChangelogNeutral(l)
     const from = opts && typeof opts.from === 'string' ? opts.from : null
     const to = opts && typeof opts.to === 'string' ? opts.to : null
@@ -602,10 +1430,10 @@ export function renderChangelogHTML(
         }
       })
     }
-    if (ranged.length === 0) return renderChangelogNeutral(l)
+    if (ranged.length === 0) return note + renderChangelogNeutral(l)
     const blocks = ranged.map((e) => renderChangelogSection(e, l)).filter((s) => !!s)
-    if (blocks.length === 0) return renderChangelogNeutral(l)
-    return `<div class="dsh-upd-changelog">\n${blocks.join('\n')}\n</div>`
+    if (blocks.length === 0) return note + renderChangelogNeutral(l)
+    return `<div class="dsh-upd-changelog">\n${note}${blocks.join('\n')}\n</div>`
   } catch {
     try { const ll = normalizeLangTag((opts as { lang?: unknown } | undefined)?.lang ?? 'zh'); return renderChangelogNeutral(ll) } catch { return ''; }
   }
@@ -625,8 +1453,8 @@ export interface ChangelogValidation {
 /** 校验提示文（与终裁码表一字对应，仅 CI/发布前用，运行时永不调用）。 */
 export const CHANGELOG_VALIDATE_HINTS: Record<string, string> = {
   E_VERSION_TITLE: '该标题不是合法版本号，其下条目已被忽略，请改成 ## [x.y.z] 形态',
-  E_CATEGORY: '未知分类，其下条目已被忽略；仅收 Added/Fixed/Changed/Deprecated/Removed/Security，亦收中文名（新增/修复/变更/弃用预告/移除/安全）',
-  E_BULLET_ORPHAN: '该条目不在版本节与分类下，已被忽略',
+  W_CATEGORY_OTHER: '非六类小节名（也不在别名表里），按作者原文标题原样显示、不丢内容；六类名：Added/Fixed/Changed/Deprecated/Removed/Security，亦收中文名（新增/修复/变更/弃用预告/移除/安全）与并列写法（Fixed / 修复）',
+  E_BULLET_ORPHAN: '该条目不在任何版本节之下，已被忽略',
   W_BREAKING_MAYBE: '疑似破坏标记误写（缺冒号/拼写接近/位置疑似放错），请检查是否想写 BREAKING:/不兼容:',
   W_YANKED: '该版本已被标记撤回（yanked），安装不受影响，继续前请确认',
   W_TRUNCATED: '该类共 M 条，仅显示前 N 条',
@@ -661,7 +1489,7 @@ export function validateChangelog(markdown: unknown): ChangelogValidation {
     let raw = String(markdown).replace(/\r\n/g, String.fromCharCode(10));
     let fileTruncated = false;
     if (raw.length > CHANGELOG_MAX_CHARS) { fileTruncated = true; raw = raw.slice(0, CHANGELOG_MAX_CHARS); }
-    const lines = raw.split(String.fromCharCode(10));
+    const lines = normalizeSetextHeadings(raw.split(String.fromCharCode(10)));
     const diags: ChangelogDiagnostic[] = [];
     let inFence = false;
     let curValid = false;
@@ -686,7 +1514,11 @@ export function validateChangelog(markdown: unknown): ChangelogValidation {
       const line = String(lines[i] !== undefined && lines[i] !== null ? lines[i] : '');
       if (isFenceToggle(line)) { inFence = !inFence; continue; }
       if (inFence) continue;
-      const vTitle = matchVersionHeading(line);
+      // 标题：1–4 级且像版本号（含 `## 1.0` 两段形态）→ 版本节；像版本但取不出号（`## 1`、`## 2026-10-14`）
+      // → 诚实报 E_VERSION_TITLE；其余标题 → 小节标题（六类/别名可归一的走分类，别的保留原文标题）。
+      const head = matchAnyHeading(line);
+      const versionIsh = head !== null && head.level <= 4 && (looksLikeVersionHeading(head.text) || isVersionIshWithoutNumber(head.text));
+      const vTitle = versionIsh && head !== null ? head.text : null;
       if (vTitle !== null) {
         flushCounts();
         catLineByCat = {};
@@ -707,12 +1539,12 @@ export function validateChangelog(markdown: unknown): ChangelogValidation {
         if (info.yanked) { diags.push({ line: lineNo, code: 'W_YANKED', hint: CHANGELOG_VALIDATE_HINTS.W_YANKED }); }
         continue;
       }
-      const cTitle = matchCategoryHeading(line);
-      if (cTitle !== null) {
-        const cat = normalizeCategory(cTitle);
+      if (head) {
+        const cat = normalizeCategoryMulti(head.text);
         if (!cat) {
+          // 0.16.0：非六类小节名不再丢内容（parse 按作者原文标题原样收），故降为提示而非错误。
           curCat = null;
-          diags.push({ line: lineNo, code: 'E_CATEGORY', hint: CHANGELOG_VALIDATE_HINTS.E_CATEGORY });
+          if (curValid) diags.push({ line: lineNo, code: 'W_CATEGORY_OTHER', hint: CHANGELOG_VALIDATE_HINTS.W_CATEGORY_OTHER });
           continue;
         }
         if (!curValid) { curCat = null; continue; }
@@ -723,11 +1555,14 @@ export function validateChangelog(markdown: unknown): ChangelogValidation {
       }
       const body = matchBulletBody(line);
       if (body !== null) {
-        if (!curValid || !curCat) {
+        // 孤儿只剩一种：压根不在版本节里（版本节内没有分类标题的裸条目 0.16.0 起照样渲染）。
+        if (!curValid) {
           diags.push({ line: lineNo, code: 'E_BULLET_ORPHAN', hint: CHANGELOG_VALIDATE_HINTS.E_BULLET_ORPHAN });
           continue;
         }
-        countByCat[curCat] = (countByCat[curCat] ? countByCat[curCat] : 0) + 1;
+        const bucketCat = curCat;
+        if (!bucketCat) { continue; }
+        countByCat[bucketCat] = (countByCat[bucketCat] ? countByCat[bucketCat] : 0) + 1;
         if (isMaybeBreakingMisuse(body)) {
           diags.push({ line: lineNo, code: 'W_BREAKING_MAYBE', hint: CHANGELOG_VALIDATE_HINTS.W_BREAKING_MAYBE });
         }

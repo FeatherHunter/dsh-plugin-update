@@ -25,8 +25,8 @@ export const DEFAULT_HTTP_CHECK_TIMEOUT_MS = 15_000
 export const DEFAULT_HTTP_INSTALL_TIMEOUT_MS = 16 * 60_000
 export const DEFAULT_HTTP_STATUS_TIMEOUT_MS = 15_000
 
-/** 单插件电话动作名（旧三电话与 src/config.ts PHONE_ACTIONS 同字面，不另起字面；#38 加 updateChangelog）。 */
-export const HTTP_PHONE_ACTIONS = ['updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog'] as const
+/** 单插件电话动作名（旧三电话与 src/config.ts PHONE_ACTIONS 同字面，不另起字面；#38 加 updateChangelog；#122 加 logAppend）。 */
+export const HTTP_PHONE_ACTIONS = ['updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'logAppend'] as const
 export type HttpPhoneAction = (typeof HTTP_PHONE_ACTIONS)[number]
 
 /** 批量七电话动作名（与 src/panel-batch.ts buildBatchPhoneNames 同字面，不另起字面；同一内核）。 */
@@ -349,7 +349,9 @@ export function mountUpdatePanelHttp(container: UpdatePanelContainer, options: U
   const prefix = options.prefix ?? DEFAULT_PREFIX
   const call = createHttpCall({ prefix, baseUrl: options.baseUrl, routes: options.routes, fetch: options.fetch, fetchImpl: options.fetchImpl, timeout: options.timeout, timeoutMs: options.timeoutMs })
   const { baseUrl: _b, routes: _r, fetch: _f, fetchImpl: _fi, timeout: _t, timeoutMs: _tm, prefix: _p, ...panelRest } = options as unknown as Record<string, unknown>
-  return mountUpdatePanel(container, { ...(panelRest as object), pluginId: options.pluginId, prefix, call } as UpdatePanelOptions)
+  // 客户端日志（#122）：挂载点名字写进 update.panel.mount；调用方自己传了 clientLog 就尊重它。
+  const clientLog = (panelRest as { clientLog?: unknown }).clientLog ?? { mount: 'http' }
+  return mountUpdatePanel(container, { ...(panelRest as object), clientLog, pluginId: options.pluginId, prefix, call } as UpdatePanelOptions)
 }
 
 export interface UpdateEntryHttpOptions extends Omit<UpdateEntryOptions, "call" | "prefix"> {

@@ -324,6 +324,8 @@ export type BilingualKey =
   | 'changelog.breaking.badge'
   | 'changelog.breaking.aria'
   | 'changelog.truncated.count'
+  | 'changelog.truncated.file'
+  | 'changelog.truncated.versions'
   | 'changelog.yanked.banner'
   | 'changelog.yanked.suffix'
   | 'changelog.security.summary'
@@ -657,6 +659,8 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'changelog.breaking.badge': { en: 'Breaking', zh: '不兼容', draft: true },
   'changelog.breaking.aria': { en: 'Breaking change', zh: '破坏性变更', draft: true },
   'changelog.truncated.count': { en: 'Showing {n} of {m} items', zh: '共 {m} 条，仅显示前 {n} 条', draft: true },
+  'changelog.truncated.file': { en: 'This log is larger than 64 KiB; only the first part is rendered.', zh: '日志过长，超出上限的部分没有渲染。', draft: true },
+  'changelog.truncated.versions': { en: '{n} more versions are hidden.', zh: '其后还有 {n} 个版本未显示。', draft: true },
   'changelog.yanked.banner': { en: 'Version {version} was yanked by the author. Install is not affected. Please confirm before proceeding.', zh: '目标版本 {version} 已被作者撤回（yanked），安装不受影响，继续前请确认。', draft: true },
   'changelog.yanked.suffix': { en: ' · Yanked', zh: ' · 已撤回', draft: true },
   'changelog.security.summary': { en: '{n} more items', zh: '其余 {n} 条', draft: true },

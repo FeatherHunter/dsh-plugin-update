@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-update",
-  "version": "0.13.0",
+  "version": "0.16.0",
   "description": "可复用的更新系统装成的 npm 包：任何 DSH 插件照文档能集成检查更新等功能（地图 #579）",
   "license": "MIT",
   "author": "王辰浩",
@@ -46,12 +46,17 @@
       "types": "./dist/http.d.ts",
       "default": "./dist/http.js"
     },
+    "./log": {
+      "types": "./dist/log/index.d.ts",
+      "default": "./dist/log/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
     "derive-client-values.mjs",
     "event-list.template.json",
+    "event-list.update.json",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -72,5 +77,8 @@
   "devDependencies": {
     "esbuild": "^0.28.2",
     "typescript": "5.6.3"
+  },
+  "dependencies": {
+    "dsh-log": "^0.3.1"
   }
 }
