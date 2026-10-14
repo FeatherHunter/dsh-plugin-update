@@ -25,7 +25,7 @@ import {
 } from './config.js'
 import { manualCommand } from './commands.js'
 import { fetchReleaseChangelogText } from './changelog-io.js'
-import { shouldFetchChangelog } from './changelog.js'
+import { parseChangelogReport, shouldFetchChangelog } from './changelog.js'
 import { buildDiag } from './diag.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL } from './log-events.js'
 import { emitUpdateLog } from './log/emit.js'
@@ -38,7 +38,8 @@ import { createPendingSink, sinkFromLogCtx, type LogSink } from './log/sink.js'
 import { fetchNpmVersionRelease, isVersionAllowedInChannel, updateError, validReleaseVersion, validRequestId } from './service.js'
 import { createUpdateDiskPorts, createUpdateExecutor, createUpdateQueuePorts } from './store.js'
 import { createUpdateReader, defaultHomeDir, resolveProfileName, resolveTargetPackage } from './reader.js'
-import type { EnvironmentKind, ReleaseChannel } from './ports.js'
+import { resolveRegistryHost } from './redaction.js'
+import type { CheckTrigger, EnvironmentKind, InstallSource, ReleaseChannel, UpdateLogPort } from './ports.js'
 import {
   QUEUE_INTENT_TTL_MS,
   cancelEnqueuedInQueue,
@@ -141,6 +142,7 @@ export {
   isBreakingChangelogItem,
   isUnreleasedVersion,
   parseChangelog,
+  parseChangelogReport,
   renderChangelogHTML,
   renderChangelogItem,
   renderChangelogNeutral,
@@ -423,7 +425,16 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   const registryUrl = overrides.registryUrl ?? config.registryUrl
   const key = `${pluginId}\0${config.prefix}\0${runningVersion}\0${profileDirInput}\0${overrides.profileName ?? ''}\0${homeDirInput}\0${overrides.runInstall ? 'exec' : ''}\0${environmentKind}\0${targetPackageName}\0${explicitTargetDir}\0${releaseChannel}`
   if (sharedReader && sharedReaderKey === key) return sharedReader
-  const disk = overrides.readJob && overrides.writeJob ? null : createUpdateDiskPorts(homeDirInput, pluginId, profileDirInput)
+  // 绑好插件标识的发射口（#124）：中立文件不 import node、也不认识插件标识，端口一律在宿主侧绑好再递进去。
+  // 磁盘侧就是本插件这一家；队列与全局锁是**跨插件共享**的，所以给一个「按当次动作方取口」的工厂——
+  // 一次跃迁记在谁头上，行就落谁自己的目录（路由表按标识寻址，别的插件没接线就只能没有落点，不猜）。
+  const logPortFor = (id: string): UpdateLogPort => (level, event, fields, opts) => {
+    emitUpdateLog(level, event, fields, { ...opts, pluginId: id })
+  }
+  const disk =
+    overrides.readJob && overrides.writeJob
+      ? null
+      : createUpdateDiskPorts(homeDirInput, pluginId, profileDirInput, { log: logPortFor(pluginId) })
   // 跨插件单队列（#15）：与插件标识无关，按使用范围共享。显式队列假件优先；有真实落盘
   // 才走真实队列目录；纯内存测试（磁盘被假件替代）默认不碰真实队列目录，免得单测写脏真机。
   // 队列自身永远 best-effort：读不到按空队放行，写失败吞掉——队列坏了不能挡安装。
@@ -431,7 +442,12 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
     typeof overrides.queueTtlMs === 'number' && Number.isFinite(overrides.queueTtlMs) && overrides.queueTtlMs > 0
       ? overrides.queueTtlMs
       : QUEUE_INTENT_TTL_MS
-  const queueDisk = overrides.readQueue && overrides.writeQueue ? null : disk ? createUpdateQueuePorts(homeDirInput, profileDirInput) : null
+  const queueDisk =
+    overrides.readQueue && overrides.writeQueue
+      ? null
+      : disk
+        ? createUpdateQueuePorts(homeDirInput, profileDirInput, { logFor: logPortFor })
+        : null
   const queueNow = overrides.now ?? Date.now
   async function readQueueBestEffort(): Promise<UpdateQueueState> {
     try {
@@ -565,6 +581,11 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
     pluginId,
     log: emitInstallLog,
   })
+  // 中立核心不 import node，也不认识插件标识：这里把**绑好插件标识**的发射口递进去（#124）。
+  // 不递也能跑，只是没有 update.* 的常驻/按需行；递进去的每一行都走唯一发射口（脱敏/白名单/预算都在里面）。
+  const coreLog: UpdateLogPort = logPortFor(pluginId)
+  // 源主机名只在宿主侧解析一次（白名单口径在 redaction）：核心只把它填进两格，不自己解析 URL。
+  const coreRegistryHost = resolveRegistryHost(registryUrl)
   sharedReader = Object.assign(
     createUpdateReader({
       runningVersion,
@@ -592,6 +613,8 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
       releaseLock: combinedRelease,
       backupJob: overrides.backupJob ?? disk?.backupJob,
       runInstall: overrides.runInstall ?? defaultRun,
+      emitLog: coreLog,
+      registryHost: coreRegistryHost,
     }),
     // 跨插件队列的面板侧读写口（#15）：与本次解析出的使用范围绑定，面板经电话可选参数消费。
     { readQueuePruned: loadQueuePruned, writeQueueState: writeQueueBestEffort, queueTtlMs, queueNow },
@@ -763,6 +786,26 @@ function queueArgsOf(args: Record<string, unknown>): { includeQueue: boolean; sh
   }
 }
 
+/**
+ * 轮询抑制记忆（#124）：**每个宿主接线实例一份**，不是模块级——所以同进程的不同实例、
+ * 不同测试互不干扰；一个实例的第一次 `updateStatus` 永远算「没有上一次可比」，照常落一行。
+ */
+type StatusPollMemory = Map<string, string>
+
+/**
+ * 快照指纹（#124）：**只做进程内比较用，绝不入日志行**（脱敏面不因此扩大）。
+ * 序列化不了（循环引用）就返回 null，等于「算不出，别抑制」——宁可多发一行，也不误吞一次状态变化。
+ */
+function statusFingerprint(snapshot: unknown): string | null {
+  try {
+    if (typeof snapshot === 'string') return snapshot
+    const text = JSON.stringify(snapshot)
+    return typeof text === 'string' ? text : null
+  } catch {
+    return null
+  }
+}
+
 function checkExpiredError(): Error & { code: string } {
   return Object.assign(new Error('check-expired'), { code: 'check-expired' })
 }
@@ -780,6 +823,8 @@ function loggedPhone(
     config: ReturnType<typeof resolveUpdateConfig>
     readerOverrides: ReaderOverrides
   },
+  /** 轮询抑制记忆（#124）：只有 `updateStatus` 用得上；不传即完全不抑制（默认等于现状）。 */
+  pollMemory?: StatusPollMemory,
 ): (args: Record<string, unknown>) => Promise<Record<string, unknown>> {
   return async function (args: Record<string, unknown>): Promise<Record<string, unknown>> {
     const t0 = Date.now()
@@ -791,9 +836,23 @@ function loggedPhone(
     try {
       const out = await fn(safeArgs)
       const snapshot = out && out.snapshot ? out.snapshot : out
-      // 成功事件 5 键基线（规格 #591 第 8 条）：旧 4 键加必填插件标识。
-      // 成功形状不动（#21）：成功回包永不带 diag，旧面板逐字不变。
-      emit('info', LOG_EVENT_CALL, { method, latencyMs: Date.now() - t0, ok: true, kind, pluginId })
+      // 轮询抑制（#124）：`updateStatus` 是每秒一次的既有轮询，**成功行一律不落常驻行**——
+      // 名字与字段一字不动，只改「发不发」。依据：`host.call` 在 dsh-log 内置常驻名单里，
+      // 集成方清单改不动它，所以只能在发射侧治（现场 934 KB/天里有 5309 行是它）。
+      // 第一次轮询没有可比的上次，也不算事件：轮询的第一次观测不是事件（#125 装置的判据就是
+      // 「N≥100 次轮询零常驻行」）；真状态事实走 `update.status.changed` 的边沿行与按需档 `update.poll`。
+      // 只有「上次算得出指纹、这次算得出、且与上次不同」才留一行，供真发生变化时追溯。
+      const isStatusPoll = method.endsWith('.updateStatus')
+      const fingerprint = isStatusPoll ? statusFingerprint(snapshot) : null
+      const pollNoise = isStatusPoll && pollMemory !== undefined
+      const previous = pollNoise ? (pollMemory.get(pluginId) ?? null) : null
+      if (pollNoise && fingerprint !== null) pollMemory.set(pluginId, fingerprint)
+      const pollSuppressed = pollNoise && fingerprint !== null && (previous === null || previous === fingerprint)
+      if (!pollSuppressed) {
+        // 成功事件 5 键基线（规格 #591 第 8 条）：旧 4 键加必填插件标识。
+        // 成功形状不动（#21）：成功回包永不带 diag，旧面板逐字不变。
+        emit('info', LOG_EVENT_CALL, { method, latencyMs: Date.now() - t0, ok: true, kind, pluginId })
+      }
       return {
         ok: true,
         snapshot,
@@ -988,6 +1047,17 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
     }
     changelogCache.set(version, markdown)
     try { changelogFailedAt.delete(version); } catch { }
+    // changelog 解析（#124，ondemand 档）：宿主侧只**多算一次统计**用于落行，不改回包形状
+    // （回包仍是原文，渲染方自己解析）。缓存命中在上面的早退分支返回，不发这条——那次没有解析发生。
+    try {
+      const report = parseChangelogReport(markdown ?? '')
+      emitUpdateLog('info', 'update.changelog.parse', {
+        entries: Array.isArray(report.entries) ? report.entries.length : 0,
+        truncated: report.truncation ? true : false,
+        degraded: markdown === null,
+        source: 'npm',
+      }, { pluginId })
+    } catch { /* 打点绝不影响取日志 */ }
     return { version, markdown }
   }
   async function readStatus(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; env?: PhoneEnvView | null; queue?: VisibleQueue | null }> {
@@ -1007,7 +1077,10 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
       ...readerOverrides,
       profileDir: args && args.profileDir ? String(args.profileDir) : readerOverrides.profileDir,
     })
-    const result = await reader.check()
+    // 触发方只有调用方知道（面板同一支电话里既有用户点也有自动跑）：报了才落 `update.check.start`（#124）。
+    const askedBy: CheckTrigger | undefined =
+      args && typeof args['trigger'] === 'string' ? (args['trigger'] as CheckTrigger) : undefined
+    const result = await reader.check(askedBy)
     const withManual = await snapWithManual(reader, result.snapshot as never, config)
     const env = wantsEnv(args) ? { env: await readEnvForPanel(reader) } : {}
     const { includeQueue, showOthers } = queueArgsOf(args)
@@ -1024,6 +1097,10 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
   async function runInstall(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; env?: PhoneEnvView | null; queue?: VisibleQueue | null }> {
     const checkId = args && typeof args.checkId === 'string' ? args.checkId : ''
     const requestId = args && typeof args.requestId === 'string' ? args.requestId : ''
+    // 安装意图来源（#124）：调用方自报就照传（批量驱动报 `'batch'`），认不出按 `'panel'`——
+    // 老调用方不传即现状，只影响日志行 `update.install.request.from`，不参与任何决策。
+    const installFrom: InstallSource =
+      args && (args['from'] === 'entry' || args['from'] === 'batch') ? (args['from'] as InstallSource) : 'panel'
     const { includeQueue, showOthers } = queueArgsOf(args)
     const enqueueOnly = !!args && args['enqueueOnly'] === true
     const cancelQueued = !!args && args['cancelQueued'] === true
@@ -1052,7 +1129,7 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
     }
     // 正常安装：凭证不齐交给核心判（归类与改造前一致）；齐了先占位再过公平门。
     if (!checkId || !validRequestId(requestId)) {
-      const out = await snapWithManual(reader, (await reader.install({ checkId, requestId })) as never, config)
+      const out = await snapWithManual(reader, (await reader.install({ checkId, requestId, from: installFrom })) as never, config)
       if (!includeQueue) return { ...out, ...envPatch }
       return { ...out, ...envPatch, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
     }
@@ -1065,7 +1142,7 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
       throw updateBusyError()
     }
     try {
-      const out = await snapWithManual(reader, (await reader.install({ checkId, requestId })) as never, config)
+      const out = await snapWithManual(reader, (await reader.install({ checkId, requestId, from: installFrom })) as never, config)
       if (!includeQueue) return { ...out, ...envPatch }
       return { ...out, ...envPatch, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
     } catch (error) {
@@ -1142,11 +1219,13 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
     return { accepted, dropped }
   }
 
+  // 轮询抑制记忆（#124）：实例级，不跨实例、不跨插件（同一个 updateStatus 电话每 1s 一次）。
+  const statusPollMemory: StatusPollMemory = new Map()
   const handlers: Record<string, (args: Record<string, unknown>) => Promise<Record<string, unknown>>> = {
     [phoneNames.updateStatus]: loggedPhone(phoneNames.updateStatus, 'update-status', pluginId, readStatus, {
       config,
       readerOverrides,
-    }),
+    }, statusPollMemory),
     [phoneNames.updateCheck]: loggedPhone(phoneNames.updateCheck, 'update-check', pluginId, readCheck, {
       config,
       readerOverrides,

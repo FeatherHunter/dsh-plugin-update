@@ -259,8 +259,12 @@ export interface UpdatePorts {
 export interface UpdateCore {
   /** 查状态：只读本地，不联网。 */
   status(): Promise<UpdateSnapshot>
-  /** 查新版：联网问一次，成功带回快照加检查凭证（分开交）。 */
-  check(): Promise<CheckResult>
+  /**
+   * 查新版：联网问一次，成功带回快照加检查凭证（分开交）。
+   * `trigger` 是 #124 的加法扩展（可选）：调用方自报触发方，只进日志行 `update.check.start.trigger`，
+   * 不参与任何决策；不自报即不落这条（宿主侧分不清用户点与自动跑，宁缺勿错）。
+   */
+  check(trigger?: CheckTrigger): Promise<CheckResult>
   /**
    * 装更新：拿检查编号加请求编号提交。
    * 只读半程诚实失败（unsupported），安装票再实现。

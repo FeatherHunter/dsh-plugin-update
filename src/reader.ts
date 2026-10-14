@@ -16,7 +16,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { fileURLToPath } from 'node:url'
 import { assertPluginId } from './config.js'
 import { createUpdateCore, isVersionAllowedInChannel, validReleaseVersion } from './service.js'
-import type { EnvironmentKind, EnvironmentView, FetchImpl, ReleaseChannel, UpdateCore, UpdateJob } from './ports.js'
+import type { EnvironmentKind, EnvironmentView, FetchImpl, ReleaseChannel, UpdateCore, UpdateJob, UpdateLogPort } from './ports.js'
 
 const LOCK_FILES = ['pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package-lock.json']
 
@@ -239,6 +239,13 @@ export interface UpdateReaderOptions {
   releaseLock?: (lockId: string) => void | Promise<void>
   backupJob?: (job: UpdateJob) => void | Promise<void>
   runInstall?: (args: { version: string; profileName: string | null; environmentKind: EnvironmentKind }) => void | Promise<void>
+  /**
+   * 日志发射口（#124，可选）：由宿主侧建口人递进来，**必须已经绑好插件标识**；
+   * 读取器只往下传给核心，自己不打点也不改判（不递即不记，默认等于现状）。
+   */
+  emitLog?: UpdateLogPort
+  /** 白名单源主机名（#124，可选）：宿主侧解析后透传，核心只把它填进两格（不注入即省略）。 */
+  registryHost?: string | null
 }
 
 /** 建更新读取器：运行版本、使用范围目录、插件标识三者必填，其余不给用本机默认。 */
@@ -365,6 +372,8 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
     releaseLock: options.releaseLock,
     backupJob: options.backupJob,
     runInstall: options.runInstall,
+    emitLog: options.emitLog,
+    registryHost: options.registryHost,
   })
   return Object.assign(core, { readEnv: readInstalled as () => Promise<EnvironmentView> })
 }

@@ -31,9 +31,9 @@
 | `update.batch.entry.request` | info | `total`、`ownCount`、`foreignCount` | 只给数量，不给插件标识清单 |
 | `update.batch.entry.fail` | warn | `targetHash`、`errorKind`、`exitCode?` | 目标标识一律 hash8（绝不给包名/路径原文） |
 | `update.batch.summary` | info | `total`、`ok`、`failed`、`skipped`、`durationMs` | 总账的机器可读版；面板渲染文本不进日志 |
-| `update.queue.transition` | info | `phase: 'queued'\|'checking'\|'installing'\|'settling'\|'done'\|'idle'`、`waitedMs?`、`position?` | 相位边沿，禁止每次轮询都发 |
-| `update.lock.anomaly` | warn | `kind: 'stale-owner'\|'busy-timeout'\|'release-failed'`、`ageMs?` | 拥有者标识只记 hash8，不记原文 |
-| `update.store.fail` | warn | `op: 'state-read'\|'state-write'\|'lock-acquire'\|'lock-release'\|'backup-write'\|'queue-write'`、`reason: 'enoent'\|'eacces'\|'eext'\|'lease-conflict'\|'unknown'` | 现在 `catch {}` 静默吞的点；路径只给 `${dirHash}`，绝不落原文 |
+| `update.queue.transition` | info | `phase: 'queued'\|'running'\|'done'\|'reclaimed'`、`waitedMs?`、`position?` | 相位边沿，禁止每次轮询都发。相位是**队列自己的**三相位（取号 / 安装中 / 摘牌）加全局锁陈旧回收成功这一个真跃迁；`checking`/`installing`/`settling`/`idle` 是面板任务词，队列里没有这些相位（#124 落地时按实现收紧，见 §3.1） |
+| `update.lock.anomaly` | warn | `kind: 'stale-owner'\|'release-failed'`、`ageMs?` | 拥有者标识只记 hash8，不记原文。`busy-timeout` **不做**：本包两条抢锁路径都是「看一眼，不陈旧就当场认输」（`tryAcquireLock` 不等待；`tryAcquireGlobalLock` 的 `timeoutMs` 是**陈旧阈值**不是等待超时），没有「等到超时」这条路径，不为了凑齐词汇造一条（见 §3.1） |
+| `update.store.fail` | warn | `op: 'read-job'\|'write-job'\|'acquire-lock'\|'reclaim-stale-owner'\|'release-lock'\|'read-snapshot'\|'write-backup'\|'write-queue'\|'read-global-lock'\|'acquire-global-lock'\|'release-global-lock'`、`reason` | 现在 `catch {}` 静默吞的点。`op` 是**真正失败的那个动作**（比「state-read/state-write」粗归类更能定位）；`reason` 是 `error.code` 过白名单后的小写稳定码（`enoent`/`eacces`/`eexist`/… 共 25 个），拿不到码退 `'throw'`、连错误对象都不是退 `'unknown'`，绝不放 `message`/路径。同一操作**同一原因**连续失败只记首次（原因变了再记一条，成功即清）。`dirHash`/`ownerHash` 是清单里的可选格、**当前不发**：日志本来就按插件分目录（目录即定位），hash8 反向不可用，发了只是噪声 |
 | `update.restart.outcome` | info | `outcome: 'delegated'\|'manual'\|'failed'`、`route?` | `route` 只给枚举名，不给宿主 URL |
 | `update.panel.mount` | info | `mode: 'embedded'\|'dialog'\|'entry'\|'entry-batch'\|'batch'`、`theme`、`lang`、`pollMs` | 全是枚举与数字 |
 | `update.panel.action` | info | `action: 'check'\|'install'\|'retry'\|'restart'\|'copy-diagnostics'\|'skip'`、`bytes?`、`truncated?` | 复制诊断只记体量与是否截断，**绝不记内容** |
@@ -78,9 +78,45 @@
 
 **覆盖自查：19 行齐，每行都有事件码、级别、档位、接线票；没有未填项、没有推迟到实现票再定的事件。**
 
+### 3.1 接线状态（#124 落地后：谁在哪个函数里发）
+
+上表的 `文件:行号` 是写目录时的快照，会随实现漂；**认函数名**（下表才是权威落点）。
+
+| 环节 | 事件 | 唯一落点（函数） | 状态 |
+| --- | --- | --- | --- |
+| ② | `update.check.start` | `src/host.ts` 检查电话包装（调用方报了 `trigger` 才发；面板/入口的「自动」由 #122 在客户端自报） | ✅ 宿主侧可选入参 |
+| ③ | `update.check.done` / `update.check.fail` | `src/service.ts` 核心 `check()`（`stage` 四值 `fetch`/`compare`/`channel`/`verify`，取数阶段钉在错误对象上；`httpStatus` 只有真拿到状态码才有） | ✅ |
+| ④ | `update.registry.fetch` | `src/service.ts` `makeFetchNoter()`（两个取数函数共用；`/http` 变体走 #122，Node 侧不重复发） | ✅（`cacheHit` 不发，见下） |
+| ⑤ | `update.channel.decide` | `src/service.ts` 核心 `noteChannelDecision()`（一次成功检查一条；`reason` 四值 `stable`/`prerelease`/`mismatch`/`invalid`） | ✅ |
+| ⑥ | `update.changelog.parse` | `src/host.ts` 变更日志电话包装（`source:'tarball'`；`entries`/`truncated`/`degraded` 来自 `parseChangelogReport()`） | ✅ |
+| ⑦ | `update.install.request` | `src/service.ts` 核心 `install()`（过闸门之后、开工之前一条） | ✅ |
+| ⑧ | `update.install.exec` | 既有 `src/store.ts` 执行器的 `emitInstall()`（形状不动） | 已存在 |
+| ⑨ | `update.install.verify` | `src/service.ts` 核心 `runBackground()` 的终态跃迁 + `healedJob()` 的掉线换算（只在真跃迁时发） | ✅ |
+| ⑩ | `update.install.retry` | 客户端按钮动作 → #122 的 `logAppend` 通道落盘 | 归 #122（宿主不重复发） |
+| ⑪ | `update.batch.entry.request` | `src/host-batch.ts` `noteEntryRequest()`（会话建起/复用时一条，按会话编号去重） | ✅ |
+| ⑫ | `update.queue.transition` / `update.lock.anomaly` | `src/store.ts` `writeQueue()`、`tryAcquireLock()`、`tryAcquireGlobalLock()`、`releaseLock()`、`releaseGlobalLock()`（只在乎「真写盘且相位真变」「真删掉旧锁且真抢到手」） | ✅ |
+| ⑬ | `update.batch.entry.fail` | `src/batch-run.ts` `noteEntryFail()`（中立文件，落点由 `BatchRunDeps.logFor` 注入） | ✅ |
+| ⑭ | `update.batch.summary` | `src/host-batch.ts` `noteBatchSummary()`（**收尾边沿**：每次从「没收尾」变成「收尾」记一条；用户重试装成后再收尾会再记一条。面板只渲染） | ✅ |
+| ⑮ | `update.restart.outcome` | 客户端 → #122 的 `logAppend` 通道落盘 | 归 #122 |
+| ⑯⑰⑲① | `update.lang.applied` / `update.panel.state` / `update.panel.action` / `update.panel.mount` | 客户端 → #122 的 `logAppend` 通道落盘 | 归 #122 |
+| ⑱ | `update.store.fail` | `src/store.ts` `createStoreLog().fail()` 的 13 个落点（原 `catch {}` 或「换成归类码」的位置） | ✅ |
+
+**三条落地口径（备案）**
+
+1. **轮询的第一次观测不算事件**：`updateStatus` 的成功行在发射侧一律不发（`src/host.ts` 的电话包装）。判据是「上次算得出指纹、这次算得出、且与上次不同」才留一行；第一次没有可比的上次，所以也不留——这就是 §6「N ≥ 100 次零常驻行」的字面口径（实测 600 次 → 0 行）。指纹算不出来时宁多发一行，不吞变化；失败行 `host.call.fail` 不受影响；名字与五键形状一字不动。
+2. `update.registry.fetch.cacheHit` **不发**：本包的缓存命中发生在取数之前（命中就根本不取数），到了取数点就一定是未命中——发一个恒为 `false` 的格子只是噪声。
+3. **只进日志的可选入参**（不改老调用形状、不参与任何决策）：检查电话多认 `trigger`（没自报就不发 `update.check.start`）、安装电话多认 `from`（没自报按 `'panel'`，批量宿主传 `'batch'`）。
+4. **缝都在宿主侧接**：中立文件（`service.ts`/`changelog.ts`/`queue.ts`/`batch-run.ts`）不 import node、也不认识插件标识，发射口一律由宿主侧**绑好标识**后注入（`src/host.ts` 的 `logPortFor()`；队列与全局锁按当次动作方取口，行落动作方自己的目录）。
+
+**实测证据（2026-10-14）**
+
+- 预算装置 `node .tmp/log-verify/run.mjs budget`：**8/8 过**——内核边沿 86400 次 → 1 行；600 次轮询 → **0 行**；稳态 24h 外推 0 行；安装/批量当天事件面 37 行（≤ 500）；按需档开关关着 0 行。
+- 缝探针（真 homeDir／真锁／真队列，只假网络与子进程）跑一次完整安装：`update.queue.transition` 三行齐（`queued{position:1}` → `running{waitedMs:8}` → `done`），`update.install.request`、`update.install.verify`、`update.check.done`、`update.channel.decide`、`update.status.changed` 各就其位。
+- 逐事件的负向断言：`tests/host-log.test.mjs`、`tests/store-log.test.mjs`、`tests/batch-log.test.mjs`。
+
 ## 4. 跨环节的三条全局规则
 
-1. **轮询抑制（噪声的根）**：`updateStatus` 是每 1000ms 一次的既有轮询（`src/panel.ts:2026-2030`）。规则是**边沿触发**——状态与上次相同就一条不发；状态变了发一条 `update.status.changed`；开关打开时另发 `update.poll` 全量。既有 `host.call` 的抑制同理：成功且状态未变时**不发**（名字与字段不变，只改发不发）。
+1. **轮询抑制（噪声的根）**：`updateStatus` 是每 1000ms 一次的既有轮询（`src/panel.ts:2026-2030`）。规则是**边沿触发**——状态与上次相同就一条不发；状态变了发一条 `update.status.changed`；开关打开时另发 `update.poll` 全量。既有 `host.call` 的抑制同理：成功且状态未变时**不发**，**第一次轮询没有可比的上次、同样不发**（所以「N ≥ 100 次连续轮询零常驻行」是字面成立的；名字与字段不变，只改发不发）。
    - 依据：`host.call` 在 dsh-log 内置常驻名单里（43 名之一），集成方清单**改不动**它，因此只能在发射侧治；现场 934 KB/天 的日志里 5309 行是它。
 2. **关联**：每条行带 `traceId`（一次用户意图，如「点了安装」）与 `spanId`（一次尝试，如第 2 次重试），住 `fields` 里（dsh-log 的 `traceChain` 靠它串链）。`traceId` 形状由本包铸造、由测试锁死（沿用 ADR-0001 规则 4 的口径）。
 3. **脱敏**：按 ADR-0006——行的字段只有「版本号 / 枚举白名单值 / 导出量（hash8、计数、时长、字节、布尔）」三类；路径、URL、令牌、邮箱、宿主原话、命令**根本不出现在日志行里**。落点是发射口 `emitRow()` 的白名单校验 + 每个事件的负向断言用例。
@@ -109,6 +145,6 @@
 
 - **稳态**（无操作日）：常驻行 ≤ **50 行/天/插件**。
 - **操作日**（一次安装或一次批量）：≤ **500 行/天/插件**。
-- 轮询抑制生效的判据：连续 N 次 `updateStatus`（N ≥ 100）**零常驻行**。
+- 轮询抑制生效的判据：连续 N 次 `updateStatus`（N ≥ 100）**零常驻行**（实测见 §3.1「实测证据」）。
 - 每个事件至少一条负向断言用例（ADR-0006 §4）；字段名集合与 `event-list.update.json`（#120 产出）必须完全一致。
 - 真机对账口径（#125）：两个假插件 `verify-a` / `verify-b` 各自目录行数 = 各自的发射数，互无 `foreign-write` 诊断。

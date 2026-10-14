@@ -223,7 +223,9 @@ describe('三个旧事件的必填插件标识', () => {
   it('成功事件 5 键：旧 4 键加必填标识', async () => {
     const fires = []
     const host = makeHost({ pluginId: 'dsh-mattpocock-skills-deck', fires })
-    await host.handlers['wf.updateStatus']({})
+    // 用更新检查电话取成功形状（#124 之后 updateStatus 的成功行是轮询噪声，一律不发；
+    // 形状断言因此换一个不受抑制的电话，键集与旧行为逐字相同）。
+    await host.handlers['wf.updateCheck']({})
     const calls = fires.filter((f) => f.event === 'host.call')
     assert.equal(calls.length, 1)
     assert.deepEqual(Object.keys(calls[0].fields).sort(), ['kind', 'latencyMs', 'method', 'ok', 'pluginId'])

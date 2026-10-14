@@ -23,11 +23,11 @@ import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { installRecipe } from './commands.js'
 import { BACKUP_FILE, LEGACY_PLUGIN_ID, LOCK_FILE, SKIPPED_FILE, STATE_FILE } from './config.js'
 import { emptyBatchSession, normalizeBatchSession, type BatchSession } from './batch.js'
-import { normalizeQueueState, type UpdateQueueState } from './queue.js'
+import { normalizeQueueState, type QueueOwner, type UpdateQueueState } from './queue.js'
 import { validReleaseVersion } from './service.js'
 import { sanitizeDetail } from './redaction.js'
 import { LOG_EVENT_INSTALL_EXEC } from './log-events.js'
-import type { EnvironmentKind, InstallRecipe, ReleaseChannel, UpdateJob } from './ports.js'
+import type { EnvironmentKind, InstallRecipe, ReleaseChannel, UpdateJob, UpdateLogPort } from './ports.js'
 
 // 永久冻结的旧字面（规格 #591 第 14 条）：默认旧路径原文加三固定名永久冻结，永不删除。
 // 旧原文：join(家目录, 'updates', 'dsh-mattpocock-skills-deck', 短指纹(使用范围目录))。
@@ -45,6 +45,137 @@ function shortHash(text: string): string {
     return createHash('sha256').update(String(text)).digest('hex').slice(0, 24)
   } catch {
     return '00000000'
+  }
+}
+
+// ---- #124 日志接线：本文件负责的三个事件的落点辅助 ----
+// 事件名单源本该是 src/log-events.ts，但那一行不在本票的写域内；这里按随包清单
+// event-list.update.json 的名字逐字引用（字段白名单在唯一发射口校验，多一格整行会被丢掉）。
+const LOG_EVENT_LOCK_ANOMALY = 'update.lock.anomaly'
+const LOG_EVENT_STORE_FAIL = 'update.store.fail'
+const LOG_EVENT_QUEUE_TRANSITION = 'update.queue.transition'
+/** 锁异常 kind（清单口径逐字）：陈旧拥有者被回收 / 放锁失败。
+ *  `busy-timeout` 不在这里出现是有意的：本文件两条抢锁路径都是「看一眼，不陈旧就当场认输」，
+ *  没有「等待/重试到超时才放弃」的路径，不为了凑齐词汇造一条。 */
+const LOCK_ANOMALY_STALE_OWNER = 'stale-owner'
+const LOCK_ANOMALY_RELEASE_FAILED = 'release-failed'
+
+/**
+ * 失败原因白名单（ADR-0006）：行里只许出现稳定短码，所以 `error.code` 先过白名单再入行，
+ * 拿不到码就退到 `'throw'`（抛出来的错，没有码）/ `'unknown'`（连错误对象都不是）。
+ * 绝不放 `error.message`、路径、命令——那些是自由文本，一旦入行就再也收不回来。
+ */
+const STORE_FAIL_REASON_CODES = new Set([
+  'eacces', 'eagain', 'ebadf', 'ebusy', 'edquot', 'eexist', 'efbig', 'eintr', 'eio', 'eisdir',
+  'eloop', 'emfile', 'enametoolong', 'enfile', 'enodev', 'enoent', 'enomem', 'enospc', 'enotdir',
+  'enotempty', 'eperm', 'epipe', 'erofs', 'etxtbsy', 'exdev',
+])
+
+function stableFailReason(error: unknown): string {
+  const code = error && typeof error === 'object' ? (error as { code?: unknown }).code : undefined
+  if (typeof code === 'string' && code) {
+    const lower = code.toLowerCase()
+    // 本模块自己的 install-failed / queue-unavailable 说的是「归类」不是「盘上为什么坏」，同样归 unknown。
+    return STORE_FAIL_REASON_CODES.has(lower) ? lower : 'unknown'
+  }
+  return error && typeof error === 'object' ? 'throw' : 'unknown'
+}
+
+/** 缺文件不是失败：放锁时锁已经不在＝目的已达，不当异常记。 */
+function isMissingFileError(error: unknown): boolean {
+  return !!error && typeof error === 'object' && (error as { code?: unknown }).code === 'ENOENT'
+}
+
+/** 从锁里记的 `startedAt` 算年龄；取不到（缺格、非数、零、未来时间）就省略这格（清单允许缺格，不许给 null）。 */
+function lockAgeMs(lock: Record<string, unknown> | null, nowMs: number): number | undefined {
+  const startedAt = lock ? lock['startedAt'] : undefined
+  if (typeof startedAt !== 'number' || !Number.isFinite(startedAt) || startedAt <= 0) return undefined
+  const age = nowMs - startedAt
+  return Number.isFinite(age) && age >= 0 ? age : undefined
+}
+
+interface StoreLogPorts {
+  /** 有没有可用发射口：没有就一行额外读盘都不做（行为、返回值、时序与今天一字不差）。 */
+  enabled(): boolean
+  /** 按动作方取发射口；磁盘侧用固定标识，队列侧取不到当次动作方即回 null（不猜）。 */
+  portFor(pluginId?: string | null): UpdateLogPort | null
+  /** `update.store.fail`：清单 guard 是「同一操作连续失败只记首次」，按 (动作方, op, 原因) 去重。 */
+  fail(op: string, error: unknown, pluginId?: string | null): void
+  /** `update.lock.anomaly`：kind 只用上面两个常量，ageMs 量不到就省略。 */
+  anomaly(kind: string, pluginId?: string | null, ageMs?: number): void
+  /** `update.queue.transition`：边沿由调用点判（真写了盘且相位真的变了）。 */
+  transition(phase: string, pluginId: string, extra?: { waitedMs?: number; position?: number }): void
+}
+
+/**
+ * 建本文件三个事件的记法：全部 best-effort —— 发射口抛错一律吞掉，记日志绝不能改变控制流、
+ * 返回值或抛错。磁盘侧传已绑好插件标识的 `log`；队列侧是跨插件共享的，传 `logFor` 按当次
+ * 动作方取口，取不到标识就不发（不许猜）。
+ */
+function createStoreLog(
+  log: UpdateLogPort | null,
+  logFor: ((pluginId: string) => UpdateLogPort | null) | null,
+  fixedPluginId: string | null
+): StoreLogPorts {
+  const lastFailReason = new Map<string, string>()
+  const routable = log !== null || logFor !== null
+  function portFor(pluginId?: string | null): UpdateLogPort | null {
+    if (log) return log
+    const actor = typeof pluginId === 'string' && pluginId ? pluginId : fixedPluginId
+    if (!logFor || !actor) return null
+    try {
+      const port = logFor(actor)
+      return typeof port === 'function' ? port : null
+    } catch {
+      return null
+    }
+  }
+  function fire(port: UpdateLogPort, level: string, event: string, fields: Record<string, unknown>, fingerprint?: string): void {
+    try {
+      port(level, event, fields, fingerprint === undefined ? undefined : { fingerprint })
+    } catch {
+      /* 发射口自己坏掉时保持沉默：任何外抛都比丢一行更坏 */
+    }
+  }
+  return {
+    enabled: () => routable,
+    portFor,
+    fail(op, error, pluginId) {
+      try {
+        const port = portFor(pluginId)
+        if (!port) return
+        const reason = stableFailReason(error)
+        const key = `${pluginId ?? fixedPluginId ?? ''}\u0000${op}`
+        if (lastFailReason.get(key) === reason) return
+        lastFailReason.set(key, reason)
+        fire(port, 'warn', LOG_EVENT_STORE_FAIL, { op, reason })
+      } catch {}
+    },
+    anomaly(kind, pluginId, ageMs) {
+      try {
+        const port = portFor(pluginId)
+        if (!port) return
+        const fields: Record<string, unknown> = { kind }
+        if (typeof ageMs === 'number' && Number.isFinite(ageMs) && ageMs >= 0) fields['ageMs'] = ageMs
+        fire(port, 'warn', LOG_EVENT_LOCK_ANOMALY, fields)
+      } catch {}
+    },
+    transition(phase, pluginId, extra) {
+      try {
+        if (typeof pluginId !== 'string' || !pluginId) return
+        const port = portFor(pluginId)
+        if (!port) return
+        const fields: Record<string, unknown> = { phase }
+        if (extra && typeof extra.waitedMs === 'number' && Number.isFinite(extra.waitedMs) && extra.waitedMs >= 0) {
+          fields['waitedMs'] = extra.waitedMs
+        }
+        if (extra && typeof extra.position === 'number' && Number.isInteger(extra.position) && extra.position >= 0) {
+          fields['position'] = extra.position
+        }
+        // 指纹带上动作方：队列跨插件共享，同一进程里两家的同相位行不能互相吃掉（相位边沿仍由指纹守住）。
+        fire(port, 'info', LOG_EVENT_QUEUE_TRANSITION, fields, `${pluginId}\u0000${phase}`)
+      } catch {}
+    },
   }
 }
 
@@ -84,12 +215,14 @@ async function readJsonGuarded(filename: string, missing: null): Promise<Record<
   }
 }
 
-async function writeJsonAtomic(filename: string, value: unknown): Promise<void> {
+async function writeJsonAtomic(filename: string, value: unknown, onFail?: (error: unknown) => void): Promise<void> {
   const temporary = `${filename}.${randomUUID()}.tmp`
   try {
     await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600, flag: 'wx' })
     await rename(temporary, filename)
-  } catch {
+  } catch (error) {
+    // 先把原始失败交给记账（稳定短码），再按原样抛 install-failed：归类与原来一字不差。
+    if (onFail) onFail(error)
     throw fail('install-failed')
   } finally {
     await unlink(temporary).catch(() => {})
@@ -109,6 +242,8 @@ function normalizeJob(job: Record<string, unknown>): UpdateJob {
 export interface DiskPortsDeps {
   readFileImpl?: (filename: string, encoding: string) => Promise<string>
   statImpl?: (filename: string) => Promise<{ size: number }>
+  /** 日志发射口（#124，可选）：已绑好本插件标识；不传即不记（行为与今天一字不差）。 */
+  log?: UpdateLogPort
 }
 
 /**
@@ -129,6 +264,8 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
   const legacyPaths = pluginId === LEGACY_DIR_PLUGIN ? null : legacyPathsForUpdate(homeDir, profileDir)
   const readText = deps.readFileImpl ?? ((filename: string, encoding: string) => readFile(filename, encoding))
   const statFile = deps.statImpl ?? ((filename: string) => stat(filename))
+  // 日志接线（#124）：不传 log 时下面每一条记账都是空转，行为与今天一字不差。
+  const storeLog = createStoreLog(typeof deps.log === 'function' ? deps.log : null, null, pluginId)
   async function readAt(p: UpdatePaths | null): Promise<Record<string, unknown> | null> {
     if (!p) return null
     try {
@@ -161,7 +298,11 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
     const lock = await readJsonGuarded(paths.lock, null)
     if (lock) return { id: 'locked', state: 'interrupted', message: 'recovery-required', targetVersion: null, requestId: null }
     if (legacyPaths) {
-      const legacyLock = await readJsonGuarded(legacyPaths.lock, null).catch(() => null)
+      // 旧影子的锁读坏只当没有（原来静默吞）：记一条 store.fail，回参与行为不变。
+      const legacyLock = await readJsonGuarded(legacyPaths.lock, null).catch((error: unknown) => {
+        storeLog.fail('read-job', error)
+        return null
+      })
       if (legacyLock) return { id: 'locked', state: 'interrupted', message: 'recovery-required', targetVersion: null, requestId: null }
     }
     return null
@@ -171,12 +312,15 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
     if (!paths) throw fail('install-failed')
     if (job === null) {
       await unlink(paths.state).catch((error: { code?: string }) => {
-        if (!error || error.code !== 'ENOENT') throw fail('install-failed')
+        if (!error || error.code !== 'ENOENT') {
+          storeLog.fail('write-job', error)
+          throw fail('install-failed')
+        }
       })
       return
     }
     await mkdir(paths.directory, { recursive: true, mode: 0o700 })
-    await writeJsonAtomic(paths.state, job)
+    await writeJsonAtomic(paths.state, job, (error) => storeLog.fail('write-job', error))
   }
   async function tryAcquireLock(lockId: string): Promise<boolean> {
     if (!paths) return false
@@ -190,20 +334,30 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
       }
       return true
     } catch (error) {
-      if (!error || (error as { code?: string }).code !== 'EEXIST') return false
+      if (!error || (error as { code?: string }).code !== 'EEXIST') {
+        // 非 EEXIST 的真故障原来静默回 false（对调用方看起来就是「被别人占着」）：留一条痕。
+        storeLog.fail('acquire-lock', error)
+        return false
+      }
       try {
         const current = await readJsonGuarded(paths.lock, null)
         const job = await readJsonGuarded(paths.state, null)
         if (!current || (job && (job as { id?: unknown }).id === (current as { id?: unknown }).id)) return false
-        await unlink(paths.lock).catch(() => {})
+        // 回收失败（删不掉/删了又被别人抢走）只当没抢到，但不再静默：原始原因入行。
+        await unlink(paths.lock).catch((error: unknown) => {
+          if (!isMissingFileError(error)) storeLog.fail('reclaim-stale-owner', error)
+        })
         const handle = await open(paths.lock, 'wx', 0o600)
         try {
           await handle.writeFile(JSON.stringify({ id: lockId, pid: process.pid, startedAt: Date.now() }))
         } finally {
           await handle.close()
         }
+        // 回收成功＝锁的主人早该收尾却没放（孤儿/陈旧）而这次真被摘掉：真边沿，年龄从锁里记的 startedAt 算。
+        storeLog.anomaly(LOCK_ANOMALY_STALE_OWNER, null, lockAgeMs(current, Date.now()))
         return true
-      } catch {
+      } catch (error) {
+        storeLog.fail('reclaim-stale-owner', error)
         return false
       }
     }
@@ -212,8 +366,19 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
     if (!paths) return
     try {
       const current = await readJsonGuarded(paths.lock, null)
-      if (current && (current as { id?: unknown }).id === lockId) await unlink(paths.lock).catch(() => {})
-    } catch {}
+      if (current && (current as { id?: unknown }).id === lockId) {
+        await unlink(paths.lock).catch((error: unknown) => {
+          // 删不掉＝这把锁没放掉（原来静默吞）；锁已经不在了则目的已达，不算失败。
+          if (isMissingFileError(error)) return
+          storeLog.fail('release-lock', error)
+          storeLog.anomaly(LOCK_ANOMALY_RELEASE_FAILED)
+        })
+      }
+    } catch (error) {
+      // 读锁就坏了＝连「这把锁是不是我的」都判不了，放锁这一步真失败（原来静默吞）。
+      storeLog.fail('release-lock', error)
+      storeLog.anomaly(LOCK_ANOMALY_RELEASE_FAILED)
+    }
   }
   async function backupJob(job: UpdateJob): Promise<void> {
     if (!paths) throw fail('install-failed')
@@ -224,15 +389,23 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
         if ((await stat(filename)).size > 3 * 1024 * 1024) throw fail('install-failed')
         files[name] = await readFile(filename, 'utf8')
       } catch (error) {
-        if (!error || (error as { code?: string }).code !== 'ENOENT') throw fail('install-failed')
+        if (!error || (error as { code?: string }).code !== 'ENOENT') {
+          // 快照读不出来只留稳定码，原文（含路径）绝不入行；归类仍按原样抛 install-failed。
+          storeLog.fail('read-snapshot', error)
+          throw fail('install-failed')
+        }
       }
     }
     await mkdir(paths.directory, { recursive: true, mode: 0o700 })
-    await writeJsonAtomic(paths.backup, {
-      jobId: job.id,
-      previousVersion: (job as unknown as Record<string, unknown>).previousVersion ?? null,
-      files,
-    })
+    await writeJsonAtomic(
+      paths.backup,
+      {
+        jobId: job.id,
+        previousVersion: (job as unknown as Record<string, unknown>).previousVersion ?? null,
+        files,
+      },
+      (error) => storeLog.fail('write-backup', error)
+    )
   }
   return { paths, legacyPaths, readJob, writeJob, tryAcquireLock, releaseLock, backupJob }
 }
@@ -272,12 +445,56 @@ export interface QueuePortsDeps {
   readFileImpl?: (filename: string, encoding: string) => Promise<string>
   statImpl?: (filename: string) => Promise<{ size: number }>
   nowImpl?: () => number
+  /**
+   * 按当次动作方插件标识取发射口（#124，可选）：队列是跨插件共享的，所以这里不能要一个固定
+   * pluginId 的发射口；取不到标识的调用段（如 readQueue／不看主人的放锁）就不发——不许猜。
+   */
+  logFor?: (pluginId: string) => UpdateLogPort | null
 }
 
 function queueFail(): Error & { code: string } {
   // 队列自身的错不用 install-failed（那是安装失败的码）：队列坏了只影响可见性与公平
   // 提示，不改变安装成败的归类，调用方（host.ts）一律 best-effort 吞掉。
   return Object.assign(new Error('queue-unavailable'), { code: 'queue-unavailable' })
+}
+
+/** 一次队列真实跃迁：谁跨了相位、新相位、以及真量到的等待/位次（量不到就不给格）。 */
+interface QueueEdge {
+  pluginId: string
+  phase: string
+  extra: { waitedMs?: number; position?: number }
+}
+
+function intentKey(entry: { pluginId: string; requestId: string | null }): string {
+  return `${entry.pluginId}\u0000${entry.requestId ?? null}`
+}
+
+/** 这个拥有者在队列里真等了多久：从它自己的占位时间到记账的开始时间；两格缺一或对不上就不给。 */
+function waitMsOf(previous: UpdateQueueState, owner: QueueOwner): number | undefined {
+  const entry = previous.waiting.find((e) => intentKey(e) === intentKey(owner))
+  if (!entry || entry.enqueuedAt <= 0 || !Number.isFinite(owner.startedAt) || owner.startedAt <= 0) return undefined
+  const waited = owner.startedAt - entry.enqueuedAt
+  return Number.isFinite(waited) && waited >= 0 ? waited : undefined
+}
+
+/**
+ * 从「写盘前 / 写盘后」两份队列算出真跃迁——边沿只在这里判：两份同一相位就是没跃迁（回 null）。
+ * 相位：`'queued'`（新占位）→ `'running'`（拿到锁开始装）→ `'done'`（终态摘牌）；
+ * 陈旧回收成功在 tryAcquireGlobalLock 里另记 `'reclaimed'`（那件事真写的是 global.lock，不是 queue.json），
+ * 待办摘牌（取消/过期）不改相位，不算跃迁。
+ */
+function queueEdgeOf(previous: UpdateQueueState, next: UpdateQueueState): QueueEdge | null {
+  const before = previous.owner
+  const after = next.owner
+  if (before && !after) return { pluginId: before.pluginId, phase: 'done', extra: {} }
+  if (after && (!before || before.pluginId !== after.pluginId)) {
+    const waitedMs = waitMsOf(previous, after)
+    return { pluginId: after.pluginId, phase: 'running', extra: waitedMs === undefined ? {} : { waitedMs } }
+  }
+  const known = new Set(previous.waiting.map(intentKey))
+  const at = next.waiting.findIndex((entry) => !known.has(intentKey(entry)))
+  if (at >= 0) return { pluginId: next.waiting[at].pluginId, phase: 'queued', extra: { position: at + 1 } }
+  return null
 }
 
 /**
@@ -299,6 +516,16 @@ export function createUpdateQueuePorts(
   const readText = deps.readFileImpl ?? ((filename: string, encoding: string) => readFile(filename, encoding))
   const statFile = deps.statImpl ?? ((filename: string) => stat(filename))
   const now = deps.nowImpl ?? Date.now
+  // 日志接线（#124）：不传 logFor 时下面每一条记账都是空转，行为、返回值、时序与今天一字不差。
+  const storeLog = createStoreLog(null, typeof deps.logFor === 'function' ? deps.logFor : null, null)
+  /** 判跃迁要「写盘前」那一份：只有接了发射口才多读这一次，读不到就判不了（宁可不发，不猜）。 */
+  async function readQueueForEdge(): Promise<UpdateQueueState | null> {
+    try {
+      return await readQueue()
+    } catch {
+      return null
+    }
+  }
   async function readQueue(): Promise<UpdateQueueState> {
     if (!paths) throw queueFail()
     try {
@@ -308,32 +535,49 @@ export function createUpdateQueuePorts(
       if (error && (error as { code?: string }).code === 'ENOENT') {
         return normalizeQueueState(null)
       }
+      // 这一层没有动作方标识（读队列的调用段拿不到是谁在读），没法路由，所以只按原样抛。
       throw error && (error as { code?: string }).code ? error : queueFail()
     }
   }
   async function writeQueue(state: UpdateQueueState): Promise<void> {
     if (!paths) throw queueFail()
+    const next = normalizeQueueState(state)
+    const previous = storeLog.enabled() ? await readQueueForEdge() : null
+    const edge = previous ? queueEdgeOf(previous, next) : null
+    // 最原始的那个失败留给 store.fail 取稳定码（里面那层原来把它换成了 queueFail）。
+    let failure: unknown = null
     try {
       await mkdir(paths.directory, { recursive: true, mode: 0o700 })
       const temporary = `${paths.file}.${randomUUID()}.tmp`
       try {
-        await writeFile(temporary, `${JSON.stringify(normalizeQueueState(state), null, 2)}\n`, { mode: 0o600, flag: 'wx' })
+        await writeFile(temporary, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600, flag: 'wx' })
         await rename(temporary, paths.file)
-      } catch {
+      } catch (error) {
+        failure = error
         throw queueFail()
       } finally {
         await unlink(temporary).catch(() => {})
       }
     } catch (error) {
-      throw error && (error as { code?: string }).code ? error : queueFail()
+      const code = error && (error as { code?: string }).code
+      const original = failure ?? error ?? queueFail()
+      if (edge) storeLog.fail('write-queue', original, edge.pluginId)
+      throw code ? error : queueFail()
     }
+    // 真的写完盘才记（边沿＝真写了盘且相位真的变了）。
+    if (edge) storeLog.transition(edge.phase, edge.pluginId, edge.extra)
   }
-  async function readLockRaw(): Promise<Record<string, unknown> | null> {
+  /**
+   * 读全局锁。读不到只是「看不见锁」，不是异常——但抢锁侧要保守认输、放锁侧这把锁就放不掉，
+   * 所以有动作方标识时留一条痕（原来静默回 null）。
+   */
+  async function readLockRaw(actor: string | null): Promise<Record<string, unknown> | null> {
     if (!paths) return null
     try {
       if ((await statFile(paths.lock)).size > 1024 * 1024) return null
       return JSON.parse(await readText(paths.lock, 'utf8')) as Record<string, unknown>
-    } catch {
+    } catch (error) {
+      if (actor) storeLog.fail('read-global-lock', error, actor)
       return null
     }
   }
@@ -354,21 +598,32 @@ export function createUpdateQueuePorts(
       }
       return true
     } catch (error) {
-      if (!error || (error as { code?: string }).code !== 'EEXIST') return false
+      if (!error || (error as { code?: string }).code !== 'EEXIST') {
+        // 非 EEXIST 的真故障原来静默回 false（对调用方看起来就是「有人在装」）：留一条痕。
+        storeLog.fail('acquire-global-lock', error, pluginId)
+        return false
+      }
       // 占着：看是不是陈旧（持有者早该收尾却没放），陈旧才回收一次，不陈旧直接认输。
       try {
-        const current = await readLockRaw()
+        const current = await readLockRaw(pluginId)
         const startedAt = current && typeof current['startedAt'] === 'number' ? (current['startedAt'] as number) : 0
         if (!current || now() - startedAt < timeoutMs) return false
-        await unlink(paths.lock).catch(() => {})
+        const ageMs = lockAgeMs(current, now())
+        await unlink(paths.lock).catch((error: unknown) => {
+          if (!isMissingFileError(error)) storeLog.fail('reclaim-stale-owner', error, pluginId)
+        })
         const handle = await open(paths.lock, 'wx', 0o600)
         try {
           await handle.writeFile(JSON.stringify({ id: lockId, pluginId, pid: process.pid, startedAt: now() }))
         } finally {
           await handle.close()
         }
+        // 回收成功是真跃迁：陈旧主人被摘掉（lock.anomaly）＋锁到了我手里（queue.transition 的 reclaimed）。
+        storeLog.anomaly(LOCK_ANOMALY_STALE_OWNER, pluginId, ageMs)
+        storeLog.transition('reclaimed', pluginId)
         return true
-      } catch {
+      } catch (error) {
+        storeLog.fail('reclaim-stale-owner', error, pluginId)
         return false
       }
     }
@@ -376,8 +631,17 @@ export function createUpdateQueuePorts(
   async function releaseGlobalLock(lockId: string): Promise<void> {
     if (!paths) return
     try {
-      const current = await readLockRaw()
-      if (current && (current as { id?: unknown }).id === lockId) await unlink(paths.lock).catch(() => {})
+      // 放锁这里还不知道动作方（标识记在锁里，得先读到）：读坏了就没有可路由的标识，不猜。
+      const current = await readLockRaw(null)
+      if (current && (current as { id?: unknown }).id === lockId) {
+        const owner = typeof current['pluginId'] === 'string' && current['pluginId'] ? (current['pluginId'] as string) : null
+        await unlink(paths.lock).catch((error: unknown) => {
+          // 删不掉＝这把锁没放掉（原来静默吞）；锁已经不在了则目的已达，不算失败。
+          if (isMissingFileError(error)) return
+          storeLog.fail('release-global-lock', error, owner)
+          if (owner) storeLog.anomaly(LOCK_ANOMALY_RELEASE_FAILED, owner)
+        })
+      }
     } catch {}
   }
   return { paths, readQueue, writeQueue, tryAcquireGlobalLock, releaseGlobalLock }

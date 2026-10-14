@@ -32,6 +32,12 @@
 //   7. 忙时入队（#25 排队语义）：batchInstall 在驱动进行中不再回 update-busy，而是把 keys 并进
 //      当前会话（幂等）并回 ok:true，单飞不另起驱动；单插件装电话回 update-busy（已占位、等轮到你）
 //      时映射成驱动器的 { kind:'queued', position }（相位退回 ready，不是 failed），行上带出队列位置。
+//   8. 批量侧常驻事件三条（#124），全部 best-effort、只走唯一发射口（脱敏/白名单/预算都在里面）：
+//      建会话时一条 update.batch.entry.request（只给 total/own/foreign 三个计数，不给插件名清单）、
+//      一家失败一条 update.batch.entry.fail（在 batch-run.ts 里按目标发射，落点是那家自己的插件标识）、
+//      收尾一条 update.batch.summary（宿主侧汇总，面板只渲染）。总账的判据是**收尾边沿**：同一份会话
+//      每次「没收尾 → 收尾」都记一条（行内重试装成后再收尾会再记），所以日志不会一直写着过期的
+//      failed 计数。落点未知（没 selfKey、键不在清单里、没有日志接线）时一行不发：不知道去哪就不猜。
 
 import { homedir } from 'node:os'
 import {
@@ -57,6 +63,8 @@ import {
 } from './batch-run.js'
 import { assertPluginId, assertPrefix, resolveUpdateConfig, type UpdateConfigInput } from './config.js'
 import { createHostUpdate, type HostUpdate, type ReaderOverrides } from './host.js'
+import { emitUpdateLog } from './log/emit.js'
+import type { UpdateLogPort } from './ports.js'
 import { defaultHomeDir } from './reader.js'
 import { compareReleaseVersions } from './service.js'
 import {
@@ -230,6 +238,27 @@ function hash8(text: string): string {
     return ('0000000' + h.toString(16)).slice(-8)
   } catch {
     return '00000000'
+  }
+}
+
+/**
+ * 从电话回包里取真退出码（#124）：核心把失败诊断放在回包顶层的 diag（host.ts 的失败回包口径），
+ * 只有阶段 exec 的诊断才带 exitCode。取不到就是 null——不拿 0 冒充「跑过并退出」。
+ */
+function exitCodeOf(reply: Record<string, unknown>): number | null {
+  const raw = asRecord(reply['diag'])['exitCode']
+  return typeof raw === 'number' && Number.isFinite(raw) ? Math.trunc(raw) : null
+}
+
+/**
+ * 批量侧常驻事件的出口（#124）：宿主这一层知道插件标识，落哪家由调用方给。
+ * 发射是可选增强 + best-effort：没有日志接线时唯一发射口自己吞掉，这里再兜一层抛错。
+ */
+function emitBatchLog(pluginId: string, level: 'info' | 'warn', event: string, fields: Record<string, unknown>): void {
+  try {
+    emitUpdateLog(level, event, fields, { pluginId })
+  } catch {
+    // 记日志是旁路：永不改变控制流、返回值与抛错
   }
 }
 
@@ -557,9 +586,12 @@ async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetS
     if (!receipt) return { kind: 'failed', error: 'check-expired' }
   }
   const phoneRequestId = phoneRequestIdOf(requestId)
+  // 意图来源（#124）：批量的装由驱动器发起、不是用户点面板，如实自报——只进日志行
+  // `update.install.request.from`，不参与任何决策（认不出时宿主按 'panel' 兜底）。
   const reply = await callPhone(rt, rt.host.phoneNames.updateInstall, {
     checkId: receipt.checkId,
     requestId: phoneRequestId,
+    from: 'batch',
   })
   rt.receipt = null
   if (reply['ok'] === true) return await settleInstall(rt, reply)
@@ -569,7 +601,8 @@ async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetS
     // 驱动器据此把相位退回 ready（远端版本留着），下一轮推动从它接着装。
     return { kind: 'queued', position: await queuePositionFor(rt, phoneRequestId) }
   }
-  return { kind: 'failed', error: code }
+  const exit = exitCodeOf(reply)
+  return exit === null ? { kind: 'failed', error: code } : { kind: 'failed', error: code, exitCode: exit }
 }
 
 /**
@@ -685,6 +718,13 @@ export function createMultiHostUpdate(
   })
   const runtimeByKey = new Map(runtimes.map((rt) => [rt.spec.key, rt]))
 
+  /**
+   * 批量属主（#124）：selfKey 那家就是「自己」——承载批量面板、自更新排最后的那家。
+   * 批量级事件（入队 / 总账）落它的日志目录；没有 selfKey（或清单里没这家）就没有已知落点，
+   * 一行不发（ADR-0006：不知道落点就别猜，宁缺勿错）。
+   */
+  const selfRuntime = options.selfKey ? runtimeByKey.get(options.selfKey) ?? null : null
+
   // 会话账本按属主隔离（#59 D1/Q2=A：update-queue/<指纹>/<owner>/batch.json；旧无属主 batch.json 永不读写）。
   // 知识账本与偏好同目录（inventory.json / prefs.json）。算不出范围时退化为内存账本。
   const ownerPorts =
@@ -751,6 +791,75 @@ export function createMultiHostUpdate(
     if (session.entries.length > 0) return batchProgress(session)
     const total = runtimes.length
     return { total, done: 0, failed: 0, skipped: 0, current: 0, pending: total, finished: false }
+  }
+
+  // ---------- 批量侧日志（#124） ----------
+  //
+  // 入队行按会话编号去重（「一批一条」）：同一份会话反复推进（drain 一轮一步 / 忙时入队被并进来）
+  // 只记一次。总账另走**收尾边沿**（见 noteBatchSummary），所以它自己记一份「上次看过是收尾吗」。
+  // 两个状态只活在本入口的内存里，重启后新一轮自然重新记。
+
+  /** 记过入队行的会话编号。 */
+  const notedEntryRequests = new Set<string>()
+  /**
+   * 上次观察时已经收尾的会话编号（总账的边沿判据，不是「一批一条」）：
+   * 行内「重试」把失败那家退回 pending 时这一格会被清掉，装成后再收尾就再记一条 ——
+   * 日志不能在前一条 summary 里一直写着 failed:1 而账本早已装成（审计口径的假话比多一行贵）。
+   */
+  const finishedBatchIds = new Set<string>()
+
+  /**
+   * 单项失败的发射口按「目标键 → 那家自己的插件标识」路由（#124）：一家失败记在那个插件自己的
+   * 日志目录里（那行说的就是它的事，targetHash 是它的指纹）；键不在清单里就回 null，一行不发。
+   */
+  function logPortFor(key: string): UpdateLogPort | null {
+    const rt = runtimeByKey.get(key)
+    if (!rt) return null
+    return (level: string, event: string, fields: Record<string, unknown>) => {
+      emitBatchLog(rt.pluginId, level === 'warn' ? 'warn' : 'info', event, fields)
+    }
+  }
+
+  /**
+   * 一批只记一条入队行：own = 目标里属于批量属主自己那家（键 === selfKey 的那家），其余算 foreign。
+   * 只给三个计数、不给插件名清单——入队行不该泄露「我在更新谁」。
+   */
+  function noteEntryRequest(session: BatchSession): void {
+    const owner = selfRuntime
+    if (!owner || notedEntryRequests.has(session.id)) return
+    notedEntryRequests.add(session.id)
+    const total = session.entries.length
+    const ownCount = session.entries.filter((entry) => entry.key === owner.spec.key).length
+    emitBatchLog(owner.pluginId, 'info', 'update.batch.entry.request', {
+      total,
+      ownCount,
+      foreignCount: total - ownCount,
+    })
+  }
+
+  /**
+   * 总账按**收尾边沿**记：这次看是收尾、上次看不是，就记一条；两次都是收尾（例如对已经装成的行
+   * 再点一次「装这家」）不重复记。所以调用方要在推进前后各看一次——重试把失败行退回 pending 时
+   * 先清标记，装成后再收尾才记第二条。ok 用「没出事」的口径（装完 + 已是最新），
+   * ok + failed + skipped === total 恒成立；durationMs 是「建会话 → 这次收尾」的真测量。
+   */
+  function noteBatchSummary(session: BatchSession): void {
+    const owner = selfRuntime
+    if (!owner) return
+    const finished = isBatchFinished(session)
+    const wasFinished = finishedBatchIds.has(session.id)
+    if (finished) finishedBatchIds.add(session.id)
+    else finishedBatchIds.delete(session.id)
+    if (!finished || wasFinished) return
+    const progress = batchProgress(session)
+    const elapsed = now() - session.createdAt
+    emitBatchLog(owner.pluginId, 'info', 'update.batch.summary', {
+      total: progress.total,
+      ok: progress.done,
+      failed: progress.failed,
+      skipped: progress.skipped,
+      durationMs: Number.isFinite(elapsed) && elapsed > 0 ? Math.floor(elapsed) : 0,
+    })
   }
 
   /**
@@ -971,6 +1080,7 @@ export function createMultiHostUpdate(
               await saveSession(merged)
             },
             now: () => now(),
+            logFor: logPortFor,
           },
           { maxSteps: 1 },
         )
@@ -1088,6 +1198,8 @@ export function createMultiHostUpdate(
         await saveSession(session)
       }
     }
+    // 忙时入队并进来的行走同一条入队口径（同一份会话只记一次）。
+    noteEntryRequest(session)
     return await table(session, false)
   }
 
@@ -1122,7 +1234,14 @@ export function createMultiHostUpdate(
         session = retried
         await saveSession(session)
       }
+      // 入队行在建/复用会话之后记（新建与复用都由它兜住，同一份会话只记一次）。
+      noteEntryRequest(session)
+      // 推进前先看一次账本：重试把失败行退回 pending 时，「已收尾」标记要跟着清掉，
+      // 装成后的那次收尾才算一次新的边沿（日志不写假话）。
+      noteBatchSummary(session)
       driven = await driveLocked(session, selected, Number.POSITIVE_INFINITY)
+      // 收尾总账：推进结束（不论有没有失败）且账本已全部终态才记一条，面板只渲染不重发。
+      noteBatchSummary(driven)
     } catch (error) {
       return { ok: false, ...errorPayloadOf(error) }
     } finally {
@@ -1142,7 +1261,10 @@ export function createMultiHostUpdate(
     const resumed = resumeBatchSession(disk, now())
     if (resumed !== disk) await saveSession(resumed)
     try {
-      return { ...(await table(await drive(resumed, null, Number.POSITIVE_INFINITY))), resumed: true }
+      const driven = await drive(resumed, null, Number.POSITIVE_INFINITY)
+      // 跨重启续跑收尾：这一轮是「接着推」，但收尾仍在宿主侧汇总（面板不重发）。
+      noteBatchSummary(driven)
+      return { ...(await table(driven)), resumed: true }
     } catch (error) {
       return { ok: false, ...errorPayloadOf(error) }
     }
@@ -1170,7 +1292,8 @@ export function createMultiHostUpdate(
     const disk = await readSession()
     if (disk.entries.length === 0 || isBatchFinished(disk)) return
     try {
-      await drive(disk, null, 1)
+      // drain 一轮只推一步：推完可能正好收尾（最后一家做完），总账就在这一轮记。
+      noteBatchSummary(await drive(disk, null, 1))
     } catch {}
   }
 

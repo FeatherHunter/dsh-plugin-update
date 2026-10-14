@@ -12,6 +12,7 @@
 import type {
   BlockedReason,
   CheckResult,
+  CheckTrigger,
   EnvironmentView,
   FetchImpl,
   InstallSource,
@@ -62,6 +63,15 @@ function httpStatusOfError(error: unknown): number | null {
 /** 安装意图来源（#124）：认不出或没报都按 `panel`（电话的既有调用方是面板）。 */
 function installSourceOf(value: unknown): InstallSource {
   return value === 'entry' || value === 'batch' ? value : 'panel'
+}
+
+/**
+ * 检查触发方（#124）：只有调用方**自报**了合法取值才认，认不出返回 null。
+ * 原因：宿主侧只能看到「有人在问」，分不清用户点的还是自动跑的（`pendingAutoCheck` 走同一支电话）；
+ * 猜一个 `'user'` 会在自动检查时留下口径相反的行，宁可不发（由触发方在客户端侧打点，见 W1 目录 ③）。
+ */
+function triggerOf(value: unknown): CheckTrigger | null {
+  return value === 'auto' || value === 'user' || value === 'batch' || value === 'entry' ? value : null
 }
 
 /**
@@ -556,6 +566,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
   let checking: Promise<CheckResult> | null = null
   let lastCheckAt = -Infinity
   let activeJobId: string | null = null
+  // 已经记过中断换算的任务编号（#124）：落盘写不回去时防重复刷屏。
+  const notedInterruptions = new Set<string>()
   let memJob: UpdateJob | null = null
   let memLock: string | null = null
   async function loadJob(): Promise<UpdateJob | null> {
@@ -705,16 +717,31 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       } catch {
         // 只读回查的落盘是 best-effort：写不回去仍按换算后的快照展示，不把状态读数变成安装失败。
       }
+      // 中断换算（#124）：只有这次读回**才**把任务从活状态换成 `interrupted` 时记一条。
+      // 落盘是 best-effort：写不回去时每次读回都会重现同一个换算，所以按任务编号去重，不刷屏。
+      if (healed && healed.state === 'interrupted' && loaded && loaded.state !== 'interrupted' && !notedInterruptions.has(healed.id)) {
+        notedInterruptions.add(healed.id)
+        emit('info', 'update.install.verify', {
+          result: 'interrupted',
+          ...(env.installedVersion ? { installedVersion: env.installedVersion } : {}),
+          pendingRestart: false,
+        })
+      }
     }
     return healed
   }
   async function status(): Promise<UpdateSnapshot> {
+    const t0 = Date.now()
     const env = await ports.readInstalled()
     const job = await healedJob(env)
-    return buildSnapshot(env, job)
+    const snapshot = buildSnapshot(env, job)
+    // `update.poll`（#124，ondemand 档）：这一支就是每秒轮询走的入口。开关没开时发射口直接丢，
+    // 不占预算；`state` 用主状态三值，与 `update.status.changed` 同一口径（排查「为什么一直在轮询」用）。
+    emit('info', 'update.poll', { state: statusKindOf(snapshot), latencyMs: Math.max(0, Date.now() - t0) })
+    return snapshot
   }
 
-  async function check(): Promise<CheckResult> {
+  async function check(trigger?: unknown): Promise<CheckResult> {
     if (checking) return checking
     // 2 秒内重复点击复用上次结果，不重新联网（失败不缓存为成功）。
     if (checked?.checkId && ports.now() - lastCheckAt < RECHECK_WINDOW_MS) {
@@ -723,6 +750,15 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       return { snapshot, receipt: snapshot.canInstall ? toReceipt() : null }
     }
     lastCheckAt = ports.now()
+    const startedAt = Date.now()
+    // `update.check.start`（#124，ondemand 档）：只在调用方自报了触发方时落一条。
+    const askedBy = triggerOf(trigger)
+    if (askedBy) {
+      emit('info', 'update.check.start', {
+        trigger: askedBy,
+        ...(registryHost ? { source: registryHost } : {}),
+      })
+    }
     checking = (async () => {
       try {
         const env = await ports.readInstalled()
@@ -737,9 +773,25 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
         }
         // 凭证只在能装时交：没新版或有阻拦时交了也没用，不交。
         const snapshot = buildSnapshot(env, await healedJob(env))
+        // 通道判定与检查成功各一条（#124）：顺序是先判定再宣布成功，读日志的人先看到「为什么」。
+        noteChannelDecision(snapshot.runningVersion, release.version)
+        emit('info', 'update.check.done', {
+          ok: true,
+          current: snapshot.runningVersion,
+          latest: release.version,
+          channel: releaseChannel,
+          ...(registryHost ? { source: registryHost } : {}),
+          latencyMs: Math.max(0, Date.now() - startedAt),
+        })
         return { snapshot, receipt: snapshot.canInstall ? toReceipt() : null }
       } catch (error) {
         if (checked) checked = { ...checked, checkId: null, expiresAt: 0 }
+        const httpStatus = httpStatusOfError(error)
+        emit('warn', 'update.check.fail', {
+          stage: stageOfError(error),
+          errorKind: stableCodeOf(error),
+          ...(httpStatus === null ? {} : { httpStatus }),
+        })
         throw error
       } finally {
         checking = null
@@ -755,6 +807,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
   }
 
   async function runBackground(job: UpdateJob, envAtStart: EnvironmentView): Promise<void> {
+    // 装后校验读到的环境（#124）：失败分支也要如实记「磁盘上是什么版本」。
+    let verifiedEnv: EnvironmentView | null = null
     try {
       if (ports.runInstall) await ports.runInstall({ version: job.targetVersion as string, profileName: envAtStart.profileName, environmentKind: envAtStart.environmentKind, releaseChannel })
       else throw updateError('unsupported')
@@ -762,6 +816,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       activeJobId = doing.id
       await saveJob(doing)
       const env = await ports.readInstalled()
+      verifiedEnv = env
       // 装完校验也会失败：它同样要给出一句能读的说明，不能只留一个死码（验收判据 1）。
       if (env.installedVersion !== job.targetVersion) {
         throw Object.assign(updateError('install-failed'), {
@@ -773,6 +828,14 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       }
       const done: UpdateJob = { ...doing, state: 'restart-required', message: null }
       await saveJob(done)
+      // 装后校验（#124）：磁盘版本与目标一致才算过；要不要重启按运行版判定——
+      // 运行版还没换过来就是 `restart-required`，已经换过来了就是 `completed`。
+      const pendingRestart = ports.readRunningVersion() !== job.targetVersion
+      emit('info', 'update.install.verify', {
+        result: pendingRestart ? 'restart-required' : 'completed',
+        ...(env.installedVersion ? { installedVersion: env.installedVersion } : {}),
+        pendingRestart,
+      })
     } catch (error) {
       const code = (error as { code?: unknown })?.code
       const base =
@@ -787,13 +850,19 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       } catch {
         memJob = failedJob
       }
+      // 安装或装后校验失败（#124）：`result:'failed'`；磁盘上读到什么版本就记什么，读不到省这一格。
+      emit('info', 'update.install.verify', {
+        result: 'failed',
+        ...(verifiedEnv?.installedVersion ? { installedVersion: verifiedEnv.installedVersion } : {}),
+        pendingRestart: false,
+      })
     } finally {
       await release(job.id)
       if (activeJobId === job.id) activeJobId = null
     }
   }
 
-  async function install(args: { checkId: string; requestId: string }): Promise<UpdateSnapshot> {
+  async function install(args: { checkId: string; requestId: string; from?: InstallSource }): Promise<UpdateSnapshot> {
     const checkId = typeof args?.checkId === 'string' ? args.checkId : ''
     const requestId = typeof args?.requestId === 'string' ? args.requestId : ''
     if (!checkId || !validRequestId(requestId)) throw updateError('check-expired')
@@ -811,6 +880,13 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     if (!buildSnapshot(env, previous).canInstall) {
       throw updateError(env.blockedReason ?? checked.blockedReason ?? 'update-busy')
     }
+    // 用户意图（#124）：过完所有闸门、真的要装了才落这一条；被闸门挡掉的请求不算一次意图。
+    emit('info', 'update.install.request', {
+      from: installSourceOf(args?.from),
+      current: ports.readRunningVersion(),
+      latest: checked.release.version,
+      checkAgeMs: Math.max(0, ports.now() - checked.checkedAt),
+    })
     const job: UpdateJob = {
       id: ports.randomId(),
       state: 'installing',

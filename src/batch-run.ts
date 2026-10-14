@@ -7,7 +7,8 @@
 //   再重启时读回账本，已完成的不重装、没做完的接着走（幂等编号恒定，重复提交不重复装）。
 //
 // 传输（查/装）由调用方注入：宿主侧传真电话，单测给假件——所以「串行顺序」这件事能被门禁逮住。
-// 本文件零 Node/浏览器专属能力（只 import batch.ts 的纯函数），两边都跑得动。
+// 日志落点（#124）同样是注入的（deps.logFor）：路由要的插件标识只有宿主知道，驱动器不猜。
+// 本文件零 Node/浏览器专属能力（只 import batch.ts 的纯函数 + ports.ts 的类型），两边都跑得动。
 
 import {
   batchProgress,
@@ -16,6 +17,7 @@ import {
   nextBatchKey,
   type BatchSession,
 } from './batch.js'
+import type { UpdateLogPort } from './ports.js'
 
 /** 查一家的结果。 */
 export type BatchCheckOutcome =
@@ -32,8 +34,11 @@ export type BatchCheckOutcome =
 export type BatchInstallOutcome =
   /** 装完；restartRequired 表示要重启宿主才生效。 */
   | { kind: 'done'; restartRequired: boolean }
-  /** 装失败（稳定码）。 */
-  | { kind: 'failed'; error: string }
+  /**
+   * 装失败（稳定码）。exitCode 只在**真拿到退出码**时才给（安装子进程真跑过并退出）；
+   * 失败发生在执行之前（网络、锁、纯 JS 抛错）时它缺席——不拿 0 / -1 冒充「跑过」。
+   */
+  | { kind: 'failed'; error: string; exitCode?: number }
   /**
    * 已入队：全局锁被别家占着（宿主的 update-busy），本家排上了但还没轮到。
    * **不是失败**——这一行的相位回到 ready（远端版本留着），本轮推动到此为止，
@@ -51,6 +56,11 @@ export interface BatchRunDeps {
   /** 会话落盘（每一步之后都调一次：这就是「断点续跑」的全部秘密）。 */
   save: (session: BatchSession) => Promise<void> | void
   now: () => number
+  /**
+   * 一家失败的日志落点（#124，可选）。参数是**目标键**，返回该目标的发射口；
+   * 返回 null（或干脆不注入）即「这一家没有已知落点」，一行不发——驱动器不认识插件标识，不猜。
+   */
+  logFor?: (key: string) => UpdateLogPort | null
 }
 
 /** 驱动器读数：给日志、面板与门禁用。 */
@@ -73,6 +83,36 @@ export interface BatchRunResult {
 /** 驱动器选项：`maxSteps` 给 1 就是「只推进一步」，便于宿主按自己的节奏推进（drain）。 */
 export interface BatchRunOptions {
   maxSteps?: number
+}
+
+// ---------- 单项失败的日志接线（#124） ----------
+//
+// 只记「稳定短码 + 目标指纹」：目标键（可能是包名、路径或标识）与错误原话一个字都不入行（ADR-0006）。
+// 行里只有枚举白名单值与导出量，所以这些函数只做两件事：算 hash8、把错误折成稳定码。
+
+/** 内核 hash8 的同算法实现（djb2 → 8 位十六进制）：中立文件不许 import node，这里自带一份同方言口径。 */
+function targetHash8(text: string): string {
+  const t = String(text || '')
+  let h = 5381
+  for (let i = 0; i < t.length; i += 1) h = ((h << 5) + h + t.charCodeAt(i)) >>> 0
+  return ('0000000' + h.toString(16)).slice(-8)
+}
+
+/** 稳定错误码的形状（小写字母开头、短、无空白）：不像的一律折成 unknown——error.message 里可能有路径/URL。 */
+const STABLE_ERROR_CODE = /^[a-z][a-z0-9-]{0,31}$/
+
+/** 一家失败记一条：targetHash 只指纹目标，exitCode 只有真拿到才进字段（多一个键整行会被白名单丢掉）。 */
+function noteEntryFail(deps: BatchRunDeps, key: string, error: string, exitCode?: number): void {
+  const fields: Record<string, unknown> = {
+    targetHash: targetHash8(key),
+    errorKind: STABLE_ERROR_CODE.test(error) ? error : 'unknown',
+  }
+  if (typeof exitCode === 'number' && Number.isFinite(exitCode)) fields['exitCode'] = Math.trunc(exitCode)
+  try {
+    deps.logFor?.(key)?.('warn', 'update.batch.entry.fail', fields)
+  } catch {
+    // 记日志是旁路：端口抛错也不许改变推进、返回值与抛错（与「没有端口」一字不差）
+  }
 }
 
 /**
@@ -122,6 +162,7 @@ export async function runBatch(
       if (checked.kind === 'failed') {
         await persist(markBatchEntry(current, key, { phase: 'failed', error: checked.error }, deps.now()).session)
         steps.push({ key, action: 'check', phase: 'failed', error: checked.error })
+        noteEntryFail(deps, key, checked.error)
         if (current.stopOnFailure) return { session: current, steps, stoppedBecause: 'stopped-after-failure' }
         continue
       }
@@ -159,6 +200,7 @@ export async function runBatch(
     if (installed.kind === 'failed') {
       await persist(markBatchEntry(current, key, { phase: 'failed', error: installed.error }, deps.now()).session)
       steps.push({ key, action: 'install', phase: 'failed', error: installed.error })
+      noteEntryFail(deps, key, installed.error, installed.exitCode)
       if (current.stopOnFailure) return { session: current, steps, stoppedBecause: 'stopped-after-failure' }
       continue
     }
