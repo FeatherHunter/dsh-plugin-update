@@ -521,3 +521,28 @@ test('#123 路牌给真目录：传入 logDir 就写实路径 + npx dsh-log tail
   assert.ok(!hidden.includes(dir), 'showLogHint:false 必须把新目录行一并藏掉')
   assert.ok(!hidden.includes('npx dsh-log tail'), '命令也跟着藏，不半藏')
 })
+
+test('#123 路牌在真挂载链上：挂载项 logDir 一路走到错误章（渲染函数之外的那一跳）', async () => {
+  const dir = 'C:\\Users\\x\\.dsh\\logs\\abc123def'
+  const box = fakeContainer()
+  const tried = []
+  const call = async (name) => {
+    tried.push(name)
+    throw new Error('boom')
+  }
+  const panel = mountUpdatePanel(box, { pluginId: 'p', call, pollMs: 60000, logDir: dir })
+  await settled()
+  await settled()
+  assert.ok(tried.length >= 1, '挂载即查一次，且这次查失败（错误章由此出现）')
+  assert.ok(box.innerHTML.includes(dir), '挂载项 logDir 直通到错误章路牌，不只在渲染函数里成立')
+  assert.ok(box.innerHTML.includes('npx dsh-log tail ' + dir), '路牌给的是能直接抄的命令')
+  panel.unmount()
+
+  const box2 = fakeContainer()
+  const panel2 = mountUpdatePanel(box2, { pluginId: 'p', call, pollMs: 60000 })
+  await settled()
+  await settled()
+  assert.ok(!box2.innerHTML.includes('abc123def'), '没传 logDir 就不编路径（宁可给算式）')
+  assert.ok(box2.innerHTML.includes('&lt;DSH_HOME&gt;/logs/&lt;derived&gt;'), '退回算式')
+  panel2.unmount()
+})
