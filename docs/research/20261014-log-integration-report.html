@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsh-plugin-update 日志系统集成成果报告 · dsh-log 0.3.1（地图 #117）</title>
+<style>
+:root{
+  --paper:#f7f5f1; --paper-2:#fffefb; --ink:#16181c; --ink-2:#3d434e; --ink-3:#6c7480;
+  --line:#e3ded4; --line-2:#efeae1;
+  --node:#2f5fd0; --node-bg:#eef2fd;
+  --neutral:#0b8f86; --neutral-bg:#e7f6f4;
+  --client:#b8760a; --client-bg:#fdf3e2;
+  --selfmon:#8a57c9; --selfmon-bg:#f4eefc;
+  --warn:#b3261e; --warn-bg:#fdeceb;
+  --ok:#1c7a45; --ok-bg:#e9f6ee;
+  --code-bg:#f2efe9; --code-ink:#2a2f38;
+  --shadow:0 1px 2px rgba(20,20,30,.05), 0 8px 24px -18px rgba(20,20,30,.35);
+  --mono:ui-monospace,SFMono-Regular,"Cascadia Mono","JetBrains Mono",Consolas,"Liberation Mono",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","PingFang SC","Microsoft YaHei","Hiragino Sans GB",sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype","Songti SC","Noto Serif SC",Georgia,serif;
+}
+html[data-theme="dark"]{
+  --paper:#12141a; --paper-2:#171a21; --ink:#eef1f6; --ink-2:#c2c8d4; --ink-3:#8b93a3;
+  --line:#272c36; --line-2:#1f242c;
+  --node:#8fb0ff; --node-bg:#1a2130;
+  --neutral:#4fd6c9; --neutral-bg:#14231f;
+  --client:#e0a44a; --client-bg:#2a2113;
+  --selfmon:#c39cf0; --selfmon-bg:#221b30;
+  --warn:#ff8a80; --warn-bg:#2c1a19;
+  --ok:#6ede9a; --ok-bg:#152418;
+  --code-bg:#1b2029; --code-ink:#dfe5ef;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -20px rgba(0,0,0,.8);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth; scroll-padding-top:24px}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:15.5px;line-height:1.75;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+a{color:var(--node);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--node) 35%,transparent)}
+a:hover{border-bottom-color:var(--node)}
+code,kbd{font-family:var(--mono);font-size:.86em;background:var(--code-bg);color:var(--code-ink);
+  padding:.12em .38em;border-radius:4px;border:1px solid var(--line-2);white-space:nowrap}
+pre{margin:0;overflow:auto}
+pre code{display:block;white-space:pre;background:transparent;border:0;padding:0;font-size:12.6px;line-height:1.62}
+.wrap{display:grid;grid-template-columns:272px minmax(0,1fr);gap:0;max-width:1480px;margin:0 auto}
+/* ---------- sidebar ---------- */
+aside{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:26px 18px 40px 26px;
+  border-right:1px solid var(--line);background:linear-gradient(180deg,var(--paper-2),var(--paper))}
+.brand{font-family:var(--serif);font-size:17px;font-weight:700;letter-spacing:.01em;line-height:1.35;margin:0 0 4px}
+.brand small{display:block;font-family:var(--sans);font-weight:500;font-size:11.5px;color:var(--ink-3);
+  letter-spacing:.06em;text-transform:uppercase;margin-top:6px}
+nav{margin-top:18px}
+nav a{display:block;padding:4.5px 10px 4.5px 12px;font-size:13.2px;color:var(--ink-2);border:0;
+  border-left:2px solid transparent;border-radius:0 5px 5px 0;line-height:1.45}
+nav a:hover{background:var(--line-2);color:var(--ink)}
+nav a.active{color:var(--node);border-left-color:var(--node);background:var(--node-bg);font-weight:600}
+nav a.sub{padding-left:24px;font-size:12.5px;color:var(--ink-3)}
+.side-foot{margin-top:22px;padding-top:14px;border-top:1px solid var(--line);font-size:11.6px;color:var(--ink-3);line-height:1.6}
+.themebtn{margin-top:12px;width:100%;cursor:pointer;font:inherit;font-size:12.5px;padding:7px 10px;
+  background:var(--paper-2);color:var(--ink-2);border:1px solid var(--line);border-radius:7px}
+.themebtn:hover{border-color:var(--node);color:var(--node)}
+/* ---------- main ---------- */
+main{padding:44px 52px 120px;min-width:0}
+header.hero{border-bottom:2px solid var(--ink);padding-bottom:22px;margin-bottom:30px}
+.eyebrow{font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);font-weight:600;
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.eyebrow .dot{width:5px;height:5px;border-radius:50%;background:var(--node);display:inline-block}
+h1{font-family:var(--serif);font-size:37px;line-height:1.2;margin:12px 0 10px;letter-spacing:-.015em;font-weight:700}
+.lede{font-size:15.5px;color:var(--ink-2);max-width:74ch;margin:0}
+.lede strong{color:var(--ink)}
+.meta-strip{display:flex;gap:26px;flex-wrap:wrap;margin-top:20px;font-size:12.6px;color:var(--ink-3)}
+.meta-strip b{display:block;color:var(--ink);font-size:13.4px;font-weight:600;font-family:var(--mono)}
+h2{font-family:var(--serif);font-size:25px;margin:54px 0 6px;padding-top:16px;letter-spacing:-.01em;font-weight:700}
+h2 .num{font-family:var(--mono);font-size:13px;color:var(--node);font-weight:600;margin-right:10px;
+  vertical-align:2px;letter-spacing:.04em}
+h2 + .sub{margin:0 0 20px;color:var(--ink-3);font-size:13.6px;max-width:76ch}
+h3{font-size:17px;margin:34px 0 8px;letter-spacing:-.005em;font-weight:700}
+h4{font-size:14.2px;margin:22px 0 6px;font-weight:700;color:var(--ink-2)}
+p{margin:10px 0;max-width:80ch}
+ul,ol{margin:10px 0;padding-left:22px;max-width:82ch}
+li{margin:5px 0}
+li::marker{color:var(--ink-3)}
+hr{border:0;border-top:1px solid var(--line);margin:40px 0}
+/* ---------- components ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin:26px 0 8px}
+.kpi{background:var(--paper-2);border:1px solid var(--line);border-radius:11px;padding:14px 15px;box-shadow:var(--shadow)}
+.kpi .v{font-family:var(--mono);font-size:25px;font-weight:600;letter-spacing:-.03em;line-height:1.15}
+.kpi .k{font-size:12.2px;color:var(--ink-3);margin-top:5px;line-height:1.45}
+.kpi.c-node .v{color:var(--node)} .kpi.c-neutral .v{color:var(--neutral)}
+.kpi.c-client .v{color:var(--client)} .kpi.c-ok .v{color:var(--ok)}
+.card{background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:18px 0;box-shadow:var(--shadow)}
+.card > :first-child{margin-top:0} .card > :last-child{margin-bottom:0}
+.card h4{margin-top:0}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin:18px 0}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:18px 0}
+.note{border-left:3px solid var(--node);background:var(--node-bg);padding:13px 16px;border-radius:0 9px 9px 0;margin:18px 0}
+.note.warn{border-left-color:var(--warn);background:var(--warn-bg)}
+.note.ok{border-left-color:var(--ok);background:var(--ok-bg)}
+.note.selfmon{border-left-color:var(--selfmon);background:var(--selfmon-bg)}
+.note p{margin:6px 0} .note p:first-child{margin-top:0} .note p:last-child{margin-bottom:0}
+.note .t{font-weight:700;font-size:13.6px}
+blockquote{margin:16px 0;padding:2px 0 2px 16px;border-left:3px solid var(--line);color:var(--ink-2);font-family:var(--serif);font-size:15.5px}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13.4px;background:var(--paper-2);
+  border:1px solid var(--line);border-radius:10px;overflow:hidden}
+caption{caption-side:top;text-align:left;font-size:12.6px;color:var(--ink-3);padding:0 0 8px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line-2);vertical-align:top;line-height:1.6}
+thead th{background:color-mix(in srgb,var(--line-2) 70%,var(--paper-2));font-size:12.4px;font-weight:700;
+  color:var(--ink-2);letter-spacing:.02em;white-space:nowrap;border-bottom:1px solid var(--line)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:color-mix(in srgb,var(--line-2) 45%,var(--paper-2))}
+td code,th code{white-space:nowrap}
+.tag{display:inline-block;font-family:var(--mono);font-size:10.8px;line-height:1.7;padding:1px 7px;border-radius:20px;
+  border:1px solid;letter-spacing:.02em;white-space:nowrap}
+.t-res{border-color:var(--neutral);color:var(--neutral);background:var(--neutral-bg)}
+.t-on{border-color:var(--client);color:var(--client);background:var(--client-bg)}
+.t-self{border-color:var(--selfmon);color:var(--selfmon);background:var(--selfmon-bg)}
+.t-node{border-color:var(--node);color:var(--node);background:var(--node-bg)}
+.t-ok{border-color:var(--ok);color:var(--ok);background:var(--ok-bg)}
+.t-warn{border-color:var(--warn);color:var(--warn);background:var(--warn-bg)}
+.t-dim{border-color:var(--line);color:var(--ink-3);background:var(--line-2)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11.6px;color:var(--ink-3)}
+.pill i{width:7px;height:7px;border-radius:50%;display:inline-block}
+.code-card{background:var(--code-bg);border:1px solid var(--line);border-radius:10px;margin:16px 0;overflow:hidden}
+.code-card .hd{font-family:var(--mono);font-size:11.6px;color:var(--ink-3);padding:7px 13px;
+  border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--line-2) 60%,var(--paper-2))}
+.code-card pre{padding:13px 15px}
+.filetree{font-family:var(--mono);font-size:12.4px;line-height:1.85;background:var(--code-bg);
+  border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:16px 0;overflow:auto}
+.filetree .c{color:var(--ink-3)}
+.filetree .hl{color:var(--node);font-weight:600}
+.diagram{background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:16px;margin:20px 0;
+  overflow-x:auto;box-shadow:var(--shadow)}
+.diagram svg{display:block;min-width:660px;width:100%;height:auto}
+.diagram .cap{font-size:12.4px;color:var(--ink-3);margin-top:10px;line-height:1.6}
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin:18px 0}
+.step{flex:1 1 128px;background:var(--paper-2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;min-width:118px}
+.step .n{font-family:var(--mono);font-size:10.6px;color:var(--ink-3)}
+.step .s{font-size:13px;font-weight:600;line-height:1.4;margin-top:3px}
+.step .d{font-size:11.8px;color:var(--ink-3);line-height:1.5;margin-top:4px}
+.arrow{align-self:center;color:var(--ink-3);font-family:var(--mono);font-size:15px}
+details{border:1px solid var(--line);border-radius:10px;background:var(--paper-2);margin:12px 0;padding:0 14px}
+details[open]{padding-bottom:12px}
+summary{cursor:pointer;font-weight:600;font-size:14px;padding:11px 0;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"▸ ";color:var(--ink-3);font-family:var(--mono)}
+details[open] summary::before{content:"▾ "}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.4px;color:var(--ink-2);margin:14px 0}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.src{font-size:12.2px;color:var(--ink-3)}
+.src code{font-size:11.6px}
+.foot{margin-top:70px;padding-top:20px;border-top:1px solid var(--line);font-size:12.4px;color:var(--ink-3);line-height:1.8}
+.foot b{color:var(--ink-2)}
+.backtop{position:fixed;right:22px;bottom:22px;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);
+  background:var(--paper-2);color:var(--ink-2);cursor:pointer;font-size:15px;box-shadow:var(--shadow);opacity:0;
+  transition:opacity .2s;pointer-events:none}
+.backtop.on{opacity:1;pointer-events:auto}
+@media (max-width:1020px){
+  .wrap{grid-template-columns:1fr}
+  aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding-bottom:20px}
+  nav{columns:2;column-gap:10px}
+  main{padding:28px 20px 90px}
+  h1{font-size:29px}
+}
+@media print{
+  aside,.backtop,.themebtn{display:none}
+  .wrap{display:block;max-width:none}
+  main{padding:0}
+  body{background:#fff;font-size:11.5pt}
+  h2{page-break-after:avoid} table,pre,.card,.diagram{page-break-inside:avoid}
+  details{page-break-inside:avoid} details:not([open]) > *{display:revert}
+  a{color:inherit;border:0}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<aside>
+  <h1 class="brand">日志系统集成成果报告<small>dsh-plugin-update · dsh-log 0.3.1</small></h1>
+  <nav id="toc">
+    <a href="#s0">0 · 一页结论</a>
+    <a href="#s1">1 · 目的地与实现形态</a>
+    <a href="#s2">2 · 总体架构</a>
+    <a href="#s3">3 · 日志内核四件套</a>
+    <a href="#s4" class="sub">命名空间 · 登记表 · 路由 · 发射口</a>
+    <a href="#s5">4 · 19 环节事件面</a>
+    <a href="#s6">5 · 面板侧通道</a>
+    <a href="#s7">6 · 隔离与不覆盖</a>
+    <a href="#s8">7 · 噪声与预算</a>
+    <a href="#s9">8 · 脱敏与可聚合</a>
+    <a href="#s10">9 · 验证与证据链</a>
+    <a href="#s11">10 · 集成方视角</a>
+    <a href="#s12">11 · 不变量清单</a>
+    <a href="#s12">12 · 已知缺口</a>
+    <a href="#s13">13 · 复现命令</a>
+  </nav>
+  <div class="side-foot">
+    证据截至 <code>git 34b00e6</code> + 未提交工作区<br>
+    全量测试 <b>1124 例 / 0 失败</b><br>
+    生成：2026-10-14 · 地图 <a href="https://github.com/FeatherHunter/dsh-plugin-update/issues/117">#117</a>
+    <button class="themebtn" id="themebtn" type="button">切换深色 / 浅色</button>
+  </div>
+</aside>
+
+<main>
+<header class="hero">
+  <div class="eyebrow"><span class="dot"></span><span>工程成果报告</span><span>·</span><span>wayfinder 地图 #117</span><span>·</span><span>dsh-log 0.3.1</span></div>
+  <h1>本包全面集成 dsh-log 0.3.1：<br>每个环节可交日志，多插件互不覆盖</h1>
+  <p class="lede">这份报告回答一件事：<strong>日志系统集成之后，我们到底得到了什么、凭什么相信它成立</strong>。全部结论都可以落到 <code>src/</code> 的具体行、随包清单 <code>event-list.update.json</code>、以及可复跑的实测装置上；凡是文档承诺与实现有出入的地方，本报告在 <a href="#s12">第 12 节</a>如实登记，不替实现圆场。</p>
+  <div class="meta-strip">
+    <div>包版本<b>0.16.0（日志面 0.15.0 起）</b></div>
+    <div>运行期依赖<b>dsh-log ^0.3.1（第一个）</b></div>
+    <div>事件表<b>28 事件 / 19 环节全覆盖</b></div>
+    <div>内核代码<b>src/log/ 8 文件 · 1333 行</b></div>
+    <div>全量测试<b>1124 例 · 1123 过 · 1 跳过 · 0 失败</b></div>
+  </div>
+</header>
+
+<!-- ============ 0 ============ -->
+<h2 id="s0"><span class="num">00</span>一页结论</h2>
+<p class="sub">先给结论，再给机制、证据与缺口。读这一节就能判断这份集成是否达到了目的地。</p>
+
+<div class="kpis">
+  <div class="kpi c-ok"><div class="v">19 / 19</div><div class="k">环节有事件落点（规格清单与实现逐条对齐，无未填项）</div></div>
+  <div class="kpi c-node"><div class="v">28</div><div class="k">随包事件表条目：常驻 20 / 按需 7 / 自监控 1</div></div>
+  <div class="kpi c-neutral"><div class="v">0 串台</div><div class="k">两棵目录各写各的；同 pluginId 两份模块副本只出一个写者</div></div>
+  <div class="kpi c-client"><div class="v">0 行</div><div class="k">600 次真机轮询 <code>updateStatus</code> 的常驻落盘行数</div></div>
+  <div class="kpi c-ok"><div class="v">8 / 8</div><div class="k">预算断言全过（含 86400 次同状态 → 1 行）</div></div>
+  <div class="kpi c-node"><div class="v">1124</div><div class="k">全量测试例数，0 失败（本报告写作时复跑）</div></div>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <h4>三条需求各自的交付物</h4>
+    <ul>
+      <li><b>每个环节都能交日志</b> → 28 事件覆盖 19 个环节；宿主／中立侧 11 个环节逐环节落到函数级唯一发射口，客户端 11 个落点走 <code>&lt;prefix&gt;.logAppend</code> 电话回宿主。</li>
+      <li><b>第三方能把日志交给我们</b> → 落盘是 dsh-log 0.3.1 的标准五键行，一条 <code>npx dsh-log tail &lt;dir&gt;</code> 即可交出；目录、开关文件、命名空间规则全部写进 README §10／§11。</li>
+      <li><b>多插件互不覆盖</b> → 每插件一棵目录 + <code>globalThis</code> 登记表（同目录单句柄）+ 按 <code>pluginId</code> 路由表，三件东西合起来取代了旧实现里那个「后注册者夺走前一个落点」的模块级变量。</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>这次集成真正的性质变化</h4>
+    <ul>
+      <li>日志从「三个事件名、五个发射点、16 个环节为零」变成<b>一张登记制的事件面</b>：事件名、级别、档位、字段白名单都在随包 JSON 里，未登记即不落盘。</li>
+      <li>日志出口从「一个模块级 <code>let phoneLogCtx</code>，谁最后接线谁说话」变成<b>按标识寻址的路由表</b>：取不到落点就丢弃并计数，绝不回退到别人的 sink。</li>
+      <li>噪声治理落在<b>发射侧</b>而非读侧：1 秒一拍的轮询不再产生任何常驻行，稳态预算从实测 86400 行/天降到 0 行/天。</li>
+      <li>本包由此第一次带上运行期依赖（<code>dsh-log@^0.3.1</code>），这是一次显式立字的纪律破例，理由与回退线都在 ADR-0005。</li>
+    </ul>
+  </div>
+</div>
+
+<div class="note ok">
+  <p class="t">一句话结论</p>
+  <p>日志集成已经<b>功能闭环、有实证</b>：19/19 环节接上、事件表 28 条成册、隔离三场景实测全过、预算 8/8 达标、全量测试 0 失败。剩下的不是「日志能不能用」，而是<b>发布收口</b>（票 #123）与几条如实登记的边界（跨进程同目录只承诺「交错不覆写」、文档面个别措辞滞后）——见第 12 节。</p>
+</div>
+
+<!-- ============ 1 ============ -->
+<h2 id="s1"><span class="num">01</span>目的地与实现形态</h2>
+<p class="sub">地图 #117 写下的目的地，以及代码里最终落成的形态。后者是这一节的重点：目的地说「要什么」，实现形态说「到底做了什么」。</p>
+
+<table>
+  <caption>目的地 vs 实现（逐条对照，右侧为可核对的落点）</caption>
+  <thead><tr><th style="width:31%">目的地（地图 #117）</th><th style="width:41%">实现形态</th><th>落点</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>每个环节的关键信息都按 dsh-log 0.3.1 落盘契约打出来</td>
+      <td>19 个环节全部有具名事件；宿主／中立侧在唯一发射口 <code>emitUpdateLog</code> 落行，客户端侧经 <code>logAppend</code> 电话回宿主落同一份 handle；落盘行恒五键 <code>{v:3,ts,level,event,fields}</code></td>
+      <td class="src"><code>src/log/emit.ts:220</code><br><code>docs/research/20261014-log-event-catalog.md:55-77</code></td>
+    </tr>
+    <tr>
+      <td>第三方能用一条 <code>npx dsh-log tail &lt;dir&gt;</code> 把日志交给我们</td>
+      <td>日志目录 = <code>&lt;homeDir&gt;/logs/&lt;派生命名空间&gt;/</code>，文件 = <code>YYYY-MM-DD.log</code>；开关文件 <code>log-switch-&lt;派生名&gt;.json</code>；交付命令写进 README §11</td>
+      <td class="src"><code>src/host.ts:726-728</code><br><code>src/log/namespace.ts:89-91</code><br><code>README.md:688-699</code></td>
+    </tr>
+    <tr>
+      <td>同一份 DSH 里多个用更新系统的插件各写各的目录、互不覆盖、互不夺行</td>
+      <td>目录按 <code>pluginId</code> 派生（有损必带 sha256 指纹）；同目录由 <code>globalThis</code> 登记表收敛到一个句柄（引用计数）；落点按 <code>pluginId</code> 走 O(1) 路由表，取不到即丢弃计数</td>
+      <td class="src"><code>src/log/namespace.ts:64-76</code><br><code>src/log/registry.ts:98-106</code><br><code>src/log/router.ts:29-56</code></td>
+    </tr>
+    <tr>
+      <td>（前提）集成形态：传了 <code>logCtx</code> 用它的，没传自建；<code>dsh-log@^0.3.1</code> 进 <code>dependencies</code></td>
+      <td>宿主侧接线 <code>wireUpdateLog()</code> 三分支：外部实例 → 自建 → 降级（<code>update.wire.ready.logSink</code> 三值 <code>external</code>/<code>self</code>/<code>off</code> 如实自陈）</td>
+      <td class="src"><code>src/host.ts:740-779</code><br><code>package.json</code> dependencies</td>
+    </tr>
+    <tr>
+      <td>（前提）事件面三档 + 边沿触发 + 噪声预算（稳态 ≤50 行/天）</td>
+      <td>档位写进清单 <code>kind</code>；边沿判据由清单 <code>guard</code> 文本驱动 + 调用点自管指纹；轮询成功行在发射侧一条不发</td>
+      <td class="src"><code>src/log/manifest.ts:96-113</code><br><code>src/host.ts:845-855</code></td>
+    </tr>
+    <tr>
+      <td>（前提）规格与门禁＝两份 ADR + 19 环节事件目录 + 清单迁 0.3.1</td>
+      <td>ADR-0005／0006 已 accepted；事件目录 150 行含 §3.1 接线状态表；<code>src/gate.ts</code> 迁到 0.3.1 形状（<code>v===3</code> 断言、两档 severity、计数现算）；随包 <code>event-list.update.json</code> 28 事件</td>
+      <td class="src"><code>docs/adr/0005-*.md</code><br><code>docs/adr/0006-*.md</code><br><code>event-list.update.json</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ============ 2 ============ -->
+<h2 id="s2"><span class="num">02</span>总体架构：一条日志行怎么走到磁盘</h2>
+<p class="sub">三段旅程：<b>发射侧</b>（谁在什么环节说什么）→ <b>内核侧</b>（脱敏、白名单、准入、预算、路由）→ <b>落盘侧</b>（dsh-log 引擎按天写文件、封存、保留）。任何一段坏了都不得影响主流程，这是四条纪律里最硬的一条。</p>
+
+<div class="diagram">
+<svg viewBox="0 0 1180 482" role="img" aria-label="日志行从发射点到磁盘的架构图">
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#6c7480"/>
+    </marker>
+    <style>
+      .bx{fill:#fffefb;stroke:#e3ded4;stroke-width:1.2;rx:9}
+      .bx-n{fill:#eef2fd;stroke:#2f5fd0;stroke-width:1.3}
+      .bx-u{fill:#e7f6f4;stroke:#0b8f86;stroke-width:1.3}
+      .bx-c{fill:#fdf3e2;stroke:#b8760a;stroke-width:1.3}
+      .bx-s{fill:#f4eefc;stroke:#8a57c9;stroke-width:1.3}
+      .tt{font:600 12.5px -apple-system,"Segoe UI","Noto Sans SC",sans-serif;fill:#16181c}
+      .ts{font:400 10.6px ui-monospace,Consolas,monospace;fill:#3d434e}
+      .tl{font:400 10.5px -apple-system,"Segoe UI","Noto Sans SC",sans-serif;fill:#6c7480}
+      .ln{stroke:#6c7480;stroke-width:1.3;fill:none;marker-end:url(#ar)}
+      .zone{fill:none;stroke:#e3ded4;stroke-dasharray:4 4;rx:12}
+      .zt{font:600 11px -apple-system,"Segoe UI","Noto Sans SC",sans-serif;fill:#6c7480;letter-spacing:.08em}
+    </style>
+  </defs>
+
+  <rect class="zone" x="14" y="30" width="330" height="410"/>
+  <text class="zt" x="26" y="22">发 射 侧</text>
+
+  <rect class="bx bx-n" x="30" y="48" width="296" height="62"/>
+  <text class="tt" x="44" y="70">宿主／中立侧 · 11 个环节</text>
+  <text class="ts" x="44" y="88">service.ts / store.ts / host.ts / host-batch.ts</text>
+  <text class="ts" x="44" y="102">batch-run.ts / reader.ts / changelog-io.ts</text>
+
+  <rect class="bx bx-c" x="30" y="126" width="296" height="62"/>
+  <text class="tt" x="44" y="148">客户端侧 · 11 个落点</text>
+  <text class="ts" x="44" y="166">panel / entry / entry-batch / panel-batch</text>
+  <text class="ts" x="44" y="180">lang.ts / http.ts（浏览器闭包）</text>
+
+  <rect class="bx bx-s" x="30" y="204" width="296" height="52"/>
+  <text class="tt" x="44" y="226">selfmon：接线自身的坏消息</text>
+  <text class="ts" x="44" y="243">update.log.degraded（同因只记首次）</text>
+
+  <rect class="bx" x="30" y="272" width="296" height="104"/>
+  <text class="tt" x="44" y="294">调用点纪律</text>
+  <text class="tl" x="44" y="314">· 只许调唯一发射口，不许直接碰 sink</text>
+  <text class="tl" x="44" y="332">· 只带稳定码与参数，不带人话</text>
+  <text class="tl" x="44" y="350">· 中立文件不 import node、不认识插件标识</text>
+  <text class="tl" x="44" y="368">· 端口由宿主侧绑好标识后注入</text>
+
+  <rect class="zone" x="378" y="30" width="386" height="410"/>
+  <text class="zt" x="390" y="22">内 核 侧 · src/log/</text>
+
+  <rect class="bx bx-n" x="394" y="48" width="354" height="102"/>
+  <text class="tt" x="408" y="70">唯一发射口 emitUpdateLog()</text>
+  <text class="ts" x="408" y="88">emit.ts:151-200 ｜ 四条纪律收在一处</text>
+  <text class="tl" x="408" y="108">① 脱敏 ② 字段白名单与事件清单核对</text>
+  <text class="tl" x="408" y="126">③ 准入短路 sink.isEnabled</text>
+  <text class="tl" x="408" y="144">④ 同指纹只落一条</text>
+
+  <rect class="bx bx-u" x="394" y="150" width="170" height="72"/>
+  <text class="tt" x="406" y="172">路由表</text>
+  <text class="ts" x="406" y="190">router.ts:29-49</text>
+  <text class="tl" x="406" y="208">pluginId → sink，取不到回 null</text>
+
+  <rect class="bx bx-u" x="578" y="150" width="170" height="72"/>
+  <text class="tt" x="590" y="172">随包事件清单</text>
+  <text class="ts" x="590" y="190">manifest.ts:37-50</text>
+  <text class="tl" x="590" y="208">28 事件 / 字段白名单 / kind</text>
+
+  <rect class="bx bx-s" x="394" y="238" width="354" height="68"/>
+  <text class="tt" x="408" y="260">待接落点 createPendingSink(200)</text>
+  <text class="tl" x="408" y="280">建库异步、createHostUpdate 同步：先收后转</text>
+  <text class="tl" x="408" y="297">建不起来即整体丢弃并计数</text>
+
+  <rect class="bx bx-n" x="394" y="322" width="354" height="76"/>
+  <text class="tt" x="408" y="344">登记表 acquireOwnLog()</text>
+  <text class="ts" x="408" y="362">registry.ts:142-230 ｜ globalThis[Symbol.for(…)]</text>
+  <text class="tl" x="408" y="382">同一目录一个句柄，引用计数</text>
+  <text class="tl" x="408" y="398">撞租约退避 50/250/1000ms 后降级</text>
+
+  <rect class="zone" x="790" y="30" width="376" height="410"/>
+  <text class="zt" x="802" y="22">落 盘 侧 · dsh-log 0.3.1</text>
+
+  <rect class="bx bx-n" x="806" y="48" width="344" height="96"/>
+  <text class="tt" x="820" y="70">createNodeHostLog(...)</text>
+  <text class="ts" x="820" y="88">registry.ts:175-181</text>
+  <text class="tl" x="820" y="108">pluginId = 派生命名空间 · logDirName = 派生名</text>
+  <text class="tl" x="820" y="126">prefix（缺省 wf，不作 pluginId）· eventList</text>
+
+  <rect class="bx bx-n" x="806" y="158" width="344" height="112"/>
+  <text class="tt" x="820" y="180">落盘行恒五键</text>
+  <text class="ts" x="820" y="198">{ v: 3, ts, level, event, fields }</text>
+  <text class="tl" x="820" y="218">info 只在开关打开或事件常驻时落盘</text>
+  <text class="tl" x="820" y="236">warn / error 始终落盘</text>
+  <text class="tl" x="820" y="254">自监控行不计入 dropped</text>
+
+  <text class="tt" x="820" y="300">&lt;DSH_HOME&gt;/logs/&lt;派生名&gt;/</text>
+  <text class="ts" x="820" y="318">2026-10-14.log ｜ 5 MB 封存 ｜ 14 天保留</text>
+  <text class="ts" x="820" y="336">&lt;DSH_HOME&gt;/logs/log-switch-&lt;派生名&gt;.json</text>
+  <text class="tl" x="820" y="360">读侧：npx dsh-log tail &lt;dir&gt; [--since] [--json]</text>
+  <text class="tl" x="820" y="380">审计：audit.json 记 rotate.seal / retain.evict</text>
+
+  <path class="ln" d="M330 79 L390 79"/>
+  <path class="ln" d="M330 157 L360 157 L360 186 L390 186"/>
+  <path class="ln" d="M330 230 L372 230 L372 186 L390 186"/>
+  <path class="ln" d="M564 91 L564 122 L520 122 L520 146"/>
+  <path class="ln" d="M748 186 L772 186 L772 96 L802 96"/>
+  <path class="ln" d="M571 241 L571 265 L571 272"/>
+  <path class="ln" d="M571 306 L571 318"/>
+  <path class="ln" d="M520 398 L520 424 L778 424 L778 214 L802 214"/>
+</svg>
+<div class="cap">三侧职责边界：<b>发射侧</b>只负责「在这个环节说这件事」；<b>内核侧</b>决定「这行合不合规、有没有地方去、是不是重复」；<b>落盘侧</b>是上游引擎，本包不碰文件格式、不自己做轮转。<span class="src">图为概念图，实线表示调用方向。</span></div>
+</div>
+
+<div class="grid3">
+  <div class="card">
+    <h4>为什么要有唯一发射口</h4>
+    <p style="margin:0;font-size:13.6px;color:var(--ink-2)">脱敏、白名单、准入、预算四条纪律如果散在各个调用点写，就一定有人漏一条，而漏掉的那条只会在第三方交日志时才被发现。所以全包只有 <code>emitUpdateLog</code> 一处可以把行交给落点，其余地方只许调它。</p>
+    <p class="src" style="margin-top:8px">src/log/emit.ts:1-19</p>
+  </div>
+  <div class="card">
+    <h4>为什么要有待接落点</h4>
+    <p style="margin:0;font-size:13.6px;color:var(--ink-2)">自建引擎是异步的（动态 import + 读盘），而 <code>createHostUpdate</code> 是同步契约，不能为日志改成 async 而破坏所有集成方调用点。于是先接一个环形 200 行的「先收后转」落点，建好了按序灌进去，建不起来整体丢弃并计数。</p>
+    <p class="src" style="margin-top:8px">src/log/sink.ts:65-115</p>
+  </div>
+  <div class="card">
+    <h4>为什么降级绝不外抛</h4>
+    <p style="margin:0;font-size:13.6px;color:var(--ink-2)">日志是旁路：拿不到 dsh-log、撞租约、目录写不了 —— 一律降级成「没有落点」，事件照发、主流程零影响。降级带 60 秒冷却，冷却过后下一次接线会重新试（插件重装、面板重挂就是恢复路径）。</p>
+    <p class="src" style="margin-top:8px">src/log/registry.ts:94-96, 271-289</p>
+  </div>
+</div>
+
+<!-- ============ 3 ============ -->
+<h2 id="s3"><span class="num">03</span>日志内核四件套</h2>
+<p class="sub">内核是 <code>src/log/</code> 下 8 个文件、共 1333 行（其中客户端队列 394 行）。它的价值不在代码量，而在四件东西各自消掉了一个具体的失败形态。</p>
+
+<div class="flow">
+  <div class="step"><div class="n">namespace.ts · 87 行</div><div class="s">命名空间派生</div><div class="d">标识 → 目录名/开关文件名，有损必带 sha256 前 6 位</div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="n">registry.ts · 311 行</div><div class="s">实例登记表</div><div class="d">同目录一个句柄，引用计数，跨副本共用一张表</div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="n">router.ts · 55 行</div><div class="s">按标识路由</div><div class="d">pluginId → sink，取不到即丢弃，绝不回退</div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="n">emit.ts · 218 行</div><div class="s">唯一发射口</div><div class="d">四条纪律收在一处，对外只回布尔与计数</div></div>
+</div>
+
+<h3>3.1 命名空间：把任意标识安全地映成一棵目录</h3>
+<p>dsh-log 只收 <code>[a-z0-9-]{1,32}</code> 形状的 <code>pluginId</code>，<b>收到大写直接抛</b>；而本包允许集成方用 <code>My.Plugin</code> 这类标识。<b>只做小写化会让两个不同标识撞进同一棵目录</b> —— 那恰好就是要消灭的「同一目录两个写者」。所以派生规则是有损即补指纹。</p>
+
+<div class="code-card">
+  <div class="hd">src/log/namespace.ts:64-76 · 派生算法</div>
+  <pre><code>export function deriveLogNamespace(rawPluginId: unknown): string {
+  const raw = typeof rawPluginId === 'string' ? rawPluginId.trim() : ''
+  const slug = raw.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '')
+  // 无损且合法：原样通过（集成方最常见情形，也是「目录名 = 我写的标识」的保证）
+  if (slug &amp;&amp; slug === raw &amp;&amp; NAMESPACE_SHAPE.test(slug)) return slug
+  const base = slug.slice(0, SLUG_CHARS).replace(/-+$/g, '') || FALLBACK_SLUG   // SLUG_CHARS = 24
+  const derived = `${base}-${hashToken(raw, HASH_CHARS)}`                       // HASH_CHARS = 6
+  return NAMESPACE_SHAPE.test(derived) ? derived : `${FALLBACK_SLUG}-${hashToken(raw, HASH_CHARS)}`
+}</code></pre>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <h4>三条不变量（测试逐条钉住）</h4>
+    <ol style="margin-bottom:0">
+      <li>已经是合法命名空间的 id <b>原样通过</b>（目录名与集成方写的标识一致）。</li>
+      <li>不同 raw 标识<b>永不</b>派生出同一个名字（含空格、点、大写、超长、中文、空串）。</li>
+      <li>返回值恒满足 dsh-log 的 pluginId 形状（小写字母数字连字符，1..32）。</li>
+    </ol>
+    <p class="src" style="margin-bottom:0">tests/log-kernel.test.mjs</p>
+  </div>
+  <div class="card">
+    <h4>两个容易踩的细节</h4>
+    <ul style="margin-bottom:0">
+      <li><b>目录身份键要做平台归一</b>：Windows 下 <code>Logs</code> 与 <code>logs</code> 是同一目录，必须折叠大小写，否则同一目录会拿到两个句柄、两个写者又回来了；POSIX 大小写敏感，不能乱折叠。<span class="src">namespace.ts:83-86</span></li>
+      <li><b><code>wf</code> 是 dsh-log 的保留命名空间</b>：<code>pluginId === 'wf'</code> 时目录退化成一棵共用树，所以本包<u>只把 <code>wf</code> 当前缀默认值，绝不用它当 pluginId</u>；开关文件名同规则。<span class="src">namespace.ts:88-91 · ADR-0005 决策 3</span></li>
+    </ul>
+  </div>
+</div>
+
+<h3>3.2 登记表：同进程内「一个目录一个写者」由机制保证</h3>
+<p>dsh-log 的目录租约登记表是<b>模块副本级</b>的 —— 同一进程里两份 <code>dsh-log</code> 模块副本互相看不见。而本包同进程出现两份副本是现实（顶层一份、别的插件嵌套一份）。两份副本各自建库同一目录时，谁都不知道对方在写，后写的会把先写的整份文件吃掉（dsh-log 实测：10 行剩 9 行）。</p>
+<p>所以登记表挂在 <code>globalThis[Symbol.for('dsh-plugin-update.log.registry')]</code>：<b>同进程所有副本共用一张表，同一目录只有一个句柄，第二份副本拿到的是同一个实例</b>。</p>
+
+<div class="code-card">
+  <div class="hd">src/log/registry.ts:98-106 · 登记表状态挂在 globalThis（Symbol.for 跨副本同名同键）</div>
+  <pre><code>function registryState(): RegistryState {
+  const holder = globalThis as unknown as Record&lt;string | symbol, unknown&gt;
+  let state = holder[Symbol.for(OWN_LOG_REGISTRY_KEY)] as RegistryState | undefined
+  if (!state || !(state.handles instanceof Map)) {
+    state = { handles: new Map(), degraded: new Map(), cooldownUntil: new Map(), lastDegraded: null }
+    holder[Symbol.for(OWN_LOG_REGISTRY_KEY)] = state
+  }
+  return state
+}</code></pre>
+</div>
+
+<table>
+  <caption>登记表的三条硬纪律与对应的实现行为</caption>
+  <thead><tr><th style="width:24%">纪律</th><th>实现</th><th style="width:22%">证据</th></tr></thead>
+  <tbody>
+    <tr><td><b>绝不外抛</b></td><td>建库失败一律降级成「没有落点」，由调用方记一条 selfmon 行；整个 <code>acquireOwnLog</code> 包在 try/catch 里，连最后兜底都回 <code>{reason:'write-fail'}</code></td><td class="src">registry.ts:148, 227-229</td></tr>
+    <tr><td><b>卡死不得变永久死</b></td><td>撞租约按 <code>[50, 250, 1000]</code> 毫秒退避重试，三次之后降级；降级写冷却 <code>cooldownMs=60000</code>，冷却期内直接返回不反复撞锁，冷却过后下一次接线重新试</td><td class="src">registry.ts:94-95, 156-160, 173-196</td></tr>
+    <tr><td><b>跨进程不做承诺</b></td><td>另一个进程写同一目录，登记表看不见；dsh-log 自己也只能事后诊断 <code>log.persist.fail reason:'foreign-write'</code>。这条边界写进 ADR-0005，不假装做到</td><td class="src">registry.ts:14-15 · ADR-0005 后果</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <p class="t">登记表到底挡住了什么（实测口径，不是推测）</p>
+  <p>负对照 A：绕开登记表、保留追加能力 → 两个写者共存，但在本机（<code>appendText</code> 可用）20 行一行不少 —— <b>即本机登记表挡住的不是「丢行」，而是「两个写者 + 相互看不见」这件事本身</b>。</p>
+  <p>负对照 B：绕开登记表并把 <code>appendText</code> 摘掉，引擎退回「读旧文 + 拼新行 + 全文覆写」通道 → 每轮发 10 行只剩 5 行，<b>共发 50 行 → 文件里只剩 25 个标记</b>。这就是丢行的真实形态，也是登记表存在的理由。</p>
+  <p class="src" style="margin-bottom:0">docs/research/20261014-log-isolation-verification.md:56-76</p>
+</div>
+
+<h3>3.3 路由表：取代模块级 last-writer-wins</h3>
+<p>改造前的实现用 <code>let phoneLogCtx</code> 装落点，<code>deps.logCtx ?? phoneLogCtx</code> 是单向且不清零的 —— <b>谁最后调一次 <code>createHostUpdate</code>，谁就把别人的落点覆盖掉</b>。同一份 DSH 里装两个用本更新系统的插件时，后装的那个会把前一个的日志行一并收走。这是「日志互相覆盖」的根因，不在文件格式。</p>
+<div class="grid2">
+  <div class="card">
+    <h4>现在的语义</h4>
+    <ul style="margin-bottom:0">
+      <li>每个插件标识一个落点，各写各的；<code>bind</code> 覆盖是预期行为（同一插件只有一份日志，重装面板会再 bind 一次）。</li>
+      <li><code>resolve</code> 取不到就回 <code>null</code>，发射口按「丢弃并计数」处理，<b>绝不回退到别人的 sink</b>。</li>
+      <li><code>unbind</code> 带 sink 参数时只在当前绑的就是它时才摘，避免把后绑的误摘。</li>
+    </ul>
+    <p class="src" style="margin-bottom:0">src/log/router.ts:16-49</p>
+  </div>
+  <div class="card">
+    <h4>为什么路由表不做成 globalThis 单例</h4>
+    <p style="margin:0">多副本时每份副本各服务自己创建的实例，各自路由才是对的。真正需要跨副本共享的是「同一日志目录只许一个写者」那件事 —— 它在登记表上，那边才是 <code>globalThis</code>。<b>两件事分得很清楚：路由是本副本的事，写者独占是跨副本的事。</b></p>
+    <p class="src" style="margin-bottom:0">src/log/router.ts:51-56</p>
+  </div>
+</div>
+<p class="src">丢行与串台的取舍：代码注释写得很直白 —— 「丢行看得出来，串台看不出来」，所以取不到落点时宁可丢并计数，也不猜一个落点。</p>
+
+<h3>3.4 唯一发射口：四条纪律与它们的计数口径</h3>
+<table>
+  <caption><code>createLogEmitter</code> 内部四个计数器 + 两个集合，全部可从诊断面读出（<code>logEmitterCounts()</code>）</caption>
+  <thead><tr><th style="width:16%">计数</th><th style="width:34%">含义</th><th>触发条件</th></tr></thead>
+  <tbody>
+    <tr><td><code>emitted</code></td><td>真交给落点的行数</td><td>四条纪律全过、且没被预算守卫或准入短路拦下</td></tr>
+    <tr><td><code>suppressed</code></td><td>被边沿预算守卫压掉的行数</td><td>事件在清单里标了边沿触发（或调用方给了指纹），且指纹与上次相同</td></tr>
+    <tr><td><code>skipped</code></td><td>被准入短路拦下的行数</td><td><code>sink.isEnabled(level, event)</code> 回假 —— 这是「开关没开」，<b>不是丢行</b>，不触发 degraded</td></tr>
+    <tr><td><code>dropped</code></td><td>真丢的行数（带 <code>droppedByReason</code>）</td><td><code>unknown-field</code> / <code>unknown-event</code> / <code>no-plugin-id</code> / <code>no-sink</code> / <code>emit-threw</code></td></tr>
+  </tbody>
+</table>
+<p>丢弃原因会经 <code>update.log.degraded</code> 露出（<b>同一原因全进程只记首次</b>）；<code>no-plugin-id</code> 是唯一没有对应行的原因 —— 连插件标识都没有的行没法路由，也就没有落点可以承载这条坏消息。</p>
+
+<div class="code-card">
+  <div class="hd">src/log/emit.ts:151-199 · 一条行的完整判据链（节选骨架）</div>
+  <pre><code>function emit(level, event, fields, opts) {
+  const pluginId = opts?.pluginId ?? fields['pluginId']
+  if (!pluginId) { countDrop('no-plugin-id'); return false }              // ① 没标识没法路由
+  const tableNow = table()
+  if (tableNow &amp;&amp; !checkLogFields(event, Object.keys(raw), tableNow)) {    // ② 清单字段白名单
+    countDrop(tableNow.events?.[event] ? 'unknown-field' : 'unknown-event'); return false
+  }
+  const sink = resolveSink(pluginId)
+  if (!sink || sink === NOOP_SINK) { countDrop('no-sink'); return false }  // ③ 取不到落点即丢，绝不回退
+  if (!sink.isEnabled(level, event)) { counts.skipped++; return false }    // ④ 准入短路（不算丢）
+  const sanitized = sanitizeLogFields(raw)
+  const fingerprint = opts?.fingerprint ?? (isEdgeEvent(event, tableNow) ? fieldFingerprint(sanitized) : undefined)
+  if (!opts?.always &amp;&amp; previous === fingerprint) { counts.suppressed++; return false }  // ⑤ 边沿预算守卫
+  sink.fire(level, event, sanitized); counts.emitted++; return true
+}</code></pre>
+</div>
+<p><b>一处刻意的偏向</b>：准入判据 <code>isEnabled</code> 抛错时按「开着」处理 —— 宁可多写一行，也不因为判据坏了静默不写。<span class="src">emit.ts:178-180</span></p>
+
+<!-- ============ 4 ============ -->
+<h2 id="s4"><span class="num">04</span>19 环节事件面：从 3 个事件到一张登记册</h2>
+<p class="sub">集成前：3 个事件名、5 个发射点、19 个环节里 16 个为零。集成后：28 条事件覆盖 19/19 环节，每条的级别、档位、字段白名单都在随包 <code>event-list.update.json</code> 里登记，未登记即不落盘。</p>
+
+<div class="legend">
+  <span><i style="background:var(--neutral)"></i>resident 常驻（开关关着也落，因此必须边沿触发）</span>
+  <span><i style="background:var(--client)"></i>ondemand 按需（开关打开才落，可逐次打点）</span>
+  <span><i style="background:var(--selfmon)"></i>selfmon 自监控（接线自身降级，永不外抛）</span>
+</div>
+
+<table>
+  <caption>19 环节 × 落点事件。侧栏「Node」= 只许在 <code>import 'node:'</code> 的五个文件里发射；「中立」= 不依赖 DOM 也不依赖 node；「客户端」= 面板／入口件，只能经 <code>logAppend</code> 电话。</caption>
+  <thead><tr><th style="width:3%">#</th><th style="width:19%">环节</th><th style="width:7%">侧</th><th style="width:26%">落点事件</th><th style="width:9%">级别</th><th style="width:10%">档位</th><th>接线状态</th></tr></thead>
+  <tbody>
+    <tr><td>①</td><td>面板打开／挂载</td><td>客户端</td><td><code>update.panel.mount</code>；校验失败 <code>update.panel.render.fail</code></td><td>info / error</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 经 logAppend</td></tr>
+    <tr><td>②</td><td>自动检查更新</td><td>客户端</td><td><code>update.check.start</code>（<code>trigger:'auto'</code>）</td><td>info</td><td><span class="tag t-on">ondemand</span></td><td><span class="tag t-ok">已接</span> 客户端自报</td></tr>
+    <tr><td>③</td><td>单插件 check</td><td>Node + 客户端</td><td><code>update.check.done</code> / <code>update.check.fail</code> / <code>update.check.start</code>；既有 <code>host.call</code>·<code>host.call.fail</code> 保留</td><td>info / warn</td><td><span class="tag t-res">resident</span> + <span class="tag t-on">ondemand</span></td><td><span class="tag t-ok">已接</span> <code>service.ts</code> 核心 <code>check()</code></td></tr>
+    <tr><td>④</td><td>npm registry 查询</td><td>中立</td><td><code>update.registry.fetch</code></td><td>info</td><td><span class="tag t-on">ondemand</span></td><td><span class="tag t-ok">已接</span> <code>makeFetchNoter()</code>；<code>/http</code> 变体走客户端</td></tr>
+    <tr><td>⑤</td><td>版本比较／通道判定</td><td>中立</td><td><code>update.channel.decide</code>；失败码并入 <code>update.check.fail.stage:'channel'</code></td><td>info / warn</td><td><span class="tag t-on">ondemand</span> + <span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> <code>noteChannelDecision()</code></td></tr>
+    <tr><td>⑥</td><td>changelog 获取与解析</td><td>Node IO + 中立</td><td><code>update.changelog.parse</code>；既有 <code>host.call</code>（<code>kind:'update-changelog'</code>）保留</td><td>info</td><td><span class="tag t-on">ondemand</span></td><td><span class="tag t-ok">已接</span> 变更日志电话包装</td></tr>
+    <tr><td>⑦</td><td>用户点击安装</td><td>客户端</td><td><code>update.panel.action</code>（install/retry/restart）+ 宿主侧 <code>update.install.request</code></td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 两侧各司其职</td></tr>
+    <tr><td>⑧</td><td>安装执行</td><td>Node</td><td>既有 <code>update.install.exec</code>（5 键，形状不动）</td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">既有</span> 只改「发不发」与归属</td></tr>
+    <tr><td>⑨</td><td>安装后校验</td><td>Node</td><td><code>update.install.verify</code></td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 终态跃迁 + 掉线换算</td></tr>
+    <tr><td>⑩</td><td>失败重试</td><td>客户端</td><td><code>update.install.retry</code>（<code>attempt</code>/<code>of</code>）</td><td>warn</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-warn">归属客户端通道</span></td></tr>
+    <tr><td>⑪</td><td>批量面板入队</td><td>Node</td><td><code>update.batch.entry.request</code>；挂载点并入 <code>update.panel.mount</code>（<code>mode:'batch'</code>）</td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> <code>noteEntryRequest()</code> 按会话去重</td></tr>
+    <tr><td>⑫</td><td>队列两阶段／全局锁</td><td>Node</td><td><code>update.queue.transition</code>、<code>update.lock.anomaly</code></td><td>info / warn</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 只在乎「真写盘且相位真变」</td></tr>
+    <tr><td>⑬</td><td>单项失败（批量）</td><td>中立</td><td><code>update.batch.entry.fail</code>（目标标识恒 hash8）</td><td>warn</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 落点由 <code>BatchRunDeps.logFor</code> 注入</td></tr>
+    <tr><td>⑭</td><td>总账</td><td>客户端渲染</td><td><code>update.batch.summary</code>（宿主侧汇总后发）</td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 面板只渲染、不重复发</td></tr>
+    <tr><td>⑮</td><td>重启宿主</td><td>客户端触发</td><td><code>update.restart.outcome</code></td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-warn">归属客户端通道</span></td></tr>
+    <tr><td>⑯</td><td>语言选择</td><td>客户端</td><td><code>update.lang.applied</code></td><td>info</td><td><span class="tag t-on">ondemand</span></td><td><span class="tag t-ok">已接</span> 在客户端白名单内</td></tr>
+    <tr><td>⑰</td><td>主题渲染</td><td>客户端</td><td><code>update.panel.state</code>（theme/tokensApplied/fallback）；非法值并入 <code>update.panel.render.fail</code></td><td>info / error</td><td><span class="tag t-on">ondemand</span> + <span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 在客户端白名单内</td></tr>
+    <tr><td>⑱</td><td>落盘决策</td><td>Node</td><td><code>update.store.fail</code>；锁异常 <code>update.lock.anomaly</code></td><td>warn</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> 原 <code>catch {}</code> 静默点共 13 处</td></tr>
+    <tr><td>⑲</td><td>复制诊断</td><td>客户端</td><td><code>update.panel.action</code>（<code>copy-diagnostics</code>，附 <code>bytes</code>/<code>truncated</code>）</td><td>info</td><td><span class="tag t-res">resident</span></td><td><span class="tag t-ok">已接</span> <b>内容绝不进日志</b></td></tr>
+  </tbody>
+</table>
+
+<div class="note warn">
+  <p class="t">这张表里有两行需要打星号（见第 12 节）</p>
+  <p>⑩ <code>update.install.retry</code> 与 ⑮ <code>update.restart.outcome</code> 按规格「归 #122 由客户端经 <code>logAppend</code> 落盘」。但宿主侧 <code>logAppendRows()</code> 只收 <b>5 个客户端事件</b>（<code>update.panel.mount</code> / <code>.action</code> / <code>.render.fail</code> / <code>.state</code> / <code>update.lang.applied</code>），这两个事件不在白名单里。它们是否有真实发射点、是否被这条路拒收，是本报告交付前由独立复核专门核对的项（第 12 节按复核结论定稿）。</p>
+</div>
+
+<h3>4.1 三条跨环节的全局规则</h3>
+<div class="grid3">
+  <div class="card">
+    <h4>① 轮询抑制（噪声的根）</h4>
+    <p style="margin:0;font-size:13.4px"><code>updateStatus</code> 是每 1000ms 一次的既有轮询。<b>成功行一律不发</b>：状态与上次相同一条不发，状态真变了才留一条 <code>update.status.changed</code>；开关打开时另发 <code>update.poll</code> 全量。<b>第一次轮询没有可比的上次，同样不算事件。</b></p>
+    <p class="src" style="margin-bottom:0">src/host.ts:840-855</p>
+  </div>
+  <div class="card">
+    <h4>② 关联（traceId / spanId）</h4>
+    <p style="margin:0;font-size:13.4px">规格写的是：每条行带 <code>traceId</code>（一次用户意图）与 <code>spanId</code>（一次尝试），住 <code>fields</code> 里，供 dsh-log 的 <code>traceChain</code> 串链。<b>注意：截至本报告核对，<code>src/</code> 内 grep <code>traceId|spanId|traceChain</code> 零命中</b> —— 这一条属于「规格已定、实现未见」的差异，登记在第 12 节。</p>
+    <p class="src" style="margin-bottom:0">事件目录 §4 规则 2 · §12 差异 #4</p>
+  </div>
+  <div class="card">
+    <h4>③ 脱敏（ADR-0006）</h4>
+    <p style="margin:0;font-size:13.4px">行里只许三类字符串：<b>版本号</b>（规范化后）、<b>枚举白名单值</b>、<b>导出量</b>（hash8、计数、时长、字节、布尔）。路径、URL、令牌、邮箱、宿主原话、命令<b>根本不出现</b>在日志行里，落点是发射口白名单 + 每个事件的负向断言。</p>
+    <p class="src" style="margin-bottom:0">docs/adr/0006 · emit.ts:74-85</p>
+  </div>
+</div>
+
+<h3>4.2 事件表内容分布</h3>
+<table>
+  <caption>随包 <code>event-list.update.json</code> 的 28 个事件（按用途分组）</caption>
+  <thead><tr><th style="width:16%">组</th><th style="width:11%">档位</th><th>事件</th></tr></thead>
+  <tbody>
+    <tr><td>旧三件（形状冻结）</td><td><span class="tag t-res">resident</span></td><td><code>host.call</code> · <code>host.call.fail</code> · <code>update.install.exec</code> —— 本次只改「发不发」，字段一字不动</td></tr>
+    <tr><td>接线自陈</td><td><span class="tag t-res">resident</span></td><td><code>update.wire.ready</code>（<code>logSink: external|self|off</code> + <code>logDirHash</code>；目录只给 hash8，不给路径）</td></tr>
+    <tr><td>检查链</td><td>混合</td><td><code>update.check.start</code> · <code>update.check.done</code> · <code>update.check.fail</code> · <code>update.registry.fetch</code> · <code>update.channel.decide</code> · <code>update.status.changed</code> · <code>update.poll</code></td></tr>
+    <tr><td>安装链</td><td><span class="tag t-res">resident</span></td><td><code>update.install.request</code> · <code>update.install.verify</code> · <code>update.install.retry</code> · <code>update.restart.outcome</code></td></tr>
+    <tr><td>批量链</td><td><span class="tag t-res">resident</span></td><td><code>update.batch.entry.request</code> · <code>update.batch.entry.fail</code> · <code>update.batch.summary</code></td></tr>
+    <tr><td>队列与锁</td><td><span class="tag t-res">resident</span></td><td><code>update.queue.transition</code>（四相位 queued/running/done/reclaimed）· <code>update.lock.anomaly</code>（两 kind）</td></tr>
+    <tr><td>落盘与文档</td><td>混合</td><td><code>update.store.fail</code> · <code>update.changelog.parse</code></td></tr>
+    <tr><td>面板／入口</td><td>混合</td><td><code>update.panel.mount</code> · <code>update.panel.action</code> · <code>update.panel.render.fail</code> · <code>update.panel.state</code> · <code>update.lang.applied</code></td></tr>
+    <tr><td>自监控</td><td><span class="tag t-self">selfmon</span></td><td><code>update.log.degraded</code>（6 个 reason：<code>no-dsh-log</code>/<code>lease-conflict</code>/<code>write-fail</code>/<code>emit-threw</code>/<code>unknown-field</code>/<code>unknown-event</code>）</td></tr>
+  </tbody>
+</table>
+
+<details>
+  <summary>字段白名单是怎么生成「人可读的诚实」的：三个例子</summary>
+  <ul>
+    <li><code>update.check.done</code> 的 <code>source</code> 只给白名单主机名（复用 <code>resolveRegistryHost</code>），<b>不带路径与账号</b>；版本号经中央校验器规范化。</li>
+    <li><code>update.store.fail</code> 的 <code>reason</code> 是 <code>error.code</code> 过 25 个稳定码白名单后的小写值（<code>enoent</code>/<code>eacces</code>/<code>eexist</code>/…），拿不到码退 <code>'throw'</code>，连错误对象都不是退 <code>'unknown'</code>，<b>绝不放 <code>message</code> 或路径</b>；同一操作同一原因连续失败只记首次（原因变了再记一条，成功即清）。</li>
+    <li><code>update.panel.action</code> 的复制诊断只记 <code>bytes</code> 与 <code>truncated</code>，<b>绝不记内容</b>；<code>update.panel.state</code> 的主题只记枚举名与 token 数，不记 CSS 值原文（防注入面）。</li>
+  </ul>
+  <p class="src" style="margin-bottom:0">event-list.update.json · src/store.ts:63-82 · 事件目录 §1</p>
+</details>
+
+<!-- ============ 5 ============ -->
+<h2 id="s5"><span class="num">05</span>面板侧通道：浏览器闭包里的日志怎么落盘</h2>
+<p class="sub">面板跑在浏览器闭包，没有 <code>ctx</code>、没有文件系统；dsh-log 的 <code>./client</code> 入口也不落盘（只做内存队列 + 经宿主转发）。所以本包自己开了一条电话：<code>&lt;prefix&gt;.logAppend</code>。这是协议面的新增，老四个电话一字不动。</p>
+
+<div class="flow">
+  <div class="step"><div class="n">客户端</div><div class="s">emit(level,event,fields)</div><div class="d">永不抛；无通道时直接计数丢弃</div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="n">环形缓冲</div><div class="s">200 行，满挤最老</div><div class="d">日志要留最近状态，不是最先状态；挤掉计入 drop</div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="n">成批投递</div><div class="s">50 行 / 1 秒</div><div class="d">切后台立即冲刷；单次发送超时 5s</div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="n">退避重试</div><div class="s">250ms / 1000ms</div><div class="d">首发 + 2 次重试，用尽即丢并计数</div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="n">宿主电话</div><div class="s">logAppend</div><div class="d">回执 {accepted, dropped}；不产生 host.call 行</div></div>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <h4>协议面（宿主侧这一头怎么把关）</h4>
+    <table style="margin:8px 0 0">
+      <tbody>
+        <tr><td style="width:34%"><b>只收 5 个客户端事件</b></td><td>不给白名单就能伪造 <code>update.install.exec</code> 这类宿主事实，日志可信度当场归零</td></tr>
+        <tr><td><b>级别四值</b></td><td><code>debug</code>/<code>info</code>/<code>warn</code>/<code>error</code>，别的值拒收</td></tr>
+        <tr><td><b>一次 ≤ 200 行</b></td><td>超出部分计入 <code>dropped</code></td></tr>
+        <tr><td><b>字段 ≤ 4096 字符</b></td><td>序列化超长即拒收</td></tr>
+        <tr><td><b>新鲜度 ≤ 10 分钟</b></td><td>更旧的行走 <code>dropped</code>（避免离线页面回灌陈行）</td></tr>
+        <tr><td><b>字段过清单</b></td><td><code>checkLogFields</code> 不过即拒收</td></tr>
+        <tr><td><b>永不抛</b></td><td>形状坏成什么样都只回 <code>{accepted, dropped}</code></td></tr>
+        <tr><td><b>不产生 host.call 行</b></td><td>否则每送一批日志就多一行电话日志 —— 日志给自己制造噪声</td></tr>
+      </tbody>
+    </table>
+    <p class="src" style="margin-top:10px;margin-bottom:0">src/host.ts:1161-1220 · src/log/client-queue.ts:84-116</p>
+  </div>
+  <div class="card">
+    <h4>口径分明：什么是「丢」，什么是「准入」</h4>
+    <p style="font-size:13.6px">协议层拒收（形状不对／级别不认识／不是客户端事件／字段不合清单／超量／过期）计入 <code>dropped</code>；而<b>引擎因调试开关关掉而 skip 的按需行不计 drop</b> —— 那是准入，不是丢行。</p>
+    <p style="font-size:13.6px">客户端侧同理：<code>dropped()</code> 是「日志丢了」唯一诚实的说法，它把四种来源加在一起：缓冲挤掉（<code>overflow</code>）、重试用尽（<code>send-failed</code>）、没有通道（<code>no-channel</code>）、宿主回包说丢了几行（<code>host-refused</code>）。</p>
+    <div class="note selfmon" style="margin-bottom:0">
+      <p class="t">顺带修掉一个真实时序差</p>
+      <p>随包清单的读取改成了<b>同步</b>。异步读会让同一行在清单没加载完时放行、加载完后被拒 —— 行为随微任务时序漂移。这是 #122 抓到的真实差异，不是洁癖。</p>
+      <p class="src" style="margin-bottom:0">src/log/manifest.ts:32-36</p>
+    </div>
+  </div>
+</div>
+
+<p><b>集成方可以换、可以关</b>：<code>mountUpdatePanel</code> 默认按前缀自建这条通道；<code>clientLog: { channel }</code> 换成自己的通道、<code>{ mount: 'entry' }</code> 改挂载点名字、<code>null</code> 明确关掉。入口件与 HTTP 直挂已经替集成方传好挂载点，HTTP 白名单也已放行 <code>logAppend</code>。<span class="src">src/panel.ts:2091-2100 · src/ports.ts · src/http.ts:29</span></p>
+
+<!-- ============ 6 ============ -->
+<h2 id="s6"><span class="num">06</span>隔离与不覆盖：三场景实证</h2>
+<p class="sub">「多插件不覆盖」是这次集成最硬的验收项，所以没有停在「机制上应该成立」：装置用真电话、真落点、真清单、真文件字节跑出三组数字。装置在 <code>.tmp/log-verify/</code>（gitignored，可重建），耐久记录在 <code>docs/research/20261014-log-isolation-verification.md</code>。</p>
+
+<table>
+  <caption>装置的可信度前提：两个假插件的宿主半区都走 <code>createHostUpdate</code> 真电话 → <code>acquireOwnLog</code> 真落点 → <code>dsh-log/node</code> 真落盘；父进程读的是文件字节（<code>v === 3</code> 五键行逐行 JSON.parse）</caption>
+  <thead><tr><th style="width:22%">场景</th><th style="width:34%">要看的是什么</th><th>实测结果</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>1 · 同副本、不同 pluginId</b><br><span class="src">后注册的 A 会不会夺走 B 的行</span></td>
+      <td>先建 <code>verify-b</code> 并先自己发一行，<b>再建</b> <code>verify-a</code>（旧实现里这一步会改写模块级落点），然后交错调真电话：A 4 次、B 再 3 次</td>
+      <td><b>9/9 断言通过。</b>A 目录 5 行（<code>update.wire.ready</code> 1 + <code>host.call</code> 4）、B 目录 5 行（其中 1 行是 A 注册<b>之前</b>发的，A 注册后仍留在 B 的目录里）；<b>行数 = 发射数</b>；两棵树零串台、零半行、<code>foreign-write</code> 0 条、丢弃 0</td>
+    </tr>
+    <tr>
+      <td><b>2 · 同 pluginId、两份模块副本</b><br><span class="src">会不会出现两个写者</span></td>
+      <td>副本 A = 现场 <code>dist</code>；副本 B 自带一份 <code>node_modules/dsh-log</code>（两份 dsh-log 解析到两个不同文件 —— 这一步是关键，否则测到的不是本包登记表的功劳）</td>
+      <td><b>9/9 断言通过。</b>同目录第二次取库 <code>reused = true</code>、<b>同一个句柄对象</b>、refs=2、登记表 size=1；6 次真电话 → 同一个文件里 6 行 <code>host.call</code>；<code>bad = 0</code>、<code>foreign-write</code> 0 条</td>
+    </tr>
+    <tr>
+      <td><b>3 · 跨进程</b><br><span class="src">两个真进程同写一棵目录</span></td>
+      <td>两个真子进程各写 20 行，四档行大小（260B / 3.9KB / 8.1KB / 64KB），大行变体每行刷一次并跑多轮，让追加真的在时间上重叠（交错段数 7 / 70 / 177 / 174，远大于 1）</td>
+      <td><b>21/21 断言通过。</b>四档合计 560 行全部可读、<b>0 条半行</b>、标记 A/B 一个不少、两个子进程丢弃计数都是 0 —— 即「交错、不覆写」</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="grid2">
+  <div class="card">
+    <h4>负对照：装置有没有分辨力</h4>
+    <ul style="margin-bottom:0">
+      <li><b>绕开登记表、保留 <code>appendText</code></b>：两写者共存、20 行一行不少。结论如实说 —— 本机登记表挡住的不是「丢行」，而是「两个写者 + 相互看不见」这件事本身。</li>
+      <li><b>绕开登记表、摘掉 <code>appendText</code></b>：引擎退回读改写通道，每轮 10 行只剩 5 行，<b>共发 50 行 → 只剩 25 个标记</b>。丢行就这样现形，而这正是登记表在同进程消掉的形态。</li>
+      <li><b>DSH 桌面宿主的文件服务若没有 <code>appendText</code></b>，走的就正是这条读改写通道 —— 所以这不是假想风险。</li>
+    </ul>
+    <p class="src" style="margin-bottom:0">docs/research/20261014-log-isolation-verification.md:56-76</p>
+  </div>
+  <div class="card">
+    <h4>边界（不假装做到的部分）</h4>
+    <ul style="margin-bottom:0">
+      <li><b>跨进程没有协调</b>，这是设计承诺：两个进程同写一棵目录只保证「交错、不整篇覆写」，不保证行序、不保证去重。</li>
+      <li><b>单行 &gt; 4096 字节时引擎不再切块</b>（实测 8001 字节行 → 1 块 8001 字节），而 <code>O_APPEND</code> 的大块写不保证原子。上游别环境下量到「40 行里 2 行读不出来」；<b>本机 200 次重叠的 8KB/64KB 单行追加里一条半行都没出现</b> —— 如实登记为理论残留风险，不是本机现象。</li>
+      <li>谁要拿这一条做承诺，请照同一装置在目标环境（尤其宿主自己的文件服务）复量一次。</li>
+    </ul>
+    <p class="src" style="margin-bottom:0">同上 §3、§5</p>
+  </div>
+</div>
+
+<!-- ============ 7 ============ -->
+<h2 id="s7"><span class="num">07</span>噪声与预算：从 86400 行/天到 0 行/天</h2>
+<p class="sub">集成前现场量到的事实：某插件一天的日志 934 KB、其中 <b>5309 行是 <code>host.call</code></b>，<b>99.3% 的日志行是 1 秒轮询噪声</b>。而且 <code>host.call</code> 在 dsh-log 的内置常驻名单里（43 名之一），集成方清单<b>改不动</b>它 —— 所以噪声只能在发射侧治。</p>
+
+<table>
+  <caption>预算断言：首测 vs #124 落地后复验（同一套装置、同一批断言，8 条）</caption>
+  <thead><tr><th style="width:34%">断言</th><th style="width:13%">预算</th><th style="width:24%">首测（#124 前）</th><th>复验（#124 后）</th></tr></thead>
+  <tbody>
+    <tr><td>内核边沿守卫：86400 次同状态 <code>update.status.changed</code> → 磁盘几行</td><td>—</td><td><b>1 行</b>（suppressed=86399）<span class="tag t-ok">过</span></td><td><b>1 行</b> <span class="tag t-ok">过</span></td></tr>
+    <tr><td>内核边沿守卫：86400 次同相位 <code>update.queue.transition</code></td><td>—</td><td><b>1 行</b> <span class="tag t-ok">过</span></td><td><b>1 行</b> <span class="tag t-ok">过</span></td></tr>
+    <tr><td><b>真机轮询路径</b>：N 次轮询零常驻行</td><td>N ≥ 100 → 0 行</td><td>600 次 → <b>600 行</b> <span class="tag t-warn">不达标</span></td><td>600 次 → <b>0 行</b> <span class="tag t-ok">过</span></td></tr>
+    <tr><td>稳态：24h 常驻行</td><td>≤ 50 行/天</td><td>外推 <b>≈ 86400 行/天</b> <span class="tag t-warn">不达标</span></td><td><b>0 行/天</b> <span class="tag t-ok">过</span></td></tr>
+    <tr><td>安装／批量当天事件面</td><td>≤ 500 行</td><td><b>37 行</b> <span class="tag t-ok">过</span></td><td><b>37 行</b> <span class="tag t-ok">过</span></td></tr>
+    <tr><td>事件面 + 实测轮询噪声</td><td>≤ 500 行</td><td>37 + 86400 = <b>86437 行</b> <span class="tag t-warn">不达标</span></td><td>37 + 0 = <b>37 行</b> <span class="tag t-ok">过</span></td></tr>
+    <tr><td>按需档：开关关着时 ondemand info 不落盘</td><td>0 行</td><td>50 次 <code>update.poll</code> → <b>0 行</b>（skipped=50，不算丢）<span class="tag t-ok">过</span></td><td><b>0 行</b> <span class="tag t-ok">过</span></td></tr>
+    <tr><td colspan="3"><b>合计</b>（首测 8 条里 3 条失败，第 8 条为上述按需档断言）</td><td><b>8 / 8 全过</b> <span class="tag t-ok">复验</span></td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <p class="t">那次不达标是怎么修的（机制，不是玄学）</p>
+  <p>首测机制定位在 <code>src/host.ts:796</code>／<code>:898</code>：电话成功时<b>无条件</b>发 <code>host.call</code>；清单里 <code>host.call</code> 的 guard 虽然写着「成功且状态未变时轮询不发」，但 <code>isEdgeEvent</code> 只认 guard 文本里带「边沿触发」四个字的事件（只有 <code>update.status.changed</code> 与 <code>update.queue.transition</code> 命中），宿主侧也没实现「状态未变就不发」。于是 1 秒一拍 = 86400 行/天。</p>
+  <p>修法落在 <code>src/host.ts:845-855</code>：<code>isStatusPoll</code> 认出轮询电话，算快照指纹，<b>只有「上次算得出、这次算得出、且与上次不同」才留一行</b>；指纹算不出来时宁多发一行，也不误吞一次状态变化；失败行 <code>host.call.fail</code> 不受影响；<code>host.call</code> 的名字与五键形状一字未动。</p>
+</div>
+
+<div class="grid3">
+  <div class="card"><h4>边沿守卫在哪一层</h4><p style="margin:0;font-size:13.4px">内核层：清单 <code>guard</code> 带「边沿触发」的事件，或调用方显式给了指纹的行，由发射口按指纹去重（<code>suppressed</code> 计数）。<span class="src">emit.ts:183-191</span></p></div>
+  <div class="card"><h4>调用点层的两处自管</h4><p style="margin:0;font-size:13.4px"><code>update.status.changed</code> 由 service 自管「状态没变不发，变了强制落（<code>always</code>）」；<code>update.queue.transition</code> 由 store 自管「真写盘且相位真变」。<span class="src">service.ts:675-690 · store.ts:163-177</span></p></div>
+  <div class="card"><h4>为什么指纹要带动作方</h4><p style="margin:0;font-size:13.4px">队列跨插件共享，同一进程里两家的同相位行不能互相吃掉 —— 所以队列相位的指纹写成 <code>${pluginId}\0${phase}</code>。<span class="src">store.ts:175-176</span></p></div>
+</div>
+
+<!-- ============ 8 ============ -->
+<h2 id="s8"><span class="num">08</span>脱敏与可聚合：日志行里只有稳定码</h2>
+<p class="sub">ADR-0006 立了一条听起来苛刻、但让日志真正可用的规矩：<b>日志行只承载稳定码与参数，人话在渲染层产出</b>。理由不是洁癖，是量级 —— 934 KB/天、5309 行同名事件的日志，只有稳定码才能计数、才能跨版本对齐；一句中文人话既不能聚合也不能 grep。</p>
+
+<div class="grid2">
+  <div class="card">
+    <h4>允许的三类字符串值</h4>
+    <ol style="margin-bottom:0">
+      <li><b>版本号</b> —— 经中央校验器规范化后的 semver 形状；</li>
+      <li><b>枚举白名单值</b> —— 每个枚举在事件清单里逐值声明（<code>channel: 'stable'|'beta'</code>、<code>outcome: 'delegated'|'manual'|'failed'</code>…）；</li>
+      <li><b>导出量</b> —— <code>hash8</code> 短哈希、计数、时长（ms）、字节数、布尔。</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h4>不允许的字符串</h4>
+    <p style="margin-bottom:0">宿主原话、错误 <code>message</code>、命令行、文件路径、URL、usage 原文、插件标识原文。<br>
+    <b>边界怎么守</b>：发射口 <code>sanitizeLogFields</code> 对字符串过 <code>sanitizeDetail</code>；对象/数组先序列化再脱敏（宁可变成字符串，也不许原样落盘）；<code>fields</code> 只许扁平键值，不嵌套。</p>
+  </div>
+</div>
+
+<div class="note selfmon">
+  <p class="t">它解开了 ADR-0001 登记的一条老张力</p>
+  <p>ADR-0001 曾登记：<code>detail</code> 是全系统唯一自由文本出口，而真实存在的唯一诊断通道恰恰是宿主原话。日志是<b>长期留存</b>的出口（按天落盘、14 天保留、第三方会贴进 issue），所以不能沿用那条口径。ADR-0006 的解法是<b>让两个出口不重叠</b>：要看人话去面板（或渲染层生成），要聚合去日志；同一份宿主原话绝不进日志行。<code>detail</code>/<code>diagnostic</code> 的现有口径一个字不改。</p>
+</div>
+
+<h4>代价（自觉取舍，不是遗漏）</h4>
+<ul>
+  <li>人话要在两条渲染路径各实现一次（<code>dsh-log tail</code> 的终端格式化、面板的 <code>src/bilingual.ts</code>）。</li>
+  <li>新增一个字段要改三处：发射点、事件清单、负向断言用例。这是用「写三处」换「日志行永不夹带文本」。</li>
+  <li>需要人读的细节（例如错误原因）只能给稳定码 + hash8；排查细节要去面板的 <code>detail</code> 或工具返回的 <code>steps[]</code>。</li>
+  <li>回退线也写清了：若实测发现某类问题只能靠文本才能查，走破冰新增<b>一个具名字段</b>，而不是放开任意文本。</li>
+</ul>
+
+<!-- ============ 9 ============ -->
+<h2 id="s9"><span class="num">09</span>验证与证据链</h2>
+<p class="sub">这一节回答「凭什么相信」。分四层：单元/集成测试 → 缝探针（真落盘路径） → 真机隔离装置 → 全量回归。</p>
+
+<table>
+  <caption>四层证据与各自的覆盖范围</caption>
+  <thead><tr><th style="width:16%">层</th><th style="width:30%">手段</th><th>覆盖到什么</th></tr></thead>
+  <tbody>
+    <tr><td><b>L1 后向断言</b></td><td><code>tests/host-log.test.mjs</code>、<code>tests/store-log.test.mjs</code>、<code>tests/batch-log.test.mjs</code>、<code>tests/log-kernel.test.mjs</code>、<code>tests/client-log.test.mjs</code>、<code>tests/panel-log.test.mjs</code></td><td>逐事件的<b>负向断言</b>：序列化结果里不出现绝对路径形状、<code>scheme://</code>、令牌形状、<code>键=值</code> 凭据形状、邮箱形状；字段名集合与清单完全一致；内核三不变量；客户端队列的环形/退避/丢弃口径</td></tr>
+    <tr><td><b>L2 缝探针</b></td><td>在<b>真落盘路径</b>上跑一次完整安装（真 homeDir／真锁／真队列，只假网络与子进程）</td><td><code>update.queue.transition</code> <b>三相位齐</b>：<code>queued{position:1}</code> → <code>running{waitedMs:8}</code> → <code>done</code>；<code>update.install.request</code>、<code>update.install.verify</code>、<code>update.check.done</code>、<code>update.channel.decide</code>、<code>update.status.changed</code> 各就其位</td></tr>
+    <tr><td><b>L3 真机隔离装置</b></td><td><code>node .tmp/log-verify/run.mjs</code>（s1/s2/s3/budget）</td><td>三隔离场景 + 预算 8 条；被测字节有 sha256 可查（<code>ee63864a…</code> 首测 / <code>0c414635…</code> 复验）；<b>复验由独立会话复跑</b>，不是转述自述</td></tr>
+    <tr><td><b>L4 全量回归</b></td><td><code>npm test</code></td><td><b>1124 例：1123 过 / 1 跳过 / 0 失败</b>（本报告写作时复跑，212 个 suite，7.5 秒）</td></tr>
+  </tbody>
+</table>
+
+<div class="note ok">
+  <p class="t">证据链的诚实处</p>
+  <p>首测的 3 条失败没有被藏起来 —— 它们以「首测 vs 复验」两轮数字并列写进耐久记录（<code>docs/research/20261014-log-isolation-verification.md</code> §4），并注明归属票与机制落点。装置本身也把「测不到什么」单列一节（§5）：不覆盖跨进程协调、不覆盖没有 <code>appendText</code> 的写者的跨进程行为、预算里的「安装/批量当天」是事件面模型而非真跑一次安装。</p>
+</div>
+
+<!-- ============ 10 ============ -->
+<h2 id="s10"><span class="num">10</span>集成方视角：拿到了什么、要做什么</h2>
+<p class="sub">对使用本更新系统的插件作者，这次集成带来的收益是「默认就有」，成本是「几乎为零动作」。</p>
+
+<div class="grid2">
+  <div class="card">
+    <h4>默认就有（不用做任何事）</h4>
+    <ul style="margin-bottom:0">
+      <li>宿主侧一段接线之后，日志自动落到 <code>&lt;DSH_HOME&gt;/logs/&lt;你的命名空间&gt;/</code>；</li>
+      <li>面板侧挂载组件后，客户端日志自动经 <code>&lt;prefix&gt;.logAppend</code> 回宿主落盘；</li>
+      <li>19 个环节的事件自动打点，字段与级别已按清单定稿；</li>
+      <li>轮询噪声已治理，稳态预算 0 行/天，不需要你调优；</li>
+      <li>多插件共存由机制保证（目录分离 + 登记表 + 路由表），不需要你协调别人。</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>可以覆盖（可选）</h4>
+    <ul style="margin-bottom:0">
+      <li><code>createHostUpdate({ logCtx })</code>：你有自己的 dsh-log 实例就用你的，本包绝不再开第二个写者；</li>
+      <li><code>mountUpdatePanel({ clientLog })</code>：换成你自己的客户端通道、改挂载点名字、或 <code>null</code> 明确关掉；</li>
+      <li><code>buildUpdateManifest(pluginId, 你的清单)</code> + <code>mergeUpdateEvents</code>：把本包事件并进你自己的日志实例（字段取并集，级别与归类仍按你的声明）；</li>
+      <li>只进日志的两个可选入参：检查电话的 <code>trigger</code>、安装电话的 <code>from</code> —— 不传即老样子，不改老调用形状、不参与任何决策。</li>
+    </ul>
+  </div>
+</div>
+
+<h3>10.1 三种接线形态与各自的落盘归属</h3>
+<table>
+  <thead><tr><th style="width:22%">形态</th><th style="width:26%">触发条件</th><th>行为</th><th style="width:16%">自陈事件</th></tr></thead>
+  <tbody>
+    <tr><td><b>外部实例优先</b></td><td>集成方传了 <code>logCtx</code></td><td>用它的实例落盘，本包绝不再对同一日志目录开第二个写者。事件名、字段、级别与自建形态完全一样</td><td><code>update.wire.ready{logSink:'external'}</code></td></tr>
+    <tr><td><b>自建</b></td><td>没传 <code>logCtx</code></td><td>经登记表取／建本插件的 dsh-log 实例；建库异步，期间行先进待接落点（环形 200）</td><td><code>update.wire.ready{logSink:'self', logDirHash}</code></td></tr>
+    <tr><td><b>降级</b></td><td>拿不到 dsh-log／撞租约／写不了</td><td>解绑落点：此后每一行计入丢弃并计数；主流程零影响；带 60 秒冷却，过后下次接线重试</td><td><code>update.wire.ready{logSink:'off'}</code> + <code>update.log.degraded{reason}</code></td></tr>
+  </tbody>
+</table>
+<p class="src">wireUpdateLog() 三分支：src/host.ts:740-779。判据一句话：<b>同一日志目录同时只许一个写者，本包永远只当第二个人的客人，不当第二个主人。</b></p>
+
+<h3>10.2 一次安装会在日志里留下什么（缝探针实测序列）</h3>
+<div class="code-card">
+  <div class="hd">真 homeDir / 真锁 / 真队列上跑一次完整安装（只假网络与子进程）</div>
+  <pre><code>{"v":3,"ts":…,"level":"info","event":"update.wire.ready","fields":{"logSink":"self","logDirHash":"…"}}
+{"v":3,"ts":…,"level":"info","event":"update.check.start","fields":{"trigger":"user","source":"registry.npmjs.org"}}
+{"v":3,"ts":…,"level":"info","event":"update.registry.fetch","fields":{"httpStatus":200,"latencyMs":…}}   ← ondemand：开关开才落
+{"v":3,"ts":…,"level":"info","event":"update.channel.decide","fields":{"channel":"stable","reason":"stable","from":"0.15.0","to":"0.16.0"}}
+{"v":3,"ts":…,"level":"info","event":"update.check.done","fields":{"ok":true,"current":"0.15.0","latest":"0.16.0","channel":"stable","source":"registry.npmjs.org","latencyMs":…}}
+{"v":3,"ts":…,"level":"info","event":"update.status.changed","fields":{"kind":"update-available","latest":"0.16.0"}}
+{"v":3,"ts":…,"level":"info","event":"update.install.request","fields":{"from":"panel","current":"0.15.0","latest":"0.16.0","checkAgeMs":…}}
+{"v":3,"ts":…,"level":"info","event":"update.queue.transition","fields":{"phase":"queued","position":1}}
+{"v":3,"ts":…,"level":"info","event":"update.queue.transition","fields":{"phase":"running","waitedMs":8}}
+{"v":3,"ts":…,"level":"info","event":"update.install.exec","fields":{…}}                                  ← 既有事件，形状未动
+{"v":3,"ts":…,"level":"info","event":"update.install.verify","fields":{"result":"restart-required","installedVersion":"0.16.0","pendingRestart":true}}
+{"v":3,"ts":…,"level":"info","event":"update.queue.transition","fields":{"phase":"done"}}</code></pre>
+</div>
+<p class="src">序列来自缝探针实测（事件目录 §3.1「实测证据」）；行内 <code>…</code> 为省略的数值或时间戳，五键形状 <code>{v:3,ts,level,event,fields}</code> 是真实的。</p>
+
+<!-- ============ 11 ============ -->
+<h2 id="s11"><span class="num">11</span>不变量清单：改动时会被打红的地方</h2>
+<p class="sub">这份清单的价值在于「以后谁改这块，哪条会红」。每条都有测试或清单钉住。</p>
+
+<table>
+  <thead><tr><th style="width:4%">#</th><th style="width:34%">不变量</th><th style="width:34%">谁钉住它</th><th>破坏后的表现</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>落盘行恒五键 <code>{v:3,ts,level,event,fields}</code>，<code>v === 3</code></td><td><code>parseLogRow</code> 断言 · 门禁 <code>src/gate.ts</code></td><td>读侧工具与第三方解析当场分叉</td></tr>
+    <tr><td>2</td><td>事件名与字段名集合与 <code>event-list.update.json</code> 完全一致（多一个少一个都红）</td><td>各事件的负向断言用例 · 发射口 <code>checkLogFields</code></td><td>整行被丢弃并记 <code>update.log.degraded{reason:'unknown-field'}</code></td></tr>
+    <tr><td>3</td><td>旧三事件（<code>host.call</code>/<code>host.call.fail</code>/<code>update.install.exec</code>）形状冻结，只改「发不发」</td><td><code>tests/phones.test.mjs</code>、<code>tests/routes.test.mjs</code> 逐字锁死</td><td>集成方日志解析断代</td></tr>
+    <tr><td>4</td><td>合法 pluginId 原样通过；不同 raw 标识永不共目录</td><td><code>tests/log-kernel.test.mjs</code></td><td>两插件共享目录 → 两个写者 → 互相吃行</td></tr>
+    <tr><td>5</td><td>同一日志目录同进程只有一个句柄（跨副本共用登记表）</td><td>登记表实现 + 待接落点/引用计数</td><td>后建库者整篇覆写先写者的文件（10 行剩 9 行）</td></tr>
+    <tr><td>6</td><td>取不到落点即丢弃计数，绝不回退到别人的 sink</td><td><code>router.resolve()</code> 回 <code>null</code> 的语义 + 发射口 <code>no-sink</code> 分支</td><td>串台：别的插件的目录里出现你的行（比丢行更坏，因为看不出来）</td></tr>
+    <tr><td>7</td><td>轮询成功行零常驻；<b>第一次也不发</b>；失败行不受影响</td><td>预算断言 B 层（600 次 → 0 行）· <code>src/host.ts:845-855</code></td><td>回到 86400 行/天，现场 99.3% 噪声原样复现</td></tr>
+    <tr><td>8</td><td>常驻（resident）事件必须边沿触发</td><td>清单 <code>guard</code> 标注 + 发射口指纹去重</td><td>常驻行按次落盘，噪声预算立刻击穿</td></tr>
+    <tr><td>9</td><td>日志行不出现路径/URL/令牌/邮箱/宿主原话/命令</td><td>ADR-0006 · 逐事件负向断言 · <code>sanitizeLogFields</code></td><td>留存面出真实数据；第三方贴 issue 即泄敏</td></tr>
+    <tr><td>10</td><td>客户端只能交回 5 个白名单事件</td><td><code>isClientLogEvent</code> · <code>logAppendRows</code></td><td>客户端可伪造宿主事实（如 <code>update.install.exec</code>），日志可信度归零</td></tr>
+    <tr><td>11</td><td><code>logAppend</code> 不产生 <code>host.call</code> 行；整条路永不外抛</td><td>宿主侧直接进表、不走 <code>loggedPhone</code>；客户端各层 try/catch</td><td>日志给日志制造噪声；或日志故障拖垮面板更新功能</td></tr>
+    <tr><td>12</td><td><code>src/</code> 下零 <code>console.*</code></td><td>仓库纪律（地图 Notes 第 6 条）</td><td>插件 stdout 被宿主丢弃，等于白打</td></tr>
+    <tr><td>13</td><td><code>wf</code> 只当前缀默认值，绝不当 pluginId</td><td><code>logSwitchFileName</code> 的保留分支</td><td><code>pluginId==='wf'</code> 时目录退化成共用树，多插件重新互相覆盖</td></tr>
+  </tbody>
+</table>
+
+<!-- ============ 12 ============ -->
+<h2 id="s12"><span class="num">12</span>已知缺口与待收口事项</h2>
+<p class="sub">如实登记，不替实现圆场。前三条来自票面自述，第四、五条是本次核对代码时发现的文档面差异，第六条是流程状态。</p>
+
+<table>
+  <thead><tr><th style="width:4%">#</th><th style="width:26%">缺口</th><th style="width:44%">现状</th><th>影响</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td><code>entry.fail.exitCode</code> 的真路径未接</td>
+      <td>事件表里有这个字段，但真实退出码路径上还没有实测断言（票 #124 正文与评论里登记）</td>
+      <td>入口件安装失败的退出码在日志里可能缺格；<b>字段存在 ≠ 值一定出现</b></td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><code>from:'batch'</code> 缺端到端断言</td>
+      <td>安装电话的 <code>from</code> 只进日志、不改老调用形状；批量宿主会传 <code>'batch'</code>，但没有一条端到端用例把它从批量路径一路断言到落盘行</td>
+      <td>批量安装的日志里 <code>from</code> 取值可能被静默退化成默认 <code>'panel'</code>，而没人发现</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><code>releaseLock</code> unlink 真失败的内层分支无测试</td>
+      <td><code>update.lock.anomaly{kind:'release-failed'}</code> 的分支存在，但没有一条用例真的让 unlink 失败</td>
+      <td>锁释放异常这条诊断路径是「写了没验」的状态</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><b>关联字段 <code>traceId</code> / <code>spanId</code> 未见实现</b></td>
+      <td>规格（事件目录 §4 规则 2）要求每条行带这两个字段以支持 dsh-log 的 <code>traceChain</code>；<code>src/</code> 内 grep <code>traceId|spanId|traceChain</code> <b>零命中</b></td>
+      <td>按 trace 追一次完整链路的能力目前<b>不具备</b>；<code>npx dsh-log tail --trace &lt;id&gt;</code> 这条用法在 README §11 里已写出，但行里没有可追的字段 —— <b>要么补实现，要么把这条用法从文档里撤下</b></td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><b>文档面滞后（README 开头）</b></td>
+      <td><code>README.md:13</code> 仍写「零运行时依赖。当前版本 <code>0.10.0</code>」，而 <code>package.json</code> 是 <code>0.16.0</code> 且 <code>dependencies</code> 里有 <code>dsh-log@^0.3.1</code></td>
+      <td>这是用户手册的第一屏，与本次集成直接冲突（「零运行期依赖」正是 ADR-0005 显式破掉的那条）——需要在发布收口时改掉，否则集成方会按错误前提判断</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>发布收口未完成（票 #123）</td>
+      <td>地图 #117 十张子票已关 9 张，只剩 <b>#123（发布与对外交接：0.15.0 + 交日志一页）</b>；其名义阻塞 #120/#122/#125/#124 已全部关闭</td>
+      <td><b>代码成果已闭环，但还没发布</b>；实现仍在工作区（<code>git 34b00e6</code> 是快照提交 + 未提交改动），发布面与文档面要一起收口</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note warn">
+  <p class="t">第 4 条与第 5 条的处理建议</p>
+  <p><b>第 4 条</b>：先把「哪一端是对的」定下来。若 <code>traceChain</code> 是这次集成的承诺，就补 <code>traceId</code>/<code>spanId</code> 的铸造与注入（发射口已支持 <code>fingerprint</code> 与 <code>always</code>，字段白名单也要同步加两格）；若不补，就把 README §11 的 <code>--trace</code> 用法与事件目录 §4 规则 2 一起降级为「规划中」，别让第三方按不存在的字段去追链。</p>
+  <p><b>第 5 条</b>：属发布收口票 #123 的最小改动面 —— 改一行 README 开头，并让发布门禁把「README 声明的版本 / 依赖面与 package.json 一致」纳入检查，避免下次再滞后。</p>
+</div>
+
+<h3>12.1 规格里两处「明确不做」是决定，不是遗漏</h3>
+<div class="grid2">
+  <div class="card">
+    <h4><code>update.lock.anomaly{kind:'busy-timeout'}</code> 不做</h4>
+    <p style="margin:0;font-size:13.4px">本包两条抢锁路径都是「看一眼，不陈旧就当场认输」：<code>tryAcquireLock</code> 不等待；<code>tryAcquireGlobalLock</code> 的 <code>timeoutMs</code> 是<b>陈旧阈值</b>、不是等待超时。没有「等到超时」这条路径，就不为了凑齐词汇造一条。<span class="src">src/store.ts:57-61</span></p>
+  </div>
+  <div class="card">
+    <h4><code>update.registry.fetch.cacheHit</code> 不发</h4>
+    <p style="margin:0;font-size:13.4px">本包的缓存命中发生在取数<b>之前</b>（命中就根本不取数），到了取数点就一定是未命中 —— 发一个恒为 <code>false</code> 的格子只是噪声。<span class="src">事件目录 §3.1 落地口径 2</span></p>
+  </div>
+</div>
+
+<!-- ============ 13 ============ -->
+<h2 id="s13"><span class="num">13</span>复现命令与事实源</h2>
+<p class="sub">任何一条结论都可以自己验一遍。按「越快越先」排列。</p>
+
+<div class="code-card">
+  <div class="hd">从零复现这份报告的全部结论</div>
+  <pre><code># ① 全量回归（本报告基线：1124 例 / 1123 过 / 1 跳过 / 0 失败）
+npm test
+
+# ② 隔离与预算实测装置（真电话 / 真落点 / 真清单 / 真文件字节；装置已 gitignore，可重建）
+node .tmp/log-verify/run.mjs            # 全跑：s1 s2 s3 budget
+node .tmp/log-verify/run.mjs budget     # 只复跑预算断言（8 条，应 8/8）
+
+# ③ 单跑日志内核与各侧事件断言
+node --test tests/log-kernel.test.mjs tests/host-log.test.mjs tests/store-log.test.mjs \
+            tests/batch-log.test.mjs tests/client-log.test.mjs tests/panel-log.test.mjs
+
+# ④ 命名空间派生（有损必带指纹）
+node -e "… deriveLogNamespace('My.Plugin') …"   # → my-plugin-&lt;sha256 前 6 位&gt;
+
+# ⑤ 第三方视角：读日志
+npx dsh-log tail "$DSH_HOME/logs/&lt;派生命名空间&gt;" --since 2h --level warn
+npx dsh-log tail "$DSH_HOME/logs" --json &gt; update.log</code></pre>
+</div>
+
+<table>
+  <caption>事实源清单（按权威度排序；发生出入时以上面的为准）</caption>
+  <thead><tr><th style="width:34%">文件</th><th>它是什么事实源</th></tr></thead>
+  <tbody>
+    <tr><td><code>event-list.update.json</code></td><td><b>事件与字段的第一事实源</b>（28 事件，随包发布，运行期同步读取用于字段白名单与边沿判据）</td></tr>
+    <tr><td><code>docs/adr/0005-dsh-log-as-first-runtime-dependency.md</code></td><td>运行期依赖与落盘归属的决策（含被否方案六个、回退线、跨进程边界）</td></tr>
+    <tr><td><code>docs/adr/0006-log-rows-carry-codes-not-prose.md</code></td><td>行只承载稳定码的决策（含三类允许值、负向断言口径、README 张力的解法）</td></tr>
+    <tr><td><code>docs/research/20261014-log-event-catalog.md</code></td><td>事件目录：19 环节 × 事件/级别/档位/字段/脱敏 + §3.1 接线状态（函数级落点）</td></tr>
+    <tr><td><code>docs/research/20261014-log-isolation-verification.md</code></td><td>隔离与预算实测记录（三场景 + 负对照 + 首测/复验两轮数字 + 测不到的边界）</td></tr>
+    <tr><td><code>docs/research/20261014-dsh-log-031-api.md</code></td><td>上游 dsh-log 0.3.1 的 API 表面与落盘语义（一手取证）</td></tr>
+    <tr><td><code>docs/research/20261014-update-logging-inventory.md</code></td><td>本包 19 环节可观测性盘点与多插件共存风险（改造前的基线）</td></tr>
+    <tr><td><code>docs/research/20261014-dsh-host-logging-surface.md</code></td><td>DSH 宿主侧能提供什么日志能力（结论：几乎没有，所以必须自建落点）</td></tr>
+    <tr><td><code>README.md</code> §10／§11</td><td>用户手册：日志怎么落、怎么交给我们（面向集成方；不放流程与票号）</td></tr>
+    <tr><td><code>src/log/</code>（8 文件 1333 行）</td><td>内核实现：命名空间 / 登记表 / 路由 / 发射口 / 落点 / 清单 / 客户端队列</td></tr>
+  </tbody>
+</table>
+
+<div class="foot">
+  <p><b>关于这份报告</b>：全部事实取自当前工作区的代码、随包清单与实测记录，测试数字由本报告写作时实跑得出。凡「文档承诺 vs 实现」有出入处（第 12 节 #4、#5）已单列，未做圆场。</p>
+  <p><b>范围</b>：本报告只覆盖地图 #117 的日志系统集成线（子票 #118／#119／#120／#121／#122／#124／#125／#126／#127 已关，#123 待收口）；同一工作区并行进行的 changelog 展示线（#116 等）不在本报告内。</p>
+  <p><b>版本口径</b>：代码状态 = <code>git 34b00e6</code> 快照 + 未提交工作区改动（<code>src/host.ts</code>、<code>src/store.ts</code>、<code>src/service.ts</code>、<code>src/batch-run.ts</code>、<code>src/host-batch.ts</code>、<code>src/reader.ts</code>、<code>src/ports.ts</code>、<code>docs/**</code>、<code>tests/*log*.test.mjs</code>）；包版本 <code>0.16.0</code>；依赖 <code>dsh-log ^0.3.1</code>（实测安装 <code>0.3.1</code>）。</p>
+</div>
+</main>
+</div>
+<button class="backtop" id="backtop" type="button" aria-label="回到顶部">↑</button>
+<script>
+(function(){
+  var root=document.documentElement, btn=document.getElementById('themebtn'), top=document.getElementById('backtop');
+  var saved=null; try{saved=localStorage.getItem('log-report-theme')}catch(e){}
+  if(saved){root.setAttribute('data-theme',saved)}else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches){root.setAttribute('data-theme','dark')}
+  btn.addEventListener('click',function(){
+    var next=root.getAttribute('data-theme')==='dark'?'light':'dark';
+    root.setAttribute('data-theme',next);
+    try{localStorage.setItem('log-report-theme',next)}catch(e){}
+  });
+  var links=Array.prototype.slice.call(document.querySelectorAll('#toc a'));
+  var targets=links.map(function(a){return document.querySelector(a.getAttribute('href'))}).filter(Boolean);
+  function spy(){
+    var y=window.scrollY+140,cur=null;
+    targets.forEach(function(t){ if(t.offsetTop<=y) cur=t.id; });
+    links.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href')==='#'+cur); });
+    top.classList.toggle('on', window.scrollY>600);
+  }
+  window.addEventListener('scroll',spy,{passive:true}); spy();
+  top.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'})});
+  document.querySelectorAll('a[href^="#"]').forEach(function(a){
+    a.addEventListener('click',function(e){
+      var t=document.querySelector(a.getAttribute('href'));
+      if(!t) return; e.preventDefault(); t.scrollIntoView({behavior:'smooth',block:'start'}); history.replaceState(null,'',a.getAttribute('href'));
+    });
+  });
+})();
+</script>
+</body>
+</html>

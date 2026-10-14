@@ -92,7 +92,7 @@ npm run gate:bilingual:release    # 再加第四道：零 draft 放行（合入�
 - **15 码与诊断解析契约**：9 阻塞 + 5 电话 + internal 各有文案且只按稳定码分支；诊断两种复制形态
   （三行块 / 单行）都能解析回同一组字段，顺序冻结（码 → 摘要 → 来源 → 怎么办）。
 - **零 draft 放行**：字典里还有 `draft: true` 就红——母语 + 域内双签转正才放行合入/发版（#53 立约，见 #57）。
-  现在 7 个 entry key 仍是 draft，所以 `--release` 是**如实红**，不是坏门禁。
+  截至 `0.16.0`，字典里 **320 个 key 全部仍是 `draft: true`**（`node scripts/bilingual-gate.mjs --release` 实测），所以 `--release` 是**如实红**，不是坏门禁；转正是逐键的母语评审 + 域内双签，属独立工作，不由发版票代签。历次发版（0.9.0–0.13.0）的门禁行同样记「`--release` 仍如实红，非阻断」。
 - 失败可复现：`tests/bilingual-gate.test.mjs` 随 `npm test` 跑，它既断言本仓现在三道硬门禁全绿，
   也在临时目录里造违规，断言门禁红在哪一行（新散落中文、空英文、槽位不齐、顺序反了、解析不回字段都会红）。
 
@@ -116,6 +116,7 @@ node tests/verify-log-count.js
 
 ## 改动纪律
 
-- **冻结项**：默认电话名、入参回参形状、配置写法（只经函数入参注入）、配方五键形状、事件字段基线（三个旧事件各加必填 `pluginId`）、默认旧路径。动冻结项先走一次破冰讨论，结论写进对应 issue 并同步 README。`0.15.0` 有两处破冰：第四个动作名 `updateChangelog`（`#38`）与第五个动作名 `logAppend`（`#122`，面板侧日志通道）；两处都只在既有四个名字之后**追加**，老三电话与 `updateChangelog` 一字不动，`tests/{config,phones,queue,batch-host,gate}.test.mjs` 里「电话名一字不差」那几条断言同步扩到五个。
+- **冻结项**：默认电话名、入参回参形状、配置写法（只经函数入参注入）、配方五键形状、事件字段基线（三个旧事件各加必填 `pluginId`）、默认旧路径。动冻结项先走一次破冰讨论，结论写进对应 issue 并同步 README。`0.15.0` 有一处破冰：第四个动作名 `updateChangelog`（`#38`，`0.4.0` 起就有）；`0.16.0` 追加第五个动作名 `logAppend`（`#122`，面板侧日志通道）。两处都只在既有名字之后**追加**，老三电话与 `updateChangelog` 一字不动，`tests/{config,phones,queue,batch-host,gate}.test.mjs` 里「电话名一字不差」那几条断言同步扩到五个。
 - **取值可增**：宿主种类与路由取值属向后兼容扩展；新增时同步改 README 与 `docs/host-install-exits.md`，调用方不认新值就当普通宿主处理。
+- **`0.16.0` 的破冰（`#124` 日志接线）**：两处。(1) 检查电话多认一个可选入参 `trigger`、安装电话多认一个可选入参 `from`，两者**只进日志行**（`update.check.start.trigger`、`update.install.request.from`），不参与决策、不改回参形状，老调用一字不动（README 第 10 节已同步）。(2) `host.call` 的**发射政策**收紧：`updateStatus` 的成功行是每秒一次的轮询噪声，一条都不发（第一次也算「没有可比的上次」；只有状态真变了才留一行），`host.call` 的**名字与五键形状不变**，失败行 `host.call.fail` 不受影响。事件名、字段名与枚举值的事实源仍是 `event-list.update.json` 与 `docs/research/20261014-log-event-catalog.md`（§3.1 记了逐环节落点与实测证据）。
 - **提交**：只 `git add` 自己声明的路径；本仓可能同时有别的写者，提交前后各看一眼 `git log`。

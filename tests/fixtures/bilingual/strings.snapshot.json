@@ -1183,8 +1183,8 @@
       "draft": true
     },
     "panel.error.log-hint": {
-      "en": "Check logs: filter by plugin ID {pluginId} for events {e1}, {e2}, {e3}.",
-      "zh": "请查看日志：按插件标识 {pluginId} 筛选 {e1}、{e2}、{e3} 事件。",
+      "en": "Check logs: {dir} (one directory per plugin, no overlap). Read them with {cmd}; filter by plugin ID {pluginId} for events {e1}, {e2}, {e3}.",
+      "zh": "请查看日志：{dir}（一个插件一棵目录，互不覆盖）。一条命令看：{cmd}；按插件标识 {pluginId} 筛选 {e1}、{e2}、{e3} 事件。",
       "draft": true
     },
     "panel.error.no-failure": {

@@ -258,6 +258,13 @@ export interface UpdatePanelOptions {
    */
   profileName?: string | null
   /**
+   * 本插件日志目录（#123）：给错误章路牌用，只在传了的时候写实路径 + 现成的 `npx dsh-log tail <dir>`。
+   * 不传（或空串）即退回目录算式 `<DSH_HOME>/logs/<派生命名空间>` 与命令模板——路牌不指不存在的值。
+   * 目录由宿主侧算：`updateLogDirFor(pluginId, homeDir)`（与落盘同一算式、同一派生规则）。
+   * 电话回包一个字不改：使用范围那栏仍然只回范围名与宿主种类，绝不回目录路径。
+   */
+  logDir?: string | null
+  /**
    * 「请重启DSH」按钮的落地（可选）：宿主没有重启自己的电话，默认点击只提示手动重启；
    * 调用方能把重启流程接进来（拉起自己的重启脚本/提示用户），按钮就交给它。
    */
@@ -1463,6 +1470,11 @@ export interface PanelRenderInput extends PanelViewInput {
   /** 日志指引开关：false 即藏通用日志行（失败证据行不受影响）。 */
   showLogHint?: boolean
   /**
+   * 本插件的日志目录（#123）：宿主经 includeEnv 回的真值，只在错误章路牌里露一行。
+   * 没给（或不是字符串）= 退回「目录算式 + tail 命令模板」，路牌不指一个并不存在的值。
+   */
+  logDir?: string | null
+  /**
    * 动作面归谁：`default`（缺省）由内核画动作按钮；`none` 只画内容、不画按钮。
    * 给「调用方自己提供动作面」的场景（如批量面板的详情：动作由批量面板经自己的通道提供）。
    * 只读渲染下五章内容、进度条、「已跳过」提示一字不减，只是没有动作按钮。
@@ -1843,8 +1855,17 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
       errLines.push(`<div class="dsh-upd-changelog-neutral">${escapeHtml(copyText('panel.error.no-failure', l))}</div>`)
     }
     if ((input as { showLogHint?: unknown }).showLogHint !== false) {
+      // 路牌里的日志目录（#123）：宿主 includeEnv 回了就写实路径，没回就写算式与命令模板
+      // ——路牌宁可说「目录长这样、命令长这样」，也不指一个并不存在的值。
+      const logDirInput = (input as { logDir?: unknown }).logDir
+      const logDirKnown = typeof logDirInput === 'string' && logDirInput.trim() ? logDirInput.trim() : null
+      // 占位符一律 ASCII：中文只许存文案源（src/bilingual.ts），路径与命令里的尖括号不译。
+      const logDirShown = logDirKnown ?? '<DSH_HOME>/logs/<derived>'
+      const logCmdShown = logDirKnown ? `npx dsh-log tail ${logDirKnown}` : 'npx dsh-log tail <log-dir>'
       errLines.push(
         `<div class="dsh-upd-log">${copyText('panel.error.log-hint', l, {
+          dir: `<code>${escapeHtml(logDirShown)}</code>`,
+          cmd: `<code>${escapeHtml(logCmdShown)}</code>`,
           pluginId: `<code>${escapeHtml(pluginId)}</code>`,
           e1: `<code>${LOG_EVENT_CALL}</code>`,
           e2: `<code>${LOG_EVENT_CALL_FAIL}</code>`,
@@ -2205,6 +2226,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   // 这一栏是「更新装到哪个范围」的唯一展示面——web / desktop 各装一份，必须让人看见自己点的是哪个。
   const profileNameOption = typeof options.profileName === 'string' && options.profileName ? options.profileName : null
   const showLogHintOption = options.showLogHint !== false
+  // 日志目录（#123）：调用方显式传才认（电话回包一个字不改——使用范围那栏绝不回目录路径）。
+  const logDirOption = typeof options.logDir === 'string' && options.logDir ? options.logDir : null
   const diagCopyFormat: DiagCopyFormat = options.diagCopyFormat === 'line' ? 'line' : 'block'
   let changelogMarkdown: string | null =
     typeof options.changelogMarkdown === 'string' ? options.changelogMarkdown : null
@@ -2538,6 +2561,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       // 使用范围与宿主种类：调用方显式传的优先，否则用宿主回的真值。
       profileName: profileNameOption ?? envProfileName,
       hostKind: hostKind ?? envHostKind,
+      // 日志目录（#123）：挂载项给的真值；没给就由错误章路牌退回算式与命令模板。
+      logDir: logDirOption,
     })
     if (nextHTML !== lastHTML) {
       lastHTML = nextHTML

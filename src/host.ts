@@ -728,6 +728,19 @@ function updateLogRootDir(homeDir: unknown): string {
 }
 
 /**
+ * 本插件日志目录（`#123`）：`<homeDir>/logs/<派生命名空间>` —— 与落盘、与 README 里的派生规则同一个算式。
+ *
+ * 给面板挂载项的 `logDir` 用：宿主/入口把它传给 `mountUpdatePanel`（或 `mountUpdatePanelHttp`），
+ * 面板错误章的路牌就能给出一条能直接抄的 `npx dsh-log tail <dir>`；不传时路牌退回算式与命令模板，
+ * 绝不给一个并不存在的值。家目录优先级与其余入口一致：显式 `homeDir` > `DSH_HOME` > `~/.dsh`。
+ */
+export function updateLogDirFor(pluginId: string, homeDir?: string | null): string {
+  const explicit = typeof homeDir === 'string' && homeDir.trim() ? homeDir.trim() : null
+  const root = updateLogRootDir(explicit ?? defaultHomeDir(process.env, homedir()))
+  return join(root, deriveLogNamespace(pluginId))
+}
+
+/**
  * 接线日志：把落点挂进路由表，并如实记一条 `update.wire.ready`。
  *
  * 归属规则（ADR-0005 决策 2）：集成方给了 `logCtx` 就用它的实例，本包绝不再开第二个写者；

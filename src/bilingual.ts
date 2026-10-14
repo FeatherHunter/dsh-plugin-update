@@ -519,7 +519,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.error.evidence-frozen': { en: 'Evidence frozen: the code, versions, and IDs in copied diagnostics are from the failure moment and do not refresh with polling; the next check or install will update them.', zh: '证据已冻结：复制诊断中的稳定码、版本与编号均取自失败时刻，不随轮询刷新；下次查询版本信息或安装将更新。', draft: true },
   'panel.error.evidence-transient': { en: 'Transient read failure: it clears on the next successful read; if it persists, troubleshoot by stable code.', zh: '瞬态读取失败：下次成功读取将自动解除；若持续出现，请按稳定码排查。', draft: true },
   'panel.error.no-failure': { en: 'No failure: copying diagnostics gives the current state snapshot.', zh: '暂无失败：此时复制诊断提供的是当前状态快照。', draft: true },
-  'panel.error.log-hint': { en: 'Check logs: filter by plugin ID {pluginId} for events {e1}, {e2}, {e3}.', zh: '请查看日志：按插件标识 {pluginId} 筛选 {e1}、{e2}、{e3} 事件。', draft: true },
+  'panel.error.log-hint': { en: 'Check logs: {dir} (one directory per plugin, no overlap). Read them with {cmd}; filter by plugin ID {pluginId} for events {e1}, {e2}, {e3}.', zh: '请查看日志：{dir}（一个插件一棵目录，互不覆盖）。一条命令看：{cmd}；按插件标识 {pluginId} 筛选 {e1}、{e2}、{e3} 事件。', draft: true },
   'panel.error.log-follow': { en: 'Match the request/check IDs above in {eFail}; baseline timing in {eCall}, execution result in {eExec}.', zh: '凭上方请求／检查编号在 {eFail} 中匹配；基线耗时请查看 {eCall}，执行结果请查看 {eExec}。', draft: true },
   'panel.manual.heading': { en: 'Manual fallback command (copy the full line to run):', zh: '手工备用命令（请复制整行执行）：', draft: true },
   'panel.manual.absent': { en: 'No manual command available (unrecognized scope or source install).', zh: '当前没有可用的手工命令（使用范围无法识别或源码安装场景不提供）。', draft: true },

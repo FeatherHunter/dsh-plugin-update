@@ -12,6 +12,9 @@
 - 截断不再静默：文件超 64 KiB 时面板补一行说明，版本被截时再补一行（`changelog.truncated.file` / `changelog.truncated.versions`）——少了条目、为什么少，读者看得见。
 - **冻结面追加第五个电话名 `logAppend`（`#122`，破冰结论见 issue）**：只在既有四个名字之后追加，`updateStatus` / `updateCheck` / `updateInstall` / `updateChangelog` 一字不动；`tests/{config,phones,queue,batch-host,gate}.test.mjs` 里「电话名一字不差」的断言同步扩到五个，HTTP 白名单放行 `logAppend`，批量宿主按目标自动带上（每个目标各自的 `<前缀>.logAppend`）。
 - 随包事件清单的读取由**异步**改**同步**（`readFileSync`，进程内缓存一次）：字段白名单的判据必须当场就有——异步读会让同一行「先放行、后拒收」，行为随微任务时序漂移（`#122` 抓到的真实差异）。读不到清单时照旧放行 + 记一条 `update.log.degraded`。
+- **轮询噪声在发射侧治掉（`#124`）**：`updateStatus` 的成功行**一条都不发**——判据是「上次算得出指纹、这次算得出、且与上次不同」才留一行；第一次轮询没有可比的上次，所以也不留（这就是「N ≥ 100 次连续轮询零常驻行」的字面口径，实测 600 次 → **0 行**）。`host.call` 的名字与五键形状**一字不动**，失败行 `host.call.fail` 不受影响；状态真变时另发一条 `update.status.changed` 供追溯。依据：`host.call` 在 dsh-log 内置常驻名单里（43 名之一），集成方清单改不动它，只能在发射侧治（治理前现场 600 次轮询即 600 行，外推 ≈86400 行/天）。
+- **两个「只进日志」的可选入参（`#124` 破冰结论）**：检查电话多认 `trigger`、安装电话多认 `from`（缺省 `'panel'`，批量宿主传 `'batch'`）——不参与任何决策、不改回参形状、老调用一字不动。冻结面的这两处改动已同步 `docs/maintainers.md` 与 README 第 10 节。
+- 口径按实现收紧：`update.registry.fetch` 的 `cacheHit` **不发**（本包缓存命中发生在取数之前，到了取数点必为未命中，恒 `false` 的格子只是噪声）；`update.store.fail` 的 `op` 收成 11 个稳定码、`reason` 用 errno 稳定码；`update.check.done` 的 `stage` 四值（`fetch`/`compare`/`channel`/`verify`）钉在实现上。
 
 ### Added
 - `parseChangelogReport(markdown)`（新导出）返回 `{ entries, truncation }`，把「被截断」作为数据交出来（`truncation` 含 `chars`/`tailVersions`/`entries`/`sections`/`sectionItems`/`items`）；`parseChangelog` 仍是 `.entries` 的薄封装，老集成方零改动。
@@ -22,6 +25,9 @@
 - **面板侧的日志通道（`#122`）**：面板跑在浏览器闭包里，落盘在宿主，中间隔着新电话 `….logAppend`。客户端侧 `createClientLogChannel`（`dsh-plugin-update/log` 导出，零 `node:` 依赖）做三件事：有界环形缓冲（缺省 200 行，满了挤掉最老的并计数）、按批投递（缺省 50 行 / 1 秒，页面切后台立即冲刷，失败退避重试 2 次后丢弃并计数）、**永不外抛**（没通道、电话没接上、回包形状不对都只计数）。宿主侧那一头是协议面：只收五个客户端事件（`update.panel.mount` / `update.panel.action` / `update.panel.render.fail` / `update.panel.state` / `update.lang.applied`），级别、字段、条数（一次 200 行）、新鲜度（10 分钟内）逐个把关，回 `{ accepted, dropped }` 且不给日志自己制造 `host.call` 行。
 - 面板自动接上这条通道：`mountUpdatePanel` 默认按前缀自建（电话名 `<prefix>.logAppend`），`clientLog: { channel }` 注入自己的、`{ mount }` 改挂载点名字、`null` 明确关掉；入口件与 HTTP 直挂已传好挂载点。面板记五行：挂载、每个用户动作（复制诊断时带字节数与是否截断）、渲染兜底失败、状态变化、语言判定来源；状态与语言按指纹去重，轮询不会把它灌满。
 - `event-list.update.json` 增五行客户端事件（`#122`），字段白名单与 `guard` 说明随表发布；`tests/client-log.test.mjs`（17 例）与 `tests/panel-log.test.mjs`（6 例）把缓冲、退避、丢弃计数、协议面收放与面板五行全钉住。
+- **宿主侧环节全部接线（`#124`）**：19 环节里 Node／中立那批（③④⑤⑥⑦⑧⑨⑪⑫⑬⑭⑱，②另收一个宿主侧可选入参）逐个落到唯一发射口，逐环节的**权威落点（函数级）**与接线状态写进事件目录新增 §3.1。中立文件（`src/service.ts`、`src/changelog.ts`、`src/queue.ts`、`src/batch-run.ts`）不 import `node:`、也不认识插件标识——发射口一律由宿主侧**绑好标识**后注入（`src/host.ts` 的 `logPortFor()`）；队列与全局锁按**当次动作方**取口，行落动作方自己的目录，不会因为「谁先接线」而串台。
+- 逐事件的负向断言：`tests/host-log.test.mjs`、`tests/store-log.test.mjs`、`tests/batch-log.test.mjs`。缝探针在**真** `homeDir`／真锁／真队列上（只假网络与子进程）跑一次完整安装，验到 `update.queue.transition` 三相位齐（`queued{position:1}` → `running{waitedMs:8}` → `done`），`update.install.request`、`update.install.verify`、`update.check.done`、`update.channel.decide`、`update.status.changed` 各就其位。
+- **面板错误章路牌给出日志目录与现成命令（`#123`）**：原来那行只说「按插件标识筛选 `host.call` / `host.call.fail` / `update.install.exec`」，用户还得自己去 README 推目录名。现在路牌多给一份目录与命令：宿主/入口把新导出 `updateLogDirFor(pluginId, homeDir)`（`<homeDir>/logs/<派生命名空间>`，与落盘同一算式、同一派生规则）的结果传给面板挂载项的 `logDir`（`mountUpdatePanel` / `mountUpdatePanelHttp` / 入口件同名选项）时写**具体路径** + `npx dsh-log tail <该路径>`；没传则退回 `<DSH_HOME>/logs/<派生命名空间>` 的算式与命令模板——路牌宁可说「目录长这样、命令长这样」，也不指一个不存在的值。`showLogHint: false` 照旧把整条路牌（含新目录行）一起藏掉。**电话回包一字不动**：使用范围那栏仍然只回范围名与宿主种类，绝不回目录路径（日志行里目录也照旧只有 `logDirHash`），所以这处没动冻结面。
 
 ### Fixed
 - 保真审计（`.tmp/audit-fidelity-v2.mjs`，本机 88 份 CHANGELOG；插件语料 = 8 份 DSH 插件**副本**）：**看不到的内容行从 26.7% 降到 1.5%**（覆盖率 73.3% → 98.5%），一份都显示不出的插件文件 0/8；**幻影版本 0**。残留 10 行 = 8 行文件前言（首个版本标题之前的体例说明）+ 2 条非版本节下的条目（`validateChangelog` 报 `E_BULLET_ORPHAN` 明说，不是静默丢）。
@@ -29,8 +35,8 @@
 - 顶格块与上一条之间隔了空行就另起一条：此前围栏代码块后面的顶格引用会被粘进同一条（空行在 Markdown 里就是段落边界）。
 - 客户端日志行不再有「渠道没就绪就静默丢」的第三种状态（`#122`）：丢弃只有两个出口——缓冲挤掉或投递失败，都计入 `dropped()`；宿主回包里的 `dropped` 也照加，第三方看到的数字就是真丢了多少行。
 
-门禁：`npm run build`（含 `tsc --noEmit`）过；`npm run gate:bilingual` 四道硬门禁过；本轮 changelog 面积（`tests/changelog*.test.mjs`）**111 例全过**；`npm publish --dry-run` 73 文件。全量 `npm test` 里另有失败，全部来自**并行开发中的 dsh-log 日志线**（`tests/gate.test.mjs`、`tests/queue.test.mjs`、`tests/panel-log.test.mjs` 里尚未跟改的冻结表与新契约），与本轮 changelog 改动无关——那个数字在并行线收尾前不稳定，故不在此处钉死。
-（2026-10-14 晚补记：并行日志线已跟改完冻结表与新契约，全量 `npm test` **1099 例：1098 过 / 0 失败 / 1 跳过**；上段那个「另有失败」此刻已不成立。）
+门禁（**发版定格**）：`npm test` **1125 例：1124 过 / 0 失败 / 1 跳过**；`npm run build`（含 `tsc --noEmit`）与 `npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（文案源 grep 扫描 33 个源文件 0 违规 / 字典快照 320 个 key 0 违规 / 15 码与诊断解析契约）；`npm publish --dry-run` **73 文件**（276.6 kB 压缩 / 980.3 kB 解包）。噪声预算装置复跑 **8/8 过**（`node .tmp/log-verify/run.mjs budget`：内核边沿 86400 次 → 1 行；600 次真轮询 → **0 行**，治理前同口径是 600 行；稳态 24h 外推 0 行；安装/批量当天事件面 37 行 ≤ 500）。
+（`gate:bilingual:release` 的**第四道「零 draft 放行」仍如实红，非阻断**：320 个 key 全部还是 `draft: true`——转正走的是「母语 + 域内双签」的独立流程（#53 立约、#57 规格），不是发版票能代签的。口径与 0.9.0–0.13.0 各版一致：那几版的门禁行同样记「`--release` 仍如实红，非阻断」。`docs/maintainers.md` 里「现在 7 个 entry key 仍是 draft」是旧数字，已按实测改成 320。）
 
 ## [0.15.0] - 2026-10-14
 

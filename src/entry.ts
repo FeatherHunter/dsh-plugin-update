@@ -110,6 +110,12 @@ export interface UpdateEntryOptions {
   /** 语言覆盖（#60 v2）：'zh' | 'en' | { getActive(): string; subscribe?(cb): () => void }，不传即跟随 html[lang] > navigator > zh。 */
   locale?: LocaleOption
   profileName?: string
+  /**
+   * 本插件日志目录（#123）：透传给面板错误章路牌。
+   * 给了就写实路径 + 现成的 `npx dsh-log tail <dir>`；不传即退回目录算式与命令模板（不给不存在的值）。
+   * 目录由宿主侧算：`updateLogDirFor(pluginId, homeDir)`（与落盘同一算式、同一派生规则）。
+   */
+  logDir?: string
   pollMs?: number
   /**
    * 更新日志自动/手动（#38）：透传给面板（dialog 与 inline 同走 mountPanel），默认自动；
@@ -573,6 +579,7 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
       themeTokens,
       pollMs,
       profileName,
+      logDir: options.logDir,
       autoChangelog: options.autoChangelog,
       changelogMarkdown: options.changelogMarkdown ?? null,
       locale: localeOpt,

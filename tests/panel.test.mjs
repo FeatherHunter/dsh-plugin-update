@@ -492,3 +492,32 @@ test('类型定义随包分发：公开入口有 .d.ts，不要求调用方自�
   assert.match(dts, /mountUpdatePanel/, '类型定义含挂载入口')
   assert.match(dts, /UpdatePanelMode/, '类型定义含摆放形态')
 })
+
+// ---------- #123 错误章路牌：目录与现成命令 ----------
+
+test('#123 路牌给真目录：传入 logDir 就写实路径 + npx dsh-log tail 命令；不传则退回算式', () => {
+  const input = {
+    snapshot: baseSnapshot(),
+    manual: 'cmd',
+    queue: baseQueue(),
+    skippedLatest: false,
+    lastError: 'network',
+    showOthers: false,
+    pluginId: 'p',
+    copyNotice: null,
+    mode: 'embedded',
+  }
+  const dir = 'C:\\Users\\x\\.dsh\\logs\\abc123def'
+  const withDir = renderUpdatePanelHTML({ ...input, logDir: dir })
+  assert.ok(withDir.includes(dir), '给了真目录就写进路牌，不叫用户自己去推命名空间')
+  assert.ok(withDir.includes('npx dsh-log tail ' + dir), '路牌给一条能直接抄的命令')
+
+  const without = renderUpdatePanelHTML(input)
+  assert.ok(!without.includes('abc123def'), '没给目录就不编一个（宁可给算式）')
+  assert.ok(without.includes('&lt;DSH_HOME&gt;/logs/&lt;derived&gt;'), '退回算式：目录长这样')
+  assert.ok(without.includes('npx dsh-log tail &lt;log-dir&gt;'), '退回命令模板：占位不装真路径')
+
+  const hidden = renderUpdatePanelHTML({ ...input, logDir: dir, showLogHint: false })
+  assert.ok(!hidden.includes(dir), 'showLogHint:false 必须把新目录行一并藏掉')
+  assert.ok(!hidden.includes('npx dsh-log tail'), '命令也跟着藏，不半藏')
+})

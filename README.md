@@ -60,7 +60,7 @@ for (const [name, handler] of Object.entries(update.handlers)) {
 }
 ```
 
-这一步得到五个电话名：`notes.updateStatus`、`notes.updateCheck`、`notes.updateInstall`、`notes.updateChangelog`（取日志：给版本号，回该版 tarball 里的更新日志全文，取不到回空）、`notes.logAppend`（收面板侧的日志行，见第 10 节；`0.15.0` 起新增）。
+这一步得到五个电话名：`notes.updateStatus`、`notes.updateCheck`、`notes.updateInstall`、`notes.updateChangelog`（取日志：给版本号，回该版 tarball 里的更新日志全文，取不到回空）、`notes.logAppend`（收面板侧的日志行，见第 10 节；`0.16.0` 起新增）。
 
 `pluginId` 必填（非空字符串，不含路径分隔符）。单例复用键强制含插件标识，多插件不串内存状态与锁。
 除 `pluginId` 之外的配置都可选并带默认值，不传即走默认（见第 3 节）。
@@ -650,7 +650,15 @@ releaseOwnLog(namespace, logsRoot)   // 引用计数归零才真的释放引擎�
 
 ```js
 resolveTargetPackage(name, { targetPackageDir })  // 按包名解析你的插件包；找不到返回 null（自己搭读取器或写测试时用）
+
+// 本插件日志目录（#123）：<homeDir>/logs/<派生命名空间>，与落盘同一个算式、同一套派生规则
+import { updateLogDirFor } from 'dsh-plugin-update'
+
+updateLogDirFor('notes', process.env.DSH_HOME)   // 家目录：显式入参 > DSH_HOME > ~/.dsh
 ```
+
+把它传给面板挂载项的 `logDir`（`mountUpdatePanel` / `mountUpdatePanelHttp`，入口件同名选项），
+错误章路牌就写出**具体路径**与现成的 `npx dsh-log tail <dir>` 命令；不传则退回目录算式与命令模板（第 11 节）。
 
 **跨插件队列**（纯函数，面板侧同名函数见 `dist/client.js`，可进浏览器闭包）：
 
@@ -679,9 +687,9 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 **事件：三个旧事件形状冻结，`update.*` 按环节铺开。**`host.call`、`host.call.fail`、`update.install.exec` 的字段一字不动；新增事件按 19 个环节（检查、源查询、通道、安装、校验、重试、队列、批量、重启、面板…）命名，全表与字段白名单在包内 `event-list.update.json`，是实现的唯一事实源。日志行**只承载稳定码与参数**，人话留给面板与诊断渲染（ADR-0006）——所以日志里不会出现「安装失败：……」这类句子。
 
-**噪声预算。**轮询看状态时状态没变不发；稳态一天不超过 50 行，一个操作日不超过 500 行。`info` 只在调试开关打开或事件是常驻时落盘；`warn`、`error` 始终落盘。
+**噪声预算。**轮询看状态**一条常驻行都不落**——第一次也不算事件（它的第一次观测没有可比的上次），状态真变了才留一条 `update.status.changed` 供追溯；稳态一天不超过 50 行，一个操作日不超过 500 行。`info` 只在调试开关打开或事件是常驻时落盘；`warn`、`error` 始终落盘。检查电话与安装电话另各收一个**只进日志**的可选参数（`trigger`、`from`），不传即老样子。
 
-**面板侧的日志（`0.15.0` 起）。**面板跑在浏览器闭包里，落盘是宿主的事，中间隔着 `….logAppend` 电话：面板把行攒进一个有界环形缓冲（缺省 200 行，满了挤掉最老的并计数），按批交回宿主（缺省一批 50 行、间隔 1 秒；页面切到后台立即冲刷一次），失败退避重试 2 次后丢弃并计数 —— 整条路**永不外抛**，日志坏了不挡更新。宿主侧这一头是协议面：只收五个客户端事件（`update.panel.mount` / `update.panel.action` / `update.panel.render.fail` / `update.panel.state` / `update.lang.applied`），级别必须是 `debug`/`info`/`warn`/`error`，字段必须过本包事件清单，超量（一次 200 行以上）、过期（10 分钟以上的旧行）、形状不对一律计入回包的 `dropped`，**不产生 `host.call` 行**（不给日志自己制造噪声）。面板默认自建这条通道（电话名从前缀派生）；`mountUpdatePanel` 的 `clientLog` 选项可以换成你自己的通道或明确关掉：`{ channel }` 注入、`{ mount: 'entry' }` 记挂载点、`null` 关闭。入口件与 HTTP 直挂已经替你传好挂载点。
+**面板侧的日志（`0.16.0` 起）。**面板跑在浏览器闭包里，落盘是宿主的事，中间隔着 `….logAppend` 电话：面板把行攒进一个有界环形缓冲（缺省 200 行，满了挤掉最老的并计数），按批交回宿主（缺省一批 50 行、间隔 1 秒；页面切到后台立即冲刷一次），失败退避重试 2 次后丢弃并计数 —— 整条路**永不外抛**，日志坏了不挡更新。宿主侧这一头是协议面：只收五个客户端事件（`update.panel.mount` / `update.panel.action` / `update.panel.render.fail` / `update.panel.state` / `update.lang.applied`），级别必须是 `debug`/`info`/`warn`/`error`，字段必须过本包事件清单，超量（一次 200 行以上）、过期（10 分钟以上的旧行）、形状不对一律计入回包的 `dropped`，**不产生 `host.call` 行**（不给日志自己制造噪声）。面板默认自建这条通道（电话名从前缀派生）；`mountUpdatePanel` 的 `clientLog` 选项可以换成你自己的通道或明确关掉：`{ channel }` 注入、`{ mount: 'entry' }` 记挂载点、`null` 关闭。入口件与 HTTP 直挂已经替你传好挂载点。
 
 **不自动上报。**日志只落本地磁盘，本包不会替你把它发给任何人——什么时候交、交给谁由你决定（下一节给了现成命令）。
 
@@ -697,5 +705,7 @@ npx dsh-log tail <dir> --json > update.log                   # 导出原始 JSON
 ```
 
 提 issue 或找我们时请一并给上四样：① 本包版本（`npm ls dsh-plugin-update`）；② 你的 `pluginId` 与日志目录名；③ 出问题的时间窗；④ 面板错误页的「复制诊断」文本（含稳定码与宿主原话）。有这四样，绝大多数问题不用来回问。
+
+**面板已经把这条命令递到手上（`0.16.0` 起）。**错误章的日志路牌在面板里给出现成命令：宿主/入口把上一条的 `updateLogDirFor(...)` 结果传给面板挂载项的 `logDir` 时写**具体路径** + `npx dsh-log tail <该路径>`；没传（例如老宿主）则写 `<DSH_HOME>/logs/<派生命名空间>` 的算式与命令模板——路牌宁可说「目录长这样、命令长这样」，也不指一个不存在的值。「使用范围」那栏照旧只回范围名与宿主种类：**电话回包不带任何目录路径**（日志行里也只有一个 `logDirHash`）。
 
 日志在写入前就脱敏（绝对路径、URL 里的账密、令牌、凭据、邮箱五类换成占位符，规则见 `src/redaction.ts`），可以放心贴；贴之前扫一眼仍是好习惯。
