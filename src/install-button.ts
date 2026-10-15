@@ -21,7 +21,6 @@ import {
 import { copyText, type BilingualKey } from './bilingual.js'
 import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
 import {
-  blockedCopy,
   buildUpdateDiagCopy,
   failureCodeOf,
   isCheckSideFailureCode,
@@ -87,6 +86,8 @@ export interface InstallButtonViewInput {
   lastError: string | null
   errorKind?: string | null
   busyAct: 'check' | 'install' | null
+  /**轮询封顶后转重查态：在途也不再显示忙。请调用方（挂载）传入，纯函数不读计时器。*/
+  pollCapped?: boolean | null
   lang?: AppLang | string | null
 }
 
@@ -234,6 +235,21 @@ export function installButtonViewModel(input: InstallButtonViewInput): InstallBu
   const job = input.snapshot?.job ?? null
   const jobState = job?.state ?? null
   const jobActive = jobState === 'installing' || jobState === 'verifying'
+  // 封顶转重查态：在途也不再显示忙，按钮退回检查（点查即刷新，不多一次自动调用）。
+  if (input.pollCapped === true && jobActive && !input.busyAct) {
+    return {
+      role: 'check',
+      buttonLabel: copyText('panel.action.check', l),
+      buttonEnabled: true,
+      buttonBusy: false,
+      showButton: true,
+      statusTitle: view.banner.title,
+      statusAction: view.banner.action,
+      showManual: view.showManual,
+      queueNote: view.queueNote,
+      bannerKind: view.banner.kind,
+    }
+  }
   if (input.busyAct === 'check' || input.busyAct === 'install' || jobActive) {
     const label =
       input.busyAct === 'check'
@@ -343,18 +359,18 @@ export function renderInstallButtonHTML(
         busy +
         '>' +
         escapeHtml(view.buttonLabel) +
-        '</button>',
+        '</button></div>',
     )
-    if (view.bannerKind === 'failed') {
-      parts.push(
-        '<button type="button" data-action="copy-diag" title="' +
-          escapeHtml(copyText('panel.action.copy-diag-title', l)) +
-          '">' +
-          escapeHtml(copyText('panel.action.copy-diag', l)) +
-          '</button>',
-      )
-    }
-    parts.push('</div>')
+  }
+  // 失败证据常驻：复制诊断不随主按钮同隐——无动作可点时（blocked/待重启后的失败）仍可取证。
+  if (view.bannerKind === 'failed') {
+    parts.push(
+      '<div class="dsh-upd-ib-row"><button type="button" data-action="copy-diag" title="' +
+        escapeHtml(copyText('panel.action.copy-diag-title', l)) +
+        '">' +
+        escapeHtml(copyText('panel.action.copy-diag', l)) +
+        '</button></div>',
+    )
   }
   if (view.showManual && opts.manual) {
     parts.push(
@@ -442,7 +458,13 @@ export function mountInstallButton(
     throw new Error('[dsh-plugin-update] install button needs call (the only channel to host phones)')
   }
   const prefix = options.prefix === undefined ? DEFAULT_PREFIX : options.prefix
-  const phoneNames = buildPhoneNames(prefix)
+  let phoneNames: ReturnType<typeof buildPhoneNames>
+  try {
+    phoneNames = buildPhoneNames(prefix)
+  } catch (err) {
+    logMountFailure('prefix')
+    throw err
+  }
   if (!clientLog && !clientLogDisabled) {
     try {
       clientLog = createClientLogChannel({ call: options.call, phoneName: buildLogAppendPhoneName(prefix) })
@@ -458,6 +480,7 @@ export function mountInstallButton(
   }
   const autoCheck = options.autoCheck ?? 'mount'
   if (autoCheck !== 'mount' && autoCheck !== 'never') {
+    logMountFailure('auto-check')
     throw new Error(`[dsh-plugin-update] install button autoCheck must be mount or never (got ${JSON.stringify(options.autoCheck)})`)
   }
   if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive') {
@@ -465,15 +488,22 @@ export function mountInstallButton(
     throw new Error(`[dsh-plugin-update] install button theme must be default or archive (got ${JSON.stringify(options.theme)})`)
   }
   const theme = options.theme ?? 'default'
-  themeTokensStyleFor(options.themeTokens ?? undefined)
+  try {
+    themeTokensStyleFor(options.themeTokens ?? undefined)
+  } catch (err) {
+    logMountFailure('theme-tokens')
+    throw err
+  }
   const localeOpt: LocaleOption = options.locale ?? undefined
   if (localeOpt !== undefined && localeOpt !== null) {
     const isStr = typeof localeOpt === 'string'
     const isObj = typeof localeOpt === 'object' && typeof (localeOpt as { getActive?: unknown }).getActive === 'function'
     if (!isStr && !isObj) {
+      logMountFailure('locale')
       throw new Error('[dsh-plugin-update] invalid locale: expected zh / en / BCP47 or { getActive(), subscribe? }')
     }
     if (isStr && !(localeOpt as string).trim()) {
+      logMountFailure('locale')
       throw new Error('[dsh-plugin-update] invalid locale: empty string')
     }
   }
@@ -527,6 +557,23 @@ export function mountInstallButton(
     } catch {
       return null
     }
+  }
+
+  // update-busy is queue contention, not failure: thrown rejections carrying it
+  // must not latch (same carve-out as the ok:false reply path).
+  function thrownBusy(err: unknown): boolean {
+    try {
+      if (typeof err === 'string') return err.trim() === 'update-busy'
+      if (err instanceof Error) return err.message.trim() === 'update-busy'
+      if (isObject(err)) {
+        const e = typeof err['error'] === 'string' ? (err['error'] as string).trim() : ''
+        const k = typeof err['errorKind'] === 'string' ? (err['errorKind'] as string).trim() : ''
+        return e === 'update-busy' || k === 'update-busy'
+      }
+    } catch {
+      // Unreadable shape is not busy.
+    }
+    return false
   }
 
   function setLatch(next: InstallButtonLatch): void {
@@ -689,6 +736,7 @@ export function mountInstallButton(
       lastError: latch?.code ?? null,
       errorKind: latch?.kind ?? null,
       busyAct,
+      pollCapped,
       lang: currentLang(),
     })
   }
@@ -729,9 +777,9 @@ export function mountInstallButton(
       const reply = await call(phoneNames.updateStatus, queueArgs())
       if (!mounted) return
       applyStatusReply(reply, 'refresh')
-    } catch {
+    } catch (err) {
       if (!mounted) return
-      setLatch(volatileLatch('check'))
+      if (!thrownBusy(err)) setLatch(volatileLatch('check'))
     }
     if (!mounted) return
     if (autoCheck !== 'never' && !busyAct && !ensuring && snapshot && !snapshot.latestVersion) {
@@ -762,6 +810,11 @@ export function mountInstallButton(
       applyStatusReply(reply, 'check')
     } catch (err) {
       if (!mounted) return
+      if (thrownBusy(err)) {
+        // Busy is transient: pull the fresh queue view instead of latching.
+        await refresh()
+        return
+      }
       const env = currentEnvPair()
       setLatch({
         code: 'check-failed',
@@ -791,6 +844,10 @@ export function mountInstallButton(
         applyStatusReply(checked, 'check')
       } catch (err) {
         if (!mounted) return
+        if (thrownBusy(err)) {
+          await refresh()
+          return
+        }
         const env = currentEnvPair()
         setLatch({
           code: 'check-failed',
@@ -847,6 +904,10 @@ export function mountInstallButton(
       applyStatusReply(reply, 'install')
     } catch (err) {
       if (!mounted) return
+      if (thrownBusy(err)) {
+        await refresh()
+        return
+      }
       const env = currentEnvPair()
       setLatch({
         code: 'install-failed',

@@ -328,7 +328,7 @@ describe('终态与卸载', () => {
     const installing = absentInstallable({
       job: { id: 'j1', state: 'installing', targetVersion: '0.3.54', message: null, requestId: 'r0' },
     })
-    const { log } = await settledMount({}, { status: statusReply(installing) })
+    const { container, log } = await settledMount({}, { status: statusReply(installing) })
     assert.ok(timerFns.length >= 1)
     const tick = timerFns[timerFns.length - 1]
     log.length = 0
@@ -336,6 +336,77 @@ describe('终态与卸载', () => {
     await flush(10)
     assert.ok(callsOf(log, '.updateStatus').length <= 300)
   }, { timeout: 30000 })
+
+  it('封顶转重查态：停轮询后按钮退回“检查更新”', async () => {
+    const installing = absentInstallable({
+      job: { id: 'j1', state: 'installing', targetVersion: '0.3.54', message: null, requestId: 'r0' },
+    })
+    const { container } = await settledMount({}, { status: statusReply(installing) })
+    const tick = timerFns[timerFns.length - 1]
+    for (let i = 0; i < 305; i++) tick()
+    await flush(10)
+    assert.ok(container.innerHTML.includes('检查更新'))
+    assert.ok(container.innerHTML.includes('data-action="check"'))
+  }, { timeout: 30000 })
+
+  it('抛出的 update-busy 不锁存：安装仍可点，并重读队列', async () => {
+    const { container, btn, log } = await settledMount({ autoCheck: 'never' }, {
+      install: () => Promise.reject(new Error('update-busy')),
+    })
+    const before = callsOf(log, '.updateStatus').length
+    container.click({ 'data-action': 'install' })
+    await flush(10)
+    assert.equal(btn.state().failedCode, null)
+    assert.ok(!container.innerHTML.includes('更新失败'))
+    assert.ok(container.innerHTML.includes('data-action="install"'))
+    assert.ok(callsOf(log, '.updateStatus').length > before)
+  })
+
+  it('抛出的 update-busy 不锁存：检查角色保留', async () => {
+    const snap = absentInstallable({ latestVersion: null, canInstall: false })
+    const { container, btn } = await settledMount({}, {
+      status: statusReply(snap),
+      check: () => Promise.reject(new Error('update-busy')),
+    })
+    container.click({ 'data-action': 'check' })
+    await flush(10)
+    assert.equal(btn.state().failedCode, null)
+    assert.ok(container.innerHTML.includes('data-action="check"'))
+  })
+
+  it('装侧失败但不可装：无动作按钮，复制诊断仍在', async () => {
+    const snap = {
+      runningVersion: '1.0.0',
+      installed: true,
+      installedVersion: '1.0.0',
+      latestVersion: '1.1.0',
+      canInstall: false,
+      blockedReason: null,
+      job: { id: 'j1', state: 'failed', targetVersion: '1.1.0', message: 'install-failed: boom', requestId: 'r9' },
+    }
+    const { container } = await settledMount(
+      {},
+      { status: statusReply(snap, { manual: 'dsh plugin --profile web add --save-exact dsh-x@1.1.0' }) },
+    )
+    assert.ok(container.innerHTML.includes('data-action="copy-diag"'))
+    assert.ok(!container.innerHTML.includes('data-action="install"'))
+    assert.ok(!container.innerHTML.includes('data-action="check"'))
+  })
+
+  it('挂载校验失败记 render.fail 行', async () => {
+    const rows = []
+    const channel = { emit: (level, event, fields) => rows.push({ level, event, fields }) }
+    const { call } = fakeCall()
+    assert.throws(() =>
+      mountInstallButton(fakeContainer(), { pluginId: 'p', prefix: 't', call, clientLog: { channel }, autoCheck: 'bogus' }),
+    )
+    assert.ok(rows.some((r) => r.event === 'update.panel.render.fail'))
+    rows.length = 0
+    assert.throws(() =>
+      mountInstallButton(fakeContainer(), { pluginId: 'p', prefix: 't', call, clientLog: { channel }, locale: '' }),
+    )
+    assert.ok(rows.some((r) => r.event === 'update.panel.render.fail'))
+  })
 })
 
 describe('纯函数视图', () => {
@@ -381,5 +452,22 @@ describe('纯函数视图', () => {
       lang: 'zh',
     })
     assert.equal(view.role, 'check')
+  })
+
+  it('installButtonViewModel：封顶后在途转 check 角色', () => {
+    const view = installButtonViewModel({
+      snapshot: absentInstallable({
+        job: { id: 'j1', state: 'installing', targetVersion: '0.3.54', message: null, requestId: 'r0' },
+      }),
+      manual: null,
+      queue: baseQueue(),
+      lastError: null,
+      errorKind: null,
+      busyAct: null,
+      pollCapped: true,
+      lang: 'zh',
+    })
+    assert.equal(view.role, 'check')
+    assert.equal(view.buttonLabel, '检查更新')
   })
 })
