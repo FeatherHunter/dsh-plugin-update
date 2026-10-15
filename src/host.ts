@@ -879,7 +879,7 @@ function loggedPhone(
     } catch (error) {
       const payload = toUpdateErrorPayload(error)
       // 失败事件 4 键基线（规格 #591 第 8 条）：旧 3 键加必填插件标识。
-      emit('warn', LOG_EVENT_CALL_FAIL, { method, kind, errorHash: hash8(String((error as Error)?.message || payload.error)), pluginId })
+      emit('warn', LOG_EVENT_CALL_FAIL, { method, kind, error: payload.error, errorHash: hash8(String((error as Error)?.message || payload.error)), pluginId })
       // 失败证据闭包（#21，#18 契约实现）：失败回包加可选 diag，只增不改。
       // best-effort：组装失败即按无 diag 的旧形状返回（新面板×旧载荷仍为正常缺省）。
       let diag: Record<string, unknown> | undefined
@@ -984,7 +984,7 @@ function loggedChangelogPhone(
       return { ok: true, version: out.version, markdown: out.markdown }
     } catch (error) {
       const payload = toUpdateErrorPayload(error)
-      emit('warn', LOG_EVENT_CALL_FAIL, { method, kind: 'update-changelog', errorHash: hash8(String((error as Error)?.message || payload.error)), pluginId })
+      emit('warn', LOG_EVENT_CALL_FAIL, { method, kind: 'update-changelog', error: payload.error, errorHash: hash8(String((error as Error)?.message || payload.error)), pluginId })
       let diag: Record<string, unknown> | undefined
       try {
         const cfg = diagCtx?.config

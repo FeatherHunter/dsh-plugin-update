@@ -232,13 +232,14 @@ describe('三个旧事件的必填插件标识', () => {
     assert.equal(calls[0].fields.pluginId, 'dsh-mattpocock-skills-deck')
   })
 
-  it('失败事件 4 键：旧 3 键加必填标识', async () => {
+  it('失败事件 5 键：旧 4 键加稳定码 error', async () => {
     const fires = []
     const host = makeHost({ pluginId: 'my-plugin', prefix: 'my', fires })
     await host.handlers['my.updateInstall']({ checkId: 'wrong', requestId: 'req-1' })
     const fails = fires.filter((f) => f.event === 'host.call.fail')
     assert.equal(fails.length, 1)
-    assert.deepEqual(Object.keys(fails[0].fields).sort(), ['errorHash', 'kind', 'method', 'pluginId'])
+    assert.deepEqual(Object.keys(fails[0].fields).sort(), ['error', 'errorHash', 'kind', 'method', 'pluginId'])
     assert.equal(fails[0].fields.pluginId, 'my-plugin')
+    assert.equal(fails[0].fields.error, 'check-expired')
   })
 })

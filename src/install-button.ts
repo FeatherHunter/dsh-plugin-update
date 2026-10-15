@@ -27,7 +27,9 @@ import {
   messageCodeOf,
   panelViewModel,
   redactForCopy,
+  replyIsCheckExpired,
   themeTokensStyleFor,
+  thrownIsCheckExpired,
   type UpdatePanelClientLogOptions,
   type UpdateThemeTokens,
 } from './panel.js'
@@ -580,6 +582,8 @@ export function mountInstallButton(
     latch = next
   }
 
+  // #150 判据单源：过期凭证的回包/抛错判定复用 panel.ts 的同名导出（本文件不再自存一份）。
+
   function clearLatch(): void {
     latch = null
   }
@@ -837,95 +841,100 @@ export function mountInstallButton(
   }
 
   async function doInstall(): Promise<void> {
-    if (!receipt) {
-      try {
-        const checked = await call(phoneNames.updateCheck, queueArgs())
+    // At most one silent renewal (#150): a rejected checkId is re-checked and
+    // retried once with the fresh receipt; anything else latches as before.
+    // A successful check without a receipt means the snapshot itself carries
+    // the true story (blocked / nothing to do) — never synthesize check-expired.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (!receipt) {
+        const prevLatch = latch
+        try {
+          const checked = await call(phoneNames.updateCheck, queueArgs())
+          if (!mounted) return
+          applyStatusReply(checked, 'check')
+        } catch (err) {
+          if (!mounted) return
+          if (thrownBusy(err)) {
+            await refresh()
+            return
+          }
+          const env = currentEnvPair()
+          setLatch({
+            code: 'check-failed',
+            kind: null,
+            detail: thrownDetail(err),
+            diag: null,
+            requestId: null,
+            checkId: null,
+            runningVersion: snapshot?.runningVersion ?? null,
+            installedVersion: snapshot?.installedVersion ?? null,
+            latestVersion: snapshot?.latestVersion ?? null,
+            targetVersion: null,
+            hostKind: env.hostKind,
+            profileName: env.profileName,
+            source: 'check',
+            volatile: false,
+            atMs: latchNow(),
+          })
+          return
+        }
         if (!mounted) return
-        applyStatusReply(checked, 'check')
+        if (!receipt) {
+          // 新查已有结论：没被本轮查换掉的锁存是旧结论，清掉让快照说话；
+          // 本轮刚派生的 job 失败锁存原样保留。
+          if (latch === prevLatch) clearLatch()
+          return
+        }
+      }
+      if (!mounted) return
+      requestId = randomRequestId()
+      pollCount = 0
+      pollCapped = false
+      let reply: Record<string, unknown>
+      try {
+        reply = await call(phoneNames.updateInstall, {
+          checkId: receipt.checkId,
+          requestId,
+          ...queueArgs(),
+        })
       } catch (err) {
         if (!mounted) return
         if (thrownBusy(err)) {
           await refresh()
           return
         }
+        if (thrownIsCheckExpired(err) && attempt === 0) {
+          receipt = null
+          continue
+        }
         const env = currentEnvPair()
         setLatch({
-          code: 'check-failed',
+          code: 'install-failed',
           kind: null,
           detail: thrownDetail(err),
           diag: null,
-          requestId: null,
-          checkId: null,
+          requestId,
+          checkId: receipt?.checkId ?? null,
           runningVersion: snapshot?.runningVersion ?? null,
           installedVersion: snapshot?.installedVersion ?? null,
           latestVersion: snapshot?.latestVersion ?? null,
           targetVersion: null,
           hostKind: env.hostKind,
           profileName: env.profileName,
-          source: 'check',
+          source: 'install',
           volatile: false,
           atMs: latchNow(),
         })
         return
       }
-    }
-    if (!mounted) return
-    if (!receipt) {
-      const env = currentEnvPair()
-      setLatch({
-        code: 'check-expired',
-        kind: 'check-expired',
-        detail: null,
-        diag: null,
-        requestId,
-        checkId: null,
-        runningVersion: snapshot?.runningVersion ?? null,
-        installedVersion: snapshot?.installedVersion ?? null,
-        latestVersion: snapshot?.latestVersion ?? null,
-        targetVersion: null,
-        hostKind: env.hostKind,
-        profileName: env.profileName,
-        source: 'install',
-        volatile: false,
-        atMs: latchNow(),
-      })
-      return
-    }
-    requestId = randomRequestId()
-    pollCount = 0
-    pollCapped = false
-    try {
-      const reply = await call(phoneNames.updateInstall, {
-        checkId: receipt.checkId,
-        requestId,
-        ...queueArgs(),
-      })
       if (!mounted) return
-      applyStatusReply(reply, 'install')
-    } catch (err) {
-      if (!mounted) return
-      if (thrownBusy(err)) {
-        await refresh()
-        return
+      // 先判过期再应用：attempt 0 的过期回包直接续查，不锁存、不闪失败。
+      if (replyIsCheckExpired(reply) && attempt === 0) {
+        receipt = null
+        continue
       }
-      const env = currentEnvPair()
-      setLatch({
-        code: 'install-failed',
-        kind: null,
-        detail: thrownDetail(err),
-        diag: null,
-        requestId,
-        checkId: receipt?.checkId ?? null,
-        runningVersion: snapshot?.runningVersion ?? null,
-        installedVersion: snapshot?.installedVersion ?? null,
-        latestVersion: snapshot?.latestVersion ?? null,
-        targetVersion: null,
-        hostKind: env.hostKind,
-        profileName: env.profileName,
-        source: 'install',
-        volatile: false,
-        atMs: latchNow(),
-      })
+      applyStatusReply(reply, 'install')
+      return
     }
   }
 

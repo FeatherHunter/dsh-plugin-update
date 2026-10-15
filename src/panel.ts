@@ -434,6 +434,36 @@ export function failureCodeOf(
   return INTERNAL_CODE
 }
 
+/**
+ * 是否被拒为过期凭证（#150）：回包 error/errorKind 任一为 check-expired 即算。
+ * 只认这个精确码——查失败、忙、装失败都不自动续（续了也拿不到新东西）。
+ */
+export function replyIsCheckExpired(reply: Record<string, unknown> | null | undefined): boolean {
+  if (!reply || typeof reply !== 'object') return false
+  const kind = (reply as Record<string, unknown>)['errorKind']
+  if (typeof kind === 'string' && kind.trim() === 'check-expired') return true
+  const err = (reply as Record<string, unknown>)['error']
+  return typeof err === 'string' && err.trim() === 'check-expired'
+}
+
+/** 抛错形态的过期凭证（#150）：与回包形态同判据，传输层直抛时用。 */
+export function thrownIsCheckExpired(err: unknown): boolean {
+  if (typeof err === 'string') return err.trim() === 'check-expired'
+  if (err instanceof Error) {
+    if (err.message.trim() === 'check-expired') return true
+    const code = (err as { code?: unknown }).code
+    return typeof code === 'string' && code.trim() === 'check-expired'
+  }
+  if (err && typeof err === 'object' && !Array.isArray(err)) {
+    const rec = err as Record<string, unknown>
+    const e = typeof rec['error'] === 'string' ? (rec['error'] as string).trim() : ''
+    const k = typeof rec['errorKind'] === 'string' ? (rec['errorKind'] as string).trim() : ''
+    const c = typeof rec['code'] === 'string' ? (rec['code'] as string).trim() : ''
+    return e === 'check-expired' || k === 'check-expired' || c === 'check-expired'
+  }
+  return false
+}
+
 // ---------- 复制前脱敏（#24 单源收敛：规则唯一源是 src/redaction.ts） ----------
 //
 // 面板不再自存一份 PANEL_* 镜像：脱敏五条规则、顺序、占位符、丢弃语义、落刀语义
@@ -2842,50 +2872,58 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         copyNotice = copyText('panel.toast.installing', currentLang())
         render()
         try {
-          if (!receipt) {
-            try {
-              const checked = await call(phoneNames.updateCheck, queueArgs())
+          // 至多静默续一次（#150）：旧凭证被拒即重查 + 新凭证重装；其余失败原样锁存。
+          // 查回 ok:true 却无收据时真实故事在快照里（阻拦 / 无需装），绝不伪造 check-expired。
+          for (let attempt = 0; attempt < 2; attempt += 1) {
+            if (!receipt) {
+              const prevLatch = latch
+              try {
+                const checked = await call(phoneNames.updateCheck, queueArgs())
+                if (!mounted) return
+                applyStatusReply(checked, 'check')
+              } catch (err) {
+                if (!mounted) return
+                setLatch(userThrowLatch('check', err))
+                render()
+                return
+              }
               if (!mounted) return
-              applyStatusReply(checked, 'check')
+              if (!receipt) {
+                // 与安装按钮同一口径：只有本轮查没换掉的旧锁存才清，本轮派生的 job 失败保留。
+                if (latch === prevLatch) clearLatch()
+                render()
+                return
+              }
+            }
+            if (!mounted) return
+            requestId = randomRequestId()
+            let reply: Record<string, unknown>
+            try {
+              reply = await call(phoneNames.updateInstall, {
+                checkId: receipt.checkId,
+                requestId,
+                ...queueArgs(),
+              })
             } catch (err) {
               if (!mounted) return
-              setLatch(userThrowLatch('check', err))
+              if (thrownIsCheckExpired(err) && attempt === 0) {
+                receipt = null
+                continue
+              }
+              setLatch(userThrowLatch('install', err))
               render()
               return
             }
-          }
-          if (!mounted) return
-          if (!receipt) {
-            const expiredEnv = currentEnvPair()
-            setLatch({
-              code: 'check-expired',
-              kind: 'check-expired',
-              detail: null,
-              diag: null,
-              requestId,
-              checkId: null,
-              runningVersion: snapshot?.runningVersion ?? null,
-              installedVersion: snapshot?.installedVersion ?? null,
-              latestVersion: snapshot?.latestVersion ?? null,
-              targetVersion: null,
-              hostKind: expiredEnv.hostKind,
-              profileName: expiredEnv.profileName,
-              source: 'install',
-              volatile: false,
-              jobId: null,
-              atMs: latchNow(),
-            })
+            if (!mounted) return
+            // 先判过期再应用：attempt 0 的过期回包直接续查，不锁存（render 也跳过）。
+            if (replyIsCheckExpired(reply) && attempt === 0) {
+              receipt = null
+              continue
+            }
+            applyStatusReply(reply, 'install')
             render()
             return
           }
-          requestId = randomRequestId()
-          const reply = await call(phoneNames.updateInstall, {
-            checkId: receipt.checkId,
-            requestId,
-            ...queueArgs(),
-          })
-          if (!mounted) return
-          applyStatusReply(reply, 'install')
         } catch (err) {
           if (!mounted) return
           setLatch(userThrowLatch('install', err))

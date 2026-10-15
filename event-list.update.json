@@ -11,7 +11,7 @@
     "host.call.fail": {
       "level": "warn",
       "kind": "resident",
-      "fields": ["method", "kind", "errorHash", "pluginId"],
+      "fields": ["method", "kind", "error", "errorHash", "pluginId"],
       "codes": ["H_ERR"],
       "guard": "一次失败电话一条"
     },

@@ -104,10 +104,11 @@ describe('门禁模板：空模板与本包事件表随包发布', () => {
     // 0.16.3 契约回填：删掉两条零发射点事件（update.install.retry / update.restart.outcome）
     // 与一个从未出现的字段名（update.registry.fetch.cacheHit），常驻 20 → 18、总数 28 → 26。
     assert.deepEqual(linted.counts, { resident: 18, ondemand: 7, selfmon: 1 })
-    // 冻结的三个旧事件名与字段一字不动。
+    // 冻结的三个旧事件名一字不动；host.call.fail 的字段经 #150 破冰加 `error`
+    // （只增稳定码一格，旧读数忽略未知格，见 #150 进度区）：其余两事件字段仍冻结。
     const events = manifest.events
     assert.deepEqual(events['host.call'].fields, ['method', 'latencyMs', 'ok', 'kind', 'pluginId'])
-    assert.deepEqual(events['host.call.fail'].fields, ['method', 'kind', 'errorHash', 'pluginId'])
+    assert.deepEqual(events['host.call.fail'].fields, ['method', 'kind', 'error', 'errorHash', 'pluginId'])
     assert.deepEqual(events['update.install.exec'].fields, ['route', 'ok', 'exitCode', 'durationMs', 'pluginId'])
     // 契约回填的负向断言：这三样不许再回到清单里（清单是发布出去的契约，声明了就得真发）。
     assert.equal(events['update.install.retry'], undefined, '零发射点的事件不该留在随包清单里')
