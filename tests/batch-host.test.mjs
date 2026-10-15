@@ -1349,17 +1349,15 @@ describe('两段式生产者-消费者（#70 ADR-0004）', () => {
     host.dispose()
   })
 
-  it('真路径两家批：registry 取数恰好 6 次（check 4 + 装时重验 2，单例槽只留最后一家）', async () => {
+  it('真路径两家批：两家同包同版都装完，不误报失败（取数断言见 issue-151 用例）', async () => {
     const { dir, scope } = await tempScope()
     const targetName = 'pkg-twice'
     const registry = 'https://registry.npmjs.org/'
-    let fetches = 0
-    const makeCountedOverrides = (key) => {
+    const makeOverrides = () => {
       let installed = '1.0.0'
       let job = null
       let clock = 1000000
       let n = 0
-      let delayedPrecheck = false
       return {
         runningVersion: '1.0.0',
         profileDir: dir,
@@ -1369,7 +1367,6 @@ describe('两段式生产者-消费者（#70 ADR-0004）', () => {
         nodeVersion: '22.0.0',
         targetPackageName: targetName,
         fetchImpl: async () => {
-          fetches += 1
           return {
             ok: true,
             headers: { get: () => null },
@@ -1385,12 +1382,6 @@ describe('两段式生产者-消费者（#70 ADR-0004）', () => {
         now: () => (clock += 10),
         randomId: () => 'id-' + (n += 1),
         readInstalled: async () => {
-          // 只延迟 b 的第一次读数 500ms：固定预查完成顺序（b 最后）→ 驱动起步时单例槽里是 b →
-          // 两家首次提交都过期 → A 案重查恰好 2 次。只定顺序，不改任何语义；后续读数不延迟。
-          if (key === 'b' && !delayedPrecheck) {
-            delayedPrecheck = true
-            await new Promise((done) => setTimeout(done, 500))
-          }
           return {
             profileName: 'web',
             environmentKind: 'cli',
@@ -1417,19 +1408,21 @@ describe('两段式生产者-消费者（#70 ADR-0004）', () => {
       }
     }
     const host = createMultiHostUpdate(
-      { scope, installPollMs: 5, readerOverridesFor: (spec) => makeCountedOverrides(spec.key) },
+      { scope, installPollMs: 5, readerOverridesFor: () => makeOverrides() },
       { prefix: 'life', targets: [target('a', { packageName: targetName }), target('b', { packageName: targetName })] },
     )
     const twice = await host.handlers['life.batchInstall']({})
     assert.equal(twice.ok, true)
     assert.equal(phaseOf(twice.session, 'a'), 'done')
     assert.equal(phaseOf(twice.session, 'b'), 'done')
-    // F1 的现实锁死：两家各查 2 次——预查每家 1 次 + 装前 A 案重查每家 1 次
-    // （单例槽只留最后一家；b 被延迟 500ms 总是最后查完，所以驱动起步时槽里是 b，
-    // 含第一家在内两家首次提交都过期；装电话过闸后还会按版本文档重验一次远端：
-    // src/service.ts:901，每家再 +1 次取数）。合计 6 次 = check 4 + 装时重验 2。
-    // 将来谁按「装阶段不重查」优化，必须先来改这条断言（ADR-0004 §3）。
-    assert.equal(fetches, 6, '实际取数 ' + fetches + ' 次')
+    assert.equal(twice.progress.finished, true)
+    // 取数不断言：两家预查并发创建读取器，先后顺序由 resolveTargetPackage 的真实
+    // 文件 I/O 竞态决定（单例只留最后创建的那家，与完成顺序无关）；最后创建的恰是
+    // 先装的那家时，首次提交命中自家槽位、无需重查（5 次 vs 6 次，干净树复现）。
+    // 读延迟定不住创建顺序，故本用例只断言结果收敛。ADR-0004 §3 的数字
+    // （重查必联网、装时必重验）由 tests/issue-151-expiry-refetch.test.mjs
+    // 确定性锁定（单宿主串行 + 手动时钟）：将来谁按「装阶段不重查」优化，
+    // 必须先去改那里的断言。
     host.dispose()
   })
 })
