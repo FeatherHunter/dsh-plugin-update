@@ -175,7 +175,7 @@ function buildBatch(scope, specs, plan = {}, options = {}) {
 }
 
 describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执行器）', () => {
-  it('E1 两目标真装串行：A 收尾后 B 才起步，owner 至多一个、收尾后锁已释放', async () => {
+  it('E1 两目标真装串行：先全查再一家一家装，owner 至多一个、收尾后锁已释放', async () => {
     __resetSharedUpdateReaderForTests()
     const scope = await makeScope(['pkg-a', 'pkg-b'])
     const queueFile = queuePathsForUpdate(scope.home, scope.profile).file
@@ -200,12 +200,12 @@ describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执
     })
     const reply = await host.handlers['life.batchInstall']({})
     assert.equal(reply.ok, true)
-    assert.deepEqual(fetches, ['a', 'a', 'b', 'b'], 'A 的查+装都收尾了，B 才联网查（真串行）')
-    assert.deepEqual(installs, ['a', 'b'], '装也是一家收尾才起下一家')
+    assert.deepEqual([...fetches.slice(0, 2)].sort(), ['a', 'b'], '预查先全查（并发，顺序不限）')
+    assert.deepEqual(installs, ['a', 'b'], '装还是一家收尾才起下一家')
     assert.equal(phaseOf(reply.session, 'a'), 'done')
     assert.equal(phaseOf(reply.session, 'b'), 'done')
     assert.equal(entryOf(reply.session, 'a').restartRequired, true, '装完要重启才生效（运行版仍 pin 旧版）')
-    assert.equal(phaseOf(sessionAtBStart, 'a'), 'done', 'B 开始查时，盘上 A 已经收尾')
+    assert.ok(['checking', 'ready'].includes(phaseOf(sessionAtBStart, 'a')), 'B 开始查（预查）时 A 还没收尾（先全查，不是查一装一）')
     assert.equal(phaseOf(sessionAtBStart, 'b'), 'checking')
     assert.equal(ownerWhileInstalling.length, 2)
     for (const sample of ownerWhileInstalling) {
