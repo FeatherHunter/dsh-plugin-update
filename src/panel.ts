@@ -32,6 +32,7 @@ import { visibleQueueFor, type UpdateQueueState, type VisibleQueue } from './que
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } from './log-events.js'
 import { createClientLogChannel, type ClientLogChannel, type ClientLogEvent } from './log/client-queue.js'
 import type { BlockedReason, UpdateSnapshot } from './ports.js'
+import { INTERNAL_CODE, type PhoneFailureCode } from './codes.js'
 import { copyText, type BilingualKey } from './bilingual.js'
 import { langSignalSource, normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
 
@@ -365,8 +366,9 @@ export function blockedCopy(reason: BlockedReason | null, lang?: AppLang | strin
   return { title: copyText(keys.title, l), action: copyText(keys.action, l) }
 }
 
-// ---------- 15 码单语文案（#22 原型 + #61 入字典：9 阻塞 + 5 电话 + internal + 未来兜底） ----------
+// ---------- 稳定码单语文案（#22 原型 + #61 入字典：阻塞 + 电话 + internal + 未来兜底） ----------
 //
+// 码面真源在 src/codes.ts（#141）：下面两张表按真源的类型穷尽，真源添码而这里缺行 TS 直接报错；
 // 9 行以 README §5.2 为准（手册是源，字典逐字跟手册，不自创措辞）；
 // 5 电话专属 + internal 为原型 panel-tolerated-reader 起草，措辞只给行动，不推导；
 // 未来码走兜底（unknown），面板只渲染不推导（分支只用稳定码，不碰 diag 明细）。
@@ -375,13 +377,14 @@ export interface FailureCopy {
   act: string
 }
 
-const PHONE_FAILURE_KEYS: Record<string, { title: BilingualKey; action: BilingualKey }> = {
+/** 电话码 + internal → 文案键（缺一个码，TS 在这行报错，不用等门禁）。 */
+const PHONE_FAILURE_KEYS: Record<PhoneFailureCode | typeof INTERNAL_CODE, { title: BilingualKey; action: BilingualKey }> = {
   'check-failed': { title: 'panel.failure.check-failed.title', action: 'panel.failure.check-failed.action' },
   'invalid-release': { title: 'panel.failure.invalid-release.title', action: 'panel.failure.invalid-release.action' },
   'check-expired': { title: 'panel.failure.check-expired.title', action: 'panel.failure.check-expired.action' },
   'update-busy': { title: 'panel.failure.update-busy.title', action: 'panel.failure.update-busy.action' },
   'install-failed': { title: 'panel.failure.install-failed.title', action: 'panel.failure.install-failed.action' },
-  internal: { title: 'panel.failure.internal.title', action: 'panel.failure.internal.action' },
+  [INTERNAL_CODE]: { title: 'panel.failure.internal.title', action: 'panel.failure.internal.action' },
 }
 
 const UNKNOWN_FAILURE_KEYS: { title: BilingualKey; action: BilingualKey } = {
@@ -389,7 +392,7 @@ const UNKNOWN_FAILURE_KEYS: { title: BilingualKey; action: BilingualKey } = {
   action: 'panel.failure.unknown.action',
 }
 
-/** 15 码全表是否包含该码（9 阻塞 + 5 电话 + internal；未来码不在此列，走兜底）。 */
+/** 稳定码全表是否包含该码（阻塞 + 电话 + internal，见 src/codes.ts；未来码不在此列，走兜底）。 */
 export function isKnownFailureCode(code: unknown): boolean {
   if (typeof code !== 'string' || !code) return false
   const c = code.trim()
@@ -398,7 +401,7 @@ export function isKnownFailureCode(code: unknown): boolean {
 }
 
 /**
- * 稳定码 → 单语一句话（15 码全覆盖；未知码回未来兜底，空码回 null；lang 缺省 zh，零回归）。
+ * 稳定码 → 单语一句话（全表覆盖，见 src/codes.ts；未知码回未来兜底，空码回 null；lang 缺省 zh，零回归）。
  * 9 阻塞行复用 blocked 行原文，不另起措辞；面板分支只认返回值，不碰 diag。
  */
 export function failureCopy(code: unknown, lang?: AppLang | string | null): FailureCopy | null {
@@ -408,7 +411,7 @@ export function failureCopy(code: unknown, lang?: AppLang | string | null): Fail
   const l = normalizeLangTag(lang ?? 'zh')
   const blocked = (BLOCKED_KEYS as Record<string, { title: BilingualKey; action: BilingualKey }>)[c]
   if (blocked) return { zh: copyText(blocked.title, l), act: copyText(blocked.action, l) }
-  const phone = PHONE_FAILURE_KEYS[c]
+  const phone = (PHONE_FAILURE_KEYS as Record<string, { title: BilingualKey; action: BilingualKey }>)[c]
   if (phone) return { zh: copyText(phone.title, l), act: copyText(phone.action, l) }
   return { zh: copyText(UNKNOWN_FAILURE_KEYS.title, l), act: copyText(UNKNOWN_FAILURE_KEYS.action, l) }
 }
@@ -416,7 +419,7 @@ export function failureCopy(code: unknown, lang?: AppLang | string | null): Fail
 /**
  * 失败回包取稳定码：只认 errorKind，error 仅作回退（#22 验收：errorKind=internal 时
  * 不许误判为查新版失败；包内已把未知码收敛为 error=check-failed/errorKind=internal，
- * 此时 error 那格不可信）。缺省回 internal，不抛错。
+ * 此时 error 那格不可信）。缺省回 internal（真源常量，见 src/codes.ts），不抛错。
  */
 export function failureCodeOf(
   reply: { error?: unknown; errorKind?: unknown } | null | undefined,
@@ -427,7 +430,7 @@ export function failureCodeOf(
   const err = reply && typeof reply.error === 'string' ? reply.error.trim() : ''
   if (err) return err
   if (typeof fallback === 'string' && fallback.trim()) return fallback.trim()
-  return 'internal'
+  return INTERNAL_CODE
 }
 
 // ---------- 复制前脱敏（#24 单源收敛：规则唯一源是 src/redaction.ts） ----------

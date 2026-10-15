@@ -811,7 +811,9 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     let verifiedEnv: EnvironmentView | null = null
     try {
       if (ports.runInstall) await ports.runInstall({ version: job.targetVersion as string, profileName: envAtStart.profileName, environmentKind: envAtStart.environmentKind, releaseChannel })
-      else throw updateError('unsupported')
+      // 字面量不另存一份真源：`satisfies UpdateErrorCode` 把它钉在 src/codes.ts 的类型上，
+      // 真源删/改这个码这里立刻 typecheck 报错；而本文件「零（运行时）导入」的契约不受影响。
+      else throw updateError('unsupported' satisfies UpdateErrorCode)
       const doing: UpdateJob = { ...job, state: 'verifying', message: null }
       activeJobId = doing.id
       await saveJob(doing)

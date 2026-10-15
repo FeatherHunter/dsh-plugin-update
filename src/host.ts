@@ -27,6 +27,7 @@ import { manualCommand } from './commands.js'
 import { fetchReleaseChangelogText } from './changelog-io.js'
 import { parseChangelogReport, shouldFetchChangelog } from './changelog.js'
 import { buildDiag } from './diag.js'
+import { isCoreErrorCode } from './codes.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL } from './log-events.js'
 import { emitUpdateLog } from './log/emit.js'
 import { buildUpdateManifest, checkLogFields, currentUpdateEventTable, primeUpdateEventTable } from './log/manifest.js'
@@ -624,26 +625,10 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   return sharedReader
 }
 
-/** 核心错误码原样返回，外面世界的脏错误收敛为检查失败（码表由核心定）。 */
+/** 核心错误码原样返回，外面世界的脏错误收敛为检查失败（码面真源在 src/codes.ts，#141）。 */
 function toUpdateErrorPayload(error: unknown): { error: string; errorKind: string } {
   const code = error && typeof (error as { code?: unknown }).code === 'string' ? String((error as { code: string }).code) : ''
-  const known = [
-    'check-failed',
-    'invalid-release',
-    'check-expired',
-    'update-busy',
-    'install-failed',
-    'unknown-profile',
-    'channel-mismatch',
-    'source-install',
-    'invalid-installation',
-    'installation-changed',
-    'pending-restart',
-    'incompatible-node',
-    'registry-conflict',
-    'recovery-required',
-  ]
-  if (known.includes(code)) return { error: code, errorKind: code }
+  if (isCoreErrorCode(code)) return { error: code, errorKind: code }
   return { error: 'check-failed', errorKind: 'internal' }
 }
 

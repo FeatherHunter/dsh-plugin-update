@@ -16,11 +16,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import {
-  BLOCKED_REASONS,
   COPY_SOURCE_FILES,
   DIAG_KNOWN_KEYS,
-  PHONE_FAILURE_CODES,
-  STABLE_CODES,
   checkCopySource,
   checkDiagParseContract,
   checkDictionary,
@@ -33,6 +30,7 @@ import {
   writeCopyBaseline,
 } from '../scripts/bilingual-gate.mjs'
 import * as bilingual from '../dist/bilingual.js'
+import * as codebook from '../dist/codes.js'
 import * as panel from '../dist/panel.js'
 
 const PKG_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -71,9 +69,28 @@ function realDeps() {
       blockedCopy: panel.blockedCopy,
       isKnownFailureCode: panel.isKnownFailureCode,
       failureCodeOf: panel.failureCodeOf,
+      truth: truthOf(),
     },
     diag: { readDiagTolerant: panel.readDiagTolerant, buildUpdateDiagCopy: panel.buildUpdateDiagCopy },
   }
+}
+
+/**
+ * 码表真源（dist/codes.js，源在 src/codes.ts）：门禁与测试同读一份。
+ * 这里绝不另抄一遍码——抄一遍就等于又造了一个会漂移的真源。
+ */
+function truthOf() {
+  return {
+    blockedReasons: codebook.BLOCKED_REASONS,
+    phoneFailureCodes: codebook.PHONE_FAILURE_CODES,
+    internalCode: codebook.INTERNAL_CODE,
+    stableCodes: codebook.STABLE_CODES,
+  }
+}
+
+/** 跑码表契约那一段的入参（函数 + 真源 + 字典，缺一不可）。 */
+function codesOpts(overrides = {}) {
+  return { codes: realDeps().codes, truth: truthOf(), dictionary: bilingual.BILINGUAL_STRINGS, ...overrides }
 }
 
 function fakeIo() {
@@ -369,34 +386,74 @@ test('#56 真基线文件：现仓 src/ 逐条对上（新散落中文必须显�
   assert.ok(got.scanned.length >= 20)
 })
 
-// ---------- 15 码分支契约 ----------
+// ---------- 错误码分支契约（真源在 src/codes.ts：门禁只读，不另抄一份） ----------
 
-test('#56 15 码契约：9 阻塞 + 5 电话 + internal，真件逐码有文案有分支', () => {
-  assert.equal(BLOCKED_REASONS.length, 9)
-  assert.equal(PHONE_FAILURE_CODES.length, 5)
-  assert.equal(STABLE_CODES.length, 15)
-  assert.equal(new Set(STABLE_CODES).size, 15)
-  const got = checkStableCodes({ codes: realDeps().codes })
+test('#56 错误码契约：真源自洽（阻塞 + 电话 + internal），真件逐码有文案有分支', () => {
+  assert.ok(codebook.BLOCKED_REASONS.length > 0, '阻塞码面不许为空')
+  assert.ok(codebook.PHONE_FAILURE_CODES.length > 0, '电话码面不许为空')
+  assert.equal(new Set(codebook.STABLE_CODES).size, codebook.STABLE_CODES.length, '稳定码不许重复')
+  assert.deepEqual(
+    codebook.STABLE_CODES,
+    [...codebook.BLOCKED_REASONS, ...codebook.PHONE_FAILURE_CODES, codebook.INTERNAL_CODE],
+    '面板口径 = 阻塞 + 电话 + internal',
+  )
+  const got = checkStableCodes(codesOpts())
   assert.equal(got.ok, true, reasonsOf(got))
 })
 
-test('#56 15 码契约：码被判成未知即红（防倒退抓得住）', () => {
-  const got = checkStableCodes({ codes: { ...realDeps().codes, isKnownFailureCode: () => false } })
+test('#56 错误码契约：码被判成未知即红（防倒退抓得住，逐码都查）', () => {
+  const got = checkStableCodes(codesOpts({ codes: { ...realDeps().codes, isKnownFailureCode: () => false } }))
   assert.equal(got.ok, false)
-  assert.equal(got.violations.filter((v) => /判为已知/.test(v.reason)).length, 15)
+  assert.equal(got.violations.filter((v) => /判为已知/.test(v.reason)).length, codebook.STABLE_CODES.length)
 })
 
-test('#56 14 码契约：入口缺函数直接报缺件，不静默通过', () => {
+test('#56 错误码契约：入口缺函数直接报缺件，不静默通过', () => {
   const got = checkStableCodes({ codes: {} })
   assert.equal(got.ok, false)
   assert.ok(got.violations.some((v) => /缺函数/.test(v.reason)))
 })
 
+test('#56 错误码契约：没读到真源即红，不许「空跑也算过」', () => {
+  const got = checkStableCodes({ codes: realDeps().codes, dictionary: bilingual.BILINGUAL_STRINGS })
+  assert.equal(got.ok, false)
+  assert.ok(got.violations.some((v) => /真源/.test(v.reason)), reasonsOf(got))
+})
+
+test('#56 反向验证：真源删一个码，字典里那份文案就成孤儿，门禁必须报出来', () => {
+  const gone = codebook.BLOCKED_REASONS[0]
+  const got = checkStableCodes(
+    codesOpts({
+      truth: {
+        ...truthOf(),
+        blockedReasons: codebook.BLOCKED_REASONS.filter((c) => c !== gone),
+        stableCodes: codebook.STABLE_CODES.filter((c) => c !== gone),
+      },
+    }),
+  )
+  assert.equal(got.ok, false, '删码后必须红')
+  const text = got.violations.map((v) => v.reason).join('\n')
+  assert.match(text, new RegExp('panel\\.blocked\\.' + gone + '\\b'), '要点名成为孤儿的那族文案键')
+})
+
+test('#56 反向验证：真源加一个码，新码缺文案缺分支必须点名报出（证明真按真源查）', () => {
+  const fresh = 'brand-new-code'
+  const got = checkStableCodes(codesOpts({ truth: { ...truthOf(), stableCodes: [...codebook.STABLE_CODES, fresh] } }))
+  assert.equal(got.ok, false)
+  assert.ok(
+    got.violations.some((v) => v.text === fresh && /缺文案键/.test(v.reason)),
+    reasonsOf(got),
+  )
+  assert.ok(
+    got.violations.some((v) => v.text === fresh && /判为已知/.test(v.reason)),
+    reasonsOf(got),
+  )
+})
+
 // ---------- 诊断解析契约 ----------
 
-test('#56 诊断解析契约：真件全绿（16 键宽容读 + 15 码 ×2 形态回读 + 顺序冻结）', () => {
+test('#56 诊断解析契约：真件全绿（16 键宽容读 + 全部稳定码 ×2 形态回读 + 顺序冻结）', () => {
   assert.equal(DIAG_KNOWN_KEYS.length, 16)
-  const got = checkDiagParseContract({ diag: realDeps().diag })
+  const got = checkDiagParseContract({ diag: realDeps().diag, truth: truthOf() })
   assert.equal(got.ok, true, reasonsOf(got))
 })
 
@@ -434,14 +491,14 @@ test('#56 诊断解析：不是 [update-diag] 段就回 null，不猜', () => {
 
 test('#56 诊断解析契约：复制块丢了怎么办就红（抓得住）', () => {
   const broken = { ...realDeps().diag, buildUpdateDiagCopy: (input) => '[update-diag] ' + input.code + ' — 一句话' }
-  const got = checkDiagParseContract({ diag: broken })
+  const got = checkDiagParseContract({ diag: broken, truth: truthOf() })
   assert.equal(got.ok, false)
   assert.ok(got.violations.some((v) => /解析不出摘要|字段顺序不冻结/.test(v.reason)))
 })
 
 // ---------- 跑起来的门禁：真仓绿、放行条件如实红 ----------
 
-test('#56 真仓真件：三道硬门禁全绿（文案源 + 快照 + 15 码 + 诊断解析）', async () => {
+test('#56 真仓真件：三道硬门禁全绿（文案源 + 快照 + 稳定码 + 诊断解析）', async () => {
   const result = await runGate({ root: PKG_DIR, deps: realDeps() })
   assert.equal(result.ok, true, formatReport(result))
   assert.deepEqual(
@@ -465,12 +522,16 @@ test('#56 零 draft 放行：还有 draft 就红并逐 key 报出（现在如实
 })
 
 test('#56 零 draft 放行：字典转正后即绿（放行条件真能被满足）', async () => {
-  const strings = { 'entry.label.idle': { en: 'Check for updates', zh: '检查更新', draft: false } }
+  // 拿真字典全量「转正」（draft:false）：既过稳定码的码族反查（真源那批码的文案键都在），又零 draft。
+  const strings = Object.fromEntries(
+    Object.entries(bilingual.BILINGUAL_STRINGS).map(([key, entry]) => [key, { ...entry, draft: false }]),
+  )
+  const keys = Object.fromEntries(Object.entries(strings).map(([key, entry]) => [key, { en: entry.en, zh: entry.zh, draft: false }]))
   const result = await runGate({
     root: PKG_DIR,
-    deps: { ...realDeps(), dictionary: dictOf(strings) },
+    deps: { ...realDeps(), dictionary: { version: 'test-pin', strings, draftKeys: () => [] } },
     release: true,
-    snapshot: { dictVersion: 'test-pin', keys: { 'entry.label.idle': { en: 'Check for updates', zh: '检查更新', draft: false } } },
+    snapshot: { dictVersion: 'test-pin', keys },
   })
   assert.equal(result.ok, true, formatReport(result))
   assert.equal(result.drafts.length, 0)

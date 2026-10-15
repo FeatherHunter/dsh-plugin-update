@@ -9,6 +9,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   BILINGUAL_CSS,
   BILINGUAL_DICT_VERSION,
@@ -68,7 +69,7 @@ function fakeLocale(initial = 'zh') {
 
 // ---------- 类型锁死：键齐全，版本钉死 ----------
 
-test('字典钉住版本且 320 键齐全（entry 7 + batch-entry 6 + panel 76 + kernel 74 + diag 36 + batch 17 + batch-ledger 33 + batch-row 42 + changelog 11 + diag-fallback 16，缺键即实现未完成）', () => {
+test('字典钉住版本且键与冻结快照逐键一致（缺键或多键即实现未完成）', () => {
   __resetLangState()
   assert.equal(BILINGUAL_DICT_VERSION, '2026-10-06-pin53')
   const keys = Object.keys(BILINGUAL_STRINGS).sort()
@@ -89,7 +90,9 @@ test('字典钉住版本且 320 键齐全（entry 7 + batch-entry 6 + panel 76 +
     'entry.note.up-to-date',
   ]) assert.ok(keys.includes(k), k + ' 缺键')
   // #61 panel 75 键（§3.1 16 + §3.2 14 + §3.5 16 + §3.6 18 + §3.8 11）+ #62 kernel 74（§3.7）+ #63 diag 35（§3.3 13 + §3.4 22）+ #64 batch-ledger 33（§4.1/4.3/4.4/4.5）+ #65 batch-row 42（§4.2 13 + §4.6 15 + §4.7 14）+ #66 changelog 9 + #116 截断声明 2 + diag-fallback 16（§6.1/§7.1）+ #100 panel 1（失败目标版本）+ diag 1（复制目标）
-  assert.equal(keys.length, 320)
+  // 键集合的唯一冻结记录是快照文件（#141：测试不再另抄一份键数）；增删 key 必须同步快照，双语门禁也这么查。
+  const snap = JSON.parse(readFileSync(new URL('./fixtures/bilingual/strings.snapshot.json', import.meta.url), 'utf8'))
+  assert.deepEqual(keys, Object.keys(snap.keys).sort(), '键集合必须与冻结快照一致')
   assert.ok(keys.includes('batch.action.resume'))
   assert.ok(keys.includes('batch.action.resume-title'))
   assert.ok(keys.includes('batch.fact.close-safe'))
@@ -153,8 +156,13 @@ test('字典钉住版本且 320 键齐全（entry 7 + batch-entry 6 + panel 76 +
   }
 })
 
-test('draft 诚实态：320 键全 draft，门禁读 draftKeys()（#61/#62/#63/#64/#65/#66/#100 新增亦全 draft，--release 仍如实红）', () => {
-  assert.equal(draftKeys().length, 320)
+test('draft 诚实态：全表仍 draft，门禁读 draftKeys()（新增亦全 draft，--release 仍如实红）', () => {
+  // draft 键集合的唯一冻结记录也是那份快照（#141：不写死条数），draftKeys() 必须与它逐键一致。
+  const snap = JSON.parse(readFileSync(new URL('./fixtures/bilingual/strings.snapshot.json', import.meta.url), 'utf8'))
+  const draftInSnap = Object.keys(snap.keys)
+    .filter((k) => snap.keys[k].draft === true)
+    .sort()
+  assert.deepEqual([...draftKeys()].sort(), draftInSnap, 'draftKeys() 必须与冻结快照里的 draft 键一致')
   assert.ok(draftKeys().includes('entry.label.idle'))
   assert.ok(draftKeys().includes('batch-entry.label.update'))
 })

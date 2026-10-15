@@ -46,35 +46,17 @@ export type UpdateLogPort = (
   opts?: { always?: boolean; fingerprint?: string }
 ) => void
 
-/** 装不了的原因（装前不满足条件只给原因不给装，见通用方案复用清单）。 */
-export type BlockedReason =
-  | 'unknown-profile'
-  | 'channel-mismatch'
-  | 'source-install'
-  | 'invalid-installation'
-  | 'installation-changed'
-  | 'pending-restart'
-  | 'registry-conflict'
-  | 'incompatible-node'
-  | 'recovery-required'
+/**
+ * 装不了的原因（装前不满足条件只给原因不给装，见通用方案复用清单）与
+ * 公开错误码（核心定码，适配器只负责把外面世界的脏错误翻译进来）。
+ *
+ * 取值只在 src/codes.ts 定义一次（#141）：本文件是唯一被外部依赖的公开面，
+ * 所以在这里转发这两个名字，调用方的 import 一字不用改；`export type` 会被完全擦除，
+ * 本文件「只有类型、没有运行时逻辑」这条不变。
+ */
+import type { BlockedReason, UpdateErrorCode } from './codes.js'
 
-/** 核心定错误码，适配器只负责把外面世界的脏错误翻译进来。 */
-export type UpdateErrorCode =
-  | 'check-failed'
-  | 'invalid-release'
-  | 'check-expired'
-  | 'installation-changed'
-  | 'update-busy'
-  | 'install-failed'
-  | 'unsupported'
-  | 'pending-restart'
-  | 'source-install'
-  | 'unknown-profile'
-  | 'channel-mismatch'
-  | 'invalid-installation'
-  | 'incompatible-node'
-  | 'registry-conflict'
-  | 'recovery-required'
+export type { BlockedReason, UpdateErrorCode } from './codes.js'
 
 /** 快照：恰好六个字段，永远不带钥匙（检查编号与环境指纹另交）。 */
 export interface UpdateSnapshot {

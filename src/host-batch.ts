@@ -62,6 +62,7 @@ import {
   type BatchRunStep,
 } from './batch-run.js'
 import { assertPluginId, assertPrefix, resolveUpdateConfig, type UpdateConfigInput } from './config.js'
+import { CROSS_SCOPE_CODE, isBatchReplyCode, isCoreErrorCode } from './codes.js'
 import { createHostUpdate, type HostUpdate, type ReaderOverrides } from './host.js'
 import { emitUpdateLog } from './log/emit.js'
 import type { UpdateLogPort } from './ports.js'
@@ -178,42 +179,11 @@ const MIN_DRAIN_INTERVAL_MS = 1000
 const DEFAULT_INSTALL_POLL_MS = 500
 const REQUEST_ID_MAX_CHARS = 128
 
-/** 电话/队列认的错误码表（与 host.ts 的收敛表同口径，另加本入口自己的 cross-scope）。 */
-const KNOWN_ERROR_CODES = [
-  'check-failed',
-  'invalid-release',
-  'check-expired',
-  'update-busy',
-  'install-failed',
-  'unknown-profile',
-  'channel-mismatch',
-  'source-install',
-  'invalid-installation',
-  'installation-changed',
-  'pending-restart',
-  'incompatible-node',
-  'registry-conflict',
-  'recovery-required',
-  'cross-scope',
-]
-
-/** 任务失败说明里能当前缀认出来的码（job.message 形如「install-failed: 详情」）。 */
-const JOB_FAILURE_CODES = [
-  'install-failed',
-  'installation-changed',
-  'registry-conflict',
-  'source-install',
-  'unknown-profile',
-  'channel-mismatch',
-  'invalid-installation',
-  'incompatible-node',
-  'pending-restart',
-  'recovery-required',
-  'check-expired',
-  'update-busy',
-  'check-failed',
-  'invalid-release',
-]
+/**
+ * 本入口的认码一律走 src/codes.ts 的归属判断（真源那两张表在这里不再抄第二份）：
+ * 电话/队列认 `isBatchReplyCode`（核心码面 + 本入口的 cross-scope），
+ * 任务说明前缀认 `isCoreErrorCode`（核心码面）。
+ */
 
 function batchFail(code: string): Error & { code: string } {
   return Object.assign(new Error(code), { code })
@@ -281,19 +251,19 @@ export function phoneRequestIdOf(batchRequestId: string): string {
 
 function errorPayloadOf(error: unknown): { error: string; errorKind: string } {
   const code = error && typeof (error as { code?: unknown }).code === 'string' ? String((error as { code: string }).code) : ''
-  if (KNOWN_ERROR_CODES.includes(code)) return { error: code, errorKind: code }
+  if (isBatchReplyCode(code)) return { error: code, errorKind: code }
   return { error: 'check-failed', errorKind: 'internal' }
 }
 
 function codeOfReply(reply: Record<string, unknown>): string {
   const code = firstText(reply['error']) ?? ''
-  return KNOWN_ERROR_CODES.includes(code) ? code : 'check-failed'
+  return isBatchReplyCode(code) ? code : 'check-failed'
 }
 
 function jobFailureCode(job: Record<string, unknown> | null): string {
   const message = job && typeof job['message'] === 'string' ? (job['message'] as string) : ''
   const head = message.split(':')[0].trim()
-  return JOB_FAILURE_CODES.includes(head) ? head : 'install-failed'
+  return isCoreErrorCode(head) ? head : 'install-failed'
 }
 
 function snapshotOf(reply: Record<string, unknown>): Record<string, unknown> {
@@ -530,7 +500,7 @@ async function defaultCheck(rt: TargetRuntime): Promise<BatchCheckOutcome> {
   }
   if (snapshot['canInstall'] !== true) {
     const blocked = firstText(snapshot['blockedReason'])
-    return { kind: 'failed', error: blocked && KNOWN_ERROR_CODES.includes(blocked) ? blocked : 'check-failed' }
+    return { kind: 'failed', error: blocked && isBatchReplyCode(blocked) ? blocked : 'check-failed' }
   }
   const checkId = firstText(asRecord(reply['receipt'])['checkId'])
   if (!checkId) return { kind: 'failed', error: 'check-failed' }
@@ -647,7 +617,7 @@ export function createMultiHostUpdate(
   const distinctScopes = new Set<string>()
   for (const scope of scopes.values()) distinctScopes.add(scope.homeDir + '\u0000' + (scope.profileDir ?? '\u0000'))
   // 混进别的使用范围：如实拒绝（五个电话都回错），绝不跨范围抢锁、绝不写别家的账本。
-  const scopeError = distinctScopes.size > 1 ? 'cross-scope' : null
+  const scopeError = distinctScopes.size > 1 ? CROSS_SCOPE_CODE : null
   const batchScope = scopeError ? null : (scopes.get(specs[0].key) as TargetScope)
 
   // 共享队列端口（#15 的同一份）：七个目标共用一套读写口与一把全局锁，不各建一套。

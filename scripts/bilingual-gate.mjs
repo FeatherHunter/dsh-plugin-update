@@ -15,8 +15,10 @@
  *    渲染英文在前中文在后；全量 key→en/zh/draft 冻结在 tests/fixtures/bilingual/strings.snapshot.json，
  *    改文案必须同步快照（diff 里看得见），**改文案不换 key**。
  *
- * 3. 契约测试（15 码分支 + 诊断解析契约）：
- *    15 个稳定码（9 阻塞 + 5 电话 + internal）各有文案且只按码分支；未知码走未来兜底；
+ * 3. 契约测试（错误码分支 + 诊断解析契约）：
+ *    错误码真源在 src/codes.ts（本门禁从 dist/codes.js 读进来，**不另抄一份码表**）：
+ *    每个码都有文案、都判已知；字典里也不许留下真源没有的码族（真源删一个码即红）；未知码走未来兜底；
+ *    注意读的是构建产物：改过 src 要先 npm run build（npm test 的 pretest 已经把这一步兜住了）。
  *    诊断解析契约：宽容读 diag 对象（16 键，未知键忽略、错类型忽略、永不抛）＋
  *    两种复制形态（三行块 / 单行）都能解析回同一组字段，字段顺序冻结（码 → 摘要 → 来源 → 怎么办）。
  *
@@ -50,21 +52,13 @@ export const SCAN_DIRS = ['src']
 export const DEFAULT_BASELINE_PATH = join(PKG_DIR, 'tests', 'fixtures', 'bilingual', 'copy-baseline.json')
 export const DEFAULT_SNAPSHOT_PATH = join(PKG_DIR, 'tests', 'fixtures', 'bilingual', 'strings.snapshot.json')
 
-/** 15 码契约：9 阻塞 + 5 电话 + internal（#22；未来码不在此列，走兜底）。 */
-export const BLOCKED_REASONS = [
-  'unknown-profile',
-  'channel-mismatch',
-  'source-install',
-  'invalid-installation',
-  'installation-changed',
-  'pending-restart',
-  'registry-conflict',
-  'incompatible-node',
-  'recovery-required',
-]
-export const PHONE_FAILURE_CODES = ['check-failed', 'invalid-release', 'check-expired', 'update-busy', 'install-failed']
-export const INTERNAL_CODE = 'internal'
-export const STABLE_CODES = [...BLOCKED_REASONS, ...PHONE_FAILURE_CODES, INTERNAL_CODE]
+/**
+ * 错误码真源住在 src/codes.ts，本门禁不在这里抄第二份：
+ * 运行期从 dist/codes.js 读（见 loadDistDeps），契约检查只认读进来的那份。
+ * 抄一份在这里就等于又造一个会漂移的真源——那正是 #141 要修的病。
+ */
+/** 「未来码」兜底那一族文案键：不是码，是未知码的人话兜底，反查时豁免。 */
+export const FUTURE_FAILURE_FAMILY = 'unknown'
 
 /** 诊断对象已知键（16 键，宽容读的目录；值与键名都冻结不译）。 */
 export const DIAG_KNOWN_KEYS = [
@@ -550,27 +544,41 @@ export function checkDictionary(options = {}) {
   return { ok: violations.length === 0, violations, notes, keys }
 }
 
-/** 15 码分支契约：每个码都有文案、都判已知；未知码走兜底；阻塞 9 行复用阻塞表原文。 */
+/**
+ * 错误码分支契约（真源 src/codes.ts，从 dist/codes.js 读进来）：
+ * 每个码都有文案、都判已知；未知码走兜底；阻塞那几行复用阻塞表原文。
+ * 另一路证据是**按码族反查字典**：门禁若只比对「自己抄的一份码表」，
+ * 真源里删一个码谁也发现不了；反查文案键族才能证明它真在读真源（删码 ⇒ 字典里那族成孤儿 ⇒ 红）。
+ */
 export function checkStableCodes(options = {}) {
   const codes = options.codes ?? {}
+  const truth = options.truth ?? null
   const { failureCopy, blockedCopy, isKnownFailureCode, failureCodeOf } = codes
   const violations = []
   for (const fn of ['failureCopy', 'isKnownFailureCode', 'failureCodeOf']) {
     if (typeof codes[fn] !== 'function') violations.push({ file: 'src/panel.ts', line: 0, text: fn, reason: '面板入口缺函数：' + fn })
   }
-  if (violations.length) return { ok: false, violations, notes: [], codes: STABLE_CODES }
+  if (violations.length) return { ok: false, violations, notes: [], codes: [], blocked: [], phone: [] }
   if (typeof blockedCopy !== 'function') {
     violations.push({ file: 'src/panel.ts', line: 0, text: 'blockedCopy', reason: '面板入口缺函数：blockedCopy' })
-    return { ok: false, violations, notes: [], codes: STABLE_CODES }
+    return { ok: false, violations, notes: [], codes: [], blocked: [], phone: [] }
   }
-  if (STABLE_CODES.length !== 15) {
-    violations.push({ file: 'scripts/bilingual-gate.mjs', line: 0, text: '', reason: '15 码契约表被改动：现在 ' + STABLE_CODES.length + ' 条' })
+  if (!truth || !Array.isArray(truth.stableCodes) || truth.stableCodes.length === 0) {
+    violations.push({ file: 'src/codes.ts', line: 0, text: '', reason: '读不到码表真源（dist/codes.js：先跑 npm run build）' })
+    return { ok: false, violations, notes: [], codes: [], blocked: [], phone: [] }
   }
-  if (new Set(STABLE_CODES).size !== STABLE_CODES.length) {
-    violations.push({ file: 'scripts/bilingual-gate.mjs', line: 0, text: '', reason: '15 码契约表有重复' })
+  const stableCodes = truth.stableCodes
+  const blockedReasons = truth.blockedReasons ?? []
+  const phoneCodes = truth.phoneFailureCodes ?? []
+  const internalCode = truth.internalCode ?? 'internal'
+  if (new Set(stableCodes).size !== stableCodes.length) {
+    violations.push({ file: 'src/codes.ts', line: 0, text: '', reason: '码表真源有重复：' + stableCodes.join('、') })
+  }
+  if (JSON.stringify(stableCodes) !== JSON.stringify([...blockedReasons, ...phoneCodes, internalCode])) {
+    violations.push({ file: 'src/codes.ts', line: 0, text: '', reason: '码表真源自相矛盾：STABLE_CODES 必须恰好是 阻塞 + 电话 + internal' })
   }
 
-  for (const code of STABLE_CODES) {
+  for (const code of stableCodes) {
     const copy = failureCopy(code)
     if (!copy || !String(copy.zh || '').trim() || !String(copy.act || '').trim()) {
       violations.push({ file: 'src/panel.ts', line: 0, text: code, reason: '稳定码缺中文一句话或行动句：' + code })
@@ -580,10 +588,10 @@ export function checkStableCodes(options = {}) {
       violations.push({ file: 'src/panel.ts', line: 0, text: code, reason: '稳定码文案必须是中文人话（含汉字）：' + code })
     }
     if (isKnownFailureCode(code) !== true) {
-      violations.push({ file: 'src/panel.ts', line: 0, text: code, reason: '15 码必须判为已知：' + code })
+      violations.push({ file: 'src/panel.ts', line: 0, text: code, reason: '稳定码必须判为已知：' + code })
     }
   }
-  for (const reason of BLOCKED_REASONS) {
+  for (const reason of blockedReasons) {
     const blocked = blockedCopy(reason)
     const copy = failureCopy(reason)
     if (!blocked || !copy) {
@@ -591,9 +599,34 @@ export function checkStableCodes(options = {}) {
       continue
     }
     if (blocked.title !== copy.zh) {
-      violations.push({ file: 'src/panel.ts', line: 0, text: reason, reason: '9 行必须复用阻塞表原文，不另起措辞：' + reason })
+      violations.push({ file: 'src/panel.ts', line: 0, text: reason, reason: '阻塞行必须复用阻塞表原文，不另起措辞：' + reason })
     }
   }
+  const dictKeys = options.dictionary && typeof options.dictionary === 'object' ? Object.keys(options.dictionary) : []
+  if (dictKeys.length === 0) {
+    violations.push({ file: 'src/bilingual.ts', line: 0, text: '', reason: '缺字典：码族反查没跑（这一路不许静默跳过）' })
+  } else {
+    const blockedFamilies = copyKeyFamilies(dictKeys, 'panel.blocked')
+    const failureFamilies = copyKeyFamilies(dictKeys, 'panel.failure')
+    const blockedSet = new Set(blockedReasons)
+    for (const code of stableCodes) {
+      const isBlocked = blockedSet.has(code)
+      const parts = (isBlocked ? blockedFamilies : failureFamilies).get(code)
+      if (!parts || !parts.has('title') || !parts.has('action')) {
+        const prefix = isBlocked ? 'panel.blocked' : 'panel.failure'
+        violations.push({ file: 'src/bilingual.ts', line: 0, text: code, reason: '稳定码缺文案键：' + prefix + '.' + code + '.title / .action' })
+      }
+    }
+    for (const code of blockedFamilies.keys()) {
+      if (blockedSet.has(code)) continue
+      violations.push({ file: 'src/bilingual.ts', line: 0, text: 'panel.blocked.' + code + '.title', reason: '文案键对不上真源：panel.blocked.' + code + ' 不在 BLOCKED_REASONS 里（真源删了码？）' })
+    }
+    for (const code of failureFamilies.keys()) {
+      if (code === FUTURE_FAILURE_FAMILY || stableCodes.includes(code)) continue
+      violations.push({ file: 'src/bilingual.ts', line: 0, text: 'panel.failure.' + code + '.title', reason: '文案键对不上真源：panel.failure.' + code + ' 不在稳定码真源里（真源删了码？）' })
+    }
+  }
+
   const future = 'future-code-not-yet'
   if (isKnownFailureCode(future) !== false) violations.push({ file: 'src/panel.ts', line: 0, text: future, reason: '未来码不许判为已知' })
   const fallback = failureCopy(future)
@@ -606,10 +639,28 @@ export function checkStableCodes(options = {}) {
   if (failureCodeOf({ errorKind: 'internal', error: 'check-failed' }) !== 'internal') {
     violations.push({ file: 'src/panel.ts', line: 0, text: 'failureCodeOf', reason: 'errorKind 必须优先于 error（internal 不许被误判为 check-failed）' })
   }
-  if (failureCodeOf(null) !== INTERNAL_CODE) {
-    violations.push({ file: 'src/panel.ts', line: 0, text: 'failureCodeOf', reason: '缺省回 ' + INTERNAL_CODE })
+  if (failureCodeOf(null) !== internalCode) {
+    violations.push({ file: 'src/panel.ts', line: 0, text: 'failureCodeOf', reason: '缺省回 ' + internalCode })
   }
-  return { ok: violations.length === 0, violations, notes: [], codes: STABLE_CODES }
+  return { ok: violations.length === 0, violations, notes: [], codes: stableCodes, blocked: blockedReasons, phone: phoneCodes }
+}
+
+/**
+ * 从字典键里量出 `<前缀>.<码>.<title|action>` 的码族。
+ * 门禁靠它反查「字典里有哪些码」，而不是自己另抄一份码表。
+ * 码名按仓里既有约定收窄成 `[A-Za-z][A-Za-z0-9-]*`（现行码全小写连字符；万一将来出现大写/下划线，
+ * 这里认不出来只会走「缺文案键」误红，方向是安全的那一侧）。
+ */
+function copyKeyFamilies(dictKeys, prefix) {
+  const pattern = new RegExp('^' + prefix.split('.').join('\\.') + '\\.([A-Za-z][A-Za-z0-9-]*)\\.(title|action)$')
+  const families = new Map()
+  for (const key of dictKeys) {
+    const hit = pattern.exec(key)
+    if (!hit) continue
+    if (!families.has(hit[1])) families.set(hit[1], new Set())
+    families.get(hit[1]).add(hit[2])
+  }
+  return families
 }
 
 /**
@@ -626,6 +677,11 @@ export function checkDiagParseContract(options = {}) {
     if (typeof diag[fn] !== 'function') violations.push({ file: 'src/panel.ts', line: 0, text: fn, reason: '面板入口缺函数：' + fn })
   }
   if (violations.length) return { ok: false, violations, notes }
+
+  const stableCodes = Array.isArray(options.truth?.stableCodes) ? options.truth.stableCodes : []
+  if (stableCodes.length === 0) {
+    violations.push({ file: 'src/codes.ts', line: 0, text: '', reason: '读不到码表真源（dist/codes.js：先跑 npm run build）' })
+  }
 
   const sample = {
     v: 1,
@@ -675,7 +731,7 @@ export function checkDiagParseContract(options = {}) {
     }
   }
 
-  for (const code of STABLE_CODES) {
+  for (const code of stableCodes) {
     const input = {
       code,
       pluginId: 'demo-plugin',
@@ -788,7 +844,8 @@ function parseSourceFields(source) {
 async function loadDistDeps(root) {
   const distBilingual = join(root, 'dist', 'bilingual.js')
   const distPanel = join(root, 'dist', 'panel.js')
-  if (!existsSync(distBilingual) || !existsSync(distPanel)) {
+  const distCodes = join(root, 'dist', 'codes.js')
+  if (!existsSync(distBilingual) || !existsSync(distPanel) || !existsSync(distCodes)) {
     const err = new Error('读不到 dist（' + distBilingual + '）：先跑 npm run build')
     err.code = 'NO_DIST'
     throw err
@@ -796,6 +853,7 @@ async function loadDistDeps(root) {
   const stamp = '?g=' + Date.now()
   const bilingual = await import(pathToFileURL(distBilingual).href + stamp)
   const panel = await import(pathToFileURL(distPanel).href + stamp)
+  const codebook = await import(pathToFileURL(distCodes).href + stamp)
   return {
     dictionary: { version: bilingual.BILINGUAL_DICT_VERSION, strings: bilingual.BILINGUAL_STRINGS, draftKeys: bilingual.draftKeys },
     copyHtml: bilingual.copyHTML ?? bilingual.bilingualHTML,
@@ -807,6 +865,12 @@ async function loadDistDeps(root) {
       blockedCopy: panel.blockedCopy,
       isKnownFailureCode: panel.isKnownFailureCode,
       failureCodeOf: panel.failureCodeOf,
+      truth: {
+        blockedReasons: codebook.BLOCKED_REASONS,
+        phoneFailureCodes: codebook.PHONE_FAILURE_CODES,
+        internalCode: codebook.INTERNAL_CODE,
+        stableCodes: codebook.STABLE_CODES,
+      },
     },
     diag: { readDiagTolerant: panel.readDiagTolerant, buildUpdateDiagCopy: panel.buildUpdateDiagCopy },
   }
@@ -862,24 +926,30 @@ export async function runGate(options = {}) {
     summary: dict.keys.length + ' 个 key；违规 ' + dict.violations.length + ' 处',
   })
 
-  const codes = checkStableCodes({ codes: deps.codes })
+  const codes = checkStableCodes({ codes: deps.codes, truth: deps.codes?.truth, dictionary: deps.dictionary?.strings })
   sections.push({
     id: 'stable-codes',
-    title: '15 码分支契约（9 阻塞 + 5 电话 + internal）',
+    title: '错误码分支契约（阻塞 ' + codes.blocked.length + ' + 电话 ' + codes.phone.length + ' + internal）',
     ok: codes.ok,
     violations: codes.violations,
     notes: codes.notes,
-    summary: codes.codes.length + ' 个稳定码；违规 ' + codes.violations.length + ' 处',
+    summary: codes.codes.length + ' 个错误码（真源 src/codes.ts）；违规 ' + codes.violations.length + ' 处',
   })
 
-  const diag = checkDiagParseContract({ diag: deps.diag })
+  const diag = checkDiagParseContract({ diag: deps.diag, truth: deps.codes?.truth })
   sections.push({
     id: 'diag-parse',
     title: '诊断解析契约（宽容读 + 双形态回读 + 顺序冻结）',
     ok: diag.ok,
     violations: diag.violations,
     notes: diag.notes,
-    summary: DIAG_KNOWN_KEYS.length + ' 个 diag 键、' + STABLE_CODES.length + ' 码 ×2 形态；违规 ' + diag.violations.length + ' 处',
+    summary:
+      DIAG_KNOWN_KEYS.length +
+      ' 个 diag 键、' +
+      (deps.codes?.truth?.stableCodes?.length ?? 0) +
+      ' 码 ×2 形态；违规 ' +
+      diag.violations.length +
+      ' 处',
   })
 
   const draftStrings = deps.dictionary?.strings ?? {}
