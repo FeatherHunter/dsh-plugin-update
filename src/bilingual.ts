@@ -24,7 +24,7 @@ import { normalizeLangTag, resolveLang, type AppLang } from './lang.js'
 /** 字典版本钉（#53 Q3 解耦）：key 冻即解阻塞 #54，文案按词标 draft/locked；开发钉此版本，转正只换文案不换 key。 */
 export const BILINGUAL_DICT_VERSION = '2026-10-06-pin53'
 
-/** key 全集（entry 7 + batch-entry 6 + panel 75（#61）+ kernel 72（#62 §3.7）+ diag 35（#63 §3.3/3.4）+ batch-ledger 33（#64 §4.1/4.3/4.4/4.5）+ batch-row 42（#65 §4.2 13 + §4.6 15 + §4.7 14）+ changelog 9 + diag-fallback 15（#66 §6.1/§7.1），命名沿 #52 key 提案，area.group.name；既有 288 键 en/zh/draft 不动）。 */
+/** key 全集（entry 7 + batch-entry 6 + panel 75（#61）+ kernel 72（#62 §3.7）+ diag 35（#63 §3.3/3.4）+ batch-ledger 33（#64 §4.1/4.3/4.4/4.5）+ batch-row 42（#65 §4.2 13 + §4.6 15 + §4.7 14）+ changelog 9 + diag-fallback 15（#66 §6.1/§7.1）+ install-button 1，命名沿 #52 key 提案，area.group.name；既有 288 键 en/zh/draft 不动）。 */
 export type BilingualKey =
   | 'entry.label.idle'
   | 'entry.label.failed'
@@ -348,6 +348,7 @@ export type BilingualKey =
   | 'diag.fallback.incompatible-node'
   | 'diag.fallback.registry-conflict'
   | 'diag.fallback.recovery-required'
+  | 'install-button.action.installed'
 
 /** 一条双语：en/zh 模板 + 成熟度。模板内具名槽如 {version}/{count}，运行时值填入（值永不翻译）。 */
 export interface BilingualEntry {
@@ -685,6 +686,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'diag.fallback.incompatible-node': { en: 'New version needs a different Node version than the running one', zh: 'Node 运行时版本不兼容', draft: true },
   'diag.fallback.registry-conflict': { en: 'Declared version conflicts with the on-disk version', zh: '版本声明与磁盘实际版本冲突', draft: true },
   'diag.fallback.recovery-required': { en: 'Last install was interrupted, leaving a partial task', zh: '上次安装异常中断，存在未完成任务', draft: true },
+  'install-button.action.installed': { en: 'Installed', zh: '已安装', draft: true },
 }
 
 function escapeHtml(value: unknown): string {

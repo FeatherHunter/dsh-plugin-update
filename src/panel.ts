@@ -853,7 +853,7 @@ export function panelSealFor(kind: PanelBanner['kind'], lang?: AppLang | string 
   return { text: copyText(keys.text, l), mini: copyText(keys.mini, l), tone: keys.tone }
 }
 
-function messageCodeOf(message: unknown): string {
+export function messageCodeOf(message: unknown): string {
   if (typeof message !== 'string' || !message) return ''
   const at = message.indexOf(':')
   return (at < 0 ? message : message.slice(0, at)).trim()

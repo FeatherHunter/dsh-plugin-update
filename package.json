@@ -56,6 +56,10 @@
       "types": "./dist/entry-batch.d.ts",
       "default": "./dist/entry-batch.js"
     },
+    "./install-button": {
+      "types": "./dist/install-button.d.ts",
+      "default": "./dist/install-button.js"
+    },
     "./http": {
       "types": "./dist/http.d.ts",
       "default": "./dist/http.js"

@@ -667,6 +667,11 @@
       "zh": "已是最新 {version}",
       "draft": true
     },
+    "install-button.action.installed": {
+      "en": "Installed",
+      "zh": "已安装",
+      "draft": true
+    },
     "panel.action.check": {
       "en": "Check for updates",
       "zh": "检查更新",
