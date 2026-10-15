@@ -4,7 +4,7 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
-## [Unreleased]
+## [0.18.0] - 2026-10-15
 
 ### Added
 - **安装按钮控件**（新子路径 `dsh-plugin-update/install-button`）：`mountInstallButton(container, { pluginId, call, prefix })` 在任意卡片里原地装好一家插件。判定、文案、诊断、日志与面板同一口径（复用 `panelViewModel` 与既有文案键，只新增 `install-button.action.installed`「已安装」一键）；单按钮双角色（可装即装，否则退回检查）；点下先查后装、连点只认第一次；装中轮询有界（300 轮封顶）；失败给重试 + 复制诊断 + 手工命令 disclosure；待重启无安装动作；卸载只停轮询。唯一既有改动是 `messageCodeOf` 加 `export`（行为零变化）。详见 README 第 2.8 节。
