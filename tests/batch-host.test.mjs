@@ -556,6 +556,46 @@ describe('忙时入队：驱动进行中也能加人（#25 排队语义）', () 
     host.dispose()
   })
 
+  it('预查在飞时并入的行不丢盘面：预查抛错整轮失败时，落盘也必须含有并入的行（F2）', async () => {
+    const { dir, scope } = await tempScope()
+    const { transport } = fakeTransport({ self: { checkError: { error: 'probe-check-crash' } } })
+    let joined = null
+    const innerCheck = transport.check
+    transport.check = async (key) => {
+      // 预查窗口里并发点「装 b」：此时 driveActive 已置位，走 joinWhileBusy。
+      if (key === 'a' && joined === null) {
+        joined = await host.handlers['life.batchInstall']({ keys: ['b'] })
+      }
+      return await innerCheck(key)
+    }
+    const host = createMultiHostUpdate(
+      { scope, transport },
+      { prefix: 'life', targets: ['a', 'b', 'self'].map((key) => target(key)), selfKey: 'self' },
+    )
+    // 先手写一份只含 a/self 的会话（模拟「已经开跑、b 还没进来」）
+    const paths = batchPathsForOwner(dir, dir, 'life')
+    await mkdir(dirname(paths.batchFile), { recursive: true })
+    await writeFile(
+      paths.batchFile,
+      JSON.stringify(createBatchSession({ id: 'seed-1', keys: ['a', 'self'], selfKey: 'self', now: 1000 })),
+      'utf8',
+    )
+    const reply = await host.handlers['life.batchInstall']({})
+    assert.equal(reply.ok, false, 'self 查崩 → 预查上抛 → 整轮失败（场景设定，不是断言对象）')
+    assert.ok(joined, '预查窗口里那次调用回来了')
+    assert.equal(joined.ok, true, '忙时不再回 update-busy')
+    assert.deepEqual(joined.session.order, ['a', 'b', 'self'], 'b 并入会话，自己仍在最后')
+    // 决定性观察点：预查抛错后驱动器根本没起跑（liveSession 随后被清），
+    // 盘面是「b 是否丢意图」的唯一真相——修之前这里没有 b。
+    const disk = await readDiskSession(dir)
+    assert.ok(
+      disk.entries.some((entry) => entry.key === 'b'),
+      'F2：预查收敛落盘必须把窗口里并入的 b 并回来，否则这次失败后 b 只剩内存、盘上丢意图',
+    )
+    assert.equal(entryOf(disk, 'b').phase, 'pending', '并入的行保持 pending（等下一轮推它）')
+    host.dispose()
+  })
+
   it('单插件装电话回 update-busy：该家 ready（不是 failed）并带出队列位置', async () => {
     const { dir, scope } = await tempScope()
     const targetName = 'pkg-a'
@@ -1306,6 +1346,90 @@ describe('两段式生产者-消费者（#70 ADR-0004）', () => {
     assert.equal(phaseOf(reply.session, 'a'), 'done', '首家即使首提交过期，重查一次后也装完')
     assert.equal(phaseOf(reply.session, 'b'), 'done')
     assert.equal(reply.progress.finished, true)
+    host.dispose()
+  })
+
+  it('真路径两家批：registry 取数恰好 6 次（check 4 + 装时重验 2，单例槽只留最后一家）', async () => {
+    const { dir, scope } = await tempScope()
+    const targetName = 'pkg-twice'
+    const registry = 'https://registry.npmjs.org/'
+    let fetches = 0
+    const makeCountedOverrides = (key) => {
+      let installed = '1.0.0'
+      let job = null
+      let clock = 1000000
+      let n = 0
+      let delayedPrecheck = false
+      return {
+        runningVersion: '1.0.0',
+        profileDir: dir,
+        homeDir: dir,
+        profileName: 'web',
+        environmentKind: 'cli',
+        nodeVersion: '22.0.0',
+        targetPackageName: targetName,
+        fetchImpl: async () => {
+          fetches += 1
+          return {
+            ok: true,
+            headers: { get: () => null },
+            text: async () =>
+              JSON.stringify({
+                name: targetName,
+                version: '2.0.0',
+                engines: { node: '>=22' },
+                dist: { tarball: registry + targetName + '/-/' + targetName + '-2.0.0.tgz', integrity: 'sha512-' + 'A'.repeat(86) + '==' },
+              }),
+          }
+        },
+        now: () => (clock += 10),
+        randomId: () => 'id-' + (n += 1),
+        readInstalled: async () => {
+          // 只延迟 b 的第一次读数 500ms：固定预查完成顺序（b 最后）→ 驱动起步时单例槽里是 b →
+          // 两家首次提交都过期 → A 案重查恰好 2 次。只定顺序，不改任何语义；后续读数不延迟。
+          if (key === 'b' && !delayedPrecheck) {
+            delayedPrecheck = true
+            await new Promise((done) => setTimeout(done, 500))
+          }
+          return {
+            profileName: 'web',
+            environmentKind: 'cli',
+            homeDir: dir,
+            profileDir: dir,
+            installedVersion: installed,
+            packageValid: true,
+            sourceInstall: false,
+            blockedReason: null,
+            installationKey: 'key-1',
+            eligible: true,
+          }
+        },
+        readJob: async () => job,
+        writeJob: async (value) => {
+          job = value
+        },
+        tryAcquireLock: async () => true,
+        releaseLock: async () => {},
+        backupJob: async () => {},
+        runInstall: async () => {
+          installed = '2.0.0'
+        },
+      }
+    }
+    const host = createMultiHostUpdate(
+      { scope, installPollMs: 5, readerOverridesFor: (spec) => makeCountedOverrides(spec.key) },
+      { prefix: 'life', targets: [target('a', { packageName: targetName }), target('b', { packageName: targetName })] },
+    )
+    const twice = await host.handlers['life.batchInstall']({})
+    assert.equal(twice.ok, true)
+    assert.equal(phaseOf(twice.session, 'a'), 'done')
+    assert.equal(phaseOf(twice.session, 'b'), 'done')
+    // F1 的现实锁死：两家各查 2 次——预查每家 1 次 + 装前 A 案重查每家 1 次
+    // （单例槽只留最后一家；b 被延迟 500ms 总是最后查完，所以驱动起步时槽里是 b，
+    // 含第一家在内两家首次提交都过期；装电话过闸后还会按版本文档重验一次远端：
+    // src/service.ts:901，每家再 +1 次取数）。合计 6 次 = check 4 + 装时重验 2。
+    // 将来谁按「装阶段不重查」优化，必须先来改这条断言（ADR-0004 §3）。
+    assert.equal(fetches, 6, '实际取数 ' + fetches + ' 次')
     host.dispose()
   })
 })

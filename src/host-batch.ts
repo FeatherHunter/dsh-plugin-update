@@ -593,8 +593,9 @@ async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetS
   if (reply['ok'] === true) return await settleInstall(rt, reply)
   let code = codeOfReply(reply)
   if (code === 'check-expired') {
-    // A 案（#70 ADR-0004 §3）：单例 sharedReader 查 B 挤掉 A 的 checked，预查凭证在装到后面几家时
-    // 必然过期——过期只触发当场重查一次，不判失败；第二次仍过期才记 failed。不碰单例纪律。
+    // A 案（#70 ADR-0004 §3）：单例 sharedReader 同一时刻只留最后一家，预查并发查完后
+    // 槽里只剩最后一家——驱动串行装、每取下一家 reader（含第一家）凭证都已过期，
+    // 所以 ≥2 家的批每家首次提交都会走这里当场重查一次；第二次仍过期才记 failed。不碰单例纪律。
     const again = await rt.check(key, spec)
     if (again.kind !== 'update') return { kind: 'failed', error: again.kind === 'failed' ? again.error : 'check-expired' }
     const fresh = (rt as unknown as Record<string, unknown>)['receipt'] as { checkId: string; version: string } | null
@@ -1250,12 +1251,19 @@ export function createMultiHostUpdate(
       pendingKeys.push(key)
     }
     if (pendingKeys.length === 0) return current
+    // 预查落盘必须先把「预查窗口里并进来的行」并回来（F2）：并发的 batchInstall
+    // 在 driveActive 置位期间走 joinWhileBusy（写 liveSession + 落盘），而预查手里的
+    // current 是那之前的快照；直接 saveSession(current) 会把并入的行暂时挤出盘面。
+    const persistPrecheck = async (): Promise<void> => {
+      current = mergeInto(current, liveSession)
+      await saveSession(current)
+    }
     // 先逐家记 checking 落盘（中断后知道哪家没查完，与驱动器单步口径一致）。
     for (const key of pendingKeys) {
       const marked = markBatchEntry(current, key, { phase: 'checking', error: null }, now())
       if (marked.changed) {
         current = marked.session
-        await saveSession(current)
+        await persistPrecheck()
       }
     }
     const at = now()
@@ -1306,7 +1314,7 @@ export function createMultiHostUpdate(
         const marked = markBatchEntry(current, key, patch, now())
         if (marked.changed) {
           current = marked.session
-          await saveSession(current)
+          await persistPrecheck()
         }
       }
     }
