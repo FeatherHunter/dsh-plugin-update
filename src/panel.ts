@@ -2458,6 +2458,27 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     ]
     return pairs.some(([a, b]) => a !== null && b !== null && a !== b)
   }
+  /** 同语义失败（#143）：除 atMs 外逐字一致即同一失败，不许时间戳 churn 触发重绘。 */
+  function latchSameFailure(a: FailureLatch | null, b: FailureLatch): boolean {
+    if (!a) return false
+    return (
+      a.code === b.code &&
+      a.kind === b.kind &&
+      a.detail === b.detail &&
+      a.diag === b.diag &&
+      a.requestId === b.requestId &&
+      a.checkId === b.checkId &&
+      a.runningVersion === b.runningVersion &&
+      a.installedVersion === b.installedVersion &&
+      a.latestVersion === b.latestVersion &&
+      a.targetVersion === b.targetVersion &&
+      a.hostKind === b.hostKind &&
+      a.profileName === b.profileName &&
+      a.source === b.source &&
+      a.volatile === b.volatile &&
+      a.jobId === b.jobId
+    )
+  }
   let copyNotice: string | null = null
   let noticeExpiresAt = 0
   // 在途动作（#36）：点下查新版/安装到回包前的那一帧，按钮置忙 + 并发连点只认第一次。
@@ -2507,6 +2528,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         }
       } catch { focusAction = null }
       let scrolls: number[] = []
+      // #143：dialog 下外层面板根同样可滚（max-height + overflow-y:auto），与内层同保。
+      let rootScrolls: number[] = []
       try {
         const nodes = el.querySelectorAll('.dsh-upd-body')
         if (nodes) {
@@ -2516,6 +2539,15 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           }
         }
       } catch { scrolls = [] }
+      try {
+        const roots = el.querySelectorAll('.dsh-upd')
+        if (roots) {
+          for (let i = 0; i < roots.length; i++) {
+            const n = roots[i] as unknown as { scrollTop?: unknown }
+            rootScrolls.push(typeof n.scrollTop === 'number' ? (n.scrollTop as number) : 0)
+          }
+        }
+      } catch { rootScrolls = [] }
       target.innerHTML = html
       try {
         const bodies = el.querySelectorAll('.dsh-upd-body')
@@ -2523,6 +2555,15 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           for (let i = 0; i < bodies.length && i < scrolls.length; i++) {
             const n = bodies[i] as unknown as { scrollTop?: unknown }
             try { (n as { scrollTop: number }).scrollTop = scrolls[i] } catch { /* keep */ }
+          }
+        }
+      } catch { /* keep */ }
+      try {
+        const roots = el.querySelectorAll('.dsh-upd')
+        if (roots) {
+          for (let i = 0; i < roots.length && i < rootScrolls.length; i++) {
+            const n = roots[i] as unknown as { scrollTop?: unknown }
+            try { (n as { scrollTop: number }).scrollTop = rootScrolls[i] } catch { /* keep */ }
           }
         }
       } catch { /* keep */ }
@@ -2636,7 +2677,11 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         // #100：三元组已变（比如远端出了新版）→ 旧失败的上下文被新信息替代，不再复活；
         // 同上下文才常驻（#58）。
         if (snapshot && tripleChanged(snapshot)) clearLatch()
-        else setLatch(latchFromJob(snapshot.job, snapshot))
+        else {
+          // #143：同语义重复轮询冻结首次失败时刻，不重建锁存（时间戳 churn 即重绘即丢滚动）。
+          const next = latchFromJob(snapshot.job, snapshot)
+          if (!latchSameFailure(latch, next)) setLatch(next)
+        }
       } else if (via === 'install') {
         // 安装调用成功且无任务态：新一轮已被接受，旧失败让位
         clearLatch()
