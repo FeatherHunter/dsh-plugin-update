@@ -60,6 +60,7 @@ const SAMPLE = `# Changelog
 function baseSnapshot(overrides = {}) {
   return {
     runningVersion: '1.0.0',
+    installed: true,
     installedVersion: '1.0.0',
     latestVersion: '1.1.0',
     canInstall: true,
@@ -249,7 +250,7 @@ test('面板：日志节不碰安装门控与 blockedReason', () => {
   const withLog = panelViewModel(baseInput({ changelogMarkdown: SAMPLE }))
   assert.equal(withLog.installEnabled, without.installEnabled, '缺/有日志安装门控一字不动')
   assert.equal(withLog.installLabel, without.installLabel)
-  assert.deepEqual(Object.keys(baseSnapshot()).sort(), ['blockedReason', 'canInstall', 'installedVersion', 'job', 'latestVersion', 'runningVersion'].sort(), '快照恰好六字段')
+  assert.deepEqual(Object.keys(baseSnapshot()).sort(), ['blockedReason', 'canInstall', 'installed', 'installedVersion', 'job', 'latestVersion', 'runningVersion'].sort(), '快照七字段（#134 加 installed）')
 })
 
 test('面板：有最新版才画日志节；缺日志中性提示但按钮照旧', () => {

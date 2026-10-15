@@ -47,6 +47,18 @@ export const PHONE_FAILURE_CODES = [
 ] as const
 export type PhoneFailureCode = (typeof PHONE_FAILURE_CODES)[number]
 
+/**
+ * 查侧失败码（#134）：查电话与装电话的失败码里，「查的那一半」出的那三个。
+ * 查装分家的依据——面板失败行按它决定标题打头的是「查失败」还是「装失败」。
+ * 从 PHONE_FAILURE_CODES 派生（satisfies 钉住拼写），不许在面板另建第二张表（#141 单点真源铁律）。
+ */
+export const CHECK_SIDE_FAILURE_CODES = [
+  'check-failed',
+  'invalid-release',
+  'check-expired',
+] as const satisfies readonly PhoneFailureCode[]
+export type CheckSideFailureCode = (typeof CHECK_SIDE_FAILURE_CODES)[number]
+
 /** 码不可信时的兜底码：errorKind 认不出即按它走人话兜底，不拿 error 那格猜。 */
 export const INTERNAL_CODE = 'internal' as const
 
@@ -83,4 +95,9 @@ export function isCoreErrorCode(code: unknown): code is CoreErrorCode {
 /** 是批量入口认的码吗（批量电话与队列据此决定原样回码还是收敛）。 */
 export function isBatchReplyCode(code: unknown): code is BatchReplyCode {
   return isOneOf(BATCH_REPLY_CODES, code)
+}
+
+/** 是查侧失败码吗（面板失败行查装分家用；装侧另两个码 update-busy/install-failed 不进）。 */
+export function isCheckSideFailureCode(code: unknown): code is CheckSideFailureCode {
+  return typeof code === 'string' && isOneOf(CHECK_SIDE_FAILURE_CODES, code.trim())
 }

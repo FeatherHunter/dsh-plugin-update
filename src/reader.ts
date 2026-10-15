@@ -275,7 +275,7 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
   const registryUrl = options.registryUrl ?? 'https://registry.npmjs.org/'
   const releaseChannel: ReleaseChannel = options.releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
   // 与宿主入口共用同一个解析函数（issue #3）：显式目录优先，否则按包名解析，失败为 null。
-  const loadedPackage = resolveTargetPackage(
+  let loadedPackage = resolveTargetPackage(
     targetPackageName,
     options.targetPackageDir ? { targetPackageDir: options.targetPackageDir } : {}
   ).catch(() => null)
@@ -286,6 +286,7 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
       environmentKind,
       homeDir: null,
       profileDir: null,
+      installed: true,
       installedVersion: null,
       packageValid: false,
       sourceInstall: false,
@@ -311,11 +312,35 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
     result.homeDir = homeDir
     result.profileDir = profileDir
     let profile: { directory: string; manifest: Record<string, unknown>; contents: string }
+    try {
+      // 范围清单读不到：保持原判 invalid-installation（#137 登记为待定，本次不拆第二份）。
+      // 此时在场性无法确认——按在场走（installed=true），让下游落阻拦分支说真话；
+      // 若记 false，面板会把它谎称「未安装」（code-review Spec 轴，US11 两种情况不得混成一句）。
+      profile = await packageAt(profileDir)
+    } catch {
+      result.installed = true
+      result.blockedReason = 'invalid-installation'
+      return result
+    }
     let installed: { directory: string; manifest: Record<string, unknown>; contents: string }
     try {
-      profile = await packageAt(profileDir)
       installed = await packageAt(join(profileDir, 'node_modules', targetPackageName))
-    } catch {
+    } catch (error) {
+      // 缺席判据只有 ENOENT（#137 硬要求）：坏 JSON（SyntaxError）、权限错误（EACCES）等
+      // 说明包在场但读坏，仍判 invalid-installation，防止坏包被洗成可安装。
+      if ((error as { code?: unknown })?.code === 'ENOENT') {
+        // 缺席早退（#134）：缺席既不是错误也不是阻塞；指纹判定只对在场的包有定义，不跑。
+        // profileName/homeDir/profileDir 已在上面照填。
+        result.installed = false
+        result.installedVersion = null
+        result.packageValid = false
+        result.sourceInstall = false
+        result.blockedReason = null
+        result.installationKey = null
+        result.eligible = true
+        return result
+      }
+      result.installed = true
       result.blockedReason = 'invalid-installation'
       return result
     }
@@ -323,7 +348,16 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
     result.sourceInstall = !registrySpec(deps[targetPackageName]) || !inside(join(profileDir, 'node_modules'), installed.directory)
     result.installedVersion = typeof installed.manifest.version === 'string' ? installed.manifest.version : null
     result.packageValid = await validPackage(installed, targetPackageName)
-    const loaded = await loadedPackage
+    let loaded = await loadedPackage
+    if (loaded === null) {
+      // 缺席后装上（#134/D5）：构造期解析不到就一直是 null，装完复查以读盘为准，重解一次；
+      // 解到了就换掉缓存，后续沿用。仍解不到保持 unknown-profile（issue #3 诚实失败）。
+      loaded = await resolveTargetPackage(
+        targetPackageName,
+        options.targetPackageDir ? { targetPackageDir: options.targetPackageDir } : {}
+      ).catch(() => null)
+      if (loaded !== null) loadedPackage = Promise.resolve(loaded)
+    }
     // 目标包定位不到（自动解析全失败且没给显式目录）：诚实失败，不产假的 installation-changed
     //（issue #3；到这里已装包真实存在，是“本包认不出目标”而非“安装位置变了”，重开宿主也修不好）。
     const loadedUnresolvable = loaded === null

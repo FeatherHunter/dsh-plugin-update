@@ -512,7 +512,8 @@ async function defaultCheck(rt: TargetRuntime): Promise<BatchCheckOutcome> {
   // 未知永不判 current（#90 R2）：回包成功却无版本信息是失败，不是「已是最新」。
   if (!latest) return { kind: 'failed', error: 'check-failed' }
   if (isVersionSkipped(await skippedVersionsOf(rt), latest)) return { kind: 'skipped', version: latest }
-  const base = firstText(snapshot['installedVersion'], snapshot['runningVersion'])
+  // 缺席不断「已是最新」（#134/US16）：没有已装版本可比，注入的运行版号不可采信，直接看可安装性。
+  const base = snapshot['installed'] === false ? null : firstText(snapshot['installedVersion'], snapshot['runningVersion'])
   if (base) {
     let newer = true
     try {
@@ -1146,17 +1147,29 @@ export function createMultiHostUpdate(
   ): void {
     rt.cache = { ...rt.cache, error: outcome.kind === 'failed' ? outcome.error : null }
     const snapshot = asRecord(rt.cache.snapshot)
-    const installed = firstText(snapshot['installedVersion'], snapshot['runningVersion'])
+    // 在场事实与行内快照同步（#134）：installedVersion 只取磁盘版，不回退运行版号——
+    // 缺席时恒为 null，面板不再把注入的假版号当成已装版本。
+    const snapInstalled = snapshot['installed']
+    const installed = typeof snapInstalled === 'boolean' ? snapInstalled : null
+    const installedVersionRaw = snapshot['installedVersion']
+    const installedVersion = typeof installedVersionRaw === 'string' && installedVersionRaw ? installedVersionRaw : null
     const canInstallRaw = snapshot['canInstall']
     const canInstall = typeof canInstallRaw === 'boolean' ? canInstallRaw : null
     if (outcome.kind === 'update') {
-      entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: outcome.version, canInstall, error: null }
+      entries[rt.spec.key] = { lastCheckedAt: at, installed, installedVersion, latestVersion: outcome.version, canInstall, error: null }
     } else if (outcome.kind === 'current') {
-      entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: installed, canInstall: false, error: null }
+      entries[rt.spec.key] = { lastCheckedAt: at, installed, installedVersion, latestVersion: installedVersion, canInstall: false, error: null }
     } else if (outcome.kind === 'skipped') {
-      entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: outcome.version, canInstall: false, error: null }
+      entries[rt.spec.key] = { lastCheckedAt: at, installed, installedVersion, latestVersion: outcome.version, canInstall: false, error: null }
     } else {
-      entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: installed, latestVersion: firstText(snapshot['latestVersion']), canInstall, error: outcome.error }
+      entries[rt.spec.key] = {
+        lastCheckedAt: at,
+        installed,
+        installedVersion,
+        latestVersion: firstText(snapshot['latestVersion']),
+        canInstall,
+        error: outcome.error,
+      }
     }
   }
 
@@ -1169,7 +1182,9 @@ export function createMultiHostUpdate(
     const code = errorPayloadOf(error).error
     rt.cache = { ...rt.cache, error: code }
     const snapshot = asRecord(rt.cache.snapshot)
-    entries[rt.spec.key] = { lastCheckedAt: at, installedVersion: firstText(snapshot['installedVersion'], snapshot['runningVersion']), latestVersion: firstText(snapshot['latestVersion']), canInstall: typeof snapshot['canInstall'] === 'boolean' ? (snapshot['canInstall'] as boolean) : null, error: code }
+    const errInstalled = snapshot['installed']
+    const errInstalledVersionRaw = snapshot['installedVersion']
+    entries[rt.spec.key] = { lastCheckedAt: at, installed: typeof errInstalled === 'boolean' ? errInstalled : null, installedVersion: typeof errInstalledVersionRaw === 'string' && errInstalledVersionRaw ? errInstalledVersionRaw : null, latestVersion: firstText(snapshot['latestVersion']), canInstall: typeof snapshot['canInstall'] === 'boolean' ? (snapshot['canInstall'] as boolean) : null, error: code }
   }
 
   async function checkPhone(): Promise<Record<string, unknown>> {

@@ -32,7 +32,8 @@ import { visibleQueueFor, type UpdateQueueState, type VisibleQueue } from './que
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } from './log-events.js'
 import { createClientLogChannel, type ClientLogChannel, type ClientLogEvent } from './log/client-queue.js'
 import type { BlockedReason, UpdateSnapshot } from './ports.js'
-import { INTERNAL_CODE, type PhoneFailureCode } from './codes.js'
+import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './codes.js'
+export { isCheckSideFailureCode } // 查侧判定从单点真源派生（#134/US15；#141 铁律：本文件不另建第二张表）
 import { copyText, type BilingualKey } from './bilingual.js'
 import { langSignalSource, normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
 
@@ -986,10 +987,16 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
   if (!staleFailure && (failedCode || jobState === 'failed' || jobState === 'interrupted')) {
     const code = failedCode || 'install-failed'
     const copy = failureCopy(code, l)
+    // 未装 + 查侧失败（#134/US15）：未装状态词打头 + 查侧文案，不说安装失败。
+    const checkDetail = copy?.zh ?? code
+    const detail =
+      snapshot?.installed === false && isCheckSideFailureCode(code)
+        ? copyText('panel.banner.not-installed', l) + '：' + checkDetail
+        : checkDetail
     return {
       banner: {
         kind: 'failed',
-        title: copyText('panel.banner.error.title', l, { code, detail: copy?.zh ?? code }),
+        title: copyText('panel.banner.error.title', l, { code, detail }),
         action: copy?.act || copyText('panel.banner.error.action-fallback', l),
       },
       installEnabled: snapshot.canInstall,
@@ -1039,16 +1046,35 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
     }
   }
   if (snapshot.canInstall && snapshot.latestVersion) {
+    // 未装时标题的「当前版本」不许填注入的假版号（#134/US19）：填人话状态词。
+    const running =
+      snapshot.installed === false ? copyText('panel.banner.not-installed', l) : snapshot.runningVersion
     return {
       banner: {
         kind: 'update',
-        title: copyText('panel.banner.update-title', l, { latest: snapshot.latestVersion, running: snapshot.runningVersion }),
+        title: copyText('panel.banner.update-title', l, { latest: snapshot.latestVersion, running }),
         action: copyText('panel.banner.update-action', l),
       },
       installEnabled: true,
       installLabel: copyText('panel.action.install-version', l, { latest: snapshot.latestVersion }),
       skippedLatest: false,
       showManual: manual ? true : false,
+      showReset: false,
+      queueNote,
+    }
+  }
+  // 未装且没查到（#134/US16）：永不说「已是最新」；未装状态词 + 需先检查，按钮不可点。
+  if (snapshot?.installed === false) {
+    return {
+      banner: {
+        kind: 'idle',
+        title: copyText('panel.banner.not-installed', l),
+        action: copyText('panel.action.check', l),
+      },
+      installEnabled: false,
+      installLabel: copyText('panel.action.install', l),
+      skippedLatest: false,
+      showManual: false,
       showReset: false,
       queueNote,
     }
@@ -1567,7 +1593,8 @@ function versionStrip(snapshot: UpdateSnapshot | null, lang?: AppLang | string |
   return (
     `<div class="dsh-upd-strip">` +
     cell(copyText('panel.strip.running', l), snapshot.runningVersion) +
-    cell(copyText('panel.strip.installed', l), snapshot.installedVersion) +
+    // 磁盘格是单插件面板的版本槽状态词：缺席不说「未知」，说「未安装」（#134/US8）。
+    cell(copyText('panel.strip.installed', l), snapshot.installed === false ? copyText('panel.banner.not-installed', l) : snapshot.installedVersion) +
     cell(copyText('panel.strip.latest', l), snapshot.latestVersion) +
     `</div>`
   )
@@ -1711,7 +1738,8 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
           hasLog = false
         } else {
           const changelogHTML = renderChangelogHTML(ranged, { lang: l, truncated: report.truncation })
-          const fromText = String(snapshot.runningVersion ?? '')
+          // 缺席时日志区间的左端不许写注入的假版号（#134/US19）：写人话状态词。
+          const fromText = snapshot.installed === false ? copyText('panel.banner.not-installed', l) : String(snapshot.runningVersion ?? '')
           const toText = String(snapshot.latestVersion ?? '')
           const rangeTitle =
             fromText && toText ? copyText('panel.changelog.heading-range', l, { from: fromText, to: toText }) : copyText('panel.changelog.heading', l)
@@ -2867,10 +2895,12 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         const jobCode = snapshot?.job?.state === 'failed' ? messageCodeOf(snapshot.job.message) || 'install-failed' : ''
         // 健康态诚实复制（#58）：没有失败就不伪造失败码，只给当前状态快照。
         if (!latch && !jobCode && !snapshot?.blockedReason && snapshot) {
+          // 健康态复制：缺席不写注入的假版号、不谎称已是最新（#134/US16/US19）。
+          const notInstalledWord = snapshot.installed === false ? copyText('panel.banner.not-installed', currentLang()) : null
           const stateLine =
             snapshot.canInstall && snapshot.latestVersion
-              ? `有新版 ${snapshot.latestVersion} 可装（当前 ${snapshot.runningVersion}）`
-              : '已是最新，无需更新。'
+              ? `有新版 ${snapshot.latestVersion} 可装（当前 ${notInstalledWord ?? snapshot.runningVersion}）`
+              : (notInstalledWord ?? '已是最新，无需更新。')
           const queueName = queueTextOf(queue?.position ?? null)
           const envBits = [
             `插件=${pluginId}`,

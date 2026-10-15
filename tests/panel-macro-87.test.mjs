@@ -1,7 +1,7 @@
 /**
  * tests/panel-macro-87.test.mjs —— #87 宏动作与稳定性：忙守卫单/批量一致 + 抖动 + 闪空。
  * 缝：renderUpdatePanelHTML / renderBatchPanelHTML（纯渲染）+ mount（电话在飞/轮询让路）。
- * 面板只渲染不推导：不断言电话形状与快照六字段（那是 #85 契约缝）。
+ * 面板只渲染不推导：不断言电话形状与快照七字段（那是 #85 契约缝）。
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';

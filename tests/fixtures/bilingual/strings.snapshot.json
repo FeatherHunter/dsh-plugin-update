@@ -337,6 +337,11 @@
       "zh": "尚未查询",
       "draft": true
     },
+    "batch.row.not-installed": {
+      "en": "Not installed",
+      "zh": "未安装",
+      "draft": true
+    },
     "batch.row.queued-generic": {
       "en": "Queued · waiting for the running install to finish",
       "zh": "已排队 · 等待前方安装完成",
@@ -805,6 +810,11 @@
     "panel.banner.loading": {
       "en": "Loading update status…",
       "zh": "正在读取更新状态…",
+      "draft": true
+    },
+    "panel.banner.not-installed": {
+      "en": "Not installed",
+      "zh": "未安装",
       "draft": true
     },
     "panel.banner.restart-title": {

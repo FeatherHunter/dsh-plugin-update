@@ -3,7 +3,7 @@
  *
  * 只测外部行为：纯决策（占位幂等、位置口径、公平门、取消、过期、可见性开关）、
  * 共享落盘（同范围共享、异范围隔离、与 updates 树平级不碰撞、全局锁串行与过期回收）、
- * 宿主接线（老调用形状不变、三电话名不变、快照仍六字段；新可选参数只在显式要时才带队列）。
+ * 宿主接线（老调用形状不变、三电话名不变、快照七字段；新可选参数只在显式要时才带队列）。
  * 网络、子进程、桌面服务全用假件；落盘走真实临时目录（前缀隔离），不碰生产路径。
  */
 import { describe, it, beforeEach, after } from 'node:test'
@@ -358,13 +358,13 @@ describe('宿主接线：老形状冻结与队列开关', () => {
     __resetSharedUpdateReaderForTests()
   })
 
-  it('老调用形状不变：不传开关即无 queue 键，快照仍六字段', async () => {
+  it('老调用形状不变：不传开关即无 queue 键，快照七字段（#134 加 installed）', async () => {
     const fires = []
     const host = makeHost({ pluginId: 'queue-freeze-a', fires, queue: {}, store: memoryStore() })
     const out = await host.handlers['wf.updateStatus']({})
     assert.equal(out.ok, true)
     assert.ok(!('queue' in out))
-    assert.deepEqual(Object.keys(out.snapshot).sort(), ['blockedReason', 'canInstall', 'installedVersion', 'job', 'latestVersion', 'runningVersion'])
+    assert.deepEqual(Object.keys(out.snapshot).sort(), ['blockedReason', 'canInstall', 'installed', 'installedVersion', 'job', 'latestVersion', 'runningVersion'])
     assert.deepEqual(Object.keys(host.phoneNames).sort(), ['logAppend', 'updateChangelog', 'updateCheck', 'updateInstall', 'updateStatus'])
   })
 

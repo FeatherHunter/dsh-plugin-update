@@ -105,6 +105,7 @@ export type BilingualKey =
   | 'panel.banner.update-action'
   | 'panel.action.install-version'
   | 'panel.banner.done'
+  | 'panel.banner.not-installed'
   | 'panel.toast.checking'
   | 'panel.toast.installing'
   | 'panel.toast.copy-manual-ok'
@@ -237,6 +238,7 @@ export type BilingualKey =
   | 'batch.row.current'
   | 'batch.row.never'
   | 'batch.row.failed'
+  | 'batch.row.not-installed'
   | 'batch.notice.auto-resumed'
   | 'batch.notice.resumed'
   | 'batch.notice.no-resume'
@@ -440,6 +442,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.banner.update-action': { en: 'Install runs the exact version; only one install runs per scope at a time.', zh: '选择安装将按精确版本安装；同一使用范围同时仅安装一项。', draft: true },
   'panel.action.install-version': { en: 'Install {latest}', zh: '安装版本 {latest}', draft: true },
   'panel.banner.done': { en: 'Up to date. No update needed.', zh: '已是最新，无需更新。', draft: true },
+  'panel.banner.not-installed': { en: 'Not installed', zh: '未安装', draft: true },
   'panel.toast.checking': { en: 'Checking for updates…', zh: '正在查询版本信息…', draft: true },
   'panel.toast.installing': { en: 'Installing…', zh: '正在安装…', draft: true },
   'panel.toast.copy-manual-ok': { en: 'Manual command copied; paste the full line into the terminal to run it.', zh: '手工命令已复制，请粘贴至终端整行执行。', draft: true },
@@ -572,6 +575,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.row.current': { en: 'Up to date', zh: '已是最新，无需操作。', draft: true },
   'batch.row.never': { en: 'Not checked yet', zh: '尚未查询', draft: true },
   'batch.row.failed': { en: 'Last check failed', zh: '本次未能查询', draft: true },
+  'batch.row.not-installed': { en: 'Not installed', zh: '未安装', draft: true },
   'batch.notice.auto-resumed': { en: 'Auto-continued the unfinished batch ({count} left).', zh: '已自动继续上次未完成的更新（剩余 {count} 个）。', draft: true },
   'batch.notice.resumed': { en: 'Continued the unfinished batch ({count} left).', zh: '已继续上次未完成的更新（剩余 {count} 个）。', draft: true },
   'batch.notice.no-resume': { en: 'Nothing to continue.', zh: '暂无可继续的内容。', draft: true },

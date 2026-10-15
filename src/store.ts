@@ -770,6 +770,8 @@ export function batchPathsForOwner(homeDir: string, profileDir: string, owner: u
 
 export interface BatchInventoryEntry {
   lastCheckedAt: number
+  /** 在场事实（与行内快照同步；老账本缺省即 null，按未知处理）。 */
+  installed: boolean | null
   installedVersion: string | null
   latestVersion: string | null
   canInstall: boolean | null
@@ -808,8 +810,10 @@ export function normalizeBatchInventory(raw: unknown, nowMs?: number): BatchInve
         if (!key || typeof item !== 'object' || !item || Array.isArray(item)) continue
         const e = item as Record<string, unknown>
         const canInstallRaw = e['canInstall']
+        const installedRaw = e['installed']
         entries[key] = {
           lastCheckedAt: asMillisOrZero(e['lastCheckedAt']),
+          installed: typeof installedRaw === 'boolean' ? installedRaw : null,
           installedVersion: asNullableText(e['installedVersion']),
           latestVersion: asNullableText(e['latestVersion']),
           canInstall: typeof canInstallRaw === 'boolean' ? canInstallRaw : null,

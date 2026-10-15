@@ -27,6 +27,7 @@ const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 function baseSnapshot(overrides = {}) {
   return {
     runningVersion: '1.0.0',
+    installed: true,
     installedVersion: '1.0.0',
     latestVersion: '1.1.0',
     canInstall: true,
@@ -463,7 +464,7 @@ test('老合同不动：电话名、快照字段、配方键一字不动', async
   const panel = mountUpdatePanel(box, { pluginId: 'p', call, pollMs: 60000 })
   await panel.refresh()
   assert.ok(log[0].name === 'wf.updateStatus', '默认电话名冻结')
-  assert.deepEqual(Object.keys(baseSnapshot()).sort(), ['blockedReason', 'canInstall', 'installedVersion', 'job', 'latestVersion', 'runningVersion'].sort(), '快照恰好六字段')
+  assert.deepEqual(Object.keys(baseSnapshot()).sort(), ['blockedReason', 'canInstall', 'installed', 'installedVersion', 'job', 'latestVersion', 'runningVersion'].sort(), '快照七字段（#134 加 installed）')
   const { installRecipe } = await import('../dist/commands.js')
   const recipe = installRecipe({ profileName: 'web', version: '1.1.0', environmentKind: 'cli' })
   assert.deepEqual(Object.keys(recipe).sort(), ['pluginArgs', 'profileName', 'route', 'timeoutMs', 'version'].sort(), '配方五键冻结')

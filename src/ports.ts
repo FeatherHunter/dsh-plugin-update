@@ -58,10 +58,15 @@ import type { BlockedReason, UpdateErrorCode } from './codes.js'
 
 export type { BlockedReason, UpdateErrorCode } from './codes.js'
 
-/** 快照：恰好六个字段，永远不带钥匙（检查编号与环境指纹另交）。 */
+/** 快照：恰好七个字段，永远不带钥匙（检查编号与环境指纹另交）。 */
 export interface UpdateSnapshot {
   /** 运行版本：宿主自带清单里的版本号。 */
   runningVersion: string
+  /**
+   * 在场事实（#134）：目标包在磁盘上是否存在。缺席时 `installedVersion` 为 null；
+   * 未装的可安装性不看 `runningVersion`（集成方注入值缺席时不可采信）。
+   */
+  installed: boolean
   /** 磁盘已装版本：已安装包里的清单版本号（读不到为 null）。 */
   installedVersion: string | null
   /** 远端最新版本：最近一次查新版带回的版本（没查过为 null）。 */
@@ -153,6 +158,11 @@ export interface EnvironmentView {
   environmentKind: EnvironmentKind
   homeDir: string | null
   profileDir: string | null
+  /**
+   * 在场事实（#134）：目标包在磁盘上是否存在。缺席（目标包读取报 ENOENT）时为 false，
+   * 且提前返回、不算指纹；其余读不到统一判 `invalid-installation`（见读取器）。
+   */
+  installed: boolean
   installedVersion: string | null
   packageValid: boolean
   sourceInstall: boolean

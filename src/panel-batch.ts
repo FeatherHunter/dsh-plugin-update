@@ -50,6 +50,7 @@ import {
   buildDiagnosticText,
   createBrowserSkipStore,
   failureCopy,
+  isCheckSideFailureCode,
   isKnownFailureCode,
   normalizePanelTheme,
   readDiagTolerant,
@@ -308,6 +309,8 @@ export function batchQueuedStatus(position: number | null, lang?: unknown): stri
 /** 知识账本里的一行（只做展示，不参与安装决策）。 */
 export interface BatchKnowledgeEntry {
   lastCheckedAt: number
+  /** 在场事实（与行内快照同步；老账本缺省即 null，按未知处理）。 */
+  installed: boolean | null
   installedVersion: string | null
   latestVersion: string | null
   canInstall: boolean | null
@@ -322,8 +325,10 @@ function knowledgeEntryOf(inventory: unknown, key: string): BatchKnowledgeEntry 
   if (!isObject(item)) return null
   const e = item as Record<string, unknown>
   const canInstallRaw = e['canInstall']
+  const installedRaw = e['installed']
   return {
     lastCheckedAt: typeof e['lastCheckedAt'] === 'number' ? (e['lastCheckedAt'] as number) : 0,
+    installed: typeof installedRaw === 'boolean' ? (installedRaw as boolean) : null,
     installedVersion: typeof e['installedVersion'] === 'string' ? (e['installedVersion'] as string) : null,
     latestVersion: typeof e['latestVersion'] === 'string' ? (e['latestVersion'] as string) : null,
     canInstall: typeof canInstallRaw === 'boolean' ? canInstallRaw : null,
@@ -476,8 +481,13 @@ export function batchRowStatus(row: BatchRowView, skippedVersion?: string | null
       return batchText('batch.row.current', l)
     case 'done':
       return row.restartRequired === true ? batchText('batch.row.done-restart', l) : batchText('batch.row.done', l)
-    case 'failed':
-      return batchText('batch.row.failed-retry', l)
+    case 'failed': {
+      // 查/装分家（#134/US15）：行上失败码属查侧说「本次未能查询」，属装侧才说安装失败。
+      // 无码回退装侧（旧口径，旧快照不动）；pending/知识路由（#59 D2）一字不动。
+      const fail = jobFailureOf(row)
+      const code = fail?.code ?? (typeof row.error === 'string' && row.error ? row.error : null)
+      return isCheckSideFailureCode(code) ? batchText('batch.row.failed', l) : batchText('batch.row.failed-retry', l)
+    }
     case 'skipped':
       return batchText('batch.row.skipped-idle', l)
     default:
@@ -520,7 +530,10 @@ export function batchRowVersionParts(row: BatchRowView, knowledge: BatchKnowledg
     return { current, latest: sessionTarget, hasUpdate: true }
   }
   const snapshotCurrent = currentVersionOf(row)
-  const current = snapshotCurrent ?? (knowledge && typeof knowledge.installedVersion === 'string' && knowledge.installedVersion ? knowledge.installedVersion : null)
+  // 缺席时知识账本的 installedVersion 恒为 null（宿主侧不再回退运行版号），此处再加 presence 门，
+  // 旧账本里的假版号也到不了版本列（#134/US19）。
+  const knowledgeCurrent = knowledge && knowledge.installed !== false && typeof knowledge.installedVersion === 'string' && knowledge.installedVersion ? knowledge.installedVersion : null
+  const current = snapshotCurrent ?? knowledgeCurrent
   const latest = knowledge && typeof knowledge.latestVersion === 'string' && knowledge.latestVersion ? knowledge.latestVersion : null
   if (current && latest && latest !== current) return { current, latest, hasUpdate: true }
   if (current) return { current, latest: null, hasUpdate: false }
@@ -533,10 +546,12 @@ export function batchRowVersionParts(row: BatchRowView, knowledge: BatchKnowledg
  * 有新版：`<cur> → <new>` 三段式（new 加粗 + 专用 token：`done` 行走绿 `newOkText`，其余行走红 `newText`）；
  * 无新版：只显当前；皆无：空串（调用方不画 span）。红绿之外 `→` + 加粗 + 状态词保留为非颜色信号。
  */
-function batchRowVersionHTML(row: BatchRowView, knowledge: BatchKnowledgeEntry | null): string {
+function batchRowVersionHTML(row: BatchRowView, knowledge: BatchKnowledgeEntry | null, lang?: unknown): string {
   const parts = batchRowVersionParts(row, knowledge)
   if (parts.hasUpdate && parts.latest) {
-    const cur = parts.current ?? '?'
+    // 缺席时左值不许是哨兵 `?` 更不许是假版号（#134/US1）：说人话「未安装」。
+    const snapshot = isObject(row.snapshot) ? row.snapshot : null
+    const cur = parts.current ?? (snapshot !== null && snapshot['installed'] === false ? batchText('batch.row.not-installed', lang) : '?')
     const newCls = asBatchPhase(row.phase) === 'done' ? 'dsh-upd-bver-new-ok' : 'dsh-upd-bver-new'
     return '<span class="dsh-upd-bver"><span class="dsh-upd-bver-cur">' + escapeHtml(cur) + '</span><span class="dsh-upd-bver-arrow" aria-hidden="true"> → </span><span class="' + newCls + '">' + escapeHtml(parts.latest) + '</span></span>'
   }
@@ -882,7 +897,7 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const skipped = ctx.skipped
   const queued = isQueuedRow(row)
   const position = queued ? queuePositionOf(row) : null
-  const versionHTML = batchRowVersionHTML(row, ctx.knowledge)
+  const versionHTML = batchRowVersionHTML(row, ctx.knowledge, ctx.lang)
   const rowStatusText = queued
     ? batchQueuedStatus(position, ctx.lang)
     : ctx.worldLatest !== null
@@ -933,7 +948,12 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
     phase === 'failed' && !queued
       ? (() => {
         const failCode = row.error || 'install-failed'
-        const failDetail = failureCopy(failCode, ctx.lang)?.zh ?? failureCopy('unknown', ctx.lang)?.zh ?? ''
+        // 查/装分家（#134/US15）：查侧码的红字说「本次未能查询」，不说安装失败。
+        const failJob = jobFailureOf(row)
+        const failSide = failJob?.code ?? (typeof row.error === 'string' && row.error ? row.error : null)
+        const failDetail = isCheckSideFailureCode(failSide)
+          ? batchText('batch.row.failed', ctx.lang)
+          : failureCopy(failCode, ctx.lang)?.zh ?? failureCopy('unknown', ctx.lang)?.zh ?? ''
         // 字典不存 HTML（#64 口径）：模板为纯文本，<code> 由此处组装，语义与 inventory batch.row.error-label 一致。
         const label = batchText('batch.row.error-label', ctx.lang, { code: failCode, detail: failDetail })
         const escaped = escapeHtml(label)
@@ -1345,10 +1365,11 @@ async function defaultCopyText(text: string): Promise<void> {
   }
 }
 
-/** 当前版本（运行版优先，退回磁盘版）；读不到给 null，不猜。 */
+/** 当前版本（运行版优先，退回磁盘版）；读不到给 null，不猜。缺席时永不采信运行版号（#134/US19）。 */
 function currentVersionOf(row: BatchRowView): string | null {
   const snapshot = row.snapshot
   if (!isObject(snapshot)) return null
+  if (snapshot['installed'] === false) return null
   const running = snapshot['runningVersion']
   if (typeof running === 'string' && running) return running
   const installed = snapshot['installedVersion']

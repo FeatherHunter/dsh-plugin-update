@@ -4,6 +4,22 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
+## [0.17.0] - 2026-10-15
+
+**未装也能装**：从没装过的插件不再被说成「装坏了」。读取器新增一等事实 `installed: boolean`（缺席的判据只有目标包那次读取的 `code === 'ENOENT'`；坏 JSON / 权限错误仍是 `invalid-installation`，洗不成未装）；缺席时判定提前返回、不算只对在场包有意义的指纹；查到远端发行版即可安装（动作词「安装」，不再与注入的运行版号比大小）；两个面板把该行说成「未安装 → 目标版本」，失败文案查装分家（查侧说「本次未能查询」，装侧才说「安装失败」）。消费方一行不改。
+
+### Added
+- **在场事实 `installed: boolean`**：`EnvironmentView` 与服务快照各加一字段（快照六字段 → 七字段）。缺席时 `installedVersion` 为 `null`、`blockedReason` 为 `null`、`eligible` 为真，不新增稳定码。
+- **双语状态词「未安装 / Not installed」**（批量行 + 单插件横幅两处新键，进字典与快照）。
+- **查侧失败判定 `isCheckSideFailureCode`**（`src/codes.ts` 派生，`check-failed` / `invalid-release` / `check-expired` 三码；面板失败行按它分家）。
+
+### Changed
+- **缺席可安装**：`canInstall` 按在场分叉——缺席分支只看「远端有合法版本 + 指纹一致（双方皆空的相等写死）」，不再看 `newer`；通道判定内联在场分支、Node 不兼容只记不拦（装到才失败）。
+- **账本与行内快照同步在场事实**：`installed` / `installedVersion`（只取磁盘版，不回退注入的运行版号）进账本条目与批量行内快照；未装行不再落 `failed` 相位与 `error`。
+- **版本号 `0.16.4` → `0.17.0`**（向后兼容的加法：只增字段与文案键，既有码含义一字不改）。
+
+门禁（**发版定格**）：`npm test` **1165 例：1164 过 / 0 失败 / 1 跳过**（新增 `tests/issue-134-not-installed.test.mjs` 7 例钉读取与判定、`tests/issue-134-panel-not-installed.test.mjs` 16 例钉两面板渲染与批量真装；注：`tests/batch-host.test.mjs`「真路径两家批」在全量并行负载下偶发一红（500ms 定序的时序用例），单跑与重跑皆绿，与本次改动无关——该用例的 `readInstalled` 是假件，不走真读取器）；`node build.mjs`（含 `tsc --noEmit`）与 `npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（文案源 grep 扫描 36 个源文件 0 违规 / 字典快照 322 个 key 0 违规 / 15 码与诊断解析契约）；`npm publish --dry-run` **79 文件**（1.0 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（322 个 key 仍全是 `draft: true`，含本次新增 2 键，理由见 `0.16.0` 节末）。
+
 ## [0.16.4] - 2026-10-15
 
 **宿主侧链 + 集成 `dsh-log` 0.3.4**：本包**自建落点**的行从此带上 `traceId`/`spanId`/`seq`（一次电话一条链），运行期依赖下限从 `^0.3.1` 抬到 `^0.3.4`，启动头补上「这个目录是哪一版写的」。行为面只增不改：没有链的场合（集成方注入的客户端实例、降级落点、面板 `logAppend`）一字不变。

@@ -617,7 +617,15 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
   }
 
   function buildSnapshot(env: EnvironmentView, job: UpdateJob | null): UpdateSnapshot {
-    let blockedReason: BlockedReason | null = env.blockedReason ?? checked?.blockedReason ?? null
+    // 在场事实优先（#134）：缺席分支在 newer / 通道 / Node 判定之前；`installed` 缺字段的老
+    // 生产者按在场走（宽容读），只有显式 false 才算缺席。
+    const present = env.installed !== false
+    // 缺席时不采信 checked 的旧阻拦（A1/A2：stable 通道判定内联在这里算，永不进 checked；
+    // Node 不兼容只记不拦，行仍可点，失败落装侧）。
+    let blockedReason: BlockedReason | null = present ? (env.blockedReason ?? checked?.blockedReason ?? null) : (env.blockedReason ?? null)
+    if (!present && blockedReason === null && checked?.release) {
+      if (!isVersionAllowedInChannel(checked.release.version, releaseChannel)) blockedReason = 'channel-mismatch'
+    }
     if (job?.state === 'interrupted' || job?.state === 'failed') {
       if (env.installedVersion !== ports.readRunningVersion()) blockedReason = 'recovery-required'
     } else if (job?.state === 'restart-required' || (env.installedVersion && env.installedVersion !== ports.readRunningVersion())) {
@@ -628,15 +636,23 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     const runningVersion = ports.readRunningVersion()
     // 通道门（#16）：stable 默认与旧行为一字不差（纯三段 + 数字比较）；
     // prerelease 通道下运行版与远端版都按发行版语义比（预发布 < 同号正式版）。
+    // 缺席时不与注入的运行版号比大小（#137 硬要求 / US19）：只看远端版本是否存在、
+    // 合法且被本通道接受，其余子句一字不动。
     let newer = false
+    let remoteOk = false
     try {
-      newer =
-        isVersionAllowedInChannel(runningVersion, releaseChannel) &&
-        !!checked?.release &&
-        isVersionAllowedInChannel(checked.release.version, releaseChannel) &&
-        compareReleaseVersions(checked.release.version, runningVersion) === 1
+      if (present) {
+        newer =
+          isVersionAllowedInChannel(runningVersion, releaseChannel) &&
+          !!checked?.release &&
+          isVersionAllowedInChannel(checked.release.version, releaseChannel) &&
+          compareReleaseVersions(checked.release.version, runningVersion) === 1
+      } else if (checked?.release) {
+        remoteOk = isVersionAllowedInChannel(checked.release.version, releaseChannel)
+      }
     } catch {
       newer = false
+      remoteOk = false
     }
     const canInstall = Boolean(
       env.eligible &&
@@ -644,10 +660,11 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
         !busy &&
         fresh &&
         checked?.installationKey === env.installationKey &&
-        newer,
+        (present ? newer : remoteOk),
     )
     const snapshot: UpdateSnapshot = {
       runningVersion,
+      installed: present,
       installedVersion: env.installedVersion ?? null,
       latestVersion: checked?.release.version ?? null,
       canInstall,
@@ -662,6 +679,9 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
   /** 主状态三值（#124）：与快照「有没有新版」同一判据，不许出现第二套口径。 */
   function statusKindOf(snapshot: UpdateSnapshot): 'update-available' | 'up-to-date' | 'unknown' {
     if (!snapshot.latestVersion) return 'unknown'
+    // 缺席时不拿远端版与注入的运行版号比大小（#134/US16）：有远端可装即 update-available，
+    // 否则绝不谎称 up-to-date。
+    if (snapshot.installed === false) return 'update-available'
     try {
       const newer =
         isVersionAllowedInChannel(snapshot.runningVersion, releaseChannel) &&
@@ -879,7 +899,11 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       throw updateError('check-expired')
     }
     if (env.installationKey !== checked.installationKey) throw updateError('installation-changed')
-    if (!buildSnapshot(env, previous).canInstall) {
+    const snap = buildSnapshot(env, previous)
+    if (!snap.canInstall) {
+      // 查失败不准抛 update-busy（#136-A1）：缺席且无他因时按过期检查诚实失败；
+      // 在场路径保持旧行为（一字不动）。
+      if (!snap.installed) throw updateError(snap.blockedReason ?? checked.blockedReason ?? 'check-expired')
       throw updateError(env.blockedReason ?? checked.blockedReason ?? 'update-busy')
     }
     // 用户意图（#124）：过完所有闸门、真的要装了才落这一条；被闸门挡掉的请求不算一次意图。
