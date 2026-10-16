@@ -56,11 +56,44 @@ export type UpdateLogPort = (
  */
 import type { BlockedReason, UpdateErrorCode } from './codes.js'
 import type { CauseBlame } from './install-cause.js'
-import type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './compliant-version.js'
-
 export type { BlockedReason, UpdateErrorCode } from './codes.js'
 export type { CauseBlame } from './install-cause.js'
-export type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './compliant-version.js'
+
+// 合规版决议类型（#165：从 compliant-version 上收进类型底座，断 ports⇄compliant-version
+// 纯类型环；值实现仍在 compliant-version，运行时方向只剩 compliant-version → ports）。
+/** 窗口出处（调用方给，决议层只回传）：message = 报文自述（精确）；host = 宿主官方出口；unknown = 反推（约）。 */
+export type CompliantWindowSource = 'message' | 'host' | 'unknown'
+
+export interface CompliantVersionInput {
+  readonly kind: string
+  readonly blame: CauseBlame
+  /** 被拦住的版本（报文里点名的那一个；本模型只覆盖它恰好是 latest 的情形）。 */
+  readonly targetVersion: string
+  readonly latestVersion: string
+  readonly runningVersion: string
+  readonly releaseChannel?: ReleaseChannel
+  /** 策略窗口（毫秒；调用方从报文自述或门限反推，本层不猜）。 */
+  readonly windowMs: number | null
+  readonly windowSource: CompliantWindowSource
+  /** 报文里抠出的发布时间（registry 表缺最新版时的 fallback）。 */
+  readonly publishedAtMs: number | null
+  /** registry 时间表（版本 → 发布毫秒；坏条目忽略）。调用方只读，不改。 */
+  readonly timeTable: Readonly<Record<string, number | null | undefined>>
+  readonly nowMs: number
+}
+
+export type CompliantVerdict =
+  | { readonly kind: 'ok-now'; readonly version: string; readonly unlockAtMs: number; readonly windowSource: CompliantWindowSource }
+  | { readonly kind: 'wait-until'; readonly version: string; readonly unlockAtMs: number; readonly windowSource: CompliantWindowSource }
+  | {
+      readonly kind: 'downgrade-available'
+      readonly version: string
+      readonly targetVersion: string
+      readonly targetUnlockAtMs: number | null
+      readonly windowSource: CompliantWindowSource
+    }
+  | { readonly kind: 'no-compliant'; readonly version: string; readonly windowSource: CompliantWindowSource }
+  | { readonly kind: 'abstain'; readonly reason: string; readonly windowSource: CompliantWindowSource }
 
 /** 快照：恰好七个字段，永远不带钥匙（检查编号与环境指纹另交）。 */
 export interface UpdateSnapshot {

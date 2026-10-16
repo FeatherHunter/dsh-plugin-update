@@ -21,45 +21,15 @@
  * - windowSource 原样回传：精确与约的区分是呈现层的事，本层照样决议。
  */
 
-import type { CauseBlame } from './install-cause.js'
 import type { ReleaseChannel } from './ports.js'
 
 /** 本模块认识的 kind（首期仅 minimum-release-age；新增 = 加一行 + 两条测试，管道不动）。 */
 const COMPLIANT_KINDS = ['minimum-release-age'] as const
 
-/** 窗口出处（调用方给，本层只回传）：message = 报文自述（精确）；host = 宿主官方出口；unknown = 反推（约）。 */
-export type CompliantWindowSource = 'message' | 'host' | 'unknown'
-
-export interface CompliantVersionInput {
-  readonly kind: string
-  readonly blame: CauseBlame
-  /** 被拦住的版本（报文里点名的那一个；本模型只覆盖它恰好是 latest 的情形）。 */
-  readonly targetVersion: string
-  readonly latestVersion: string
-  readonly runningVersion: string
-  readonly releaseChannel?: ReleaseChannel
-  /** 策略窗口（毫秒；调用方从报文自述或门限反推，本层不猜）。 */
-  readonly windowMs: number | null
-  readonly windowSource: CompliantWindowSource
-  /** 报文里抠出的发布时间（registry 表缺最新版时的 fallback）。 */
-  readonly publishedAtMs: number | null
-  /** registry 时间表（版本 → 发布毫秒；坏条目忽略）。调用方只读，不改。 */
-  readonly timeTable: Readonly<Record<string, number | null | undefined>>
-  readonly nowMs: number
-}
-
-export type CompliantVerdict =
-  | { readonly kind: 'ok-now'; readonly version: string; readonly unlockAtMs: number; readonly windowSource: CompliantWindowSource }
-  | { readonly kind: 'wait-until'; readonly version: string; readonly unlockAtMs: number; readonly windowSource: CompliantWindowSource }
-  | {
-      readonly kind: 'downgrade-available'
-      readonly version: string
-      readonly targetVersion: string
-      readonly targetUnlockAtMs: number | null
-      readonly windowSource: CompliantWindowSource
-    }
-  | { readonly kind: 'no-compliant'; readonly version: string; readonly windowSource: CompliantWindowSource }
-  | { readonly kind: 'abstain'; readonly reason: string; readonly windowSource: CompliantWindowSource }
+// 类型已上收 ports（#165 断 ports⇄compliant-version 纯类型环）：本模块只留值实现，
+// 对外脸经垫片不变（tests 深引用 ../dist/compliant-version.js 与包根转出口零碰）。
+import type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './ports.js'
+export type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './ports.js'
 
 // ---------- 版本号小工具（与 src/service.ts 同口径的内联版，本文件自包含） ----------
 
