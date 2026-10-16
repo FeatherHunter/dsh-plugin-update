@@ -36,7 +36,7 @@
 import { assertPrefix, MIN_PANEL_POLL_MS } from './config.js'
 import { copyText as bilingualText, type BilingualKey } from './bilingual.js'
 import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
-import { validReleaseVersion } from './service.js'
+import { compareReleaseVersions, validReleaseVersion } from './service.js'
 import { shouldFetchChangelog } from './changelog.js'
 import {
   isTerminalPhase,
@@ -512,7 +512,7 @@ export function batchRowKnowledgeText(row: BatchRowView, entry: BatchKnowledgeEn
  * 一行的版本展示（#71 Q3：永远显示当前版；有新版才 `当前 → 最新`）。
  * latest 只做展示，不参与安装决策：会话目标版优先（安装语义），无会话目标时才看知识最新版。
  * - 会话有目标版：current（快照运行版优先）→ 会话目标（current 缺失时占位 `?`，与旧口径一致）。
- * - 会话无目标：current（快照优先，缺失退知识 installedVersion）→ 知识 latest（不等即 → 红；相等即已是最新，只显当前；current 缺失而 latest 有即 `? → latest` 红，与会话缺当前同例）。
+ * - 会话无目标：current（快照优先，缺失退知识 installedVersion）→ 知识 latest（比当前新即 →；相等即已是最新，只显当前；倒挂（latest 更老）同样只显当前，降级不许当更新画（#152）；current 缺失而 latest 有即 `? → latest` 红，与会话缺当前同例）。
  * - 两者皆无：current 为 null、latest 为 null、hasUpdate 为 false（调用方不画版本 span）。
  */
 export interface BatchRowVersionParts {
@@ -526,7 +526,11 @@ export function batchRowVersionParts(row: BatchRowView, knowledge: BatchKnowledg
   if (sessionTarget) {
     const current = currentVersionOf(row)
     if (current === null) return { current: null, latest: sessionTarget, hasUpdate: true }
-    if (current === sessionTarget) return { current, latest: null, hasUpdate: false }
+    if (current === sessionTarget || !isUpgradeOf(sessionTarget, current)) {
+      // 倒挂永不画成更新（#152）：陈旧会话目标比当前还老时（昨日 0.3.55 配今日 0.3.60），
+      // 只显当前，不画箭头——降级不是新版本。
+      return { current, latest: null, hasUpdate: false }
+    }
     return { current, latest: sessionTarget, hasUpdate: true }
   }
   const snapshotCurrent = currentVersionOf(row)
@@ -535,10 +539,22 @@ export function batchRowVersionParts(row: BatchRowView, knowledge: BatchKnowledg
   const knowledgeCurrent = knowledge && knowledge.installed !== false && typeof knowledge.installedVersion === 'string' && knowledge.installedVersion ? knowledge.installedVersion : null
   const current = snapshotCurrent ?? knowledgeCurrent
   const latest = knowledge && typeof knowledge.latestVersion === 'string' && knowledge.latestVersion ? knowledge.latestVersion : null
-  if (current && latest && latest !== current) return { current, latest, hasUpdate: true }
+  if (current && latest && latest !== current && isUpgradeOf(latest, current)) return { current, latest, hasUpdate: true }
   if (current) return { current, latest: null, hasUpdate: false }
   if (latest) return { current: null, latest, hasUpdate: true }
   return { current: null, latest: null, hasUpdate: false }
+}
+
+/**
+ * 目标版是不是比当前版新（#152 倒挂守卫）。
+ * 比不出（非法版号）就不拦展示：宁可多画一句，不可在渲染层误藏一次更新；抛错永不漏到调用方。
+ */
+function isUpgradeOf(target: string, current: string): boolean {
+  try {
+    return compareReleaseVersions(target, current) === 1
+  } catch {
+    return true
+  }
 }
 
 /**

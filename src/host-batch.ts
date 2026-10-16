@@ -7,7 +7,7 @@
 // 契约（面板侧按它写，见 src/panel-batch.ts）：
 //   前缀由调用方给（batchPrefix，例 'life'；即属主身份），七个批量电话：
 //     <p>.batchStatus  {}                -> 全表（rows + progress + session + inventory + prefs）
-//     <p>.batchCheck   {}                -> 查 N 家、重写知识账本后同形状（账本不动）
+//     <p>.batchCheck   {}                -> 查 N 家、重写知识账本后同形状（成功结论同步对账进会话，见 checkPhone）
 //     <p>.batchInstall { keys?: string[] }-> 建/续会话并推进：不给 keys 即「全部提交」；
 //                                            给了 keys 只推那几家（行内「装这家」/「重试」用）
 //     <p>.batchResume  {}                -> 读盘上会话，resume 后推进（含 resumed 事实）
@@ -1202,9 +1202,11 @@ export function createMultiHostUpdate(
       prev = emptyBatchInventory()
     }
     const entries: BatchInventory['entries'] = { ...prev.entries }
+    const outcomes = new Map<string, BatchCheckOutcome>()
     await runWithConcurrency(runtimes, BATCH_CHECK_CONCURRENCY, async (rt) => {
       try {
         const outcome = await rt.check(rt.spec.key, rt.spec)
+        outcomes.set(rt.spec.key, outcome)
         applyCheckToInventory(entries, rt, outcome, at)
       } catch (error) {
         applyCheckErrorToInventory(entries, rt, error, at)
@@ -1215,7 +1217,51 @@ export function createMultiHostUpdate(
     } catch {
       // 知识落盘失败不挡检查回包（只做展示）。
     }
-    return await table(session, false)
+    // 成功检查对账（#152）：检查的后置条件是“此后展示的状态反映这次检查”。
+    // 只查不装以前只写知识、会话终态（昨日失败/陈旧目标）永生，面板永远拼出昨天的数据。
+    // 成功查出结论的行按与驱动预查同一口径收敛进会话；查失败的行没学到新东西，原样保留；
+    // 重启 pending 行一律不动（等重启收尾）；飞行中（checking/installing）是驱动正在经手的行，
+    // 检查不许碰；驱动半路起跑则跳过落盘（不踩驱动的账本）。
+    let reconciled = session
+    for (const [key, outcome] of outcomes) {
+      const entry = batchEntryOf(reconciled, key)
+      if (!entry || entry.restartRequired) continue
+      if (entry.phase === 'checking' || entry.phase === 'installing') continue
+      let patch: Partial<Omit<BatchEntry, 'key' | 'requestId'>> | null = null
+      if (outcome.kind === 'update') {
+        if (entry.phase !== 'ready' || entry.targetVersion !== outcome.version || entry.error !== null) {
+          patch = { phase: 'ready', targetVersion: outcome.version, error: null }
+        }
+      } else if (outcome.kind === 'current') {
+        if (entry.phase !== 'current' || entry.targetVersion !== null || entry.error !== null) {
+          patch = { phase: 'current', targetVersion: null, error: null }
+        }
+      } else if (outcome.kind === 'skipped') {
+        if (entry.phase !== 'skipped' || entry.targetVersion !== outcome.version || entry.error !== null) {
+          patch = { phase: 'skipped', targetVersion: outcome.version, error: null }
+        }
+      }
+      if (patch) {
+        const marked = markBatchEntry(reconciled, key, patch, at)
+        if (marked.changed) reconciled = marked.session
+      }
+    }
+    if (reconciled !== session && !driveActive) {
+      try {
+        await saveSession(reconciled)
+      } catch {
+        // 落盘失败就当没对上：下面重读盘上账本回包，不端没存住的东西。
+      }
+    }
+    // 端出去的永远是盘上那份（落盘后重读）：存住才展示，驱动接管了就展示驱动的，
+    // 下一次打开不会回退到昨天。
+    let served = reconciled
+    try {
+      served = await readSession()
+    } catch {
+      served = reconciled
+    }
+    return await table(served, false)
   }
 
   /** 忙时入队：把 keys 并进「正在被驱动的那份会话」（幂等，显式点到的失败行先复位重试），落盘后回全表。 */
