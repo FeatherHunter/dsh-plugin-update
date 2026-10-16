@@ -35,42 +35,6 @@ export const CONFIRMATION_TTL_MS = 10 * 60_000
 export const RECHECK_WINDOW_MS = 2_000
 
 /**
- * 给错误贴一个取数阶段（#124）：核心只用它写 `update.check.fail.stage`，不参与归类决策。
- * 贴不上的按码兜底——`check-failed` 是没连上/没取到（fetch），其余是拿到了但内容或通道不认（verify）。
- */
-function stageOfError(error: unknown): FetchStage {
-  const stage = (error as { stage?: unknown } | null)?.stage
-  if (stage === 'fetch' || stage === 'compare' || stage === 'channel' || stage === 'verify') return stage
-  return (error as { code?: unknown } | null)?.code === 'check-failed' ? 'fetch' : 'verify'
-}
-
-/** 稳定码（#124）：行里只许稳定码，不许自由文本；没有码就给 `internal`（与 diag 同一口径）。 */
-function stableCodeOf(error: unknown): string {
-  const code = (error as { code?: unknown } | null)?.code
-  return typeof code === 'string' && code ? code : 'internal'
-}
-
-/** HTTP 状态码（#124）：只有取数阶段真的带回来才写，不猜。 */
-function httpStatusOfError(error: unknown): number | null {
-  const status = (error as { httpStatus?: unknown } | null)?.httpStatus
-  return typeof status === 'number' && Number.isInteger(status) ? status : null
-}
-
-/** 安装意图来源（#124）：认不出或没报都按 `panel`（电话的既有调用方是面板）。 */
-function installSourceOf(value: unknown): InstallSource {
-  return value === 'entry' || value === 'batch' ? value : 'panel'
-}
-
-/**
- * 检查触发方（#124）：只有调用方**自报**了合法取值才认，认不出返回 null。
- * 原因：宿主侧只能看到「有人在问」，分不清用户点的还是自动跑的（`pendingAutoCheck` 走同一支电话）；
- * 猜一个 `'user'` 会在自动检查时留下口径相反的行，宁可不发（由触发方在客户端侧打点，见 W1 目录 ③）。
- */
-function triggerOf(value: unknown): CheckTrigger | null {
-  return value === 'auto' || value === 'user' || value === 'batch' || value === 'entry' ? value : null
-}
-
-/**
  * 请求编号是否合法（#19 收紧：非空、去空格后 1 到 128 个字符，且为不透明编号形状）。
  *
  * 收紧内容：只收 `[A-Za-z0-9._~-]`（UUID 与 `req-1` 形都在内），拒绝路径 / 令牌 / 邮箱 /
@@ -112,6 +76,9 @@ export {
   validVersion,
 } from './version-judgment.js'
 export type { ReleaseChannel } from './version-judgment.js'
+// 检查结论编排已搬家（#163 故事 3 收尾）：实体见 ./check-conclusion.js，本文件只留内部引用。
+// 纯函数零值依赖；从未进包导出表，无垫片需要（#159 冻结）。
+import { httpStatusOfError, installSourceOf, stableCodeOf, stageOfError, triggerOf } from './check-conclusion.js'
 // ---------- 取数垫片（#163：实现搬 registry-fetch，老位置 re-export，行为零变化） ----------
 import {
   CHECK_TIMEOUT_MS,
@@ -121,7 +88,6 @@ import {
   fetchNpmVersionRelease,
   fetchPackumentTimes,
 } from './registry-fetch.js'
-import type { FetchStage } from './registry-fetch.js'
 export {
   CHECK_TIMEOUT_MS,
   INTEGRITY_PATTERN,
