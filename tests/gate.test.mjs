@@ -328,7 +328,7 @@ describe('门禁模板：双前缀串扰（两家同机不串电话名目录锁�
     const { buildPhoneNames } = host
     const first = buildPhoneNames('wf')
     const second = buildPhoneNames('other')
-    for (const action of ['updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'logAppend']) {
+    for (const action of ['updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'updateCheckFallback', 'logAppend']) {
       assert.notEqual(first[action], second[action])
     }
     assert.deepEqual(first, {
@@ -336,6 +336,7 @@ describe('门禁模板：双前缀串扰（两家同机不串电话名目录锁�
       updateCheck: 'wf.updateCheck',
       updateInstall: 'wf.updateInstall',
       updateChangelog: 'wf.updateChangelog',
+      updateCheckFallback: 'wf.updateCheckFallback',
       logAppend: 'wf.logAppend'
     })
   })

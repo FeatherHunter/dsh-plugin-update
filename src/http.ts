@@ -25,8 +25,8 @@ export const DEFAULT_HTTP_CHECK_TIMEOUT_MS = 15_000
 export const DEFAULT_HTTP_INSTALL_TIMEOUT_MS = 16 * 60_000
 export const DEFAULT_HTTP_STATUS_TIMEOUT_MS = 15_000
 
-/** 单插件电话动作名（旧三电话与 src/config.ts PHONE_ACTIONS 同字面，不另起字面；#38 加 updateChangelog；#122 加 logAppend）。 */
-export const HTTP_PHONE_ACTIONS = ['updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'logAppend'] as const
+/** 单插件电话动作名（旧三电话与 src/config.ts PHONE_ACTIONS 同字面，不另起字面；#38 加 updateChangelog；#122 加 logAppend；#156 加 updateCheckFallback）。 */
+export const HTTP_PHONE_ACTIONS = ['updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'updateCheckFallback', 'logAppend'] as const
 export type HttpPhoneAction = (typeof HTTP_PHONE_ACTIONS)[number]
 
 /** 批量七电话动作名（与 src/panel-batch.ts buildBatchPhoneNames 同字面，不另起字面；同一内核）。 */
@@ -207,7 +207,7 @@ function timeoutForPhone(phoneName: string, timeout: number | HttpTimeouts | und
     if (typeof t.installMs === "number" && Number.isFinite(t.installMs) && t.installMs > 0) return t.installMs
     return DEFAULT_HTTP_INSTALL_TIMEOUT_MS
   }
-  if (phoneName.endsWith(".updateCheck") || phoneName.endsWith(".batchCheck") || phoneName.endsWith(".updateChangelog")) {
+  if (phoneName.endsWith(".updateCheck") || phoneName.endsWith(".updateCheckFallback") || phoneName.endsWith(".batchCheck") || phoneName.endsWith(".updateChangelog")) {
     if (typeof t.checkMs === "number" && Number.isFinite(t.checkMs) && t.checkMs > 0) return t.checkMs
     return DEFAULT_HTTP_CHECK_TIMEOUT_MS
   }

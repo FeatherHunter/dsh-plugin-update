@@ -136,6 +136,9 @@ export {
   interpretInstallCause,
 } from './install-cause.js';
 export type { CauseBlame, CauseFacts, CauseInterpreterCounts, CauseKind, CauseSignature, InterpretCauseInput } from './install-cause.js';
+// 合规版决议（#156：年龄门拦住时找"满门限的最新版"；纯函数，经包根转出口）。
+export { resolveCompliantVersion } from './compliant-version.js';
+export type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './compliant-version.js';
 // 更新日志（#23，承接 #11：包内 CHANGELOG.md 展示；纯函数两边可进，I/O 仅 Node 侧）。
 export {
   CHANGELOG_ALL_CATEGORIES,
@@ -201,6 +204,8 @@ export {
   compareVersions,
 } from './service.js'
 export type { ReleaseChannel } from './ports.js'
+export type { CheckFallbackPhoneAction } from './config.js'
+export type { FallbackCheckInput, FallbackCheckResult } from './ports.js'
 // 跨插件单队列（#15）：纯决策经包根转出口，落盘与全局锁同上；面板展示过滤见 client.ts 同名转出口。
 export {
   createUpdateQueuePorts,
@@ -1149,6 +1154,29 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
       queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId),
     }
   }
+  /**
+   * 合规版决议电话（#156）：面板把翻译官结论里"调用方知道"的部分递进来
+   *（kind/blame/目标版/窗口/发布时间），核心取时间表做五值裁决；有候选即落
+   * 第二槽凭证并随回包带回。取数失败诚实抛（面板退通用老路），永不编造候选。
+   * 回包形状走 loggedPhone 通用包装：snapshot 格即决议结果，receipt 格即候选凭证。
+   */
+  async function readCheckFallback(args: Record<string, unknown>): Promise<{ snapshot: unknown; receipt: unknown }> {
+    const reader = await getSharedReader(pluginId, config, {
+      ...readerOverrides,
+      profileDir: args && args.profileDir ? String(args.profileDir) : readerOverrides.profileDir,
+    })
+    const blameRaw = args && typeof args['blame'] === 'string' ? args['blame'] : undefined
+    const windowSourceRaw = args && typeof args['windowSource'] === 'string' ? args['windowSource'] : undefined
+    const result = await reader.checkFallback({
+      ...(args && typeof args['kind'] === 'string' && args['kind'] ? { kind: args['kind'] as string } : {}),
+      ...(blameRaw === 'target' || blameRaw === 'other-package' || blameRaw === 'unknown' ? { blame: blameRaw as 'target' | 'other-package' | 'unknown' } : {}),
+      ...(args && typeof args['targetVersion'] === 'string' && args['targetVersion'] ? { targetVersion: args['targetVersion'] as string } : {}),
+      ...(args && typeof args['windowMs'] === 'number' && Number.isFinite(args['windowMs']) ? { windowMs: args['windowMs'] as number } : {}),
+      ...(windowSourceRaw === 'message' || windowSourceRaw === 'host' || windowSourceRaw === 'unknown' ? { windowSource: windowSourceRaw as 'message' | 'host' | 'unknown' } : {}),
+      ...(args && typeof args['publishedAtMs'] === 'number' && Number.isFinite(args['publishedAtMs']) ? { publishedAtMs: args['publishedAtMs'] as number } : {}),
+    })
+    return { snapshot: { verdict: result.verdict, candidate: result.candidate }, receipt: result.receipt ?? null }
+  }
   async function runInstall(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; env?: PhoneEnvView | null; queue?: VisibleQueue | null }> {
     const checkId = args && typeof args.checkId === 'string' ? args.checkId : ''
     const requestId = args && typeof args.requestId === 'string' ? args.requestId : ''
@@ -1156,6 +1184,9 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
     // 老调用方不传即现状，只影响日志行 `update.install.request.from`，不参与任何决策。
     const installFrom: InstallSource =
       args && (args['from'] === 'entry' || args['from'] === 'batch') ? (args['from'] as InstallSource) : 'panel'
+    // 候选安装（#156）：调用方点"装合规版"时带候选版；不带即走 latest 老路。
+    // 只做形状提取（非空字符串），绑定校验归核心第二槽——这里不认任何版本。
+    const installVersion = args && typeof args['version'] === 'string' && args['version'] ? String(args['version']) : undefined
     const { includeQueue, showOthers } = queueArgsOf(args)
     const enqueueOnly = !!args && args['enqueueOnly'] === true
     const cancelQueued = !!args && args['cancelQueued'] === true
@@ -1183,8 +1214,9 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
       return { ...out, ...envPatch, queue: visibleQueueFor(placed.state, pluginId, showOthers, requestId) }
     }
     // 正常安装：凭证不齐交给核心判（归类与改造前一致）；齐了先占位再过公平门。
+    // 候选版随凭证一起进核心（#156）：核心只认第二槽绑定，占位仍按插件+编号，不按版本。
     if (!checkId || !validRequestId(requestId)) {
-      const out = await snapWithManual(reader, (await reader.install({ checkId, requestId, from: installFrom })) as never, config)
+      const out = await snapWithManual(reader, (await reader.install({ checkId, requestId, from: installFrom, ...(installVersion ? { version: installVersion } : {}) })) as never, config)
       if (!includeQueue) return { ...out, ...envPatch }
       return { ...out, ...envPatch, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
     }
@@ -1197,7 +1229,7 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
       throw updateBusyError()
     }
     try {
-      const out = await snapWithManual(reader, (await reader.install({ checkId, requestId, from: installFrom })) as never, config)
+      const out = await snapWithManual(reader, (await reader.install({ checkId, requestId, from: installFrom, ...(installVersion ? { version: installVersion } : {}) })) as never, config)
       if (!includeQueue) return { ...out, ...envPatch }
       return { ...out, ...envPatch, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
     } catch (error) {
@@ -1286,6 +1318,10 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
       readerOverrides,
     }),
     [phoneNames.updateInstall]: loggedPhone(phoneNames.updateInstall, 'update-install', pluginId, runInstall, {
+      config,
+      readerOverrides,
+    }),
+    [phoneNames.updateCheckFallback]: loggedPhone(phoneNames.updateCheckFallback, 'update-check-fallback', pluginId, readCheckFallback, {
       config,
       readerOverrides,
     }),

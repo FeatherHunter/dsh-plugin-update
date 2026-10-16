@@ -13,7 +13,11 @@ import type {
   BlockedReason,
   CheckResult,
   CheckTrigger,
+  CompliantVerdict,
+  CompliantVersionInput,
   EnvironmentView,
+  FallbackCheckInput,
+  FallbackCheckResult,
   FetchImpl,
   InstallSource,
   MinimalResponse,
@@ -522,6 +526,75 @@ export async function fetchNpmVersionRelease(
   }
 }
 
+/**
+ * 取全量包文档里的时间表（#156 合规版决议用：`dist-tags.latest` + `time`）。
+ *
+ * 与 fetchNpmRelease 同一信任根、同一字节墙（256KB）：只接受名字对得上、
+ * latest 合法、time 条目时间可解析的返回；名字对不上/latest 非法即版本信息无效。
+ * time 只收"版本号 → ISO 时间"的有效条目，坏条目忽略（不整表作废）——决议层还会再验。
+ * 注意：精简版文档（abbreviated）没有 time 表，必须取完整包文档。
+ */
+export async function fetchPackumentTimes(
+  fetchImpl: FetchImpl,
+  timeoutMs: number = CHECK_TIMEOUT_MS,
+  opts?: {
+    targetPackageName?: string
+    registryUrl?: string
+    emitLog?: UpdateLogPort
+    registryHost?: string | null
+  },
+): Promise<{ latest: string; times: Record<string, number> }> {
+  const targetName = opts?.targetPackageName ?? PACKAGE_NAME
+  const registry = opts?.registryUrl ?? NPM_REGISTRY
+  const noteFetch = makeFetchNoter(opts?.emitLog, opts?.registryHost)
+  let response: MinimalResponse | null = null
+  const startedAt = Date.now()
+  try {
+    response = await fetchImpl(`${registry}${encodeURIComponent(targetName)}`, {
+      headers: { accept: 'application/json' },
+      redirect: 'error',
+      signal: timeoutSignal(timeoutMs),
+    })
+  } catch {
+    noteFetch(null, startedAt)
+    throw updateError('check-failed')
+  }
+  noteFetch(httpStatusOf(response), startedAt)
+  try {
+    if (!response.ok) throw checkFailedWithStatus(response)
+    const declared = Number(response.headers.get('content-length'))
+    if (Number.isFinite(declared) && declared > MAX_METADATA_BYTES) throw updateError('invalid-release')
+    const text = await response.text()
+    if (byteLength(text) > MAX_METADATA_BYTES) throw updateError('invalid-release')
+    const value = JSON.parse(text) as {
+      name?: unknown
+      'dist-tags'?: { latest?: unknown }
+      time?: unknown
+    }
+    if (value.name !== targetName) throw updateError('invalid-release')
+    const latest = value['dist-tags']?.latest
+    if (!validReleaseVersion(latest)) throw updateError('invalid-release')
+    const times: Record<string, number> = {}
+    if (value.time && typeof value.time === 'object') {
+      for (const [version, stamp] of Object.entries(value.time as Record<string, unknown>)) {
+        try {
+          if (!validReleaseVersion(version) || typeof stamp !== 'string' || !stamp.trim()) continue
+          const ms = Date.parse(stamp.trim())
+          if (Number.isFinite(ms) && ms > 0) times[version] = ms
+        } catch {
+          /* 坏条目忽略，继续收好的 */
+        }
+      }
+    }
+    return { latest, times }
+  } catch (error) {
+    if ((error as { code?: unknown })?.code === 'check-failed') throw error
+    if ((error as { code?: unknown })?.code === 'invalid-release') throw error
+    if (response !== null && response.ok) throw updateError('invalid-release')
+    throw checkFailedWithStatus(response)
+  }
+}
+
 // ---------- 核心工厂（记得规矩，不动手装） ----------
 
 interface CheckedState {
@@ -563,6 +636,13 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     })
   }
   let checked: CheckedState | null = null
+  /**
+   * 合规版候选第二槽（#156）：只由 `checkFallback` 写入——存"决议出的候选版 +
+   * 它的发行校验 + 安装凭证"。`check()` 成功即清空（新 latest 可能改变全局），
+   * 非候选裁决也清空（旧候选不许跨失败复活）。`install()` 的候选分支只认这一槽，
+   * 永不复用 `checked`（"查到啥装啥"的单向管道不动）。
+   */
+  let fallbackChecked: { version: string; release: ReleaseInfo; checkId: string; checkedAt: number; expiresAt: number; installationKey: string | null } | null = null
   let checking: Promise<CheckResult> | null = null
   let lastCheckAt = -Infinity
   let activeJobId: string | null = null
@@ -791,6 +871,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
           installationKey: env.installationKey,
           blockedReason: satisfiesNodeRange(ports.nodeVersion, release.nodeRange) ? null : 'incompatible-node',
         }
+        // 新检查结论落地，旧候选即失效（#156）：latest 变了，基于旧 latest 的决议不许再用。
+        fallbackChecked = null
         // 凭证只在能装时交：没新版或有阻拦时交了也没用，不交。
         const snapshot = buildSnapshot(env, await healedJob(env))
         // 通道判定与检查成功各一条（#124）：顺序是先判定再宣布成功，读日志的人先看到「为什么」。
@@ -824,6 +906,79 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     if (!checked?.checkId) return null
     // 凭证只交编号与有效期：环境指纹留在核心内存里，快照与凭证都不带它。
     return { checkId: checked.checkId, checkedAt: checked.checkedAt, expiresAt: checked.expiresAt }
+  }
+
+  /**
+   * 合规版决议（#156）：年龄门拦住时问一次。先做三道免取数早退（缺窗口/非主包/
+   * 未知 kind——连评都评不了，不花一次联网），再取时间表做纯决议；有候选才取
+   * 候选版本文档做完整性校验并落第二槽凭证。取数失败诚实抛（调用方退通用老路），
+   * 永不编造候选；决议函数没注入即 `unsupported`（与 `runInstall` 缺席同口径）。
+   */
+  async function checkFallback(input: FallbackCheckInput): Promise<FallbackCheckResult> {
+    const kind = typeof input?.kind === 'string' && input.kind ? input.kind : 'minimum-release-age'
+    const blame = input?.blame === 'target' ? 'target' : input?.blame === 'other-package' ? 'other-package' : 'unknown'
+    const windowSource = input?.windowSource === 'message' || input?.windowSource === 'host' ? input.windowSource : 'unknown'
+    const windowMs = typeof input?.windowMs === 'number' && Number.isFinite(input.windowMs) && input.windowMs > 0 ? input.windowMs : null
+    const publishedAtMs = typeof input?.publishedAtMs === 'number' && Number.isFinite(input.publishedAtMs) && input.publishedAtMs > 0 ? input.publishedAtMs : null
+    const targetVersion = typeof input?.targetVersion === 'string' && input.targetVersion ? input.targetVersion : null
+    // 三道免取数早退：输入不可用即 abstain，不花一次联网（B 类天然走这里）。
+    const resolve = ports.resolveCompliantVersion
+    if (typeof resolve !== 'function') throw updateError('unsupported')
+    if (windowMs === null) {
+      fallbackChecked = null
+      return { verdict: resolve({ kind, blame, targetVersion: targetVersion ?? '', latestVersion: '', runningVersion: '', windowMs: null, windowSource, publishedAtMs, timeTable: {}, nowMs: ports.now() }), candidate: null, receipt: null }
+    }
+    if (blame !== 'target') {
+      fallbackChecked = null
+      return { verdict: { kind: 'abstain', reason: 'not-target', windowSource }, candidate: null, receipt: null }
+    }
+    const packument = await fetchPackumentTimes(ports.fetchImpl, checkTimeoutMs, {
+      targetPackageName,
+      registryUrl,
+      emitLog: logPort ?? undefined,
+      registryHost,
+    })
+    const latest = packument.latest
+    const runningVersion = ports.readRunningVersion()
+    const verdictInput: CompliantVersionInput = {
+      kind,
+      blame,
+      targetVersion: targetVersion ?? latest,
+      latestVersion: latest,
+      runningVersion,
+      releaseChannel,
+      windowMs,
+      windowSource,
+      publishedAtMs,
+      timeTable: packument.times,
+      nowMs: ports.now(),
+    }
+    const verdict: CompliantVerdict = resolve(verdictInput)
+    if (verdict.kind !== 'downgrade-available') {
+      fallbackChecked = null
+      return { verdict, candidate: null, receipt: null }
+    }
+    // 有候选才做版本文档校验（与 latest 同一套 tarball/integrity 形状门，不过即 invalid-release）。
+    const env = await ports.readInstalled()
+    const release = await fetchNpmVersionRelease(ports.fetchImpl, checkTimeoutMs, {
+      targetPackageName,
+      registryUrl,
+      releaseChannel,
+      version: verdict.version,
+      emitLog: logPort ?? undefined,
+      registryHost,
+    })
+    const checkId = ports.randomId()
+    const checkedAt = ports.now()
+    fallbackChecked = {
+      version: verdict.version,
+      release,
+      checkId,
+      checkedAt,
+      expiresAt: checkedAt + confirmationTtlMs,
+      installationKey: env.installationKey,
+    }
+    return { verdict, candidate: verdict.version, receipt: { checkId, checkedAt, expiresAt: fallbackChecked.expiresAt } }
   }
 
   async function runBackground(job: UpdateJob, envAtStart: EnvironmentView): Promise<void> {
@@ -884,7 +1039,71 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     }
   }
 
-  async function install(args: { checkId: string; requestId: string; from?: InstallSource }): Promise<UpdateSnapshot> {
+  /**
+   * 候选安装（#156）：把用户点"装合规版"的意图落成任务。门与 latest 路径同口径：
+   * 绑定（槽×版本×凭证×有效期）、指纹、忙、环境、运行版比较——门名一个不新增，
+   * 失败码仍是旧四码（check-expired/installation-changed/update-busy/环境阻拦），
+   * 面板旧分支照单全收。装后校验走同一 `runBackground`（磁盘版与目标不一致即失败，
+   * 回执校验是现货，不用新造）。
+   */
+  async function installCandidate(
+    version: string,
+    ctx: { checkId: string; requestId: string; from?: InstallSource; env: EnvironmentView; previous: UpdateJob | null },
+  ): Promise<UpdateSnapshot> {
+    const slot = fallbackChecked
+    // 绑定三件套：槽要有、版本要对上、凭证编号要对上、没过期——缺一即检查过期，不猜。
+    if (!slot || slot.version !== version || !slot.checkId || slot.checkId !== ctx.checkId || ports.now() >= slot.expiresAt) {
+      throw updateError('check-expired')
+    }
+    if (ctx.env.installationKey !== slot.installationKey) throw updateError('installation-changed')
+    if (!ctx.env.eligible || ctx.env.blockedReason) throw updateError(ctx.env.blockedReason ?? 'update-busy')
+    const runningVersion = ports.readRunningVersion()
+    // 候选必须严格新于运行版（决议时验过，这里再验一次：环境可能在决议后前进了）。
+    if (!validReleaseVersion(runningVersion) || compareReleaseVersions(version, runningVersion) !== 1) {
+      throw updateError('installation-changed')
+    }
+    // 用户意图（#124）：字段与 latest 路径同名同口径，latest 格填的是这次真要装的版本，不新增键。
+    emit('info', 'update.install.request', {
+      from: installSourceOf(ctx.from),
+      current: runningVersion,
+      latest: version,
+      checkAgeMs: Math.max(0, ports.now() - slot.checkedAt),
+    })
+    const job: UpdateJob = {
+      id: ports.randomId(),
+      state: 'installing',
+      targetVersion: version,
+      message: null,
+      requestId: ctx.requestId,
+    }
+    if (!(await acquire(job.id))) throw updateError('update-busy')
+    try {
+      // 装前复核（与 latest 路径同纪律）：候选版本文档重取一次，对不上决议时存的即过期。
+      const current = await fetchNpmVersionRelease(ports.fetchImpl, checkTimeoutMs, {
+        targetPackageName,
+        registryUrl,
+        releaseChannel,
+        version,
+        emitLog: logPort ?? undefined,
+        registryHost,
+      })
+      if (JSON.stringify(current) !== JSON.stringify(slot.release)) throw updateError('check-expired')
+      const env = await ports.readInstalled()
+      if (env.installationKey !== slot.installationKey) throw updateError('installation-changed')
+      if (!env.eligible || env.blockedReason) throw updateError(env.blockedReason ?? 'update-busy')
+      if (ports.backupJob) await ports.backupJob(job)
+      await saveJob(job)
+      activeJobId = job.id
+      // 落盘后后台跑，调用方不干等：每秒轮询查状态即可看到进度，关页面不取消。
+      void runBackground(job, env).catch(() => {})
+      return buildSnapshot(env, job)
+    } catch (error) {
+      await release(job.id)
+      throw error
+    }
+  }
+
+  async function install(args: { checkId: string; requestId: string; from?: InstallSource; version?: string }): Promise<UpdateSnapshot> {
     const checkId = typeof args?.checkId === 'string' ? args.checkId : ''
     const requestId = typeof args?.requestId === 'string' ? args.requestId : ''
     if (!checkId || !validRequestId(requestId)) throw updateError('check-expired')
@@ -895,6 +1114,10 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     if (previous?.state === 'installing' || previous?.state === 'verifying' || previous?.state === 'restart-required') {
       throw updateError('update-busy')
     }
+    // 候选分支（#156）：指定装合规版——只认第二槽绑定，不认任意旧版；
+    // 凭证、指纹、忙、环境四道门与 latest 路径同口径，门名不变。
+    const wantedVersion = typeof args?.version === 'string' && args.version ? args.version : null
+    if (wantedVersion) return installCandidate(wantedVersion, { checkId, requestId, from: args?.from, env, previous })
     if (!checked || !checked.checkId || checked.checkId !== checkId || ports.now() >= checked.expiresAt) {
       throw updateError('check-expired')
     }
@@ -939,5 +1162,5 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     return buildSnapshot(env, job)
   }
 
-  return { status, check, install }
+  return { status, check, install, checkFallback }
 }

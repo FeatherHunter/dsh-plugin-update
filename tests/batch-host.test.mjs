@@ -81,7 +81,7 @@ async function waitFor(check, label) {
 }
 
 describe('注册与命名', () => {
-  it('七个批量电话与每个目标的四个单插件电话都注册，前缀互不相同', async () => {
+  it('七个批量电话与每个目标的五个单插件电话都注册，前缀互不相同（#156 另加合规版决议电话）', async () => {
     const { scope } = await tempScope()
     const keys = ['a', 'b', 'c', 'd', 'e', 'f', 'self']
     const targets = keys.map((key) => target(key))
@@ -96,12 +96,12 @@ describe('注册与命名', () => {
       prefsSave: 'life.batchPrefsSave',
     })
     const names = Object.keys(host.handlers)
-    assert.equal(names.length, 7 + keys.length * 5)
+    assert.equal(names.length, 7 + keys.length * 6)
     for (const name of Object.values(host.phoneNames)) assert.ok(names.includes(name), name)
     const prefixes = new Set()
     for (const one of targets) {
       prefixes.add(one.prefix)
-      for (const action of ['updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'logAppend']) {
+      for (const action of ['updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'updateCheckFallback', 'logAppend']) {
         assert.ok(names.includes(one.prefix + '.' + action), one.prefix + '.' + action)
       }
     }

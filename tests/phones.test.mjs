@@ -101,18 +101,20 @@ beforeEach(() => {
 })
 
 describe('宿主接线三电话的入参与回参', () => {
-  it('默认前缀下电话名与现状一字不差（#38 另加更新日志电话；#122 另加日志追加电话）', () => {
+  it('默认前缀下电话名与现状一字不差（#38 另加更新日志电话；#122 另加日志追加电话；#156 另加合规版决议电话）', () => {
     const fires = []
     const host = makeHost({ pluginId: 'dsh-mattpocock-skills-deck', fires })
     assert.equal(host.phoneNames.updateStatus, 'wf.updateStatus')
     assert.equal(host.phoneNames.updateCheck, 'wf.updateCheck')
     assert.equal(host.phoneNames.updateInstall, 'wf.updateInstall')
     assert.equal(host.phoneNames.updateChangelog, 'wf.updateChangelog')
+    assert.equal(host.phoneNames.updateCheckFallback, 'wf.updateCheckFallback')
     assert.equal(host.phoneNames.logAppend, 'wf.logAppend')
     assert.deepEqual(Object.keys(host.handlers).sort(), [
       'wf.logAppend',
       'wf.updateChangelog',
       'wf.updateCheck',
+      'wf.updateCheckFallback',
       'wf.updateInstall',
       'wf.updateStatus',
     ])

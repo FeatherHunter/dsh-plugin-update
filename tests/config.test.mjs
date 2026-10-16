@@ -43,12 +43,13 @@ describe('公共入口的配置校验与默认值', () => {
     assert.equal(resolveUpdateConfig({ pluginId: 'p', panelPollMs: 500 }).panelPollMs, 500)
   })
 
-  it('默认电话名与现状一字不差（冻结；#38 另加更新日志电话；#122 另加日志追加电话）', () => {
+  it('默认电话名与现状一字不差（冻结；#38 另加更新日志电话；#122 另加日志追加电话；#156 另加合规版决议电话）', () => {
     assert.deepEqual(buildPhoneNames('wf'), {
       updateStatus: 'wf.updateStatus',
       updateCheck: 'wf.updateCheck',
       updateInstall: 'wf.updateInstall',
       updateChangelog: 'wf.updateChangelog',
+      updateCheckFallback: 'wf.updateCheckFallback',
       logAppend: 'wf.logAppend',
     })
   })

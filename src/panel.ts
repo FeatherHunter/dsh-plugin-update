@@ -35,7 +35,7 @@ import type { BlockedReason, UpdateSnapshot } from './ports.js'
 import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './codes.js'
 export { isCheckSideFailureCode } // 查侧判定从单点真源派生（#134/US15；#141 铁律：本文件不另建第二张表）
 import { copyText, type BilingualKey } from './bilingual.js'
-import { blameCausePackage, CAUSE_KINDS, formatUnlockAt } from './install-cause.js'
+import { blameCausePackage, CAUSE_KINDS, formatUnlockAt, interpretInstallCause } from './install-cause.js'
 import { langSignalSource, normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
 
 // ---------- 公开类型（完整类型定义：公开入口一律有类型，不做源码级复用） ----------
@@ -211,6 +211,9 @@ export type UpdatePanelActionKind =
   | 'restart-hint'
   | 'close-view'
   | 'dismiss-failure'
+  | 'install-fallback'
+  | 'install-fallback-confirm'
+  | 'wait-latest'
 
 /**
  * 客户端日志选项（#122）：
@@ -951,6 +954,12 @@ export interface PanelViewInput {
   /** 失败回包的 errorKind（有则优先于 lastError；internal 时不许误判为查新版失败）。 */
   errorKind?: string | null
   /**
+   * 检查页预判（#156 场景二）：内核记住的窗口（目标版 + 解封时刻 + 渲染时刻）。
+   * 缺省即无预判（输出与旧版一字不差）；只在"已确认、无新鲜失败"时改变失败横幅与
+   * 可装横幅的去向——锁存还在（有新鲜失败）时失败页优先，本输入不生效。
+   */
+  checkPrejudge?: CheckPrejudge | null
+  /**
    * 更新日志 Markdown（#23）：只影响日志节的渲染，不参与安装门控。
    * 缺省/空串即中性提示；快照六字段与 blockedReason 一字不动。
    */
@@ -1067,7 +1076,13 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
   } catch {
     staleFailure = false
   }
-  if (!staleFailure && (failedCode || jobState === 'failed' || jobState === 'interrupted')) {
+  // #156 场景二：已确认（errorKind/lastError 为空即锁存已清：用户点了等新版/已知晓）
+  // + 记住的窗口正对当前新版 + 还没放行 → 失败横幅让位给检查页预判，不再拿旧失败挡路。
+  // 记住的窗口仍是事实（这版现在装还是会被拦），且只在"无新鲜失败"时让位——
+  // 锁存还在（errorKind/lastError 有值）时失败页优先，本门直接 null。
+  const noFreshFailure = !(typeof errorKind === 'string' && errorKind.trim()) && !lastError
+  const gated = noFreshFailure ? checkPrejudgeOfView(input.checkPrejudge, snapshot) : null
+  if (!staleFailure && !gated && (failedCode || jobState === 'failed' || jobState === 'interrupted')) {
     const code = failedCode || 'install-failed'
     const copy = failureCopy(code, l)
     // 未装 + 查侧失败（#134/US15）：未装状态词打头 + 查侧文案，不说安装失败。
@@ -1132,6 +1147,24 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
     // 未装时标题的「当前版本」不许填注入的假版号（#134/US19）：填人话状态词。
     const running =
       snapshot.installed === false ? copyText('panel.banner.not-installed', l) : snapshot.runningVersion
+    // #156 场景二：记住的窗口正对当前新版——不说"可安装"骗点，主按钮置灰，
+    // 横幅说清"哪一版、何时可装、先装合规版"；按钮由内核渲染按同一纯门补［装合规版］。
+    if (gated) {
+      const unlock = formatUnlockAt(gated.unlockAtMs, l) ?? ''
+      return {
+        banner: {
+          kind: 'update',
+          title: copyText('panel.banner.update-gated-title', l, { latest: snapshot.latestVersion, unlock }),
+          action: copyText('panel.banner.update-action', l),
+        },
+        installEnabled: false,
+        installLabel: copyText('panel.action.install-version', l, { latest: snapshot.latestVersion }),
+        skippedLatest: false,
+        showManual: manual ? true : false,
+        showReset: false,
+        queueNote,
+      }
+    }
     return {
       banner: {
         kind: 'update',
@@ -1576,9 +1609,15 @@ export interface PanelRenderInput extends PanelViewInput {
    * 在途动作（仅挂载态内部用：点下查新版/安装到回包前的那一帧，按钮置忙）。
    * 缺省即静默（输出与旧版一字不差）；只在挂载器置忙的那次 render 里传。
    */
-  busyAct?: 'check' | 'install' | null
+  busyAct?: 'check' | 'install' | 'fallback' | null
   /** 失败引用（失败档案的查询键；缺省即无失败，不画卷宗）。 */
   failure?: PanelFailureRef | null
+  /**
+   * 合规版二次确认（#156：用户点了"装合规版"且决议出候选后，确认按钮才出现；
+   * 缺省即无二次确认，只画"装合规版"。candidate 是决议点名的精确版本，按钮文案即它——
+   * 用户永远先看见版本号再点确认，永不静默装旧版）。
+   */
+  fallbackOffer?: { candidate: string; targetVersion: string } | null
   /** 日志指引开关：false 即藏通用日志行（失败证据行不受影响）。 */
   showLogHint?: boolean
   /**
@@ -1621,6 +1660,136 @@ export interface PanelFailureRef {
   volatile: boolean
   /** 失败那次安装的目标版本（无则不画行）。 */
   targetVersion: string | null
+  /**
+   * 翻译官机读结论（#156：内核由锁存证据解析后填入；渲染只按它们分支，不读自由文本）。
+   * causePackage 是带版本的规格（如 dshmarket@1.66.28）；窗口/发布时间缺省即 null（算不出）。
+   * 全缺省即老行为（通用失败按钮），调用方不传与传 null 等价。
+   */
+  causeKind?: string | null
+  causePackage?: string | null
+  causeTarget?: string | null
+  causeWindowMs?: number | null
+  causePublishedAtMs?: number | null
+}
+
+/**
+ * 检查页预判输入（#156 场景二）：内核把"记住的窗口"翻译成渲染能直接用的三件事——
+ * 哪一版（记住的目标版）、何时放行（记住的发布时间 + 窗口）、现在何时（渲染时刻，
+ * 纯函数可测）。窗口为 null 即不传本输入（规则三：没有窗口不预判）。
+ */
+export interface CheckPrejudge {
+  targetVersion: string
+  unlockAtMs: number
+  nowMs: number | null
+}
+
+/**
+ * 检查页预判门（#156 场景二，纯函数）：四道全过才预判——有输入、可装、有新版、
+ * 记住的正是对当前这一版、时钟正常且还没放行。缺一律 null（调用方走正常检查页）。
+ * 内核已按记住匹配过一次，这里再验一遍：渲染只信当下快照，不信调用方。
+ */
+export function checkPrejudgeOfView(
+  pre: CheckPrejudge | null | undefined,
+  snapshot: UpdateSnapshot | null | undefined,
+): { targetVersion: string; unlockAtMs: number } | null {
+  try {
+    if (!pre || !snapshot?.canInstall) return null
+    const latest = typeof snapshot.latestVersion === 'string' ? snapshot.latestVersion.trim() : ''
+    const target = typeof pre.targetVersion === 'string' ? pre.targetVersion.trim() : ''
+    if (!latest || !target || latest !== target) return null
+    if (typeof pre.unlockAtMs !== 'number' || !Number.isFinite(pre.unlockAtMs)) return null
+    if (typeof pre.nowMs !== 'number' || !Number.isFinite(pre.nowMs) || pre.nowMs >= pre.unlockAtMs) return null
+    return { targetVersion: target, unlockAtMs: pre.unlockAtMs }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 合规版双按钮门（#156，纯函数）：拦的正是更新目标本身才给"装合规版/等新版"。
+ * 输入是失败引用里的机读结论 + 失败那次的目标版本；返回被拦住的版本号（无则 null，不画按钮）。
+ * 归因只认 target（B 类 other-package/unknown 一律 null：降级装没被拦的包躲不掉别人的窗口）。
+ */
+export function fallbackBlockedVersionOf(
+  failure: Pick<PanelFailureRef, 'targetVersion' | 'causeKind' | 'causePackage' | 'causeTarget'> | null | undefined,
+  pluginId: unknown,
+): string | null {
+  try {
+    return vetFailureRef(failure, pluginId)
+  } catch {
+    return null
+  }
+}
+
+function vetFailureRef(
+  failure: Pick<PanelFailureRef, 'targetVersion' | 'causeKind' | 'causePackage' | 'causeTarget'> | null | undefined,
+  pluginId: unknown,
+): string | null {
+  const kind = typeof failure?.causeKind === 'string' ? failure.causeKind.trim() : ''
+  if (!kind || !(CAUSE_KINDS as readonly string[]).includes(kind)) return null
+  const spec = typeof failure?.causePackage === 'string' ? failure.causePackage.trim() : ''
+  if (!spec) return null
+  // 归因目标优先用机读包名（命名空间正确），缺省才退回插件标识——对不上即无按钮，不硬认。
+  const target = typeof failure?.causeTarget === 'string' && failure.causeTarget.trim()
+    ? failure.causeTarget.trim()
+    : typeof pluginId === 'string' && pluginId.trim() ? pluginId.trim() : ''
+  if (!target) return null
+  if (blameCausePackage(spec, target) !== 'target') return null
+  const direct = typeof failure?.targetVersion === 'string' ? failure.targetVersion.trim() : ''
+  if (direct) return direct
+  const at = spec.lastIndexOf('@')
+  const ver = at > 0 ? spec.slice(at + 1).trim() : ''
+  return ver || null
+}
+
+/**
+ * 锁存证据 → 机读结论（#156，纯函数）：翻译官重认一次锁存里的失败原文，
+ * 给出渲染门与电话入参要的全部事实；认不出即 null（调用方走通用老路）。
+ * 窗口优先用报文自述分钟数，否则用门限反推（cutoff - published），都没有即 null——
+ * 永不硬编码策略时长；归因非 target 即 null（与渲染门同口径）。
+ */
+export function fallbackCauseFromDetail(detail: unknown, errorCode: unknown, pluginId: unknown): {
+  kind: string
+  packageName: string
+  targetVersion: string
+  windowMs: number | null
+  /** 窗口出处（报文自述分钟数即 message，门限反推即 unknown——只回传，不参与决议）。 */
+  windowSource: 'message' | 'unknown'
+  publishedAtMs: number | null
+} | null {
+  try {
+    const facts = interpretInstallCause({
+      errorCode: typeof errorCode === 'string' && errorCode ? errorCode : 'install-failed',
+      detail,
+      targetPackageName: typeof pluginId === 'string' ? pluginId : undefined,
+    })
+    if (!facts || facts.kind !== 'minimum-release-age' || facts.blame !== 'target') return null
+    const targetVersion = typeof facts.packageVersion === 'string' && facts.packageVersion.trim()
+      ? facts.packageVersion.trim()
+      : null
+    if (!targetVersion) return null
+    let windowMs: number | null = null
+    let windowSource: 'message' | 'unknown' = 'unknown'
+    if (typeof facts.windowMinutes === 'number' && Number.isFinite(facts.windowMinutes) && facts.windowMinutes > 0) {
+      windowMs = facts.windowMinutes * 60_000
+      windowSource = 'message'
+    } else if (
+      typeof facts.cutoffMs === 'number' && typeof facts.publishedAtMs === 'number'
+      && facts.cutoffMs > facts.publishedAtMs
+    ) {
+      windowMs = facts.cutoffMs - facts.publishedAtMs
+    }
+    return {
+      kind: facts.kind,
+      packageName: facts.packageName,
+      targetVersion,
+      windowMs,
+      windowSource,
+      publishedAtMs: typeof facts.publishedAtMs === 'number' ? facts.publishedAtMs : null,
+    }
+  } catch {
+    return null
+  }
 }
 
 /** 锁存时刻 → 本地 HH:MM:SS（失败档案“失败于”用；非法值回 null，不画时间；#62 跟随宿主 locale）。 */
@@ -1747,10 +1916,24 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   const busyAct = (input as { busyAct?: unknown }).busyAct
   const checkBusy = busyAct === 'check'
   const installBusy = busyAct === 'install'
+  const fallbackBusy = busyAct === 'fallback'
   // #87 宏忙守卫（与批量 macroBusy 同口径）：快照 installing/verifying 或任一本地电话在飞，两键一起置灰。只渲染不推导：不改电话形状与快照字段，不新增文案键。
+  // #156：合规版决议在途也算宏忙——查/装按钮一起置灰，防决议结论（第二槽）被并发检查洗掉。
   const jobState = (snapshot as unknown as { job?: { state?: unknown } } | null)?.job?.state
   const snapshotBusy = jobState === 'installing' || jobState === 'verifying'
-  const macroBusy = busyAct === 'check' || busyAct === 'install' || snapshotBusy
+  const macroBusy = busyAct === 'check' || busyAct === 'install' || fallbackBusy || snapshotBusy
+  // #156 场景二：检查页预判与视图模型同一纯门（只信当下快照）——主安装按钮已按它置灰，
+  // 这里只补按钮与悬停说明。决议凭证只认对当前这一版的：旧版决议不跨版复用。
+  const gatePrejudge = b.kind === 'update' ? checkPrejudgeOfView(
+    (input as { checkPrejudge?: CheckPrejudge | null }).checkPrejudge ?? null,
+    snapshot,
+  ) : null
+  const gateOfferRaw = (input as { fallbackOffer?: { candidate?: unknown; targetVersion?: unknown } | null }).fallbackOffer ?? null
+  const gateCandidate =
+    gatePrejudge && typeof gateOfferRaw?.candidate === 'string' && gateOfferRaw.candidate.trim()
+    && typeof gateOfferRaw?.targetVersion === 'string' && gateOfferRaw.targetVersion.trim() === gatePrejudge.targetVersion
+      ? gateOfferRaw.candidate.trim()
+      : null
   actions.push('<div class="dsh-upd-actions">')
   // 在途那一帧：按钮禁用 + 文案切换 + aria-busy（静默时输出与旧版一字不差）。
   // title 是零成本原生 tooltip：不引入浮层组件，只给悬停一句话说明。
@@ -1761,10 +1944,21 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
       : `<button type="button" data-action="check" title="${escapeHtml(copyText('panel.action.check-title', l))}"${macroBusy ? ' disabled' : ''}>${escapeHtml(copyText('panel.action.check', l))}</button>`) +
       (installBusy
         ? `<button type="button" data-action="install" data-primary="1" disabled aria-busy="true" title="${escapeHtml(copyText('panel.action.installing-busy-title', l))}">${escapeHtml(copyText('panel.action.installing-busy', l))}</button>`
-        : `<button type="button" data-action="install" data-primary="1" title="${escapeHtml(copyText('panel.action.install-title', l))}"${macroBusy || !view.installEnabled ? ' disabled' : ''}>${escapeHtml(view.installLabel)}</button>`),
+        : `<button type="button" data-action="install" data-primary="1" title="${escapeHtml(gatePrejudge ? copyText('panel.action.install-gated-title', l, { latest: snapshot?.latestVersion ?? '', unlock: formatUnlockAt(gatePrejudge.unlockAtMs, l) ?? '' }) : copyText('panel.action.install-title', l))}"${macroBusy || !view.installEnabled ? ' disabled' : ''}>${escapeHtml(view.installLabel)}</button>`),
   )
   if (snapshot?.latestVersion && !view.skippedLatest && view.banner.kind === 'update') {
     actions.push(`<button type="button" data-action="skip" title="${escapeHtml(copyText('panel.action.skip-title', l))}">${escapeHtml(copyText('panel.action.skip', l))}</button>`)
+  }
+  // #156 场景二：检查页预判生效 → 给［装合规版］（决议出候选后变"确认装 X"，
+  // 与失败页同一对按钮的复刻；独缺"等新版"——检查页本就是等的地方，不需要再等一次）。
+  if (gatePrejudge) {
+    actions.push(
+      gateCandidate
+        ? `<button type="button" data-action="install-fallback-confirm" data-primary="1" title="${escapeHtml(copyText('panel.action.install-fallback-confirm-title', l))}"${macroBusy || fallbackBusy ? ' disabled' : ''}>${escapeHtml(copyText('panel.action.install-fallback-confirm', l, { version: gateCandidate }))}</button>`
+        : fallbackBusy
+          ? `<button type="button" data-action="install-fallback" data-primary="1" disabled aria-busy="true" title="${escapeHtml(copyText('panel.action.install-fallback-title', l))}">${escapeHtml(copyText('panel.action.install-fallback', l))}</button>`
+          : `<button type="button" data-action="install-fallback" data-primary="1" title="${escapeHtml(copyText('panel.action.install-fallback-title', l))}"${macroBusy ? ' disabled' : ''}>${escapeHtml(copyText('panel.action.install-fallback', l))}</button>`,
+    )
   }
   if (view.showReset && snapshot?.latestVersion) {
     actions.push(`<button type="button" data-action="reset-skip" title="${escapeHtml(copyText('panel.action.unskip-title', l))}">${escapeHtml(copyText('panel.action.unskip', l, { version: snapshot.latestVersion }))}</button>`)
@@ -1778,7 +1972,26 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   if (b.kind === 'restart') {
     actions.push(`<button type="button" data-action="restart-hint" title="${escapeHtml(copyText('panel.action.restart-host-title', l))}">${escapeHtml(copyText('panel.action.restart-host', l))}</button>`)
   }
-  if (b.kind === 'failed') {
+  // #156：拦的正是更新目标本身，失败行给双按钮［装合规版］［等新版］替代"已知晓"——
+  // B 类（拦的是别家包）与认不出的失败走通用老路，一个字不动。二次确认态（fallbackOffer）
+  // 把"装合规版"换成点名版本的"确认装 X"：用户先看见版本号再点确认，永不静默装旧版。
+  const failureForFallback = (input as { failure?: PanelFailureRef | null }).failure ?? null
+  const fallbackBlocked = b.kind === 'failed' ? fallbackBlockedVersionOf(failureForFallback, pluginId) : null
+  const fallbackOfferRaw = (input as { fallbackOffer?: { candidate?: unknown; targetVersion?: unknown } | null }).fallbackOffer ?? null
+  const fallbackCandidate =
+    fallbackBlocked && typeof fallbackOfferRaw?.candidate === 'string' && fallbackOfferRaw.candidate.trim()
+      ? fallbackOfferRaw.candidate.trim()
+      : null
+  if (fallbackBlocked) {
+    actions.push(
+      fallbackCandidate
+        ? `<button type="button" data-action="install-fallback-confirm" data-primary="1" title="${escapeHtml(copyText('panel.action.install-fallback-confirm-title', l))}"${macroBusy || fallbackBusy ? ' disabled' : ''}>${escapeHtml(copyText('panel.action.install-fallback-confirm', l, { version: fallbackCandidate }))}</button>`
+        : fallbackBusy
+          ? `<button type="button" data-action="install-fallback" data-primary="1" disabled aria-busy="true" title="${escapeHtml(copyText('panel.action.install-fallback-title', l))}">${escapeHtml(copyText('panel.action.install-fallback', l))}</button>`
+          : `<button type="button" data-action="install-fallback" data-primary="1" title="${escapeHtml(copyText('panel.action.install-fallback-title', l))}"${macroBusy ? ' disabled' : ''}>${escapeHtml(copyText('panel.action.install-fallback', l))}</button>`,
+    )
+    actions.push(`<button type="button" data-action="wait-latest" title="${escapeHtml(copyText('panel.action.wait-latest-title', l))}"${macroBusy || fallbackBusy ? ' disabled' : ''}>${escapeHtml(copyText('panel.action.wait-latest', l))}</button>`)
+  } else if (b.kind === 'failed') {
     actions.push(`<button type="button" data-action="dismiss-failure" title="${escapeHtml(copyText('panel.action.dismiss-title', l))}">${escapeHtml(copyText('panel.action.dismiss', l))}</button>`)
   }
   // #153-B：复制诊断在失败时常驻——无快照但有失败横幅/失败引用时也给按钮，
@@ -2166,9 +2379,9 @@ async function defaultCopyText(text: string): Promise<void> {
  */
 export function pendingAutoCheck(
   snapshot: UpdateSnapshot | null,
-  busyAct: 'check' | 'install' | null,
+  busyAct: 'check' | 'install' | 'fallback' | null,
 ): boolean {
-  if (busyAct === 'check' || busyAct === 'install') return false
+  if (busyAct === 'check' || busyAct === 'install' || busyAct === 'fallback') return false
   if (!snapshot) return false
   const st = (snapshot as UpdateSnapshot | null)?.job?.state
   if (st === 'installing' || st === 'verifying') return false
@@ -2359,6 +2572,17 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   // 失败锁存（#58）：用户主动动作的失败证据在此冻结；只读轮询无权清除非瞬态锁存。
   const latchKey = `${pluginId}${profileNameOption ?? ''}`
   let latch: FailureLatch | null = null
+  /**
+   * 记住的窗口（#156 场景二）：失败锁存里解析出的 target + 窗口事实，给检查页预判用。
+   * 只在 setLatch 单点写入；锁存清除（等新版/已知晓）不抹——检查页还要用它说话；
+   * 新失败覆盖旧记住；过期/对版与否每次现算，结论不缓存。
+   */
+  let remembered: {
+    targetVersion: string
+    windowMs: number
+    windowSource: 'message' | 'unknown'
+    publishedAtMs: number | null
+  } | null = null
   try {
     latch = PANEL_FAILURE_LATCHES.get(latchKey) ?? null
     // 瞬态不跨重挂：读数传输失败是上一挂载的事，重开即重新读数
@@ -2390,11 +2614,48 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   }
   function setLatch(next: FailureLatch): void {
     latch = next
+    // 新失败即新上下文：基于旧失败的决议（二次确认）作废，不许拿旧凭证装新局面。
+    fallbackOffer = null
+    // 记住的窗口（#156 场景二）：锁存里刚解析出的 target + 年龄门 + 有窗口才记，
+    // 给检查页预判用。记住失败不挡锁存；非年龄门失败不覆盖旧记住（旧窗口仍是事实）。
+    adoptRemembered(fallbackCauseOf())
     saveLatch()
   }
+  /**
+   * 记住采用（#156 场景二）：setLatch 与 paint 共用同一判据——target + 年龄门 + 有窗口。
+   * paint 里再调一次是补跨挂载的洞：锁存从跨挂载表恢复时 remembered 还是空的，
+   * 用活锁存补记一次，否则新挂载里点了等新版会回到"可安装"谎言。
+   */
+  function adoptRemembered(cause: {
+    kind: string
+    targetVersion: string
+    windowMs: number | null
+    windowSource: 'message' | 'unknown'
+    publishedAtMs: number | null
+  } | null): void {
+    try {
+      if (
+        cause && cause.kind === 'minimum-release-age' && cause.targetVersion
+        && typeof cause.windowMs === 'number' && Number.isFinite(cause.windowMs) && cause.windowMs > 0
+      ) {
+        remembered = {
+          targetVersion: cause.targetVersion,
+          windowMs: cause.windowMs,
+          windowSource: cause.windowSource,
+          publishedAtMs: cause.publishedAtMs,
+        }
+      }
+    } catch {
+      // 忽略：记住写不进去，检查页退回老样子。
+    }
+  }
   function clearLatch(): void {
-    if (!latch) return
+    if (!latch) {
+      fallbackOffer = null
+      return
+    }
     latch = null
+    fallbackOffer = null
     saveLatch()
   }
   function currentEnvPair(): { hostKind: string | null; profileName: string | null } {
@@ -2406,6 +2667,97 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       const job = (value as { job?: { targetVersion?: unknown } } | null | undefined)?.job
       const tv = job?.targetVersion
       return typeof tv === 'string' && tv.trim() ? tv.trim() : null
+    } catch {
+      return null
+    }
+  }
+  /**
+   * 锁存 → 合规版事实（#156）：渲染门与"装合规版"电话入参的唯一来源，认不出即 null。
+   * 机读结论优先（host exec diag：包名命名空间正确）；job message 路径 diag 为空时，
+   * 用原文解析兜底（包名命名空间退回插件标识——对不上即无按钮，不硬认）。
+   * 只看安装失败：查失败/瞬态的签名表本来就不认安装码，解析了也是 null。
+   */
+  function fallbackCauseOf(): {
+    kind: string
+    spec: string
+    target: string
+    targetVersion: string
+    windowMs: number | null
+    windowSource: 'message' | 'unknown'
+    publishedAtMs: number | null
+  } | null {
+    try {
+      if (!latch || latch.source !== 'install') return null
+      const diag = readDiagTolerant(latch.diag)
+      const dKind = typeof diag.causeKind === 'string' ? diag.causeKind.trim() : ''
+      const dSpec = typeof diag.causePackage === 'string' ? diag.causePackage.trim() : ''
+      const dTarget = typeof diag.targetPackageName === 'string' && diag.targetPackageName.trim()
+        ? diag.targetPackageName.trim()
+        : null
+      if (
+        dKind && (CAUSE_KINDS as readonly string[]).includes(dKind) && dSpec && dTarget
+        && blameCausePackage(dSpec, dTarget) === 'target'
+      ) {
+        const timed = fallbackCauseFromDetail(latch.detail, latch.code, dTarget)
+        return {
+          kind: dKind,
+          spec: dSpec,
+          target: dTarget,
+          targetVersion: latch.targetVersion ?? timed?.targetVersion ?? specVersionOf(dSpec),
+          windowMs: timed?.windowMs ?? null,
+          windowSource: timed?.windowSource ?? 'unknown',
+          publishedAtMs: timed?.publishedAtMs ?? null,
+        }
+      }
+      const cause = fallbackCauseFromDetail(latch.detail, latch.code, pluginId)
+      if (!cause) return null
+      return {
+        kind: cause.kind,
+        spec: `${cause.packageName}@${cause.targetVersion}`,
+        target: typeof pluginId === 'string' ? pluginId : '',
+        targetVersion: latch.targetVersion ?? cause.targetVersion,
+        windowMs: cause.windowMs,
+        windowSource: cause.windowSource,
+        publishedAtMs: cause.publishedAtMs,
+      }
+    } catch {
+      return null
+    }
+  }
+  /** 规格剥版本（与 install-cause 同口径：最后一个 @ 之后；读不到即 ''）。 */
+  function specVersionOf(spec: string): string {
+    try {
+      const at = spec.lastIndexOf('@')
+      const ver = at > 0 ? spec.slice(at + 1).trim() : ''
+      return ver || ''
+    } catch {
+      return ''
+    }
+  }
+  /**
+   * 记住 → 合规版事实（#156 场景二）：检查页点"装合规版"时锁存已清（用户点了等新版），
+   * fallbackCauseOf 为 null——用记住的窗口顶上，形状与锁存结论一致，下游电话入参同口径。
+   * 只认"记住的正是对当下快照这一版"：远端出了新版，旧记住闭嘴（规则三：不对没证据的版决议）。
+   * 解封是否已过这里不卡——过了决议会走 ok-now 直接装最新，自己痊愈。
+   */
+  function rememberedCause(): {
+    kind: string
+    targetVersion: string
+    windowMs: number
+    windowSource: 'message' | 'unknown'
+    publishedAtMs: number | null
+  } | null {
+    try {
+      if (!remembered) return null
+      const latest = typeof snapshot?.latestVersion === 'string' ? snapshot.latestVersion.trim() : ''
+      if (!latest || latest !== remembered.targetVersion) return null
+      return {
+        kind: 'minimum-release-age',
+        targetVersion: remembered.targetVersion,
+        windowMs: remembered.windowMs,
+        windowSource: remembered.windowSource,
+        publishedAtMs: remembered.publishedAtMs,
+      }
     } catch {
       return null
     }
@@ -2568,7 +2920,13 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   let copyNotice: string | null = null
   let noticeExpiresAt = 0
   // 在途动作（#36）：点下查新版/安装到回包前的那一帧，按钮置忙 + 并发连点只认第一次。
-  let busyAct: 'check' | 'install' | null = null
+  let busyAct: 'check' | 'install' | 'fallback' | null = null
+  /**
+   * 合规版二次确认（#156）：用户点了"装合规版"且决议出候选后才有；
+   * 存"候选版 + 决议凭证"，确认按钮点下去即凭它安装。上下文一变（新失败/新检查/确认发出）即清——
+   * 凭证只活在决议的那一次上下文里，不跨检查复用（核心第二槽同口径）。
+   */
+  let fallbackOffer: { candidate: string; checkId: string; targetVersion: string } | null = null
   let mounted = true
   // 宿主 includeEnv 回的使用范围与宿主种类（调用方显式传的优先，见 render）。
   let envProfileName: string | null = null
@@ -2707,8 +3065,52 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       lastError: latch?.code ?? null,
       errorKind: latch?.kind ?? null,
       failure: latch
-        ? { requestId: latch.requestId, checkId: latch.checkId, atMs: latch.atMs, source: latch.source, volatile: latch.volatile, targetVersion: latch.targetVersion }
+        ? {
+          requestId: latch.requestId,
+          checkId: latch.checkId,
+          atMs: latch.atMs,
+          source: latch.source,
+          volatile: latch.volatile,
+          targetVersion: latch.targetVersion,
+          // 合规版门（#156）：安装失败才解析锁存证据；查失败/瞬态不解析（签名表只认安装码）。
+          ...(() => {
+            const cause = fallbackCauseOf()
+            return cause
+              ? {
+                causeKind: cause.kind,
+                causePackage: cause.spec,
+                causeTarget: cause.target,
+                causeWindowMs: cause.windowMs,
+                causePublishedAtMs: cause.publishedAtMs,
+              }
+              : { causeKind: null, causePackage: null, causeTarget: null, causeWindowMs: null, causePublishedAtMs: null }
+          })(),
+        }
         : null,
+      // 合规版二次确认（#156）：有决议凭证才下发，渲染只画按钮不认凭证（装时凭它）。
+      fallbackOffer: fallbackOffer
+        ? { candidate: fallbackOffer.candidate, targetVersion: fallbackOffer.targetVersion }
+        : null,
+      // 检查页预判（#156 场景二）：记住的窗口翻译成渲染输入——对版、有发布时间、
+      // 时钟正常才下发；渲染侧按同一纯门再验一遍，不信这里。
+      checkPrejudge: (() => {
+        try {
+          // 跨挂载补记：锁存从表里恢复时 remembered 为空，用活锁存补记一次。
+          if (!remembered) adoptRemembered(fallbackCauseOf())
+          if (!remembered || !snapshot?.canInstall) return null
+          const latest = typeof snapshot.latestVersion === 'string' ? snapshot.latestVersion.trim() : ''
+          if (!latest || latest !== remembered.targetVersion) return null
+          if (typeof remembered.publishedAtMs !== 'number' || !Number.isFinite(remembered.publishedAtMs)) return null
+          if (!Number.isFinite(remembered.windowMs) || remembered.windowMs <= 0) return null
+          const unlockAtMs = remembered.publishedAtMs + remembered.windowMs
+          if (!Number.isFinite(unlockAtMs)) return null
+          const nowMs = latchNow()
+          if (nowMs == null) return null
+          return { targetVersion: latest, unlockAtMs, nowMs }
+        } catch {
+          return null
+        }
+      })(),
       showLogHint: showLogHintOption,
       changelogMarkdown,
       mode,
@@ -2735,6 +3137,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   function applyStatusReply(reply: Record<string, unknown>, via: 'refresh' | 'check' | 'install'): void {
     if (!isObject(reply)) return
     if (reply['ok'] === true) {
+      if (via === 'check') {
+        // 新检查结论落地，基于旧上下文的决议凭证作废（核心第二槽同口径：check 即清）。
+        fallbackOffer = null
+      }
       const s = asSnapshot(reply['snapshot'])
       if (s) snapshot = s
       manual = typeof reply['manual'] === 'string' ? (reply['manual'] as string) : null
@@ -2995,6 +3401,130 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         }
         render()
         maybeAutoChangelog()
+        return
+      }
+      case 'install-fallback': {
+        // 合规版决议（#156）：点"装合规版"本身不装任何东西——先认证据，再问决议，
+        // 有候选才给点名版本的二次确认按钮。决议算不出/宿主没这条电话，一律退回通用提醒。
+        if (busyAct) return
+        // 检查页（#156 场景二）：锁存已清时用记住的窗口顶上；锁存还在时锁存优先。
+        const cause = fallbackCauseOf() ?? rememberedCause()
+        if (!cause) {
+          sayCopyKey('panel.toast.fallback-unavailable')
+          render()
+          return
+        }
+        busyAct = 'fallback'
+        render()
+        try {
+          let reply: unknown
+          try {
+            reply = await call(phoneNames.updateCheckFallback, {
+              kind: cause.kind,
+              blame: 'target',
+              targetVersion: cause.targetVersion,
+              ...(typeof cause.windowMs === 'number' ? { windowMs: cause.windowMs } : {}),
+              windowSource: cause.windowSource,
+              ...(typeof cause.publishedAtMs === 'number' ? { publishedAtMs: cause.publishedAtMs } : {}),
+            })
+          } catch {
+            // 老宿主没有这条电话（unknown-phone）或传输失败：退化"只呈现"，面板不碎。
+            reply = null
+          }
+          if (!mounted) return
+          const snap = isObject(reply) && isObject((reply as Record<string, unknown>)['snapshot'])
+            ? (reply as Record<string, unknown>)['snapshot'] as Record<string, unknown>
+            : null
+          const verdict = snap && isObject(snap['verdict']) ? snap['verdict'] as Record<string, unknown> : null
+          const vKind = verdict && typeof verdict['kind'] === 'string' ? (verdict['kind'] as string) : ''
+          const vVersion = verdict && typeof verdict['version'] === 'string' ? (verdict['version'] as string).trim() : ''
+          const snapCandidate = snap && typeof snap['candidate'] === 'string' ? (snap['candidate'] as string).trim() : ''
+          const rec = isObject(reply) && isObject((reply as Record<string, unknown>)['receipt'])
+            ? (reply as Record<string, unknown>)['receipt'] as Record<string, unknown>
+            : null
+          const gotCheckId = rec && typeof rec['checkId'] === 'string' ? (rec['checkId'] as string) : ''
+          // ok-now 的候选即目标版自己（决议 verdict.version 点名）；其余只认 snapshot.candidate。
+          const candidate = snapCandidate || (vKind === 'ok-now' ? vVersion : '')
+          if ((vKind === 'downgrade-available' || vKind === 'ok-now') && candidate && gotCheckId) {
+            fallbackOffer = { candidate, checkId: gotCheckId, targetVersion: cause.targetVersion }
+          } else if (vKind === 'wait-until') {
+            const unlockAt = verdict && typeof verdict['unlockAtMs'] === 'number'
+              ? verdict['unlockAtMs'] as number
+              : null
+            const time = typeof unlockAt === 'number' ? formatUnlockAt(unlockAt, currentLang()) : null
+            if (time) sayCopyKey('panel.toast.fallback-wait', { time })
+            else sayCopyKey('panel.toast.fallback-unavailable')
+          } else {
+            sayCopyKey('panel.toast.fallback-unavailable')
+          }
+        } finally {
+          busyAct = null
+        }
+        render()
+        return
+      }
+      case 'install-fallback-confirm': {
+        // 二次确认（#156）：按钮文案即决议点名的精确版本——用户先看见再点，不存在静默装旧版。
+        // 门与 latest 路径同口径：决议凭证过期（期间跑过检查）即退回重决议，不锁存不硬装。
+        if (busyAct || !fallbackOffer) return
+        const offer = fallbackOffer
+        busyAct = 'install'
+        copyNotice = copyText('panel.toast.installing', currentLang())
+        render()
+        try {
+          requestId = randomRequestId()
+          let reply: Record<string, unknown>
+          try {
+            reply = await call(phoneNames.updateInstall, {
+              checkId: offer.checkId,
+              requestId,
+              version: offer.candidate,
+              ...queueArgs(),
+            })
+          } catch (err) {
+            if (!mounted) return
+            fallbackOffer = null
+            if (thrownIsCheckExpired(err)) {
+              sayCopyKey('panel.toast.fallback-unavailable')
+              render()
+              return
+            }
+            setLatch(userThrowLatch('install', err))
+            render()
+            return
+          }
+          if (!mounted) return
+          fallbackOffer = null
+          if (replyIsCheckExpired(reply)) {
+            sayCopyKey('panel.toast.fallback-unavailable')
+            render()
+            return
+          }
+          applyStatusReply(reply, 'install')
+        } catch (err) {
+          if (!mounted) return
+          setLatch(userThrowLatch('install', err))
+        } finally {
+          busyAct = null
+          try {
+            const zh = copyText('panel.toast.installing', 'zh')
+            const en = copyText('panel.toast.installing', 'en')
+            if (copyNotice === zh || copyNotice === en) copyNotice = null
+          } catch {
+            copyNotice = null
+          }
+        }
+        render()
+        maybeAutoChangelog()
+        return
+      }
+      case 'wait-latest': {
+        // 等新版（#156）：与"已知晓"同效果——只清面板锁存，不调电话、不写跳过；
+        // 话术贴场景：最新版满门限后照常可装，旧账已销。
+        fallbackOffer = null
+        clearLatch()
+        sayCopyKey('panel.toast.failure-dismissed')
+        render()
         return
       }
       case 'skip': {

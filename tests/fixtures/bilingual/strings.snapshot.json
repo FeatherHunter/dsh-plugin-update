@@ -752,6 +752,31 @@
       "zh": "安装更新",
       "draft": true
     },
+    "panel.action.install-fallback": {
+      "en": "Install compliant build",
+      "zh": "装合规版",
+      "draft": true
+    },
+    "panel.action.install-fallback-confirm": {
+      "en": "Confirm install {version}",
+      "zh": "确认装 {version}",
+      "draft": true
+    },
+    "panel.action.install-fallback-confirm-title": {
+      "en": "Install this exact version now",
+      "zh": "点下去即安装该精确版本",
+      "draft": true
+    },
+    "panel.action.install-fallback-title": {
+      "en": "Resolve an age-compliant version first, then confirm; never installs an older version silently",
+      "zh": "先决议一个满门限的版本再请你确认，不会静默装旧版",
+      "draft": true
+    },
+    "panel.action.install-gated-title": {
+      "en": "Come back {unlock} to install {latest}; it is still gated and would fail now.",
+      "zh": "{unlock}再来装 {latest} 吧，现在装会被门拦住。",
+      "draft": true
+    },
     "panel.action.install-title": {
       "en": "Install the exact version; one install per scope at a time",
       "zh": "按精确版本安装；同一使用范围同时仅安装一项",
@@ -812,6 +837,16 @@
       "zh": "撤销跳过，该版本将重新提醒",
       "draft": true
     },
+    "panel.action.wait-latest": {
+      "en": "Wait for latest",
+      "zh": "等新版",
+      "draft": true
+    },
+    "panel.action.wait-latest-title": {
+      "en": "Dismiss this failure; install again once the latest clears the age gate",
+      "zh": "收起这次失败；最新版满门限后可再装",
+      "draft": true
+    },
     "panel.banner.done": {
       "en": "Up to date. No update needed.",
       "zh": "已是最新，无需更新。",
@@ -855,6 +890,11 @@
     "panel.banner.update-action": {
       "en": "Install runs the exact version; only one install runs per scope at a time.",
       "zh": "选择安装将按精确版本安装；同一使用范围同时仅安装一项。",
+      "draft": true
+    },
+    "panel.banner.update-gated-title": {
+      "en": "Version {latest} was just published and is still gated ({unlock}); installing now will fail — use Install fallback build below if you cannot wait.",
+      "zh": "新版本 {latest} 刚发布未满门，{unlock}可装；现在点安装会失败，等不及可先装合规版。",
       "draft": true
     },
     "panel.banner.update-title": {
@@ -1630,6 +1670,16 @@
     "panel.toast.failure-dismissed": {
       "en": "Failure acknowledged; it will be re-evaluated on the next check or install.",
       "zh": "已确认该失败提示；下次查询版本信息或安装将重新评估。",
+      "draft": true
+    },
+    "panel.toast.fallback-unavailable": {
+      "en": "No compliant build for this failure; see the diagnostics or retry later.",
+      "zh": "这次失败用不上合规版，请看诊断信息或稍后重试。",
+      "draft": true
+    },
+    "panel.toast.fallback-wait": {
+      "en": "Latest should clear around {time}; no earlier compliant build for now.",
+      "zh": "最新版约 {time} 可装，暂无更早的合规版。",
       "draft": true
     },
     "panel.toast.installing": {

@@ -15,6 +15,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertPluginId } from './config.js'
+import { resolveCompliantVersion } from './compliant-version.js'
 import { createUpdateCore, isVersionAllowedInChannel, validReleaseVersion } from './service.js'
 import type { EnvironmentKind, EnvironmentView, FetchImpl, ReleaseChannel, UpdateCore, UpdateJob, UpdateLogPort } from './ports.js'
 
@@ -409,6 +410,8 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
     targetPackageName,
     registryUrl,
     releaseChannel,
+    // 合规版决议函数（#156）：核心零运行时导入，决议逻辑由读取器递进来（依赖当参数传）。
+    resolveCompliantVersion,
     readJob: options.readJob,
     writeJob: options.writeJob,
     tryAcquireLock: options.tryAcquireLock,

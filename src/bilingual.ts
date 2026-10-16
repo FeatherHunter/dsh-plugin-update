@@ -105,6 +105,8 @@ export type BilingualKey =
   | 'panel.action.installing'
   | 'panel.banner.update-title'
   | 'panel.banner.update-action'
+  | 'panel.banner.update-gated-title'
+  | 'panel.action.install-gated-title'
   | 'panel.action.install-version'
   | 'panel.banner.done'
   | 'panel.banner.not-installed'
@@ -119,6 +121,8 @@ export type BilingualKey =
   | 'panel.toast.restart-failed'
   | 'panel.toast.copy-state-ok'
   | 'panel.toast.failure-dismissed'
+  | 'panel.toast.fallback-unavailable'
+  | 'panel.toast.fallback-wait'
   | 'panel.strip.running'
   | 'panel.strip.installed'
   | 'panel.strip.latest'
@@ -151,6 +155,12 @@ export type BilingualKey =
   | 'panel.action.restart-host-title'
   | 'panel.action.dismiss'
   | 'panel.action.dismiss-title'
+  | 'panel.action.install-fallback'
+  | 'panel.action.install-fallback-title'
+  | 'panel.action.install-fallback-confirm'
+  | 'panel.action.install-fallback-confirm-title'
+  | 'panel.action.wait-latest'
+  | 'panel.action.wait-latest-title'
   | 'panel.action.copy-diag'
   | 'panel.action.copy-diag-title'
   | 'panel.skip.line-tag'
@@ -451,6 +461,8 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.banner.update-title': { en: 'Update available: {latest} (current: {running}).', zh: '有新版本 {latest} 可安装（当前版本 {running}）。', draft: true },
   'panel.banner.update-action': { en: 'Install runs the exact version; only one install runs per scope at a time.', zh: '选择安装将按精确版本安装；同一使用范围同时仅安装一项。', draft: true },
   'panel.action.install-version': { en: 'Install {latest}', zh: '安装版本 {latest}', draft: true },
+  'panel.banner.update-gated-title': { en: 'Version {latest} was just published and is still gated ({unlock}); installing now will fail — use Install fallback build below if you cannot wait.', zh: '新版本 {latest} 刚发布未满门，{unlock}可装；现在点安装会失败，等不及可先装合规版。', draft: true },
+  'panel.action.install-gated-title': { en: 'Come back {unlock} to install {latest}; it is still gated and would fail now.', zh: '{unlock}再来装 {latest} 吧，现在装会被门拦住。', draft: true },
   'panel.banner.done': { en: 'Up to date. No update needed.', zh: '已是最新，无需更新。', draft: true },
   'panel.banner.not-installed': { en: 'Not installed', zh: '未安装', draft: true },
   'panel.toast.checking': { en: 'Checking for updates…', zh: '正在查询版本信息…', draft: true },
@@ -464,6 +476,8 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.toast.restart-failed': { en: 'Restart entry failed; please restart the host manually. The new version takes effect after restart.', zh: '重启入口调用失败，请手动重启宿主；重启后新版本生效。', draft: true },
   'panel.toast.copy-state-ok': { en: 'Current state copied (no failure); paste it to the plugin author (already redacted).', zh: '当前状态已复制（无失败），请提交至插件作者（已脱敏）。', draft: true },
   'panel.toast.failure-dismissed': { en: 'Failure acknowledged; it will be re-evaluated on the next check or install.', zh: '已确认该失败提示；下次查询版本信息或安装将重新评估。', draft: true },
+  'panel.toast.fallback-unavailable': { en: 'No compliant build for this failure; see the diagnostics or retry later.', zh: '这次失败用不上合规版，请看诊断信息或稍后重试。', draft: true },
+  'panel.toast.fallback-wait': { en: 'Latest should clear around {time}; no earlier compliant build for now.', zh: '最新版约 {time} 可装，暂无更早的合规版。', draft: true },
   'panel.strip.running': { en: 'Running', zh: '运行版', draft: true },
   'panel.strip.installed': { en: 'Installed', zh: '已安装', draft: true },
   'panel.strip.latest': { en: 'Latest', zh: '最新版', draft: true },
@@ -496,6 +510,12 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.action.restart-host-title': { en: 'Run the caller restart flow if available, otherwise restart DSH manually', zh: '优先走调用方重启流程；若无，请手动重启 DSH', draft: true },
   'panel.action.dismiss': { en: 'Got it', zh: '已知晓', draft: true },
   'panel.action.dismiss-title': { en: 'Acknowledge the failure and return; next check or install will re-evaluate', zh: '确认已知晓该失败：返回可安装页，下次查询或安装将重新评估', draft: true },
+  'panel.action.install-fallback': { en: 'Install compliant build', zh: '装合规版', draft: true },
+  'panel.action.install-fallback-title': { en: 'Resolve an age-compliant version first, then confirm; never installs an older version silently', zh: '先决议一个满门限的版本再请你确认，不会静默装旧版', draft: true },
+  'panel.action.install-fallback-confirm': { en: 'Confirm install {version}', zh: '确认装 {version}', draft: true },
+  'panel.action.install-fallback-confirm-title': { en: 'Install this exact version now', zh: '点下去即安装该精确版本', draft: true },
+  'panel.action.wait-latest': { en: 'Wait for latest', zh: '等新版', draft: true },
+  'panel.action.wait-latest-title': { en: 'Dismiss this failure; install again once the latest clears the age gate', zh: '收起这次失败；最新版满门限后可再装', draft: true },
   'panel.action.copy-diag': { en: 'Copy diagnostics', zh: '复制诊断', draft: true },
   'panel.action.copy-diag-title': { en: 'Copy redacted diagnostics for the plugin author', zh: '复制已脱敏诊断，请提交至插件作者', draft: true },
   'panel.skip.line-tag': { en: 'Skipped {version}', zh: '已跳过版本 {version}', draft: true },

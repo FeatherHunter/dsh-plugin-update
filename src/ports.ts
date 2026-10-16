@@ -55,8 +55,12 @@ export type UpdateLogPort = (
  * 本文件「只有类型、没有运行时逻辑」这条不变。
  */
 import type { BlockedReason, UpdateErrorCode } from './codes.js'
+import type { CauseBlame } from './install-cause.js'
+import type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './compliant-version.js'
 
 export type { BlockedReason, UpdateErrorCode } from './codes.js'
+export type { CauseBlame } from './install-cause.js'
+export type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './compliant-version.js'
 
 /** 快照：恰好七个字段，永远不带钥匙（检查编号与环境指纹另交）。 */
 export interface UpdateSnapshot {
@@ -107,6 +111,32 @@ export interface CheckReceipt {
 /** 查新版一次返回：快照与凭证分家。 */
 export interface CheckResult {
   snapshot: UpdateSnapshot
+  receipt: CheckReceipt | null
+}
+
+/**
+ * 合规版决议输入（#156）：面板把翻译官结论里"调用方知道"的部分递进来，
+ * 运行版/通道/时钟/时间表由核心自己填——面板够不着 registry，也不做决议。
+ */
+export interface FallbackCheckInput {
+  /** 签名 kind（缺省 'minimum-release-age'；不认识的直接 abstain，不取数）。 */
+  kind?: string
+  /** 归因（缺省 'target'；非主包直接 abstain，不取数——B 类不决议）。 */
+  blame?: CauseBlame
+  /** 被拦住的版本（缺省取时间表的 dist-tags.latest；与 latest 不一致即 abstain）。 */
+  targetVersion?: string
+  /** 策略窗口毫秒（报文自述或调用方反推；缺省即 abstain，不取数不猜）。 */
+  windowMs?: number | null
+  /** 窗口出处（缺省 'unknown'；只回传，不参与决议）。 */
+  windowSource?: CompliantWindowSource
+  /** 报文里抠出的发布时间（时间表缺最新版时的 fallback；缺省即无）。 */
+  publishedAtMs?: number | null
+}
+
+/** 合规版决议一次返回：裁决 + 候选（无则 null）+ 候选安装凭证（无候选则 null）。 */
+export interface FallbackCheckResult {
+  verdict: CompliantVerdict
+  candidate: string | null
   receipt: CheckReceipt | null
 }
 
@@ -241,6 +271,12 @@ export interface UpdatePorts {
    */
   runInstall?: (args: { version: string; profileName: string | null; environmentKind: EnvironmentKind; releaseChannel?: ReleaseChannel }) => void | Promise<void>
   /**
+   * 合规版决议函数（#156，可选注入）：核心的零运行时导入契约不变——决议逻辑由外面递进来，
+   * 不递时 `checkFallback` 按不支持诚实失败（与 `runInstall` 缺席走 `unsupported` 同口径）。
+   * 生产经读取器接入 `resolveCompliantVersion` 真件，测试可给假件。
+   */
+  resolveCompliantVersion?: (input: CompliantVersionInput) => CompliantVerdict
+  /**
    * 日志发射口（#124，可选）：核心里的稳定边沿（检查成败、通道判定、安装意图与装后校验）经它出去。
    * 递进来的函数必须已经绑好插件标识（路由用），不递即不记——老调用方行为一字不动。
    */
@@ -262,8 +298,16 @@ export interface UpdateCore {
    * 只读半程诚实失败（unsupported），安装票再实现。
    * `from` 是 #124 的加法扩展（可选，缺省按 `'panel'`）：调用方自报安装意图来自哪里，
    * 只进日志行 `update.install.request.from`，不参与任何决策；老调用方不传即现状。
+   * `version` 是 #156 的加法扩展（可选）：指定装合规版候选——只认 `checkFallback`
+   * 结论第二槽的绑定版本，不认任意旧版；不传即走 latest 老路，一字不动。
    */
-  install(args: { checkId: string; requestId: string; from?: InstallSource }): Promise<UpdateSnapshot>
+  install(args: { checkId: string; requestId: string; from?: InstallSource; version?: string }): Promise<UpdateSnapshot>
+  /**
+   * 合规版决议（#156）：年龄门拦住时问一次——取包时间表，对翻译官结论做五值裁决。
+   * 有候选即同时落第二槽凭证（装候选时凭它绑定）；无候选/输入不可用即只给裁决，不取数或不留槽。
+   * 取数失败按检查失败诚实抛（调用方退回通用老路），永不编造候选。
+   */
+  checkFallback(input: FallbackCheckInput): Promise<FallbackCheckResult>
 }
 
 /**

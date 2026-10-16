@@ -16,6 +16,9 @@ export type PhoneAction = (typeof PHONE_ACTIONS)[number]
 // 更新日志电话的动作名（#38 加法扩展：三个旧动作名一字不动，另起一个新动作）。
 export const CHANGELOG_PHONE_ACTION = 'updateChangelog' as const
 export type ChangelogPhoneAction = typeof CHANGELOG_PHONE_ACTION
+// 合规版决议电话的动作名（#156 加法扩展：旧动作名一字不动，另起一个新动作）。
+export const CHECK_FALLBACK_PHONE_ACTION = 'updateCheckFallback' as const
+export type CheckFallbackPhoneAction = typeof CHECK_FALLBACK_PHONE_ACTION
 
 // 默认目标包名：要检查更新的那个包是谁（当前插件的旧包名，冻结默认值）。
 export const DEFAULT_TARGET_PACKAGE = 'dsh-mattpocock-skills-deck'
@@ -155,9 +158,10 @@ export const LOG_APPEND_ACTION = 'logAppend' as const
 export type LogPhoneAction = typeof LOG_APPEND_ACTION
 
 /** 电话名表：电话名只从这里算（集成方遍历 host.handlers 注册，多出来的键老代码不用管）。 */
-export type PhoneNames = Record<PhoneAction, string> & Record<ChangelogPhoneAction, string> & Record<LogPhoneAction, string>
+export type PhoneNames = Record<PhoneAction, string> & Record<ChangelogPhoneAction, string> & Record<CheckFallbackPhoneAction, string> & Record<LogPhoneAction, string>
 
-// 五个电话名拼法（#38：三个旧名一字不动，另加更新日志电话；#122 加客户端日志电话；只读旧键的调用逐字不变）。
+// 六个电话名拼法（#38：三个旧名一字不动，另加更新日志电话；#122 加客户端日志电话；只读旧键的调用逐字不变）。
+// #156 加合规版决议电话：旧名一字不动，另起一个新动作。
 export function buildPhoneNames(prefix: string): PhoneNames {
   const checked = assertPrefix(prefix, '电话名前缀 prefix')
   return {
@@ -165,6 +169,7 @@ export function buildPhoneNames(prefix: string): PhoneNames {
     updateCheck: checked + '.updateCheck',
     updateInstall: checked + '.updateInstall',
     updateChangelog: checked + '.updateChangelog',
+    updateCheckFallback: checked + '.' + CHECK_FALLBACK_PHONE_ACTION,
     logAppend: checked + '.' + LOG_APPEND_ACTION,
   }
 }
