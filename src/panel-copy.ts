@@ -432,3 +432,51 @@ export function buildUpdateDiagCopy(input: UpdateDiagCopyInput, langOverride?: A
   ].join('\n')
   return block
 }
+
+// ---------- 健康态复制（#166 切片 2：panel.ts 里最后一块硬编码中文用户文案） ----------
+//
+// 失败分支走 buildUpdateDiagCopy（字典驱动）；健康态（无锁存、无失败码、无阻拦原因）
+// 走这里：状态一句话＋版本三格＋来源。措辞逐字等于旧内联实现（先搬家、零行为变化；
+// 是否入字典是另一次产品决策，不在本刀）。
+// 纯函数：同一输入永远同一串；lang 缺省 zh。
+
+export interface HealthyDiagCopyInput {
+  canInstall: boolean
+  latestVersion: string | null
+  /** 快照 installed 字段：false 即未安装（人话状态词，不写注入的假版号，#134/US19）。 */
+  installed: boolean | null
+  runningVersion: string | null
+  installedVersion: string | null
+  queuePosition: number | null
+  pluginId: string
+  hostKind: string | null
+  profileName: string | null
+  requestId: string | null
+  checkId: string | null
+  format?: DiagCopyFormat
+  lang?: AppLang | string | null
+}
+
+export function buildHealthyDiagCopy(input: HealthyDiagCopyInput): string {
+  const l = normalizeLangTag(input.lang ?? 'zh')
+  const notInstalledWord = input.installed === false ? copyText('panel.banner.not-installed', l) : null
+  const stateLine =
+    input.canInstall && input.latestVersion
+      ? `有新版 ${input.latestVersion} 可装（当前 ${notInstalledWord ?? input.runningVersion}）`
+      : (notInstalledWord ?? '已是最新，无需更新。')
+  const queueName = queueTextOf(input.queuePosition ?? null, l)
+  const envBits = [
+    `插件=${input.pluginId}`,
+    `宿主=${input.hostKind ?? '未知'}`,
+    `使用范围=${input.profileName ?? '未知'}`,
+    `队列=${queueName}`,
+  ]
+  if (input.requestId) envBits.push(`请求=${input.requestId}`)
+  if (input.checkId) envBits.push(`检查=${input.checkId}`)
+  const segs = [
+    `[update-diag] 当前无失败：${stateLine}`,
+    `版本：运行 ${input.runningVersion}／磁盘 ${input.installedVersion ?? '未知'}／远端 ${input.latestVersion ?? '未查过'}`,
+    `来源：${envBits.join(' · ')}`,
+  ].map((s) => redactForCopy(s))
+  return input.format === 'line' ? segs.join(' · ') : segs.join('\n')
+}

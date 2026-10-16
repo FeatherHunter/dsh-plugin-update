@@ -173,19 +173,6 @@
       "批量电话前缀 prefix"
     ],
     "src/panel-copy.ts": [
-      "未查过"
-    ],
-    "src/panel.ts": [
-      "/* Archive 档案卷可选主题：只换颜色/字体/间距；内核 DOM 顺序一字不动，不断复制诊断。 */",
-      "[dsh-plugin-update] 主题参数 themeTokens 非法：只收已知 token 键（颜色用 hex 或英文名，字体/圆角/阴影/尺寸为安全 CSS 值，entryScale 为大于 0 的有限数）（收到 )",
-      "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ）",
-      "[dsh-plugin-update] 挂载面板缺少配置：插件标识 pluginId 必填",
-      "[dsh-plugin-update] 挂载面板需要一个有 innerHTML 的容器",
-      "[dsh-plugin-update] 挂载面板需要传输函数 call（面板调宿主电话的唯一接触面）",
-      "[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ）",
-      "[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ）",
-      "[dsh-plugin-update] 跳过版本号非法：须为发行版本号（收到 ）",
-      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ）",
       "[update-diag] 当前无失败：",
       "使用范围=",
       "宿主=",
@@ -199,6 +186,18 @@
       "版本：运行 ／磁盘 ／远端",
       "请求=",
       "队列="
+    ],
+    "src/panel.ts": [
+      "/* Archive 档案卷可选主题：只换颜色/字体/间距；内核 DOM 顺序一字不动，不断复制诊断。 */",
+      "[dsh-plugin-update] 主题参数 themeTokens 非法：只收已知 token 键（颜色用 hex 或英文名，字体/圆角/阴影/尺寸为安全 CSS 值，entryScale 为大于 0 的有限数）（收到 )",
+      "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ）",
+      "[dsh-plugin-update] 挂载面板缺少配置：插件标识 pluginId 必填",
+      "[dsh-plugin-update] 挂载面板需要一个有 innerHTML 的容器",
+      "[dsh-plugin-update] 挂载面板需要传输函数 call（面板调宿主电话的唯一接触面）",
+      "[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ）",
+      "[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ）",
+      "[dsh-plugin-update] 跳过版本号非法：须为发行版本号（收到 ）",
+      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ）"
     ],
     "src/reader.ts": [
       "[dsh-plugin-update] 建读取器必须给绝对路径的使用范围目录 profileDir",

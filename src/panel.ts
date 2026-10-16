@@ -343,10 +343,10 @@ export interface PanelSkipStore {
 import {
   PANEL_DIAG_MAX_CHARS,
   blockedCopy,
+  buildHealthyDiagCopy,
   buildUpdateDiagCopy,
   failureCodeOf,
   failureCopy,
-  queueTextOf,
   readDiagTolerant,
   redactForCopy,
   replyIsCheckExpired,
@@ -357,6 +357,7 @@ export {
   PANEL_DIAG_MAX_CHARS,
   blockedCopy,
   buildDiagnosticText,
+  buildHealthyDiagCopy,
   buildUpdateDiagCopy,
   causeRemedyText,
   failureCodeOf,
@@ -371,6 +372,7 @@ export type {
   BlockedCopy,
   DiagCopyFormat,
   FailureCopy,
+  HealthyDiagCopyInput,
   PanelDiagnosticInput,
   TolerantDiag,
   UpdateDiagCopyInput,
@@ -3182,26 +3184,22 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         // 健康态诚实复制（#58）：没有失败就不伪造失败码，只给当前状态快照。
         if (!latch && !jobCode && !snapshot?.blockedReason && snapshot) {
           // 健康态复制：缺席不写注入的假版号、不谎称已是最新（#134/US16/US19）。
-          const notInstalledWord = snapshot.installed === false ? copyText('panel.banner.not-installed', currentLang()) : null
-          const stateLine =
-            snapshot.canInstall && snapshot.latestVersion
-              ? `有新版 ${snapshot.latestVersion} 可装（当前 ${notInstalledWord ?? snapshot.runningVersion}）`
-              : (notInstalledWord ?? '已是最新，无需更新。')
-          const queueName = queueTextOf(queue?.position ?? null)
-          const envBits = [
-            `插件=${pluginId}`,
-            `宿主=${hostKind ?? envHostKind ?? '未知'}`,
-            `使用范围=${profileNameOption ?? envProfileName ?? '未知'}`,
-            `队列=${queueName}`,
-          ]
-          if (requestId) envBits.push(`请求=${requestId}`)
-          if (receipt?.checkId) envBits.push(`检查=${receipt.checkId}`)
-          const segs = [
-            `[update-diag] 当前无失败：${stateLine}`,
-            `版本：运行 ${snapshot.runningVersion}／磁盘 ${snapshot.installedVersion ?? '未知'}／远端 ${snapshot.latestVersion ?? '未查过'}`,
-            `来源：${envBits.join(' · ')}`,
-          ].map((s) => redactForCopy(s))
-          const text = diagCopyFormat === 'line' ? segs.join(' · ') : segs.join('\n')
+          // 文案实现在 panel-copy（#166 切片 2），内核只留分支条件与复制动作。
+          const text = buildHealthyDiagCopy({
+            canInstall: snapshot.canInstall,
+            latestVersion: snapshot.latestVersion,
+            installed: snapshot.installed,
+            runningVersion: snapshot.runningVersion,
+            installedVersion: snapshot.installedVersion,
+            queuePosition: queue?.position ?? null,
+            pluginId,
+            hostKind: hostKind ?? envHostKind,
+            profileName: profileNameOption ?? envProfileName,
+            requestId,
+            checkId: receipt?.checkId ?? null,
+            format: diagCopyFormat,
+            lang: currentLang(),
+          })
           actionBytes = utf8ByteLength(text)
           actionTruncated = text.length >= PANEL_DIAG_MAX_CHARS
           try {

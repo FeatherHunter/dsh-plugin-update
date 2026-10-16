@@ -16,6 +16,7 @@ const FACE = [
   'readDiagTolerant',
   'causeRemedyText',
   'buildUpdateDiagCopy',
+  'buildHealthyDiagCopy',
 ]
 
 test('#166 文案垫片：panel 老位置仍是同一份（同一引用），渲染核仍在 panel', () => {
