@@ -560,7 +560,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.diag.copy.field.method': { en: 'Method={method}', zh: '方法={method}', draft: true },
   'panel.diag.copy.field.latency': { en: 'Latency={latency}', zh: '耗时={latency}', draft: true },
   'panel.diag.copy.field.registry': { en: 'Source={host}', zh: '源={host}', draft: true },
-  'panel.diag.copy.field.registry-unknown': { en: 'Source=Unknown (Omitted for non-official sources, which is itself information)', zh: '源=未知（非官方源时省略本身即信息）', draft: true },
+  'panel.diag.copy.field.registry-unknown': { en: 'Source=Undeclared', zh: '源=未声明', draft: true },
   'panel.diag.copy.field.action': { en: 'Suggestion={action}', zh: '建议={action}', draft: true },
   'panel.diag.copy.field.request': { en: 'Request={request}', zh: '请求={request}', draft: true },
   'panel.diag.copy.field.check': { en: 'Check={check}', zh: '检查={check}', draft: true },

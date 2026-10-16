@@ -249,13 +249,51 @@ function pickId(raw: unknown): string | null {
   return typeof raw === 'string' && validRequestId(raw) ? raw.trim() : null
 }
 
+/**
+ * 失败原因行前置（#154）：命中失败标记的行按原相对顺序提到最前面，
+ * 紧随其后的缩进行（堆栈/明细续行）跟随其所属的原因行；其余行随后。
+ * 纯重排（同一输入同一输出），不增删一字；预算截断仍在下游发生。
+ * 只认工具输出里常见的失败标记，不猜自然语言。
+ */
+const CAUSE_LINE_RE =
+  /✗|×\s|ERR_[A-Za-z_]+|code\s+[A-Z][A-Z_0-9]+|fail(?:ed|ure)?|error|fatal|panic|not ok|rejected|denied|失败|错误|异常/i
+
+function hoistCauseLines(text: string): string {
+  try {
+    const lines = String(text).split(/\r?\n/)
+    if (lines.length < 2) return text
+    const cause: string[] = []
+    const rest: string[] = []
+    let prevIsCause = false
+    for (const line of lines) {
+      if (CAUSE_LINE_RE.test(line)) {
+        cause.push(line)
+        prevIsCause = true
+      } else if (prevIsCause && cause.length > 0 && /^[ \t]+[^ \t]/.test(line)) {
+        cause.push(line)
+        prevIsCause = true
+      } else {
+        rest.push(line)
+        prevIsCause = false
+      }
+    }
+    if (cause.length === 0 || rest.length === 0) return text
+    return [...cause, ...rest].join('\n')
+  } catch {
+    return text
+  }
+}
+
 /** 人话摘要格：永远是字符串，压平空白、脱敏、300 字封顶；命中 URL 用户信息即整项丢弃（回空=省略）。
  * #66 入字典单语（§7.1 19 行，271/273/274 复用电话表 key，其余走 diag.fallback.*）：分支只认稳定码，lang 缺省 zh 零回归。 */
 function pickDetail(errorCode: string, error: unknown, httpStatus: number | null, phoneKind?: string, lang?: AppLang | string | null): string | null {
   try {
     const rawDetail = (error as { detail?: unknown })?.detail
     if (typeof rawDetail === 'string' && rawDetail.trim()) {
-      const clean = sanitizeDetail(rawDetail)
+      // #154：安装执行的工具输出头重脚轻（进度头 + 中部真因 + 尾部噪音），
+      // 而预算截断只保头。先把原因行提到前面，其它错误码一律不动。
+      const ordered = errorCode === 'install-failed' ? hoistCauseLines(rawDetail) : rawDetail
+      const clean = sanitizeDetail(ordered)
       return clean ? clean : null
     }
     const rawMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
