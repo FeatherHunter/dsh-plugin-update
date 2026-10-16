@@ -172,6 +172,9 @@
       "[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到",
       "批量电话前缀 prefix"
     ],
+    "src/panel-copy.ts": [
+      "未查过"
+    ],
     "src/panel.ts": [
       "/* Archive 档案卷可选主题：只换颜色/字体/间距；内核 DOM 顺序一字不动，不断复制诊断。 */",
       "[dsh-plugin-update] 主题参数 themeTokens 非法：只收已知 token 键（颜色用 hex 或英文名，字体/圆角/阴影/尺寸为安全 CSS 值，entryScale 为大于 0 的有限数）（收到 )",
