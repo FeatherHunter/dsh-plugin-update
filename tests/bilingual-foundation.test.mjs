@@ -145,7 +145,7 @@ test('字典钉住版本且键与冻结快照逐键一致（缺键或多键即�
     'diag.fallback.http-status', 'diag.fallback.invalid-release', 'diag.fallback.install-failed',
     'diag.fallback.unknown-profile', 'diag.fallback.channel-mismatch', 'diag.fallback.source-install', 'diag.fallback.invalid-installation',
     'diag.fallback.installation-changed', 'diag.fallback.pending-restart', 'diag.fallback.incompatible-node',
-    'diag.fallback.registry-conflict', 'diag.fallback.recovery-required',
+    'diag.fallback.registry-conflict', 'diag.fallback.recovery-required', 'diag.fallback.dev-source',
   ]) assert.ok(keys.includes(k), k + ' 缺键（#66）')
   for (const k of keys) {
     const e = BILINGUAL_STRINGS[k]

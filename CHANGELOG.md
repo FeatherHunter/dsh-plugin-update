@@ -4,6 +4,16 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
+## [0.18.3] - 2026-10-16
+
+### Added
+- **开发态挂载独立码（#153）**：新增 `dev-source` 阻塞码（取值可增，向后兼容）。junction / 源码链接 / 显式外部目录（包定位到但反推不出使用范围）不再报 `unknown-profile`；包真找不到仍报 `unknown-profile`，行为一字不动。面板给 junction 口径文案（开发态挂载，更新中心不可用；改完仓库代码后重启宿主生效），且与源码安装同口径不提供手工命令。`codes / host / reader / panel / bilingual / diag / commands` 七处联动 + README §5.2（九种→十种）+ 码表测试与双语快照同步。
+
+### Fixed
+- **无快照失败页补回复制诊断（#153）**：`copy-diag` 门从 `if (snapshot)` 放宽为“有快照或失败横幅或失败引用即画”。首帧即失败（`unknown-profile` / `dev-source` 类不写快照的失败）时按钮不再缺席，与 04 章“请使用「复制诊断」整段粘贴”指引一致；首帧 loading（无快照、无失败）仍不画，不多按钮。
+
+门禁（**发版定格**）：`npm test` **1212 例：1211 过 / 0 失败 / 1 跳过**（新增 `tests/issue-153-dev-source.test.mjs` 7 例：显式外部目录→`dev-source`、真找不到→`unknown-profile`、指错目录不谎称开发态、文案/手工命令/稳定码、无快照失败有按钮、loading 无按钮、真 junction 读者层，均先红后绿；含对抗审查补洞：host 判别式锚 `loaded`）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（新增 3 文案键进字典+快照，阻塞 10 + 电话 5 + internal = 16 码）；`npm publish --dry-run` 见演练记录；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（字典 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
+
 ## [0.18.2] - 2026-10-16
 
 ### Fixed

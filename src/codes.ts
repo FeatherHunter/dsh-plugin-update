@@ -34,6 +34,7 @@ export const BLOCKED_REASONS = [
   'registry-conflict',
   'incompatible-node',
   'recovery-required',
+  'dev-source',
 ] as const
 export type BlockedReason = (typeof BLOCKED_REASONS)[number]
 

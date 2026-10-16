@@ -57,6 +57,8 @@ export type BilingualKey =
   | 'panel.blocked.incompatible-node.action'
   | 'panel.blocked.recovery-required.title'
   | 'panel.blocked.recovery-required.action'
+  | 'panel.blocked.dev-source.title'
+  | 'panel.blocked.dev-source.action'
   | 'panel.failure.check-failed.title'
   | 'panel.failure.check-failed.action'
   | 'panel.failure.invalid-release.title'
@@ -348,6 +350,7 @@ export type BilingualKey =
   | 'diag.fallback.incompatible-node'
   | 'diag.fallback.registry-conflict'
   | 'diag.fallback.recovery-required'
+  | 'diag.fallback.dev-source'
   | 'install-button.action.installed'
 
 /** 一条双语：en/zh 模板 + 成熟度。模板内具名槽如 {version}/{count}，运行时值填入（值永不翻译）。 */
@@ -395,6 +398,8 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.blocked.incompatible-node.action': { en: 'Upgrade Node to 22 or later, then check again.', zh: '请升级 Node 至 22 或更高版本后重新查询', draft: true },
   'panel.blocked.recovery-required.title': { en: 'Last install was interrupted, leaving a partial task', zh: '上次安装异常中断，存在未完成任务', draft: true },
   'panel.blocked.recovery-required.action': { en: 'Run install once more; if it persists, follow section 6 to troubleshoot.', zh: '重新执行安装；若持续，请按第 6 节排错', draft: true },
+  'panel.blocked.dev-source.title': { en: 'Dev-mode source link, update center unavailable', zh: '开发态挂载（源码链接），更新中心不可用', draft: true },
+  'panel.blocked.dev-source.action': { en: 'Edit the repo and restart the host to take effect; the update center only serves version installs, no manual command is provided here.', zh: '改完仓库代码后重启宿主生效；更新中心只服务按版本安装，此场景不提供手工命令', draft: true },
   'panel.failure.check-failed.title': { en: 'Couldn’t check for updates (network, source, or rate limit)', zh: '版本信息查询失败（网络 / 数据源 / 限流）', draft: true },
   'panel.failure.check-failed.action': { en: 'Try checking again later; if it keeps failing, send the copied diagnostics to the plugin author.', zh: '稍后重新查询；若持续，请提交诊断信息至插件作者', draft: true },
   'panel.failure.invalid-release.title': { en: 'Release info is invalid (bad version or mismatched content)', zh: '发布版本信息无效（版本号非法或内容不一致）', draft: true },
@@ -686,6 +691,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'diag.fallback.incompatible-node': { en: 'New version needs a different Node version than the running one', zh: 'Node 运行时版本不兼容', draft: true },
   'diag.fallback.registry-conflict': { en: 'Declared version conflicts with the on-disk version', zh: '版本声明与磁盘实际版本冲突', draft: true },
   'diag.fallback.recovery-required': { en: 'Last install was interrupted, leaving a partial task', zh: '上次安装异常中断，存在未完成任务', draft: true },
+  'diag.fallback.dev-source': { en: 'Dev-mode source link; update center unavailable', zh: '开发态源码链接，更新中心不可用', draft: true },
   'install-button.action.installed': { en: 'Installed', zh: '已安装', draft: true },
 }
 

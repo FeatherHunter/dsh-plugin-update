@@ -39,10 +39,10 @@ function fakeContainer() {
   return { innerHTML: '', addEventListener() {}, removeEventListener() {} }
 }
 
-// ---------- 15 码全覆盖 ----------
+// ---------- 16 码全覆盖 ----------
 
-test('#22 15码全覆盖：9阻塞+5电话+internal 各有一句中文，未来码走兜底', () => {
-  const eight = [
+test('#22 16码全覆盖：10阻塞+5电话+internal 各有一句中文，未来码走兜底', () => {
+  const blocked = [
     'unknown-profile',
     'channel-mismatch',
     'source-install',
@@ -52,29 +52,30 @@ test('#22 15码全覆盖：9阻塞+5电话+internal 各有一句中文，未来�
     'registry-conflict',
     'incompatible-node',
     'recovery-required',
+    'dev-source',
   ]
-  for (const c of eight) {
+  for (const c of blocked) {
     const f = failureCopy(c)
     const b = blockedCopy(c)
     assert.ok(f && f.zh && f.act, c + ' 必须有中文与行动句')
     assert.match(f.zh + f.act, /[\u4e00-\u9fff]/, c + ' 必须含中文')
-    assert.equal(f.zh, b.title, c + ' 9行复用阻塞表原文，不另起措辞')
-    assert.ok(isKnownFailureCode(c), c + ' 应在15码内')
+    assert.equal(f.zh, b.title, c + ' 10行复用阻塞表原文，不另起措辞')
+    assert.ok(isKnownFailureCode(c), c + ' 应在16码内')
   }
   const five = ['check-failed', 'invalid-release', 'check-expired', 'update-busy', 'install-failed']
   for (const c of five) {
     const f = failureCopy(c)
     assert.ok(f && f.zh && f.act, c + ' 必须有中文与行动句')
     assert.match(f.zh + f.act, /[\u4e00-\u9fff]/, c + ' 必须含中文')
-    assert.ok(isKnownFailureCode(c), c + ' 应在15码内')
+    assert.ok(isKnownFailureCode(c), c + ' 应在16码内')
   }
   const internal = failureCopy('internal')
   assert.ok(internal && internal.zh && internal.act, 'internal 必须有兜底中文')
-  assert.ok(isKnownFailureCode('internal'), 'internal 计入15码')
+  assert.ok(isKnownFailureCode('internal'), 'internal 计入16码')
   const future = failureCopy('quota-exceeded')
   assert.ok(future && future.zh && future.act, '未来码必须有兜底')
   assert.match(future.act, /所见错误码/, '未来兜底必须提醒带上原码')
-  assert.equal(isKnownFailureCode('quota-exceeded'), false, '未来码不在15码内')
+  assert.equal(isKnownFailureCode('quota-exceeded'), false, '未来码不在16码内')
   assert.equal(failureCopy(null), null, '空码回 null，不猜')
   assert.equal(failureCopy(''), null, '空串回 null')
 })

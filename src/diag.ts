@@ -289,6 +289,7 @@ function pickDetail(errorCode: string, error: unknown, httpStatus: number | null
     else if (code === 'incompatible-node') key = 'diag.fallback.incompatible-node'
     else if (code === 'registry-conflict') key = 'diag.fallback.registry-conflict'
     else if (code === 'recovery-required') key = 'diag.fallback.recovery-required'
+    else if (code === 'dev-source') key = 'diag.fallback.dev-source'
     let fallback: string
     try { fallback = copyText(key, l, values) } catch { fallback = copyText('diag.fallback.generic', 'zh') }
     const clean = sanitizeDetail(fallback)

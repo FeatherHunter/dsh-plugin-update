@@ -183,11 +183,11 @@ export function installRecipe(input: {
  * 手工兜底命令：给人复制到终端执行，形状沿用 `dsh plugin --profile <名> add <包>@<版本>`。
  * 与配方同一套政策（精确版本、官方源、--save-exact），只是使用范围名含特殊字符时加引号，
  * 因为这一串要经用户自己的 shell 解释。网络受限时用户可自行去掉 --registry=。
- * 源码安装等不安全情形不给命令；无安全可选项（候选全低于运行版、
+ * 源码安装 / 开发态挂载 / 认不出使用范围等不安全情形不给命令；无安全可选项（候选全低于运行版、
  * 通道外、无候选、比不出）同样不给，不回退旧 picks[0]、不猜 latest。
  */
 export function manualCommand(input: { profileName: string | null; latestVersion: string | null; installedVersion: string | null; runningVersion: string; jobTargetVersion: string | null; blockedReason: BlockedReason | null; sourceInstall: boolean; targetPackageName?: string; registryUrl?: string; releaseChannel?: ReleaseChannel }): string | null {
-  if (input.sourceInstall || input.blockedReason === 'source-install' || input.blockedReason === 'unknown-profile') return null
+  if (input.sourceInstall || input.blockedReason === 'source-install' || input.blockedReason === 'unknown-profile' || input.blockedReason === 'dev-source') return null
   const name = usableProfileName(input.profileName)
   if (!name) return null
   const targetName = input.targetPackageName ?? PACKAGE_NAME

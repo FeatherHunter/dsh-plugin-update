@@ -360,7 +360,15 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
     }
     // 目标包定位不到（自动解析全失败且没给显式目录）：诚实失败，不产假的 installation-changed
     //（issue #3；到这里已装包真实存在，是“本包认不出目标”而非“安装位置变了”，重开宿主也修不好）。
+    // #153：已装目录实址落在范围外（junction/源码链接，realpath 逃出范围）→ dev-source，
+    // 与真找不到的 unknown-profile 分开说。
     const loadedUnresolvable = loaded === null
+    const installedOutsideProfile =
+      loadedUnresolvable &&
+      typeof installed.directory === 'string' &&
+      typeof profileDir === 'string' &&
+      installed.directory !== '' &&
+      !inside(profileDir, installed.directory)
     // 环境指纹强制含插件标识（规格 #591 第 6 条）：多插件不共享同一份内存状态。
     const identity = `${homeDir}\0${profileDir}\0${profileName}\0${pluginId}`
     const sameLoadedPackage = loaded?.directory === installed.directory && loaded?.manifest.version === installed.manifest.version
@@ -374,6 +382,7 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
       result.installationKey = null
     }
     if (boundIdentity !== undefined && boundIdentity !== identity) result.blockedReason = 'installation-changed'
+    else if (installedOutsideProfile) result.blockedReason = 'dev-source'
     else if (loadedUnresolvable) result.blockedReason = 'unknown-profile'
     else if (!sameLoadedPackage && boundIdentity === undefined) result.blockedReason = 'installation-changed'
     else if (!result.packageValid) result.blockedReason = 'invalid-installation'

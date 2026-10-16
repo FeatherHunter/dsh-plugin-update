@@ -92,7 +92,7 @@ createHostUpdate(
 
 - `snapshot` 恒为第 5.1 节那六个字段；`manual` 是第 5.3 节那条手工命令（能给则给，不能给为 `null`）。
 - `receipt` 只有查新版给（`{ checkId, checkedAt, expiresAt }`）；装更新时把 `checkId` 原样带回来，`requestId` 由面板自己生成（同一个编号重复提交直接返回旧结果）。
-- 失败一律 `ok: false`：`error` 是原因码（第 5.2 节那九种，另加 `check-failed` / `invalid-release` / `check-expired` / `update-busy` / `install-failed`），`errorKind` 认不出时是 `internal`。面板按 15 码给中文文案（九种见第 5.2 节，另五种与 `internal` 见下表，未来码走兜底）；分支只认 `errorKind`，`error` 仅回退。
+- 失败一律 `ok: false`：`error` 是原因码（第 5.2 节那十种，另加 `check-failed` / `invalid-release` / `check-expired` / `update-busy` / `install-failed`），`errorKind` 认不出时是 `internal`。面板按 16 码给中文文案（十种见第 5.2 节，另五种与 `internal` 见下表，未来码走兜底）；分支只认 `errorKind`，`error` 仅回退。
 - 失败可能顺带回可选 `diag`（失败证据小对象：阶段、路由、耗时、人话摘要、版本、宿主、请求与检查编号、源主机、动作提示；缺省即省略，序列化恒在 1KB 内）。旧面板直接忽略它，行为逐字不变；新面板也只按稳定码分支，不拿它做分支。
 
 ### 第 3 步：面板侧接线（构建期派生）
@@ -483,7 +483,7 @@ const update = createHostUpdate(
 
 **未安装（`0.17.0` 起）**：`installed === false` 的行不是坏包——面板版本列写「未安装 → 目标版本」，按钮是「安装」（复用既有安装词条，不新增控件）；查到远端版本即可点装，装完走既有终态（待重启提示见 5.4）。集成方零改动：不用读这个字段也能用，但读了可以少猜（不要再拿 `installedVersion` 是否为 `0.0.0` 判断未装）。
 
-### 5.2 九种装不了的原因
+### 5.2 十种装不了的原因
 
 面板拿到非空 `blockedReason` 时，直接展示下表「用户该做什么」那一列的一句话，不要只展示英文原因本身。
 
@@ -491,6 +491,7 @@ const update = createHostUpdate(
 |---|---|---|
 | `unknown-profile` | 无法识别使用范围或插件安装位置 | 重启宿主后重新查询；若持续，请提交版本号与诊断信息至插件作者；此场景不提供手工命令 |
 | `source-install` | 源码安装实例，不支持版本更新 | 此场景不提供手工命令；如需更新，请按包名@版本号重新安装 |
+| `dev-source` | 开发态挂载（源码链接），更新中心不可用 | 改完仓库代码后重启宿主生效；更新中心只服务按版本安装，此场景不提供手工命令 |
 | `invalid-installation` | 已安装的包结构不完整（包名 / 版本号 / 入口文件异常；`0.17.0` 起只判在场但坏的包，从没装过的不再落此处） | 重新安装当前版本以修复安装目录，然后重新查询更新 |
 | `installation-changed` | 安装位置发生变更（目录或包体不一致） | 重启宿主后重新查询；若持续，请重新安装 |
 | `pending-restart` | 新版本已写入磁盘，当前运行仍为旧版本 | 重启宿主以加载新版本；此为正常状态，非安装失败 |
@@ -513,7 +514,7 @@ const update = createHostUpdate(
 ### 5.3 手工兜底命令
 
 每次查状态与查新版都会顺带回一条手工命令（字段名 `manual`），能给则给、不能给则为空。
-为空是正常的两种情形：源码安装、认不出使用范围（上表前两行），此时只展示原因。
+为空是正常的三种情形：源码安装、开发态挂载、认不出使用范围（上表前三行），此时只展示原因。
 
 ```sh
 dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=https://registry.npmjs.org/

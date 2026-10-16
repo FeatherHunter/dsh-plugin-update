@@ -323,6 +323,15 @@ function unknownProfile(): Error & { code: string } {
   return Object.assign(new Error('unknown-profile'), { code: 'unknown-profile' })
 }
 
+/**
+ * 开发态挂载（#153）：目标包真实存在、但不在 `<范围>/node_modules/<包>` 版本位置下
+ * （junction / 源码链接 / 显式外部目录），反推不到使用范围。这是“找到了包但无版本落点”，
+ * 与“包都找不到”的 unknown-profile 不同：重启宿主修不好，应走仓库改完重启宿主。
+ */
+function devSource(): Error & { code: string } {
+  return Object.assign(new Error('dev-source'), { code: 'dev-source' })
+}
+
 export interface ReaderOverrides {
   env?: Record<string, string | undefined>
   osHome?: string
@@ -415,7 +424,11 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
     const inferred = anchorDir ? await tryInferProfileDir(anchorDir, targetPackageName) : null
     // 诚实失败（issue #3）：目标包定位不到且调用方没给 profileDir / targetPackageDir 时，
     // 不再猜 profiles/web（多范围并存即读错），也不再往下产出假的 installation-changed。
-    if (!inferred) throw unknownProfile()
+    // #153：包真实定位到（loaded != null）但反推不到范围（junction/显式外部目录）→ dev-source；
+    // 判别式必须锚在 loaded 而非 anchorDir：显式目录指错/不存在时 loaded 为 null，
+    // 此时真相是“指的地方没这个包”，仍报 unknown-profile，不许谎称开发态挂载。
+    const located = !!(loaded && loaded.directory)
+    if (!inferred) throw (located ? devSource() : unknownProfile())
     profileDirInput = inferred
   }
   const homeDirInput = overrides.homeDir ?? config.homeDir ?? homeDirDefault

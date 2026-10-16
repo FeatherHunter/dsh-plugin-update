@@ -339,7 +339,7 @@ export interface PanelSkipStore {
 //
 // README §5.2：面板只展示“用户该做什么”，不只展示英文原因。
 // zh 逐字等于旧散落文案（兼容既有测试）；en 待母语评审全 draft（见 src/bilingual.ts）。
-// 9 阻塞行复用同一组 key（failureCopy 对阻塞码直接复用 blocked 行，不另起措辞）。
+// 10 阻塞行复用同一组 key（failureCopy 对阻塞码直接复用 blocked 行，不另起措辞）。
 
 export interface BlockedCopy {
   title: string
@@ -356,6 +356,7 @@ const BLOCKED_KEYS: Record<BlockedReason, { title: BilingualKey; action: Bilingu
   'registry-conflict': { title: 'panel.blocked.registry-conflict.title', action: 'panel.blocked.registry-conflict.action' },
   'incompatible-node': { title: 'panel.blocked.incompatible-node.title', action: 'panel.blocked.incompatible-node.action' },
   'recovery-required': { title: 'panel.blocked.recovery-required.title', action: 'panel.blocked.recovery-required.action' },
+  'dev-source': { title: 'panel.blocked.dev-source.title', action: 'panel.blocked.dev-source.action' },
 }
 
 /** 装不了的原因 → 单语一句话（能装传 null 即回 null，不猜；lang 缺省 zh，零回归）。 */
@@ -370,7 +371,7 @@ export function blockedCopy(reason: BlockedReason | null, lang?: AppLang | strin
 // ---------- 稳定码单语文案（#22 原型 + #61 入字典：阻塞 + 电话 + internal + 未来兜底） ----------
 //
 // 码面真源在 src/codes.ts（#141）：下面两张表按真源的类型穷尽，真源添码而这里缺行 TS 直接报错；
-// 9 行以 README §5.2 为准（手册是源，字典逐字跟手册，不自创措辞）；
+// 10 行以 README §5.2 为准（手册是源，字典逐字跟手册，不自创措辞）；
 // 5 电话专属 + internal 为原型 panel-tolerated-reader 起草，措辞只给行动，不推导；
 // 未来码走兜底（unknown），面板只渲染不推导（分支只用稳定码，不碰 diag 明细）。
 export interface FailureCopy {
@@ -403,7 +404,7 @@ export function isKnownFailureCode(code: unknown): boolean {
 
 /**
  * 稳定码 → 单语一句话（全表覆盖，见 src/codes.ts；未知码回未来兜底，空码回 null；lang 缺省 zh，零回归）。
- * 9 阻塞行复用 blocked 行原文，不另起措辞；面板分支只认返回值，不碰 diag。
+ * 10 阻塞行复用 blocked 行原文，不另起措辞；面板分支只认返回值，不碰 diag。
  */
 export function failureCopy(code: unknown, lang?: AppLang | string | null): FailureCopy | null {
   if (typeof code !== 'string') return null
@@ -1728,7 +1729,10 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   if (b.kind === 'failed') {
     actions.push(`<button type="button" data-action="dismiss-failure" title="${escapeHtml(copyText('panel.action.dismiss-title', l))}">${escapeHtml(copyText('panel.action.dismiss', l))}</button>`)
   }
-  if (snapshot) {
+  // #153-B：复制诊断在失败时常驻——无快照但有失败横幅/失败引用时也给按钮，
+  // 修“失败旁没有复制诊断”。首帧 loading（无快照、无失败）仍不给，不多一个按钮。
+  const failureRef = (input as { failure?: unknown }).failure
+  if (snapshot || b.kind === 'failed' || !!failureRef) {
     actions.push(`<button type="button" data-action="copy-diag" title="${escapeHtml(copyText('panel.action.copy-diag-title', l))}">${escapeHtml(copyText('panel.action.copy-diag', l))}</button>`)
   }
   // 关闭不住第一章（#47 定案 A）：dialog 的关闭住右下角独立 footer 区（见内核末尾）；

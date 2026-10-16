@@ -557,6 +557,11 @@
       "zh": "已安装版本与当前版本通道不符",
       "draft": true
     },
+    "diag.fallback.dev-source": {
+      "en": "Dev-mode source link; update center unavailable",
+      "zh": "开发态源码链接，更新中心不可用",
+      "draft": true
+    },
     "diag.fallback.generic": {
       "en": "Operation failed",
       "zh": "操作失败",
@@ -845,6 +850,16 @@
     "panel.blocked.channel-mismatch.title": {
       "en": "Installed version is not in the selected release channel",
       "zh": "已安装版本与当前版本通道不符",
+      "draft": true
+    },
+    "panel.blocked.dev-source.action": {
+      "en": "Edit the repo and restart the host to take effect; the update center only serves version installs, no manual command is provided here.",
+      "zh": "改完仓库代码后重启宿主生效；更新中心只服务按版本安装，此场景不提供手工命令",
+      "draft": true
+    },
+    "panel.blocked.dev-source.title": {
+      "en": "Dev-mode source link, update center unavailable",
+      "zh": "开发态挂载（源码链接），更新中心不可用",
       "draft": true
     },
     "panel.blocked.incompatible-node.action": {
