@@ -154,7 +154,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
-/** diag 宽容读：只留 16 键（DIAG_KEYS），detail 脱敏；diagnostic 原话丢弃。 */
+/** diag 宽容读：只留目录键（DIAG_KEYS，#155 起 19 键），detail 脱敏；diagnostic 原话丢弃。 */
 export function pickHttpDiag(raw: unknown): Record<string, unknown> | undefined {
   if (!isRecord(raw)) return undefined
   const out: Record<string, unknown> = {}

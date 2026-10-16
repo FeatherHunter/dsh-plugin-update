@@ -351,6 +351,10 @@ export type BilingualKey =
   | 'diag.fallback.registry-conflict'
   | 'diag.fallback.recovery-required'
   | 'diag.fallback.dev-source'
+  | 'diag.cause.age.target.timed'
+  | 'diag.cause.age.target.untimed'
+  | 'diag.cause.age.other.timed'
+  | 'diag.cause.age.other.untimed'
   | 'install-button.action.installed'
 
 /** 一条双语：en/zh 模板 + 成熟度。模板内具名槽如 {version}/{count}，运行时值填入（值永不翻译）。 */
@@ -692,6 +696,10 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'diag.fallback.registry-conflict': { en: 'Declared version conflicts with the on-disk version', zh: '版本声明与磁盘实际版本冲突', draft: true },
   'diag.fallback.recovery-required': { en: 'Last install was interrupted, leaving a partial task', zh: '上次安装异常中断，存在未完成任务', draft: true },
   'diag.fallback.dev-source': { en: 'Dev-mode source link; update center unavailable', zh: '开发态源码链接，更新中心不可用', draft: true },
+  'diag.cause.age.target.timed': { en: 'Your plugin {package} was published too recently and was blocked by the host supply-chain age policy (installer words in the summary). Retry after {time}; for urgent use ask the host to relax the policy.', zh: '本插件 {package} 发布未满宿主年龄门限，被供应链策略拦截（安装器原话见摘要）。{time}后点重试即可；急用请找宿主放宽策略。', draft: true },
+  'diag.cause.age.target.untimed': { en: 'Your plugin {package} was blocked by the host supply-chain age policy because it is too new (see the summary). Retry later; for urgent use ask the host to relax the policy.', zh: '本插件 {package} 因太新被宿主供应链年龄策略拦截（见摘要）。请稍后重试；急用请找宿主放宽策略。', draft: true },
+  'diag.cause.age.other.timed': { en: 'The installer reports: another package in the same environment, {package}, was rejected by a supply-chain age policy — not a problem with this plugin itself (see the summary). Retry after {time}; or ask the host to relax the policy.', zh: '安装器报告：同环境另一包 {package} 因供应链年龄策略被拒，不是本插件的直接问题（见摘要）。{time}后重试；或找宿主放宽策略。', draft: true },
+  'diag.cause.age.other.untimed': { en: 'The installer reports: another package in the same environment, {package}, was rejected by a supply-chain age policy — not a problem with this plugin itself (see the summary). Retry later, or ask the host to relax the policy.', zh: '安装器报告：同环境另一包 {package} 因供应链年龄策略被拒，不是本插件的直接问题（见摘要）。请稍后重试，或找宿主放宽策略。', draft: true },
   'install-button.action.installed': { en: 'Installed', zh: '已安装', draft: true },
 }
 

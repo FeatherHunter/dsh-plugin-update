@@ -128,6 +128,10 @@ const DIAG_KEYS_16 = [
   'checkId',
   'registryHost',
   'action',
+  // #155 翻译官 3 键（冻结枚举 + 包规格 + 解封毫秒；面板只按 causeKind 枚举分支）。
+  'causeKind',
+  'causePackage',
+  'causeUnlockAt',
 ]
 const STAGES_6 = ['read-installed', 'fetch-release', 'validate-release', 'preflight', 'exec', 'verify']
 const ACTIONS_4 = ['retry', 'manual', 'contact', 'restart']
@@ -139,7 +143,7 @@ function assertDiagWellFormed(diag) {
   // 路由与方法正交：各自独立缺省（预算墙可单独省 method 而留 route，见 #24 顺序）。
   if ('route' in diag) assert.equal(typeof diag.route, 'string')
   if ('method' in diag) assert.equal(typeof diag.method, 'string')
-  // 16 键目录：除显式 truncated 位外，其余一律易变即面板必须忽略——此处断言绝不出现 queuePos。
+  // 19 键目录（16 + #155 翻译官 3 键）：除显式 truncated 位外，其余一律易变即面板必须忽略——此处断言绝不出现 queuePos。
   for (const k of Object.keys(diag)) {
     if (k === 'truncated') {
       assert.equal(diag.truncated, true, 'truncated 只在超墙动过手时出现，且恒为 true')
@@ -184,7 +188,7 @@ describe('成功形状不动（成功回包永不带 diag）', () => {
   })
 })
 
-describe('失败回包加可选 diag（16 键目录 + 脱敏构造）', () => {
+describe('失败回包加可选 diag（19 键目录 + 脱敏构造）', () => {
   it('取数 429：fetch-release + httpStatus + retry + 已脱敏', async () => {
     const fires = []
     const host = makeHost({

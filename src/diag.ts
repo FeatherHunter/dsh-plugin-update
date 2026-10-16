@@ -7,10 +7,12 @@
  * 脱敏是构造属性，无安全详情时宁可省略也不给原文。所有失败经一次回包即证据闭包，
  * 不做二次往返；深证据超限再另议，不在本模块内。
  *
- * 16 键目录（第一版，线键永不改名）：
+ * 19 键目录（第一版 16 键 + #155 翻译官 3 键，线键永不改名）：
  *   v / stage / route / method / httpStatus / exitCode / latencyMs / detail /
  *   targetPackageName / runningVersion / latestVersion / environmentKind /
- *   requestId / checkId / registryHost / action
+ *   requestId / checkId / registryHost / action /
+ *   causeKind / causePackage / causeUnlockAt（#155：安装失败已知签名的机读结论，
+ *   冻结枚举 + 包规格 + 解封毫秒；面板只按 causeKind 枚举分支，不读自由文本）
  * 其余一律易变（面板必须忽略），queuePos 等上游语义落定后再转正——本模块永不产出
  * queuePos（保留未来键，见 STAGE_EXPECT 之外的显式断言）。
  *
@@ -33,6 +35,7 @@
  */
 
 import { DIAG_INLINE_BUDGET_BYTES, diagByteLength, enforceDiagBudget, resolveRegistryHost, sanitizeDetail } from './redaction.js'
+import { causeInterpreter } from './install-cause.js'
 import { validReleaseVersion, validRequestId } from './service.js'
 import { copyText, type BilingualKey } from './bilingual.js'
 import { normalizeLangTag, type AppLang } from './lang.js'
@@ -55,7 +58,7 @@ export type DiagStage = (typeof DIAG_STAGES)[number]
 export const DIAG_ACTIONS = ['retry', 'manual', 'contact', 'restart'] as const
 export type DiagAction = (typeof DIAG_ACTIONS)[number]
 
-/** 16 键目录与线类型（面板宽容读的唯一依据）。 */
+/** 16 键目录与线类型（面板宽容读的唯一依据）+ #155 翻译官 3 键（共 19 键）。 */
 export const DIAG_KNOWN_TYPES: Record<string, 'number' | 'string'> = {
   v: 'number',
   stage: 'string',
@@ -73,6 +76,9 @@ export const DIAG_KNOWN_TYPES: Record<string, 'number' | 'string'> = {
   checkId: 'string',
   registryHost: 'string',
   action: 'string',
+  causeKind: 'string',
+  causePackage: 'string',
+  causeUnlockAt: 'number',
 }
 export const DIAG_KEYS = Object.keys(DIAG_KNOWN_TYPES)
 
@@ -108,6 +114,8 @@ export interface DiagInput {
   latencyMs?: unknown
   /** 人话兜底渲染语言（#66 单语：缺省 zh 零回归；电话侧无 DOM 信号时仍落 zh，面板侧 free-text 英文混入属正常见 #57 v2 非目标）。 */
   lang?: AppLang | string | null
+  /** 翻译官时钟（毫秒 epoch；#155 解封时间反推用；不给即 Date.now，测试必传）。 */
+  nowMs?: unknown
 }
 
 export interface DiagObject {
@@ -128,7 +136,13 @@ export interface DiagObject {
   checkId?: string
   registryHost?: string
   action?: DiagAction
-  /** 显式截断位（#24）：仅超墙动过手时为 true，否则省略以保持 16 键纯净。 */
+  /** 翻译官结论（#155，仅安装失败已知签名时带；冻结枚举，面板只按它分支）。 */
+  causeKind?: string
+  /** 肇事包完整规格（如 dshmarket@1.66.28；显示用，归因比对剥版本）。 */
+  causePackage?: string
+  /** 解封时刻毫秒 epoch（算不出或已过即省略，面板只给无时间版文案）。 */
+  causeUnlockAt?: number
+  /** 显式截断位（#24）：仅超墙动过手时为 true，否则省略以保持键目录纯净。 */
   truncated?: boolean
 }
 
@@ -376,6 +390,35 @@ export function buildDiag(input: DiagInput): DiagObject | undefined {
     } catch {
       registryHost = null
     }
+    // #155 翻译官：已知签名即附机读结论（认不出即全空，通用老路一字不动；计数进统计口）。
+    // 只问 exec：统计口的"未识别"总体应是"尝试安装却没认出来的"，查侧失败不算没认出来。
+    // （表里签名自带码×阶段双门；这里的 exec 门只管"问不问"，不管"认不认"。）
+    let causeKind: string | null = null
+    let causePackage: string | null = null
+    let causeUnlockAt: number | null = null
+    try {
+      const rawDetail = (input?.error as { detail?: unknown } | null | undefined)?.detail
+      const rawNowMs = input?.nowMs
+      const interpreted =
+        stage === 'exec'
+          ? causeInterpreter.interpret({
+              errorCode,
+              stage,
+              detail: typeof rawDetail === 'string' ? rawDetail : undefined,
+              targetPackageName,
+              nowMs: typeof rawNowMs === 'number' ? rawNowMs : undefined,
+            })
+          : null
+      if (interpreted) {
+        causeKind = interpreted.kind
+        causePackage = interpreted.spec
+        causeUnlockAt = typeof interpreted.unlockAtMs === 'number' ? interpreted.unlockAtMs : null
+      }
+    } catch {
+      causeKind = null
+      causePackage = null
+      causeUnlockAt = null
+    }
     const diag: DiagObject = { v: DIAG_VERSION, stage }
     if (route) diag.route = route
     if (method) diag.method = method
@@ -390,6 +433,9 @@ export function buildDiag(input: DiagInput): DiagObject | undefined {
     if (requestId) diag.requestId = requestId
     if (checkId) diag.checkId = checkId
     if (registryHost) diag.registryHost = registryHost
+    if (causeKind) diag.causeKind = causeKind
+    if (causePackage) diag.causePackage = causePackage
+    if (causeUnlockAt !== null) diag.causeUnlockAt = causeUnlockAt
     diag.action = action
     return enforceBudget(diag)
   } catch {
@@ -399,7 +445,7 @@ export function buildDiag(input: DiagInput): DiagObject | undefined {
 
 /**
  * 序列化 ≤1024 字节墙（#24 单源）：经 redaction.enforceDiagBudget 按序丢弃。
- * truncated 位显式返回：false 即 16 键原样（删掉该位，保持 #18 目录纯净）；
+ * truncated 位显式返回：false 即全键原样（删掉该位，保持 #18 目录纯净）；
  * true 即超墙动过手（保留该位，面板宽容读忽略它，旧面板剥掉 diag 仍逐字不变）。
  * 仍超（理论上不可能，永不丢键兜底）则回 undefined 按无 diag 处理。
  */

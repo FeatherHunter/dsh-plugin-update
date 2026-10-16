@@ -35,6 +35,7 @@ import type { BlockedReason, UpdateSnapshot } from './ports.js'
 import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './codes.js'
 export { isCheckSideFailureCode } // 查侧判定从单点真源派生（#134/US15；#141 铁律：本文件不另建第二张表）
 import { copyText, type BilingualKey } from './bilingual.js'
+import { blameCausePackage, CAUSE_KINDS, formatUnlockAt } from './install-cause.js'
 import { langSignalSource, normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
 
 // ---------- 公开类型（完整类型定义：公开入口一律有类型，不做源码级复用） ----------
@@ -562,6 +563,9 @@ const DIAG_KNOWN_TYPES: Record<string, string> = {
   checkId: 'string',
   registryHost: 'string',
   action: 'string',
+  causeKind: 'string',
+  causePackage: 'string',
+  causeUnlockAt: 'number',
 }
 
 export interface TolerantDiag {
@@ -580,6 +584,10 @@ export interface TolerantDiag {
   checkId: string | null
   registryHost: string | null
   action: string | null
+  /** 翻译官结论（#155）：冻结枚举 causeKind + 肇事包规格 + 解封毫秒；缺省即通用老路。 */
+  causeKind: string | null
+  causePackage: string | null
+  causeUnlockAt: number | null
   /** 目录外的键（如 queuePos 转正前）一律忽略，记在这里仅供排错，不进渲染。 */
   unknownKeys: string[]
 }
@@ -602,6 +610,9 @@ export function readDiagTolerant(diag: unknown): TolerantDiag {
     checkId: null,
     registryHost: null,
     action: null,
+    causeKind: null,
+    causePackage: null,
+    causeUnlockAt: null,
     unknownKeys: [],
   }
   if (!diag || typeof diag !== 'object' || Array.isArray(diag)) return empty
@@ -643,6 +654,39 @@ function queueTextOf(queuePosition: number | null | undefined, lang?: AppLang | 
 }
 
 /**
+ * 翻译官怎么办句（#155）：diag 自带机读结论（causeKind 冻结枚举 + 肇事包规格 + 可选解封毫秒）
+ * 时，按"归因 × 时间可算/不可算"四格选一句专项文案；否则回 null，调用方走通用怎么办。
+ * 面板分支只认 causeKind 枚举与归因函数，不读自由文本；缺目标名即 unknown，不排除——措辞只退回通用。
+ */
+export function causeRemedyText(
+  cause: { kind?: unknown; package?: unknown; unlockAtMs?: unknown; target?: unknown },
+  lang?: AppLang | string | null,
+): string | null {
+  try {
+    const l = normalizeLangTag(lang ?? 'zh')
+    const kind = String(cause?.kind ?? '').trim()
+    if (!kind || !(CAUSE_KINDS as readonly string[]).includes(kind)) return null
+    const spec = String(cause?.package ?? '').trim()
+    if (!spec) return null
+    const blame = blameCausePackage(spec, cause?.target)
+    if (blame === 'unknown') return null
+    const timeRaw = typeof cause?.unlockAtMs === 'number' ? formatUnlockAt(cause.unlockAtMs, l) : null
+    const timed = !!timeRaw
+    const key =
+      blame === 'target'
+        ? timed
+          ? 'diag.cause.age.target.timed'
+          : 'diag.cause.age.target.untimed'
+        : timed
+          ? 'diag.cause.age.other.timed'
+          : 'diag.cause.age.other.untimed'
+    return copyText(key as BilingualKey, l, { package: spec, time: timeRaw ?? '' })
+  } catch {
+    return null
+  }
+}
+
+/**
  * 组出 [update-diag] 复制块（双形态同序；调用方直接拿去粘工单/issue，已脱敏）。
  * 第一性：顺序码→摘要→来源（#18 定），怎么办是面板页脚放最后，不插断三元组；
  * 缺省即省略（#18）：路由/请求/检查/阶段等缺失即不出现，不占位“未知”；
@@ -658,6 +702,14 @@ export function buildUpdateDiagCopy(input: UpdateDiagCopyInput, langOverride?: A
   const rawCode = String((input as { code?: unknown }).code ?? '').trim() || 'internal'
   const copy = failureCopy(rawCode, l) ?? failureCopy('unknown', l)!
   const diag = readDiagTolerant((input as { diag?: unknown }).diag)
+  // #155：有翻译官结论即换专项怎么办句；没有（或未知归因）即通用老话，一字不动。
+  // 归因目标只认 diag.targetPackageName（npm 包名命名空间）；input.pluginId 是插件标识，
+  // 拿它比对会把"未知"谎报成"他包"——缺包名即 unknown，不退而求其次。
+  const remedy =
+    causeRemedyText(
+      { kind: diag.causeKind, package: diag.causePackage, unlockAtMs: diag.causeUnlockAt, target: diag.targetPackageName },
+      l,
+    ) ?? copy.act
   const detailRaw = diag.detail ?? input.detail ?? ''
   const detail = redactForCopy(detailRaw) || copyText('panel.diag.copy.no-detail', l)
   const pluginName = pickText(diag.targetPackageName ?? input.pluginId, unknownPkg)
@@ -691,7 +743,7 @@ export function buildUpdateDiagCopy(input: UpdateDiagCopyInput, langOverride?: A
   const format: DiagCopyFormat = (input as { format?: unknown }).format === 'line' ? 'line' : 'block'
   const provLine = redactForCopy(prov.join(' · '))
   if (format === 'line') {
-    const line = `[update-diag] code=${rawCode} · ${copy.zh} · ${copyText('panel.diag.copy.line.summary', l, { summary: detail })} · ${provLine} · ${copyText('panel.diag.copy.line.remedy', l, { remedy: copy.act })}`
+    const line = `[update-diag] code=${rawCode} · ${copy.zh} · ${copyText('panel.diag.copy.line.summary', l, { summary: detail })} · ${provLine} · ${copyText('panel.diag.copy.line.remedy', l, { remedy })}`
     return redactForCopy(line)
   }
   // 块形态保留换行：各段已脱敏，不再整块压平（压平会把三行块变成单行）。
@@ -699,7 +751,7 @@ export function buildUpdateDiagCopy(input: UpdateDiagCopyInput, langOverride?: A
     `[update-diag] ${rawCode} — ${copy.zh}`,
     `  ${copyText('panel.diag.copy.block.summary', l, { summary: detail })}`,
     `  ${copyText('panel.diag.copy.block.source', l, { source: provLine })}`,
-    `  ${copyText('panel.diag.copy.block.remedy', l, { remedy: copy.act })}`,
+    `  ${copyText('panel.diag.copy.block.remedy', l, { remedy })}`,
   ].join('\n')
   return block
 }

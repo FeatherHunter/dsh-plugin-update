@@ -108,7 +108,7 @@ export {
   truncateToWordBoundary,
 } from './redaction.js';
 export type { DiagDropKey, RedactionRuleName } from './redaction.js';
-// 电话侧失败证据 diag（#21，承接 #18 契约：16 键目录 + 阶段六值 + 路由/方法正交 +
+// 电话侧失败证据 diag（#21，承接 #18 契约：19 键目录 + 阶段六值 + 路由/方法正交 +
 // 包内动作推导 + 缺省省略 + 1024 字节墙；queuePos 留空到队列转正，经包根转出口）。
 export {
   DIAG_ACTIONS,
@@ -124,6 +124,18 @@ export {
   enforceBudget as enforceDiagBudgetForPhone,
 } from './diag.js';
 export type { DiagAction, DiagInput, DiagObject, DiagStage } from './diag.js';
+// 安装失败翻译官（#155：已知签名识别 + 诚实归因；纯函数 + 计数解释器，经包根转出口）。
+export {
+  blameCausePackage,
+  CAUSE_KINDS,
+  causeInterpreter,
+  causeInterpreterCounts,
+  causePackageNameOf,
+  createCauseInterpreter,
+  formatUnlockAt,
+  interpretInstallCause,
+} from './install-cause.js';
+export type { CauseBlame, CauseFacts, CauseInterpreterCounts, CauseKind, CauseSignature, InterpretCauseInput } from './install-cause.js';
 // 更新日志（#23，承接 #11：包内 CHANGELOG.md 展示；纯函数两边可进，I/O 仅 Node 侧）。
 export {
   CHANGELOG_ALL_CATEGORIES,

@@ -365,7 +365,7 @@ describe('DIAG 1024 字节墙：运行时按序丢弃 + 显式 truncated 位', (
   it('diagByteLength 与常量一致：1024', () => {
     assert.equal(DIAG_INLINE_BUDGET_BYTES, 1024)
     assert.ok(diagByteLength({ a: 'x' }) > 0)
-    assert.deepEqual([...DIAG_NEVER_DROP_KEYS].sort(), ['code', 'error', 'errorKind', 'method', 'requestId', 'route', 'stage', 'v'].sort())
+    assert.deepEqual([...DIAG_NEVER_DROP_KEYS].sort(), ['code', 'error', 'errorKind', 'method', 'requestId', 'route', 'stage', 'v', 'causeKind', 'causePackage', 'causeUnlockAt'].sort())
     assert.equal(DIAG_DROP_ORDER[0], 'registryHost')
     assert.equal(DIAG_DROP_ORDER[1], 'action')
   })

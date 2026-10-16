@@ -451,8 +451,8 @@ test('#56 反向验证：真源加一个码，新码缺文案缺分支必须点�
 
 // ---------- 诊断解析契约 ----------
 
-test('#56 诊断解析契约：真件全绿（16 键宽容读 + 全部稳定码 ×2 形态回读 + 顺序冻结）', () => {
-  assert.equal(DIAG_KNOWN_KEYS.length, 16)
+test('#56 诊断解析契约：真件全绿（19 键宽容读 + 全部稳定码 ×2 形态回读 + 顺序冻结）', () => {
+  assert.equal(DIAG_KNOWN_KEYS.length, 19)
   const got = checkDiagParseContract({ diag: realDeps().diag, truth: truthOf() })
   assert.equal(got.ok, true, reasonsOf(got))
 })

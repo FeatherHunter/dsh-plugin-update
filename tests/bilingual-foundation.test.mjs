@@ -137,6 +137,7 @@ test('字典钉住版本且键与冻结快照逐键一致（缺键或多键即�
     'batch.toast.restart-manual', 'batch.toast.restart-failed',
   ]) assert.ok(keys.includes(k), k + ' 缺键（#65）')
   // #66 changelog 运行时 9 键（§6.1，去六类）+ diag 兜底 16 键（§7.1 19 行含 3 复用电话表，逐条见 research/52-inventory.md）
+  // #155 翻译官 4 键（归因 × 时间可算/不可算四格，单列断言）
   for (const k of [
     'changelog.neutral.hint', 'changelog.neutral.line', 'changelog.breaking.badge', 'changelog.breaking.aria',
     'changelog.truncated.count', 'changelog.yanked.banner', 'changelog.yanked.suffix',
@@ -147,6 +148,10 @@ test('字典钉住版本且键与冻结快照逐键一致（缺键或多键即�
     'diag.fallback.installation-changed', 'diag.fallback.pending-restart', 'diag.fallback.incompatible-node',
     'diag.fallback.registry-conflict', 'diag.fallback.recovery-required', 'diag.fallback.dev-source',
   ]) assert.ok(keys.includes(k), k + ' 缺键（#66）')
+  for (const k of [
+    'diag.cause.age.target.timed', 'diag.cause.age.target.untimed',
+    'diag.cause.age.other.timed', 'diag.cause.age.other.untimed',
+  ]) assert.ok(keys.includes(k), k + ' 缺键（#155）')
   for (const k of keys) {
     const e = BILINGUAL_STRINGS[k]
     assert.equal(typeof e.en, 'string', k + ' 有英文')

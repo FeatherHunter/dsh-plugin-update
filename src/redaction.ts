@@ -251,8 +251,9 @@ export function diagByteLength(value: unknown): number {
  * 路由与方法正交但原子：构造侧（diag.ts deriveRouteMethod）同产同省，墙侧若只保路由
  * 必拆散该对（对抗审查实锤：#21 超长中文用例 route 在 method 被省，well-formed 断言红）。
  * 方法串极短（https/fs/phone/spawn/service，约十字节），永保代价可忽略。
+ * #155 翻译官三键同列永保：结论丢了等于没认出来（退回通用老话），几十字代价换路由不断。
  */
-export const DIAG_NEVER_DROP_KEYS = ['v', 'code', 'error', 'errorKind', 'stage', 'route', 'method', 'requestId'] as const
+export const DIAG_NEVER_DROP_KEYS = ['v', 'code', 'error', 'errorKind', 'stage', 'route', 'method', 'requestId', 'causeKind', 'causePackage', 'causeUnlockAt'] as const
 
 /**
  * 按序省的键（#24 票面顺序）：registryHost → action → 版本（latest → running → target 包名）

@@ -122,7 +122,7 @@ test('成功回包 queue/env 全透传：helper 不裁剪', async () => {
   assert.deepEqual(reply.snapshot, baseSnapshot())
 })
 
-test('失败 diag 透传不丢键：16 键保留，diagnostic 原话丢弃', async () => {
+test('失败 diag 透传不丢键：目录键保留，diagnostic 原话丢弃', async () => {
   const diag = {
     v: 1, stage: 'exec', route: 'cli-process', method: 'spawn', exitCode: 1,
     detail: '  失败了  ',
@@ -472,7 +472,7 @@ test('批量薄封装：经 HTTP 跑通 status，取消走 batchCancel 电话而
 
 // ---------- 批量排队/续跑语义在 HTTP 下的落地（#33） ----------
 
-test('批量行内 diag 过滤：只留 16 键，extra 丢、diagnostic 原话丢、detail 脱敏', async () => {
+test('批量行内 diag 过滤：只留目录键，extra 丢、diagnostic 原话丢、detail 脱敏', async () => {
   const payload = baseBatchReply({
     rows: [
       {
