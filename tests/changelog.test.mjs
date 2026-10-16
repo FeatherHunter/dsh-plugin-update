@@ -124,8 +124,8 @@ test('解析：脏输入永不抛错，回 []', () => {
   assert.deepEqual(parseChangelog('## 乱写的标题没有版本\n### Added\n- x\n'), [])
 })
 
-test('解析器零依赖：不碰 Node 专属导入', () => {
-  const src = readFileSync(new URL('../src/changelog.ts', import.meta.url), 'utf8')
+test('解析器零依赖：不碰 Node 专属导入（测编译后行为，#162 首拆票附带）', () => {
+  const src = readFileSync(new URL('../dist/changelog.js', import.meta.url), 'utf8')
   assert.ok(!/from\s+['"]node:/.test(src), '纯解析器不得导入 node: 内建')
   assert.ok(!/require\s*\(/.test(src), '纯解析器不得用 require')
 })

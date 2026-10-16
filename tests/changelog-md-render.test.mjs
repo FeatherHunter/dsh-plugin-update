@@ -158,9 +158,9 @@ test('面板 02 章：日志节里真的出现可点锚与代码样式', () => {
   assert.ok(!html.includes('<img'), '面板正文里没有图片请求')
 })
 
-test('三处生效：批量两处复用单插件内核（静态接线核对）', () => {
-  const batchSrc = readFileSync(new URL('../src/panel-batch.ts', import.meta.url), 'utf8')
-  assert.ok(/import[\s\S]*renderUpdatePanelHTML[\s\S]*from '\.\/panel\.js'/.test(batchSrc), '批量面板导入单插件内核')
+test('三处生效：批量两处复用单插件内核（静态接线核对，测编译后行为，#162 首拆票附带）', () => {
+  const batchSrc = readFileSync(new URL('../dist/panel-batch.js', import.meta.url), 'utf8')
+  assert.ok(/import[\s\S]*renderUpdatePanelHTML[\s\S]*from\s+['"]\.\/panel\.js['"]/.test(batchSrc), '批量面板导入单插件内核')
   assert.ok(batchSrc.includes('renderUpdatePanelHTML({'), '批量展开行/详情弹窗都走同一内核')
 })
 
