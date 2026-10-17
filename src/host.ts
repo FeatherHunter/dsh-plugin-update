@@ -228,7 +228,13 @@ export interface ReaderOverrides {
   releaseLock?: (lockId: string) => void | Promise<void>
   backupJob?: (job: import('./ports.js').UpdateJob) => void | Promise<void>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  runInstall?: (args: { version: string; profileName: string | null; environmentKind: EnvironmentKind; releaseChannel?: ReleaseChannel }) => any
+  runInstall?: (args: {
+    version: string
+    profileName: string | null
+    environmentKind: EnvironmentKind
+    releaseChannel?: ReleaseChannel
+    approvedBuilds?: string[]
+  }) => any
   subprocess?: unknown
   desktopPnpm?: unknown
   desktopProfiles?: unknown

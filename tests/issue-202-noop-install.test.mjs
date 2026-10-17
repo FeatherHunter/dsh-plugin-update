@@ -172,6 +172,7 @@ function makeCandidateHost({ mutateBeforeLockRead = false } = {}) {
   const answer = (body) => ({ ok: true, headers: { get: () => null }, text: async () => JSON.stringify(body) })
   let versionDocFetches = 0
   const runCalls = []
+  const runArgs = []
   const host = createHostUpdate(
     {
       readerOverrides: {
@@ -195,8 +196,10 @@ function makeCandidateHost({ mutateBeforeLockRead = false } = {}) {
         nodeVersion: '22.0.0',
         environmentKind: 'cli',
         targetPackageName: TARGET,
-        runInstall: async ({ version }) => {
+        runInstall: async (args) => {
+          const { version } = args
           runCalls.push(version)
+          runArgs.push(args)
           makeTargetPackage(join(profileDir, 'node_modules', TARGET), version)
         },
         ...memoryStore(),
@@ -204,7 +207,7 @@ function makeCandidateHost({ mutateBeforeLockRead = false } = {}) {
     },
     { pluginId: 'issue-202-candidate-plugin', prefix: 'issue202c', targetPackageName: TARGET },
   )
-  return { host, runCalls }
+  return { host, runCalls, runArgs }
 }
 
 async function askCandidate(host) {
@@ -289,18 +292,21 @@ describe('#202 空更新哨兵：目标与已装版相同不启动安装', () =>
     assert.deepEqual(runCalls, [], '竞态下也不能真的调起安装')
   })
 
-  it('对照：候选路径磁盘没被换 ⇒ 正常安装候选版并落到待重启', async () => {
-    const { host, runCalls } = makeCandidateHost()
+  it('对照：候选路径磁盘没被换 ⇒ 正常安装候选版并落到待重启；批准名单也随版本号一起转发', async () => {
+    const { host, runCalls, runArgs } = makeCandidateHost()
     const fallback = await askCandidate(host)
     assert.equal(fallback.ok, true)
     const out = await host.handlers['issue202c.updateInstall']({
       checkId: fallback.receipt.checkId,
       requestId: 'req-cand-1',
       version: CANDIDATE,
+      approvedBuilds: ['native-a', '--evil'],
     })
     assert.equal(out.ok, true)
     const snapshot = await waitTerminal(host, 'issue202c')
     assert.equal(snapshot.job.state, 'restart-required')
     assert.deepEqual(runCalls, [CANDIDATE])
+    // #194 Spec 审查：候选（带 version）分支也要把归一后的批准名单送到安装端口。
+    assert.deepEqual(runArgs[0].approvedBuilds, ['native-a'], '候选路径的批准名单要过滤后原样转发')
   })
 })

@@ -1797,18 +1797,28 @@ function carrierApproveBuildsCommand(profileName: string): string | null {
 }
 
 /**
- * 待批构建名单的建议候选（#194）：从最完整到最短，调用方按预算挑第一条放得下的。
+ * 待批构建名单的建议候选（#194）：名单从「全点名」逐级退让到「首个 等 N 个」，
+ * 但**每一条候选都带着能走的批准路径**——长名单也不能只剩一句「去宿主页批准」。
  * 只负责措辞，不做过滤——名单进来前已经过 `normalizeApprovedBuilds`。
+ *
+ * Spec 审查 HARD：旧实现只在第一条候选里带 CLI 命令，名单一长就落到没有命令的短句，
+ * 而宿主页的批准入口只在它自己的安装失败页出现，本包的 `updateInstall` 走不到——
+ * 等于告诉用户一个不存在的按钮。现在命令（或没有命令时的宿主页说法）是每条的固定部分，
+ * 变的是点名多少个包。
  */
 function pendingBuildsAdviceCandidates(names: string[], approveCommand: string | null): string[] {
   if (names.length === 0) return []
-  const brief = names.length === 1 ? names[0] : `${names[0]} 等 ${names.length} 个`
-  return [
-    `需要批准构建脚本：${names.join('、')}；在宿主插件页批准后重试${approveCommand ? `，或运行 ${approveCommand}` : ''}`,
-    `需要批准构建脚本：${names.join('、')}；在宿主插件页批准后重试`,
-    `需要批准构建脚本：${brief}；在宿主插件页批准后重试`,
-    '有构建脚本被忽略；请在宿主插件页批准后重试',
-  ]
+  const total = names.length
+  const suffix = approveCommand
+    ? `；请先批准构建脚本（运行 ${approveCommand}），再重试本次安装`
+    : '；请先在宿主的插件管理里批准该包的构建脚本，再重试'
+  const candidates: string[] = []
+  for (let count = total; count >= 1; count -= 1) {
+    const list = count === total ? names.join('、') : `${names.slice(0, count).join('、')} 等 ${total} 个`
+    candidates.push(`需要批准构建脚本：${list}${suffix}`)
+  }
+  candidates.push(`有构建脚本被忽略${suffix}`)
+  return candidates
 }
 
 /**
@@ -1824,9 +1834,9 @@ function stripPendingBuildsAdvice(detail: string): string {
  * 把「需要批准的构建脚本」点名到人话格里（#194）：宿主原话在前、本包建议在后。
  *
  * 名单是宿主 `recordPendingBuilds` 给的精确包名（调用方已归一，这里按同一白名单再兜底一遍），
- * 通配规则与开关样式不进文案。文案按预算退让：全名单 + 批准命令 → 全名单 → 「首个 等 N 个」；
- * 都放不下时保底只说「有构建脚本被忽略 + 去宿主插件页批准」——**批准路径永远不丢**。
- * 宿主码 `build-blocked` 自带的通用建议会被本函数的具体建议取代（同义不重复）。
+ * 通配规则与开关样式不进文案。文案按预算退让：全名单 → 少点几个名 → 「首个 等 N 个」→
+ * 「有构建脚本被忽略」；**无论退到哪一级，批准路径（CLI 命令，或没有命令时的宿主页说法）
+ * 都保留**。宿主码 `build-blocked` 自带的通用建议会被本函数的具体建议取代（同义不重复）。
  */
 function withPendingBuildsHint(
   error: Error & { detail?: string },
@@ -1892,7 +1902,7 @@ const MANAGER_CODE_HINTS: Record<string, string> = {
   'not-bundle': '这个包没有声明 dsh.bundle，不能当作插件管理',
   'bundle-in-use': '还有别的层在用这个插件，请先在宿主插件页停用后再更新',
   'stop-profile': '这个使用范围没有 HMR，请停掉 DSH 后在命令行更新',
-  'stale-approval': '构建批准已过期，请重试一次',
+  'stale-approval': '构建批准名单已过期（宿主已重新记录），请重新发起更新，不要沿用上次的批准名单',
   'incompatible-version': '新版本与当前 DSH 不兼容，请先升级 DSH 再更新',
   'build-blocked': '安装脚本需要批准（pendingBuilds），请在宿主插件页批准构建后重试',
   'pnpm-missing': '宿主找不到 pnpm，请先安装 pnpm',

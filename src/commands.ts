@@ -138,9 +138,11 @@ export function shellSafeArg(value: string): string | null {
  * 给的是「被 pnpm 报告、等待构建决策」的**精确包名**，不含通配规则），以及安装电话入参
  * 里调用方带回的 `approvedBuilds`。
  *
- * 只收能安全当包名的项：非空、无空白、不以 `-` 开头（不冒充开关）、不含 shell 元字符或
- * 通配符（与 `shellSafeArg` 同一白名单）、长度守 npm 包名上限；去重保序、最多 32 条。
- * 认不出的项一律丢——宁可少点名，也不把开关样式或通配规则当包名交回宿主。
+ * 只收「形状上确实可能是 npm 包名」的项：非空、长度守 npm 包名上限、不以 `-`/`.`/`_` 开头
+ * （不冒充开关、不构成路径）、符合 npm 包名文法（可带 `@scope/`，其余段只允许字母数字与
+ * `._-`）、且不含 shell 元字符或通配符（与 `shellSafeArg` 同一白名单）；去重保序、最多 32 条。
+ * 认不出的项一律丢——宁可少点名，也不把开关样式、路径片段或 `包@版本` 当包名交回宿主
+ * （宿主还会按「确实在 pending 名单里」再校验一次，不符即 stale-approval）。
  */
 export function normalizeApprovedBuilds(input: unknown): string[] {
   if (!Array.isArray(input)) return []
@@ -148,13 +150,23 @@ export function normalizeApprovedBuilds(input: unknown): string[] {
   for (const item of input) {
     if (typeof item !== 'string') continue
     const name = item.trim()
-    if (!name || name.length > 214 || name.startsWith('-')) continue
+    if (!isNpmPackageName(name)) continue
     if (shellSafeArg(name) === null) continue
     if (names.includes(name)) continue
     names.push(name)
     if (names.length >= 32) break
   }
   return names
+}
+
+/**
+ * npm 包名的形状谓词（只做文法判断，不查注册表）：`name` 或 `@scope/name`，
+ * 1..214 字符，首字符为字母或数字，其余段只允许字母数字与 `._-`。
+ * 用于挡住 `../x`、`a/b/c`、`包@1.0.0` 这类「不是包名」的字符串。
+ */
+function isNpmPackageName(name: string): boolean {
+  if (!name || name.length > 214) return false
+  return /^(?:@[A-Za-z0-9][A-Za-z0-9._-]*\/)?[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name)
 }
 
 /** 使用范围名是否可用作安装目标（纯谓词，配方与手工命令共用）。 */

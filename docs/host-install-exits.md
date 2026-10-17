@@ -116,12 +116,16 @@
     脚本时，会先 `recordPendingBuilds(profile.dir, run.output)` 把「等待构建决策」的**精确包名**写进
     `result.pendingBuilds`，再 throw；`change()` 把部分结果折进 `{application:'failed', error}` 的 resolve
     回包，所以这格能到本包手里（`…/lib/index.js:1121-1129`、`:2053-2061`、`:2373-2401`）。本包：
-    ① 失败人话格在宿主原话之后点名「需要批准构建脚本：<包名…>；在宿主插件页批准后重试，或运行
-    `dsh plugin --profile <范围> approve-builds`」，名单守 300 字上限（过长退成「首个 等 N 个」）；
-    ② 名单按安全包名白名单归一（非字符串、通配、`-` 开头、含 shell 元字符一律丢弃，去重保序、上限 32）；
+    ① 失败人话格在宿主原话之后点名「需要批准构建脚本：<包名…>；请先批准构建脚本（运行
+    `dsh plugin --profile <范围> approve-builds`），再重试本次安装」，名单守 300 字上限（过长时逐级少点名、
+    退成「首个 等 N 个」，但**批准命令始终保留**——`0.18.24` 起修正：宿主页的批准入口只在它自己的安装
+    失败页出现，本包的 `updateInstall` 走不到，长名单不能退成一句走不通的「去宿主页批准」）；
+    ② 名单按「npm 包名文法 + shell 安全」双重归一（非字符串、通配、`-` 开头、路径片段、`包@版本`、
+    含 shell 元字符一律丢弃，去重保序、上限 32）；
     ③ 批准重试走 `updateInstall` 的可选入参 `approvedBuilds`（电话入口归一后原样进 `installBundle` 选项，
-    宿主 `:1992-1995` 先 `approveBuilds()` 再跑 pnpm）；`approveBuilds` 对不在 pending 名单里的名字抛
-    `stale-approval`（`:1145-1151`）——那说明批准已过期，重试一次即可。
+    宿主 `:1992-1995` 先 `approveBuilds()` 再跑 pnpm）；重试必须换**新的 `requestId`**（同一 requestId
+    会被本包去重直接返回旧失败快照）；`approveBuilds` 对不在 pending 名单里的名字抛 `stale-approval`
+    （`:1145-1151`）——那说明批准窗口已过，应**重新发起一次检查+安装且不带旧名单**，而不是拿旧名单再重试。
 - 源：`registry` 是**选项**不是开关（`…/lib/index.js:1738` 的 `registryPlan`）。本包把注入的
   `registryUrl` 作为该选项传入；没注入就不传，由管理器用自己的源策略（宿主路径总会注入，默认即官方源）。
 - 超时与取消：管理器自己有静默超时（默认 600000ms，到点杀整棵进程树）与 profile 写锁等待

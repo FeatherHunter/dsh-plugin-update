@@ -6,6 +6,20 @@
 
 ## [Unreleased]
 
+## [0.18.24] - 2026-10-18
+
+### Fixed
+- **#194 审查跟进（Spec 轴 HARD）**：①旧实现在长名单退让时只在第一条候选里带 `approve-builds` 命令，名单一长就退到一句「去宿主插件页批准后重试」——而宿主页的批准入口只出现在宿主自己的安装失败页，本包的 `updateInstall` 走不到，等于告诉用户一个不存在的按钮；现在批准命令（没有命令时是诚实的宿主页说法）是**每条候选的固定部分**，退让只发生在「点名多少个包」（全名单 → 少点几个 →「首个 等 N 个」→「有构建脚本被忽略」），命令不再丢。②`stale-approval` 的文案与文档原写「重试一次即可」自相矛盾（宿主对不在 pending 名单里的名字会再次抛 `stale-approval`）——改为「名单已过期（宿主已重新记录），重新发起安装、不要沿用上次的名单」；同时补文档：带 `approvedBuilds` 重试必须换**新的 `requestId`**（同一个 id 会被去重直接返回旧失败快照，不会重试）。
+- 批准名单归一收紧：`normalizeApprovedBuilds` 从纯 shell 白名单改为「npm 包名文法 + shell 安全」双重过滤——`../x`、`a/b/c`、`包@版本` 这类不是包名的字符串不再交回宿主（scoped 名 `@scope/name` 仍支持）。
+
+### Changed
+- `runInstall` 的类型声明（`src/host.ts` 的读取器覆盖、`src/reader.ts`）补上 `approvedBuilds`，与运行时的透明转发一致。
+- 测试：`tests/issue-194-pending-builds.test.mjs` 扩到 12 例（长名单退让后命令仍在、两步配方两次 `installBundle` 都带批准名单、归一上限/保序、路径片段与 `包@版本` 被拒）；`tests/issue-202-noop-install.test.mjs` 的候选（带 `version`）路径补「批准名单转发」断言。
+- 文档：README §2 电话入参表、§5.9、`docs/host-install-exits.md` 出口二同步新口径（命令始终保留、`stale-approval` 重新发起、重试换新 `requestId`）。
+- **发布口径提醒**：`0.18.8`～`0.18.24` 仍未发到 npm（registry 最新仍是 `0.18.7`），发版以 `0.18.24` 一次带走即可。
+
+门禁（**发版定格**）：`npm test` **1527 例：1526 过 / 0 失败 / 1 跳过**（干净发版树 + 本批 11 个文件上实测）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、354 个 key、16 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.24`，378.4 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（354 个 key 仍全是 `draft: true`）。
+
 ## [0.18.23] - 2026-10-18
 
 ### Fixed
@@ -15,7 +29,7 @@
 - `updateInstall` 电话新增可选入参 `approvedBuilds`（`src/ports.ts` 的 `runInstall`/`install` 形状、`src/host.ts` 电话入口归一、`src/service.ts` 透明转发、`src/store.ts` 执行器与管理器 `installBundle` 选项）：形状归一只认安全包名（非字符串、通配、`-` 开头、含 shell 元字符一律丢弃，去重保序、上限 32），只对本次安装调用生效——不进任务、不落盘、不跨请求复用。不传即老形状一字不动。
 - 人话格预算：待批名单按宿主给出的精确包名顺序点名；超 300 字时退成「首个 等 N 个」，**批准路径始终保留**（命令只在预算够时附上）；全部候选都放不下时只留截断原文，绝不越界。两步配方第二次安装失败会同时保住「批准建议」与「包已被移除」两条事实。
 - 文档：README 第 2 节电话入参表、§5.9 新增「需要批准的构建脚本」条、§9 形状扩展清单（`0.18.23` 起 `updateInstall` 接受可选 `approvedBuilds`）；`docs/host-install-exits.md` 出口二新增同主题契约条目。
-- 测试：新增 `tests/issue-194-pending-builds.test.mjs` 10 例（点名与批准路径/批准名单原样进宿主选项/畸形名单过滤/长名单守 300 字/普通失败不误报/两步配方第二次安装保留「包已被移除」事实/电话入参送进 `runInstall` 端口/两步配方 + 长 pnpm 原文时「批准建议」与「包已被移除」两条事实同时存活/首装长原文时批准建议不被截/批准名单不进任务不落盘）；对 `0.18.22` 源码实测 **6 红 2 绿**（绿的两例是「无待批构建不误报」「全无效批准名单不传选项」，旧版本就没有这两条行为；两条长原文回归用例由对抗审查抓出，修复后转绿）。`tests/fixtures/bilingual/copy-baseline.json` +5 行新中文。
+- 测试：新增 `tests/issue-194-pending-builds.test.mjs` 10 例（点名与批准路径/批准名单原样进宿主选项/畸形名单过滤/长名单守 300 字/普通失败不误报/两步配方第二次安装保留「包已被移除」事实/电话入参送进 `runInstall` 端口/两步配方 + 长 pnpm 原文时「批准建议」与「包已被移除」两条事实同时存活/首装长原文时批准建议不被截/批准名单不进任务不落盘）；其中先写的 8 例对 `0.18.22` 源码实测 **6 红 2 绿**（绿的两例是「无待批构建不误报」「全无效批准名单不传选项」，旧版本就没有这两条行为）；审查追加的两条长原文回归用例在旧实现上同样红（截断会吞掉建议），修复后全绿。`tests/fixtures/bilingual/copy-baseline.json` +5 行新中文。
 - **发布口径提醒**：`0.18.8`～`0.18.23` 十六段都还没发到 npm（registry 最新仍是 `0.18.7`），发版以 `0.18.23` 一次带走即可。
 
 门禁（**发版定格**）：`npm test` **1525 例：1524 过 / 0 失败 / 1 跳过**（干净发版树 + 本批 11 个文件上实测）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、354 个 key、16 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.23`，376.8 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（354 个 key 仍全是 `draft: true`）。

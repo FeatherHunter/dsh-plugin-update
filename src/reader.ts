@@ -253,7 +253,12 @@ export interface UpdateReaderOptions {
   tryAcquireLock?: (lockId: string) => boolean | Promise<boolean>
   releaseLock?: (lockId: string) => void | Promise<void>
   backupJob?: (job: UpdateJob) => void | Promise<void>
-  runInstall?: (args: { version: string; profileName: string | null; environmentKind: EnvironmentKind }) => void | Promise<void>
+  runInstall?: (args: {
+    version: string
+    profileName: string | null
+    environmentKind: EnvironmentKind
+    approvedBuilds?: string[]
+  }) => void | Promise<void>
   /**
    * 日志发射口（#124，可选）：由宿主侧建口人递进来，**必须已经绑好插件标识**；
    * 读取器只往下传给核心，自己不打点也不改判（不递即不记，默认等于现状）。

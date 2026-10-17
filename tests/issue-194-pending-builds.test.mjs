@@ -22,6 +22,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { createUpdateExecutor } from '../dist/store.js'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
+import { normalizeApprovedBuilds } from '../dist/commands.js'
 
 const TARGET = 'native-plugin-under-test'
 const SPEC = `${TARGET}@2.0.0`
@@ -97,7 +98,7 @@ describe('#194 管理器路：需要批准的构建脚本要解释清楚、可�
     const detail = String(error.detail ?? '')
     assert.ok(detail.length > 0, '人话格不能为空')
     assert.ok(detail.includes(`${BUILD_HINT}：native-a、native-b`), `点名这两个包：${detail}`)
-    assert.ok(detail.includes('宿主插件页'), '给出宿主插件页这条官方批准路径')
+    assert.ok(detail.includes('请先批准构建脚本'), '给出批准后再试的下一步')
     assert.ok(
       detail.includes('dsh plugin --profile desktop approve-builds'),
       '给出载体 CLI 的批准命令（pnpm approve-builds 经 dsh plugin 转发）'
@@ -133,14 +134,19 @@ describe('#194 管理器路：需要批准的构建脚本要解释清楚、可�
     assert.ok(!detail.includes('glob*'), '通配规则不是精确包名')
   })
 
-  it('名单很长很多：仍守 300 字上限，路径不丢', async () => {
+  it('名单很长很多：仍守 300 字上限，但批准命令与「等 N 个」退让都在', async () => {
     const names = Array.from({ length: 8 }, (_, i) => `native-package-with-a-long-name-${String(i).padStart(2, '0')}`)
     const manager = scripted({ install: [pendingBuildFailure(names)] })
     const error = await rejectedOf(() => call(runWith({ registryUrl: REGISTRY, pluginManager: manager })))
 
     const detail = String(error.detail ?? '')
     assert.ok(detail.includes(BUILD_HINT), detail)
-    assert.ok(detail.includes('宿主插件页'), '长名单也必须保住批准路径')
+    assert.ok(detail.includes('native-package-with-a-long-name-00'), '长名单也要至少点名第一个包')
+    assert.ok(detail.includes('等 8 个'), '点不全时如实说还有多少个')
+    assert.ok(
+      detail.includes('dsh plugin --profile desktop approve-builds'),
+      'Spec 审查 HARD：长名单的批准命令不能丢（宿主页批准入口只在它自己的安装失败页）'
+    )
     assert.ok(detail.length <= 300, `人话格超 300 字：${detail.length}`)
   })
 
@@ -171,13 +177,19 @@ describe('#194 管理器路：需要批准的构建脚本要解释清楚、可�
       ],
       remove: [{ application: 'applied' }],
     })
-    const error = await rejectedOf(() => call(runWith({ registryUrl: REGISTRY, pluginManager: manager })))
+    const error = await rejectedOf(() =>
+      call(runWith({ registryUrl: REGISTRY, pluginManager: manager, approvedBuilds: ['native-a'] }))
+    )
 
     const detail = String(error.detail ?? '')
     assert.ok(detail.includes(`${BUILD_HINT}：native-a`), `第二次安装也要点名：${detail}`)
     assert.ok(detail.includes('已被宿主移除'), `要保留移除事实：${detail}`)
     assert.ok(detail.includes('不在使用范围'), `要说清包现在不在册：${detail}`)
     assert.ok(detail.length <= 300, `人话格超 300 字：${detail.length}`)
+    // 批准名单要走完两次 installBundle（首装 + 移除后重装，共用同一 optionsFor）。
+    assert.equal(manager.calls.install.length, 2, '两步配方应调用两次 installBundle')
+    assert.deepEqual(manager.calls.install[0].options.approvedBuilds, ['native-a'], '首装也要带批准名单')
+    assert.deepEqual(manager.calls.install[1].options.approvedBuilds, ['native-a'], '移除后重装也要带批准名单')
   })
 
   it('两步配方 + 长 pnpm 原文：批准建议与「包已被移除」事实必须同时活下来（审查 HARD 回归）', async () => {
@@ -193,7 +205,7 @@ describe('#194 管理器路：需要批准的构建脚本要解释清楚、可�
 
     const detail = String(error.detail ?? '')
     assert.ok(detail.includes(`${BUILD_HINT}：native-a、native-b`), `长原文不得吞掉批准名单：${detail}`)
-    assert.ok(detail.includes('宿主插件页'), '批准路径必须保留')
+    assert.ok(detail.includes('请先批准构建脚本'), '批准路径必须保留')
     assert.ok(detail.includes('已被宿主移除'), '移除事实必须保留')
     assert.ok(detail.length <= 300, `人话格超 300 字：${detail.length}`)
   })
@@ -314,5 +326,24 @@ describe('#194 安装电话：approvedBuilds 从入参送到安装端口', () =>
     const job = store.current()
     assert.ok(job && typeof job === 'object', '安装必须建出任务')
     assert.ok(!Object.hasOwn(job, 'approvedBuilds'), `批准名单只能活在本次调用，不得进任务/落盘：${JSON.stringify(job)}`)
+  })
+})
+
+describe('#194 批准名单归一：形状守 npm 包名文法', () => {
+  it('去重保序、超过 32 条截断', () => {
+    const many = Array.from({ length: 40 }, (_, i) => `native-${String(i).padStart(2, '0')}`)
+    const names = normalizeApprovedBuilds([...many, 'native-00'])
+    assert.equal(names.length, 32, '上限 32 条')
+    assert.equal(names[0], 'native-00', '保序')
+    assert.equal(names[31], 'native-31', '按输入顺序截断')
+    assert.equal(new Set(names).size, names.length, '不允许重复')
+  })
+
+  it('接受 scoped 名，拒绝路径片段/包@版本/通配/开关样式/非字符串', () => {
+    assert.deepEqual(
+      normalizeApprovedBuilds(['@scope/native-a', '../native-a', 'a/b/c', 'native-a@2.0.0', 'native-*', '--registry=x', 7, '']),
+      ['@scope/native-a'],
+      '只有合法包名能进入批准名单'
+    )
   })
 })
