@@ -954,6 +954,8 @@ export const UPDATE_PANEL_CSS = [
   '@keyframes dsh-upd-shimmer{to{background-position:-200% 0}}',
   '.dsh-upd-tag{display:inline-block;border:1px dashed currentColor;border-radius:3px;padding:1px 8px;margin-right:8px;font-family:Consolas,Menlo,monospace;font-size:var(--dsh-update-panel-small-font-size,12px)}',
   '.dsh-upd-err{font-size:var(--dsh-update-panel-log-font-size,13px);margin:0 0 6px}',
+  // —— 04 错误信息长行换行（#199）：日志/错误行补换行契约，与版本号/状态列同风格；纵滚区横向裁断不动 ——
+  '.dsh-upd-log,.dsh-upd-err{overflow-wrap:anywhere}',
   // —— 全按钮交互反馈（#36：悬停/按下/过渡/在途忙态；浅深双主题通用写法，不碰上面的既有串）——
   '.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}',
   '.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-update-focus,#2563eb)}',
