@@ -344,6 +344,13 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
       return result
     }
     let installed: { directory: string; manifest: Record<string, unknown>; contents: string }
+    // 在册（#180/#197）：清单读到了就先算登记态——缺席早退也要带着它，否则 #197 的身份判定
+    // 分不开「新增依赖的首次安装」与「清单登记了但磁盘缺失的坏安装」。
+    const profileDeps = (profile.manifest.dependencies ?? {}) as Record<string, unknown>
+    const profileSelection = bundleSelection(profile.manifest)
+    result.registered = profileSelection.layer
+      ? profileSelection.names !== null && profileSelection.names.includes(targetPackageName)
+      : Object.prototype.hasOwnProperty.call(profileDeps, targetPackageName)
     try {
       installed = await packageAt(join(profileDir, 'node_modules', targetPackageName))
     } catch (error) {
@@ -365,14 +372,10 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
       result.blockedReason = 'invalid-installation'
       return result
     }
-    const deps = (profile.manifest.dependencies ?? {}) as Record<string, unknown>
-    // 在册（#180）：清单有 bundles 层就以它为准（插件没被选中 ⇒ 重启后不会加载，磁盘换版也不等于生效；
-    // 层在但读不成数组同样按未登记，宁可大声失败）；没有这一层概念的老/最小清单退回 dependencies 键。
-    // 读不到整体清单时上面已走 invalid-installation。
-    const selection = bundleSelection(profile.manifest)
-    result.registered = selection.layer
-      ? selection.names !== null && selection.names.includes(targetPackageName)
-      : Object.prototype.hasOwnProperty.call(deps, targetPackageName)
+    const deps = profileDeps
+    // 在册已在读清单后立刻算好（#180/#197）：清单有 bundles 层就以它为准（插件没被选中 ⇒
+    // 重启后不会加载，磁盘换版也不等于生效；层在但读不成数组同样按未登记，宁可大声失败）；
+    // 没有这一层概念的老/最小清单退回 dependencies 键。读不到整体清单时上面已走 invalid-installation。
     result.sourceInstall = !registrySpec(deps[targetPackageName]) || !inside(join(profileDir, 'node_modules'), installed.directory)
     result.installedVersion = typeof installed.manifest.version === 'string' ? installed.manifest.version : null
     result.packageValid = await validPackage(installed, targetPackageName)

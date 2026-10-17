@@ -105,6 +105,9 @@ export type BilingualKey =
   | 'panel.action.installing'
   | 'panel.banner.update-title'
   | 'panel.banner.update-action'
+  | 'panel.banner.first-install-title'
+  | 'panel.banner.first-install-action'
+  | 'panel.action.first-install-version'
   | 'panel.banner.update-gated-title'
   | 'panel.action.install-gated-title'
   | 'panel.action.install-version'
@@ -475,6 +478,9 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.banner.update-title': { en: 'Update available: {latest} (current: {running}).', zh: '有新版本 {latest} 可安装（当前版本 {running}）。', draft: true },
   'panel.banner.update-action': { en: 'Install runs the exact version; only one install runs per scope at a time.', zh: '选择安装将按精确版本安装；同一使用范围同时仅安装一项。', draft: true },
   'panel.action.install-version': { en: 'Install {latest}', zh: '安装版本 {latest}', draft: true },
+  'panel.banner.first-install-title': { en: 'First install: {latest} (new dependency).', zh: '首次安装 {latest}（新增依赖）。', draft: true },
+  'panel.banner.first-install-action': { en: 'Restart the host after installing for it to load.', zh: '装完需要重启宿主才会加载。', draft: true },
+  'panel.action.first-install-version': { en: 'Install {latest} (first time)', zh: '首次安装 {latest}', draft: true },
   'panel.banner.update-gated-title': { en: 'Version {latest} was just published and is still gated ({unlock}); installing now will fail — use Install fallback build below if you cannot wait.', zh: '新版本 {latest} 刚发布未满门，{unlock}可装；现在点安装会失败，等不及可先装合规版。', draft: true },
   'panel.action.install-gated-title': { en: 'Come back {unlock} to install {latest}; it is still gated and would fail now.', zh: '{unlock}再来装 {latest} 吧，现在装会被门拦住。', draft: true },
   'panel.banner.done': { en: 'Up to date. No update needed.', zh: '已是最新，无需更新。', draft: true },

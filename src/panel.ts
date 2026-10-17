@@ -765,6 +765,23 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
     }
   }
   if (snapshot.canInstall && snapshot.latestVersion) {
+    // #197：首次安装（磁盘没有 + 清单未登记的新增依赖）与换版是两种身份，给两张脸。
+    // 判不出身份（identity 为 null）时退回旧文案，绝不猜。
+    if (snapshot.identity === 'first-install') {
+      return {
+        banner: {
+          kind: 'update',
+          title: copyText('panel.banner.first-install-title', l, { latest: snapshot.latestVersion }),
+          action: copyText('panel.banner.first-install-action', l),
+        },
+        installEnabled: true,
+        installLabel: copyText('panel.action.first-install-version', l, { latest: snapshot.latestVersion }),
+        skippedLatest: false,
+        showManual: manual ? true : false,
+        showReset: false,
+        queueNote,
+      }
+    }
     // 未装时标题的「当前版本」不许填注入的假版号（#134/US19）：填人话状态词。
     const running =
       snapshot.installed === false ? copyText('panel.banner.not-installed', l) : snapshot.runningVersion

@@ -175,7 +175,7 @@ describe('成功形状不动（成功回包永不带 diag）', () => {
     const out = await host.handlers['wf.updateStatus']({})
     assert.equal(out.ok, true)
     assert.ok(!('diag' in out), '成功回包不得带 diag')
-    assert.deepEqual(Object.keys(out.snapshot).sort(), ['blockedReason', 'canInstall', 'installed', 'installedVersion', 'job', 'latestVersion', 'runningVersion'])
+    assert.deepEqual(Object.keys(out.snapshot).sort(), ['blockedReason', 'canInstall', 'identity', 'installed', 'installedVersion', 'job', 'latestVersion', 'runningVersion'])
   })
 
   it('检查更新成功无 diag，凭证形状冻结', async () => {

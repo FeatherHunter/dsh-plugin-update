@@ -364,7 +364,7 @@ describe('宿主接线：老形状冻结与队列开关', () => {
     const out = await host.handlers['wf.updateStatus']({})
     assert.equal(out.ok, true)
     assert.ok(!('queue' in out))
-    assert.deepEqual(Object.keys(out.snapshot).sort(), ['blockedReason', 'canInstall', 'installed', 'installedVersion', 'job', 'latestVersion', 'runningVersion'])
+    assert.deepEqual(Object.keys(out.snapshot).sort(), ['blockedReason', 'canInstall', 'identity', 'installed', 'installedVersion', 'job', 'latestVersion', 'runningVersion'])
     assert.deepEqual(Object.keys(host.phoneNames).sort(), ['logAppend', 'updateChangelog', 'updateCheck', 'updateCheckFallback', 'updateInstall', 'updateStatus'])
   })
 

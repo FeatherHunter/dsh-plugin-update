@@ -95,7 +95,16 @@ export type CompliantVerdict =
   | { readonly kind: 'no-compliant'; readonly version: string; readonly windowSource: CompliantWindowSource }
   | { readonly kind: 'abstain'; readonly reason: string; readonly windowSource: CompliantWindowSource }
 
-/** 快照：恰好七个字段，永远不带钥匙（检查编号与环境指纹另交）。 */
+/**
+ * 安装身份（#197）：同一颗「更新」按钮背后的三种关系，面板据此给三张脸与不同动作。
+ * - `update`：磁盘装着旧版、清单在册——正常换版（官方桌面版走 remove→install，失败如实报）；
+ * - `first-install`：磁盘没有、清单也未登记——这是**新增依赖**的首次安装，不是换版；
+ * - `up-to-date`：磁盘已是远端这一版（或更新）——直接说「已是最新」，不发起注定空转的安装。
+ * 判定不了（清单登记但磁盘缺失、读不到版本等）为 null，绝不冒充任何一种身份。
+ */
+export type InstallIdentity = 'update' | 'first-install' | 'up-to-date'
+
+/** 快照：七个核心字段 + 安装身份（#197），永远不带钥匙（检查编号与环境指纹另交）。 */
 export interface UpdateSnapshot {
   /** 运行版本：宿主自带清单里的版本号。 */
   runningVersion: string
@@ -114,6 +123,11 @@ export interface UpdateSnapshot {
   blockedReason: BlockedReason | null
   /** 当前任务：只读半程恒为 null，安装票再接真实任务。 */
   job: UpdateJob | null
+  /**
+   * 安装身份（#197）：判定不了为 null（例如清单登记了但磁盘缺失的坏安装——那是修复现场，
+   * 不是「首次安装（新增依赖）」）。字段集只增不改，老调用方不读它也能用。
+   */
+  identity: InstallIdentity | null
 }
 
 /** 任务的公开形状（长任务状态随时可问，见通用方案第 5 步）。 */

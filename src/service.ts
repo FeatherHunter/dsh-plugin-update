@@ -339,6 +339,18 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
         checked?.installationKey === env.installationKey &&
         (present ? newer : remoteOk),
     )
+    // 安装身份（#197）：三种关系分开讲，面板据此给三张脸；判定不了为 null，不冒充。
+    // 缺席时只有清单也明确未登记才算「新增依赖」的首次安装——登记了却磁盘缺失是坏安装现场。
+    let identity: 'update' | 'first-install' | 'up-to-date' | null = null
+    if (!present) {
+      identity = env.registered === false ? 'first-install' : null
+    } else if (checked?.release && env.installedVersion) {
+      try {
+        identity = compareReleaseVersions(checked.release.version, env.installedVersion) === 1 ? 'update' : 'up-to-date'
+      } catch {
+        identity = null
+      }
+    }
     const snapshot: UpdateSnapshot = {
       runningVersion,
       installed: present,
@@ -347,6 +359,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       canInstall,
       blockedReason,
       job,
+      identity,
     }
     // 主状态边沿（#124）：快照每次算出来都对一次账，只有真的变了才落一行。
     noteStatusChanged(snapshot)

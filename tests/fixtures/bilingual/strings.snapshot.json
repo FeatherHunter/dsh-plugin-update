@@ -802,6 +802,11 @@
       "zh": "确认已知晓该失败：返回可安装页，下次查询或安装将重新评估",
       "draft": true
     },
+    "panel.action.first-install-version": {
+      "en": "Install {latest} (first time)",
+      "zh": "首次安装 {latest}",
+      "draft": true
+    },
     "panel.action.install": {
       "en": "Install update",
       "zh": "安装更新",
@@ -915,6 +920,16 @@
     "panel.banner.error.title": {
       "en": "Update failed ({code}): {detail}.",
       "zh": "更新失败（{code}）：{detail}。",
+      "draft": true
+    },
+    "panel.banner.first-install-action": {
+      "en": "Restart the host after installing for it to load.",
+      "zh": "装完需要重启宿主才会加载。",
+      "draft": true
+    },
+    "panel.banner.first-install-title": {
+      "en": "First install: {latest} (new dependency).",
+      "zh": "首次安装 {latest}（新增依赖）。",
       "draft": true
     },
     "panel.banner.installing-action": {
