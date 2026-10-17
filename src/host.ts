@@ -619,16 +619,23 @@ export function failedJobDiagOf(
 export interface PhoneEnvView {
   profileName: string | null
   environmentKind: string | null
+  /**
+   * 在册事实（#180 读取器给出、#184 起转发到面板）：目标包在 profile 加载名单里吗？
+   * true=登记着；false=清单里没有它（例如宿主 removeBundle 先摘选中、重装没走完）；
+   * null=旧读取器/旧覆盖实现没给这格，按未知（面板不据此判失败）。
+   */
+  registered: boolean | null
 }
 
 async function readEnvForPanel(reader: { readEnv?: () => Promise<unknown> }): Promise<PhoneEnvView | null> {
   try {
     if (typeof reader.readEnv !== 'function') return null
-    const env = (await reader.readEnv()) as { profileName?: unknown; environmentKind?: unknown } | null
+    const env = (await reader.readEnv()) as { profileName?: unknown; environmentKind?: unknown; registered?: unknown } | null
     if (!env || typeof env !== 'object') return null
     return {
       profileName: typeof env.profileName === 'string' && env.profileName ? env.profileName : null,
       environmentKind: typeof env.environmentKind === 'string' && env.environmentKind ? env.environmentKind : null,
+      registered: typeof env.registered === 'boolean' ? env.registered : null,
     }
   } catch {
     return null

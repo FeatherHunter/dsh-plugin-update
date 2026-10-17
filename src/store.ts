@@ -1220,6 +1220,13 @@ const CLI_PACKAGE_NAME = '@deepseek-ai/dsh'
 const INSTALL_STDIO = { stdin: 'ignore', stdout: { maxBytes: 64 * 1024 }, stderr: { maxBytes: 64 * 1024 } }
 /** 终止宽限期：先请进程树自己退，宽限到了再强杀（由子进程能力执行）。 */
 const TERMINATION_GRACE_MS = 3000
+/**
+ * 桌面管理器的三条超时人话格（#184）：按「宿主有没有取消能力」与「卡在哪一步」分支，不许笼统。
+ * 没取消能力就一次取消都没发过，不能说「已请求宿主取消」；移除步超时则要先说清包可能已被摘掉。
+ */
+const INSTALL_TIMEOUT_DETAIL = '安装超时，已请求宿主取消'
+const INSTALL_TIMEOUT_NO_CANCEL_DETAIL = '安装超时；宿主未提供取消能力，这次安装可能仍在后台继续'
+const REMOVE_TIMEOUT_DETAIL = '移除已装包超时，未继续安装；目标包可能已不在册，请重启宿主检查并按手工命令重装'
 
 /** 执行零件可以是值，也可以是取值函数（桌面服务要等注入到位才能取）。 */
 function part<T>(value: T | (() => T)): T {
@@ -1710,11 +1717,13 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
     const budgetMs = typeof recipe.timeoutMs === 'number' && recipe.timeoutMs > 0 ? recipe.timeoutMs : 0
     const deadline = budgetMs > 0 ? Date.now() + budgetMs : 0
     const stepTimeoutMs = (): number => (budgetMs > 0 ? Math.max(1, deadline - Date.now()) : recipe.timeoutMs)
+    // 取消能力是超时文案的前提（#184）：宿主没给 cancelInstall 时我们一次取消都没发过，
+    // 文案不许写「已请求宿主取消」；还要提示这类宿主里超时的安装可能仍在后台跑完（被告知失败、实际装上）。
+    const cancelInstall = typeof manager.cancelInstall === 'function' ? manager.cancelInstall : null
     const cancelInstallOf = async (requestId: string): Promise<string> => {
-      const cancel = manager.cancelInstall
-      if (typeof cancel !== 'function') return 'not-running'
+      if (cancelInstall === null) return 'not-running'
       try {
-        const answer = (await cancel.call(manager, requestId)) as { status?: unknown } | null
+        const answer = (await cancelInstall.call(manager, requestId)) as { status?: unknown } | null
         const status = answer && typeof answer.status === 'string' ? answer.status : ''
         return status === 'cancelled' || status === 'too-late' ? status : 'not-running'
       } catch {
@@ -1737,10 +1746,11 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
       }
       return settled
     }
+    const installTimeoutDetail = cancelInstall !== null ? INSTALL_TIMEOUT_DETAIL : INSTALL_TIMEOUT_NO_CANCEL_DETAIL
     const installOnce = async (): Promise<ManagerChangeResult> => {
       const requestId = randomUUID()
       const running = Promise.resolve(installBundle.call(manager, spec, optionsFor(requestId))) as Promise<ManagerChangeResult>
-      return await finishCall(running, () => cancelInstallOf(requestId), '安装超时，已请求宿主取消')
+      return await finishCall(running, () => cancelInstallOf(requestId), installTimeoutDetail)
     }
     const failureOf = (result: ManagerChangeResult, application: string): Error => {
       if (application === 'cancelled') return withDetail(fail('install-failed'), '安装已被取消')
@@ -1763,8 +1773,12 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
       const targetName = managerSaidAlreadyInstalled(result) ? managerPackageNameOf(spec) : ''
       const removeBundle = manager.removeBundle
       if (!targetName || typeof removeBundle !== 'function') throw failureOf(result, application)
+      // 移除步刻意不请求取消；超时意味着「可能已经摘掉了、但没来得及重装」（#184）——要当场说清并给下一步。
+      // 这一步的「手工命令」面板里可能拿不到（目标已不在 dependencies，读取器会判成源码安装、不给命令），
+      // 所以把这条桌面 CLI 一定能用的重装命令直接写进人话格（spec = 包名@目标版本）。
+      const removalTimeoutDetail = `${REMOVE_TIMEOUT_DETAIL} (dsh plugin --profile desktop add --save-exact ${spec})`
       const removing = Promise.resolve(removeBundle.call(manager, targetName)) as Promise<ManagerChangeResult>
-      const removed = await finishCall(removing, async () => 'not-running', '移除已装包超时，未继续安装')
+      const removed = await finishCall(removing, async () => 'not-running', removalTimeoutDetail)
       const removalApplication = removed && typeof removed.application === 'string' ? removed.application : ''
       if (!MANAGER_OK.includes(removalApplication)) throw failureOf(removed, removalApplication)
       result = await installOnce()

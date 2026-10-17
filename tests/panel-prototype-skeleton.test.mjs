@@ -219,11 +219,12 @@ describe('宿主：includeEnv 才带使用范围，老调用形状不变', () =>
     __resetSharedUpdateReaderForTests()
   })
 
-  it('带 includeEnv 时回 env（只给范围名与宿主种类，不给路径）', async () => {
+  it('带 includeEnv 时回 env（只给范围名与宿主种类，不给路径；#184 起带在册事实）', async () => {
     const host = makeHost()
     const out = await host.handlers['demo.updateStatus']({ includeEnv: true })
     assert.equal(out.ok, true)
-    assert.deepEqual(out.env, { profileName: 'web', environmentKind: 'cli' })
+    // registered：该用例的旧覆盖实现不给这格（旧读取器行为）⇒ 按未知 null 转发，面板不据此判失败。
+    assert.deepEqual(out.env, { profileName: 'web', environmentKind: 'cli', registered: null })
     assert.ok(!JSON.stringify(out.env).includes('C:'), '使用范围一栏不得带本机路径')
   })
 
