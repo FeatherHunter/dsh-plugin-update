@@ -112,6 +112,16 @@
     手工命令重新安装 (`dsh plugin --profile desktop add --save-exact <包名>@<版本>`)」。这一步不能只说
     「装失败」：用户面对的是「什么都没装」而不是「装着旧版、可以重试」，处置完全不同；命令直接拼进
     人话格里，因为此刻目标包已不在 dependencies，面板的读取器会判成源码安装而给不出手工命令。
+  - **需要批准的构建脚本（2026-10-18，#194）**：宿主 `installBundle` 在 pnpm 失败且输出里有被忽略的构建
+    脚本时，会先 `recordPendingBuilds(profile.dir, run.output)` 把「等待构建决策」的**精确包名**写进
+    `result.pendingBuilds`，再 throw；`change()` 把部分结果折进 `{application:'failed', error}` 的 resolve
+    回包，所以这格能到本包手里（`…/lib/index.js:1121-1129`、`:2053-2061`、`:2373-2401`）。本包：
+    ① 失败人话格在宿主原话之后点名「需要批准构建脚本：<包名…>；在宿主插件页批准后重试，或运行
+    `dsh plugin --profile <范围> approve-builds`」，名单守 300 字上限（过长退成「首个 等 N 个」）；
+    ② 名单按安全包名白名单归一（非字符串、通配、`-` 开头、含 shell 元字符一律丢弃，去重保序、上限 32）；
+    ③ 批准重试走 `updateInstall` 的可选入参 `approvedBuilds`（电话入口归一后原样进 `installBundle` 选项，
+    宿主 `:1992-1995` 先 `approveBuilds()` 再跑 pnpm）；`approveBuilds` 对不在 pending 名单里的名字抛
+    `stale-approval`（`:1145-1151`）——那说明批准已过期，重试一次即可。
 - 源：`registry` 是**选项**不是开关（`…/lib/index.js:1738` 的 `registryPlan`）。本包把注入的
   `registryUrl` 作为该选项传入；没注入就不传，由管理器用自己的源策略（宿主路径总会注入，默认即官方源）。
 - 超时与取消：管理器自己有静默超时（默认 600000ms，到点杀整棵进程树）与 profile 写锁等待

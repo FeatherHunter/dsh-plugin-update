@@ -312,9 +312,12 @@ export interface UpdatePorts {
    * 真正跑安装（按钮强制官方源、精确版本与 --save-exact）。
    * 核心只把政策要的三件事交给适配器：版本、使用范围名、宿主种类；
    * 适配器必须调 installRecipe 拿配方再执行，不得自己按系统或宿主分支选路由。
+   * `approvedBuilds` 是 #194 的加法扩展（可选）：调用方已决定批准这些构建脚本时随安装
+   * 一起交回宿主（宿主先 approveBuilds 再跑 pnpm）；不传即现状，一字不动。
+   * 形状归一（过滤/去重/上限）在 source 侧完成，核心只做透明转发。
    * 测试一律给假的，不真跑。
    */
-  runInstall?: (args: { version: string; profileName: string | null; environmentKind: EnvironmentKind; releaseChannel?: ReleaseChannel }) => void | Promise<void>
+  runInstall?: (args: { version: string; profileName: string | null; environmentKind: EnvironmentKind; releaseChannel?: ReleaseChannel; approvedBuilds?: string[] }) => void | Promise<void>
   /**
    * 合规版决议函数（#156，可选注入）：核心的零运行时导入契约不变——决议逻辑由外面递进来，
    * 不递时 `checkFallback` 按不支持诚实失败（与 `runInstall` 缺席走 `unsupported` 同口径）。
@@ -345,8 +348,10 @@ export interface UpdateCore {
    * 只进日志行 `update.install.request.from`，不参与任何决策；老调用方不传即现状。
    * `version` 是 #156 的加法扩展（可选）：指定装合规版候选——只认 `checkFallback`
    * 结论第二槽的绑定版本，不认任意旧版；不传即走 latest 老路，一字不动。
+   * `approvedBuilds` 是 #194 的加法扩展（可选）：上一次失败点名了「需要批准的构建脚本」后，
+   * 调用方决定批准时把宿主给的精确包名带回（宿主先 approveBuilds 再跑 pnpm）；不传即现状。
    */
-  install(args: { checkId: string; requestId: string; from?: InstallSource; version?: string }): Promise<UpdateSnapshot>
+  install(args: { checkId: string; requestId: string; from?: InstallSource; version?: string; approvedBuilds?: string[] }): Promise<UpdateSnapshot>
   /**
    * 合规版决议（#156）：年龄门拦住时问一次——取包时间表，对翻译官结论做五值裁决。
    * 有候选即同时落第二槽凭证（装候选时凭它绑定）；无候选/输入不可用即只给裁决，不取数或不留槽。

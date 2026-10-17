@@ -131,6 +131,32 @@ export function shellSafeArg(value: string): string | null {
   return /^[^\s$`"'\\&|;<>()*?[\]{}~#%!^]+$/u.test(value) ? value : null
 }
 
+/**
+ * 待批准构建名单的形状归一（#194）。
+ *
+ * 两个来源是同一形状：宿主 pnpm 失败回包里的 `pendingBuilds`（宿主 `recordPendingBuilds`
+ * 给的是「被 pnpm 报告、等待构建决策」的**精确包名**，不含通配规则），以及安装电话入参
+ * 里调用方带回的 `approvedBuilds`。
+ *
+ * 只收能安全当包名的项：非空、无空白、不以 `-` 开头（不冒充开关）、不含 shell 元字符或
+ * 通配符（与 `shellSafeArg` 同一白名单）、长度守 npm 包名上限；去重保序、最多 32 条。
+ * 认不出的项一律丢——宁可少点名，也不把开关样式或通配规则当包名交回宿主。
+ */
+export function normalizeApprovedBuilds(input: unknown): string[] {
+  if (!Array.isArray(input)) return []
+  const names: string[] = []
+  for (const item of input) {
+    if (typeof item !== 'string') continue
+    const name = item.trim()
+    if (!name || name.length > 214 || name.startsWith('-')) continue
+    if (shellSafeArg(name) === null) continue
+    if (names.includes(name)) continue
+    names.push(name)
+    if (names.length >= 32) break
+  }
+  return names
+}
+
 /** 使用范围名是否可用作安装目标（纯谓词，配方与手工命令共用）。 */
 function usableProfileName(raw: unknown): string | null {
   const name = typeof raw === 'string' ? raw.trim() : ''

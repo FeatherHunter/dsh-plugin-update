@@ -86,7 +86,7 @@ createHostUpdate(
 |---|---|---|---|
 | `….updateStatus` | `{}` | `{ ok: true, snapshot, manual, receipt: null }` ※ | `{ ok: false, error, errorKind, diag? }` |
 | `….updateCheck` | `{}` | `{ ok: true, snapshot, manual, receipt }` ※ | 同上 |
-| `….updateInstall` | `{ checkId, requestId, version? }` | `{ ok: true, snapshot, manual, receipt: null }` ※ | 同上 |
+| `….updateInstall` | `{ checkId, requestId, version?, approvedBuilds? }` | `{ ok: true, snapshot, manual, receipt: null }` ※ | 同上 |
 | `….updateChangelog` | `{ version }` | `{ ok: true, version, markdown: string \| null }` | 同上 |
 | `….logAppend` | `{ rows: [{ level, event, fields, ts }] }` | `{ accepted, dropped }`（永不 `ok:false`、永不抛） | — |
 | `….updateCheckFallback` | `{ kind, blame, targetVersion, windowMs, windowSource, publishedAtMs }` | `{ ok: true, snapshot: { verdict, candidate }, receipt }` ※ | 同上 |
@@ -94,6 +94,7 @@ createHostUpdate(
 ※ 快照里带着失败任务时，成功回包另可带可选 `diag`（失败证据小对象，见下一条）；无失败任务时形状逐字不变（`0.18.7` 起）。
 
 - `….updateInstall` 的 `version` 可选：给了就装这个精确版（「装合规版」这条候选路径用），不给仍装快照里的最新版。
+- `….updateInstall` 的 `approvedBuilds` 可选（`0.18.23` 起）：宿主 pnpm 因「被忽略的构建脚本」失败时，失败详情会点名**需要批准的精确包名**（见 5.9）；调用方决定批准后，把这些包名原样带回来重试一次，宿主先登记批准再跑 pnpm。形状归一在宿主侧电话入口完成（非字符串、通配、开关样式一律丢弃，去重保序、最多 32 条），认不出的项不会交给宿主；不传即现状，老调用方一字不动。
 - `snapshot` 恒为第 5.1 节那七个字段；`manual` 是第 5.3 节那条手工命令（能给则给，不能给为 `null`）。
 - `receipt` 查新版与合规版决议都给（`{ checkId, checkedAt, expiresAt }`）；装更新时把 `checkId` 原样带回来，`requestId` 由面板自己生成（同一个编号重复提交直接返回旧结果）。
 - 失败一律 `ok: false`：`error` 是原因码（第 5.2 节那十种，另加 `check-failed` / `invalid-release` / `check-expired` / `update-busy` / `install-failed`），`errorKind` 认不出时是 `internal`。面板按 16 码给中文文案（十种见第 5.2 节，另五种与 `internal` 见下表，未来码走兜底）；分支只认 `errorKind`，`error` 仅回退。
@@ -608,6 +609,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
   - **宁可不给命令，也不给假命令**（`0.18.21` 起）：这条命令是给人复制到终端执行的，各平台 shell 的引号规则不同（cmd 不认单引号、PowerShell 的引号/反引号各有含义），所以使用范围名 / 源地址 / 规格里只要出现空白、`$`、反引号、引号、`&`、`;` 等任意一个无法确定安全的字符，就整条命令省略（只留原因与下一步文字）。`manualCommand`（手工兜底命令）同一政策：这类情况下返回 `null`，不再用 JSON 引号拼一条会被展开或截断的命令。
 - **空更新哨兵**：安装请求的目标版本与磁盘已装版本相同 ⇒ 直接回 `installation-changed`（详情写「目标版本与已装版本相同，无需安装」），不建任务、不起安装；批量/旧快照拿已装版当目标时不再跑到装后校验才报错。
 - **装后「在册」核实收窄为「登记不许倒退」**：新装必须进 `dsh.profile.bundles`（或老清单的 `dependencies`），否则失败（`0.18.12` 起的行为）；更新一个装前就未登记的包已经成功过的那次不因「仍未登记」判失败——否则真机那六件（装着、在跑、未选中）永远升不了级；装前登记过、装后清单里丢了（倒退）仍然失败。装前读取器没给出 `registered`（旧覆盖实现或清单读不到）而装后为 `false` 时仍判失败：无法证明不是新装，保守方向。
+- **需要批准的构建脚本（`0.18.23` 起）**：宿主 pnpm 遇到被忽略的 `postinstall`/原生构建时，会先记住「等待批准」的**精确包名**再抛失败（宿主回包 `pendingBuilds`），过去这格被本包丢掉，用户只看到一句 `install-failed: <pnpm 原文>`。现在失败详情会点名「需要批准构建脚本：<包名…>；在宿主插件页批准后重试」，并附载体 CLI 的 `dsh plugin --profile <范围> approve-builds`；用户批准后**同样的安装请求带 `approvedBuilds` 重试一次**即可（`updateInstall` 的可选入参）。名单与命令都守 300 字上限：名单太长时退成「首个 等 N 个」，**批准路径始终保留**（命令只在 300 字预算够时附上）；名单项一律按安全包名白名单过滤（非字符串、通配、`-` 开头一律不点名），不会把开关样式或通配规则交回宿主。
 
 ## 6. 排错
 
@@ -738,7 +740,7 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 ## 9. 兼容与稳定性
 
-这些形状稳定，可以放心依赖：六个电话名与入参回参（老三电话一字不动，`updateChangelog`、`logAppend`、`updateCheckFallback` 是后来加的；`updateInstall` 的 `version` 是可选参数）、快照七字段、任务公开形状、配置只经函数入参注入、安装配方五键、日志事件字段基线（三个旧事件各带必填 `pluginId`）、历史落盘路径。形状扩展按版本列清楚：`0.18.7` 起，快照里带着失败任务时成功回包可带可选 `diag`；`0.18.10` 起，任务形状多一格可选 `previousVersion`；`0.18.12` 起，环境视图可带可选 `registered`（装后按「在册」核实；`0.18.18` 起语义收窄为「登记不许倒退」：新装必须登记，装前就未登记的包更新成功后不因仍未登记判失败，登记倒退仍失败——形状不变），`0.18.13` 起 `includeEnv` 带回的使用范围视图也带出同一格 `registered`（面板据此识别「被摘掉但没重装」）；`0.18.16` 起，`includeEnv` 视图再多两格可选自检事实 `updaterVersion` / `updaterCopyLevel`——**此刻在说话的是哪一份本包副本**：`profile` 使用范围级、`nested` 消费方 `node_modules` 里的嵌套副本、`repo` 开发仓库、`unknown`；面板页脚与「复制诊断」都显示同一事实，嵌套副本时 05 章直接给载体 CLI 升级命令；其余形状逐字不变。
+这些形状稳定，可以放心依赖：六个电话名与入参回参（老三电话一字不动，`updateChangelog`、`logAppend`、`updateCheckFallback` 是后来加的；`updateInstall` 的 `version` 是可选参数）、快照七字段、任务公开形状、配置只经函数入参注入、安装配方五键、日志事件字段基线（三个旧事件各带必填 `pluginId`）、历史落盘路径。形状扩展按版本列清楚：`0.18.7` 起，快照里带着失败任务时成功回包可带可选 `diag`；`0.18.10` 起，任务形状多一格可选 `previousVersion`；`0.18.12` 起，环境视图可带可选 `registered`（装后按「在册」核实；`0.18.18` 起语义收窄为「登记不许倒退」：新装必须登记，装前就未登记的包更新成功后不因仍未登记判失败，登记倒退仍失败——形状不变），`0.18.13` 起 `includeEnv` 带回的使用范围视图也带出同一格 `registered`（面板据此识别「被摘掉但没重装」）；`0.18.16` 起，`includeEnv` 视图再多两格可选自检事实 `updaterVersion` / `updaterCopyLevel`——**此刻在说话的是哪一份本包副本**：`profile` 使用范围级、`nested` 消费方 `node_modules` 里的嵌套副本、`repo` 开发仓库、`unknown`；面板页脚与「复制诊断」都显示同一事实，嵌套副本时 05 章直接给载体 CLI 升级命令；`0.18.23` 起，`updateInstall` 电话接受可选 `approvedBuilds`（构建脚本需要批准的包：批准后把宿主给过的精确包名原样带回重试，宿主先批准再跑 pnpm；不传即现状），响应形状与其余电话逐字不变。
 
 向后兼容的扩展：新增可选配置键、新增可选面板选项（如 `autoCompliant`）、新增可选面板渲染选项（`updater`）、新增可选回包键（成功回包里的 `diag`）、新增可选任务字段（`job.previousVersion`）、新增可选环境字段（`env.registered`、`env.updaterVersion` / `env.updaterCopyLevel`）、新增可选 `readerOverrides`（如 `targetPackageDir`）、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。
 

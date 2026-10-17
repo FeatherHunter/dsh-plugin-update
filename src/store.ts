@@ -21,7 +21,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, link, open, readFile, rename, realpath, stat, unlink, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
-import { installRecipe, shellSafeArg } from './commands.js'
+import { installRecipe, normalizeApprovedBuilds, shellSafeArg } from './commands.js'
 import { BACKUP_FILE, DEFAULT_INSTALL_TIMEOUT_MS, LEGACY_PLUGIN_ID, LOCK_FILE, SKIPPED_FILE, STATE_FILE } from './config.js'
 import { emptyBatchSession, normalizeBatchSession, type BatchSession } from './batch.js'
 import { normalizeQueueState, type QueueOwner, type UpdateQueueState } from './queue.js'
@@ -1371,6 +1371,12 @@ export interface ExecutorParts {
   registryUrl?: string | (() => string)
   installTimeoutMs?: number | (() => number)
   pluginId?: string | (() => string)
+  /**
+   * 一次安装调用携带的「已批准构建脚本」名单（#194）：由执行器从 runInstall 入参归一带入，
+   * 管理器路把它作为 `installBundle` 的 `approvedBuilds` 选项交回宿主（先批准再跑 pnpm）。
+   * 只在本次调用内有效，不进任务、不落盘、不跨请求复用。
+   */
+  approvedBuilds?: string[]
   log?: (level: string, event: string, fields: Record<string, unknown>) => void
 }
 
@@ -1486,6 +1492,13 @@ interface ManagerChangeResult {
    * 真实退码被丢掉，一律记成 null——探针给 137 也一样）。
    */
   packageResult?: { output?: unknown; exitCode?: unknown }
+  /**
+   * 待批准的构建脚本（#194）：宿主的 pnpm 失败且报告了「被忽略的构建脚本」时，会先把
+   * `recordPendingBuilds()` 的结果（等待构建决策的精确包名）写进这一格再 throw；
+   * 宿主的 `change()` 把部分结果折进 resolve 出来的失败回包，所以这格能到本包手里。
+   * 重试时以 `approvedBuilds` 选项交回宿主（宿主先 approveBuilds 再跑 pnpm）。
+   */
+  pendingBuilds?: unknown
 }
 
 /** 成功三态：overridden 是「改动已被保留、只是被别的层盖住」，不是失败。 */
@@ -1773,6 +1786,67 @@ function carrierAddCommand(profileName: string, spec: string, registry: string |
 }
 
 /**
+ * 载体 CLI 的构建批准命令（#194）：`dsh plugin` 把参数逐字转给 pnpm，所以
+ * `approve-builds` 就是宿主自带 CLI 的批准通道（交互式列出现有清单）。插值同
+ * {@link carrierAddCommand}：使用范围名不安全就不出命令，绝不拼半句。
+ */
+function carrierApproveBuildsCommand(profileName: string): string | null {
+  const arg = shellSafeArg(profileName)
+  if (!arg) return null
+  return `dsh plugin --profile ${arg} approve-builds`
+}
+
+/**
+ * 待批构建名单的建议候选（#194）：从最完整到最短，调用方按预算挑第一条放得下的。
+ * 只负责措辞，不做过滤——名单进来前已经过 `normalizeApprovedBuilds`。
+ */
+function pendingBuildsAdviceCandidates(names: string[], approveCommand: string | null): string[] {
+  if (names.length === 0) return []
+  const brief = names.length === 1 ? names[0] : `${names[0]} 等 ${names.length} 个`
+  return [
+    `需要批准构建脚本：${names.join('、')}；在宿主插件页批准后重试${approveCommand ? `，或运行 ${approveCommand}` : ''}`,
+    `需要批准构建脚本：${names.join('、')}；在宿主插件页批准后重试`,
+    `需要批准构建脚本：${brief}；在宿主插件页批准后重试`,
+    '有构建脚本被忽略；请在宿主插件页批准后重试',
+  ]
+}
+
+/**
+ * 摘掉人话格里业已存在的构建批准建议（#194）：两段式路径上 `failureOf` 会在尾部补一次，
+ * 而 `withRemovalFact` 要按「原话 → 批准建议 → 移除事实」重新排版，避免重复与位置丢失。
+ */
+function stripPendingBuildsAdvice(detail: string): string {
+  const marker = detail.search(/[；]?(?:需要批准构建脚本：|有构建脚本被忽略|安装脚本需要批准（pendingBuilds）)/u)
+  return marker >= 0 ? detail.slice(0, marker) : detail
+}
+
+/**
+ * 把「需要批准的构建脚本」点名到人话格里（#194）：宿主原话在前、本包建议在后。
+ *
+ * 名单是宿主 `recordPendingBuilds` 给的精确包名（调用方已归一，这里按同一白名单再兜底一遍），
+ * 通配规则与开关样式不进文案。文案按预算退让：全名单 + 批准命令 → 全名单 → 「首个 等 N 个」；
+ * 都放不下时保底只说「有构建脚本被忽略 + 去宿主插件页批准」——**批准路径永远不丢**。
+ * 宿主码 `build-blocked` 自带的通用建议会被本函数的具体建议取代（同义不重复）。
+ */
+function withPendingBuildsHint(
+  error: Error & { detail?: string },
+  names: string[],
+  approveCommand: string | null
+): Error & { detail?: string } {
+  const candidates = pendingBuildsAdviceCandidates(names, approveCommand)
+  if (candidates.length === 0) return error
+  const said = stripPendingBuildsAdvice(typeof error.detail === 'string' ? error.detail : '')
+  for (const hint of candidates) {
+    const room = DETAIL_MAX_CHARS - hint.length - 1
+    if (room < 0) continue
+    const head = said.length > room ? said.slice(0, room) : said
+    return withDetail(error, head ? `${head}；${hint}` : hint)
+  }
+  // 候选里最短的一条仍超预算（理论上不会：最后一条是固定短句）——只留截断原文，绝不越界。
+  return withDetail(error, said.slice(0, DETAIL_MAX_CHARS))
+}
+
+/**
  * 无条件把载体 CLI 命令补在详情尾部（启用步用：这一步的失败没有宿主拒绝码可判，但用户
  * 同样需要「换通道」的下一步）。原文在前、总长守 DETAIL_MAX_CHARS；命令本身超预算时
  * 宁可只留原文，绝不输出越界详情（Spec 审查：room<=0 曾把全文拼回去）。
@@ -1848,11 +1922,26 @@ function withManagerHint(result: ManagerChangeResult, said: string): string {
  * 移除已成功、重装却没成（失败或超时）：在宿主原话之后补「目标包已被摘掉」这条事实与一条
  * 一定能用的重装命令（#168）。原文在前、本包补记在后，总长仍守 DETAIL_MAX_CHARS。
  * 命令为 null（插值不安全）时只说事实；原文里已经带过同一条命令时不再重复拼。
+ *
+ * #194：第二次安装也可能失败在「需要批准的构建脚本」上。这里按「原话 → 批准建议 → 移除事实」
+ * 重新排版并**同时保住两条事实**——不能像从前那样从头截断原话而把尾部的批准建议切掉
+ * （对抗审查 HARD：真机最常走的「更新已装包」正是这条路径）。
  */
-function withRemovalFact(error: Error & { detail?: string }, command: string | null): Error & { detail?: string } {
-  const said = typeof error.detail === 'string' ? error.detail : ''
+function withRemovalFact(
+  error: Error & { detail?: string },
+  command: string | null,
+  pendingBuilds: { names: string[]; approveCommand: string | null } = { names: [], approveCommand: null }
+): Error & { detail?: string } {
+  const said = stripPendingBuildsAdvice(typeof error.detail === 'string' ? error.detail : '')
   const withCommand = command !== null && !said.includes(command)
   const fact = withCommand ? `${REINSTALL_AFTER_REMOVAL_DETAIL} (${command})` : REINSTALL_AFTER_REMOVAL_DETAIL
+  // 两条事实并存时先挑一条放得下的批准建议；候选顺序本身就是优先级（完整名单优先）。
+  for (const advice of pendingBuildsAdviceCandidates(pendingBuilds.names, pendingBuilds.approveCommand)) {
+    const room = DETAIL_MAX_CHARS - fact.length - advice.length - 2
+    if (room < 0) continue
+    const head = said.length > room ? said.slice(0, room) : said
+    return withDetail(error, head ? `${head}；${advice}；${fact}` : `${advice}；${fact}`)
+  }
   const room = DETAIL_MAX_CHARS - fact.length - 1
   // 命令/事实本身就超预算时宁可丢补充事实也不越界：原文截到上限，绝不输出超长详情。
   if (room <= 0) return withDetail(error, said.slice(0, DETAIL_MAX_CHARS))
@@ -1877,7 +1966,10 @@ function withRemovalFact(error: Error & { detail?: string }, command: string | n
 async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): Promise<number | null> {
   try {
     const manager = part(parts.pluginManager ?? null) as {
-      installBundle?: (spec: string, options: { requestId: string; registry?: string }) => unknown
+      installBundle?: (
+        spec: string,
+        options: { requestId: string; registry?: string; approvedBuilds?: string[] }
+      ) => unknown
       cancelInstall?: (requestId: string) => unknown
       removeBundle?: (name: string) => unknown
       /** 拓扑探测（#201）：已装包是否在宿主选中名单里、能不能移走。老宿主没有这格。 */
@@ -1899,16 +1991,19 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
           ? profileName
           : 'desktop'
     const registry = part(parts.registryUrl ?? '') as unknown
+    // 批准名单（#194）：执行器已归一带入；这里再归一一次，保证交给宿主的永远是安全包名数组。
+    const approvedBuilds = normalizeApprovedBuilds(part(parts.approvedBuilds ?? []))
     const carrierCommand = carrierAddCommand(
       profileArg,
       spec,
       typeof registry === 'string' && registry ? registry : null
     )
     // 源不进参数数组（管理器不吃开关），走它自己的 registry 选项，取同一个注入值；
-    // 没人注入源就不传，由管理器用自己的源策略（宿主路径总会注入，默认即官方源）。
-    const optionsFor = (requestId: string): { requestId: string; registry?: string } => {
-      const options: { requestId: string; registry?: string } = { requestId }
+    // 批准名单（#194）同理走宿主选项：installBundle 会先 approveBuilds 再跑 pnpm。
+    const optionsFor = (requestId: string): { requestId: string; registry?: string; approvedBuilds?: string[] } => {
+      const options: { requestId: string; registry?: string; approvedBuilds?: string[] } = { requestId }
       if (typeof registry === 'string' && registry) options.registry = registry
+      if (approvedBuilds.length > 0) options.approvedBuilds = approvedBuilds
       return options
     }
     // 一个配方额度管四条宿主调用（首装／启用／移除／重装）：每步只领剩下的，领完给 1ms 让 raceManager 走自己的超时收场。
@@ -1962,7 +2057,14 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
       const failure = fail('install-failed')
       const rawCode = result && result.packageResult ? result.packageResult.exitCode : undefined
       const coded = typeof rawCode === 'number' && Number.isInteger(rawCode) ? withExit(failure, rawCode) : failure
-      return withManagerRetryHint(withDetail(coded, withManagerHint(result, said)), result, carrierCommand)
+      const withHints = withManagerRetryHint(withDetail(coded, withManagerHint(result, said)), result, carrierCommand)
+      // 需要批准的构建脚本（#194）：宿主把名单写进失败回包（pendingBuilds），本包负责点名与给批准路径；
+      // 调用方带 approvedBuilds 重试时宿主先批准再跑 pnpm，不再永远卡在同一句失败上。
+      return withPendingBuildsHint(
+        withHints,
+        normalizeApprovedBuilds(result ? result.pendingBuilds : []),
+        carrierApproveBuildsCommand(profileArg)
+      )
     }
     let result = await installOnce()
     let application = result && typeof result.application === 'string' ? result.application : ''
@@ -2018,7 +2120,12 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
         throw withRemovalFact(error as Error & { detail?: string }, carrierCommand)
       })
       application = result && typeof result.application === 'string' ? result.application : ''
-      if (!MANAGER_OK.includes(application)) throw withRemovalFact(failureOf(result, application), carrierCommand)
+      if (!MANAGER_OK.includes(application)) {
+        throw withRemovalFact(failureOf(result, application), carrierCommand, {
+          names: normalizeApprovedBuilds(result ? result.pendingBuilds : []),
+          approveCommand: carrierApproveBuildsCommand(profileArg),
+        })
+      }
     }
     return 0
   } catch (error) {
@@ -2080,8 +2187,8 @@ const INSTALL_RUNNERS: Record<string, InstallRunner> = {
  *   - cli-process：subprocess.spawn({ argv: [运行时, …运行时参数, CLI 入口, 'plugin', '--profile', 名, …参数] })。
  * 起进程只经宿主注入的子进程能力，不经 shell、不用 PATH 上的 `dsh` 命令名。
  */
-export function createUpdateExecutor(parts: ExecutorParts = {}): (args?: { version?: string; profileName?: string | null; environmentKind?: EnvironmentKind; releaseChannel?: ReleaseChannel }) => Promise<void> {
-  return async function runInstall(args: { version?: string; profileName?: string | null; environmentKind?: EnvironmentKind; releaseChannel?: ReleaseChannel } = {}): Promise<void> {
+export function createUpdateExecutor(parts: ExecutorParts = {}): (args?: { version?: string; profileName?: string | null; environmentKind?: EnvironmentKind; releaseChannel?: ReleaseChannel; approvedBuilds?: unknown }) => Promise<void> {
+  return async function runInstall(args: { version?: string; profileName?: string | null; environmentKind?: EnvironmentKind; releaseChannel?: ReleaseChannel; approvedBuilds?: unknown } = {}): Promise<void> {
     const recipe = installRecipe({
       profileName: args.profileName ?? (part(parts.profileName ?? null) as string | null),
       version: String(args.version ?? ''),
@@ -2091,13 +2198,16 @@ export function createUpdateExecutor(parts: ExecutorParts = {}): (args?: { versi
       registryUrl: parts.registryUrl === undefined ? undefined : (part(parts.registryUrl) as string),
       timeoutMs: parts.installTimeoutMs === undefined ? undefined : (part(parts.installTimeoutMs) as number),
     })
+    // 一次调用携带的批准名单（#194）：归一后只对这次调用生效，不污染执行器的常驻零件。
+    const approvedBuilds = normalizeApprovedBuilds(args.approvedBuilds)
+    const partsForCall = approvedBuilds.length > 0 ? { ...parts, approvedBuilds } : parts
     const startedAt = Date.now()
     let exitCode: number | null = null
     try {
       if (!recipe) throw fail('install-failed')
       const runner = INSTALL_RUNNERS[recipe.route] ?? null
       if (!runner) throw fail('install-failed')
-      exitCode = await runner(recipe, parts)
+      exitCode = await runner(recipe, partsForCall)
       emitInstall(parts, recipe, true, exitCode, Date.now() - startedAt)
     } catch (error) {
       emitInstall(parts, recipe, false, (error as { exitCode?: number })?.exitCode ?? exitCode, Date.now() - startedAt)

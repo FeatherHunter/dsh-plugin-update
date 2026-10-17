@@ -23,7 +23,7 @@ import {
   type PhoneNames,
   type UpdateConfigInput,
 } from './config.js'
-import { manualCommand } from './commands.js'
+import { manualCommand, normalizeApprovedBuilds } from './commands.js'
 import { fetchReleaseChangelogText } from './changelog-io.js'
 import { parseChangelogReport, shouldFetchChangelog } from './changelog.js'
 import { buildDiag, type DiagObject } from './diag.js'
@@ -1131,6 +1131,9 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
     // 候选安装（#156）：调用方点"装合规版"时带候选版；不带即走 latest 老路。
     // 只做形状提取（非空字符串），绑定校验归核心第二槽——这里不认任何版本。
     const installVersion = args && typeof args['version'] === 'string' && args['version'] ? String(args['version']) : undefined
+    // 批准构建名单（#194）：上一次失败点名「需要批准的构建脚本」后，调用方决定批准时把宿主给的
+    // 精确包名带回；形状归一在这里做（只认安全包名），核心零导入契约不破。不传即现状。
+    const approvedBuilds = normalizeApprovedBuilds(args ? args['approvedBuilds'] : undefined)
     const { includeQueue, showOthers } = queueArgsOf(args)
     const enqueueOnly = !!args && args['enqueueOnly'] === true
     const cancelQueued = !!args && args['cancelQueued'] === true
@@ -1160,7 +1163,7 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
     // 正常安装：凭证不齐交给核心判（归类与改造前一致）；齐了先占位再过公平门。
     // 候选版随凭证一起进核心（#156）：核心只认第二槽绑定，占位仍按插件+编号，不按版本。
     if (!checkId || !validRequestId(requestId)) {
-      const out = await snapWithManual(reader, (await reader.install({ checkId, requestId, from: installFrom, ...(installVersion ? { version: installVersion } : {}) })) as never, config)
+      const out = await snapWithManual(reader, (await reader.install({ checkId, requestId, from: installFrom, ...(installVersion ? { version: installVersion } : {}), ...(approvedBuilds.length > 0 ? { approvedBuilds } : {}) })) as never, config)
       if (!includeQueue) return { ...out, ...envPatch }
       return { ...out, ...envPatch, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
     }
@@ -1173,7 +1176,7 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
       throw updateBusyError()
     }
     try {
-      const out = await snapWithManual(reader, (await reader.install({ checkId, requestId, from: installFrom, ...(installVersion ? { version: installVersion } : {}) })) as never, config)
+      const out = await snapWithManual(reader, (await reader.install({ checkId, requestId, from: installFrom, ...(installVersion ? { version: installVersion } : {}), ...(approvedBuilds.length > 0 ? { approvedBuilds } : {}) })) as never, config)
       if (!includeQueue) return { ...out, ...envPatch }
       return { ...out, ...envPatch, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
     } catch (error) {

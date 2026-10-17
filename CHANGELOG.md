@@ -6,6 +6,20 @@
 
 ## [Unreleased]
 
+## [0.18.23] - 2026-10-18
+
+### Fixed
+- **#194 需要批准的构建脚本被静默吞掉**：宿主 pnpm 失败且输出里有被忽略的构建脚本（`postinstall`/原生模块）时，管理器先 `recordPendingBuilds()` 把「等待构建决策」的精确包名写进 `result.pendingBuilds` 再抛；`change()` 把部分结果折进 resolve 出来的失败回包（`…/lib/index.js:1121-1129`、`:2053-2061`、`:2373-2401`），但本包 `ManagerChangeResult` 只抄了 `application` / `error` / `packageResult`，这格被丢弃——用户只看到 `install-failed: <pnpm 原文>`，也永远没有「批准后再试」的通道。现在：失败人话格在宿主原话之后点名需要批准的包（「需要批准构建脚本：<包名…>；在宿主插件页批准后重试，或运行 `dsh plugin --profile <范围> approve-builds`」）；用户批准后把同一批包名随安装请求带回（`approvedBuilds`），宿主先 `approveBuilds()` 再跑 pnpm（`:1992-1995`；认不出/已过期抛 `stale-approval`，重试一次即可）。
+
+### Changed
+- `updateInstall` 电话新增可选入参 `approvedBuilds`（`src/ports.ts` 的 `runInstall`/`install` 形状、`src/host.ts` 电话入口归一、`src/service.ts` 透明转发、`src/store.ts` 执行器与管理器 `installBundle` 选项）：形状归一只认安全包名（非字符串、通配、`-` 开头、含 shell 元字符一律丢弃，去重保序、上限 32），只对本次安装调用生效——不进任务、不落盘、不跨请求复用。不传即老形状一字不动。
+- 人话格预算：待批名单按宿主给出的精确包名顺序点名；超 300 字时退成「首个 等 N 个」，**批准路径始终保留**（命令只在预算够时附上）；全部候选都放不下时只留截断原文，绝不越界。两步配方第二次安装失败会同时保住「批准建议」与「包已被移除」两条事实。
+- 文档：README 第 2 节电话入参表、§5.9 新增「需要批准的构建脚本」条、§9 形状扩展清单（`0.18.23` 起 `updateInstall` 接受可选 `approvedBuilds`）；`docs/host-install-exits.md` 出口二新增同主题契约条目。
+- 测试：新增 `tests/issue-194-pending-builds.test.mjs` 10 例（点名与批准路径/批准名单原样进宿主选项/畸形名单过滤/长名单守 300 字/普通失败不误报/两步配方第二次安装保留「包已被移除」事实/电话入参送进 `runInstall` 端口/两步配方 + 长 pnpm 原文时「批准建议」与「包已被移除」两条事实同时存活/首装长原文时批准建议不被截/批准名单不进任务不落盘）；对 `0.18.22` 源码实测 **6 红 2 绿**（绿的两例是「无待批构建不误报」「全无效批准名单不传选项」，旧版本就没有这两条行为；两条长原文回归用例由对抗审查抓出，修复后转绿）。`tests/fixtures/bilingual/copy-baseline.json` +5 行新中文。
+- **发布口径提醒**：`0.18.8`～`0.18.23` 十六段都还没发到 npm（registry 最新仍是 `0.18.7`），发版以 `0.18.23` 一次带走即可。
+
+门禁（**发版定格**）：`npm test` **1525 例：1524 过 / 0 失败 / 1 跳过**（干净发版树 + 本批 11 个文件上实测）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、354 个 key、16 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.23`，376.8 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（354 个 key 仍全是 `draft: true`）。
+
 ## [0.18.22] - 2026-10-18
 
 ### Fixed

@@ -572,11 +572,19 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     return { verdict, candidate: verdict.version, receipt: { checkId, checkedAt, expiresAt } }
   }
 
-  async function runBackground(job: UpdateJob, envAtStart: EnvironmentView): Promise<void> {
+  async function runBackground(job: UpdateJob, envAtStart: EnvironmentView, approvedBuilds?: string[]): Promise<void> {
     // 装后校验读到的环境（#124）：失败分支也要如实记「磁盘上是什么版本」。
     let verifiedEnv: EnvironmentView | null = null
     try {
-      if (ports.runInstall) await ports.runInstall({ version: job.targetVersion as string, profileName: envAtStart.profileName, environmentKind: envAtStart.environmentKind, releaseChannel })
+      if (ports.runInstall)
+        await ports.runInstall({
+          version: job.targetVersion as string,
+          profileName: envAtStart.profileName,
+          environmentKind: envAtStart.environmentKind,
+          releaseChannel,
+          // 批准构建名单（#194）：只在这次安装带过批准时出现；老调用形状一字不动。
+          ...(approvedBuilds && approvedBuilds.length > 0 ? { approvedBuilds } : {}),
+        })
       // 字面量不另存一份真源：`satisfies UpdateErrorCode` 把它钉在 src/codes.ts 的类型上，
       // 真源删/改这个码这里立刻 typecheck 报错；而本文件「零（运行时）导入」的契约不受影响。
       else throw updateError('unsupported' satisfies UpdateErrorCode)
@@ -657,7 +665,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
    */
   async function installCandidate(
     version: string,
-    ctx: { checkId: string; requestId: string; from?: InstallSource; env: EnvironmentView; previous: UpdateJob | null },
+    ctx: { checkId: string; requestId: string; from?: InstallSource; env: EnvironmentView; previous: UpdateJob | null; approvedBuilds?: string[] },
   ): Promise<UpdateSnapshot> {
     const slot = readFallbackSlot(ctx.env.installationKey)
     // 绑定三件套：槽要有、版本要对上、凭证编号要对上、没过期——缺一即检查过期，不猜。
@@ -718,7 +726,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       await saveJob(job)
       activeJobId = job.id
       // 落盘后后台跑，调用方不干等：每秒轮询查状态即可看到进度，关页面不取消。
-      void runBackground(job, env).catch(() => {})
+      void runBackground(job, env, ctx.approvedBuilds).catch(() => {})
       return buildSnapshot(env, job)
     } catch (error) {
       await release(job.id)
@@ -740,10 +748,15 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     })
   }
 
-  async function install(args: { checkId: string; requestId: string; from?: InstallSource; version?: string }): Promise<UpdateSnapshot> {
+  async function install(args: { checkId: string; requestId: string; from?: InstallSource; version?: string; approvedBuilds?: string[] }): Promise<UpdateSnapshot> {
     const checkId = typeof args?.checkId === 'string' ? args.checkId : ''
     const requestId = typeof args?.requestId === 'string' ? args.requestId : ''
     if (!checkId || !validRequestId(requestId)) throw updateError('check-expired')
+    // 批准构建名单（#194）：形状归一在 host 侧完成（本文件零运行时导入契约），核心只做透明转发，
+    // 且只对本次安装生效——不进 job、不落盘、不跨请求复用。
+    const approvedBuilds = Array.isArray(args?.approvedBuilds)
+      ? args.approvedBuilds.filter((name) => typeof name === 'string' && name)
+      : []
     let env = await ports.readInstalled()
     let previous = healJob(await loadJob(), env)
     // 同一个请求编号重复提交直接返回旧结果，不重装。
@@ -754,7 +767,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     // 候选分支（#156）：指定装合规版——只认第二槽绑定，不认任意旧版；
     // 凭证、指纹、忙、环境四道门与 latest 路径同口径，门名不变。
     const wantedVersion = typeof args?.version === 'string' && args.version ? args.version : null
-    if (wantedVersion) return installCandidate(wantedVersion, { checkId, requestId, from: args?.from, env, previous })
+    if (wantedVersion) return installCandidate(wantedVersion, { checkId, requestId, from: args?.from, env, previous, approvedBuilds })
     if (!checked || !checked.checkId || checked.checkId !== checkId || ports.now() >= checked.expiresAt) {
       throw updateError('check-expired')
     }
@@ -803,7 +816,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       throw error
     }
     // 落盘后后台跑，调用方不干等：每秒轮询查状态即可看到进度，关页面不取消。
-    void runBackground(job, env).catch(() => {})
+    void runBackground(job, env, approvedBuilds.length > 0 ? approvedBuilds : undefined).catch(() => {})
     return buildSnapshot(env, job)
   }
 
