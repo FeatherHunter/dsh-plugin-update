@@ -344,6 +344,8 @@ mountUpdateBatchPanelHttp(document.querySelector('#batch'), {
 `复制手工命令`、`复制诊断`——全部走与行内**同一条** `act()` 通道、同一份忙守卫。
 「复制诊断」需要宿主把失败诊断一并回出来：`batchStatus` 的每个 row 带可选 `diag` 与 `pluginId`；生产形状下宿主还会把目标包名与归因键补进这份 `diag`，兜底按钮才认得出该给哪一家装合规版。
 
+失败横幅批量复制（`0.18.11` 起）：多家安装失败时，失败名单下方多一行两个批量按钮——`复制诊断`一次复制全部失败行的诊断文本（按面板顺序、块间空行，已脱敏），`复制手工命令`一次复制全部失败行的手工命令（有命令的原样一行，缺命令的用 `# <插件名>：无手工命令` 注释行占位，整段可安全粘终端）。两枚按钮与失败横幅同生灭，口径与横幅名单完全一致（排队占位、待重启、已装合规版的行不算失败）；一条可执行命令都没有时`复制手工命令`置灰。
+
 > 自己写渲染时同理：`renderUpdatePanelHTML(input)` 少传 `actions` 即默认（画动作行）；
 > 传 `actions: 'none'` 就是只读内容——**凡是要复用内核 HTML 的地方，都必须显式接管或摘掉它的动作面**。
 
@@ -459,6 +461,7 @@ const update = createHostUpdate(
 
 落盘目录按标识派生：家目录下 `updates` 加插件标识加使用范围短指纹，三个文件名是 `state.json`、`install.lock`、`before.json`。读走双读（先新后旧），写只写新。
 标识取历史值 `dsh-mattpocock-skills-deck` 时，路径与旧版一字不差（升级不丢状态）。
+安装锁是自愈的（`0.18.11` 起）：锁位先生成完整内容再原子占位，所以不存在「空锁」；判陈旧只看时间——锁里 `startedAt`（读不出就看文件 mtime）超过 `installTimeoutMs` 才回收，否则一律按「别人正在装」回 `update-busy`。**同一使用范围内发现任意陈旧锁时不需要再手工删 `install.lock`。**
 
 ## 4. 安装是怎么执行的
 
@@ -766,4 +769,4 @@ npx dsh-log <dir> --json > update.log                   # 导出原始 JSON 行�
 
 感谢每一位让这个包变好的人：
 
-- [FeatherHunter](https://github.com/FeatherHunter) 🌹×166
+- [FeatherHunter](https://github.com/FeatherHunter) 🌹×198

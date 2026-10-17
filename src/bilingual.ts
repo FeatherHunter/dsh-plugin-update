@@ -339,6 +339,8 @@ export type BilingualKey =
   | 'batch.toast.cancel-fail'
   | 'batch.toast.copy-manual-ok'
   | 'batch.toast.copy-diag-ok'
+  | 'batch.toast.copy-all-manual-ok'
+  | 'batch.toast.copy-all-diag-ok'
   | 'batch.toast.restart-delegated'
   | 'batch.toast.restart-manual'
   | 'batch.toast.restart-failed'
@@ -704,6 +706,8 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.toast.cancel-fail': { en: 'Could not cancel the queue (it may have started installing); see the latest state below.', zh: '取消排队失败（可能已开始安装）：请查看下方最新状态。', draft: true },
   'batch.toast.copy-manual-ok': { en: 'Manual command copied; paste the full line into the terminal to run it.', zh: '手工命令已复制，请粘贴至终端整行执行。', draft: true },
   'batch.toast.copy-diag-ok': { en: 'Diagnostics copied; paste it to the plugin author (already redacted).', zh: '诊断信息已复制，请提交至插件作者（已脱敏）。', draft: true },
+  'batch.toast.copy-all-diag-ok': { en: 'Diagnostics for {n} plugin(s) copied; paste them to the plugin author (already redacted).', zh: '已复制 {n} 家插件的诊断，请提交至插件作者（已脱敏）。', draft: true },
+  'batch.toast.copy-all-manual-ok': { en: '{n} manual command(s) copied (plugins without a command are marked as # comments); paste them into the terminal line by line.', zh: '已复制 {n} 条手工命令（无命令的插件已用 # 注释标注），请粘贴至终端逐行执行。', draft: true },
   'batch.toast.restart-delegated': { en: 'Handled by the caller\u2019s restart flow; the new version takes effect after restart.', zh: '已按调用方重启流程处理；重启后新版本生效。', draft: true },
   'batch.toast.restart-manual': { en: 'This host provides no restart entry; please restart the host manually. The new version takes effect after restart.', zh: '本宿主未提供重启入口，请手动重启宿主；重启后新版本生效。', draft: true },
   'batch.toast.restart-failed': { en: 'Restart entry failed; please restart the host manually. The new version takes effect after restart.', zh: '重启入口调用失败，请手动重启宿主；重启后新版本生效。', draft: true },

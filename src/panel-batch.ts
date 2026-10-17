@@ -163,6 +163,8 @@ export type BatchPanelActionKind =
   | 'row-cancel-queue'
   | 'row-copy-manual'
   | 'row-copy-diag'
+  | 'copy-all-diag'
+  | 'copy-all-manual'
   | 'row-fallback'
   | 'row-fallback-confirm'
   | 'batch-fallback-scan'
@@ -1028,10 +1030,8 @@ function bannersHTML(
   // 继续把它算成"安装失败"才是撒谎；它的结果由下面那条"实际安装结果"横幅如实说出。
   const pendingRestartRow = (row: BatchRowView): boolean =>
     asBatchPhase(row.phase) === 'failed' && row.error === 'pending-restart'
-  const failed = rows.filter(
-    (row) =>
-      asBatchPhase(row.phase) === 'failed' && !isQueueBusyRow(row) && !pendingRestartRow(row) && !done.has(row.key),
-  )
+  // 失败行集合只认 batchFailedRows（#176 单一真源）：横幅与两枚批量复制按钮永远同一份口径。
+  const failed = batchFailedRows(rows)
   if (failed.length > 0) {
     const lines = failed
       .map((row) => {
@@ -1044,10 +1044,19 @@ function bannersHTML(
       })
       .join('')
     const failedAct = batchText('batch.banner.failed-action', l)
+    // #176：名单下方给统一的复制出口——两枚批量按钮，别让用户为了复制证据一家家点开详情。
+    // 一条手工命令都没有时按钮置灰并说明原因（复制一段只有 # 注释的文本没有意义）。
+    const failedManual = batchFailedManualText(failed, l, titles)
+    const manualAbsent = failedManual.commands === 0
     parts.push(
       '<div class="dsh-upd-banner" data-kind="failed" data-mini="阻" role="status">' +
         '<div><span class="dsh-upd-sealmini" aria-hidden="true">阻</span><strong>' + escapeHtml(batchText('batch.banner.failed-title', l, { n: String(failed.length) })) + '</strong></div>' +
         '<div class="dsh-upd-blist">' + lines + '</div>' +
+        '<div class="dsh-upd-browline"><span class="dsh-upd-bcopy">' +
+        '<button type="button" data-act="copy-all-diag">' + escapeHtml(batchText('batch.row-action.copy-diag', l)) + '</button>' +
+        '<button type="button" data-act="copy-all-manual"' + (manualAbsent ? ' disabled title="' + escapeHtml(batchText('panel.manual.absent', l)) + '"' : '') + '>' +
+        escapeHtml(batchText('batch.row-action.copy-manual', l)) + '</button>' +
+        '</span></div>' +
         '</div>',
     )
     if (failedAct) parts.push('<div class="dsh-upd-banner-sub">' + escapeHtml(failedAct) + '</div>')
@@ -1481,6 +1490,9 @@ export const UPDATE_BATCH_PANEL_CSS = [
   '.dsh-upd-browline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
   '.dsh-upd-browline>.dsh-upd-blist{flex:1 1 auto;min-width:0;text-align:left;margin:0}',
   '.dsh-upd-browline>button{flex:none;margin:0;margin-left:auto}',
+  // #176：失败横幅里两枚复制按钮成组；不然每颗按钮各吃一份 margin-left:auto，会被拉开到两处。
+  '.dsh-upd-browline>.dsh-upd-bcopy{display:inline-flex;align-items:center;gap:10px;flex:none;margin-left:auto}',
+  '.dsh-upd-browline>.dsh-upd-bcopy>button{flex:none;margin:0}',
   '.dsh-upd-batch-ledger{margin:8px 0 0;font-size:var(--dsh-update-panel-log-font-size,13px);opacity:.85}',
   '.dsh-upd-batch-more{margin-top:6px}',
   '.dsh-upd-batch-more button{font-size:12px}',
@@ -1720,6 +1732,24 @@ export function compliantInstalledOf(
   }
 }
 
+/**
+ * 失败横幅的行集合（#176 单一真源）：失败横幅画哪些行，两枚批量复制按钮就复制哪些行，只此一份过滤。
+ * 口径：相位 failed，但排队占位不算失败（忙时宿主的占位）、等重启不算失败（#156 M1），
+ * 已装上合规版的行也不算失败（#156 收尾事实——最新版没装成，但这家确实装到了能装的最新）。
+ * 顺序跟面板行序一致（调用方传什么顺序就什么顺序）。
+ */
+export function batchFailedRows(rows: readonly BatchRowView[]): BatchRowView[] {
+  const out: BatchRowView[] = []
+  for (const row of rows) {
+    if (asBatchPhase(row.phase) !== 'failed') continue
+    if (isQueueBusyRow(row)) continue
+    if (row.error === 'pending-restart') continue
+    if (compliantInstalledOf(row) !== null) continue
+    out.push(row)
+  }
+  return out
+}
+
 /** 相位宽容读：认不出按 pending（坏回包不许把面板打挂，与队列/账本同一纪律）。 */
 function asBatchPhase(value: unknown): BatchPhase {
   return typeof value === 'string' && (BATCH_PHASES as readonly string[]).includes(value)
@@ -1880,6 +1910,42 @@ function diagTextOf(row: BatchRowView, lang?: string | null): string {
     lang: lang ?? 'zh',
   }
   return buildDiagnosticText(input)
+}
+
+/**
+ * 全部失败行的诊断文本（#176）：逐行调 diagTextOf 原样拼，块间空行，零抬头、零新格式。
+ * 集合只认 batchFailedRows（与失败横幅同一份真源），顺序跟面板行序；没有失败行即空串。
+ */
+export function batchFailedDiagText(rows: readonly BatchRowView[], lang?: string | null): string {
+  return batchFailedRows(rows)
+    .map((row) => diagTextOf(row, lang))
+    .join('\n\n')
+}
+
+/**
+ * 全部失败行的手工命令文本（#176）：有命令的行原样一行，没命令的行用 # 注释行占位，
+ * 整段仍可安全粘终端（注释不会被执行、也不会漏掉哪一家没给命令）。
+ * commands 是有效命令行数——失败横幅据此决定「复制手工命令」按钮置不置灰。
+ */
+export function batchFailedManualText(
+  rows: readonly BatchRowView[],
+  lang?: string | null,
+  titles: Record<string, string> = {},
+): { text: string; commands: number } {
+  const l = langOf(lang)
+  const lines: string[] = []
+  let commands = 0
+  for (const row of batchFailedRows(rows)) {
+    const manual = typeof row.manual === 'string' ? row.manual : ''
+    if (manual) {
+      // 原样一行：复制的是用户该粘进终端的命令，一个字都不改写。
+      lines.push(manual)
+      commands += 1
+      continue
+    }
+    lines.push('# ' + titleOf(row, titles) + '：' + batchText('panel.manual.absent', l))
+  }
+  return { text: lines.join('\n'), commands }
 }
 
 /** 回包说「忙」：入队没接住（老宿主）——那是排队语义，不是失败，别画红条。 */
@@ -2439,7 +2505,7 @@ export function mountUpdateBatchPanel(
   }
 
   /** 复制一段文本，并按同一套措辞给回执（复制失败不抛错，只提示手动选）。 */
-  async function copyWith(text: string, okNotice: string, key: string): Promise<void> {
+  async function copyWith(text: string, okNotice: string, key: string | null): Promise<void> {
     try {
       await copyText(text)
       say(okNotice, key)
@@ -2737,6 +2803,31 @@ export function mountUpdateBatchPanel(
         const row = typeof key === 'string' && key ? rowOfKey(key) : null
         if (!row) return
         await copyWith(diagTextOf(row, currentLang()), batchText('batch.toast.copy-diag-ok', currentLang()), row.key)
+        return
+      }
+      // —— 失败横幅里的两枚批量出口（#176）：一次复制全部失败行；集合与横幅同一份真源 ——
+      // 回执不带 key，落在面板底部（详情没展开时本就该在那；展开着也不把它塞进某一家）。
+      case 'copy-all-diag': {
+        const failed = batchFailedRows(rows)
+        if (failed.length === 0) return
+        await copyWith(
+          batchFailedDiagText(rows, currentLang()),
+          batchText('batch.toast.copy-all-diag-ok', currentLang(), { n: String(failed.length) }),
+          null,
+        )
+        return
+      }
+      case 'copy-all-manual': {
+        const failed = batchFailedRows(rows)
+        if (failed.length === 0) return
+        const all = batchFailedManualText(rows, currentLang(), titles)
+        // 横幅里没有可执行命令时按钮已置灰；程序调用同样兜底（只复制注释没有意义）。
+        if (all.commands === 0) return
+        await copyWith(
+          all.text,
+          batchText('batch.toast.copy-all-manual-ok', currentLang(), { n: String(all.commands) }),
+          null,
+        )
         return
       }
       // 合规版决议（#156）：点"装合规版"本身不装任何东西——先认该行失败证据，

@@ -37,7 +37,10 @@ declare module 'node:fs/promises' {
   export function readFile(path: string, encoding?: string): Promise<string>
   export function rename(oldPath: string, newPath: string): Promise<void>
   export function realpath(path: string): Promise<string>
-  export function stat(path: string): Promise<{ size: number; isFile(): boolean }>
+  // 锁原子建（#181）：硬链接在目标已存在时回 EEXIST，是「要么没有、要么完整」的锁位判据。
+  export function link(oldPath: string, newPath: string): Promise<void>
+  // mtimeMs：锁废弃判据（时间 + 可解析性）里的「时间」一列。
+  export function stat(path: string): Promise<{ size: number; isFile(): boolean; mtimeMs: number }>
   export function unlink(path: string): Promise<void>
   export function writeFile(path: string, data: string, options?: { mode?: number; flag?: string }): Promise<void>
 }

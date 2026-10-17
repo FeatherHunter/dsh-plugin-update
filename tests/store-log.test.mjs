@@ -98,9 +98,10 @@ describe('落盘层：陈旧锁回收与失败记账', () => {
     assert.ok(ports.paths)
     mkdirSync(ports.paths.directory, { recursive: true })
     // 手工造一把「主人早该收尾却没放」的锁：任务文件不在（还在装），锁里记着 4 秒前开始。
+    // #181 换了判据：陈旧只看「时间 + 可解析性」，不看 state.json——这里注入 2 秒额度把 4 秒锁判陈旧。
     writeFileSync(ports.paths.lock, JSON.stringify({ id: 'job-a', pid: 1, startedAt: Date.now() - 4242 }))
 
-    assert.equal(await ports.tryAcquireLock('job-b'), true)
+    assert.equal(await ports.tryAcquireLock('job-b', { timeoutMs: 2000 }), true)
     assert.equal(JSON.parse(readFileSync(ports.paths.lock, 'utf8')).id, 'job-b', '回收后锁归自己')
 
     const anomalies = rec.rows.filter((row) => row.event === 'update.lock.anomaly')
@@ -269,9 +270,14 @@ describe('可选增强：不传端口零行为差异', () => {
       out.push(await ports.tryAcquireLock('job-1'))
       out.push(await ports.tryAcquireLock('job-2')) // 同一任务占着：不陈旧，抢不到
       await ports.writeJob(null)
-      out.push(await ports.tryAcquireLock('job-3')) // 任务不在而锁还在：陈旧回收
+      // #181：任务不在但锁还新鲜 ⇒ 仍然拒（旧判据会在这里抢走活锁）；陈旧与否只看年龄，不看 state.json。
+      out.push(await ports.tryAcquireLock('job-3'))
       out.push(await ports.readJob())
       await ports.releaseLock('job-3')
+      // #181 判据只看时间：造一把真陈旧锁，回收这一下会记账——保证「接了端口真发得出来」。
+      writeFileSync(ports.paths.lock, JSON.stringify({ id: 'job-old', pid: 1, startedAt: Date.now() - 5000 }))
+      out.push(await ports.tryAcquireLock('job-4', { timeoutMs: 1000 }))
+      await ports.releaseLock('job-4')
       return out
     }
     const { homeDir } = freshDirs('plain')
@@ -289,8 +295,10 @@ describe('可选增强：不传端口零行为差异', () => {
       { requestId: 'r1', message: null, id: 'job-1', state: 'installing', targetVersion: '1.0.0' },
       true,
       false,
-      true,
+      // #181：锁还新鲜（state.json 刚被清掉不算陈旧证据），不许被抢。
+      false,
       { id: 'locked', state: 'interrupted', message: 'recovery-required', targetVersion: null, requestId: null },
+      true,
     ])
     assert.ok(rec.rows.length > 0, '接了端口的同一序列必须真发得出来，否则「相等」没意义')
     assertRowsSane(rec.rows)
@@ -348,7 +356,8 @@ describe('可选增强：不传端口零行为差异', () => {
     assert.ok(disk.paths)
     mkdirSync(disk.paths.directory, { recursive: true })
     writeFileSync(disk.paths.lock, JSON.stringify({ id: 'job-a', pid: 1, startedAt: Date.now() - 1000 }))
-    assert.equal(await disk.tryAcquireLock('job-b'), true, '回收时发射口抛错也必须照样抢到')
+    // #181：陈旧按时间判，注入 500ms 额度把 1 秒锁判陈旧。
+    assert.equal(await disk.tryAcquireLock('job-b', { timeoutMs: 500 }), true, '回收时发射口抛错也必须照样抢到')
     await disk.writeJob({ id: 'job-b', state: 'installing', targetVersion: '1.0.0', message: null, requestId: null })
     assert.equal(await disk.tryAcquireLock('job-c'), false, '同一任务占着，行为不变')
     await disk.writeJob(null)

@@ -335,7 +335,12 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   }
   // 组合锁：先抢全局（跨插件一次只装一个），再抢自家；自家没抢到就把全局放了，不占着。
   // 无全局可用时退化为自家锁（与改造前一字不差，老单测走这条）。
-  const baseTryAcquire = overrides.tryAcquireLock ?? disk?.tryAcquireLock
+  // #181：内置端口要吃到安装额度（陈旧阈值与安装时限同源），显式覆盖实现保持单参不变。
+  const baseTryAcquire: ((lockId: string) => boolean | Promise<boolean>) | undefined = overrides.tryAcquireLock
+    ? (lockId: string) => overrides.tryAcquireLock!(lockId)
+    : disk
+      ? (lockId: string) => disk.tryAcquireLock(lockId, { timeoutMs: installTimeoutMs })
+      : undefined
   const baseRelease = overrides.releaseLock ?? disk?.releaseLock
   // 阈值单源：两条路（显式覆盖 / 内置端口）拿到**同一个** installTimeoutMs。
   // 覆盖实现不接第三参就还是它自己的口径（行为不变），接了就跟安装时限对齐——批量路径原先自己传 {}，

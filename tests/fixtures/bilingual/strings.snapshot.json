@@ -492,6 +492,16 @@
       "zh": "已请求安装 {a} 个合规版（不是最新版：最新版仍被年龄门挡着）；{b} 个没装成。",
       "draft": true
     },
+    "batch.toast.copy-all-diag-ok": {
+      "en": "Diagnostics for {n} plugin(s) copied; paste them to the plugin author (already redacted).",
+      "zh": "已复制 {n} 家插件的诊断，请提交至插件作者（已脱敏）。",
+      "draft": true
+    },
+    "batch.toast.copy-all-manual-ok": {
+      "en": "{n} manual command(s) copied (plugins without a command are marked as # comments); paste them into the terminal line by line.",
+      "zh": "已复制 {n} 条手工命令（无命令的插件已用 # 注释标注），请粘贴至终端逐行执行。",
+      "draft": true
+    },
     "batch.toast.copy-diag-ok": {
       "en": "Diagnostics copied; paste it to the plugin author (already redacted).",
       "zh": "诊断信息已复制，请提交至插件作者（已脱敏）。",

@@ -18,7 +18,7 @@
  */
 
 import { createHash, randomUUID } from 'node:crypto'
-import { mkdir, open, readFile, rename, realpath, stat, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, link, open, readFile, rename, realpath, stat, unlink, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { installRecipe } from './commands.js'
 import { BACKUP_FILE, LEGACY_PLUGIN_ID, LOCK_FILE, SKIPPED_FILE, STATE_FILE } from './config.js'
@@ -36,6 +36,8 @@ const LEGACY_DIR_PLUGIN = LEGACY_PLUGIN_ID
 
 const JOB_STATES = ['installing', 'verifying', 'restart-required', 'completed', 'failed', 'interrupted']
 const SNAPSHOT_FILES = ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']
+// 原子建锁依赖硬链接（#181）；不吃硬链接的盘（个别网络盘/FAT）退回 open(wx)+write，可用优先。
+const LOCK_LINK_FALLBACK_CODES = new Set(['EPERM', 'ENOSYS', 'ENOTSUP', 'EACCES'])
 
 function fail(code: string): Error & { code: string } {
   return Object.assign(new Error(code), { code })
@@ -255,7 +257,7 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
   legacyPaths: UpdatePaths | null
   readJob: () => Promise<UpdateJob | null>
   writeJob: (job: UpdateJob | null) => Promise<void>
-  tryAcquireLock: (lockId: string) => Promise<boolean>
+  tryAcquireLock: (lockId: string, options?: { timeoutMs?: number }) => Promise<boolean>
   releaseLock: (lockId: string) => Promise<void>
   backupJob: (job: UpdateJob) => Promise<void>
 } {
@@ -317,7 +319,12 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
         return withPreviousVersion(legacyPaths, { requestId: null, message: null, ...legacyJob } as UpdateJob)
       }
     }
-    const lock = await readJsonGuarded(paths.lock, null)
+    const lock = await readJsonGuarded(paths.lock, null).catch((error: unknown) => {
+      // #181：半截/空锁（open-write 之间崩溃的形态）不该让整次状态读取失败。当「没有锁」，
+      // 把「是否陈旧、要不要回收」留给抢锁那一步判；否则坏锁在快照层就永远 update-busy。
+      storeLog.fail('read-job', error)
+      return null
+    })
     if (lock) return { id: 'locked', state: 'interrupted', message: 'recovery-required', targetVersion: null, requestId: null }
     if (legacyPaths) {
       // 旧影子的锁读坏只当没有（原来静默吞）：记一条 store.fail，回参与行为不变。
@@ -344,44 +351,102 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
     await mkdir(paths.directory, { recursive: true, mode: 0o700 })
     await writeJsonAtomic(paths.state, job, (error) => storeLog.fail('write-job', error))
   }
-  async function tryAcquireLock(lockId: string): Promise<boolean> {
+  /** 抢锁的陈旧阈值：注入的安装额度优先；未注入时与跨插件全局锁同源（同一口径，改一处即可）。 */
+  function lockStaleMs(options: { timeoutMs?: number } = {}): number {
+    const timeoutMs = options.timeoutMs
+    return typeof timeoutMs === 'number' && Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : QUEUE_LOCK_STALE_MS
+  }
+  /**
+   * 原子建锁（#181）：先写同目录临时文件，再 link 到锁位——link 在目标已存在时回 EEXIST，天然互斥；
+   * 锁位于是要么不存在、要么是完整内容，不会再有「open(wx) 后、写内容前崩溃」留下的空锁。
+   * 不吃硬链接的盘退回 open(wx)+write（形态退化回空文件窗口，可用优先）。
+   */
+  async function tryCreateLockFile(lockId: string): Promise<boolean> {
     if (!paths) return false
+    const payload = JSON.stringify({ id: lockId, pid: process.pid, startedAt: Date.now() })
+    const temporary = join(paths.directory, `${LOCK_FILE}.${randomUUID()}.tmp`)
     try {
-      await mkdir(paths.directory, { recursive: true, mode: 0o700 })
-      const handle = await open(paths.lock, 'wx', 0o600)
-      try {
-        await handle.writeFile(JSON.stringify({ id: lockId, pid: process.pid, startedAt: Date.now() }))
-      } finally {
-        await handle.close()
-      }
+      await writeFile(temporary, payload, { mode: 0o600 })
+      await link(temporary, paths.lock)
       return true
     } catch (error) {
-      if (!error || (error as { code?: string }).code !== 'EEXIST') {
-        // 非 EEXIST 的真故障原来静默回 false（对调用方看起来就是「被别人占着」）：留一条痕。
-        storeLog.fail('acquire-lock', error)
-        return false
-      }
-      try {
-        const current = await readJsonGuarded(paths.lock, null)
-        const job = await readJsonGuarded(paths.state, null)
-        if (!current || (job && (job as { id?: unknown }).id === (current as { id?: unknown }).id)) return false
-        // 回收失败（删不掉/删了又被别人抢走）只当没抢到，但不再静默：原始原因入行。
-        await unlink(paths.lock).catch((error: unknown) => {
-          if (!isMissingFileError(error)) storeLog.fail('reclaim-stale-owner', error)
-        })
-        const handle = await open(paths.lock, 'wx', 0o600)
+      const code = (error as { code?: string }).code
+      if (code === 'EEXIST') return false
+      if (code && LOCK_LINK_FALLBACK_CODES.has(code)) {
         try {
-          await handle.writeFile(JSON.stringify({ id: lockId, pid: process.pid, startedAt: Date.now() }))
-        } finally {
-          await handle.close()
+          const handle = await open(paths.lock, 'wx', 0o600)
+          try {
+            await handle.writeFile(payload)
+          } finally {
+            await handle.close()
+          }
+          return true
+        } catch (fallbackError) {
+          if ((fallbackError as { code?: string }).code === 'EEXIST') return false
+          throw fallbackError
         }
-        // 回收成功＝锁的主人早该收尾却没放（孤儿/陈旧）而这次真被摘掉：真边沿，年龄从锁里记的 startedAt 算。
-        storeLog.anomaly(LOCK_ANOMALY_STALE_OWNER, null, lockAgeMs(current, Date.now()))
-        return true
-      } catch (error) {
-        storeLog.fail('reclaim-stale-owner', error)
-        return false
       }
+      throw error
+    } finally {
+      await unlink(temporary).catch(() => {})
+    }
+  }
+  /**
+   * 读锁位：可解析且是对象才算「读得到主人」；空文件/半截 JSON/内容 `null` 一律当不可解析，
+   * 年龄退回 mtime（#181 的判据：时间 + 可解析性，不再拿 state.json 的 id 当证据）。
+   */
+  async function readLockOwner(): Promise<{ present: boolean; owner: Record<string, unknown> | null; mtimeMs: number | undefined }> {
+    if (!paths) return { present: false, owner: null, mtimeMs: undefined }
+    let mtimeMs: number | undefined
+    try {
+      mtimeMs = (await stat(paths.lock)).mtimeMs
+    } catch (error) {
+      if (isMissingFileError(error)) return { present: false, owner: null, mtimeMs: undefined }
+      storeLog.fail('reclaim-stale-owner', error)
+      return { present: true, owner: null, mtimeMs: undefined }
+    }
+    try {
+      const parsed = JSON.parse(await readFile(paths.lock, 'utf8')) as unknown
+      const owner = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null
+      return { present: true, owner, mtimeMs }
+    } catch (error) {
+      if (isMissingFileError(error)) return { present: false, owner: null, mtimeMs: undefined }
+      // 空文件/半截 JSON/锁位被目录占着：不可解析但仍是「占着」，回收判据改看 mtime。
+      storeLog.fail('reclaim-stale-owner', error)
+      return { present: true, owner: null, mtimeMs }
+    }
+  }
+  async function tryAcquireLock(lockId: string, options: { timeoutMs?: number } = {}): Promise<boolean> {
+    if (!paths) return false
+    const staleMs = lockStaleMs(options)
+    try {
+      await mkdir(paths.directory, { recursive: true, mode: 0o700 })
+      if (await tryCreateLockFile(lockId)) return true
+      const held = await readLockOwner()
+      if (!held.present) return tryCreateLockFile(lockId)
+      // 可解析看锁里记的 startedAt；不可解析/缺格退回 mtime；判不了年龄就按「别人正持有」拒（保守）。
+      const age =
+        (held.owner ? lockAgeMs(held.owner, Date.now()) : undefined) ??
+        (held.mtimeMs === undefined ? undefined : Date.now() - held.mtimeMs)
+      if (age === undefined || age <= staleMs) return false
+      try {
+        await unlink(paths.lock)
+      } catch (error) {
+        // 删不掉（盘坏/路径被占）：只当没抢到，原始原因入行。
+        if (!isMissingFileError(error)) {
+          storeLog.fail('reclaim-stale-owner', error)
+          return false
+        }
+      }
+      // 回收与建锁之间被别人抢先：认输（不递归重试，避免两个进程互摘）。
+      if (!(await tryCreateLockFile(lockId))) return false
+      // 回收成功＝锁的主人早该收尾却没放（孤儿/陈旧）而这次真被摘掉：真边沿，年龄记判据来路。
+      storeLog.anomaly(LOCK_ANOMALY_STALE_OWNER, null, age)
+      return true
+    } catch (error) {
+      // 非「占着」的真故障原来静默回 false（对调用方看起来就是「被别人占着」）：留一条痕。
+      storeLog.fail('acquire-lock', error)
+      return false
     }
   }
   async function releaseLock(lockId: string): Promise<void> {
