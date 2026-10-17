@@ -9,7 +9,9 @@
  * 只测外部行为（`dist/host.js` 公开电话回包）：
  * 1. 查完新版后磁盘被别处换成了目标版（真机同款竞态）⇒ 拒绝、细节说明无需安装、不建任务、runInstall 零调用；
  * 2. 过了入口哨兵、等锁期间磁盘被换成目标版（锁后重读竞态）⇒ 同样拒绝且不启动安装；
- * 3. 对照：目标确实比已装版新 ⇒ 正常走安装并落到待重启。
+ * 3. 对照：目标确实比已装版新 ⇒ 正常走安装并落到待重启；
+ * 4. 候选（合规版）路径同款锁后竞态 ⇒ 同样拒绝（哨兵必须与 latest 路径同序：在指纹/环境闸门之前）；
+ * 5. 对照：候选路径磁盘没被换 ⇒ 正常安装候选版并落到待重启。
  */
 import { describe, it, beforeEach, after } from 'node:test'
 import assert from 'node:assert/strict'
@@ -119,14 +121,100 @@ function makeHost({ installed, remote, mutateOnRefetch = false }) {
   return { host, runCalls, profileDir }
 }
 
-async function waitTerminal(host) {
+async function waitTerminal(host, prefix = 'issue202') {
   for (let i = 0; i < 100; i += 1) {
-    const status = await host.handlers['issue202.updateStatus']({})
+    const status = await host.handlers[`${prefix}.updateStatus`]({})
     const job = status && status.snapshot ? status.snapshot.job : null
     if (job && (job.state === 'restart-required' || job.state === 'completed' || job.state === 'failed')) return status.snapshot
     await new Promise((resolve) => setTimeout(resolve, 20))
   }
   throw new Error('作业没有在 2 秒内落到终态')
+}
+
+// ---------- 候选（合规版）路径 #202 竞态 ----------
+
+const RUNNING = '0.3.52'
+const CANDIDATE = '0.3.53'
+const TARGET_VERSION = '0.3.54'
+const DAY = 86_400_000
+const NOW = 1_000_000_000_000
+
+/**
+ * 候选安装宿主：远端 latest 0.3.54 发布才 3 天、被 7 天年龄门挡住；老版 0.3.53 满门限，
+ * 于是 `updateCheckFallback` 给 `downgrade-available` 候选 0.3.53（严格新于运行版 0.3.52）。
+ * `mutateBeforeLockRead`：在候选路径**最后一次重取版本文档**时把磁盘换成候选版——此刻入口
+ * 哨兵已过、锁后重读还没发生，正是「等锁期间磁盘被别处换成目标版」的真机同款竞态。
+ */
+function makeCandidateHost({ mutateBeforeLockRead = false } = {}) {
+  const profileDir = mkdtempSync(join(tmpdir(), 'dpu-202c-'))
+  tmpRoots.push(profileDir)
+  writeJson(join(profileDir, 'package.json'), {
+    name: 'fake-profile',
+    version: '0.0.0',
+    dependencies: { [TARGET]: `^${RUNNING}` },
+  })
+  makeTargetPackage(join(profileDir, 'node_modules', TARGET), RUNNING)
+  const packument = {
+    name: TARGET,
+    'dist-tags': { latest: TARGET_VERSION },
+    time: {
+      [RUNNING]: new Date(NOW - 30 * DAY).toISOString(),
+      [CANDIDATE]: new Date(NOW - 10 * DAY).toISOString(),
+      [TARGET_VERSION]: new Date(NOW - 3 * DAY).toISOString(),
+    },
+  }
+  const releaseDoc = (version) => ({
+    name: TARGET,
+    version,
+    engines: { node: '>=22' },
+    dist: { tarball: `${REGISTRY}${TARGET}/-/demo-noop-plugin-${version}.tgz`, integrity: INTEGRITY },
+  })
+  const answer = (body) => ({ ok: true, headers: { get: () => null }, text: async () => JSON.stringify(body) })
+  let versionDocFetches = 0
+  const runCalls = []
+  const host = createHostUpdate(
+    {
+      readerOverrides: {
+        runningVersion: RUNNING,
+        targetPackageDir: join(profileDir, 'node_modules', TARGET),
+        profileDir,
+        profileName: 'desktop',
+        homeDir: profileDir,
+        fetchImpl: async (url) => {
+          if (url.endsWith(encodeURIComponent(CANDIDATE))) {
+            versionDocFetches += 1
+            if (mutateBeforeLockRead && versionDocFetches === 2) {
+              makeTargetPackage(join(profileDir, 'node_modules', TARGET), CANDIDATE)
+            }
+            return answer(releaseDoc(CANDIDATE))
+          }
+          return answer(packument)
+        },
+        now: () => NOW,
+        randomId: () => `id-${runCalls.length + 1}`,
+        nodeVersion: '22.0.0',
+        environmentKind: 'cli',
+        targetPackageName: TARGET,
+        runInstall: async ({ version }) => {
+          runCalls.push(version)
+          makeTargetPackage(join(profileDir, 'node_modules', TARGET), version)
+        },
+        ...memoryStore(),
+      },
+    },
+    { pluginId: 'issue-202-candidate-plugin', prefix: 'issue202c', targetPackageName: TARGET },
+  )
+  return { host, runCalls }
+}
+
+async function askCandidate(host) {
+  return host.handlers['issue202c.updateCheckFallback']({
+    kind: 'minimum-release-age',
+    blame: 'target',
+    targetVersion: TARGET_VERSION,
+    windowMs: 7 * DAY,
+    windowSource: 'message',
+  })
 }
 
 describe('#202 空更新哨兵：目标与已装版相同不启动安装', () => {
@@ -182,5 +270,37 @@ describe('#202 空更新哨兵：目标与已装版相同不启动安装', () =>
     const snapshot = await waitTerminal(host)
     assert.equal(snapshot.job.state, 'restart-required')
     assert.deepEqual(runCalls, ['0.3.54'])
+  })
+
+  it('候选（合规版）路径：等锁期间磁盘被换成目标版 ⇒ 锁后哨兵同样拒绝且不启动安装', async () => {
+    const { host, runCalls } = makeCandidateHost({ mutateBeforeLockRead: true })
+    const fallback = await askCandidate(host)
+    assert.equal(fallback.ok, true)
+    assert.equal(fallback.snapshot && fallback.snapshot.candidate, CANDIDATE, '必须先拿到候选回执')
+    const out = await host.handlers['issue202c.updateInstall']({
+      checkId: fallback.receipt.checkId,
+      requestId: 'req-cand-race-1',
+      version: CANDIDATE,
+    })
+    assert.equal(out.ok, false)
+    assert.equal(out.error, 'installation-changed')
+    assert.equal(out.diag && out.diag.detail, '目标版本与已装版本相同，无需安装', '候选路径也必须说清「无需安装」')
+    assert.equal('snapshot' in out, false, '空更新不该留下作业')
+    assert.deepEqual(runCalls, [], '竞态下也不能真的调起安装')
+  })
+
+  it('对照：候选路径磁盘没被换 ⇒ 正常安装候选版并落到待重启', async () => {
+    const { host, runCalls } = makeCandidateHost()
+    const fallback = await askCandidate(host)
+    assert.equal(fallback.ok, true)
+    const out = await host.handlers['issue202c.updateInstall']({
+      checkId: fallback.receipt.checkId,
+      requestId: 'req-cand-1',
+      version: CANDIDATE,
+    })
+    assert.equal(out.ok, true)
+    const snapshot = await waitTerminal(host, 'issue202c')
+    assert.equal(snapshot.job.state, 'restart-required')
+    assert.deepEqual(runCalls, [CANDIDATE])
   })
 })

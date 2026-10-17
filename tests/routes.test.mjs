@@ -78,6 +78,54 @@ describe('手工兜底命令（冻结形状）', () => {
       null
     )
   })
+
+  it('使用范围名含空白或 shell 元字符：宁可不给命令，也不给会被展开/截断的假命令', () => {
+    for (const profileName of ['my profile', 'web$HOME', 'web`whoami`', 'web&calc', 'web;rm -rf /']) {
+      assert.equal(
+        manualCommand({
+          profileName,
+          latestVersion: '1.2.3',
+          installedVersion: '1.0.0',
+          runningVersion: '1.0.0',
+          jobTargetVersion: null,
+          blockedReason: null,
+          sourceInstall: false,
+        }),
+        null,
+        `使用范围名 ${profileName} 不安全时不许编命令`
+      )
+    }
+  })
+
+  it('源地址含 shell 元字符：同样不给命令（不悄悄换源、不拼出截断的 URL）', () => {
+    assert.equal(
+      manualCommand({
+        profileName: 'web',
+        latestVersion: '1.2.3',
+        installedVersion: '1.0.0',
+        runningVersion: '1.0.0',
+        jobTargetVersion: null,
+        blockedReason: null,
+        sourceInstall: false,
+        registryUrl: 'https://registry.npmjs.org/?a=1&b=2',
+      }),
+      null
+    )
+  })
+
+  it('安全的使用范围名与源正常出命令，源紧跟 --registry=', () => {
+    const command = manualCommand({
+      profileName: 'web',
+      latestVersion: '1.2.3',
+      installedVersion: '1.0.0',
+      runningVersion: '1.0.0',
+      jobTargetVersion: null,
+      blockedReason: null,
+      sourceInstall: false,
+      registryUrl: 'https://registry.npmjs.org/',
+    })
+    assert.equal(command, `dsh plugin --profile web add --save-exact ${TARGET}@1.2.3 --registry=${REGISTRY}`)
+  })
 })
 
 describe('老两条路由执行器（假件）', () => {

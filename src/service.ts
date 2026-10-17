@@ -706,10 +706,12 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       })
       if (JSON.stringify(current) !== JSON.stringify(slot.release)) throw updateError('check-expired')
       const env = await ports.readInstalled()
+      // 空更新哨兵（#202）：重取环境后目标与磁盘已装版相同即不再动手。放在指纹/环境闸门之前
+      // ——此刻最诚实的事实是「没东西可装」，不是安装位置变了或环境坏了（与 latest 路径同序，
+      // 对抗审查 HARD：否则候选路径上这类竞态会先报一句没有 detail 的 installation-changed）。
+      refuseNoopInstall(version, env)
       if (env.installationKey !== slot.installationKey) throw updateError('installation-changed')
       if (!env.eligible || env.blockedReason) throw updateError(env.blockedReason ?? 'update-busy')
-      // 空更新哨兵（#202）：重取环境后目标与磁盘已装版相同即不再动手。
-      refuseNoopInstall(version, env)
       // 前版本保真（#186）：记下「动手之前」磁盘上的版本，供 before.json 与恢复诊断对照。
       rememberPreviousVersion(job, env)
       if (ports.backupJob) await ports.backupJob(job)

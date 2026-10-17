@@ -602,9 +602,10 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 - **移除前先探拓扑**：用宿主 `listBundles()` 查目标包的 `removable` / `enabled`。
   - `removable === false`（宿主自带或受管理的包）⇒ 不尝试移除，直接诚实失败（人话格原因 `not-removable`，对外错误码仍是 `install-failed`）。
   - `enabled === false`（装着、在跑、但不在 `dsh.profile.bundles` 选中名单里——真机六件的形态）⇒ 先 `setBundleEnabled(name, true)` 恢复选中（宿主 `installBundle` 默认也做这一步，只是本包拆到移除之前），再 `removeBundle` → `installBundle`。
-  - 旧宿主没有 `listBundles` / `setBundleEnabled` ⇒ 退回老两步（会先盲删）；探测到不可移除/未选中但没有对应宿主能力时，诚实失败并在人话格里给载体 CLI 命令。
-- **救急命令**：`already-installed` / `bundle-in-use` / `not-removable` 三个码的失败详情尾部会补一条 ASCII 命令 ` (dsh plugin --profile <范围> add --save-exact <包名>@<版本>)`——载体 CLI 在官方桌面版机器上可执行，是管理器外唯一能原地换版的通道。面板展示 `job.message` 时原样显示即可，不需要解析。
+  - 旧宿主没有 `listBundles` ⇒ 退回老两步（会先盲删）；有 `listBundles` 但没有 `setBundleEnabled` 而目标又未选中 ⇒ 诚实失败（人话格说明「宿主不支持恢复选中，无法安全更新」）并给载体 CLI 命令。
+- **救急命令**：`already-installed` / `bundle-in-use` / `not-removable` 三个码的失败详情尾部会补一条 ASCII 命令 ` (dsh plugin --profile <范围> add --save-exact <包名>@<版本> --registry=<源>)`——载体 CLI 在官方桌面版机器上可执行，是管理器外唯一能原地换版的通道。面板展示 `job.message` 时原样显示即可，不需要解析。使用范围名与源都取本次配方的真实值（不是写死的 `desktop`），源来自宿主注入或配置、与安装同源。
   - **恢复选中这一步的失败/超时也补同一条命令**；宿主没有 `setBundleEnabled` 时人话格说明「宿主不支持恢复选中，无法安全更新」（不再合成 `bundle-in-use` 冒充「还有别的层在用」）。
+  - **宁可不给命令，也不给假命令**（`0.18.21` 起）：这条命令是给人复制到终端执行的，各平台 shell 的引号规则不同（cmd 不认单引号、PowerShell 的引号/反引号各有含义），所以使用范围名 / 源地址 / 规格里只要出现空白、`$`、反引号、引号、`&`、`;` 等任意一个无法确定安全的字符，就整条命令省略（只留原因与下一步文字）。`manualCommand`（手工兜底命令）同一政策：这类情况下返回 `null`，不再用 JSON 引号拼一条会被展开或截断的命令。
 - **空更新哨兵**：安装请求的目标版本与磁盘已装版本相同 ⇒ 直接回 `installation-changed`（详情写「目标版本与已装版本相同，无需安装」），不建任务、不起安装；批量/旧快照拿已装版当目标时不再跑到装后校验才报错。
 - **装后「在册」核实收窄为「登记不许倒退」**：新装必须进 `dsh.profile.bundles`（或老清单的 `dependencies`），否则失败（`0.18.12` 起的行为）；更新一个装前就未登记的包已经成功过的那次不因「仍未登记」判失败——否则真机那六件（装着、在跑、未选中）永远升不了级；装前登记过、装后清单里丢了（倒退）仍然失败。装前读取器没给出 `registered`（旧覆盖实现或清单读不到）而装后为 `false` 时仍判失败：无法证明不是新装，保守方向。
 

@@ -20,7 +20,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, link, open, readFile, rename, realpath, stat, unlink, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
-import { installRecipe } from './commands.js'
+import { installRecipe, shellSafeArg } from './commands.js'
 import { BACKUP_FILE, DEFAULT_INSTALL_TIMEOUT_MS, LEGACY_PLUGIN_ID, LOCK_FILE, SKIPPED_FILE, STATE_FILE } from './config.js'
 import { emptyBatchSession, normalizeBatchSession, type BatchSession } from './batch.js'
 import { normalizeQueueState, type QueueOwner, type UpdateQueueState } from './queue.js'
@@ -1774,22 +1774,34 @@ async function probeManagerTopology(
  * 形状与 `src/commands.ts` 的 `manualCommand` 同源（`add --save-exact <包>@<版本> --registry=<源>`）：
  * 管理器配方自己的 `pluginArgs` 只有「add + spec」两个元素（它不接受开关），所以这里按包名与源
  * 重新拼成命令行能直接执行的形状；源未知时不附 `--registry=`（用户也可自行去掉）。
- * 管理器路的三处人话格（启用缺失、移除超时、重装失败）共用这一份实现，避免各行拼出不同命令。
+ * 管理器路的三个位置（启用缺失、移除超时、重装失败）共用这一份实现，避免各行拼出不同命令。
+ *
+ * 插值只走 `shellSafeArg` 的保守白名单（与 `manualCommand` 同一政策）：使用范围名 / 源 / 规格
+ * 含空白、`$`、反引号、引号、`&` 等任意一个就返回 null——**宁可不出命令，也不出会被 shell
+ * 展开、截断或悄悄换源的假命令**（对抗审查 HARD：`JSON.stringify` 不是 shell 引号）。
  */
-function carrierAddCommand(profileName: string, spec: string, registry: string | null): string {
-  const arg = /^[A-Za-z0-9_.-]+$/.test(profileName) ? profileName : JSON.stringify(profileName)
-  const source = registry ? ` --registry=${registry}` : ''
-  return `dsh plugin --profile ${arg} add --save-exact ${spec}${source}`
+function carrierAddCommand(profileName: string, spec: string, registry: string | null): string | null {
+  const arg = shellSafeArg(profileName)
+  const named = shellSafeArg(spec)
+  if (!arg || !named) return null
+  if (registry === null) return `dsh plugin --profile ${arg} add --save-exact ${named}`
+  const source = shellSafeArg(registry)
+  if (!source) return null
+  return `dsh plugin --profile ${arg} add --save-exact ${named} --registry=${source}`
 }
 
 /**
  * 无条件把载体 CLI 命令补在详情尾部（启用步用：这一步的失败没有宿主拒绝码可判，但用户
  * 同样需要「换通道」的下一步）。原文在前、总长守 DETAIL_MAX_CHARS；命令本身超预算时
  * 宁可只留原文，绝不输出越界详情（Spec 审查：room<=0 曾把全文拼回去）。
+ * 命令为 null（插值不安全，见 `carrierAddCommand`）时一字不加；原文里已经带过同一条命令时
+ * 也不重复补（重装失败先经 `failureOf`、再经 `withRemovalFact` 的两段式路径）。
  */
-function withCarrierHint(error: Error & { detail?: string }, command: string): Error & { detail?: string } {
-  const suffix = ` (${command})`
+function withCarrierHint(error: Error & { detail?: string }, command: string | null): Error & { detail?: string } {
+  if (command === null) return error
   const said = typeof error.detail === 'string' ? error.detail : ''
+  if (said.includes(command)) return error
+  const suffix = ` (${command})`
   const room = DETAIL_MAX_CHARS - suffix.length - 1
   if (room <= 0) return withDetail(error, said.slice(0, DETAIL_MAX_CHARS))
   const head = said.length > room ? said.slice(0, room) : said
@@ -1802,7 +1814,7 @@ function withCarrierHint(error: Error & { detail?: string }, command: string): E
 function withManagerRetryHint(
   error: Error & { detail?: string },
   result: ManagerChangeResult,
-  command: string
+  command: string | null
 ): Error & { detail?: string } {
   const code = managerCodeOf(result)
   if (!MANAGER_ROUTE_BLOCKED_CODES.has(code)) return error
@@ -1853,10 +1865,12 @@ function withManagerHint(result: ManagerChangeResult, said: string): string {
 /**
  * 移除已成功、重装却没成（失败或超时）：在宿主原话之后补「目标包已被摘掉」这条事实与一条
  * 一定能用的重装命令（#168）。原文在前、本包补记在后，总长仍守 DETAIL_MAX_CHARS。
+ * 命令为 null（插值不安全）时只说事实；原文里已经带过同一条命令时不再重复拼。
  */
-function withRemovalFact(error: Error & { detail?: string }, command: string): Error & { detail?: string } {
-  const fact = `${REINSTALL_AFTER_REMOVAL_DETAIL} (${command})`
+function withRemovalFact(error: Error & { detail?: string }, command: string | null): Error & { detail?: string } {
   const said = typeof error.detail === 'string' ? error.detail : ''
+  const withCommand = command !== null && !said.includes(command)
+  const fact = withCommand ? `${REINSTALL_AFTER_REMOVAL_DETAIL} (${command})` : REINSTALL_AFTER_REMOVAL_DETAIL
   const room = DETAIL_MAX_CHARS - fact.length - 1
   // 命令/事实本身就超预算时宁可丢补充事实也不越界：原文截到上限，绝不输出超长详情。
   if (room <= 0) return withDetail(error, said.slice(0, DETAIL_MAX_CHARS))
@@ -2012,7 +2026,8 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
       // 移除步刻意不请求取消；超时意味着「可能已经摘掉了、但没来得及重装」（#184）——要当场说清并给下一步。
       // 这一步的「手工命令」面板里可能拿不到（目标已不在 dependencies，读取器会判成源码安装、不给命令），
       // 所以把这条桌面 CLI 一定能用的重装命令直接写进人话格（spec = 包名@目标版本）。
-      const removalTimeoutDetail = `${REMOVE_TIMEOUT_DETAIL} (${carrierCommand})`
+      const removalTimeoutDetail =
+        carrierCommand === null ? REMOVE_TIMEOUT_DETAIL : `${REMOVE_TIMEOUT_DETAIL} (${carrierCommand})`
       const removing = Promise.resolve(removeBundle.call(manager, targetName)) as Promise<ManagerChangeResult>
       const removed = await finishCall(removing, async () => 'not-running', removalTimeoutDetail)
       const removalApplication = removed && typeof removed.application === 'string' ? removed.application : ''

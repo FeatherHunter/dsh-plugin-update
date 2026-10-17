@@ -304,14 +304,18 @@ describe('官方桌面版：更新已装包的配方（remove_bundle → install
       ],
       remove: [{ application: 'applied' }],
     })
-    const error = await rejectedOf(() => call(runWith({ pluginManager: manager, log: () => {} })))
+    const error = await rejectedOf(() =>
+      call(runWith({ registryUrl: REGISTRY, pluginManager: manager, log: () => {} }))
+    )
     const detail = String(error.detail)
     assert.equal(error.code, 'install-failed')
     assert.match(detail, /SECOND/, '宿主原话要在详情里')
     assert.match(detail, /已被宿主移除/, '必须点明移除这一步已经发生（#168）')
     assert.match(detail, /不在使用范围里/, '必须说明目标包现在不在册，处置与「可以重试」不同')
-    assert.match(detail, /dsh plugin --profile desktop add --save-exact/, '必须给一条一定能用的重装命令')
-    assert.ok(detail.includes(SPEC), `重装命令要带完整规格（期望含 ${SPEC}）`)
+    assert.ok(
+      detail.includes(`dsh plugin --profile desktop add --save-exact ${SPEC} --registry=${REGISTRY}`),
+      `必须给一条一定能用的重装命令（含 --registry），实际：${detail}`
+    )
     assert.ok(
       detail.indexOf('SECOND') < detail.indexOf('已被宿主移除'),
       '契约：宿主原话在前、本包补记的事实与下一步在后'
@@ -322,7 +326,7 @@ describe('官方桌面版：更新已装包的配方（remove_bundle → install
   it('重装步超时（移除已成功）：详情同样要说明目标包可能已被移除，并给可执行重装命令', async () => {
     const manager = scripted({ install: [alreadyInstalled(), () => new Promise(() => {})], remove: [{ application: 'applied' }] })
     const outcome = await cappedSettle(
-      () => call(runWith({ installTimeoutMs: 30, pluginManager: manager, log: () => {} })),
+      () => call(runWith({ installTimeoutMs: 30, registryUrl: REGISTRY, pluginManager: manager, log: () => {} })),
       30 + GRACE_MS + 4000
     )
     const detail = String(outcome.error.detail)
@@ -331,8 +335,29 @@ describe('官方桌面版：更新已装包的配方（remove_bundle → install
     assert.equal(manager.calls.install.length, 2, '移除成功后必须真的尝试过重装')
     assert.match(detail, /安装超时/, '超时口径仍在')
     assert.match(detail, /已被宿主移除|不在使用范围里/, '必须点明移除已经发生、包可能不在册')
-    assert.match(detail, /dsh plugin --profile desktop add --save-exact/, '必须给一条一定能用的重装命令')
+    assert.ok(
+      detail.includes(`dsh plugin --profile desktop add --save-exact ${SPEC} --registry=${REGISTRY}`),
+      `必须给一条一定能用的重装命令（含 --registry），实际：${detail}`
+    )
     assert.ok(detail.length <= 301, '详情仍受 300 字封顶')
+  })
+
+  it('载体命令的 profile 与源取配方自己的值，不写死 desktop（命令单源）', async () => {
+    const manager = scripted({ install: [alreadyInstalled()], remove: false })
+    const error = await rejectedOf(() =>
+      createUpdateExecutor({
+        environmentKind: MANAGER_KIND,
+        profileName: 'desktop',
+        registryUrl: REGISTRY,
+        pluginManager: manager,
+        log: () => {},
+      })({ version: '1.2.3', profileName: 'work', environmentKind: MANAGER_KIND })
+    )
+    const detail = String(error.detail)
+    assert.ok(
+      detail.includes(`dsh plugin --profile work add --save-exact ${SPEC} --registry=${REGISTRY}`),
+      `命令必须用配方自己的使用范围名与同源源地址，实际：${detail}`
+    )
   })
 
   it('removeBundle 抛异常或拒绝：不炸出别的码，收成 install-failed，且不重装', async () => {

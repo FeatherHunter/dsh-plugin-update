@@ -17,6 +17,8 @@
  * 7. 恢复选中失败（如 `permission`）⇒ 失败详情同样补载体 CLI 命令，且不往下摘包；
  * 8. 恢复选中超时 ⇒ 人话格说明是启用步超时并给命令；
  * 9. `listBundles` 抛错的宿主 ⇒ 退回旧两步（探测异常不冒充「不可用」）。
+ * 10. 载体命令用配方自己的使用范围名与同源源地址，不写死 `desktop`（命令单源，审查 HARD）；
+ * 11. 使用范围名含 shell 元字符（`$`/空格等）⇒ 宁可不给命令，也不给会被展开/截断的假命令。
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -25,6 +27,7 @@ import { createUpdateExecutor } from '../dist/store.js'
 const TARGET = 'dsh-mattpocock-skills-deck'
 const SPEC = `${TARGET}@2.0.0`
 const PROFILE = 'desktop'
+const REGISTRY = 'https://registry.npmjs.org/'
 
 /** 假管理器：按脚本回话，按顺序记录调用（名字 + 关键参数）。 */
 function makeManager(script) {
@@ -60,6 +63,7 @@ function run(manager, parts = {}) {
     profileName: PROFILE,
     environmentKind: 'desktop-manager',
     targetPackageName: TARGET,
+    registryUrl: REGISTRY,
     pluginManager: manager,
     ...parts,
   })
@@ -108,8 +112,10 @@ describe('#201 管理器路：已装包先探拓扑再走两步配方', () => {
       assert.equal(error.code, 'install-failed')
       assert.match(error.detail, /not-removable/)
       assert.match(error.detail, /不可移除/)
-      assert.match(error.detail, /dsh plugin --profile desktop add --save-exact/, '必须给一条一定能用的命令')
-      assert.match(error.detail, new RegExp(SPEC.replace(/[/.]/g, '\\$&')))
+      assert.ok(
+        error.detail.includes(`dsh plugin --profile desktop add --save-exact ${SPEC} --registry=${REGISTRY}`),
+        `必须给一条一定能用的完整命令（含 --registry），实际：${error.detail}`
+      )
       return true
     })
     assert.equal(calls.some((call) => call[0] === 'removeBundle'), false, '不可移除时绝不该真去移除')
@@ -155,7 +161,10 @@ describe('#201 管理器路：已装包先探拓扑再走两步配方', () => {
       // 真实原因是「宿主缺恢复选中能力」，不许合成 bundle-in-use 冒充「还有别的层在用」。
       assert.match(error.detail, /宿主不支持恢复选中/)
       assert.doesNotMatch(error.detail, /bundle-in-use|别的层在用/)
-      assert.match(error.detail, /dsh plugin --profile desktop add --save-exact/)
+      assert.ok(
+        error.detail.includes(`dsh plugin --profile desktop add --save-exact ${SPEC} --registry=${REGISTRY}`),
+        `无能力时也必须给完整命令（含 --registry），实际：${error.detail}`
+      )
       return true
     })
     assert.equal(calls.some((call) => call[0] === 'removeBundle'), false)
@@ -171,7 +180,10 @@ describe('#201 管理器路：已装包先探拓扑再走两步配方', () => {
       assert.equal(error.code, 'install-failed')
       assert.match(error.detail, /permission/)
       assert.match(error.detail, /宿主写不了使用范围目录/)
-      assert.match(error.detail, /dsh plugin --profile desktop add --save-exact/)
+      assert.ok(
+        error.detail.includes(`dsh plugin --profile desktop add --save-exact ${SPEC} --registry=${REGISTRY}`),
+        `启用失败也要给完整命令（含 --registry），实际：${error.detail}`
+      )
       return true
     })
     assert.equal(calls.some((call) => call[0] === 'removeBundle'), false, '恢复选中没成就不能往下摘包')
@@ -187,7 +199,10 @@ describe('#201 管理器路：已装包先探拓扑再走两步配方', () => {
     await assert.rejects(run(manager, { installTimeoutMs: 60 }), (error) => {
       assert.equal(error.code, 'install-failed')
       assert.match(error.detail, /启用已装包超时/)
-      assert.match(error.detail, /dsh plugin --profile desktop add --save-exact/)
+      assert.ok(
+        error.detail.includes(`dsh plugin --profile desktop add --save-exact ${SPEC} --registry=${REGISTRY}`),
+        `启用超时也要给完整命令（含 --registry），实际：${error.detail}`
+      )
       return true
     })
   })
@@ -254,6 +269,53 @@ describe('#201 管理器路：已装包先探拓扑再走两步配方', () => {
       calls.map((call) => call[0]),
       ['installBundle', 'listBundles', 'removeBundle', 'installBundle'],
       '缺格时必须按旧行为走，不许误启用、也不许误报不可移除',
+    )
+  })
+
+  it('载体命令的 profile 与源取配方自己的值，不写死 desktop（命令单源）', async () => {
+    const manager = {
+      installBundle: () => ALREADY_INSTALLED,
+      removeBundle: () => ({ application: 'applied' }),
+      listBundles: () => [{ name: TARGET, installed: true, enabled: true, removable: false }],
+    }
+    const executor = createUpdateExecutor({
+      profileName: 'desktop',
+      environmentKind: 'desktop-manager',
+      targetPackageName: TARGET,
+      registryUrl: REGISTRY,
+      pluginManager: manager,
+    })
+    await assert.rejects(
+      executor({ version: '2.0.0', profileName: 'work', environmentKind: 'desktop-manager' }),
+      (error) => {
+        assert.ok(
+          error.detail.includes(`dsh plugin --profile work add --save-exact ${SPEC} --registry=${REGISTRY}`),
+          `命令必须用配方自己的使用范围名与同源源地址，实际：${error.detail}`
+        )
+        return true
+      }
+    )
+  })
+
+  it('使用范围名含 shell 元字符：宁可不出命令，也不出会被展开/截断的假命令', async () => {
+    const { manager } = makeManager({
+      installs: [ALREADY_INSTALLED],
+      listBundles: [{ name: TARGET, installed: true, enabled: true, removable: false }],
+    })
+    const executor = createUpdateExecutor({
+      profileName: 'desktop',
+      environmentKind: 'desktop-manager',
+      targetPackageName: TARGET,
+      registryUrl: REGISTRY,
+      pluginManager: manager,
+    })
+    await assert.rejects(
+      executor({ version: '2.0.0', profileName: 'my $profile', environmentKind: 'desktop-manager' }),
+      (error) => {
+        assert.match(error.detail, /不可移除/, '事实与下一步照旧给')
+        assert.ok(!error.detail.includes('dsh plugin'), `不安全插值不许编命令，实际：${error.detail}`)
+        return true
+      }
     )
   })
 })

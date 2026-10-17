@@ -6,6 +6,21 @@
 
 ## [Unreleased]
 
+## [0.18.21] - 2026-10-18
+
+### Fixed
+- **#201 审查 HARD：候选（合规版）路径的锁后空更新哨兵移到指纹/环境闸门之前**：`installCandidate` 在重取环境后先查 `installationKey`/`eligible`，再判「目标=已装」，等锁期间磁盘被别处换成目标版时会先报一句没有 detail 的 `installation-changed`；#202 的「目标版本与已装版本相同，无需安装」在 `updateInstall(version)` 这条路径上不可达。现在与 latest 路径同序：最诚实的事实（没东西可装）先说。
+- **#201 审查 HARD：命令必须可执行，否则宁可不给**：`carrierAddCommand` 原来对使用范围名用 `JSON.stringify` 加引号——那不是 shell 引号（`$`/反引号在 PowerShell/bash 里仍会展开、甚至执行），源地址也是裸拼（含空格/`&` 会被截断）。现在所有插值统一过 `shellSafeArg` 保守白名单（`src/commands.ts` 导出）：使用范围名 / 源 / 规格里出现空白、`$`、反引号、引号、`&`、`;` 等任意一个字符就整条命令省略；`manualCommand` 同一政策，不再返回会被展开/截断的命令串。
+- **#168 重装失败详情不再重复同一命令**：`failureOf` 已补过载体命令、`withRemovalFact` 又补一次时，按「原文里已含该命令」去重（`withCarrierHint` 同口径），人话格只出现一份。
+
+### Changed
+- `README.md`：§5.9 救急命令形状补 `--registry=<源>`、说明范围名与源取本次配方真实值；「无 `setBundleEnabled`」口径改为「有 `listBundles` 但无启用能力 ⇒ 诚实失败 + 命令」（只有无 `listBundles` 才退回老两步）；新增「宁可不给命令，也不给假命令」条。
+- `docs/host-install-exits.md`：出口二命令条补 `--registry=<源>` 与来源说明；新增「命令必须可执行，否则宁可不给」子条（各平台 shell 引号规则不同、`JSON.stringify` 不是 shell 引号）。
+- 测试：`tests/routes.test.mjs` 新增使用范围名/源含 shell 元字符 ⇒ `manualCommand` 返回 `null` 的用例（3 例）；`tests/issue-201-manager-recovery.test.mjs` 扩到 12 例（命令带 `--registry=`、范围名/源取配方真实值、不安全插值不编命令）；`tests/desktop-manager-hmr.test.mjs` #168 两例断言完整命令（含 `--registry=`）并新增命令单源用例；`tests/issue-202-noop-install.test.mjs` 新增候选路径锁后竞态 + 正常候选安装 2 例（现 5 例）。
+- **发布口径提醒**：`0.18.8`～`0.18.21` 十四段都还没发到 npm（registry 最新仍是 `0.18.7`），发版以 `0.18.21` 一次带走即可。
+
+门禁（**发版定格**）：`npm test` **1512 例：1511 过 / 0 失败 / 1 跳过**（干净发版树 + 本批 11 个文件上实测）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、354 个 key、16 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.21`，372.1 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（354 个 key 仍全是 `draft: true`）。
+
 ## [0.18.20] - 2026-10-18
 
 ### Fixed
