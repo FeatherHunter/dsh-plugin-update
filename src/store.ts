@@ -25,7 +25,7 @@ import { BACKUP_FILE, LEGACY_PLUGIN_ID, LOCK_FILE, SKIPPED_FILE, STATE_FILE } fr
 import { emptyBatchSession, normalizeBatchSession, type BatchSession } from './batch.js'
 import { normalizeQueueState, type QueueOwner, type UpdateQueueState } from './queue.js'
 import { validReleaseVersion } from './service.js'
-import { sanitizeDetail } from './redaction.js'
+import { DETAIL_MAX_CHARS, sanitizeDetail } from './redaction.js'
 import { LOG_EVENT_INSTALL_EXEC } from './log-events.js'
 import type { EnvironmentKind, InstallRecipe, ReleaseChannel, UpdateJob, UpdateLogPort } from './ports.js'
 
@@ -1226,9 +1226,11 @@ async function runDesktopService(
   if (!active || !active.dir || !profileDir || !(await sameDir(active.dir, profileDir))) throw fail('install-failed')
   const handle = service.runPlugin(recipe.pluginArgs, profileDir, undefined)
   if (!handle || !handle.done || typeof handle.done.then !== 'function') throw fail('install-failed')
+  // 双流由调用方负责读（契约）：先挂监听再等退出，失败原文才拿得到。
+  const readOutput = streamCollectorOf(handle)
   const outcome = await handle.done
   const code = outcome && typeof outcome.exitCode === 'number' ? outcome.exitCode : null
-  if (code !== 0) throw withExit(fail('install-failed'), code)
+  if (code !== 0) throw withDetail(withExit(fail('install-failed'), code), causeExcerptOf(readOutput()))
   return code
 }
 
@@ -1239,6 +1241,8 @@ async function runDesktopService(
 interface ManagerChangeResult {
   application?: unknown
   error?: unknown
+  /** pnpm 的退出事实与原文就在这格（只抄本包用到的 output）：失败原文的唯一来源。 */
+  packageResult?: { output?: unknown }
 }
 
 /** 成功三态：overridden 是「改动已被保留、只是被别的层盖住」，不是失败。 */
@@ -1278,6 +1282,104 @@ function detailText(error: unknown): string {
     }
   }
   return error === undefined || error === null ? '' : sanitizeDetail(String(error))
+}
+
+/** 抓取读数上限（与 INSTALL_STDIO 同一 64 KiB 口径）：够挑出错误码行即可，不留整段日志。 */
+const COLLECT_MAX_BYTES = 64 * 1024
+
+/**
+ * 安装原文里「签名行」的样子：装的是谁、何时发布、门限几时到、以及 pnpm 的错误码。
+ * 认因（src/install-cause.ts）要的是整条签名，不是单独一个错误码。
+ */
+const CAUSE_SIGNATURE_LINE = /ERR_PNPM_[A-Z0-9_]+|(^|\s)ERR!|published|cutoff|minimumReleaseAge|Cannot install/i
+
+/**
+ * 从安装输出里挑出「因」：三条宿主路其实都把 pnpm 原文交给我们（cli 路的抓取读数、
+ * 桌面服务路的双流、管理器路的 packageResult.output），但 detail 封顶只有 300 字，
+ * 而 pnpm 把错误码打在日志尾巴上——先挑错误码行（连带紧邻上面的签名行），
+ * 挑不到退最后一段，原文才活得到面板。
+ * 脱敏仍只经唯一出口 sanitizeDetail。
+ * 2026-10-17 对抗审查（#156）：这格此前无人生产，24h 年龄门的原文到不了面板，
+ * 「装合规版」四个入口在生产形状下全都认不出因；第四轮又发现真报文是分行的
+ * （签名在上、错误码单独在最后一行），只取错误码行等于把签名丢掉，故一并收签名行。
+ */
+function causeExcerptOf(raw: unknown): string {
+  const text = typeof raw === 'string' ? raw.replace(/\r\n?/g, '\n').trim() : ''
+  if (!text) return ''
+  const lines = text.split('\n')
+  const at = lines.findIndex((line) => /ERR_PNPM_[A-Z0-9_]+|(^|\s)ERR!/.test(line))
+  if (at >= 0) {
+    // 错误码行未必自带因：pnpm 也把「装的是谁、何时发布、门限几时到」留在上面几行，
+    // 错误码单独打在最后一行。认因要的是整条签名，光揣一个错误码等于没认出因——
+    // 所以把紧邻上面的签名行一并收进来（2026-10-17 #156 第四轮：真机形状就是这种分行的）。
+    const above: string[] = []
+    for (let i = at - 1; i >= 0 && above.length < 2; i--) {
+      const line = lines[i].trim()
+      if (line && CAUSE_SIGNATURE_LINE.test(line)) above.unshift(line)
+    }
+    const picked = [...above, ...lines.slice(at, at + 3).map((line) => line.trim()).filter(Boolean)].join(' ')
+    return sanitizeDetail(picked)
+  }
+  // 挑不到错误码行：从最后一行往前收（pnpm 把结论打在最后），最近的一行放最前，
+  // 重复的进度行只留一次——既不丢结论，也不把开头那句进度日志当因。
+  const picked: string[] = []
+  let size = 0
+  for (let i = lines.length - 1; i >= 0 && size < DETAIL_MAX_CHARS; i--) {
+    const line = lines[i].trim()
+    if (!line || picked.includes(line)) continue
+    picked.push(line)
+    size += line.length + 1
+  }
+  return picked.length === 0 ? '' : sanitizeDetail(picked.join(' '))
+}
+
+/**
+ * cli 路：宿主 subprocess 的抓取读数。契约（@deepseek-ai/dsh-subprocess README）：
+ * `spawn({ …, stdio: { stdin:'ignore', stdout:{ maxBytes }, … } })` 后
+ * `handle.collected.stdout?.readFrom(0)` → `{ text, lossy, spillPath? }`，**退出后仍可读**；
+ * `done` 只报退出事实。老宿主/假件没有这格 → 空串，不炸、不猜。
+ */
+function collectedOutputOf(handle: unknown): string {
+  const collected = (handle as { collected?: { stdout?: unknown; stderr?: unknown } } | null)?.collected
+  const parts: string[] = []
+  for (const stream of [collected?.stderr, collected?.stdout]) {
+    try {
+      const read = (stream as { readFrom?: (offset: number) => { text?: unknown } } | null)?.readFrom?.(0)
+      if (read && typeof read.text === 'string' && read.text) parts.push(read.text)
+    } catch {}
+  }
+  return parts.join('\n')
+}
+
+/**
+ * 桌面服务路：契约给的 `handle.stdout/stderr` 双流由**调用方自己读**（不读就永远没有原文）。
+ * 先要 utf8 文本（流是宿主的，能要就要），再挂 data 监听、只留前 64 KiB；
+ * 读失败一律吞掉，不影响成败判定。
+ */
+function streamCollectorOf(handle: unknown): () => string {
+  const chunks: string[] = []
+  let kept = 0
+  const shape = handle as { stdout?: unknown; stderr?: unknown } | null
+  const attach = (stream: unknown): void => {
+    const on = (stream as { on?: (event: string, cb: (chunk: unknown) => void) => unknown } | null)?.on
+    if (typeof on !== 'function') return
+    const setEncoding = (stream as { setEncoding?: (encoding: string) => unknown } | null)?.setEncoding
+    try {
+      if (typeof setEncoding === 'function') setEncoding.call(stream, 'utf8')
+    } catch {}
+    try {
+      on.call(stream, 'data', (chunk: unknown) => {
+        if (kept >= COLLECT_MAX_BYTES) return
+        const text = typeof chunk === 'string' ? chunk : String(chunk ?? '')
+        if (!text) return
+        kept += text.length
+        chunks.push(text)
+      })
+    } catch {}
+  }
+  attach(shape?.stderr)
+  attach(shape?.stdout)
+  return () => chunks.join('')
 }
 
 /**
@@ -1389,7 +1491,13 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
     const application = result && typeof result.application === 'string' ? result.application : ''
     if (MANAGER_OK.includes(application)) return 0
     if (application === 'cancelled') throw withDetail(fail('install-failed'), '安装已被取消')
-    throw withDetail(fail('install-failed'), detailText(result && result.error !== undefined ? result.error : `application: ${application || 'unknown'}`))
+    // 失败原文优先取 packageResult.output（契约里 pnpm 的原话就在那格，error 只有 code/diagnostic）；
+    // 取不到才退回 error 的短码。挑因与封顶口径同另两条路。
+    const rawOutput = result && result.packageResult && typeof result.packageResult.output === 'string' ? result.packageResult.output : ''
+    const said = rawOutput.trim()
+      ? causeExcerptOf(rawOutput)
+      : detailText(result && result.error !== undefined ? result.error : `application: ${application || 'unknown'}`)
+    throw withDetail(fail('install-failed'), said)
   } catch (error) {
     if ((error as { code?: unknown })?.code === 'install-failed') throw error
     throw withDetail(fail('install-failed'), detailText(error))
@@ -1421,7 +1529,11 @@ async function runCliProcess(
   })
   if (!handle || !handle.done || typeof handle.done.then !== 'function') throw fail('install-failed')
   const outcome = await awaitOutcome(handle as { done: Promise<{ exitCode?: number } | null> }, recipe.timeoutMs)
-  if (outcome.timedOut || outcome.exitCode !== 0) throw withExit(fail('install-failed'), outcome.exitCode)
+  // 抓取读数在退出后仍可读（宿主 subprocess 契约）：失败时把它挑成一句人话再上抛，
+  // 上层按既有 message 通道给面板；挑不到就是空串，形状与从前一致。
+  if (outcome.timedOut || outcome.exitCode !== 0) {
+    throw withDetail(withExit(fail('install-failed'), outcome.exitCode), causeExcerptOf(collectedOutputOf(handle)))
+  }
   return outcome.exitCode
 }
 

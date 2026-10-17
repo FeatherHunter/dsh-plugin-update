@@ -75,6 +75,41 @@ test('#154-3 守住：install-failed 无原因行不重排', async () => {
   assert.ok(i1 !== -1 && i2 !== -1 && i1 < i2, '两行都在且顺序不变')
 })
 
+test('#154-5 宿主码前缀不污染前置：operation-error: 进度头不算原因行，✗ 行仍置顶', async () => {
+  const host = await freshHost()
+  // 2026-10-17 dsh-prompt 0.4.28→0.4.29 现场：store.ts detailText 把宿主 ManagementError
+  // 收成 `operation-error: <原话首行>`，前缀自身含 error 一词，旧判定把进度头误判成原因行。
+  const detail = [
+    'operation-error: ? Verifying lockfile against supply-chain policies (310 entries)...',
+    'dsh-im-companion is linked to C:\\x from C:\\y',
+    'Progress: resolved 1, reused 0, downloaded 0, added 0',
+    '✗ Lockfile failed supply-chain policy check (310 entries in 966ms)',
+  ].join('\n')
+  const diag = host.buildDiag({
+    errorCode: 'install-failed',
+    phoneKind: 'update-install',
+    error: { detail },
+  })
+  assert.ok(diag && typeof diag === 'object', '应产出 diag')
+  assert.ok(diag.detail.startsWith('✗ Lockfile failed'), '首行即 ✗ 行，实际=' + String(diag.detail).slice(0, 60))
+  assert.ok(diag.detail.includes('operation-error:'), '宿主码前缀原样保留，只是换位，不删一字')
+})
+
+test('#154-6 守住：ERR_ 机器前缀本身即信号，不剥离', async () => {
+  const host = await freshHost()
+  const detail = [
+    '[ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION] 1 lockfile entries failed verification:',
+    'progress line neutral',
+    '✗ Lockfile failed supply-chain policy check (309 entries in 2.8s)',
+  ].join('\n')
+  const diag = host.buildDiag({
+    errorCode: 'install-failed',
+    phoneKind: 'update-install',
+    error: { detail },
+  })
+  assert.ok(diag && typeof diag === 'object', '应产出 diag')
+  assert.ok(String(diag.detail).includes('ERR_PNPM_MINIMUM_RELEASE_AGE'), '机器码不丢')
+})
 test('#154-4 未知源文案：无 registryHost 写 源=未声明', async () => {
   const panel = await freshPanel()
   const text = panel.buildUpdateDiagCopy({

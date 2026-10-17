@@ -286,6 +286,13 @@ export type BilingualKey =
   | 'batch.seal.ledger'
   | 'batch.banner.error-title'
   | 'batch.banner.error-action-fallback'
+  | 'batch.banner.age-gated'
+  | 'batch.banner.gated-wait'
+  | 'batch.banner.compliant-done-title'
+  | 'batch.banner.compliant-done'
+  | 'batch.banner.compliant-done-gated'
+  | 'batch.banner.compliant-confirm'
+  | 'batch.action.install-compliant-confirm'
   | 'batch.banner.failed-title'
   | 'batch.banner.failed-action'
   | 'batch.banner.restart-title'
@@ -319,6 +326,7 @@ export type BilingualKey =
   | 'batch.row-action.copy-manual'
   | 'batch.row-action.copy-diag'
   | 'batch.row.error-label'
+  | 'batch.row.compliant-done'
   | 'batch.diag.source-job'
   | 'batch.toast.copy-fail'
   | 'batch.toast.queue-missed'
@@ -326,6 +334,7 @@ export type BilingualKey =
   | 'batch.toast.unskipped-version'
   | 'batch.toast.unskipped-all'
   | 'batch.toast.cancel-unavailable'
+  | 'batch.toast.compliant-installed'
   | 'batch.toast.cancel-ok'
   | 'batch.toast.cancel-fail'
   | 'batch.toast.copy-manual-ok'
@@ -641,6 +650,14 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.seal.ledger': { en: 'Ledger', zh: '总账', draft: true },
   'batch.banner.error-title': { en: 'Failed this time ({code}): {detail}.', zh: '本次执行失败（{code}）：{detail}。', draft: true },
   'batch.banner.error-action-fallback': { en: 'Retry once first; if it persists, send the copied diagnostics to the plugin author.', zh: '请重试一次；若持续，请提交诊断信息至插件作者。', draft: true },
+  // #156 批量级合规版入口：最新版被 24 小时年龄门挡住时，「全部更新」不许只剩一句失败。
+  'batch.banner.age-gated': { en: '{n} plugin(s) are blocked by the 24-hour age gate.', zh: '{n} 个插件的最新版被 24 小时年龄门挡住。', draft: true },
+  'batch.banner.gated-wait': { en: '{n} plugin(s) are blocked by the 24-hour age gate and nothing is installable right now; installable in about {time}.', zh: '{n} 个插件的最新版被 24 小时年龄门挡住，现在还没有可装的版本；约 {time} 后可装。', draft: true },
+  'batch.banner.compliant-done-title': { en: 'Actual install result for these {n} plugin(s):', zh: '这 {n} 个插件的实际安装结果：', draft: true },
+  'batch.banner.compliant-done': { en: '{title}: installed {version}, not the latest {target} (the latest did not go through).', zh: '{title}：已装 {version}，不是最新 {target}（最新版没装成）。', draft: true },
+  'batch.banner.compliant-done-gated': { en: '{title}: installed {version}; the latest {target} is still blocked by the 24-hour age gate (installable in about {time}).', zh: '{title}：已装 {version}；最新 {target} 仍被 24 小时年龄门挡着，约 {time} 后可装。', draft: true },
+  'batch.banner.compliant-confirm': { en: 'Install these compliant builds: {list}?', zh: '确认安装以下合规版：{list}？', draft: true },
+  'batch.action.install-compliant-confirm': { en: 'Confirm and install these {n}', zh: '确认装这 {n} 个', draft: true },
   'batch.banner.failed-title': { en: '{n} failed to install.', zh: '{n} 个插件安装失败。', draft: true },
   'batch.banner.failed-action': { en: 'Retry each one inline; if it keeps failing, send the copied diagnostics to the plugin author.', zh: '请逐家使用行内「重试」；若持续，请提交诊断信息至插件作者。', draft: true },
   'batch.banner.restart-title': { en: '{n} installed; restart the host to take effect.', zh: '{n} 个已安装完成，重启宿主后生效。', draft: true },
@@ -674,6 +691,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.row-action.copy-manual': { en: 'Copy manual command', zh: '复制手工命令', draft: true },
   'batch.row-action.copy-diag': { en: 'Copy diagnostics', zh: '复制诊断', draft: true },
   'batch.row.error-label': { en: 'Failed {code}: {detail}', zh: '失败 {code}：{detail}', draft: true },
+  'batch.row.compliant-done': { en: 'Installed {version}, not the latest {target} (the latest did not go through)', zh: '已装 {version}，不是最新 {target}（最新版这次没装上）', draft: true },
   'batch.diag.source-job': { en: '(Source: background job record)', zh: '（来源：后台任务执行记录）', draft: true },
   'batch.toast.copy-fail': { en: 'Copy failed; please select the info above manually.', zh: '复制失败，请手动选择上方信息。', draft: true },
   'batch.toast.queue-missed': { en: 'Another install is running: this plugin is not queued yet; try again after it finishes.', zh: '前方仍在安装：此插件尚未排队，请待前方安装完成后再次选择。', draft: true },
@@ -681,6 +699,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.toast.unskipped-version': { en: 'Restored {version}: reminders for this version are back on.', zh: '已恢复 {version}：该版本将正常提醒。', draft: true },
   'batch.toast.unskipped-all': { en: 'Skip reminder restored.', zh: '已恢复跳过提醒。', draft: true },
   'batch.toast.cancel-unavailable': { en: 'This row carries no phone or ID to cancel the queue; try again after the next refresh.', zh: '此行缺少取消排队所需的信息，暂无法取消；请待下次刷新后重试。', draft: true },
+  'batch.toast.compliant-installed': { en: 'Requested {a} compliant build(s) (not the latest: it is still age-gated); {b} did not go through.', zh: '已请求安装 {a} 个合规版（不是最新版：最新版仍被年龄门挡着）；{b} 个没装成。', draft: true },
   'batch.toast.cancel-ok': { en: 'Queue cancelled: this plugin will not wait.', zh: '已取消排队：此插件将不再等待。', draft: true },
   'batch.toast.cancel-fail': { en: 'Could not cancel the queue (it may have started installing); see the latest state below.', zh: '取消排队失败（可能已开始安装）：请查看下方最新状态。', draft: true },
   'batch.toast.copy-manual-ok': { en: 'Manual command copied; paste the full line into the terminal to run it.', zh: '手工命令已复制，请粘贴至终端整行执行。', draft: true },

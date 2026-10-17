@@ -50,6 +50,8 @@ import {
   buildDiagnosticText,
   createBrowserSkipStore,
   failureCopy,
+  fallbackCauseFromDetail,
+  fallbackCauseFromDiag,
   isCheckSideFailureCode,
   isKnownFailureCode,
   normalizePanelTheme,
@@ -61,6 +63,7 @@ import {
   type UpdatePanelTheme,
   type UpdateThemeTokens,
 } from './panel.js'
+import { formatUnlockAt } from './install-cause.js'
 import type { UpdateSnapshot } from './ports.js'
 import type { VisibleQueue } from './queue.js'
 
@@ -121,6 +124,12 @@ export interface BatchPanelOptions {
    */
   autoChangelog?: boolean
   /**
+   * 自动决议合规版（#156 第一性原理）：默认开。行是"最新版被 24 小时年龄门挡住"的失败时，
+   * 开面板/刷新后自动逐家问一次可装的最新版；有候选即端上点名确认条，没有即如实说等多久。
+   * false 只保留手动入口（[装合规版] 按钮），不自动打这些电话。
+   */
+  autoCompliant?: boolean
+  /**
    * 弹窗关闭的落地（与单插件面板同一口径）：只在 dialog 下点「关闭」/按 Esc 时调用；调用方在此撤掉弹窗 DOM。
    * 不传则回退为只停轮询（unmount），DOM 留给调用方处理。入口件打开的 dialog 已内置（收 dialog + 还原按钮）。
    */
@@ -154,6 +163,10 @@ export type BatchPanelActionKind =
   | 'row-cancel-queue'
   | 'row-copy-manual'
   | 'row-copy-diag'
+  | 'row-fallback'
+  | 'row-fallback-confirm'
+  | 'batch-fallback-scan'
+  | 'batch-fallback-confirm'
   | 'toggle-details'
   | 'detail-close'
   | 'restart'
@@ -240,7 +253,12 @@ export interface BatchLedgerCounts {
  * 否则沿旧结论（已最新），免得陈旧知识或失败的检查翻转已收尾的轮次。
  * 不传 inventory 即无知识；不传 session 即当无轮次（旧调用零回归）。
  */
-export function batchLedgerCounts(rows: readonly BatchRowView[], inventory?: unknown, session?: unknown): BatchLedgerCounts {
+export function batchLedgerCounts(
+  rows: readonly BatchRowView[],
+  inventory?: unknown,
+  session?: unknown,
+  compliantDone?: ReadonlyMap<string, boolean> | null,
+): BatchLedgerCounts {
   const counts: BatchLedgerCounts = {
     updatable: 0,
     installing: 0,
@@ -252,8 +270,22 @@ export function batchLedgerCounts(rows: readonly BatchRowView[], inventory?: unk
   }
   for (const row of rows) {
     const phase = asBatchPhase(row.phase)
-    if (isQueueBusyRow(row)) counts.updatable += 1
-    else if (phase === 'failed') counts.failed += 1
+    // 例外之三（#156 收尾事实，用户 2026-10-17 裁决）：账本目标没装成、但这家已经装上「能装的最新」
+    // （job 落定、installedVersion === job.targetVersion ≠ 账本目标）——相位一个字不改（目标版确实没
+    // 装上），可总账、hint 与印章不许再报「安装失败」：要重启的进「待重启」，不用重启的进「已最新」。
+    // 传进来的值 = 这一行要不要重启（收尾事实的 needsRestart）；不传即零回归。
+    const doneRestart = phase === 'failed' ? compliantDone?.get(row.key) : undefined
+    if (doneRestart !== undefined) {
+      if (doneRestart) counts.restart += 1
+      else counts.settled += 1
+    } else if (isQueueBusyRow(row)) counts.updatable += 1
+    else if (phase === 'failed') {
+      // 例外之二（#156 M1）：「等重启」行（phase=failed 但 error=pending-restart）其实是磁盘上
+      // 已经有更新版、只差重启生效——账本相位一个字不改（目标版确实没装上），但总账与 hint
+      // 把它记进「待重启」那一档，免得报成「N 个插件安装失败」冤枉它。
+      if (row.error === 'pending-restart') counts.restart += 1
+      else counts.failed += 1
+    }
     else if (phase === 'installing') counts.installing += 1
     else if (phase === 'ready') counts.updatable += 1
     else if (phase === 'pending')
@@ -623,6 +655,19 @@ export interface BatchPanelRenderInput {
   prefs?: unknown
   /** 语言（单语渲染新文案用；不传跟随全局信号）。 */
   lang?: unknown
+  /** 键 -> 该行已决议出的候选（#156；目标对不上当前远端版即视为旧决议，渲染时忽略）。 */
+  fallbackOffers?: Record<string, { candidate: string; targetVersion: string } | null>
+  /** 正在决议中的那一行（键；在途短暂置灰，防连点）。 */
+  fallbackBusyKey?: string | null
+  /** 批量级合规版入口（#156）：被年龄门挡住的行数、决议出的点名清单与在途态，外加"等解封"与解封时刻记忆。 */
+  compliant?: {
+    gated: number
+    confirmList: string | null
+    confirmCount: number
+    busy: boolean
+    wait?: { keys: readonly string[]; unlockAtMs: number | null } | null
+    unlocks?: Record<string, number | null> | null
+  } | null
 }
 
 interface RowRenderContext {
@@ -648,6 +693,12 @@ interface RowRenderContext {
   inRound: boolean
   /** 世界账推翻出的新版本号（#90：终态行被更新鲜的知识推翻时非 null，状态词与圆点同它走）。 */
   worldLatest: string | null
+  /** 该行已决议出的候选（#156；有即二次确认态，无即首问态；旧决议由调用方过滤）。 */
+  fallbackCandidate: string | null
+  /** 该行是否正在决议在途（短暂置灰，防连点）。 */
+  fallbackBusy: boolean
+  /** 该行已决议、此刻确实没有可装版（等解封）：不画按钮，免得点了也没用（#156 诚实性）。 */
+  fallbackWaiting: boolean
 }
 
 /** 整面板 HTML（含样式；重绘即整体替换 innerHTML，故每次都带 style 也只留一份）。 */
@@ -661,7 +712,15 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   const expandedKey = typeof input.expandedKey === 'string' && input.expandedKey ? input.expandedKey : null
   const lastError = typeof input.lastError === 'string' && input.lastError ? input.lastError : null
   const loaded = input.loaded === undefined ? rows.length > 0 : input.loaded === true
-  const counts = batchLedgerCounts(rows, input.inventory, input.session)
+  // 每行自算一次「收尾事实」（纯函数），同一份喂给总账、hint、印章与横幅：一处算两处用，免得说法打架。
+  const compliantFacts = new Map<string, { version: string; target: string; needsRestart: boolean }>()
+  for (const row of rows) {
+    const fact = compliantInstalledOf(row)
+    if (fact) compliantFacts.set(row.key, fact)
+  }
+  const compliantDone = new Map<string, boolean>()
+  for (const [key, fact] of compliantFacts) compliantDone.set(key, fact.needsRestart)
+  const counts = batchLedgerCounts(rows, input.inventory, input.session, compliantDone)
   // 忙分两种：installing = 有人正在装（决定「加入队列」文案）；macroBusy = 再加本地电话在飞（决定宏按钮置灰）。
   const installing = counts.installing > 0
   const macroBusy = input.inFlight === true || installing
@@ -688,7 +747,37 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
     knowledge: null,
     inRound: false,
     worldLatest: null,
+    fallbackCandidate: null,
+    fallbackBusy: false,
+    fallbackWaiting: false,
   }
+  const fallbackOffers =
+    input.fallbackOffers && typeof input.fallbackOffers === 'object' ? input.fallbackOffers : {}
+  const fallbackBusyKey = typeof input.fallbackBusyKey === 'string' && input.fallbackBusyKey ? input.fallbackBusyKey : null
+  const compliantInput = isObject(input.compliant) ? (input.compliant as Record<string, unknown>) : null
+  const compliantWaitInput =
+    compliantInput && isObject(compliantInput['wait']) ? (compliantInput['wait'] as Record<string, unknown>) : null
+  const waitKeys: string[] = []
+  if (compliantWaitInput && Array.isArray(compliantWaitInput['keys'])) {
+    for (const key of compliantWaitInput['keys'] as unknown[]) if (typeof key === 'string' && key) waitKeys.push(key)
+  }
+  const waitUnlockAtMs =
+    compliantWaitInput && typeof compliantWaitInput['unlockAtMs'] === 'number'
+      ? (compliantWaitInput['unlockAtMs'] as number)
+      : null
+  const compliantUnlocksInput =
+    compliantInput && isObject(compliantInput['unlocks']) ? (compliantInput['unlocks'] as Record<string, unknown>) : null
+  const compliant =
+    compliantInput && typeof compliantInput['gated'] === 'number'
+      ? {
+          gated: compliantInput['gated'] as number,
+          confirmList: typeof compliantInput['confirmList'] === 'string' && compliantInput['confirmList'] ? (compliantInput['confirmList'] as string) : null,
+          confirmCount: typeof compliantInput['confirmCount'] === 'number' ? (compliantInput['confirmCount'] as number) : 0,
+          busy: compliantInput['busy'] === true,
+          wait: waitKeys.length > 0 ? { keys: waitKeys, unlockAtMs: waitUnlockAtMs } : null,
+          unlocks: compliantUnlocksInput ? (compliantUnlocksInput as Record<string, number | null>) : null,
+        }
+      : null
   const parts: string[] = []
 
   // 顶部一行：卷宗抬头 + 两件宏（忙守卫：任一行安装中，两个批量入口一起置灰）。
@@ -708,7 +797,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
   parts.push('<div class="dsh-upd-batch-sum" role="status" aria-live="polite">' + escapeHtml(summary) + '</div>')
 
   // 常驻横幅：失败与待重启不藏进抽屉。
-  parts.push(bannersHTML(rows, titles, lastError, lang))
+  parts.push(bannersHTML(rows, titles, lastError, lang, compliant, compliantFacts))
   const session = isObject(input.session) ? (input.session as Record<string, unknown>) : null
   const unfinished = unfinishedCount(rows, session ?? undefined)
   const showControls = total > 0 && hasUnfinishedRows(rows, session ?? undefined)
@@ -723,6 +812,14 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
     const expanded = row.key === expandedKey
     const inRound = isInUnfinishedRound(input.session, row.key)
     const knowledge = !inRound ? knowledgeEntryOf(input.inventory, row.key) : null
+    // 旧决议不指新失败：候选对不上该行当前远端版即视为无候选（挂载侧随后清掉，这里先不画错）。
+    const offerRaw = (fallbackOffers as Record<string, unknown>)[row.key]
+    const offerCand =
+      isObject(offerRaw) && typeof offerRaw['candidate'] === 'string' && (offerRaw['candidate'] as string).trim()
+        ? ((offerRaw['candidate'] as string).trim() as string)
+        : null
+    const offerTarget = isObject(offerRaw) && typeof offerRaw['targetVersion'] === 'string' ? (offerRaw['targetVersion'] as string) : null
+    const latest = latestVersionOf(row)
     parts.push(
       rowSetHTML(row, {
         ...ctx,
@@ -735,6 +832,9 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
         knowledge,
         inRound,
         worldLatest: worldUpdateVersion(row, knowledge, sessionUpdatedAtOf(input.session, row.key)),
+        fallbackCandidate: offerCand && offerTarget === latest ? offerCand : null,
+        fallbackBusy: fallbackBusyKey === row.key,
+        fallbackWaiting: waitKeys.includes(row.key),
       }),
     )
   }
@@ -799,6 +899,12 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
     if (target !== null) {
       const rawSkipped = skippedVersions[target.key]
       const skippedForDialog = typeof rawSkipped === 'string' && rawSkipped ? rawSkipped : null
+      const offerRaw = (fallbackOffers as Record<string, unknown>)[target.key]
+      const offerCand =
+        isObject(offerRaw) && typeof offerRaw['candidate'] === 'string' && (offerRaw['candidate'] as string).trim()
+          ? ((offerRaw['candidate'] as string).trim() as string)
+          : null
+      const offerTarget = isObject(offerRaw) && typeof offerRaw['targetVersion'] === 'string' ? (offerRaw['targetVersion'] as string) : null
       detailDialog = detailDialogHTML(target, {
         ...ctx,
         expanded: true,
@@ -806,6 +912,9 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
         notice: target.key === detailNoticeKey ? notice : null,
         changelogMarkdown:
           typeof changelogs[target.key] === 'string' ? (changelogs[target.key] as string) : null,
+        fallbackCandidate: offerCand && offerTarget === latestVersionOf(target) ? offerCand : null,
+        fallbackBusy: fallbackBusyKey === target.key,
+        fallbackWaiting: waitKeys.includes(target.key),
       })
     }
   }
@@ -851,9 +960,53 @@ function batchSealOf(counts: BatchLedgerCounts, lang?: unknown): { text: string;
   return { text, tone: 'ink' }
 }
 
-/** 常驻横幅：批量电话失败 / 有失败行 / 有待重启行（都不许藏进抽屉；#64 单语：缺省 zh；data-mini 冻结待 #67 仲裁）。 */
-function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, string>, lastError: string | null, lang?: unknown): string {
+/** 常驻横幅：批量电话失败 / 有失败行 / 合规版兜底与收尾事实 / 有待重启行（都不许藏进抽屉；#64 单语：缺省 zh；data-mini 冻结待 #67 仲裁）。 */
+function bannersHTML(
+  rows: readonly BatchRowView[],
+  titles: Record<string, string>,
+  lastError: string | null,
+  lang?: unknown,
+  compliant: {
+    gated?: number
+    confirmList?: string | null
+    confirmCount?: number
+    busy?: boolean
+    /** 已决议、此刻确实没有可装版的行（#156：如实说等多久，不画假按钮）。 */
+    wait?: { keys: readonly string[]; unlockAtMs: number | null } | null
+    /** 决议记忆里的解封时刻（按行 key）：只用来把「最新版还挡多久」说清。 */
+    unlocks?: Record<string, number | null> | null
+  } | null = null,
+  facts?: ReadonlyMap<string, { version: string; target: string; needsRestart: boolean }> | null,
+): string {
   const l = langOf(lang)
+  const unlocks = compliant?.unlocks ?? null
+  // 收尾事实（#156 第一性原理）：账本目标没装成、但这家已经装上「能装的最新」——逐行自算（纯函数自足），
+  // 记忆只补一句「最新版还挡多久」。这是「全部更新到能更新的最新」的交付凭证，不许再算成安装失败。
+  // 渲染侧已经把这份账算过一遍（总账要用同一份），传进来就直接用；单独调用（测试）时自算，纯函数照样自足。
+  const done = new Map<string, { version: string; target: string; needsRestart: boolean }>(facts ?? [])
+  if (!facts) {
+    for (const row of rows) {
+      const fact = compliantInstalledOf(row)
+      if (fact) done.set(row.key, fact)
+    }
+  }
+  const doneLineOf = (row: BatchRowView, fact: { version: string; target: string }): string => {
+    const raw = unlocks && typeof unlocks[row.key] === 'number' ? (unlocks[row.key] as number) : null
+    const time = raw !== null ? formatUnlockAt(raw, l) : null
+    const vars = { title: titleOf(row, titles), version: fact.version, target: fact.target }
+    return time
+      ? escapeHtml(batchText('batch.banner.compliant-done-gated', l, { ...vars, time }))
+      : escapeHtml(batchText('batch.banner.compliant-done', l, vars))
+  }
+  // 名单自己算（纯函数自足）：有年龄门结论且有该家决议电话、且还没装上合规版的行才算数；调用方只需补决议态。
+  const gatedCandidates = rows.filter(
+    (row) => batchFallbackCauseOf(row) !== null && singleFallbackPhoneOf(row) !== null && !done.has(row.key),
+  )
+  const gated = typeof compliant?.gated === 'number' ? compliant.gated : gatedCandidates.length
+  const confirmList = typeof compliant?.confirmList === 'string' && compliant.confirmList ? compliant.confirmList : null
+  const confirmCount = typeof compliant?.confirmCount === 'number' ? compliant.confirmCount : 0
+  const compliantBusy = compliant?.busy === true
+  const waitKeys = compliant?.wait && Array.isArray(compliant.wait.keys) ? compliant.wait.keys : []
   const parts: string[] = []
   if (lastError) {
     const copy = failureCopy(lastError, l)
@@ -868,7 +1021,17 @@ function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, strin
     if (act) parts.push('<div class="dsh-upd-banner-sub">' + escapeHtml(act) + '</div>')
   }
   // 排队占位不算失败：忙时宿主会把它记成 failed+update-busy，这里翻回来。
-  const failed = rows.filter((row) => asBatchPhase(row.phase) === 'failed' && !isQueueBusyRow(row))
+  // 等重启也不算失败（#156 M1 诚实性）：这类行账本相位是 failed、error 是 pending-restart——磁盘上
+  // 已经有更新版、只差重启生效，丢进"安装失败"是冤枉（目标版确实没装上，所以相位一个字不改）。
+  // 它该待的位置是"等重启"那一栏：那一栏的行动就是重启，正是这一行需要的那一下。
+  // 已装上合规版的行同样不算失败（#156 收尾事实）：最新版没装成、但这家确实装到了能装的最新，
+  // 继续把它算成"安装失败"才是撒谎；它的结果由下面那条"实际安装结果"横幅如实说出。
+  const pendingRestartRow = (row: BatchRowView): boolean =>
+    asBatchPhase(row.phase) === 'failed' && row.error === 'pending-restart'
+  const failed = rows.filter(
+    (row) =>
+      asBatchPhase(row.phase) === 'failed' && !isQueueBusyRow(row) && !pendingRestartRow(row) && !done.has(row.key),
+  )
   if (failed.length > 0) {
     const lines = failed
       .map((row) => {
@@ -889,7 +1052,72 @@ function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, strin
     )
     if (failedAct) parts.push('<div class="dsh-upd-banner-sub">' + escapeHtml(failedAct) + '</div>')
   }
-  const restart = rows.filter((row) => row.restartRequired === true)
+  // 合规版（#156 第一性原理）：最新版被 24 小时年龄门挡住时，「全部更新」这一步不能只剩一句失败——
+  // 有决议电话的行当场给一条批量入口：先逐家决议，再点名精确版本请用户确认（永不静默装旧版）。
+  // 只加一条横幅，不碰账本相位（#152）：合规版安装是用户显式确认后的独立动作，不是本轮的"已更新"。
+  if (confirmList) {
+    parts.push(
+      '<div class="dsh-upd-banner" data-kind="update" role="status">' +
+        '<div><strong>' + escapeHtml(batchText('batch.banner.compliant-confirm', l, { list: confirmList })) + '</strong></div>' +
+        '<div class="dsh-upd-browline"><span class="dsh-upd-blist">' + escapeHtml(confirmList) + '</span>' +
+        '<button type="button" data-act="batch-fallback-confirm" data-primary="1"' + (compliantBusy ? ' disabled' : '') + '>' +
+        escapeHtml(batchText('batch.action.install-compliant-confirm', l, { n: String(confirmCount) })) + '</button></div>' +
+        '</div>',
+    )
+  }
+  // 两条路各自成立、可以同时存在：有候选的端确认条，没有候选的把"等多久"如实说清。
+  if (waitKeys.length > 0) {
+    // 此刻确实没有可装版（#156 诚实性）：说清是谁、等多久，不画一个点了也没用的按钮。
+    // 解封时刻一到，挂载侧的自动决议会重新跑（它的签名会变），所以这里不需要手动入口。
+    const rawUnlock = compliant?.wait ? compliant.wait.unlockAtMs : null
+    const unlockAtMs = typeof rawUnlock === 'number' ? rawUnlock : null
+    const time = unlockAtMs !== null ? formatUnlockAt(unlockAtMs, l) : null
+    const waitTitles = rows
+      .filter((row) => waitKeys.includes(row.key))
+      .map((row) => titleOf(row, titles))
+      .join('、')
+    parts.push(
+      '<div class="dsh-upd-banner" data-kind="update" role="status">' +
+        '<div><strong>' +
+        escapeHtml(
+          time
+            ? batchText('batch.banner.gated-wait', l, { n: String(waitKeys.length), time })
+            : batchText('batch.banner.age-gated', l, { n: String(waitKeys.length) }),
+        ) +
+        '</strong></div>' +
+        '<div class="dsh-upd-browline"><span class="dsh-upd-blist">' + escapeHtml(waitTitles) + '</span></div>' +
+        '</div>',
+    )
+  } else if (gated > 0 && confirmList === null) {
+    parts.push(
+      '<div class="dsh-upd-banner" data-kind="update" role="status">' +
+        '<div><strong>' + escapeHtml(batchText('batch.banner.age-gated', l, { n: String(gated) })) + '</strong></div>' +
+        '<div class="dsh-upd-browline"><span class="dsh-upd-blist">' +
+        escapeHtml(gatedCandidates.map((row) => titleOf(row, titles)).join('、')) +
+        '</span>' +
+        '<button type="button" data-act="batch-fallback-scan"' + (compliantBusy ? ' disabled' : '') + ' title="' +
+        escapeHtml(bilingualText('panel.action.install-fallback-title', l)) + '">' +
+        escapeHtml(bilingualText('panel.action.install-fallback', l)) + '</button></div>' +
+        '</div>',
+    )
+  }
+  // 收尾事实（#156）：账本目标没装成、但这家已经装上「能装的最新」——如实说清装了哪一版、最新那版还差什么。
+  // 不比失败条纹更"安慰"：这是事实陈述，也是「全部更新到能更新的最新」这一步的交付凭证。
+  if (done.size > 0) {
+    const lines = rows
+      .filter((row) => done.has(row.key))
+      .map((row) => '<div>' + doneLineOf(row, done.get(row.key) as { version: string; target: string }) + '</div>')
+      .join('')
+    parts.push(
+      '<div class="dsh-upd-banner" data-kind="update" role="status">' +
+        '<div><strong>' + escapeHtml(batchText('batch.banner.compliant-done-title', l, { n: String(done.size) })) + '</strong></div>' +
+        '<div class="dsh-upd-blist">' + lines + '</div>' +
+        '</div>',
+    )
+  }
+  const restart = rows.filter(
+    (row) => row.restartRequired === true || pendingRestartRow(row) || done.get(row.key)?.needsRestart === true,
+  )
   if (restart.length > 0) {
     const restartAct = batchText('batch.banner.restart-action', l)
     // 措辞与单插件面板 panel.blocked.pending-restart.action 同一句（#64 按清单独立成键，英文可独立调优）；位置与单面板同口径：住框外。
@@ -906,6 +1134,40 @@ function bannersHTML(rows: readonly BatchRowView[], titles: Record<string, strin
   return parts.join('')
 }
 
+/**
+ * 该行合规版按钮（#156，纯函数）：有候选即[确认装X]，有资格无候选即[装合规版]，
+ * 其余（B 类/认不出/老宿主无电话/在途置灰由调用方处理）回 ''——调用方原样拼接，不画错按钮。
+ * 文案复用 panel.action.* 既有键（经 bilingualText），零新增键。
+ */
+function rowFallbackButtonHTML(row: BatchRowView, ctx: RowRenderContext): string {
+  try {
+    // 已决议过、此刻确实没有可装版（等解封）：不画按钮——点了也只会得到同一句话（#156 诚实性），
+    // 横幅已经说清等多久，解封后自动决议会重新给入口。
+    if (ctx.fallbackWaiting) return ''
+    const keyAttr = escapeHtml(row.key)
+    const busy = ctx.fallbackBusy || ctx.inFlight ? ' disabled aria-busy="true"' : ''
+    const off = ctx.inFlight && !ctx.fallbackBusy ? ' disabled' : ''
+    if (typeof ctx.fallbackCandidate === 'string' && ctx.fallbackCandidate) {
+      return (
+        '<button type="button" data-act="row-fallback-confirm" data-key="' + keyAttr + '" data-primary="1" title="' +
+        escapeHtml(bilingualText('panel.action.install-fallback-confirm-title', ctx.lang)) +
+        '"' + busy + '>' +
+        escapeHtml(bilingualText('panel.action.install-fallback-confirm', ctx.lang, { version: ctx.fallbackCandidate })) + '</button>'
+      )
+    }
+    if (singleFallbackPhoneOf(row) === null) return ''
+    if (!batchFallbackCauseOf(row)) return ''
+    return (
+      '<button type="button" data-act="row-fallback" data-key="' + keyAttr + '" data-primary="1" title="' +
+      escapeHtml(bilingualText('panel.action.install-fallback-title', ctx.lang)) +
+      '"' + (ctx.fallbackBusy ? busy : off) + '>' +
+      escapeHtml(bilingualText('panel.action.install-fallback', ctx.lang)) + '</button>'
+    )
+  } catch {
+    return ''
+  }
+}
+
 /** 一行一家（含点开时的详情：详情就是单插件内核本身）。 */
 function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const phase = asBatchPhase(row.phase)
@@ -913,14 +1175,21 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const skipped = ctx.skipped
   const queued = isQueuedRow(row)
   const position = queued ? queuePositionOf(row) : null
+  // 收尾事实（#156）：这一行账本相位是 failed、可它已经装上「能装的最新」——状态字、红字、圆点与
+  // 兜底按钮都得跟着说实话：说"安装失败"是撒谎，再劝它装合规版是白劝（已经装上了）。
+  const rowDone = phase === 'failed' && !queued ? compliantInstalledOf(row) : null
   const versionHTML = batchRowVersionHTML(row, ctx.knowledge, ctx.lang)
-  const rowStatusText = queued
-    ? batchQueuedStatus(position, ctx.lang)
-    : ctx.worldLatest !== null
-      ? batchText('batch.row.update', ctx.lang, { version: ctx.worldLatest })
-      : ctx.inRound
-        ? (batchRowKnowledgeText(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))
-        : (batchRowPendingStatus(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))
+  const rowStatusText = rowDone !== null
+    ? rowDone.needsRestart
+      ? batchText('batch.row.done-restart', ctx.lang)
+      : batchText('batch.row.done', ctx.lang)
+    : queued
+      ? batchQueuedStatus(position, ctx.lang)
+      : ctx.worldLatest !== null
+        ? batchText('batch.row.update', ctx.lang, { version: ctx.worldLatest })
+        : ctx.inRound
+          ? (batchRowKnowledgeText(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))
+          : (batchRowPendingStatus(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))
   const actions: string[] = []
   // 忙守卫按行：正在装的那一行禁自己（不许重复提交）；**别的行不灰**——点下去是「加入队列」。
   const off = ctx.inFlight ? ' disabled' : ''
@@ -951,6 +1220,10 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
       '<button type="button" data-act="row-install" data-key="' + keyAttr + '"' + off + '>' +
         escapeHtml(ctx.busy ? batchText('batch.row-action.queue', ctx.lang) : batchText('batch.row-action.retry', ctx.lang)) + '</button>',
     )
+    // 合规版兜底（#156）：拦的正是该行更新目标时再给一个选择——[重试]不动（仍是最新），
+    // [装合规版]走该家自己的决议电话，有候选即换[确认装X]；B 类与认不出的失败不画，不硬上。
+    // 文案复用 panel.action.* 既有键（经 bilingualText），零新增键。
+    if (!queued && rowDone === null) actions.push(rowFallbackButtonHTML(row, ctx))
   }
   if (row.restartRequired === true) {
     // 与单插件面板同一措辞：宿主没有重启自己的电话，这里只做入口。
@@ -962,26 +1235,37 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
   )
   const failLine =
     phase === 'failed' && !queued
-      ? (() => {
-        const failCode = row.error || 'install-failed'
-        // 查/装分家（#134/US15）：查侧码的红字说「本次未能查询」，不说安装失败。
-        const failJob = jobFailureOf(row)
-        const failSide = failJob?.code ?? (typeof row.error === 'string' && row.error ? row.error : null)
-        const failDetail = isCheckSideFailureCode(failSide)
-          ? batchText('batch.row.failed', ctx.lang)
-          : failureCopy(failCode, ctx.lang)?.zh ?? failureCopy('unknown', ctx.lang)?.zh ?? ''
-        // 字典不存 HTML（#64 口径）：模板为纯文本，<code> 由此处组装，语义与 inventory batch.row.error-label 一致。
-        const label = batchText('batch.row.error-label', ctx.lang, { code: failCode, detail: failDetail })
-        const escaped = escapeHtml(label)
-        const codeEsc = escapeHtml(failCode)
-        const withCode = escaped.includes(codeEsc) ? escaped.replace(codeEsc, '<code>' + codeEsc + '</code>') : escaped
-        return '<span class="dsh-upd-bfail">' + withCode + '</span>'
-      })()
+      ? rowDone !== null
+        ? (() => {
+          // 收尾事实（#156）：装到了能装的最新，只是不是账本目标那一版。行里那句话不许说"失败"，
+          // 换成同一件事实（缘由不断言：快照里没有那次失败的原文，措辞只说发生了什么）。
+          const vars = { version: rowDone.version, target: rowDone.target }
+          return (
+            '<span class="dsh-upd-bfail dsh-upd-bdone">' +
+            escapeHtml(batchText('batch.row.compliant-done', ctx.lang, vars)) +
+            '</span>'
+          )
+        })()
+        : (() => {
+          const failCode = row.error || 'install-failed'
+          // 查/装分家（#134/US15）：查侧码的红字说「本次未能查询」，不说安装失败。
+          const failJob = jobFailureOf(row)
+          const failSide = failJob?.code ?? (typeof row.error === 'string' && row.error ? row.error : null)
+          const failDetail = isCheckSideFailureCode(failSide)
+            ? batchText('batch.row.failed', ctx.lang)
+            : failureCopy(failCode, ctx.lang)?.zh ?? failureCopy('unknown', ctx.lang)?.zh ?? ''
+          // 字典不存 HTML（#64 口径）：模板为纯文本，<code> 由此处组装，语义与 inventory batch.row.error-label 一致。
+          const label = batchText('batch.row.error-label', ctx.lang, { code: failCode, detail: failDetail })
+          const escaped = escapeHtml(label)
+          const codeEsc = escapeHtml(failCode)
+          const withCode = escaped.includes(codeEsc) ? escaped.replace(codeEsc, '<code>' + codeEsc + '</code>') : escaped
+          return '<span class="dsh-upd-bfail">' + withCode + '</span>'
+        })()
       : ''
   const main =
     '<button type="button" class="dsh-upd-brow-main" data-act="toggle-details" data-key="' + keyAttr +
     '" aria-expanded="' + (ctx.expanded ? 'true' : 'false') + '">' +
-    '<span class="dsh-upd-updot" data-tone="' + dotToneOf(row, phase, skipped, queued, ctx.worldLatest) + '"></span>' +
+    '<span class="dsh-upd-updot" data-tone="' + dotToneOf(row, phase, skipped, queued, ctx.worldLatest, rowDone === null ? null : rowDone.needsRestart) + '"></span>' +
     '<span class="dsh-upd-bname">' + escapeHtml(titleOf(row, ctx.titles)) + '</span>' +
     versionHTML +
     '<span class="dsh-upd-bstat">' + escapeHtml(rowStatusText) + (ctx.inRound && !queued ? '（' + escapeHtml(batchText('batch.row.unfinished-tag', ctx.lang)) + '）' : '') + '</span>' +
@@ -1024,6 +1308,11 @@ function detailActionsHTML(row: BatchRowView, ctx: RowRenderContext): string {
       '<button type="button" data-act="row-install" data-key="' + keyAttr + '"' + off + '>' +
         escapeHtml(ctx.busy ? batchText('batch.row-action.queue', ctx.lang) : batchText('batch.row-action.retry', ctx.lang)) + '</button>',
     )
+    // 合规版兜底（#156）：与行内同口径（行内已注释），详情里同样给选择。
+    if (!queued) {
+      const fallback = rowFallbackButtonHTML(row, ctx)
+      if (fallback) buttons.push(fallback)
+    }
   } else if (phase === 'ready' && ctx.skipped === null) {
     buttons.push(
       '<button type="button" data-act="row-install" data-key="' + keyAttr + '" data-primary="1"' + off +
@@ -1132,7 +1421,11 @@ function dotToneOf(
   skipped: string | null,
   queued: boolean,
   worldLatest: string | null = null,
+  compliantRestart: boolean | null = null,
 ): 'idle' | 'todo' | 'busy' | 'warn' | 'bad' | 'ok' {
+  // 收尾事实（#156）：账本相位 failed、但确实装到了能装的最新——红灯换成实话（等重启=黄，已收尾=绿）。
+  if (compliantRestart === true) return 'warn'
+  if (compliantRestart === false) return 'ok'
   if (phase === 'failed' && !queued) return 'bad'
   if (phase === 'installing' || phase === 'checking') return 'busy'
   if (queued) return 'warn'
@@ -1175,6 +1468,8 @@ export const UPDATE_BATCH_PANEL_CSS = [
   '.dsh-upd-bver-new-ok{color:var(--dsh-update-new-ok-text,#047857);font-weight:700}',
   '.dsh-upd-bstat{font-size:var(--dsh-update-panel-small-font-size,12.5px);opacity:.9;min-width:0;overflow-wrap:anywhere}',
   '.dsh-upd-bfail{grid-column:1/-1;display:block;font-size:var(--dsh-update-panel-small-font-size,12.5px);color:var(--dsh-update-bad-border,#dc2626)}',
+  '/* #156 finishing fact: ledger phase failed but the newest installable build did get installed — green, not red. */',
+  '.dsh-upd-bdone{color:var(--dsh-update-ok-border,#059669)}',
   '.dsh-upd-batch{--dsh-update-new-text:#dc2626}',
   '.dsh-upd-batch{--dsh-update-new-ok-text:#047857}',
   '@media (prefers-color-scheme: dark){.dsh-upd-batch{--dsh-update-new-text:#f87171}}',
@@ -1321,6 +1616,108 @@ function cancelQueuePhoneOf(row: BatchRowView): string | null {
   if (!phones) return null
   const install = phones['updateInstall']
   return typeof install === 'string' && install ? install : null
+}
+
+/** 合规版决议要打的电话：该家自己的单插件决议电话；老宿主没给即无兜底入口（诚实缺省）。 */
+export function singleFallbackPhoneOf(row: BatchRowView): string | null {
+  const phones = isObject(row.phoneNames) ? (row.phoneNames as Record<string, unknown>) : null
+  if (!phones) return null
+  const name = phones['updateCheckFallback']
+  return typeof name === 'string' && name ? name : null
+}
+
+/** 候选安装要打的电话：该家自己的单插件安装电话（带 version 走第二槽绑定）；老宿主不给即装不了候选。 */
+export function singleInstallPhoneOf(row: BatchRowView): string | null {
+  const phones = isObject(row.phoneNames) ? (row.phoneNames as Record<string, unknown>) : null
+  if (!phones) return null
+  const name = phones['updateInstall']
+  return typeof name === 'string' && name ? name : null
+}
+
+/**
+ * 决议回包的机读结论（#156，纯函数）：行内单家与批量级两条路共用同一套解析，
+ * 免得两处各解一遍、日后只改一处。candidate/checkId 只在这一版真能用时给出（点名要精）。
+ */
+export function fallbackOutcomeOf(reply: unknown): {
+  kind: string
+  candidate: string
+  checkId: string
+  unlockAtMs: number | null
+} {
+  if (!isObject(reply) || reply['ok'] === false) return { kind: '', candidate: '', checkId: '', unlockAtMs: null }
+  const snap = isObject(reply['snapshot']) ? (reply['snapshot'] as Record<string, unknown>) : null
+  const verdict = snap && isObject(snap['verdict']) ? (snap['verdict'] as Record<string, unknown>) : null
+  const kind = verdict && typeof verdict['kind'] === 'string' ? (verdict['kind'] as string) : ''
+  const version = verdict && typeof verdict['version'] === 'string' ? (verdict['version'] as string).trim() : ''
+  const snapCandidate = snap && typeof snap['candidate'] === 'string' ? (snap['candidate'] as string).trim() : ''
+  const rec = isObject(reply['receipt']) ? (reply['receipt'] as Record<string, unknown>) : null
+  const checkId = rec && typeof rec['checkId'] === 'string' ? (rec['checkId'] as string) : ''
+  const unlockAtMs = verdict && typeof verdict['unlockAtMs'] === 'number' ? (verdict['unlockAtMs'] as number) : null
+  const candidate = snapCandidate || (kind === 'ok-now' ? version : '')
+  const usable = (kind === 'downgrade-available' || kind === 'ok-now') && candidate !== '' && checkId !== ''
+  return { kind, candidate: usable ? candidate : '', checkId: usable ? checkId : '', unlockAtMs }
+}
+
+/**
+ * 该行合规版兜底资格（#156，纯函数）：行失败任务的机读结论经翻译官重认，
+ * 拦的正是该行当前更新目标才给。B 类（别家包）与认不出的失败回 null，
+ * 调用方走通用老路；目标对不上当前远端版即视为旧失败，不指手画脚。
+ *
+ * #156 第四轮：先认行里的机读诊断（宿主在异步失败回包里补的包名/归因）——
+ * 真机上插件标识（`life-<key>`）与 npm 包名不是一回事，只按标识认的话
+ * 批量行这支按钮在真机上永远不出现；诊断认不出才退回原文认（老路一字不动）。
+ */
+export function batchFallbackCauseOf(row: BatchRowView): {
+  kind: string
+  packageName: string
+  targetVersion: string
+  windowMs: number | null
+  windowSource: 'message' | 'unknown'
+  publishedAtMs: number | null
+} | null {
+  try {
+    if (asBatchPhase(row.phase) !== 'failed') return null
+    const fail = jobFailureOf(row)
+    if (!fail) return null
+    const rowDiag = (row as { diag?: unknown }).diag
+    const byDiag = fallbackCauseFromDiag(rowDiag, fail.detail, fail.code, latestVersionOf(row))
+    const cause = byDiag ?? fallbackCauseFromDetail(fail.detail, fail.code, pluginIdOf(row))
+    if (!cause) return null
+    if (cause.targetVersion !== latestVersionOf(row)) return null
+    return cause
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 该行是不是「已经装上能装的最新（合规版），账本目标没装成」（#156 第一性原理收尾事实，纯函数）。
+ *
+ * 判据只看实时快照三件事：最近一次任务已到 restart-required/completed、磁盘上就是它的目标版本、
+ * 而这个版本**不等于**账本目标。满足即说明这一家确实被装到了「能装的最新」，只是不是账本要的那一版。
+ * 面板必须认出这个状态：既不许继续把它算成「安装失败」（那是撒谎），也不许明知装过还反复劝装。
+ * 不断言原因（快照里没有那次失败的原文），原因由决议记忆另说（调用方给 unlock 时刻）。
+ */
+export function compliantInstalledOf(
+  row: BatchRowView,
+): { version: string; target: string; needsRestart: boolean } | null {
+  try {
+    if (!isObject(row.snapshot)) return null
+    const snapshot = row.snapshot as Record<string, unknown>
+    if (!isObject(snapshot['job'])) return null
+    const job = snapshot['job'] as Record<string, unknown>
+    const state = typeof job['state'] === 'string' ? job['state'] : ''
+    if (state !== 'restart-required' && state !== 'completed') return null
+    const version = typeof job['targetVersion'] === 'string' ? job['targetVersion'].trim() : ''
+    if (!version) return null
+    const installed = typeof snapshot['installedVersion'] === 'string' ? snapshot['installedVersion'].trim() : ''
+    if (installed !== version) return null
+    const target = latestVersionOf(row)
+    if (!target || target === version) return null
+    return { version, target, needsRestart: state === 'restart-required' }
+  } catch {
+    return null
+  }
 }
 
 /** 相位宽容读：认不出按 pending（坏回包不许把面板打挂，与队列/账本同一纪律）。 */
@@ -1609,6 +2006,9 @@ export function mountUpdateBatchPanel(
   // 详情行自动日志（#41 终裁）：默认开；按“行 key + 版本”记住结果（成功与取不到永久记，不落盘）；
   // 传输失败不进缓存，换版/批量查一次/重开立即重问，轮询按退避问（三处共用 shouldFetchChangelog，各存各的）。
   const autoChangelogEnabled = options.autoChangelog !== false
+  // 自动决议（#156 第一性原理）：默认开——撞了年龄门就自己问一遍"能装的最新是哪版"，
+  // 有候选直接把点名确认条端上来，用户不必先找到按钮。宿主若不想在开面板时打这些电话可显式关掉。
+  const autoPlanEnabled = options.autoCompliant !== false
   const rowChangelog = new Map<string, { version: string; markdown: string | null }>()
   const rowInflight = new Set<string>()
   // 失败退避时间戳（行 key + 版本 -> 失败时刻毫秒）：轮询按退避问，反复展开不再每秒重问；
@@ -1642,6 +2042,12 @@ export function mountUpdateBatchPanel(
   let lastCheckedAt = 0
   let autoCheckDone = false
   let autoResumeDone = false
+  /** 各行已决议出的候选（#156）：行 key -> {candidate, checkId, targetVersion}；行刷新/新失败即 prune，不许旧决议指新失败。 */
+  const rowFallbackOffers = new Map<string, { candidate: string; checkId: string; targetVersion: string }>()
+  /** 正在决议中的那一行（键；在途短暂置灰，防连点）。 */
+  let fallbackBusyKey: string | null = null
+  /** 批量级合规版清单（#156）：批量入口决议出的行键；用户点名确认后逐家装，账本相位一个字不改（#152）。 */
+  let batchCompliantKeys: string[] = []
 
   /** 当前可画的各行日志：只给版本对得上且有文本的（其余即中性提示）。 */
   function changelogView(): Record<string, string | null> {
@@ -1774,6 +2180,11 @@ export function mountUpdateBatchPanel(
   let lastHTML = ''
   function render(): void {
     if (!mounted) return
+    const offers: Record<string, { candidate: string; targetVersion: string } | null> = {}
+    for (const [k, v] of rowFallbackOffers) offers[k] = { candidate: v.candidate, targetVersion: v.targetVersion }
+    // 批量级确认清单只认还在的决议（行不再失败/换了目标即 prune，此处再过滤一次兜底）。
+    const confirmKeys = batchCompliantKeys.filter((k) => rowFallbackOffers.has(k))
+    const wait = waitingOf()
     const nextHTML = renderBatchPanelHTML({
       rows,
       theme,
@@ -1793,11 +2204,196 @@ export function mountUpdateBatchPanel(
       inventory: lastInventory,
       prefs: lastPrefs,
       lang: currentLang(),
+      fallbackOffers: offers,
+      fallbackBusyKey,
+      compliant: {
+        // 还需要动作的（自动决议还没给出结论的）：有年龄门证据、有电话、且还没候上/还没装上。
+        gated: rows.filter((row) => needsAutoResolve(row)).length,
+        confirmList: confirmKeys.length > 0 ? compliantListText(confirmKeys) : null,
+        confirmCount: confirmKeys.length,
+        busy: inFlight,
+        wait: wait.keys.length > 0 ? wait : null,
+        unlocks: unlockTimesOf(),
+      },
     })
     if (nextHTML !== lastHTML) {
       lastHTML = nextHTML
       setStableHTML(container, nextHTML)
     }
+  }
+
+  /** 旧决议不指新失败（#156）：行不失败/换了目标即忘掉该行候选；渲染侧已先忽略，这里清掉不再长大。 */
+  function pruneFallbackOffers(): void {
+    try {
+      for (const [k, v] of [...rowFallbackOffers]) {
+        const row = rowOfKey(k)
+        if (!row || asBatchPhase(row.phase) !== 'failed' || v.targetVersion !== latestVersionOf(row)) {
+          rowFallbackOffers.delete(k)
+        }
+      }
+      if (batchCompliantKeys.length > 0) batchCompliantKeys = batchCompliantKeys.filter((k) => rowFallbackOffers.has(k))
+    } catch {
+      // 清不掉也不挡更新，下次渲染照样忽略旧决议。
+    }
+  }
+
+  /** 点名清单（#156）：标题 + 精确版本，横幅与确认按钮共用同一串，用户先看见版本号再点。 */
+  function compliantListText(keys: readonly string[]): string {
+    const sep = currentLang() === 'en' ? ', ' : '、'
+    return keys
+      .map((k) => {
+        const row = rowOfKey(k)
+        const offer = rowFallbackOffers.get(k)
+        return row && offer ? titleOf(row, titles) + ' ' + offer.candidate : ''
+      })
+      .filter((text) => text !== '')
+      .join(sep)
+  }
+
+  // ---------- 自动决议（#156 第一性原理） ----------
+
+  // 决议记忆（会话内）：这一家上次问出什么结论、最新版大约什么时候解封。
+  // 用途三件：(a) 收尾事实里说清"最新版还挡多久"；(b) 没候选时不画一个点了也没用的按钮；
+  // (c) 解封时刻一到就重新决议（签名会变），那时的答案可能变成"现在能装了"。
+  // 页面刷新就忘——忘了只是回到"重新问一次"，永远不会撒谎。
+  const gatedOutcomes = new Map<string, { kind: string; unlockAtMs: number | null }>()
+  let autoPlanSignature = ''
+  let autoPlanRunning = false
+
+  /** 这一行现在还需不需要自动决议：有失败证据、有电话、还没装上合规版、且不是"问过在等解封"。 */
+  function needsAutoResolve(row: BatchRowView): boolean {
+    try {
+      if (batchFallbackCauseOf(row) === null || singleFallbackPhoneOf(row) === null) return false
+      if (compliantInstalledOf(row) !== null) return false
+      if (rowFallbackOffers.has(row.key)) return false
+      const seen = gatedOutcomes.get(row.key)
+      if (seen) {
+        // 已经装上过一次（这一轮）或问过且确实没有可装版：别反复问同一句。
+        if (seen.kind === 'installed') return false
+        if (seen.kind === 'wait-until') {
+          if (seen.unlockAtMs === null) return false
+          if (nowMs() < seen.unlockAtMs) return false
+        }
+      }
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /** 决议一次（走该家自己的电话）：解析成结论、顺手记进记忆；有候选即挂上点名确认。 */
+  async function resolveGated(row: BatchRowView): Promise<{
+    kind: string
+    candidate: string
+    checkId: string
+    unlockAtMs: number | null
+  }> {
+    const cause = batchFallbackCauseOf(row)
+    const phoneName = singleFallbackPhoneOf(row)
+    if (!cause || phoneName === null) return { kind: '', candidate: '', checkId: '', unlockAtMs: null }
+    let reply: unknown = null
+    try {
+      reply = await call(phoneName, {
+        kind: cause.kind,
+        blame: 'target',
+        targetVersion: cause.targetVersion,
+        ...(typeof cause.windowMs === 'number' ? { windowMs: cause.windowMs } : {}),
+        windowSource: cause.windowSource,
+        ...(typeof cause.publishedAtMs === 'number' ? { publishedAtMs: cause.publishedAtMs } : {}),
+      })
+    } catch {
+      reply = null
+    }
+    const outcome = fallbackOutcomeOf(reply)
+    gatedOutcomes.set(row.key, { kind: outcome.kind, unlockAtMs: outcome.unlockAtMs })
+    if (outcome.candidate) {
+      rowFallbackOffers.set(row.key, {
+        candidate: outcome.candidate,
+        checkId: outcome.checkId,
+        targetVersion: cause.targetVersion,
+      })
+    }
+    return outcome
+  }
+
+  /**
+   * 自动决议（#156 第一性原理）：撞了 24 小时年龄门之后，用户要的是"能装的最新"，
+   * 不是"自己去点按钮找一遍"。条件够了就自己问（串行、互不干扰）：有候选就把点名版本的确认条端上来，
+   * 没有候选就由横幅如实说等多久。三道闸：签名去重（同一批失败 + 同一批目标只问一次）、
+   * 会话内在途、老宿主没这条电话的行一概不问（诚实缺省）。
+   */
+  function maybeAutoPlanCompliant(): void {
+    if (!autoPlanEnabled || !mounted || inFlight || autoPlanRunning) return
+    let signature = ''
+    const targets: BatchRowView[] = []
+    try {
+      for (const row of rows) {
+        if (!needsAutoResolve(row)) continue
+        targets.push(row)
+        signature += row.key + '@' + (latestVersionOf(row) ?? '') + ';'
+      }
+    } catch {
+      return
+    }
+    if (targets.length === 0 || signature === autoPlanSignature) return
+    autoPlanSignature = signature
+    autoPlanRunning = true
+    inFlight = true
+    render()
+    void (async () => {
+      try {
+        for (const row of targets) {
+          if (!mounted) return
+          if (!needsAutoResolve(row)) continue
+          await resolveGated(row)
+        }
+      } finally {
+        autoPlanRunning = false
+        inFlight = false
+      }
+      if (!mounted) return
+      // 并入而不是覆盖：手动那条路已经得出的候选不许丢。
+      const merged = [...batchCompliantKeys]
+      for (const row of targets) {
+        if (rowFallbackOffers.has(row.key) && !merged.includes(row.key)) merged.push(row.key)
+      }
+      batchCompliantKeys = merged.filter((k) => rowFallbackOffers.has(k))
+      if (batchCompliantKeys.length > 0) clearNotice()
+      render()
+      maybeAutoRowChangelog(expandedKey)
+    })()
+  }
+
+  /** 等解封的行（决议记忆说 wait-until、且还没装上）：横幅说清是谁、等多久，这些行不画按钮。 */
+  function waitingOf(): { keys: string[]; unlockAtMs: number | null } {
+    const keys: string[] = []
+    let earliest: number | null = null
+    try {
+      for (const row of rows) {
+        const seen = gatedOutcomes.get(row.key)
+        if (!seen || seen.kind !== 'wait-until') continue
+        if (compliantInstalledOf(row) !== null) continue
+        if (batchFallbackCauseOf(row) === null || singleFallbackPhoneOf(row) === null) continue
+        keys.push(row.key)
+        if (typeof seen.unlockAtMs === 'number' && (earliest === null || seen.unlockAtMs < earliest)) {
+          earliest = seen.unlockAtMs
+        }
+      }
+    } catch {
+      return { keys: [], unlockAtMs: null }
+    }
+    return { keys, unlockAtMs: earliest }
+  }
+
+  /** 收尾事实（#156）要用的解封时刻（按行 key）：只给"最新版还挡多久"这一句话用。 */
+  function unlockTimesOf(): Record<string, number | null> {
+    const out: Record<string, number | null> = {}
+    try {
+      for (const [k, v] of gatedOutcomes) out[k] = v.unlockAtMs
+    } catch {
+      // 读不到即没有时刻，措辞退回中性那句。
+    }
+    return out
   }
 
   function rowOfKey(key: string): BatchRowView | null {
@@ -1889,6 +2485,7 @@ export function mountUpdateBatchPanel(
       loaded = true
       lastError = null
       if (expandedKey !== null && !rows.some((row) => row.key === expandedKey)) expandedKey = null
+      pruneFallbackOffers()
       return
     }
     const err = typeof reply['error'] === 'string' ? reply['error'].trim() : ''
@@ -1911,6 +2508,7 @@ export function mountUpdateBatchPanel(
     }
     render()
     maybeAutoRowChangelog(expandedKey)
+    maybeAutoPlanCompliant()
   }
 
   /**
@@ -1947,6 +2545,7 @@ export function mountUpdateBatchPanel(
       if (mounted) render()
     }
     maybeAutoRowChangelog(expandedKey)
+    maybeAutoPlanCompliant()
     return out
   }
 
@@ -2138,6 +2737,246 @@ export function mountUpdateBatchPanel(
         const row = typeof key === 'string' && key ? rowOfKey(key) : null
         if (!row) return
         await copyWith(diagTextOf(row, currentLang()), batchText('batch.toast.copy-diag-ok', currentLang()), row.key)
+        return
+      }
+      // 合规版决议（#156）：点"装合规版"本身不装任何东西——先认该行失败证据，
+      // 再问该家自己的决议电话，有候选才给点名版本的二次确认按钮。
+      // 老宿主没这条电话（unknown-phone）或取数失败即退回通用提醒，面板不碎。
+      case 'row-fallback': {
+        const row = typeof key === 'string' && key ? rowOfKey(key) : null
+        if (!row) return
+        const cause = batchFallbackCauseOf(row)
+        const phoneName = singleFallbackPhoneOf(row)
+        if (!cause || phoneName === null) {
+          say(bilingualText('panel.toast.fallback-unavailable', currentLang()), row.key)
+          render()
+          return
+        }
+        if (inFlight) return
+        inFlight = true
+        fallbackBusyKey = row.key
+        clearNotice()
+        render()
+        try {
+          let reply: unknown
+          try {
+            reply = await call(phoneName, {
+              kind: cause.kind,
+              blame: 'target',
+              targetVersion: cause.targetVersion,
+              ...(typeof cause.windowMs === 'number' ? { windowMs: cause.windowMs } : {}),
+              windowSource: cause.windowSource,
+              ...(typeof cause.publishedAtMs === 'number' ? { publishedAtMs: cause.publishedAtMs } : {}),
+            })
+          } catch {
+            reply = null
+          }
+          if (!mounted) return
+          if (!isObject(reply) || reply['ok'] === false) {
+            say(bilingualText('panel.toast.fallback-unavailable', currentLang()), row.key)
+            render()
+            return
+          }
+          const outcome = fallbackOutcomeOf(reply)
+          if (outcome.candidate) {
+            rowFallbackOffers.set(row.key, {
+              candidate: outcome.candidate,
+              checkId: outcome.checkId,
+              targetVersion: cause.targetVersion,
+            })
+            clearNotice()
+          } else if (outcome.kind === 'wait-until') {
+            const time =
+              typeof outcome.unlockAtMs === 'number' ? (formatUnlockAt(outcome.unlockAtMs, currentLang()) ?? null) : null
+            say(
+              time
+                ? bilingualText('panel.toast.fallback-wait', currentLang(), { time })
+                : bilingualText('panel.toast.fallback-unavailable', currentLang()),
+              row.key,
+            )
+          } else {
+            say(bilingualText('panel.toast.fallback-unavailable', currentLang()), row.key)
+          }
+        } finally {
+          inFlight = false
+          fallbackBusyKey = null
+        }
+        render()
+        return
+      }
+      // 批量级合规版（#156 第一性原理）：最新版被 24 小时年龄门挡住时，「全部更新」这一步的诚实出路——
+      // 先逐家问该家自己的决议电话（串行、互不干扰、老宿主没这条电话的行直接不进名单），
+      // 再点名精确版本请用户确认。铁律不变：决议本身不装任何东西。
+      case 'batch-fallback-scan': {
+        const targets = rows.filter((row) => batchFallbackCauseOf(row) !== null && singleFallbackPhoneOf(row) !== null)
+        if (targets.length === 0) {
+          say(bilingualText('panel.toast.fallback-unavailable', currentLang()))
+          render()
+          return
+        }
+        if (inFlight) return
+        inFlight = true
+        clearNotice()
+        render()
+        const got: string[] = []
+        let waitTime: string | null = null
+        try {
+          for (const row of targets) {
+            if (!batchFallbackCauseOf(row) || singleFallbackPhoneOf(row) === null) continue
+            const outcome = await resolveGated(row)
+            if (!mounted) return
+            if (outcome.candidate) {
+              got.push(row.key)
+            } else if (outcome.kind === 'wait-until' && waitTime === null) {
+              waitTime =
+                typeof outcome.unlockAtMs === 'number' ? (formatUnlockAt(outcome.unlockAtMs, currentLang()) ?? null) : null
+            }
+          }
+        } finally {
+          inFlight = false
+        }
+        if (got.length > 0) {
+          // 并入自动决议已经得出的候选，不覆盖：两条路得出的都是同一批"能装的最新"。
+          const merged = [...batchCompliantKeys]
+          for (const k of got) if (!merged.includes(k)) merged.push(k)
+          batchCompliantKeys = merged.filter((k) => rowFallbackOffers.has(k))
+          clearNotice()
+        } else if (waitTime) {
+          say(bilingualText('panel.toast.fallback-wait', currentLang(), { time: waitTime }))
+        } else {
+          say(bilingualText('panel.toast.fallback-unavailable', currentLang()))
+        }
+        render()
+        return
+      }
+      // 批量级二次确认（#156）：按钮文案即点名清单——用户先看见每家要装哪个精确版本再点，不存在静默装旧版。
+      // 逐家串行装（各自凭证各自核销，凭证过期即算这一家没成），装完刷新读真状态；
+      // 账本相位一个字不改（#152）：合规版是用户显式确认后的独立动作，不冒充"已更新到最新"。
+      case 'batch-fallback-confirm': {
+        const keys = batchCompliantKeys.filter((k) => rowFallbackOffers.has(k))
+        if (keys.length === 0) {
+          batchCompliantKeys = []
+          say(bilingualText('panel.toast.fallback-unavailable', currentLang()))
+          render()
+          return
+        }
+        if (inFlight) return
+        inFlight = true
+        clearNotice()
+        render()
+        let done = 0
+        let bad = 0
+        let busyCount = 0
+        try {
+          for (const k of keys) {
+            const row = rowOfKey(k)
+            const offer = rowFallbackOffers.get(k) ?? null
+            const phoneName = row ? singleInstallPhoneOf(row) : null
+            if (!row || !offer || phoneName === null || offer.targetVersion !== latestVersionOf(row)) {
+              rowFallbackOffers.delete(k)
+              bad++
+              continue
+            }
+            const freshRequestId = `r${Date.now().toString(36)}${Math.floor(Math.random() * 0xffffff).toString(36)}`.slice(0, 64)
+            let reply: unknown = null
+            try {
+              reply = await call(phoneName, {
+                checkId: offer.checkId,
+                requestId: freshRequestId,
+                version: offer.candidate,
+                // 意图来源如实自报（#124）：这是批量横幅发起的确认，不是用户点单插件面板。
+                from: 'batch',
+                includeEnv: true,
+                includeQueue: true,
+              })
+            } catch {
+              reply = null
+            }
+            // 忙是暂时的（宿主里另一家正在装，m3/#156 对抗审查）：候选留着、确认条不撤，
+            // 过一会儿再点一次就行——别把"稍后再来"说成"这次用不上合规版"。
+            const busy =
+              isObject(reply) && reply['ok'] === false && (reply['error'] === 'update-busy' || reply['errorKind'] === 'update-busy')
+            if (!busy) rowFallbackOffers.delete(k)
+            if (!mounted) return
+            if (isObject(reply) && reply['ok'] !== false) {
+              done++
+              // 这一轮已经装上过一次：记下来，别再自动决议同一家（否则装完立刻又端一次确认条）。
+              const prev = gatedOutcomes.get(k)
+              gatedOutcomes.set(k, { kind: 'installed', unlockAtMs: prev ? prev.unlockAtMs : null })
+            } else if (busy) busyCount++
+            else bad++
+          }
+        } finally {
+          inFlight = false
+        }
+        batchCompliantKeys = keys.filter((k) => rowFallbackOffers.has(k))
+        pruneFallbackOffers()
+        await refresh()
+        // 两件事都如实说：装成的/被拒的照报，忙的那几家单独说清楚"稍后再来"（候选还留着）。
+        const parts: string[] = []
+        if (done > 0 || bad > 0) {
+          parts.push(batchText('batch.toast.compliant-installed', currentLang(), { a: String(done), b: String(bad) }))
+        }
+        if (busyCount > 0) parts.push(bilingualText('batch.toast.queue-missed', currentLang()))
+        if (parts.length > 0) say(parts.join(' '))
+        render()
+        return
+      }
+      // 二次确认（#156）：按钮文案即决议点名的精确版本——用户先看见再点，不存在静默装旧版。
+      // 走该家自己的单插件安装电话（带 version 进核心第二槽绑定）；账本不记"已更新到最新"，
+      // 随后一次 refresh 把真快照读回来是什么就是什么。凭证过期即退回重决议，不硬装。
+      case 'row-fallback-confirm': {
+        const row = typeof key === 'string' && key ? rowOfKey(key) : null
+        if (!row) return
+        const offer = rowFallbackOffers.get(row.key) ?? null
+        const phoneName = singleInstallPhoneOf(row)
+        if (!offer || phoneName === null || offer.targetVersion !== latestVersionOf(row)) {
+          rowFallbackOffers.delete(row.key)
+          say(bilingualText('panel.toast.fallback-unavailable', currentLang()), row.key)
+          render()
+          return
+        }
+        if (inFlight) return
+        inFlight = true
+        clearNotice()
+        render()
+        try {
+          const freshRequestId = `r${Date.now().toString(36)}${Math.floor(Math.random() * 0xffffff).toString(36)}`.slice(0, 64)
+          let reply: unknown
+          try {
+            reply = await call(phoneName, {
+              checkId: offer.checkId,
+              requestId: freshRequestId,
+              version: offer.candidate,
+              // 意图来源如实自报（#124）：逐行确认也是批量入口发起的，不是用户点单插件面板。
+              from: 'batch',
+              includeEnv: true,
+              includeQueue: true,
+            })
+          } catch {
+            reply = null
+          }
+          if (!mounted) return
+          const busy =
+            isObject(reply) && reply['ok'] === false && (reply['error'] === 'update-busy' || reply['errorKind'] === 'update-busy')
+          if (busy) {
+            // 忙是暂时的（宿主里另一家正在装）：候选留着再点一次；复核仍在核心的确认那一步把关。
+            say(bilingualText('batch.toast.queue-missed', currentLang()), row.key)
+          } else {
+            rowFallbackOffers.delete(row.key)
+            if (!isObject(reply) || reply['ok'] === false) {
+              say(bilingualText('panel.toast.fallback-unavailable', currentLang()), row.key)
+            } else {
+              // 这一轮已经装上过一次：记下来，别再自动决议同一家（否则装完立刻又端一次确认条）。
+              const prev = gatedOutcomes.get(row.key)
+              gatedOutcomes.set(row.key, { kind: 'installed', unlockAtMs: prev ? prev.unlockAtMs : null })
+            }
+          }
+        } finally {
+          inFlight = false
+        }
+        pruneFallbackOffers()
+        await refresh()
         return
       }
       case 'toggle-details': {

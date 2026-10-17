@@ -1411,6 +1411,64 @@ export function fallbackCauseFromDetail(detail: unknown, errorCode: unknown, plu
   }
 }
 
+/**
+ * 机读诊断 → 兜底结论（#156 第四轮，纯函数，三个入口共用同一支）。
+ *
+ * 为什么必须有这一支：安装是异步的。年龄门拦在**安装那一刻**，回包照旧 ok:true，真正的失败
+ * 落在之后的快照任务里，而任务里只剩「失败码 + 原文」。原文要认出因必须知道**包名**，可面板手里
+ * 只有**插件标识**；真宿主（dsh-life-pack）给的标识是 `life-<key>` 这类派生值，与 npm 包名不同
+ * ——于是「装合规版」在真机上永远说不出因（fail-closed 成一枚死按钮）。
+ * 宿主已按同一套 buildDiag 把目标包名补回 diag（host.ts 的 failedJobDiagOf），这里就按机读格认，
+ * 不再拿标识撞运气：包名与归因来自宿主事实，时间格仍从原文取（窗口/发布时间只在原文里）。
+ * 原文认不出也照样回身份结论（窗口交决议侧反推）——只要 diag 说得清「拦的是这个包」。
+ */
+export function fallbackCauseFromDiag(
+  diag: unknown,
+  detail: unknown,
+  errorCode: unknown,
+  preferredTargetVersion?: unknown,
+): {
+  kind: string
+  /** 诊断里的包规格原样（`pkg@0.4.2`）。 */
+  spec: string
+  /** 诊断里的目标包名（宿主事实，归因就按它判）。 */
+  target: string
+  /** 剥掉版本的包名（渲染/日志用）。 */
+  packageName: string
+  targetVersion: string
+  windowMs: number | null
+  windowSource: 'message' | 'unknown'
+  publishedAtMs: number | null
+} | null {
+  try {
+    const d = diag && typeof diag === 'object' && !Array.isArray(diag) ? (diag as Record<string, unknown>) : null
+    if (!d) return null
+    const dKind = typeof d['causeKind'] === 'string' ? d['causeKind'].trim() : ''
+    const dSpec = typeof d['causePackage'] === 'string' ? d['causePackage'].trim() : ''
+    const dTarget = typeof d['targetPackageName'] === 'string' ? d['targetPackageName'].trim() : ''
+    if (!dKind || !(CAUSE_KINDS as readonly string[]).includes(dKind) || !dSpec || !dTarget) return null
+    if (blameCausePackage(dSpec, dTarget) !== 'target') return null
+    const timed = fallbackCauseFromDetail(detail, errorCode, dTarget)
+    const preferred = typeof preferredTargetVersion === 'string' ? preferredTargetVersion.trim() : ''
+    const at = dSpec.lastIndexOf('@')
+    const specVer = at > 0 ? dSpec.slice(at + 1).trim() : ''
+    const targetVersion = preferred || timed?.targetVersion || specVer
+    if (!targetVersion) return null
+    return {
+      kind: dKind,
+      spec: dSpec,
+      target: dTarget,
+      packageName: at > 0 && dSpec.slice(0, at).trim() ? dSpec.slice(0, at).trim() : dTarget,
+      targetVersion,
+      windowMs: timed?.windowMs ?? null,
+      windowSource: timed?.windowSource ?? 'unknown',
+      publishedAtMs: timed?.publishedAtMs ?? null,
+    }
+  } catch {
+    return null
+  }
+}
+
 /** 锁存时刻 → 本地 HH:MM:SS（失败档案“失败于”用；非法值回 null，不画时间；#62 跟随宿主 locale）。 */
 export function formatLatchTime(atMs: unknown, lang?: AppLang | string | null): string | null {
   if (typeof atMs !== 'number' || !Number.isFinite(atMs) || atMs <= 0) return null
@@ -2307,25 +2365,18 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   } | null {
     try {
       if (!latch || latch.source !== 'install') return null
-      const diag = readDiagTolerant(latch.diag)
-      const dKind = typeof diag.causeKind === 'string' ? diag.causeKind.trim() : ''
-      const dSpec = typeof diag.causePackage === 'string' ? diag.causePackage.trim() : ''
-      const dTarget = typeof diag.targetPackageName === 'string' && diag.targetPackageName.trim()
-        ? diag.targetPackageName.trim()
-        : null
-      if (
-        dKind && (CAUSE_KINDS as readonly string[]).includes(dKind) && dSpec && dTarget
-        && blameCausePackage(dSpec, dTarget) === 'target'
-      ) {
-        const timed = fallbackCauseFromDetail(latch.detail, latch.code, dTarget)
+      // 机读诊断优先（宿主事实）：真机上的插件标识与 npm 包名不是一回事，
+      // 只有诊断里的 targetPackageName 能说清「拦的是哪个包」（#156 第四轮）。
+      const byDiag = fallbackCauseFromDiag(latch.diag, latch.detail, latch.code, latch.targetVersion)
+      if (byDiag) {
         return {
-          kind: dKind,
-          spec: dSpec,
-          target: dTarget,
-          targetVersion: latch.targetVersion ?? timed?.targetVersion ?? specVersionOf(dSpec),
-          windowMs: timed?.windowMs ?? null,
-          windowSource: timed?.windowSource ?? 'unknown',
-          publishedAtMs: timed?.publishedAtMs ?? null,
+          kind: byDiag.kind,
+          spec: byDiag.spec,
+          target: byDiag.target,
+          targetVersion: byDiag.targetVersion,
+          windowMs: byDiag.windowMs,
+          windowSource: byDiag.windowSource,
+          publishedAtMs: byDiag.publishedAtMs,
         }
       }
       const cause = fallbackCauseFromDetail(latch.detail, latch.code, pluginId)
@@ -2341,16 +2392,6 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       }
     } catch {
       return null
-    }
-  }
-  /** 规格剥版本（与 install-cause 同口径：最后一个 @ 之后；读不到即 ''）。 */
-  function specVersionOf(spec: string): string {
-    try {
-      const at = spec.lastIndexOf('@')
-      const ver = at > 0 ? spec.slice(at + 1).trim() : ''
-      return ver || ''
-    } catch {
-      return ''
     }
   }
   /**
@@ -2408,7 +2449,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       atMs: latchNow(),
     }
   }
-  function latchFromJob(job: NonNullable<UpdateSnapshot['job']>, snap: UpdateSnapshot | null): FailureLatch {
+  function latchFromJob(job: NonNullable<UpdateSnapshot['job']>, snap: UpdateSnapshot | null, replyDiag?: unknown): FailureLatch {
     const env = currentEnvPair()
     const message = typeof job.message === 'string' ? job.message : null
     const detail = message && message.includes(':') ? message.slice(message.indexOf(':') + 1).trim() || null : message
@@ -2416,8 +2457,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       code: messageCodeOf(message) || 'install-failed',
       kind: null,
       detail,
-      // 快照里没有 diag：保留锁存里既有的（多半是致命安装回包自带的），没有即缺省说人话
-      diag: latch?.diag ?? null,
+      // 快照里没有 diag：优先保留锁存里既有的（多半是致命安装回包自带的），
+      // 其次用本次回包随行的 diag（异步失败时宿主补的包名/归因，#156 第四轮），都没有即缺省说人话。
+      diag: latch?.diag ?? replyDiag ?? null,
       requestId: job.requestId ?? latch?.requestId ?? requestId,
       checkId: receipt?.checkId ?? latch?.checkId ?? null,
       runningVersion: snap?.runningVersion ?? snapshot?.runningVersion ?? null,
@@ -2790,7 +2832,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         if (snapshot && tripleChanged(snapshot)) clearLatch()
         else {
           // #143：同语义重复轮询冻结首次失败时刻，不重建锁存（时间戳 churn 即重绘即丢滚动）。
-          const next = latchFromJob(snapshot.job, snapshot)
+          // #156 第四轮：异步失败的事实（包名/归因）由宿主随本次回包的 diag 一起带回——
+          // 快照里没有它，锁存又空着时就是它顶上（既有证据不覆写，#58）。
+          const next = latchFromJob(snapshot.job, snapshot, isObject(reply['diag']) ? reply['diag'] : null)
           if (!latchSameFailure(latch, next)) setLatch(next)
         }
       } else if (via === 'install') {

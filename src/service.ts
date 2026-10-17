@@ -15,6 +15,7 @@ import type {
   CheckTrigger,
   CompliantVerdict,
   CompliantVersionInput,
+  CompliantWindowSource,
   EnvironmentView,
   FallbackCheckInput,
   FallbackCheckResult,
@@ -110,6 +111,50 @@ interface CheckedState {
   blockedReason: BlockedReason | null
 }
 
+/**
+ * 合规版候选凭证槽（#156）：**模块级**，按安装指纹寻址——不是读取器实例的私有状态。
+ *
+ * 为什么必须搬出来（2026-10-17 对抗审查 B2，实证）：宿主侧 `sharedReader` 是**单例**
+ * （src/host.ts:75/291/453），批量面板逐家打电话时，每取下一家的读取器都会把上一家
+ * 丢出缓存；凭证若活在被丢掉的读取器实例里，「装合规版」在 N≥2 的批量里必然
+ * check-expired（确认时已是新读取器、槽是空的），逐行路径也活不过一次 1.5s 轮询
+ * （轮询会重建每一家的读取器）。槽只存"用户看见的那个候选 + 它的凭证"，
+ * 绑定与到期校验一字不动。
+ */
+interface FallbackSlot {
+  version: string
+  release: ReleaseInfo
+  checkId: string
+  checkedAt: number
+  expiresAt: number
+  installationKey: string | null
+  /** 那次决议的输入（#156 M3）：确认时用它重跑一次，见 `resolveCompliantNow`。 */
+  decision: FallbackDecision
+}
+
+/**
+ * 一次决议的输入（#156 M3）：确认时必须拿**同一批输入**重跑决议——凭证活在十秒到十分钟之间，
+ * 而门限会过期、新版会发布；"当时可装"不等于"现在还是最新可装"。输入存下来，复核才不是另写一套判据。
+ */
+interface FallbackDecision {
+  kind: string
+  windowMs: number
+  windowSource: CompliantWindowSource
+  publishedAtMs: number | null
+  targetVersion: string | null
+}
+
+/** 槽上限：只留最近几次决议，超出即丢最旧（凭证本来只活 10 分钟）。 */
+const FALLBACK_SLOT_MAX = 16
+const fallbackSlots = new Map<string, FallbackSlot>()
+/** 没有安装指纹时的退路：按核心实例隔离，与搬出来之前的行为一致（不做跨家共享）。 */
+let fallbackInstanceSeq = 0
+
+/** 测试专用：清空模块级凭证槽（模块状态不该跨用例串味）。 */
+export function __resetFallbackSlots(): void {
+  fallbackSlots.clear()
+}
+
 export function createUpdateCore(ports: UpdatePorts): UpdateCore {
   const checkTimeoutMs = ports.checkTimeoutMs ?? CHECK_TIMEOUT_MS
   const confirmationTtlMs = ports.confirmationTtlMs ?? CONFIRMATION_TTL_MS
@@ -141,12 +186,59 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
   }
   let checked: CheckedState | null = null
   /**
-   * 合规版候选第二槽（#156）：只由 `checkFallback` 写入——存"决议出的候选版 +
-   * 它的发行校验 + 安装凭证"。`check()` 成功即清空（新 latest 可能改变全局），
-   * 非候选裁决也清空（旧候选不许跨失败复活）。`install()` 的候选分支只认这一槽，
-   * 永不复用 `checked`（"查到啥装啥"的单向管道不动）。
+   * 合规版候选第二槽（#156）：读写都经模块级槽（见 FallbackSlot 注释），本实例只留一个
+   * 隔离键——有安装指纹时按指纹共享（跨读取器、跨轮询都活着），没有时按实例隔离。
+   * `check()` 成功即清掉同一指纹的旧槽（新 latest 可能改变全局），非候选裁决按实例清
+   * （没有指纹可认时不许按"猜的键"去清别家的槽——那正是 B2 那类互踩）。
+   * `install()` 的候选分支只认这一槽，永不复用 `checked`（"查到啥装啥"的单向管道不动）。
    */
-  let fallbackChecked: { version: string; release: ReleaseInfo; checkId: string; checkedAt: number; expiresAt: number; installationKey: string | null } | null = null
+  const fallbackInstanceKey = `instance:${++fallbackInstanceSeq}`
+  const fallbackKeyOf = (installationKey: string | null): string =>
+    typeof installationKey === 'string' && installationKey ? `installation:${installationKey}` : fallbackInstanceKey
+  const readFallbackSlot = (installationKey: string | null): FallbackSlot | null =>
+    fallbackSlots.get(fallbackKeyOf(installationKey)) ?? null
+  const writeFallbackSlot = (slot: FallbackSlot): number => {
+    const key = fallbackKeyOf(slot.installationKey)
+    fallbackSlots.delete(key)
+    fallbackSlots.set(key, slot)
+    while (fallbackSlots.size > FALLBACK_SLOT_MAX) {
+      const oldest = fallbackSlots.keys().next()
+      if (oldest.done) break
+      fallbackSlots.delete(oldest.value)
+    }
+    return slot.expiresAt
+  }
+  const clearFallbackSlot = (installationKey: string | null | undefined): void => {
+    fallbackSlots.delete(fallbackKeyOf(typeof installationKey === 'string' ? installationKey : null))
+  }
+  /**
+   * 重跑一次合规版决议（#156）：`checkFallback` 的第一次决议与 `installCandidate` 的确认时复核
+   * 走**同一段代码**——两处各写一套就是两套真源，复核会跟用户当面看见的那次决议分家。
+   * 取时间表失败如实抛（调用方退通用老路，永不编造候选）；决议函数没注入即 `unsupported`。
+   */
+  async function resolveCompliantNow(decision: FallbackDecision): Promise<CompliantVerdict> {
+    const resolve = ports.resolveCompliantVersion
+    if (typeof resolve !== 'function') throw updateError('unsupported')
+    const packument = await fetchPackumentTimes(ports.fetchImpl, checkTimeoutMs, {
+      targetPackageName,
+      registryUrl,
+      emitLog: logPort ?? undefined,
+      registryHost,
+    })
+    return resolve({
+      kind: decision.kind,
+      blame: 'target',
+      targetVersion: decision.targetVersion ?? packument.latest,
+      latestVersion: packument.latest,
+      runningVersion: ports.readRunningVersion(),
+      releaseChannel,
+      windowMs: decision.windowMs,
+      windowSource: decision.windowSource,
+      publishedAtMs: decision.publishedAtMs,
+      timeTable: packument.times,
+      nowMs: ports.now(),
+    })
+  }
   let checking: Promise<CheckResult> | null = null
   let lastCheckAt = -Infinity
   let activeJobId: string | null = null
@@ -376,7 +468,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
           blockedReason: satisfiesNodeRange(ports.nodeVersion, release.nodeRange) ? null : 'incompatible-node',
         }
         // 新检查结论落地，旧候选即失效（#156）：latest 变了，基于旧 latest 的决议不许再用。
-        fallbackChecked = null
+        // 只清同一安装指纹的槽：清全部会把别家的候选一起抹掉（批量逐家检查即互踩）。
+        clearFallbackSlot(env.installationKey)
         // 凭证只在能装时交：没新版或有阻拦时交了也没用，不交。
         const snapshot = buildSnapshot(env, await healedJob(env))
         // 通道判定与检查成功各一条（#124）：顺序是先判定再宣布成功，读日志的人先看到「为什么」。
@@ -429,37 +522,22 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     const resolve = ports.resolveCompliantVersion
     if (typeof resolve !== 'function') throw updateError('unsupported')
     if (windowMs === null) {
-      fallbackChecked = null
+      // 评都评不了：本实例没有可用候选。别家的槽不按"猜的键"清（B2 教训），只等它自己到期。
+      clearFallbackSlot(null)
       return { verdict: resolve({ kind, blame, targetVersion: targetVersion ?? '', latestVersion: '', runningVersion: '', windowMs: null, windowSource, publishedAtMs, timeTable: {}, nowMs: ports.now() }), candidate: null, receipt: null }
     }
     if (blame !== 'target') {
-      fallbackChecked = null
+      clearFallbackSlot(null)
       return { verdict: { kind: 'abstain', reason: 'not-target', windowSource }, candidate: null, receipt: null }
     }
-    const packument = await fetchPackumentTimes(ports.fetchImpl, checkTimeoutMs, {
-      targetPackageName,
-      registryUrl,
-      emitLog: logPort ?? undefined,
-      registryHost,
-    })
-    const latest = packument.latest
-    const runningVersion = ports.readRunningVersion()
-    const verdictInput: CompliantVersionInput = {
-      kind,
-      blame,
-      targetVersion: targetVersion ?? latest,
-      latestVersion: latest,
-      runningVersion,
-      releaseChannel,
-      windowMs,
-      windowSource,
-      publishedAtMs,
-      timeTable: packument.times,
-      nowMs: ports.now(),
-    }
-    const verdict: CompliantVerdict = resolve(verdictInput)
-    if (verdict.kind !== 'downgrade-available') {
-      fallbackChecked = null
+    const decision: FallbackDecision = { kind, windowMs, windowSource, publishedAtMs, targetVersion }
+    const verdict = await resolveCompliantNow(decision)
+    // 两种候选都算数（#156 M2）：`downgrade-available`＝最新版还被门挡着、有满门限的老版可装；
+    // `ok-now`＝门限已经过了、**最新版现在就能装**（决议点名的那一版就是最新版）。两种都给凭证、
+    // 都点名版本；三入口本就认这两种（`vKind === 'ok-now'` 分支），从前只有服务侧不给 ok-now 发
+    // 凭证，于是最该说"现在直接装最新版"的时刻反而只弹"不可用"——同一下普通重试却能成功。
+    if (verdict.kind !== 'downgrade-available' && verdict.kind !== 'ok-now') {
+      clearFallbackSlot(null)
       return { verdict, candidate: null, receipt: null }
     }
     // 有候选才做版本文档校验（与 latest 同一套 tarball/integrity 形状门，不过即 invalid-release）。
@@ -474,15 +552,16 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     })
     const checkId = ports.randomId()
     const checkedAt = ports.now()
-    fallbackChecked = {
+    const expiresAt = writeFallbackSlot({
       version: verdict.version,
       release,
       checkId,
       checkedAt,
       expiresAt: checkedAt + confirmationTtlMs,
       installationKey: env.installationKey,
-    }
-    return { verdict, candidate: verdict.version, receipt: { checkId, checkedAt, expiresAt: fallbackChecked.expiresAt } }
+      decision,
+    })
+    return { verdict, candidate: verdict.version, receipt: { checkId, checkedAt, expiresAt } }
   }
 
   async function runBackground(job: UpdateJob, envAtStart: EnvironmentView): Promise<void> {
@@ -554,7 +633,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     version: string,
     ctx: { checkId: string; requestId: string; from?: InstallSource; env: EnvironmentView; previous: UpdateJob | null },
   ): Promise<UpdateSnapshot> {
-    const slot = fallbackChecked
+    const slot = readFallbackSlot(ctx.env.installationKey)
     // 绑定三件套：槽要有、版本要对上、凭证编号要对上、没过期——缺一即检查过期，不猜。
     if (!slot || slot.version !== version || !slot.checkId || slot.checkId !== ctx.checkId || ports.now() >= slot.expiresAt) {
       throw updateError('check-expired')
@@ -582,6 +661,12 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     }
     if (!(await acquire(job.id))) throw updateError('update-busy')
     try {
+      // 确认时复核（#156 M3）：拿**同一批输入**重跑一次决议。凭证最长活十分钟，这期间门限会过期、
+      // 新版会发布；"当时可装"不等于"现在还是最新可装"。候选变了（或已不再可装）即 check-expired，
+      // 交 UI 重新决议——按钮点名的那个版本永不偷偷换掉，用户确认的也不是一个过时的"当时最新"。
+      const fresh = await resolveCompliantNow(slot.decision)
+      const usable = fresh.kind === 'downgrade-available' || fresh.kind === 'ok-now' ? fresh.version : null
+      if (usable !== version) throw updateError('check-expired')
       // 装前复核（与 latest 路径同纪律）：候选版本文档重取一次，对不上决议时存的即过期。
       const current = await fetchNpmVersionRelease(ports.fetchImpl, checkTimeoutMs, {
         targetPackageName,

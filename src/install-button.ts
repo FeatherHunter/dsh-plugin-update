@@ -23,6 +23,8 @@ import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type Locale
 import {
   buildUpdateDiagCopy,
   failureCodeOf,
+  fallbackCauseFromDetail,
+  fallbackCauseFromDiag,
   isCheckSideFailureCode,
   messageCodeOf,
   panelViewModel,
@@ -33,6 +35,7 @@ import {
   type UpdatePanelClientLogOptions,
   type UpdateThemeTokens,
 } from './panel.js'
+import { formatUnlockAt } from './install-cause.js'
 import { createClientLogChannel, type ClientLogChannel } from './log/client-queue.js'
 import type { UpdateSnapshot } from './ports.js'
 import type { VisibleQueue } from './queue.js'
@@ -87,7 +90,15 @@ export interface InstallButtonViewInput {
   queue: VisibleQueue | null
   lastError: string | null
   errorKind?: string | null
-  busyAct: 'check' | 'install' | null
+  /** 锁存里的失败原文（翻译官重认用；没有即不认，不猜）。 */
+  errorDetail?: string | null
+  /** 锁存里的机读诊断（#156 第四轮）：异步失败时宿主随成功回包补的包名/归因，认因优先用它。 */
+  errorDiag?: unknown
+  /** 归因用的插件标识（与 panel 锁存同口径）。 */
+  pluginId?: string | null
+  /** 决议已出的候选（有即二次确认态，无即首问态）。 */
+  fallbackOffer?: { candidate: string; targetVersion: string } | null
+  busyAct: 'check' | 'install' | 'fallback' | null
   /**轮询封顶后转重查态：在途也不再显示忙。请调用方（挂载）传入，纯函数不读计时器。*/
   pollCapped?: boolean | null
   lang?: AppLang | string | null
@@ -105,6 +116,10 @@ export interface InstallButtonView {
   showManual: boolean
   queueNote: string | null
   bannerKind: string
+  /** 合规版兜底（#156）：失败且拦的正是更新目标时非 null；复用 panel.action.* 既有键，零新增键。 */
+  fallbackStage: 'offer' | 'confirm' | null
+  fallbackCandidate: string | null
+  fallbackBusy: boolean
 }
 
 export const INSTALL_BUTTON_POLL = {
@@ -221,6 +236,35 @@ async function defaultCopyText(text: string): Promise<void> {
 
 // ---------- 纯函数视图（无计时器无 DOM；挂载与测试共用同一装配） ----------
 
+/**
+ * 合规版兜底资格（#156，纯函数）：失败原文经翻译官重认，拦的正是当前更新目标才给。
+ * B 类（别家包）与认不出的失败回 null——调用方走通用老路，最坏情况就是现在。
+ * 候选对不上当前目标即视为无候选（旧决议不指手画脚，由挂载侧清掉）。
+ * #156 第四轮：先认机读诊断（宿主补的包名/归因）——真机上插件标识与 npm 包名不是一回事，
+ * 只按标识认的话这支按钮在真机上永远不出现；诊断认不出才退回原文认。
+ */
+function installButtonFallbackOf(input: InstallButtonViewInput, bannerKind: string): {
+  stage: 'offer' | 'confirm'
+  candidate: string | null
+} | null {
+  try {
+    if (bannerKind !== 'failed') return null
+    if (input.busyAct === 'check' || input.busyAct === 'install') return null
+    const code = typeof input.lastError === 'string' && input.lastError ? input.lastError : 'install-failed'
+    const byDiag = fallbackCauseFromDiag(input.errorDiag, input.errorDetail ?? null, code, input.snapshot?.job?.targetVersion)
+    const cause = byDiag ?? fallbackCauseFromDetail(input.errorDetail ?? null, code, input.pluginId ?? null)
+    if (!cause) return null
+    const latest = input.snapshot?.latestVersion ?? null
+    if (typeof latest !== 'string' || !latest || cause.targetVersion !== latest) return null
+    const offered = typeof input.fallbackOffer?.candidate === 'string' ? input.fallbackOffer.candidate.trim() : ''
+    const offerTarget = typeof input.fallbackOffer?.targetVersion === 'string' ? input.fallbackOffer.targetVersion.trim() : ''
+    if (offered && offerTarget === cause.targetVersion) return { stage: 'confirm', candidate: offered }
+    return { stage: 'offer', candidate: null }
+  } catch {
+    return null
+  }
+}
+
 export function installButtonViewModel(input: InstallButtonViewInput): InstallButtonView {
   const l = normalizeLangTag(input.lang ?? 'zh')
   const view = panelViewModel(
@@ -237,6 +281,8 @@ export function installButtonViewModel(input: InstallButtonViewInput): InstallBu
   const job = input.snapshot?.job ?? null
   const jobState = job?.state ?? null
   const jobActive = jobState === 'installing' || jobState === 'verifying'
+  const fallback = installButtonFallbackOf(input, view.banner.kind)
+  const fallbackBusy = input.busyAct === 'fallback'
   // 封顶转重查态：在途也不再显示忙，按钮退回检查（点查即刷新，不多一次自动调用）。
   if (input.pollCapped === true && jobActive && !input.busyAct) {
     return {
@@ -250,9 +296,12 @@ export function installButtonViewModel(input: InstallButtonViewInput): InstallBu
       showManual: view.showManual,
       queueNote: view.queueNote,
       bannerKind: view.banner.kind,
+      fallbackStage: null,
+      fallbackCandidate: null,
+      fallbackBusy: false,
     }
   }
-  if (input.busyAct === 'check' || input.busyAct === 'install' || jobActive) {
+  if (input.busyAct === 'check' || input.busyAct === 'install' || input.busyAct === 'fallback' || jobActive) {
     const label =
       input.busyAct === 'check'
         ? copyText('panel.action.checking-busy', l)
@@ -270,8 +319,15 @@ export function installButtonViewModel(input: InstallButtonViewInput): InstallBu
       showManual: view.showManual,
       queueNote: view.queueNote,
       bannerKind: view.banner.kind,
+      fallbackStage: fallback?.stage ?? null,
+      fallbackCandidate: fallback?.candidate ?? null,
+      fallbackBusy,
     }
   }
+  // 可安装（核心口径）：主按钮照旧，兜底是**加法**不是替代——与主面板同一摆放。
+  // 关键：年龄门是 pnpm 在装的那一刻拦的，核心的 canInstall 根本不知道它，
+  // 所以"装失败之后 canInstall 仍为真"才是生产真形状；此处若把兜底吞掉，
+  // 主场景（最新版被拦）在槽位上就永远看不见［装合规版］（2026-10-17 对抗审查实测）。
   if (view.installEnabled) {
     return {
       role: 'install',
@@ -284,6 +340,9 @@ export function installButtonViewModel(input: InstallButtonViewInput): InstallBu
       showManual: view.showManual,
       queueNote: view.queueNote,
       bannerKind: view.banner.kind,
+      fallbackStage: fallback?.stage ?? null,
+      fallbackCandidate: fallback?.candidate ?? null,
+      fallbackBusy,
     }
   }
   if (!input.snapshot || !input.snapshot.latestVersion) {
@@ -298,6 +357,9 @@ export function installButtonViewModel(input: InstallButtonViewInput): InstallBu
       showManual: view.showManual,
       queueNote: view.queueNote,
       bannerKind: view.banner.kind,
+      fallbackStage: null,
+      fallbackCandidate: null,
+      fallbackBusy: false,
     }
   }
   if (input.lastError && isCheckSideFailureCode(input.lastError)) {
@@ -312,6 +374,9 @@ export function installButtonViewModel(input: InstallButtonViewInput): InstallBu
       showManual: view.showManual,
       queueNote: view.queueNote,
       bannerKind: view.banner.kind,
+      fallbackStage: null,
+      fallbackCandidate: null,
+      fallbackBusy: false,
     }
   }
   const done = view.banner.kind === 'done'
@@ -326,6 +391,9 @@ export function installButtonViewModel(input: InstallButtonViewInput): InstallBu
     showManual: view.showManual,
     queueNote: view.queueNote,
     bannerKind: view.banner.kind,
+    fallbackStage: fallback?.stage ?? null,
+    fallbackCandidate: fallback?.candidate ?? null,
+    fallbackBusy,
   }
 }
 
@@ -361,6 +429,43 @@ export function renderInstallButtonHTML(
         busy +
         '>' +
         escapeHtml(view.buttonLabel) +
+        '</button></div>',
+    )
+  }
+  // 合规版兜底（#156）：失败且拦的正是更新目标时，与主面板同口径给双按钮；
+  // B 类与认不出的失败一个字不动（通用老路）。复用 panel.action.* 既有键，零新增键。
+  if (view.fallbackStage === 'confirm' && view.fallbackCandidate) {
+    const busy = view.fallbackBusy || view.buttonBusy ? ' disabled aria-busy="true"' : ''
+    parts.push(
+      '<div class="dsh-upd-ib-row"><button type="button" data-action="install-fallback-confirm" data-primary="1" title="' +
+        escapeHtml(copyText('panel.action.install-fallback-confirm-title', l)) +
+        '"' +
+        busy +
+        '>' +
+        escapeHtml(copyText('panel.action.install-fallback-confirm', l, { version: view.fallbackCandidate })) +
+        '</button><button type="button" data-action="wait-latest" title="' +
+        escapeHtml(copyText('panel.action.wait-latest-title', l)) +
+        '"' +
+        (view.fallbackBusy || view.buttonBusy ? ' disabled' : '') +
+        '>' +
+        escapeHtml(copyText('panel.action.wait-latest', l)) +
+        '</button></div>',
+    )
+  } else if (view.fallbackStage === 'offer') {
+    const busy = view.fallbackBusy || view.buttonBusy ? ' disabled aria-busy="true"' : ''
+    parts.push(
+      '<div class="dsh-upd-ib-row"><button type="button" data-action="install-fallback" data-primary="1" title="' +
+        escapeHtml(copyText('panel.action.install-fallback-title', l)) +
+        '"' +
+        busy +
+        '>' +
+        escapeHtml(copyText('panel.action.install-fallback', l)) +
+        '</button><button type="button" data-action="wait-latest" title="' +
+        escapeHtml(copyText('panel.action.wait-latest-title', l)) +
+        '"' +
+        (view.fallbackBusy || view.buttonBusy ? ' disabled' : '') +
+        '>' +
+        escapeHtml(copyText('panel.action.wait-latest', l)) +
         '</button></div>',
     )
   }
@@ -524,7 +629,9 @@ export function mountInstallButton(
   let receipt: { checkId: string } | null = null
   let requestId: string | null = null
   let latch: InstallButtonLatch | null = null
-  let busyAct: 'check' | 'install' | null = null
+  let busyAct: 'check' | 'install' | 'fallback' | null = null
+  /** 合规版决议已出的候选（#156）：新失败即失效，由 setLatch/clearLatch 单点清掉，不许旧决议指新失败。 */
+  let fallbackOffer: { candidate: string; checkId: string; targetVersion: string } | null = null
   let ensuring = false
   let pollCount = 0
   let pollCapped = false
@@ -580,12 +687,14 @@ export function mountInstallButton(
 
   function setLatch(next: InstallButtonLatch): void {
     latch = next
+    fallbackOffer = null
   }
 
   // #150 判据单源：过期凭证的回包/抛错判定复用 panel.ts 的同名导出（本文件不再自存一份）。
 
   function clearLatch(): void {
     latch = null
+    fallbackOffer = null
   }
 
   function latchFromReply(reply: Record<string, unknown>, source: 'check' | 'install'): InstallButtonLatch {
@@ -615,7 +724,7 @@ export function mountInstallButton(
     }
   }
 
-  function latchFromJob(job: NonNullable<UpdateSnapshot['job']>, snap: UpdateSnapshot | null): InstallButtonLatch {
+  function latchFromJob(job: NonNullable<UpdateSnapshot['job']>, snap: UpdateSnapshot | null, replyDiag?: unknown): InstallButtonLatch {
     const env = currentEnvPair()
     const message = typeof job.message === 'string' ? job.message : null
     const detail = message && message.includes(':') ? message.slice(message.indexOf(':') + 1).trim() || null : message
@@ -623,7 +732,9 @@ export function mountInstallButton(
       code: messageCodeOf(message) || 'install-failed',
       kind: null,
       detail,
-      diag: latch?.diag ?? null,
+      // #156 第四轮：异步失败的事实（包名/归因）由宿主随成功回包的 diag 带回；
+      // 既有证据不覆写（#58 单调置入），锁存空着时用本次回包的。
+      diag: latch?.diag ?? replyDiag ?? null,
       requestId: job.requestId ?? latch?.requestId ?? requestId,
       checkId: receipt?.checkId ?? latch?.checkId ?? null,
       runningVersion: snap?.runningVersion ?? snapshot?.runningVersion ?? null,
@@ -685,7 +796,8 @@ export function mountInstallButton(
       } else if (jobState === 'completed' || jobState === 'restart-required') {
         clearLatch()
       } else if ((jobState === 'failed' || jobState === 'interrupted') && snapshot?.job) {
-        const next = latchFromJob(snapshot.job, snapshot)
+        // #156 第四轮：异步失败的事实（包名/归因）随本次回包的 diag 一起来，锁存空着时收下。
+        const next = latchFromJob(snapshot.job, snapshot, isObject(reply['diag']) ? reply['diag'] : null)
         if (
           !latch ||
           latch.volatile ||
@@ -739,6 +851,10 @@ export function mountInstallButton(
       queue,
       lastError: latch?.code ?? null,
       errorKind: latch?.kind ?? null,
+      errorDetail: latch?.detail ?? null,
+      errorDiag: latch?.diag ?? null,
+      pluginId,
+      fallbackOffer: fallbackOffer ? { candidate: fallbackOffer.candidate, targetVersion: fallbackOffer.targetVersion } : null,
       busyAct,
       pollCapped,
       lang: currentLang(),
@@ -765,9 +881,9 @@ export function mountInstallButton(
     }
   }
 
-  function sayCopyKey(key: BilingualKey): void {
+  function sayCopyKey(key: BilingualKey, params?: Record<string, string>): void {
     try {
-      copyNotice = copyText(key, currentLang())
+      copyNotice = copyText(key, currentLang(), params)
       noticeExpiresAt = Date.now() + 5000
     } catch {
       copyNotice = null
@@ -966,7 +1082,9 @@ export function mountInstallButton(
     }
   }
 
-  async function act(kind: 'install' | 'check' | 'copy-manual' | 'copy-diag'): Promise<void> {
+  async function act(
+    kind: 'install' | 'check' | 'copy-manual' | 'copy-diag' | 'install-fallback' | 'install-fallback-confirm' | 'wait-latest',
+  ): Promise<void> {
     if (!mounted) return
     actionBytes = -1
     actionTruncated = false
@@ -980,7 +1098,137 @@ export function mountInstallButton(
     }
   }
 
-  async function runAction(kind: 'install' | 'check' | 'copy-manual' | 'copy-diag'): Promise<void> {
+  /**
+   * 合规版决议（#156）：点"装合规版"本身不装任何东西——先认证据，再问决议，
+   * 有候选才给点名版本的二次确认按钮。与 panel.ts 同口径（入参/解析/退化），
+   * 老宿主没有这条电话即退化"只呈现"，面板不碎。
+   */
+  async function doFallbackResolve(): Promise<void> {
+    if (!latch) {
+      sayCopyKey('panel.toast.fallback-unavailable')
+      paint()
+      return
+    }
+    const cause = fallbackCauseFromDetail(latch.detail, latch.code, pluginId)
+    if (!cause || cause.targetVersion !== (latch.latestVersion ?? snapshot?.latestVersion ?? null)) {
+      sayCopyKey('panel.toast.fallback-unavailable')
+      paint()
+      return
+    }
+    busyAct = 'fallback'
+    paint()
+    try {
+      let reply: unknown
+      try {
+        reply = await call(phoneNames.updateCheckFallback, {
+          kind: cause.kind,
+          blame: 'target',
+          targetVersion: cause.targetVersion,
+          ...(typeof cause.windowMs === 'number' ? { windowMs: cause.windowMs } : {}),
+          windowSource: cause.windowSource,
+          ...(typeof cause.publishedAtMs === 'number' ? { publishedAtMs: cause.publishedAtMs } : {}),
+        })
+      } catch {
+        reply = null
+      }
+      if (!mounted) return
+      if (!isObject(reply) || reply['ok'] === false) {
+        sayCopyKey('panel.toast.fallback-unavailable')
+        paint()
+        return
+      }
+      const snap = isObject(reply['snapshot']) ? (reply['snapshot'] as Record<string, unknown>) : null
+      const verdict = snap && isObject(snap['verdict']) ? (snap['verdict'] as Record<string, unknown>) : null
+      const vKind = verdict && typeof verdict['kind'] === 'string' ? (verdict['kind'] as string) : ''
+      const vVersion = verdict && typeof verdict['version'] === 'string' ? (verdict['version'] as string).trim() : ''
+      const snapCandidate = snap && typeof snap['candidate'] === 'string' ? (snap['candidate'] as string).trim() : ''
+      const rec = isObject(reply['receipt']) ? (reply['receipt'] as Record<string, unknown>) : null
+      const gotCheckId = rec && typeof rec['checkId'] === 'string' ? (rec['checkId'] as string) : ''
+      const candidate = snapCandidate || (vKind === 'ok-now' ? vVersion : '')
+      if ((vKind === 'downgrade-available' || vKind === 'ok-now') && candidate && gotCheckId) {
+        fallbackOffer = { candidate, checkId: gotCheckId, targetVersion: cause.targetVersion }
+      } else if (vKind === 'wait-until') {
+        const unlockAt = verdict && typeof verdict['unlockAtMs'] === 'number' ? (verdict['unlockAtMs'] as number) : null
+        const time = typeof unlockAt === 'number' ? (formatUnlockAt(unlockAt, currentLang()) ?? null) : null
+        if (time) sayCopyKey('panel.toast.fallback-wait', { time })
+        else sayCopyKey('panel.toast.fallback-unavailable')
+      } else {
+        sayCopyKey('panel.toast.fallback-unavailable')
+      }
+    } finally {
+      busyAct = null
+    }
+    paint()
+  }
+
+  /**
+   * 二次确认（#156）：按钮文案即决议点名的精确版本——用户先看见再点，不存在静默装旧版。
+   * 决议凭证过期即退回重决议，不锁存不硬装（与 panel.ts 同口径）。
+   */
+  async function doFallbackConfirm(): Promise<void> {
+    if (!fallbackOffer) return
+    const offer = fallbackOffer
+    busyAct = 'install'
+    copyNotice = copyText('panel.toast.installing', currentLang())
+    paint()
+    try {
+      requestId = randomRequestId()
+      pollCount = 0
+      pollCapped = false
+      let reply: Record<string, unknown>
+      try {
+        reply = await call(phoneNames.updateInstall, {
+          checkId: offer.checkId,
+          requestId,
+          version: offer.candidate,
+          ...queueArgs(),
+        })
+      } catch (err) {
+        if (!mounted) return
+        fallbackOffer = null
+        if (thrownIsCheckExpired(err)) {
+          sayCopyKey('panel.toast.fallback-unavailable')
+          paint()
+          return
+        }
+        const env = currentEnvPair()
+        setLatch({
+          code: 'install-failed',
+          kind: null,
+          detail: thrownDetail(err),
+          diag: null,
+          requestId,
+          checkId: offer.checkId,
+          runningVersion: snapshot?.runningVersion ?? null,
+          installedVersion: snapshot?.installedVersion ?? null,
+          latestVersion: snapshot?.latestVersion ?? null,
+          targetVersion: null,
+          hostKind: env.hostKind,
+          profileName: env.profileName,
+          source: 'install',
+          volatile: false,
+          atMs: latchNow(),
+        })
+        paint()
+        return
+      }
+      if (!mounted) return
+      fallbackOffer = null
+      if (replyIsCheckExpired(reply)) {
+        sayCopyKey('panel.toast.fallback-unavailable')
+        paint()
+        return
+      }
+      applyStatusReply(reply, 'install')
+    } finally {
+      busyAct = null
+    }
+    paint()
+  }
+
+  async function runAction(
+    kind: 'install' | 'check' | 'copy-manual' | 'copy-diag' | 'install-fallback' | 'install-fallback-confirm' | 'wait-latest',
+  ): Promise<void> {
     copyNotice = null
     switch (kind) {
       case 'check': {
@@ -1036,6 +1284,25 @@ export function mountInstallButton(
         paint()
         return
       }
+      case 'install-fallback': {
+        // 决议本身不装任何东西：busyAct 守卫内由 doFallbackResolve 自理。
+        if (busyAct) return
+        await doFallbackResolve()
+        return
+      }
+      case 'install-fallback-confirm': {
+        if (busyAct || !fallbackOffer) return
+        await doFallbackConfirm()
+        return
+      }
+      case 'wait-latest': {
+        // 等新版：与 panel 同效果——只清锁存与决议，不调电话、不写跳过。
+        fallbackOffer = null
+        clearLatch()
+        sayCopyKey('panel.toast.failure-dismissed')
+        paint()
+        return
+      }
     }
   }
 
@@ -1044,7 +1311,16 @@ export function mountInstallButton(
       const t = ev as { target?: { closest?: (sel: string) => { getAttribute?: (k: string) => string | null } | null } | null } | null
       const btn = t?.target && typeof t.target.closest === 'function' ? t.target.closest('[data-action]') : null
       const kind = btn?.getAttribute ? btn.getAttribute('data-action') : null
-      if (kind !== 'install' && kind !== 'check' && kind !== 'copy-manual' && kind !== 'copy-diag') return
+      if (
+        kind !== 'install' &&
+        kind !== 'check' &&
+        kind !== 'copy-manual' &&
+        kind !== 'copy-diag' &&
+        kind !== 'install-fallback' &&
+        kind !== 'install-fallback-confirm' &&
+        kind !== 'wait-latest'
+      )
+        return
       void act(kind)
     } catch {
       // Click failure never blocks install.

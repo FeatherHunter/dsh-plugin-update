@@ -272,6 +272,24 @@ function pickId(raw: unknown): string | null {
 const CAUSE_LINE_RE =
   /✗|×\s|ERR_[A-Za-z_]+|code\s+[A-Z][A-Z_0-9]+|fail(?:ed|ure)?|error|fatal|panic|not ok|rejected|denied|失败|错误|异常/i
 
+/**
+ * 行首 `code:` 前缀剥离（仅分类用，不改输出一字）。
+ * 动机：store.ts 的 detailText 把宿主 ManagementError 收成 `operation-error: <原话首行>`，
+ * 该前缀自身含 `error` 一词——不剥，它会把进度头 `? Verifying…` 误判成原因行，
+ * 真因 `✗ Lockfile failed…` 反而挤到 300 字截断之外（2026-10-17 dsh-prompt 0.4.28→0.4.29 现场）。
+ * 只剥一层 `Token:`（宿主码形）；`ERR_*` 机器 token 本身即信号，不剥。
+ * 剥完仍命中才是真原因；通用码前缀不单独算信号（ generic 的 failed 不如 ✗ 定位）。
+ */
+function causeSignalOf(line: string): string {
+  try {
+    const m = /^\s*([A-Za-z][A-Za-z0-9_.-]*)\s*:\s*/.exec(line)
+    if (m && m[1] && !/ERR_/i.test(m[1])) return line.slice(m[0].length)
+  } catch {
+    /* 坏行即原文分类，不抛 */
+  }
+  return line
+}
+
 function hoistCauseLines(text: string): string {
   try {
     const lines = String(text).split(/\r?\n/)
@@ -280,7 +298,7 @@ function hoistCauseLines(text: string): string {
     const rest: string[] = []
     let prevIsCause = false
     for (const line of lines) {
-      if (CAUSE_LINE_RE.test(line)) {
+      if (CAUSE_LINE_RE.test(causeSignalOf(line))) {
         cause.push(line)
         prevIsCause = true
       } else if (prevIsCause && cause.length > 0 && /^[ \t]+[^ \t]/.test(line)) {

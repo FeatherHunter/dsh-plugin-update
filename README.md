@@ -14,7 +14,7 @@
 
 装上它你会拿到七样东西：
 
-- **五个电话**：查状态（只读本地）、查新版（用户点了才联网一次）、装更新（拿凭证提交）、取日志（按版取更新日志，全文或空）、交日志（面板把攒下的日志行交回宿主落盘，0.16.0 起）。电话指宿主对外提供的方法。
+- **六个电话**：查状态（只读本地）、查新版（用户点了才联网一次）、装更新（拿凭证提交）、取日志（按版取更新日志，全文或空）、交日志（面板把攒下的日志行交回宿主落盘，0.16.0 起）、查合规版（最新版还在年龄门内时，回「满门限的那个版本是哪个」与它的候选凭证，0.18.6 起）。电话指宿主对外提供的方法。
 - **一套落盘**：任务状态、安装锁、回滚凭据，按「插件标识 + 使用范围」隔离，多插件互不干扰。
 - **面板要的派生取值**：电话名与轮询间隔，构建期从本包生成，面板里不写死。
 - **一个现成整组件**：默认内嵌、可切弹窗，调用者传参指定；轮询、安装门控、中文一句话、待重启横幅、手工命令展示与复制、排队可见开关、跳过与恢复、诊断一键复制、**更新日志自动展示**全在组件内部消化。
@@ -61,7 +61,7 @@ for (const [name, handler] of Object.entries(update.handlers)) {
 }
 ```
 
-这一步得到五个电话名：`notes.updateStatus`、`notes.updateCheck`、`notes.updateInstall`、`notes.updateChangelog`（取日志：给版本号，回该版 tarball 里的更新日志全文，取不到回空）、`notes.logAppend`（收面板侧的日志行，见第 10 节；`0.16.0` 起新增）。
+这一步得到六个电话名：`notes.updateStatus`、`notes.updateCheck`、`notes.updateInstall`、`notes.updateChangelog`（取日志：给版本号，回该版 tarball 里的更新日志全文，取不到回空）、`notes.logAppend`（收面板侧的日志行，见第 10 节；`0.16.0` 起新增）、`notes.updateCheckFallback`（合规版决议：最新版还在年龄门内时装不上，问它「满门限的最新版是哪个」，`0.18.6` 起新增）。
 
 `pluginId` 必填（非空字符串，不含路径分隔符）。单例复用键强制含插件标识，多插件不串内存状态与锁。
 除 `pluginId` 之外的配置都可选并带默认值，不传即走默认（见第 3 节）。
@@ -78,22 +78,27 @@ createHostUpdate(
 
 本包是 ESM（`"type": "module"`）：ESM 插件直接 `import`；CJS 插件用 `await import('dsh-plugin-update')`。
 
-### 五个电话的入参与回参
+### 六个电话的入参与回参
 
 面板与宿主两侧共用这一份契约（`…` 是你的前缀）：
 
 | 电话 | 入参 | 成功回包 | 失败回包 |
 |---|---|---|---|
-| `….updateStatus` | `{}` | `{ ok: true, snapshot, manual, receipt: null }` | `{ ok: false, error, errorKind, diag? }` |
-| `….updateCheck` | `{}` | `{ ok: true, snapshot, manual, receipt }` | 同上 |
-| `….updateInstall` | `{ checkId, requestId }` | `{ ok: true, snapshot, manual, receipt: null }` | 同上 |
+| `….updateStatus` | `{}` | `{ ok: true, snapshot, manual, receipt: null }` ※ | `{ ok: false, error, errorKind, diag? }` |
+| `….updateCheck` | `{}` | `{ ok: true, snapshot, manual, receipt }` ※ | 同上 |
+| `….updateInstall` | `{ checkId, requestId, version? }` | `{ ok: true, snapshot, manual, receipt: null }` ※ | 同上 |
 | `….updateChangelog` | `{ version }` | `{ ok: true, version, markdown: string \| null }` | 同上 |
 | `….logAppend` | `{ rows: [{ level, event, fields, ts }] }` | `{ accepted, dropped }`（永不 `ok:false`、永不抛） | — |
+| `….updateCheckFallback` | `{ kind, blame, targetVersion, windowMs, windowSource, publishedAtMs }` | `{ ok: true, snapshot: { verdict, candidate }, receipt }` ※ | 同上 |
 
-- `snapshot` 恒为第 5.1 节那六个字段；`manual` 是第 5.3 节那条手工命令（能给则给，不能给为 `null`）。
-- `receipt` 只有查新版给（`{ checkId, checkedAt, expiresAt }`）；装更新时把 `checkId` 原样带回来，`requestId` 由面板自己生成（同一个编号重复提交直接返回旧结果）。
+※ 快照里带着失败任务时，成功回包另可带可选 `diag`（失败证据小对象，见下一条）；无失败任务时形状逐字不变（`0.18.7` 起）。
+
+- `….updateInstall` 的 `version` 可选：给了就装这个精确版（「装合规版」这条候选路径用），不给仍装快照里的最新版。
+- `snapshot` 恒为第 5.1 节那七个字段；`manual` 是第 5.3 节那条手工命令（能给则给，不能给为 `null`）。
+- `receipt` 查新版与合规版决议都给（`{ checkId, checkedAt, expiresAt }`）；装更新时把 `checkId` 原样带回来，`requestId` 由面板自己生成（同一个编号重复提交直接返回旧结果）。
 - 失败一律 `ok: false`：`error` 是原因码（第 5.2 节那十种，另加 `check-failed` / `invalid-release` / `check-expired` / `update-busy` / `install-failed`），`errorKind` 认不出时是 `internal`。面板按 16 码给中文文案（十种见第 5.2 节，另五种与 `internal` 见下表，未来码走兜底）；分支只认 `errorKind`，`error` 仅回退。
-- 失败可能顺带回可选 `diag`（失败证据小对象：阶段、路由、耗时、人话摘要、版本、宿主、请求与检查编号、源主机、动作提示；缺省即省略，序列化恒在 1KB 内）。旧面板直接忽略它，行为逐字不变；新面板也只按稳定码分支，不拿它做分支。
+- 失败可能顺带回可选 `diag`（失败证据小对象：阶段、路由、耗时、人话摘要、版本、宿主、请求与检查编号、源主机、动作提示；`0.18.5` 起另有归因三键 `causeKind` / `causePackage` / `causeUnlockAt`，共 19 键；缺省即省略，序列化恒在 1KB 内）。旧面板直接忽略它，行为逐字不变；新面板也只按稳定码分支，不拿它做分支。
+- `0.18.7` 起，快照里带着失败任务时**成功回包**也可能带这份 `diag`（批量面板与安装按钮靠它认出「该装合规版」）；无失败任务时成功回包形状逐字不变。
 
 ### 第 3 步：面板侧接线（构建期派生）
 
@@ -141,7 +146,7 @@ const panel = mountUpdatePanel(document.getElementById('update-slot'), {
 // 弹窗版想让「关闭」按钮真把弹窗撤掉：传 onCloseRequested（面板点关闭/Esc 时先调它撤 DOM，再停轮询；入口件打开的 dialog 已内置）。
 ```
 
-组件内部消化的事（调用者不再写）：按 `panelPollMs` 轮询查状态（下限 250 毫秒）；安装按钮状态跟随快照的 `canInstall`，不另写门控规则；装不了的原因按第 5.2 节展示中文一句话；`pending-restart` 单独横幅加重启指引，不再给安装按钮；手工命令展示与复制；排队位置展示与 `showOthers` 开关；跳过按版本记（“已跳过 X.Y.Z · 恢复”在同一行，不藏进设置页）；失败时旁边的“复制诊断”一键给出脱敏后的自包含文本（稳定码、版本、宿主、队列位置），深挖仍看日志（组件里留着第 6 节第 11 条的过滤口径）。失败横幅常驻：查/装失败后保留到下一次用户主动查/装的新结论、任务态或版本变化，只读轮询不再洗掉；复制诊断锁定致命那次回包的证据（码、摘要、版本、宿主、编号冻结在失败时刻）；失败旁有「知道了」可显式确认回到可装页（只清面板提示，不调电话）。无失败时复制诊断给当前状态快照（版本、宿主、范围、队列），不伪造失败码。04 章平时是路牌（中性行＋日志过滤口径，可用 `showLogHint: false` 隐藏）；失败时变为卷宗：真实稳定码、本次查询键（请求／检查编号＋失败时刻）、证据冻结声明、凭编号对日志的现成查询。日志事件名（`host.call`／`host.call.fail`／`update.install.exec`）由宿主与面板共用单源，改名即全改。
+组件内部消化的事（调用者不再写）：按 `panelPollMs` 轮询查状态（下限 250 毫秒）；安装按钮状态跟随快照的 `canInstall`，不另写门控规则；装不了的原因按第 5.2 节展示中文一句话；`pending-restart` 单独横幅加重启指引，不再给安装按钮；手工命令展示与复制；排队位置展示与 `showOthers` 开关；跳过按版本记（“已跳过 X.Y.Z · 恢复”在同一行，不藏进设置页）；失败时旁边的“复制诊断”一键给出脱敏后的自包含文本（稳定码、版本、宿主、队列位置），深挖仍看日志（组件里留着第 6 节第 11 条的过滤口径）。失败若归因指向本插件、且最新版被 24 小时年龄门挡住，旁边另给「装合规版」与「等新版」两个按钮（`0.18.6` 起；先决议、点名版本确认后才装，名词与整套流程见第 2.6 节）。失败横幅常驻：查/装失败后保留到下一次用户主动查/装的新结论、任务态或版本变化，只读轮询不再洗掉；复制诊断锁定致命那次回包的证据（码、摘要、版本、宿主、编号冻结在失败时刻）；失败旁有「知道了」可显式确认回到可装页（只清面板提示，不调电话）。无失败时复制诊断给当前状态快照（版本、宿主、范围、队列），不伪造失败码。04 章平时是路牌（中性行＋日志过滤口径，可用 `showLogHint: false` 隐藏）；失败时变为卷宗：真实稳定码、本次查询键（请求／检查编号＋失败时刻）、证据冻结声明、凭编号对日志的现成查询。日志事件名（`host.call`／`host.call.fail`／`update.install.exec`）由宿主与面板共用单源，改名即全改。
 
 待重启横幅上有个「重启宿主」入口。宿主没有“重启自己”的电话，所以默认点击只如实提示「请手动重启宿主」；想把重启流程接进来就传 `onRestartRequested`（面板调它，成败都回执）：
 
@@ -250,7 +255,7 @@ mountUpdateEntry(el, { pluginId: 'p', prefix: 'notes', call, variant: 'badge',
 import { mountUpdateBatchEntry } from 'dsh-plugin-update/entry-batch'
 
 const entry = mountUpdateBatchEntry(document.getElementById('upd-entry'), {
-  prefix: 'life',                              // 批量电话前缀（五个批量电话从它派生）
+  prefix: 'life',                              // 批量电话前缀（七个批量电话从它派生）
   call: (name, args) => host.call(name, args),
   theme: 'archive',                            // 与单入口/面板同一套皮肤
 })
@@ -259,11 +264,12 @@ const entry = mountUpdateBatchEntry(document.getElementById('upd-entry'), {
 ```
 
 聚合口径与批量面板总账同一份数法（含「忙失败占位翻回可更新」）：`忙 > 失败 > 待重启 > 可更新 > 待查`，
+一个收尾事实（`0.18.7` 起）：账本目标没装成、但这家实际已装上「能装的最新」（合规版，见第 2.6 节）的行，按要不要重启进「待重启 / 已最新」，不再报安装失败。
 文案按宿主语言单语渲染（中文如左，英文见字典 `batch-entry.*` 同 key），`locale` 选项与单入口同形态，切换即时重绘。
 三自由度与单入口同取值，缺省不同：`openOn` 缺省 `'always'`（查完总是开批量面板；`has-update` 下有事才开，否则原地给总账一句）。
 `autoCheck` 缺省 `'mount'`（只调 `.batchStatus`，只读）；铁律同单入口：任何路径都不自动安装。
 
-窗口期说明（必读）：`mountUpdatePanel` 与 `mountUpdateBatchPanel` 已接受 `locale` 选项（与入口件同形态），但本版本暂不消费——传了不生效，面板内容仍按既有中文渲染；语言跟随的按面迁移在后续版本逐面落地，入口件两条链已先生效。
+窗口期说明（必读）：`mountUpdatePanel` 与 `mountUpdateBatchPanel` 接受 `locale` 选项（与入口件同形态）；本包新增的文案（批量面板的合规版入口、安装按钮的兜底按钮等）已按它单语渲染，早期散落文案仍按基线中文渲染——按面迁移在后续版本继续落地，入口件两条链已全部生效。
 
 ### 第 2.6 节：多目标批量更新（一个插件管 N 个插件的更新）
 
@@ -289,12 +295,12 @@ for (const [name, handler] of Object.entries(multi.handlers)) registry.set(name,
 ```
 
 七个批量电话（`<prefix>` 即上面的 `life`，同时是账本属主身份）：`batchStatus` / `batchCheck` / `batchInstall` / `batchResume` / `batchCancel` / `batchPrefs` / `batchPrefsSave`；
-每个目标的四个单插件电话照旧以**各自前缀**暴露（`ilife-bill.updateStatus` 等）。
+每个目标的六个单插件电话照旧以**各自前缀**暴露（`ilife-bill.updateStatus`、`ilife-bill.updateCheckFallback` 等）；每行回包里的 `phoneNames` 带全这六个名字，合规版兜底与候选安装都按它点名（`0.18.7` 起）。
 
 回包形状（成功六项，失败只有三项）：
 
 ```js
-{ ok: true, session, rows, progress, inventory, prefs }  // rows 一行一家：key/title/phase/targetVersion/restartRequired/error/snapshot
+{ ok: true, session, rows, progress, inventory, prefs }  // rows 一行一家：key/title/phase/targetVersion/restartRequired/error/snapshot/phoneNames（本行那家的六个电话名）、可选 diag 与 pluginId
 { ok: false, error, errorKind }            // 跨使用范围混目标会回 cross-scope，不抢锁、不写盘
 ```
 
@@ -309,6 +315,7 @@ const panel = mountUpdateBatchPanel(el, {
   prefix: 'life',
   call: (name, args) => host.call(name, args),
   theme: 'archive',          // 与单插件面板同一套皮肤（archive = 档案卷）
+  autoCompliant: true,       // 缺省开：年龄门行自动决议（只打决议电话，绝不自动装）
 })
 ```
 // 弹窗版与单面板同口径：传 `onCloseRequested`（点关闭/Esc 时先调它撤 DOM，再停轮询；入口件打开的 dialog 已内置；不传即只停轮询）。
@@ -333,9 +340,9 @@ mountUpdateBatchPanelHttp(document.querySelector('#batch'), {
 内核渲染时传 `actions: 'none'`——五章内容、进度条、「已跳过」提示一字不减，**动作按钮一个都不画**
 （内核里那些按钮带的是 `data-action`，批量面板只认 `data-act`；照搬 markup 而不接管行为，
 就会得到「可点却没反应」的死按钮——这条缝现在由渲染开关焊死）。详情里的动作行是批量面板自己的：
-`装 X.Y.Z / 重试`、`跳过这一版`（与单插件面板同语义：按插件+版本记，跳过后那家单独看也不再提醒）、
+`装 X.Y.Z / 重试`、`装合规版 / 等新版`（`0.18.7` 起：最新版被年龄门挡住时的两个出口，见下文）、`跳过这一版`（与单插件面板同语义：按插件+版本记，跳过后那家单独看也不再提醒）、
 `复制手工命令`、`复制诊断`——全部走与行内**同一条** `act()` 通道、同一份忙守卫。
-「复制诊断」需要宿主把失败诊断一并回出来：`batchStatus` 的每个 row 带可选 `diag` 与 `pluginId`。
+「复制诊断」需要宿主把失败诊断一并回出来：`batchStatus` 的每个 row 带可选 `diag` 与 `pluginId`；生产形状下宿主还会把目标包名与归因键补进这份 `diag`，兜底按钮才认得出该给哪一家装合规版。
 
 > 自己写渲染时同理：`renderUpdatePanelHTML(input)` 少传 `actions` 即默认（画动作行）；
 > 传 `actions: 'none'` 就是只读内容——**凡是要复用内核 HTML 的地方，都必须显式接管或摘掉它的动作面**。
@@ -344,7 +351,13 @@ mountUpdateBatchPanelHttp(document.querySelector('#batch'), {
 `<家目录>/update-queue/<使用范围短指纹>/<批量前缀>/batch.json`，每一步都写盘；检查知识（只做展示）落同目录 `inventory.json`，面板偏好落 `prefs.json`。所以关面板、重载页面、
 甚至进程重启都不怕——`batchResume` 读回来接着推：**已完成的不重装**（编号恒等、幂等），
 没做完的重新查一次再装。这就是「更新自己时 UI 消失、剩下几家永不启动」那个病的正解。
-面板打开即按偏好自动查一轮（缺省开，底部可关；60 秒节流 + 在途抑制，入口预查与面板开查一击只查一次），有没做完的一轮自动续一次，显式按钮保留；面板常驻「关掉面板不会中断」一行事实。
+面板打开即按偏好自动查一轮（缺省开，底部可关；60 秒节流 + 在途抑制，入口预查与面板开查一击只查一次），有没做完的一轮自动续一次，显式按钮保留；面板常驻「关掉面板不会中断」一行事实。年龄门行另按 `autoCompliant` 自动决议（缺省开，只问不装；传 `false` 就只留手动入口，见下文）。
+
+**合规版：最新版被 24 小时年龄门挡住时的出口（`0.18.7` 起）**。npm 的年龄门要求新版本发布满 24 小时（或源上配置的时长）才可安装，于是「最新版」暂时装不上，但**满门限的最近那个版本**装得上——本包把它叫**合规版**（不是随手挑的旧版，是唯一那个还没跨过门限之前的最新版本）。
+
+行内因此多两个动作：`装合规版`（先打决议电话问出候选版本，再点名版本请你确认，点确认才装——**永不自动装**）、`等新版`（收起这一轮提示，等最新版自己满门限）。源上暂时没有可装的版本时显示「约 X 后可装」，不画一个点不动的按钮。
+
+装完之后那一行给的是**实际安装结果**：「已装 1.8.0，不是最新 1.9.0（最新版这次没装上）」，按要不要重启进「待重启 / 已最新」；批量总账里也不再把这些家算作安装失败。批量级确认条会把所有「有候选待确认」的行收在一起，一次确认一批（`确认装这 N 个`）。
 
 **检查的后置条件（`0.18.2` 起）**：一次检查（含自动查）之后，面板里不再出现上一次检查之前的数据。成功查出的结论会同步对账进会话——有新版的行置为可装并换上新目标版，已是最新则清掉陈旧目标；检查失败、待重启、正在装的行不受影响。另有一道渲染兜底：会话目标版不比当前版新时，只显示当前版，不画「→ 新版本」（旧版曾把陈旧目标如 `0.3.55` 配上当前 `0.3.60` 画成"有新版本"，现已修正）。
 
@@ -395,9 +408,9 @@ const button = mountInstallButton(document.getElementById('bill-install-slot'), 
 // 离开时 button.unmount()：只停轮询，安装在宿主侧继续跑。
 ```
 
-行为与面板里那颗安装按钮同一口径（同一份快照、同一句话）：未装显示「未安装 → 目标版本」，按钮是「安装版本 X.Y.Z」；点下后先查后装（一次点击内自动衔接，仍是明确的写意图，绝不自动装）；装中置忙，撞上别的安装显示排队位；失败给重试 + 复制诊断；待重启只给重启指引；实在装不了才交出手工命令（`manual` 为空时该段隐藏）。还没查到远端版本时按钮退回「检查更新」。轮询只在装中进行且有界（约 5 分钟封顶转重查态），平时不 polling。
+行为与面板里那颗安装按钮同一口径（同一份快照、同一句话）：未装显示「未安装 → 目标版本」，按钮是「安装版本 X.Y.Z」；点下后先查后装（一次点击内自动衔接，仍是明确的写意图，绝不自动装）；装中置忙，撞上别的安装显示排队位；失败给重试 + 复制诊断；失败若归因指向这张卡片这家、且最新版被 24 小时年龄门挡住，另出「装合规版」（决议出候选后变成「确认装 X.Y.Z」）与「等新版」两个按钮，点确认的前一刻会重新核对候选版本（`0.18.7` 起，与批量面板同一套决议电话与确认流程）；待重启只给重启指引；实在装不了才交出手工命令（`manual` 为空时该段隐藏）。还没查到远端版本时按钮退回「检查更新」。轮询只在装中进行且有界（约 5 分钟封顶转重查态），平时不 polling。
 
-`theme` / `themeTokens` / `locale` / `showOthers` / `profileName` / `pollMs` / `autoCheck` 与面板同口径；`button.state()` 可读当前快照，`button.refresh()` 手动重查一次。
+`theme` / `themeTokens` / `locale` / `showOthers` / `profileName` / `pollMs` / `autoCheck` 与面板同口径；`button.state()` 可读当前快照，`button.refresh()` 手动重查一次。自己渲染时：视图的 `busyAct` 多一档 `'fallback'`（决议与等待确认中），另带 `fallbackStage`（`'offer'` / `'confirm'`）、`fallbackCandidate`、`fallbackBusy`（`0.18.7` 起）。
 
 ### 升级本包（已经接入过的项目）
 
@@ -459,7 +472,7 @@ const update = createHostUpdate(
 
 三种出口都只装**精确版本**。第三方 Desktop 与普通宿主把官方源写进参数（`--registry=`），官方桌面版走管理器的 `registry` 选项。
 官方源不可达时诚实失败，不换源。三种出口都不成立（宿主既没有桌面服务、也没有插件管理器、命令行入口也认不出）时同样诚实失败，转第 5.3 节的手工命令。
-装不上时宿主原话（截断到 300 字、去掉绝对路径）会写进任务说明 `job.message`，形如 `install-failed: <原话>`。
+装不上时宿主原话会写进任务说明 `job.message`，形如 `install-failed: <原话>`。三条宿主出口都收 pnpm 的原始输出（抓取上限 64 KiB），再从中挑出**错误码行**（`ERR_PNPM_*` / `ERR!`）与紧邻的签名行（`published` / `cutoff` / `minimumReleaseAge`）拼成原话，挑不到就取末段；`detail` 仍封顶 300 字、去掉绝对路径（`0.18.7` 起）。这样面板「复制诊断」里那句人话原因才认得出「是年龄门还是别的毛病」。
 
 时间口径：查新版 2 秒内重复点击复用上次结果；安装按 `installTimeoutMs` 计时，到点终止（官方桌面版先请求宿主取消，来不及就等它收尾再定成败）；终止宽限 3 秒。
 
@@ -539,6 +552,8 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 - 面板按 `panelPollMs` 轮询查状态；小于 250 毫秒直接抛错。
 - 装更新要带查新版的凭证（`checkId`）与本次请求编号（`requestId`）。凭证有过期时间，过期后重新查一次新版再提交。
 - 同一个 `requestId` 重复提交直接返回旧结果，不重装；同一使用范围同时只装一个，撞上会报 `update-busy`。
+- 装合规版走同一条凭证链，但候选凭证按**安装位置标识**存活：面板重建、轮询、切页之后仍能确认，不会因为一次重渲染就问不到凭证；读不到时如实回过期，不猜版本（`0.18.7` 起）。
+- 候选安装（装合规版）在**确认的那一刻**重跑一次决议：窗口过期、期间又发了新版、或源不可达，回 `check-expired` 并拒绝安装——绝不偷换用户点名的那个版本（`0.18.7` 起）。
 
 ### 5.6 跳过与版本通道
 
@@ -593,7 +608,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 
 照第 2 节把名字换成自己的之后，逐条打勾：
 
-1. 宿主启动不报错，`update.phoneNames` 读到自家前缀的五个电话名，查状态返回七字段快照。
+1. 宿主启动不报错，`update.phoneNames` 读到自家前缀的六个电话名，查状态返回七字段快照。
 2. 面板按间隔轮询到快照，能展示第 5.2 节的原因文案；有新版本时安装按钮可用，无新版本与待重启时按钮状态正确。
 3. 模拟一次 `pending-restart` 能看到第 5.4 节的横幅，模拟一次自动装失败能看到第 5.3 节的命令可复制执行。
 4. 第二家同机隔离与串行：两家各传自己的插件标识与电话名前缀，电话名、落盘目录、锁文件逐个不同；安装执行跨插件串行——同范围撞上时后到者报 `update-busy`，凭队列位置（第 5.7 节）重试。
@@ -612,7 +627,7 @@ mountUpdatePanel(slot, { pluginId: 'notes', prefix: 'notes', call: host.call })
 **更新日志自动**（#38：写 md 即显示，零新增代码）：
 
 ```js
-// 宿主侧：createHostUpdate 顺手注册第 4 个电话，无新增配置
+// 宿主侧：createHostUpdate 把六个电话名全注册（本条讲第 4 个 updateChangelog；updateCheckFallback 与 logAppend 是后来加的），无新增配置
 //   入参 { version }（发行版号，先验 validReleaseVersion + 通道门禁）
 //   成功 { ok: true, version, markdown: string | null }（取不到即 null，中性提示）
 //   失败复用 error / errorKind 体系；回包无路径、无快照；按版本记住结果
@@ -700,9 +715,9 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 ## 9. 兼容与稳定性
 
-这些形状稳定，可以放心依赖：五个电话名与入参回参（老三电话一字不动，`updateChangelog` 与 `logAppend` 是新增）、快照七字段、任务公开形状、配置只经函数入参注入、安装配方五键、日志事件字段基线（三个旧事件各带必填 `pluginId`）、历史落盘路径。
+这些形状稳定，可以放心依赖：六个电话名与入参回参（老三电话一字不动，`updateChangelog`、`logAppend`、`updateCheckFallback` 是后来加的；`updateInstall` 的 `version` 是可选参数）、快照七字段、任务公开形状、配置只经函数入参注入、安装配方五键、日志事件字段基线（三个旧事件各带必填 `pluginId`）、历史落盘路径。`0.18.7` 起唯一的形状扩展是：快照里带着失败任务时，成功回包可带可选 `diag`；无失败任务时形状逐字不变。
 
-向后兼容的扩展：新增可选配置键、新增可选 `readerOverrides`（如 `targetPackageDir`）、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。
+向后兼容的扩展：新增可选配置键、新增可选面板选项（如 `autoCompliant`）、新增可选回包键（成功回包里的 `diag`）、新增可选 `readerOverrides`（如 `targetPackageDir`）、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。
 
 ## 10. 日志（dsh-log 0.3.4）
 
@@ -749,4 +764,4 @@ npx dsh-log <dir> --json > update.log                   # 导出原始 JSON 行�
 
 感谢每一位让这个包变好的人：
 
-- [FeatherHunter](https://github.com/FeatherHunter) 🌹×152
+- [FeatherHunter](https://github.com/FeatherHunter) 🌹×166

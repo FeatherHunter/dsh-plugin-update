@@ -26,7 +26,7 @@ import {
 import { manualCommand } from './commands.js'
 import { fetchReleaseChangelogText } from './changelog-io.js'
 import { parseChangelogReport, shouldFetchChangelog } from './changelog.js'
-import { buildDiag } from './diag.js'
+import { buildDiag, type DiagObject } from './diag.js'
 import { isCoreErrorCode } from './codes.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL } from './log-events.js'
 import { emitUpdateLog } from './log/emit.js'
@@ -521,11 +521,63 @@ async function snapWithManual(
   reader: ReturnType<typeof createUpdateReader>,
   snapshot: { latestVersion?: string | null; installedVersion?: string | null; runningVersion?: string; job?: { targetVersion?: string | null } | null; blockedReason?: string | null },
   config: ReturnType<typeof resolveUpdateConfig>
-): Promise<{ snapshot: unknown; manual: string | null }> {
+): Promise<{ snapshot: unknown; manual: string | null; diag?: DiagObject }> {
   try {
-    return { snapshot, manual: manualOfEnv(await reader.readEnv(), snapshot, config) }
+    const out: { snapshot: unknown; manual: string | null; diag?: DiagObject } = {
+      snapshot,
+      manual: manualOfEnv(await reader.readEnv(), snapshot, config),
+    }
+    // 失败任务的机读诊断（#156 第四轮）：安装是异步的，拦下时回包照旧 ok:true，失败只在快照任务里。
+    // 这里把宿主自己知道的包名补回 diag，面板才不必拿插件标识当包名去猜（详见 failedJobDiagOf）。
+    const diag = failedJobDiagOf(snapshot, { targetPackageName: config.targetPackageName, registryUrl: config.registryUrl })
+    return diag ? { ...out, diag } : out
   } catch {
     return { snapshot, manual: null }
+  }
+}
+
+/**
+ * 失败任务的机读诊断（#156 对抗审查第四轮）。
+ *
+ * 安装是异步的：装上被年龄门拦下时，安装电话回包照旧是 ok:true，真正的失败只出现在之后
+ * status 回包的快照任务里（state=failed，message=「失败码: 原文」）。这条路上以前没有 diag，
+ * 面板只能拿**插件标识**当包名去认失败原文；而真宿主（dsh-life-pack）给的标识是 `life-<key>`
+ * 这类派生值，与 npm 包名（dsh-prompt 之类）不是一回事——于是「装合规版」四个入口在生产形状下
+ * 全都认不出因（fail-closed 成一枚死按钮）。
+ *
+ * 这里让宿主把自己知道的两件事（目标包名、失败原文）按同一套 buildDiag 组装回 diag：
+ * 面板的机读路（causeKind／causePackage／targetPackageName）即可命中，不再靠标识撞运气。
+ * 只在失败任务上带；查询成功且无失败任务时一个键都不加，旧形状逐字不变（#21）。
+ */
+export function failedJobDiagOf(
+  snapshot: unknown,
+  input: { targetPackageName?: unknown; registryUrl?: unknown },
+): DiagObject | undefined {
+  try {
+    const snap = snapshot && typeof snapshot === 'object' ? (snapshot as Record<string, unknown>) : null
+    const job = snap && snap['job'] && typeof snap['job'] === 'object' ? (snap['job'] as Record<string, unknown>) : null
+    if (!job || job['state'] !== 'failed') return undefined
+    const message = typeof job['message'] === 'string' ? job['message'] : ''
+    const at = message.indexOf(':')
+    const code = (at > 0 ? message.slice(0, at) : message).trim()
+    const detail = at > 0 ? message.slice(at + 1).trim() : ''
+    if (!code) return undefined
+    // 电话种类只在「解码 → 阶段」这一步有用：失败码自带上下文（install-* 即安装侧），认不出的码
+    // 落到同一支兜底（buildDiag 里 deriveStage 对未知 kind 也按安装上下文解），故这里不问调用方。
+    const phoneKind = code.startsWith('install') ? 'update-install' : code.startsWith('check') ? 'update-check' : 'update-status'
+    const built = buildDiag({
+      errorCode: code,
+      phoneKind,
+      // 任务里只剩「码 + 原文」；把原文放回 detail 格，翻译官照旧从同一处挑因。
+      error: detail ? { code, detail } : { code },
+      args: {},
+      targetPackageName: input.targetPackageName,
+      registryUrl: input.registryUrl,
+      runningVersion: snap?.['runningVersion'],
+    })
+    return built && typeof built === 'object' ? built : undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -725,7 +777,8 @@ function loggedPhone(
       const pollSuppressed = pollNoise && fingerprint !== null && (previous === null || previous === fingerprint)
       if (!pollSuppressed) {
         // 成功事件 5 键基线（规格 #591 第 8 条）：旧 4 键加必填插件标识。
-        // 成功形状不动（#21）：成功回包永不带 diag，旧面板逐字不变。
+        // 成功形状不动（#21）：成功回包不因成功而带 diag——唯一例外是快照里躺着失败任务
+        //（异步安装的失败在快照里，见下方 diag 透传）；无失败任务时旧面板逐字不变。
         emit('info', LOG_EVENT_CALL, { method, latencyMs: Date.now() - t0, ok: true, kind, pluginId })
       }
       return {
@@ -737,6 +790,9 @@ function loggedPhone(
         ...(out && out.queue ? { queue: out.queue } : {}),
         // 新增选填：使用范围一栏（只有调用方传了 includeEnv 才带，老调用形状不变）。
         ...(out && out.env ? { env: out.env } : {}),
+        // 新增选填（#156 第四轮）：异步安装的失败藏在快照任务里——此时成功回包也带机读诊断，
+        // 因为「哪家的哪个包被拦下」只有宿主知道，面板拿插件标识猜不出来（B4）。无失败任务即不带。
+        ...(out && (out as { diag?: unknown }).diag ? { diag: (out as { diag?: unknown }).diag } : {}),
       }
     } catch (error) {
       const payload = toUpdateErrorPayload(error)
@@ -976,12 +1032,13 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
     const withManual = await snapWithManual(reader, result.snapshot as never, config)
     const env = wantsEnv(args) ? { env: await readEnvForPanel(reader) } : {}
     const { includeQueue, showOthers } = queueArgsOf(args)
-    if (!includeQueue) return { snapshot: withManual.snapshot, manual: withManual.manual, receipt: result.receipt ?? null, ...env }
+    if (!includeQueue) return { snapshot: withManual.snapshot, manual: withManual.manual, receipt: result.receipt ?? null, ...(withManual.diag ? { diag: withManual.diag } : {}), ...env }
     const requestId = args && typeof args.requestId === 'string' ? args.requestId : undefined
     return {
       snapshot: withManual.snapshot,
       manual: withManual.manual,
       receipt: result.receipt ?? null,
+      ...(withManual.diag ? { diag: withManual.diag } : {}),
       ...env,
       queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId),
     }

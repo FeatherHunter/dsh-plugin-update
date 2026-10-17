@@ -462,8 +462,12 @@ async function skippedVersionsOf(rt: TargetRuntime): Promise<unknown[]> {
 }
 
 /**
- * 打一通单插件电话，把回包读数收进缓存：成功收快照/手工命令/队列读数并清掉诊断，
- * 失败收失败诊断（#21 的 diag，可能没有）——旧快照读数保留，只有诊断随成败换手。
+ * 打一通单插件电话，把回包读数收进缓存：成功收快照/手工命令/队列读数，失败收失败诊断
+ * （#21 的 diag，可能没有）——旧快照读数保留，只有诊断随回包换手。
+ *
+ * #156 第四轮起：安装是异步的，年龄门拦在安装那一刻，成功回包本身也可能带着「快照任务已失败」
+ * 的机读诊断（那时 diag 就是本次失败的事实，不能当陈旧证据清掉）。宿主口径是「有失败任务才有
+ * diag」，所以「回包没带 diag 就清空」仍然成立，不靠成败猜。
  */
 async function callPhone(rt: TargetRuntime, name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
   const handler = rt.host.handlers[name]
@@ -485,8 +489,8 @@ async function callPhone(rt: TargetRuntime, name: string, args: Record<string, u
       next.hostKind = firstText(asRecord(value['env'])['environmentKind'])
     }
     next.error = null
-    // 成功回包永不带 diag（#21 冻结）：成功即清空，旧诊断不留成陈旧证据。
-    next.diag = null
+    // 诊断随回包换手（成功也可能带：失败任务在快照里，见上）；没带即清空。
+    next.diag = 'diag' in value ? (value['diag'] ?? null) : null
   } else {
     // 失败回包才可能带 diag（status / check / install 三电话同一套 #21 契约），有就收下。
     next.diag = 'diag' in value ? (value['diag'] ?? null) : null

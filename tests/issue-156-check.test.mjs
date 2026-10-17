@@ -23,11 +23,15 @@ const NOW = 2_000_000_000_000
 const HOUR = 3_600_000
 const UNLOCK_AT = NOW + 3 * HOUR
 
-// 0.4.2 一小时前发布、门限 24 小时：三小时后放行（与面板挂载测试同源措辞）。
+// 0.4.2 一小时前发布、门限 24 小时：约 23 小时后放行（与面板挂载测试同源措辞）。
+// **发布时间必须相对 now 现算**：写死绝对时刻会让「未满门」用例在那一刻之后集体转红
+// ——挂载路径的预判用真时钟（latchNow→Date.now），窗口一过期就按产品自己的规则回归正常页
+// （见本文件「记住的窗口已过期」那条）。2026-10-17 实测：写死 2026-10-16T05:58:34Z 时，
+// 解封时刻落在当天 13:58 本地时间，两条挂载用例随即转红。
 // 包名参数化：原文解析按插件标识匹配包名，跨挂载测试用独立标识时报文也要对上。
 function ageMessage(pkg) {
   return [
-    `install-failed: ✗ ${pkg}@0.4.2: This version was published less than 1440 minutes ago (2026-10-16T05:58:34.000Z).`,
+    `install-failed: ✗ ${pkg}@0.4.2: This version was published less than 1440 minutes ago (${new Date(Date.now() - HOUR).toISOString()}).`,
     'The minimumReleaseAge cutoff for this version is 2026-10-15T07:34:55.413Z.',
     '',
     `Failed to install ${pkg}@0.4.2.`,

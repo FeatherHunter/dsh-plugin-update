@@ -72,6 +72,11 @@
       "zh": "将有更新的插件一次提交；同一会话使用同一幂等编号。",
       "draft": true
     },
+    "batch.action.install-compliant-confirm": {
+      "en": "Confirm and install these {n}",
+      "zh": "确认装这 {n} 个",
+      "draft": true
+    },
     "batch.action.resume": {
       "en": "Continue the unfinished batch ({count} left)",
       "zh": "继续上次未完成的更新（剩余 {count} 个）。",
@@ -80,6 +85,31 @@
     "batch.action.resume-title": {
       "en": "Continue from where it stopped; installed ones stay",
       "zh": "从上次中断处继续安装，已完成的不会重复安装。",
+      "draft": true
+    },
+    "batch.banner.age-gated": {
+      "en": "{n} plugin(s) are blocked by the 24-hour age gate.",
+      "zh": "{n} 个插件的最新版被 24 小时年龄门挡住。",
+      "draft": true
+    },
+    "batch.banner.compliant-confirm": {
+      "en": "Install these compliant builds: {list}?",
+      "zh": "确认安装以下合规版：{list}？",
+      "draft": true
+    },
+    "batch.banner.compliant-done": {
+      "en": "{title}: installed {version}, not the latest {target} (the latest did not go through).",
+      "zh": "{title}：已装 {version}，不是最新 {target}（最新版没装成）。",
+      "draft": true
+    },
+    "batch.banner.compliant-done-gated": {
+      "en": "{title}: installed {version}; the latest {target} is still blocked by the 24-hour age gate (installable in about {time}).",
+      "zh": "{title}：已装 {version}；最新 {target} 仍被 24 小时年龄门挡着，约 {time} 后可装。",
+      "draft": true
+    },
+    "batch.banner.compliant-done-title": {
+      "en": "Actual install result for these {n} plugin(s):",
+      "zh": "这 {n} 个插件的实际安装结果：",
       "draft": true
     },
     "batch.banner.error-action-fallback": {
@@ -100,6 +130,11 @@
     "batch.banner.failed-title": {
       "en": "{n} failed to install.",
       "zh": "{n} 个插件安装失败。",
+      "draft": true
+    },
+    "batch.banner.gated-wait": {
+      "en": "{n} plugin(s) are blocked by the 24-hour age gate and nothing is installable right now; installable in about {time}.",
+      "zh": "{n} 个插件的最新版被 24 小时年龄门挡住，现在还没有可装的版本；约 {time} 后可装。",
       "draft": true
     },
     "batch.banner.loading": {
@@ -287,6 +322,11 @@
       "zh": "正在查询版本信息，请稍候。",
       "draft": true
     },
+    "batch.row.compliant-done": {
+      "en": "Installed {version}, not the latest {target} (the latest did not go through)",
+      "zh": "已装 {version}，不是最新 {target}（最新版这次没装上）",
+      "draft": true
+    },
     "batch.row.cta-generic": {
       "en": "Select “Install this plugin” to install the new version",
       "zh": "选择「安装此插件」安装新版本",
@@ -445,6 +485,11 @@
     "batch.toast.cancel-unavailable": {
       "en": "This row carries no phone or ID to cancel the queue; try again after the next refresh.",
       "zh": "此行缺少取消排队所需的信息，暂无法取消；请待下次刷新后重试。",
+      "draft": true
+    },
+    "batch.toast.compliant-installed": {
+      "en": "Requested {a} compliant build(s) (not the latest: it is still age-gated); {b} did not go through.",
+      "zh": "已请求安装 {a} 个合规版（不是最新版：最新版仍被年龄门挡着）；{b} 个没装成。",
       "draft": true
     },
     "batch.toast.copy-diag-ok": {

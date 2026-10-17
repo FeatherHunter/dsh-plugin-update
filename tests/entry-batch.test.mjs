@@ -160,6 +160,50 @@ test('忙失败占位翻回可更新：phase=failed + error=update-busy 不算�
   assert.equal(s.failed, 0)
 })
 
+// #156 第一性原理收尾事实（用户 2026-10-17 裁决）：账本目标没装成、但这家已经装上「能装的最新」——
+// 入口标签也不许再喊「安装失败」：要重启的进「待重启」，不用重启的进「已最新」。相位一个字不改。
+test('收尾事实：已装合规版等重启的行，入口算待重启不算失败', () => {
+  const rows = [
+    rowOf({
+      phase: 'failed',
+      error: 'install-failed',
+      targetVersion: '1.2.0',
+      snapshot: snapshotOf({
+        installedVersion: '1.1.0',
+        latestVersion: '1.2.0',
+        canInstall: false,
+        job: { id: 'job-1', state: 'restart-required', targetVersion: '1.1.0', message: null, requestId: 'req-1' },
+      }),
+    }),
+  ]
+  const s = batchEntrySummary({ rows, error: null })
+  assert.equal(s.kind, 'restart')
+  assert.equal(s.failed, 0)
+  assert.equal(s.restart, 1)
+  assert.doesNotMatch(s.label, /失败/)
+  assert.match(s.label, /重启/)
+})
+
+test('收尾事实：已装合规版且不用重启的行，入口算收尾（已最新）不算失败', () => {
+  const rows = [
+    rowOf({
+      phase: 'failed',
+      error: 'install-failed',
+      targetVersion: '1.2.0',
+      snapshot: snapshotOf({
+        installedVersion: '1.1.0',
+        latestVersion: '1.2.0',
+        canInstall: false,
+        job: { id: 'job-1', state: 'completed', targetVersion: '1.1.0', message: null, requestId: 'req-1' },
+      }),
+    }),
+  ]
+  const s = batchEntrySummary({ rows, error: null })
+  assert.equal(s.kind, 'idle')
+  assert.equal(s.failed, 0)
+  assert.doesNotMatch(s.label, /失败/)
+})
+
 // ---------- 默认形态：一个按钮，进来只读查一次全表 ----------
 
 test('默认挂上就是一个按钮：挂载即静默调 .batchStatus（只读），文案即七家聚合', async () => {

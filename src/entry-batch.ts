@@ -43,6 +43,7 @@ import {
   batchLedgerCounts,
   batchLedgerText,
   buildBatchPhoneNames,
+  compliantInstalledOf,
   mountUpdateBatchPanel,
   type BatchPanelController,
   type BatchPanelMode,
@@ -184,6 +185,25 @@ function escapeHtml(value: unknown): string {
 }
 
 /**
+ * 收尾事实（#156，与面板同一判据、同一个纯函数）：已经装上「能装的最新（合规版）」的行，
+ * 入口标签不许再报成「安装失败」。值 = 这一行要不要重启（喂 batchLedgerCounts 第四参：
+ * 要重启进「待重启」，不用重启进「已最新」）。读不出来就不算——入口宁可照原样报，也不瞎改口径。
+ */
+function compliantEntryDone(rows: unknown): Map<string, boolean> {
+  const done = new Map<string, boolean>()
+  if (!Array.isArray(rows)) return done
+  for (const row of rows as BatchRowView[]) {
+    try {
+      const fact = compliantInstalledOf(row)
+      if (fact) done.set(row.key, fact.needsRestart)
+    } catch {
+      // 单行读不出来不影响其余行。
+    }
+  }
+  return done
+}
+
+/**
  * 聚合读数：计数唯一出处 batchLedgerCounts（含 inventory 即与面板总账同一份知识口径，忙失败占位翻回可更新）。
  * hasUpdate = 忙/失败/待重启/可更新任一非零（openOn has-update 按它开面板；全 settled/待查/跳过即 idle）。
  * v2 单语：label 与 HTML 出口同语言（lang 显式入参，缺省跟随全局；zh 口径逐字兼容旧中文）。
@@ -192,7 +212,7 @@ export function batchEntrySummary(state: UpdateBatchEntryState | null | undefine
   const rows = state?.rows ?? null
   const inventory = (state as { inventory?: unknown } | null | undefined)?.inventory ?? undefined
   const session: unknown = state?.session
-  const counts = batchLedgerCounts(Array.isArray(rows) ? rows : [], inventory, session)
+  const counts = batchLedgerCounts(Array.isArray(rows) ? rows : [], inventory, session, compliantEntryDone(rows))
   const total = Array.isArray(rows) ? rows.length : 0
   let kind: BatchEntryStateKind
   if (!Array.isArray(rows) || rows.length === 0) {
