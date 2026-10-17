@@ -417,7 +417,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.blocked.invalid-installation.title': { en: 'Installed package is incomplete (name mismatch, invalid version, or missing entry file)', zh: '已安装包结构不完整（包名 / 版本号 / 入口文件异常）', draft: true },
   'panel.blocked.invalid-installation.action': { en: 'Reinstall the current version to repair the install directory, then check again.', zh: '重新安装当前版本以修复安装目录，然后重新查询更新', draft: true },
   'panel.blocked.installation-changed.title': { en: 'Install location changed during use (directory or package changed)', zh: '安装位置发生变更（目录或包体不一致）', draft: true },
-  'panel.blocked.installation-changed.action': { en: 'Reopen the host and check again; if it persists, reinstall.', zh: '重启宿主后重新查询；若持续，请重新安装', draft: true },
+  'panel.blocked.installation-changed.action': { en: 'Reopen the host and check again; if it says you are already up to date, nothing to do; if it persists, reinstall.', zh: '重启宿主后重新查询；若说明已是最新则无需操作；若持续，请重新安装', draft: true },
   'panel.blocked.pending-restart.title': { en: 'New version is on disk; the running instance is still the old version', zh: '新版本已写入磁盘，当前运行仍为旧版本', draft: true },
   'panel.blocked.pending-restart.action': { en: 'Restart the host to run the new version; this is a normal end state, not a failure.', zh: '重启宿主以加载新版本；此为正常状态，非安装失败', draft: true },
   'panel.blocked.registry-conflict.title': { en: 'Declared version conflicts with the version on disk', zh: '版本声明与磁盘实际版本冲突', draft: true },

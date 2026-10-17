@@ -6,6 +6,21 @@
 
 ## [Unreleased]
 
+## [0.18.20] - 2026-10-18
+
+### Fixed
+- **#201 启用步的失败/超时也补载体 CLI 命令（Spec 轴 HARD ①）**：原来「换通道」命令被三个宿主拒绝码闸住，恢复选中失败的 `permission`、启用步超时、启用返回 `failed` 这三类都没有下一步；现在一律在原文之后追加同一条 `dsh plugin --profile <范围> add --save-exact <包>@<版本>` 命令（仍原文在前、建议在后、总长守 300 字符）。
+- **#201 无 `setBundleEnabled` 不再合成 `bundle-in-use`（Spec 轴 HARD ②）**：宿主没有恢复选中能力时，人话格改说「宿主不支持恢复选中，无法安全更新已装包，请用载体 CLI 原地更新」并补命令，不再复制宿主的「还有别的层在用这个插件」原因——真实原因是能力缺失，和活 fiber 无关。
+- **300 字详情上限的越界保护（Spec 轴 JUDGEMENT）**：`withCarrierHint` / `withRemovalFact` 在命令本身超预算（`room <= 0`）时改为只保留截断后的原文，不再把整段事实拼回去；214 字符的长包名不再产出 300+ 字的 detail。
+
+### Changed
+- `src/bilingual.ts`：`panel.blocked.installation-changed.action` 文案补「若说明已是最新则无需操作」，消除 #202 空更新哨兵与面板动作「若持续，请重新安装」的语义冲突（key 不变，字典快照同步）。
+- `tests/issue-201-manager-recovery.test.mjs`：扩到 10 例（恢复选中失败补命令、恢复选中超时补人话格、无 `setBundleEnabled` 不合成 `bundle-in-use`、`listBundles` 抛错退回旧两步、长包名守 300 字）；对 `0.18.19` 源码实测红基线 4 红（含长包名一例）。
+- `README.md`：§5.9 补「恢复选中这一步的失败/超时也补同一条命令」「宿主无 `setBundleEnabled` 时诚实说明书原因」；在册核实条补「装前读取器没给 `registered` 而后为 `false` 仍判失败（无法证明不是新装，保守方向）」。
+- **发布口径提醒**：`0.18.8`～`0.18.20` 十三段都还没发到 npm（registry 最新仍是 `0.18.7`），发版以 `0.18.20` 一次带走即可。
+
+门禁（**发版定格**）：`npm test` **1504 例：1503 过 / 0 失败 / 1 跳过**（干净发版树 + 本批 9 个文件上实测）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、354 个 key、16 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.20`，370.2 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（354 个 key 仍全是 `draft: true`）。
+
 ## [0.18.19] - 2026-10-18
 
 ### Fixed
@@ -84,7 +99,7 @@
 - `docs/host-install-exits.md` 出口二补「两步配方第二步失败的人话格（#168）」；末节「残留风险」改为已修记录。
 - **发布口径提醒**：`0.18.8`～`0.18.15` 八段都还没发到 npm（registry 最新仍是 `0.18.7`），发版时以 `0.18.15` 一次带走即可。
 
-门禁（**发版定格**）：`npm test` **1476 例：1475 过 / 0 失败 / 1 跳过**（干净发版树 `499b23d` + 本批 6 个文件上实测；本批新增 2 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（44 个 src 文件、351 个 key、16 错误码、19 diag 键，违规 0；本批零新增 key，`copy-baseline.json` +1 条冻结抛错文案）；`npm publish --dry-run` **95 文件**（`dsh-plugin-update@0.18.15`，359.9 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（351 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
+门禁（**发版定格**）：`npm test` **1476 例：1475 过 / 0 失败 / 1 跳过**（干净发版树 `499b23d` + 本批 9 个文件上实测；本批新增 2 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（44 个 src 文件、351 个 key、16 错误码、19 diag 键，违规 0；本批零新增 key，`copy-baseline.json` +1 条冻结抛错文案）；`npm publish --dry-run` **95 文件**（`dsh-plugin-update@0.18.15`，359.9 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（351 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
 
 ## [0.18.14] - 2026-10-18
 
@@ -102,7 +117,7 @@
 - `README.md` §5.2 时间口径补第三方 Desktop 的 terminate/宽限说明；`docs/host-install-exits.md` 出口一新增「超时政策」条目（含 `done` reject 口径）。
 - **发布口径提醒**：`0.18.8`～`0.18.14` 七段都还没发到 npm（registry 最新仍是 `0.18.7`），发版时以 `0.18.14` 一次带走即可。
 
-门禁（**发版定格**）：`npm test` **1474 例：1473 过 / 0 失败 / 1 跳过**（干净发版树 `58442a0` + 本批 6 个文件上实测；本批新增 1 个测试文件、5 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（44 个 src 文件、351 个 key、16 错误码、19 diag 键，违规 0；本批零新增 key，`copy-baseline.json` +3 条冻结抛错文案）；`npm publish --dry-run` **95 文件**（`dsh-plugin-update@0.18.14`，359.2 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（351 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
+门禁（**发版定格**）：`npm test` **1474 例：1473 过 / 0 失败 / 1 跳过**（干净发版树 `58442a0` + 本批 9 个文件上实测；本批新增 1 个测试文件、5 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（44 个 src 文件、351 个 key、16 错误码、19 diag 键，违规 0；本批零新增 key，`copy-baseline.json` +3 条冻结抛错文案）；`npm publish --dry-run` **95 文件**（`dsh-plugin-update@0.18.14`，359.2 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（351 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
 
 ## [0.18.13] - 2026-10-18
 
@@ -686,3 +701,5 @@
 
 ### Fixed
 - 官方桌面版点「装上」不再只有一条不可诊断的 `install-failed`，按政策诚实失败并转手工命令。
+
+

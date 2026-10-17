@@ -1240,6 +1240,11 @@ const REINSTALL_AFTER_REMOVAL_DETAIL = '目标包已被宿主移除，重装失�
  */
 const ENABLE_TIMEOUT_DETAIL = '启用已装包超时，未继续安装；请在宿主插件页确认该插件已启用后重试'
 /**
+ * 宿主没有 `setBundleEnabled` 时的诚实原因（Spec 审查：不能再合成 `bundle-in-use` 冒充
+ * 「还有别的层在用」——真实原因是宿主缺恢复选中的能力，和活 fiber 无关）。
+ */
+const ENABLE_UNSUPPORTED_DETAIL = '宿主不支持恢复选中，无法安全更新已装包，请用载体 CLI 原地更新'
+/**
  * 这几种拒绝码说明「管理器通道对这个包走不通」：把一定能用的载体 CLI 命令补进人话格，
  * 用户不必再回面板翻手工命令（有些半装态下面板已经不给命令了，见 #168 同类处置）。
  */
@@ -1778,6 +1783,20 @@ function carrierAddCommand(profileName: string, spec: string, registry: string |
 }
 
 /**
+ * 无条件把载体 CLI 命令补在详情尾部（启用步用：这一步的失败没有宿主拒绝码可判，但用户
+ * 同样需要「换通道」的下一步）。原文在前、总长守 DETAIL_MAX_CHARS；命令本身超预算时
+ * 宁可只留原文，绝不输出越界详情（Spec 审查：room<=0 曾把全文拼回去）。
+ */
+function withCarrierHint(error: Error & { detail?: string }, command: string): Error & { detail?: string } {
+  const suffix = ` (${command})`
+  const said = typeof error.detail === 'string' ? error.detail : ''
+  const room = DETAIL_MAX_CHARS - suffix.length - 1
+  if (room <= 0) return withDetail(error, said.slice(0, DETAIL_MAX_CHARS))
+  const head = said.length > room ? said.slice(0, room) : said
+  return withDetail(error, head ? `${head}${suffix}` : suffix.trim())
+}
+
+/**
  * 管理器通道明确走不通时，把载体 CLI 的原位更新命令补在宿主原话之后（原文在前、建议在后）。
  */
 function withManagerRetryHint(
@@ -1787,11 +1806,7 @@ function withManagerRetryHint(
 ): Error & { detail?: string } {
   const code = managerCodeOf(result)
   if (!MANAGER_ROUTE_BLOCKED_CODES.has(code)) return error
-  const suffix = ` (${command})`
-  const said = typeof error.detail === 'string' ? error.detail : ''
-  const room = DETAIL_MAX_CHARS - suffix.length - 1
-  const head = room > 0 && said.length > room ? said.slice(0, room) : said
-  return withDetail(error, head ? `${head}${suffix}` : suffix.trim())
+  return withCarrierHint(error, command)
 }
 
 /**
@@ -1843,7 +1858,9 @@ function withRemovalFact(error: Error & { detail?: string }, command: string): E
   const fact = `${REINSTALL_AFTER_REMOVAL_DETAIL} (${command})`
   const said = typeof error.detail === 'string' ? error.detail : ''
   const room = DETAIL_MAX_CHARS - fact.length - 1
-  const head = room > 0 && said.length > room ? said.slice(0, room) : said
+  // 命令/事实本身就超预算时宁可丢补充事实也不越界：原文截到上限，绝不输出超长详情。
+  if (room <= 0) return withDetail(error, said.slice(0, DETAIL_MAX_CHARS))
+  const head = said.length > room ? said.slice(0, room) : said
   return withDetail(error, head ? `${head}；${fact}` : fact)
 }
 
@@ -1963,21 +1980,34 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
       // `bundle-in-use`（2–3ms 就回），两步配方永远走不完。所以先探拓扑：不可移除就诚实拒绝；
       // 未选中就先用宿主能力恢复选中，再按常规两步走。老宿主没有探测/启用能力时退回旧行为。
       const topology = await probeManagerTopology(manager, targetName)
-      // 这两个码宿主在这条路径上没回过话，是包侧按宿主语义给的推断原因；人话格会照常
-      // 拼「宿主原话不够用 → 本包建议」，不冒充宿主原话。
+      // `not-removable` 这个码宿主在这条路径上没回过话，是包侧按宿主 `removable === false`
+      // 的语义给的原因；人话格会照常拼「宿主原话不够用 → 本包建议」，不冒充宿主原话。
       if (topology !== null && topology.removable === false) {
         throw failureOf({ application: 'failed', error: { code: 'not-removable' } }, 'failed')
       }
       if (topology !== null && topology.enabled === false) {
         const setBundleEnabled = manager.setBundleEnabled
         if (typeof setBundleEnabled !== 'function') {
-          throw failureOf({ application: 'failed', error: { code: 'bundle-in-use' } }, 'failed')
+          // 真实原因是「宿主没有恢复选中的能力」，不是活 fiber 占用：给诚实原因 + 换通道命令，
+          // 不合成 bundle-in-use 之类的宿主码（Spec 审查 HARD ②）。
+          const error = withDetail(fail('install-failed'), ENABLE_UNSUPPORTED_DETAIL)
+          throw withCarrierHint(error, carrierCommand)
         }
         const enabling = Promise.resolve(setBundleEnabled.call(manager, targetName, true)) as Promise<ManagerChangeResult>
+        // 宿主 `setBundleEnabled` 走内部 `change()`，resolve 出 `{ application, error? }`（不 reject；
+        // 契约见 `asar:…/dsh-plugin-manager/lib/index.js` 的 setBundleEnabled → change），
+        // 所以成败看 application，与 installBundle/removeBundle 同一套判法。
         // 启用步没有可取消的安装请求：超时口径不谎称「已请求取消」，只说没继续安装。
-        const enabled = await finishCall(enabling, async () => 'not-running', ENABLE_TIMEOUT_DETAIL)
+        // 启用步的失败/超时同样属于「管理器通道走不通」，一律补载体 CLI 命令（Spec 审查 HARD ①）。
+        const enabled = await finishCall(enabling, async () => 'not-running', ENABLE_TIMEOUT_DETAIL).catch(
+          (error: unknown) => {
+            throw withCarrierHint(error as Error & { detail?: string }, carrierCommand)
+          }
+        )
         const enableApplication = enabled && typeof enabled.application === 'string' ? enabled.application : ''
-        if (!MANAGER_OK.includes(enableApplication)) throw failureOf(enabled, enableApplication)
+        if (!MANAGER_OK.includes(enableApplication)) {
+          throw withCarrierHint(failureOf(enabled, enableApplication), carrierCommand)
+        }
       }
       // 移除步刻意不请求取消；超时意味着「可能已经摘掉了、但没来得及重装」（#184）——要当场说清并给下一步。
       // 这一步的「手工命令」面板里可能拿不到（目标已不在 dependencies，读取器会判成源码安装、不给命令），

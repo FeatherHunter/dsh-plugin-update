@@ -12,8 +12,11 @@
  * 2. 已选中 ⇒ 不碰选中名单，直接 remove→install（旧行为不变）；
  * 3. 不可移除 ⇒ 不调 remove，诚实失败，细节带宿主码 + 中文下一步 + 载体 CLI 命令；
  * 4. 宿主没有 `listBundles`（老宿主）⇒ 退回旧两步，成功；
- * 5. 有探测但没 `setBundleEnabled` ⇒ 不调 remove，诚实失败并在细节里给手工命令；
- * 6. 清单行缺 `enabled` / `removable` 格（异形老宿主形状）⇒ 不拿缺省当否，退回旧两步。
+ * 5. 有探测但没 `setBundleEnabled` ⇒ 不调 remove，诚实失败（「宿主不支持恢复选中」）并给手工命令；
+ * 6. 清单行缺 `enabled` / `removable` 格（异形老宿主形状）⇒ 不拿缺省当否，退回旧两步；
+ * 7. 恢复选中失败（如 `permission`）⇒ 失败详情同样补载体 CLI 命令，且不往下摘包；
+ * 8. 恢复选中超时 ⇒ 人话格说明是启用步超时并给命令；
+ * 9. `listBundles` 抛错的宿主 ⇒ 退回旧两步（探测异常不冒充「不可用」）。
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -52,12 +55,13 @@ function makeManager(script) {
   return { manager, calls }
 }
 
-function run(manager) {
+function run(manager, parts = {}) {
   const executor = createUpdateExecutor({
     profileName: PROFILE,
     environmentKind: 'desktop-manager',
     targetPackageName: TARGET,
     pluginManager: manager,
+    ...parts,
   })
   return executor({ version: '2.0.0', profileName: PROFILE, environmentKind: 'desktop-manager' })
 }
@@ -148,11 +152,81 @@ describe('#201 管理器路：已装包先探拓扑再走两步配方', () => {
     }
     await assert.rejects(run(manager), (error) => {
       assert.equal(error.code, 'install-failed')
-      assert.match(error.detail, /bundle-in-use/)
+      // 真实原因是「宿主缺恢复选中能力」，不许合成 bundle-in-use 冒充「还有别的层在用」。
+      assert.match(error.detail, /宿主不支持恢复选中/)
+      assert.doesNotMatch(error.detail, /bundle-in-use|别的层在用/)
       assert.match(error.detail, /dsh plugin --profile desktop add --save-exact/)
       return true
     })
     assert.equal(calls.some((call) => call[0] === 'removeBundle'), false)
+  })
+
+  it('恢复选中失败：失败详情同样补载体 CLI 命令（不只限于三个宿主拒绝码）', async () => {
+    const { manager, calls } = makeManager({
+      installs: [ALREADY_INSTALLED],
+      listBundles: [{ name: TARGET, installed: true, enabled: false, removable: true }],
+      setBundleEnabled: { application: 'failed', error: { code: 'permission' } },
+    })
+    await assert.rejects(run(manager), (error) => {
+      assert.equal(error.code, 'install-failed')
+      assert.match(error.detail, /permission/)
+      assert.match(error.detail, /宿主写不了使用范围目录/)
+      assert.match(error.detail, /dsh plugin --profile desktop add --save-exact/)
+      return true
+    })
+    assert.equal(calls.some((call) => call[0] === 'removeBundle'), false, '恢复选中没成就不能往下摘包')
+  })
+
+  it('恢复选中超时：人话格说明是启用步超时，并给载体 CLI 命令', async () => {
+    const manager = {
+      installBundle: () => ALREADY_INSTALLED,
+      removeBundle: () => ({ application: 'applied' }),
+      listBundles: () => [{ name: TARGET, installed: true, enabled: false, removable: true }],
+      setBundleEnabled: () => new Promise(() => {}),
+    }
+    await assert.rejects(run(manager, { installTimeoutMs: 60 }), (error) => {
+      assert.equal(error.code, 'install-failed')
+      assert.match(error.detail, /启用已装包超时/)
+      assert.match(error.detail, /dsh plugin --profile desktop add --save-exact/)
+      return true
+    })
+  })
+
+  it('目标包名很长时人话格仍守 300 字上限（命令本身超预算就只留原文，不越界）', async () => {
+    const longTarget = 'x'.repeat(214)
+    const manager = {
+      installBundle(spec) {
+        assert.ok(spec.startsWith(`${longTarget}@`))
+        return manager.installs.shift()
+      },
+      installs: [ALREADY_INSTALLED, { application: 'failed', error: { code: 'disk-full' } }],
+      removeBundle: () => ({ application: 'applied' }),
+    }
+    await assert.rejects(run(manager, { targetPackageName: longTarget }), (error) => {
+      assert.equal(error.code, 'install-failed')
+      assert.ok(error.detail.length <= 300, `详情超 300：${error.detail.length}`)
+      return true
+    })
+  })
+
+  it('listBundles 抛错的宿主：退回旧两步（探测异常不冒充「不可用」，也不改用户拓扑）', async () => {
+    const calls = []
+    const manager = {
+      installBundle(spec) {
+        calls.push(['installBundle', spec])
+        return calls.filter((call) => call[0] === 'installBundle').length === 1 ? ALREADY_INSTALLED : OK
+      },
+      removeBundle(name) {
+        calls.push(['removeBundle', name])
+        return { application: 'applied' }
+      },
+      listBundles() {
+        calls.push(['listBundles'])
+        throw new Error('probe exploded')
+      },
+    }
+    await run(manager)
+    assert.deepEqual(calls.map((call) => call[0]), ['installBundle', 'listBundles', 'removeBundle', 'installBundle'])
   })
 
   it('清单行缺 enabled/removable 格（异形/老宿主形状）⇒ 不拿缺省当否，退回旧两步', async () => {

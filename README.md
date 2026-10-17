@@ -604,8 +604,9 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
   - `enabled === false`（装着、在跑、但不在 `dsh.profile.bundles` 选中名单里——真机六件的形态）⇒ 先 `setBundleEnabled(name, true)` 恢复选中（宿主 `installBundle` 默认也做这一步，只是本包拆到移除之前），再 `removeBundle` → `installBundle`。
   - 旧宿主没有 `listBundles` / `setBundleEnabled` ⇒ 退回老两步（会先盲删）；探测到不可移除/未选中但没有对应宿主能力时，诚实失败并在人话格里给载体 CLI 命令。
 - **救急命令**：`already-installed` / `bundle-in-use` / `not-removable` 三个码的失败详情尾部会补一条 ASCII 命令 ` (dsh plugin --profile <范围> add --save-exact <包名>@<版本>)`——载体 CLI 在官方桌面版机器上可执行，是管理器外唯一能原地换版的通道。面板展示 `job.message` 时原样显示即可，不需要解析。
+  - **恢复选中这一步的失败/超时也补同一条命令**；宿主没有 `setBundleEnabled` 时人话格说明「宿主不支持恢复选中，无法安全更新」（不再合成 `bundle-in-use` 冒充「还有别的层在用」）。
 - **空更新哨兵**：安装请求的目标版本与磁盘已装版本相同 ⇒ 直接回 `installation-changed`（详情写「目标版本与已装版本相同，无需安装」），不建任务、不起安装；批量/旧快照拿已装版当目标时不再跑到装后校验才报错。
-- **装后「在册」核实收窄为「登记不许倒退」**：新装必须进 `dsh.profile.bundles`（或老清单的 `dependencies`），否则失败（`0.18.12` 起的行为）；更新一个装前就未登记的包已经成功过的那次不因「仍未登记」判失败——否则真机那六件（装着、在跑、未选中）永远升不了级；装前登记过、装后清单里丢了（倒退）仍然失败。
+- **装后「在册」核实收窄为「登记不许倒退」**：新装必须进 `dsh.profile.bundles`（或老清单的 `dependencies`），否则失败（`0.18.12` 起的行为）；更新一个装前就未登记的包已经成功过的那次不因「仍未登记」判失败——否则真机那六件（装着、在跑、未选中）永远升不了级；装前登记过、装后清单里丢了（倒退）仍然失败。装前读取器没给出 `registered`（旧覆盖实现或清单读不到）而装后为 `false` 时仍判失败：无法证明不是新装，保守方向。
 
 ## 6. 排错
 

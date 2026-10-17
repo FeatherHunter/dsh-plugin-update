@@ -988,8 +988,8 @@
       "draft": true
     },
     "panel.blocked.installation-changed.action": {
-      "en": "Reopen the host and check again; if it persists, reinstall.",
-      "zh": "重启宿主后重新查询；若持续，请重新安装",
+      "en": "Reopen the host and check again; if it says you are already up to date, nothing to do; if it persists, reinstall.",
+      "zh": "重启宿主后重新查询；若说明已是最新则无需操作；若持续，请重新安装",
       "draft": true
     },
     "panel.blocked.installation-changed.title": {
