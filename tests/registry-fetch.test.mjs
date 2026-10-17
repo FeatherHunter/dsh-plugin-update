@@ -56,3 +56,107 @@ test('#163 registry 语义抽查：连不上判检查失败并带状态，时间
   assert.equal(packument.latest, '1.2.3')
   assert.ok(packument.times['1.2.3'] > 0)
 })
+
+// ---------- 对抗式审查（2026-10-17）回归：#R1 scoped 包 / #R3 包文档字节墙 / #R5 源地址归一 ----------
+
+const SCOPED = '@xmanrui/dsh-im'
+const goodScoped = {
+  name: SCOPED,
+  version: '4.39.0',
+  engines: { node: '>=22' },
+  dist: {
+    // npm 对 scoped 包：路径最后一段与文件名都**不带** scope（真实 registry 实证）。
+    tarball: 'https://registry.npmjs.org/@xmanrui/dsh-im/-/dsh-im-4.39.0.tgz',
+    integrity: `sha512-${'B'.repeat(86)}==`,
+  },
+}
+
+test('#R1 scoped 目标包：按 basename 判发行包地址，正常文档必须收', async () => {
+  const release = await rf.fetchNpmRelease(doc(goodScoped), 1000, { targetPackageName: SCOPED })
+  assert.equal(release.version, '4.39.0')
+  assert.equal(release.nodeRange, '>=22')
+  // 版本电话（changelog / 合规版候选）同一判据。
+  const versionDoc = await rf.fetchNpmVersionRelease(doc(goodScoped), 1000, {
+    targetPackageName: SCOPED,
+    version: '4.39.0',
+    releaseChannel: 'stable',
+  })
+  assert.equal(versionDoc.version, '4.39.0')
+})
+
+test('#R1 scoped 目标包：文件名里带 scope / 名字对不上，仍判无效', async () => {
+  const withScopeInFile = {
+    ...goodScoped,
+    dist: { ...goodScoped.dist, tarball: 'https://registry.npmjs.org/@xmanrui/dsh-im/-/@xmanrui/dsh-im-4.39.0.tgz' },
+  }
+  await assert.rejects(rf.fetchNpmRelease(doc(withScopeInFile), 1000, { targetPackageName: SCOPED }), /invalid-release/)
+  await assert.rejects(rf.fetchNpmRelease(doc({ ...goodScoped, name: 'dsh-im' }), 1000, { targetPackageName: SCOPED }), /invalid-release/)
+})
+
+test('#R5 源地址漏结尾斜杠：取数前归一，不能拼出 registry.npmjs.orgdsh-…', async () => {
+  const seen = []
+  const fetchImpl = (url) => {
+    seen.push(url)
+    return doc(goodScoped)()
+  }
+  await rf.fetchNpmRelease(fetchImpl, 1000, {
+    targetPackageName: SCOPED,
+    registryUrl: 'https://registry.npmjs.org',
+  })
+  assert.equal(seen[0], `https://registry.npmjs.org/${encodeURIComponent(SCOPED)}/latest`)
+  // 带路径的私有源同理：补斜杠后仍保留原路径；发行包地址按「同源 + 路径后缀」判，
+  // 镜像把包挂在 `/mirror/...` 下也必须是可用的（#R5b）。
+  seen.length = 0
+  const mirrored = {
+    ...goodScoped,
+    dist: { ...goodScoped.dist, tarball: 'https://npm.example.test/mirror/@xmanrui/dsh-im/-/dsh-im-4.39.0.tgz' },
+  }
+  await rf.fetchNpmRelease((url) => {
+    seen.push(url)
+    return doc(mirrored)()
+  }, 1000, {
+    targetPackageName: SCOPED,
+    registryUrl: 'https://npm.example.test/mirror',
+  })
+  assert.equal(seen[0], `https://npm.example.test/mirror/${encodeURIComponent(SCOPED)}/latest`)
+})
+
+test('#R3 全量包文档：超过 256KB 但仍在包文档墙内必须收（真实包 314KB/458KB）', async () => {
+  const big = {
+    name: PKG,
+    'dist-tags': { latest: '1.2.3' },
+    time: { '1.2.3': '2026-01-02T00:00:00.000Z' },
+    pad: 'x'.repeat(400 * 1024),
+  }
+  const packument = await rf.fetchPackumentTimes(doc(big), 1000)
+  assert.equal(packument.latest, '1.2.3')
+  // latest / 版本文档仍守 256KB：同一份大文档喂给 latest 口要判无效。
+  await assert.rejects(rf.fetchNpmRelease(doc(big), 1000), /invalid-release/)
+})
+
+// ---------- #183：远端 latest 是预发布时，缺省拒绝 / 检查口容忍 ----------
+
+const betaRelease = {
+  ...goodRelease,
+  version: '1.9.0-beta.2',
+  dist: {
+    tarball: `https://registry.npmjs.org/${PKG}/-/${PKG}-1.9.0-beta.2.tgz`,
+    integrity: `sha512-${'C'.repeat(86)}==`,
+  },
+}
+
+test('#183 通道外 latest：缺省仍按 invalid-release(stage=channel) 拒绝', async () => {
+  const err = await rf.fetchNpmRelease(doc(betaRelease), 1000, { releaseChannel: 'stable' }).catch((e) => e)
+  assert.equal(err.code, 'invalid-release')
+  assert.equal(err.stage, 'channel')
+})
+
+test('#183 检查口容忍：tolerateOutOfChannel 原样交回，形状校验不放松', async () => {
+  const release = await rf.fetchNpmRelease(doc(betaRelease), 1000, { releaseChannel: 'stable', tolerateOutOfChannel: true })
+  assert.equal(release.version, '1.9.0-beta.2')
+  // 容忍只对「通道不符」生效：版本形状坏掉、包地址对不上仍判无效。
+  const garbage = { ...betaRelease, version: 'not-a-version' }
+  await assert.rejects(rf.fetchNpmRelease(doc(garbage), 1000, { releaseChannel: 'stable', tolerateOutOfChannel: true }), /invalid-release/)
+  const wrongTarball = { ...betaRelease, dist: { ...betaRelease.dist, tarball: `https://registry.npmjs.org/${PKG}/-/${PKG}-1.9.0-beta.1.tgz` } }
+  await assert.rejects(rf.fetchNpmRelease(doc(wrongTarball), 1000, { releaseChannel: 'stable', tolerateOutOfChannel: true }), /invalid-release/)
+})

@@ -175,11 +175,12 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       /* 记日志绝不挡功能 */
     }
   }
-  function fetchRelease(): Promise<ReleaseInfo> {
+  function fetchRelease(tolerateOutOfChannel = false): Promise<ReleaseInfo> {
     return fetchNpmRelease(ports.fetchImpl, checkTimeoutMs, {
       targetPackageName,
       registryUrl,
       releaseChannel,
+      tolerateOutOfChannel,
       emitLog: logPort ?? undefined,
       registryHost,
     })
@@ -458,7 +459,14 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     checking = (async () => {
       try {
         const env = await ports.readInstalled()
-        const release = await fetchRelease()
+        // #183：通道不符只在「已装版本本身就不在本通道（或压根未装）」时容忍。这时整次检查
+        // 在修复前会直接 check-failed，可真正的结论（channel-mismatch）读取器早就算出来了，
+        // 缺省 stable 遇到 latest 是预发布时用户只能看到「检查失败」。已装版本在通道内、只有
+        // 远端最新是预发布的那一支仍按旧样失败：不取 packument 就分不清「只有预发布更新」
+        // 与「取数真坏了」，宁可大声失败，也不把它悄悄画成「已是最新」。
+        const installedOutOfChannel =
+          env.installed === false || !isVersionAllowedInChannel(env.installedVersion ?? '', releaseChannel)
+        const release = await fetchRelease(installedOutOfChannel)
         checked = {
           release,
           checkId: ports.randomId(),

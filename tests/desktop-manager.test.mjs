@@ -168,6 +168,87 @@ describe('管理器执行器（假件）', () => {
     }
   })
 
+  it('#R8 管理器失败带真实 pnpm 退码：exec 日志的 exitCode 不许一律记成 null', async () => {
+    const fires = []
+    const runInstall = runWith({
+      pluginManager: {
+        installBundle: () =>
+          Promise.resolve({
+            application: 'failed',
+            error: { code: 'operation-error' },
+            packageResult: { output: 'ERR_PNPM_SOMETHING pnpm 说失败', exitCode: 137 },
+          }),
+      },
+      log: (level, event, fields) => fires.push({ level, event, fields }),
+    })
+    await assert.rejects(
+      () => call(runInstall),
+      (error) => {
+        assert.equal(error.code, 'install-failed')
+        assert.match(error.detail, /ERR_PNPM_SOMETHING/)
+        return true
+      }
+    )
+    const exec = fires.filter((f) => f.event === 'update.install.exec')
+    assert.equal(exec.length, 1)
+    assert.equal(exec[0].fields.ok, false)
+    assert.equal(exec[0].fields.exitCode, 137)
+  })
+
+  it('#R1 宿主拒绝码翻译下一步：原文在前、建议在后，认不出的码不加建议', async () => {
+    const runFor = (code) =>
+      runWith({
+        pluginManager: {
+          installBundle: () => Promise.resolve({ application: 'failed', error: { code } }),
+        },
+        log: () => {},
+      })
+    // 认得的码：原文（码本身）必须还在，中文动作跟在后面。
+    await assert.rejects(
+      () => call(runFor('not-removable')),
+      (error) => {
+        assert.equal(error.code, 'install-failed')
+        assert.match(error.detail, /not-removable/)
+        assert.match(error.detail, /不可移除/)
+        assert.ok(error.detail.length <= 301, '拼完建议仍守 300 字')
+        return true
+      }
+    )
+    await assert.rejects(
+      () => call(runFor('incompatible-version')),
+      (error) => {
+        assert.match(error.detail, /incompatible-version/)
+        assert.match(error.detail, /不兼容/)
+        return true
+      }
+    )
+    // 认不出的码：一个字都不许加（不替宿主编原因）。
+    await assert.rejects(
+      () => call(runFor('operation-error')),
+      (error) => {
+        assert.equal(error.detail, 'operation-error')
+        return true
+      }
+    )
+  })
+
+  it('#R2 降级宿主（没有 removeBundle）：already-installed 也要给出下一步', async () => {
+    const runInstall = runWith({
+      pluginManager: {
+        installBundle: () => Promise.resolve({ application: 'failed', error: { code: 'already-installed' } }),
+      },
+      log: () => {},
+    })
+    await assert.rejects(
+      () => call(runInstall),
+      (error) => {
+        assert.match(error.detail, /already-installed/)
+        assert.match(error.detail, /手工命令/)
+        return true
+      }
+    )
+  })
+
   it('失败不 reject 也算失败：error 收成一行人话（脱敏 + 截断）', async () => {
     const runInstall = runWith({
       pluginManager: {

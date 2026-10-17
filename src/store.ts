@@ -1241,8 +1241,12 @@ async function runDesktopService(
 interface ManagerChangeResult {
   application?: unknown
   error?: unknown
-  /** pnpm 的退出事实与原文就在这格（只抄本包用到的 output）：失败原文的唯一来源。 */
-  packageResult?: { output?: unknown }
+  /**
+   * pnpm 的退出事实与原文就在这格（只抄本包用到的两格）：失败原文的唯一来源。
+   * `exitCode` 是真跑过 pnpm 时的退出码（#R8 对抗审查：以前只抄 output，失败日志里
+   * 真实退码被丢掉，一律记成 null——探针给 137 也一样）。
+   */
+  packageResult?: { output?: unknown; exitCode?: unknown }
 }
 
 /** 成功三态：overridden 是「改动已被保留、只是被别的层盖住」，不是失败。 */
@@ -1460,6 +1464,47 @@ function managerSaidAlreadyInstalled(result: ManagerChangeResult): boolean {
 }
 
 /**
+ * 管理器拒绝码的「下一步」翻译（#R1 对抗审查，S2「报错无下一步」）。
+ *
+ * 宿主自己有一张 ERROR_STEPS 表（`asar:…/dsh-plugin-manager/lib/types/tools.js:7-21`）给每个拒绝码
+ * 写了下一步，但那是写给模型看的英文。本包把用户真会撞上的几码翻成一行中文动作，**拼在宿主原话后面**：
+ * 原文永远在前（出事时还能按码搜索/报给宿主），建议永远在后；认不出的码一句不加，绝不替宿主编原因。
+ * 只覆盖管理器路会原样透出的那几码（A 线探针逐个撞过）。
+ */
+const MANAGER_CODE_HINTS: Record<string, string> = {
+  'already-installed': '宿主不支持自动移除重装，请复制手工命令在桌面 CLI 里更新',
+  'not-removable': '宿主把这个包标为不可移除，请复制手工命令在桌面 CLI 里更新',
+  'management-required': '这个条目归宿主插件管理本体所有，不能在这里更新',
+  'not-bundle': '这个包没有声明 dsh.bundle，不能当作插件管理',
+  'bundle-in-use': '还有别的层在用这个插件，请先在宿主插件页停用后再更新',
+  'stop-profile': '这个使用范围没有 HMR，请停掉 DSH 后在命令行更新',
+  'stale-approval': '构建批准已过期，请重试一次',
+  'incompatible-version': '新版本与当前 DSH 不兼容，请先升级 DSH 再更新',
+  'build-blocked': '安装脚本需要批准（pendingBuilds），请在宿主插件页批准构建后重试',
+  'pnpm-missing': '宿主找不到 pnpm，请先安装 pnpm',
+  'disk-full': '磁盘空间不足，腾出空间后重试',
+  permission: '宿主写不了使用范围目录，修好权限后重试',
+}
+
+/** 从管理器回包的 error 里读本包认识的那一格（只认字符串 code，别的一律当没有）。 */
+function managerCodeOf(result: ManagerChangeResult): string {
+  const error = result ? result.error : undefined
+  if (!error || typeof error !== 'object') return ''
+  const code = (error as { code?: unknown }).code
+  return typeof code === 'string' ? code : ''
+}
+
+/** 拼「宿主原话；下一步」，总长仍守 detail 的 300 字：原文优先，建议让位。 */
+function withManagerHint(result: ManagerChangeResult, said: string): string {
+  const code = managerCodeOf(result)
+  const hint = code ? MANAGER_CODE_HINTS[code] ?? '' : ''
+  if (!hint) return said
+  const room = DETAIL_MAX_CHARS - hint.length - 1
+  const head = room > 0 && said.length > room ? said.slice(0, room) : said
+  return head ? `${head}；${hint}` : hint
+}
+
+/**
  * 官方桌面版：把安装交给宿主进程内的插件管理器（`ctx.get('pluginManager')`）。
  *
  * 与命令行那条同政策：精确版本、官方源（走管理器的 registry 选项）、超时即终止（请求取消）。
@@ -1536,7 +1581,11 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
       const said = rawOutput.trim()
         ? causeExcerptOf(rawOutput)
         : detailText(result && result.error !== undefined ? result.error : `application: ${application || 'unknown'}`)
-      return withDetail(fail('install-failed'), said)
+      // 真跑过 pnpm 的失败要带真实退码出去（#R8）：exec 日志那格与另两条路由同口径，不许一律 null。
+      const failure = fail('install-failed')
+      const rawCode = result && result.packageResult ? result.packageResult.exitCode : undefined
+      const coded = typeof rawCode === 'number' && Number.isInteger(rawCode) ? withExit(failure, rawCode) : failure
+      return withDetail(coded, withManagerHint(result, said))
     }
     let result = await installOnce()
     let application = result && typeof result.application === 'string' ? result.application : ''

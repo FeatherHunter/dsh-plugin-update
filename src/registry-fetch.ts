@@ -23,10 +23,38 @@ export const PACKAGE_NAME = 'dsh-mattpocock-skills-deck'
 export const NPM_REGISTRY = 'https://registry.npmjs.org/'
 export const CHECK_TIMEOUT_MS = 10_000
 export const MAX_METADATA_BYTES = 256 * 1024
+/**
+ * 全量包文档的字节墙（#R3 对抗审查）：latest / 版本文档天生小（256KB 足够），
+ * 但 packument 会随版本数线性长大——真实包里 dsh-prompt 已 314KB、`@xmanrui/dsh-im` 458KB，
+ * 用同一个 256KB 墙会把「合规版候选」这条路对真实包永久打死（探针复现）。
+ * 这条只给 `fetchPackumentTimes` 用，其余两个取数口仍是 256KB。
+ */
+const MAX_PACKUMENT_BYTES = 4 * 1024 * 1024
 export const INTEGRITY_PATTERN = '^sha512-[A-Za-z0-9+/]{86}==$'
 
 /** 取数阶段（#124）：`update.check.fail.stage` 与 `update.registry.fetch` 的定位用，四个合法值。 */
 export type FetchStage = 'fetch' | 'compare' | 'channel' | 'verify'
+
+/**
+ * 源地址归一（#R5 对抗审查）：配置里漏了结尾斜杠时，裸拼会得到
+ * `https://registry.npmjs.orgdsh-plugin-update/latest`（主机名被吃掉）；带路径的私有源同理会拼错。
+ * 取数口统一在这里补一个斜杠——调用方给什么都只补不猜，不改协议/主机/路径。
+ */
+function normalizeRegistry(raw: string | undefined, fallback: string): string {
+  const value = typeof raw === 'string' && raw.trim() ? raw.trim() : fallback
+  return value.endsWith('/') ? value : `${value}/`
+}
+
+/**
+ * 发行包地址的**唯一**形状判据（#R1 对抗审查）：npm 对 scoped 包把 tarball 放在
+ * `/<scope>/<name>/-/<basename>-<version>.tgz`——路径里的最后一个名字段不带 scope，
+ * 文件名也不带。原先两处都用 `/${targetName}/-/${targetName}-${version}.tgz` 内联比较，
+ * 于是 `@xmanrui/dsh-im` 这类包永远被误判成 invalid-release（真实 registry 黑箱复现）。
+ */
+function tarballPathnameOf(targetName: string, version: string): string {
+  const base = targetName.slice(targetName.lastIndexOf('/') + 1)
+  return `/${targetName}/-/${base}-${version}.tgz`
+}
 
 // ---------- 问远端（联网只发生在这里，调用方点一次才问一次） ----------
 
@@ -116,10 +144,18 @@ export async function fetchNpmRelease(
     emitLog?: UpdateLogPort
     /** 白名单源主机名（#124，可选）：不在白名单即省略该格，绝不落完整 URL。 */
     registryHost?: string | null
+    /**
+     * 通道不符时是否把版本原样交回（#183，可选，仅检查路径用）。
+     * 缺省 false：远端 latest 不被本通道接受就按「版本信息无效 + stage=channel」抛，
+     * 这是取数口的旧纪律。检查路径在「已装版本本身就不在本通道」时必须容忍——
+     * 那次报错的真正结论是 channel-mismatch（读取器已算出来），不是取数失败；
+     * 否则缺省 stable 遇到 latest 是预发布时，面板连「通道不符」都说不出，只剩 check-failed。
+     */
+    tolerateOutOfChannel?: boolean
   },
 ): Promise<ReleaseInfo> {
   const targetName = opts?.targetPackageName ?? PACKAGE_NAME
-  const registry = opts?.registryUrl ?? NPM_REGISTRY
+  const registry = normalizeRegistry(opts?.registryUrl, NPM_REGISTRY)
   const channel: ReleaseChannel = opts?.releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
   const noteFetch = makeFetchNoter(opts?.emitLog, opts?.registryHost)
   let response: MinimalResponse | null = null
@@ -149,8 +185,11 @@ export async function fetchNpmRelease(
     }
     if (value.name !== targetName) throw updateError('invalid-release')
     // 通道门单独贴 stage（#124）：远端版本不被本通道接受，是「通道判定」不是「版本信息坏掉」。
+    // #183：只有检查路径在「已装版本也不在本通道」时会要求容忍——把版本原样交回，
+    // 让通道结论由读取器/快照层如实说出；其余形状校验照旧（容忍不等于放宽信任）。
     if (!isVersionAllowedInChannel(value.version, channel)) {
-      throw withStage(updateError('invalid-release'), 'channel')
+      if (opts?.tolerateOutOfChannel !== true) throw withStage(updateError('invalid-release'), 'channel')
+      if (!validReleaseVersion(value.version)) throw updateError('invalid-release')
     }
     const version = value.version
     const nodeRange = value.engines?.node
@@ -170,7 +209,7 @@ export async function fetchNpmRelease(
       !tarball.password &&
       !tarball.search &&
       !tarball.hash &&
-      tarball.pathname === `/${targetName}/-/${targetName}-${version}.tgz` &&
+      tarball.pathname.endsWith(tarballPathnameOf(targetName, version)) &&
       typeof integrity === 'string' &&
       new RegExp(INTEGRITY_PATTERN).test(integrity)
     if (!shapeOk) throw updateError('invalid-release')
@@ -208,7 +247,7 @@ export async function fetchNpmVersionRelease(
   },
 ): Promise<ReleaseInfo> {
   const targetName = opts?.targetPackageName ?? PACKAGE_NAME
-  const registry = opts?.registryUrl ?? NPM_REGISTRY
+  const registry = normalizeRegistry(opts?.registryUrl, NPM_REGISTRY)
   const channel: ReleaseChannel = opts?.releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
   const version = opts?.version
   const noteFetch = makeFetchNoter(opts?.emitLog, opts?.registryHost)
@@ -262,7 +301,7 @@ export async function fetchNpmVersionRelease(
       !tarball.password &&
       !tarball.search &&
       !tarball.hash &&
-      tarball.pathname === `/${targetName}/-/${targetName}-${version}.tgz` &&
+      tarball.pathname.endsWith(tarballPathnameOf(targetName, version)) &&
       typeof integrity === 'string' &&
       new RegExp(INTEGRITY_PATTERN).test(integrity)
     if (!shapeOk) throw updateError('invalid-release')
@@ -294,7 +333,7 @@ export async function fetchPackumentTimes(
   },
 ): Promise<{ latest: string; times: Record<string, number> }> {
   const targetName = opts?.targetPackageName ?? PACKAGE_NAME
-  const registry = opts?.registryUrl ?? NPM_REGISTRY
+  const registry = normalizeRegistry(opts?.registryUrl, NPM_REGISTRY)
   const noteFetch = makeFetchNoter(opts?.emitLog, opts?.registryHost)
   let response: MinimalResponse | null = null
   const startedAt = Date.now()
@@ -312,9 +351,9 @@ export async function fetchPackumentTimes(
   try {
     if (!response.ok) throw checkFailedWithStatus(response)
     const declared = Number(response.headers.get('content-length'))
-    if (Number.isFinite(declared) && declared > MAX_METADATA_BYTES) throw updateError('invalid-release')
+    if (Number.isFinite(declared) && declared > MAX_PACKUMENT_BYTES) throw updateError('invalid-release')
     const text = await response.text()
-    if (byteLength(text) > MAX_METADATA_BYTES) throw updateError('invalid-release')
+    if (byteLength(text) > MAX_PACKUMENT_BYTES) throw updateError('invalid-release')
     const value = JSON.parse(text) as {
       name?: unknown
       'dist-tags'?: { latest?: unknown }

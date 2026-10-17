@@ -31,10 +31,13 @@
 - 挂载条件：profile 组合里那一行 `disabled: !!js "!ctx.get('profileContext')"`
   （`asar:dsh/node_modules/@deepseek-ai/dsh-base/cordis.patch.yml:22`）。
   **注意**：这意味着普通宿主也可能挂载这个服务，所以本包不拿「有服务」单独当宿主判据。
-- 签名：`installBundle(spec: string, options?: { enabled?, requestId?, approvedBuilds?, registry? })`
+- 签名：`installBundle(spec: string, options?: { enabled?, requestId?, approvedBuilds?, registry?, saveExact? })`
   → `Promise<ChangeResult>`；另有 `removeBundle(spec)` 与 `cancelInstall(requestId)`。
   出处：`asar:…/dsh-plugin-manager/lib/typert.host.js:795-799`（signature）、`:848`（InstallBundleOptions）、
   `:810`（cancelInstall）、`:836`（ChangeResult）、`:860`（ManagementError）、`:864`（PackageResult）。
+  注意 `saveExact` 是选项之一，但**本包不传**：管理器默认就写精确版本（2026-10-17 真机实证：面板更新
+  之后 profile `package.json` 里的 specifier 是 `0.3.67`，不是 `^0.3.67`）——「不传 saveExact 会写成范围」
+  是误报，已证伪。
 - 返回形状（只抄本包用到的格）：
   - `application`：`applied`｜`restart-required`｜`overridden`｜`failed`｜`cancelled`；
   - `error`：普通对象 `{ code, diagnostic?, incompatible? }`，不是 Error；
@@ -74,11 +77,19 @@
   → `{ status: 'cancelled' | 'too-late' | 'not-running' }`：`cancelled` 会等进程退出并把
   `package.json` / `pnpm-lock.yaml` 还原，原 promise resolve 成 `application:'cancelled'`；
   `too-late` 表示已进入应用阶段、改不动了。出处：`…/lib/index.js:1827-1839`、`:1356-1359`。
-- 命令行在那台机器上**不适用**：`dsh` 在 boot 与 `plugin` 子命令都按名字（大小写不敏感）拒绝
-  `--profile desktop`，唯一豁免是桌面自带的 CLI 载体
-  （`asar:dsh/node_modules/@deepseek-ai/dsh/lib/bin.js:35-37`、`:112`、`:119`；
-  `asar:dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js:91-104`）。
-  ⇒ 拿它当兜底命令的可用性仍需现场确认（见票 #1 的待验证项）。
+- 命令行在那台机器上**可用**（2026-10-17 21:0x 真机只读实测，订正本节旧假设）：官方桌面版发行包把 CLI 载体放在
+  `D:\DeepseekHarness\resources\runtime\cli\bin\dsh.cmd`，它用 `ELECTRON_RUN_AS_NODE=1` 调
+  `…\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-desktop-host\lib\cli.js`（`runDesktopCli`，
+  内部 `runCli({ manageDesktopProfile: true, … })`），所以 `plugin` 子命令的 `rejectElectronProfile` 守卫**不触发**。
+  实测：`dsh --version` = `0.2.1-rc.2`；`dsh plugin --profile desktop add --help` → 打印 pnpm 11.28.5 帮助、无拒绝；
+  `dsh plugin --profile desktop list --depth 0` → 正确列出 profile 直接依赖。
+  ⇒ 本包 `manualCommand`（`src/commands.ts:189-213`）生成的那条
+  `dsh plugin --profile desktop add --save-exact <包名>@<版本> --registry=…` 在这台机器上**可执行**；
+  且该进程里**没有 HMR**（管理器的 `already-installed` 守卫不成立）⇒ 它是当前唯一能绕过
+  「已装直接依赖」这条死路的用户侧通道。注意它是**裸 pnpm**（不经 `publishAndReload`、bundle 选择表与移除确认），
+  只适合救急，不是本包路由。
+  出处：`asar:dsh/node_modules/@deepseek-ai/dsh/lib/bin.js:35-37`、`:112`、`:119`；
+  `asar:dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js:91-104`。
 
 ## 出口三：普通 DSH 宿主（自己起命令行）
 
@@ -86,8 +97,9 @@
   —— 一律参数数组，不经 shell、不用 `PATH` 上的 `dsh` 命令名、不按系统分支。
 - CLI 入口靠**反查**而不是猜：从 `process.argv[1]` 逐级向上找名为 `@deepseek-ai/dsh` 的包，
   且该文件必须正好是包声明的可执行入口；对不上返回 null，诚实失败。
-- 这个出口对使用范围名为 `desktop` 的情形**一定失败**（出处同上），所以本包不会把官方桌面版
-  路由到这里。
+- 这个出口对使用范围名为 `desktop` 的情形，**只对没有 CLI 载体的普通 `dsh` 一定失败**（出处同上）；
+  官方桌面版发行包里的载体 CLI 不拒绝 `--profile desktop`（见出口二末条实测）。因此本包仍不把官方桌面版
+  路由到这里（in-process 管理器能力最全），但兜底命令在有载体的机器上是可执行的。
 
 ## 不确定与待现场确认
 
@@ -103,4 +115,10 @@
   之后还 `publishAndReload()`（`:2159`），`installBundle` 在 HMR 下同样以 `publishAndReload` 收尾
   （`:2094`）⇒「移除再装」之后 bundle 在选择表里的相对次序可能变化，配置优先级随之变化。
   发到真机后值得核一次 `dsh.profile.bundles` 的次序。
-- 命令行兜底在官方桌面版下是否可执行，证据与现场记录不一致，待现场确认（票 #1 的待验证项）。
+- 命令行兜底在官方桌面版下是否可执行：**2026-10-17 已现场实测，结论是可执行**（见出口二末条）；
+  此前「待现场确认」的说法作废。仍未验证的是「用这条命令真的把某个已装包更新上去」这一步（只做了
+  `--help`/`list` 只读探针，未写盘）。
+- **2026-10-17 对抗式审查新增（未修，另见票）**：管理器路失败时详情常常只剩宿主裸码（
+  `not-removable` / `bundle-in-use` / `management-required` / `stale-approval` / `incompatible-version` 等），
+  宿主自己的 next-step 表（`lib/types/tools.js` 的 `ERROR_STEPS` / `FAILURE_STEPS`）没有转述；
+  降级宿主（没有 `removeBundle`）上 `already-installed` 的观感与本轮修复前一致。

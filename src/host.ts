@@ -90,13 +90,14 @@ function ctxService(ctx: unknown, name: string): unknown {
  * 宿主种类按能力判定，顺序固定（写死是为了将来宿主形态收敛时行为可预测）：
  *   1. 有 `desktopProfiles` 服务 → `desktop`（第三方 Desktop，launcher 在 Loader entry 挂载前注册）；
  *   2. 否则有 `pluginManager.installBundle`、且使用范围名恰是命令行明确封禁的 `desktop`
- *      → `desktop-manager`（官方桌面版：命令行那条对这个使用范围一定失败）；
+ *      → `desktop-manager`（官方桌面版：in-process 管理器是唯一带 HMR 感知 / 移除 / 重载的完整通道；
+ *      桌面发行包的载体 CLI 虽可用但只作兜底，见 docs/host-install-exits.md 出口二末条）；
  *   3. 其余 → `cli`。
  *
- * 第 2 条不是拿名字猜宿主身份，而是用**命令行自己的拒绝规则**判断这条路封没封：
- * `dsh` 在 boot 与 plugin 子命令都按名字（大小写不敏感）拒绝 `--profile desktop`，
- * 唯一豁免是桌面自带的 CLI 载体。名字由调用方按 resolveProfileName 的同一口径给出；
- * 不传名字时只认第 1、3 条，绝不猜。
+ * 第 2 条不是拿名字猜宿主身份，而是用**命令行自己的拒绝规则**判断 in-process 这条路是不是官方桌面版：
+ * 普通 `dsh` 在 boot 与 plugin 子命令都按名字（大小写不敏感）拒绝 `--profile desktop`，
+ * 唯一豁免是桌面发行包自带的 CLI 载体（`dsh-desktop-host/lib/cli.js`）——那条路存在，但只作兜底，
+ * 不参与路由判定。名字由调用方按 resolveProfileName 的同一口径给出；不传名字时只认第 1、3 条，绝不猜。
  */
 export function detectEnvironmentKind(ctx: unknown, profileName?: string | null): EnvironmentKind {
   const profiles = ctxService(ctx, 'desktopProfiles')

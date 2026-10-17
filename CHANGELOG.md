@@ -4,6 +4,25 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
+## [0.18.9] - 2026-10-17
+
+### Added
+- **对抗式审查报告（#178）**：`docs/research/20261017-更新系统对抗审查.md`——按「副本 / 取数 / 决策 / 路由 / 宿主能力 / 状态诊断」六层列失效面，S0-S3 分级、可达性（已爆/可爆/不可达）、确定性分档（证实/推断/未证），并按票号挂到地图 #178 的 14 张子票上（#179-#197）。审查本身只写 `.tmp/audit/` 与报告，不改行为。
+- **宿主管理器拒绝码的中文下一步（A 线 R1/R2）**：`already-installed` / `not-removable` / `management-required` / `not-bundle` / `bundle-in-use` / `stop-profile` / `stale-approval` / `incompatible-version` / `build-blocked` / `pnpm-missing` / `disk-full` / `permission` 十二个宿主码不再只回裸码——原文在前、一句「下一步」在后，总长仍守 300 字；未知码一字不加，不编造。
+
+### Fixed
+- **scoped 目标包永远 `invalid-release`（B 线 R1）**：发行包地址的形状校验原来拿**带 scope 的全名**拼 `/@scope/name/-/@scope/name-<ver>.tgz`，而真实 registry 对 scoped 包用的是 basename（`/@xmanrui/dsh-im/-/dsh-im-4.39.0.tgz`）——于是所有 scoped 目标（如 `@xmanrui/dsh-im`）在检查阶段就判「版本信息无效」，更新日志与合规版候选同死，而宿主管理器本身允许 scoped 目标。现抽出 `tarballPathnameOf`（取 basename），latest 与版本文档两处同一判据；同时按「同源 + 路径后缀」放行私有源的路径前缀（镜像把包挂在 `/mirror/…` 下也算合规）。
+- **源地址漏结尾斜杠 / 带路径时取数必坏（B 线 R5）**：`registryUrl` 原来直接字符串拼接，漏斜杠会拼出 `registry.npmjs.orgdsh-plugin-update/latest`（报 `check-failed` 却没有状态码），带路径则 404。现取数前 `normalizeRegistry` 归一（trim + 补结尾斜杠、保留路径），latest 与时间表两条口同源。
+- **全量包文档 256KB 墙打死真实包（B 线 R3）**：`fetchPackumentTimes` 单独抬到 4MB（真机 dsh-prompt 314,765B、`@xmanrui/dsh-im` 458,500B 原来直接 `ERR`）；latest / 版本文档仍守 256KB——两边防的不是同一类输入，不跟着放宽。
+- **管理器失败丢退出码（A 线 R8）**：`packageResult.exitCode` 不再被丢弃，失败 exec 日志与详情能带上宿主给的退出码（探针给 137 仍记 null 的旧观感消失）。
+- **stable 通道 + 远端 latest 是预发布 ⇒ 整次检查永久失败（B 线 R2 / #183）**：缺省 stable 下，远端 `latest` 是预发布时 `fetchNpmRelease` 以 `invalid-release(stage=channel)` 抛，检查整次 `check-failed`，面板连「通道不符」都说不出（默认目标 deck 的 `latest` 正是预发布，真机复现）。现在检查路径在「**已装版本本身也不在本通道**（或压根未装）」时容忍通道外 latest：快照如实报 `channel-mismatch`、`canInstall=false`、latest 回填，不再整次失败；「已装版本在通道内、只有远端最新是预发布」那一支**保持大声失败**——不取全量包文档就分不清「只有预发布更新」与「取数真坏了」，宁可失败也不悄悄画成「已是最新」（另开票做真修复）。
+
+### Changed
+- `docs/host-install-exits.md`：补 `saveExact?` 选项说明（本包不传；管理器默认就写精确版本，真机 specifier `0.3.67` 实证），并把「命令行在那台机器上」从待确认改为**实测可用**（官方桌面自带的载体 CLI 可执行 `add --save-exact`，详见审查报告 D 线）。
+- 测试：新增 `tests/issue-183-prerelease-latest.test.mjs`（3 例：已装 beta 时不再整次失败 / 已装正式版+预发布 latest 仍大声失败 / prerelease 通道旧能力不变）、`tests/registry-fetch.test.mjs` 补 6 例（scoped 收与拒、源归一、镜像路径前缀、包文档字节墙、通道容忍）、`tests/desktop-manager.test.mjs` 补 3 例（退出码透传、拒绝码下一步、降级宿主给手工命令）。
+
+门禁（**发版定格**）：`npm test` **1424 例：1423 过 / 0 失败 / 1 跳过**（干净发版树 `b91b4dc` + 本批 12 个文件上实测；本批新增 12 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（44 个 src 文件、349 个 key、16 错误码、19 diag 键，违规 0；本批新增冻结中文 12 条＝宿主拒绝码的下一步建议，`copy-baseline.json` 的 `src/store.ts` 白名单 +12（另 1 条因排序位移在 diff 里成对出现），diff 逐条可见）；`npm publish --dry-run` **95 文件**（`dsh-plugin-update@0.18.9`）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（349 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
+
 ## [0.18.8] - 2026-10-17
 
 ### Added
