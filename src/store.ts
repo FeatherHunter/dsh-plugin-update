@@ -1441,6 +1441,24 @@ async function settleWithin<T>(promise: Promise<T>, graceMs: number): Promise<T 
   }
 }
 
+/** 管理器只吃一个 spec 字符串；包名就是最后一个 '@' 之前那段（`@scope/name@1.2.3` → `@scope/name`）。 */
+function managerPackageNameOf(spec: string): string {
+  const at = spec.lastIndexOf('@')
+  return at > 0 ? spec.slice(0, at) : ''
+}
+
+/**
+ * 宿主在 HMR 宿主上对「已经装着的包」的同步拒绝：`application:'failed'` + `error.code === 'already-installed'`。
+ * 它在 pnpm 之前就回，所以没有子进程、也没有操作日志——只有回包能认出来。
+ */
+function managerSaidAlreadyInstalled(result: ManagerChangeResult): boolean {
+  if (!result || typeof result.application !== 'string' || result.application !== 'failed') return false
+  const error = result.error
+  if (!error || typeof error !== 'object') return false
+  const code = (error as { code?: unknown }).code
+  return typeof code === 'string' && code === 'already-installed'
+}
+
 /**
  * 官方桌面版：把安装交给宿主进程内的插件管理器（`ctx.get('pluginManager')`）。
  *
@@ -1448,24 +1466,37 @@ async function settleWithin<T>(promise: Promise<T>, graceMs: number): Promise<T 
  * 管理器**预期失败不 reject**——它 resolve 出 `application:'failed'` 加 `error`，所以成败只看
  * `application`，不看有没有抛异常；抛出来的只有「管理器自己挂了」这类意外。
  * 成败与失败原话按合同收成一行（截断脱敏），挂在抛出的错上由上层决定给谁看。
+ *
+ * 更新一个已在册的包要按宿主自己的 two-step 配方走：HMR 宿主里 `installBundle` 对已装包在跑
+ * pnpm 之前就同步拒绝 `already-installed`（宿主自己的 next-step 表：先移除再装），本包若只调
+ * `installBundle`，更新就永远停在这句拒绝上。所以命中这个拒绝时先按包名 removeBundle，再带新
+ * requestId 装一次；别的失败一律不碰移除。三步共用配方里的一个超时额度，总上界不因多一步放宽。
  */
 async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: number }, parts: ExecutorParts): Promise<number | null> {
   try {
     const manager = part(parts.pluginManager ?? null) as {
       installBundle?: (spec: string, options: { requestId: string; registry?: string }) => unknown
       cancelInstall?: (requestId: string) => unknown
+      removeBundle?: (name: string) => unknown
     } | null
     if (!manager || typeof manager.installBundle !== 'function') throw fail('install-failed')
+    // 取成常量再 `.call(manager, …)`：闭包里属性收窄会丢，this 也必须还是管理器自己。
+    const installBundle = manager.installBundle
     const spec = managerSpecOf(recipe.pluginArgs)
     if (!spec) throw fail('install-failed')
-    const requestId = randomUUID()
     const registry = part(parts.registryUrl ?? '') as unknown
-    const options: { requestId: string; registry?: string } = { requestId }
     // 源不进参数数组（管理器不吃开关），走它自己的 registry 选项，取同一个注入值；
     // 没人注入源就不传，由管理器用自己的源策略（宿主路径总会注入，默认即官方源）。
-    if (typeof registry === 'string' && registry) options.registry = registry
-    const running = Promise.resolve(manager.installBundle(spec, options)) as Promise<ManagerChangeResult>
-    const outcome = await raceManager(running, recipe.timeoutMs, async () => {
+    const optionsFor = (requestId: string): { requestId: string; registry?: string } => {
+      const options: { requestId: string; registry?: string } = { requestId }
+      if (typeof registry === 'string' && registry) options.registry = registry
+      return options
+    }
+    // 一个配方额度管三步（装／移除／重装）：每步只领剩下的，领完给 1ms 让 raceManager 走自己的超时收场。
+    const budgetMs = typeof recipe.timeoutMs === 'number' && recipe.timeoutMs > 0 ? recipe.timeoutMs : 0
+    const deadline = budgetMs > 0 ? Date.now() + budgetMs : 0
+    const stepTimeoutMs = (): number => (budgetMs > 0 ? Math.max(1, deadline - Date.now()) : recipe.timeoutMs)
+    const cancelInstallOf = async (requestId: string): Promise<string> => {
       const cancel = manager.cancelInstall
       if (typeof cancel !== 'function') return 'not-running'
       try {
@@ -1475,29 +1506,54 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
       } catch {
         return 'not-running'
       }
-    })
-    let result: ManagerChangeResult
-    if (!outcome.timedOut) result = outcome.value
-    else {
-      // 超时且已经点过取消。可能是「刚好装完、还没报到」的竞态，所以再给一个终止宽限期
-      // 等它自己收尾，按它自己的结局判——不把已经落地的改动记成失败。
+    }
+    // 超时且已经点过取消。可能是「刚好装完、还没报到」的竞态，所以再给一个终止宽限期
+    // 等它自己收尾，按它自己的结局判——不把已经落地的改动记成失败。
+    const finishCall = async (
+      running: Promise<ManagerChangeResult>,
+      requestCancel: () => Promise<string>,
+      timeoutDetail: string
+    ): Promise<ManagerChangeResult> => {
+      const outcome = await raceManager(running, stepTimeoutMs(), requestCancel)
+      if (!outcome.timedOut) return outcome.value
       const settled = await settleWithin(running, TERMINATION_GRACE_MS)
       if (!settled) {
         void running.catch(() => {})
-        throw withDetail(fail('install-failed'), '安装超时，已请求宿主取消')
+        throw withDetail(fail('install-failed'), timeoutDetail)
       }
-      result = settled
+      return settled
     }
-    const application = result && typeof result.application === 'string' ? result.application : ''
-    if (MANAGER_OK.includes(application)) return 0
-    if (application === 'cancelled') throw withDetail(fail('install-failed'), '安装已被取消')
-    // 失败原文优先取 packageResult.output（契约里 pnpm 的原话就在那格，error 只有 code/diagnostic）；
-    // 取不到才退回 error 的短码。挑因与封顶口径同另两条路。
-    const rawOutput = result && result.packageResult && typeof result.packageResult.output === 'string' ? result.packageResult.output : ''
-    const said = rawOutput.trim()
-      ? causeExcerptOf(rawOutput)
-      : detailText(result && result.error !== undefined ? result.error : `application: ${application || 'unknown'}`)
-    throw withDetail(fail('install-failed'), said)
+    const installOnce = async (): Promise<ManagerChangeResult> => {
+      const requestId = randomUUID()
+      const running = Promise.resolve(installBundle.call(manager, spec, optionsFor(requestId))) as Promise<ManagerChangeResult>
+      return await finishCall(running, () => cancelInstallOf(requestId), '安装超时，已请求宿主取消')
+    }
+    const failureOf = (result: ManagerChangeResult, application: string): Error => {
+      if (application === 'cancelled') return withDetail(fail('install-failed'), '安装已被取消')
+      // 失败原文优先取 packageResult.output（契约里 pnpm 的原话就在那格，error 只有 code/diagnostic）；
+      // 取不到才退回 error 的短码。挑因与封顶口径同另两条路。
+      const rawOutput = result && result.packageResult && typeof result.packageResult.output === 'string' ? result.packageResult.output : ''
+      const said = rawOutput.trim()
+        ? causeExcerptOf(rawOutput)
+        : detailText(result && result.error !== undefined ? result.error : `application: ${application || 'unknown'}`)
+      return withDetail(fail('install-failed'), said)
+    }
+    let result = await installOnce()
+    let application = result && typeof result.application === 'string' ? result.application : ''
+    if (!MANAGER_OK.includes(application)) {
+      // 只有「宿主说这包已经装着了」才走两步；其余失败（含包名取不到、宿主没这能力）照旧失败。
+      const targetName = managerSaidAlreadyInstalled(result) ? managerPackageNameOf(spec) : ''
+      const removeBundle = manager.removeBundle
+      if (!targetName || typeof removeBundle !== 'function') throw failureOf(result, application)
+      const removing = Promise.resolve(removeBundle.call(manager, targetName)) as Promise<ManagerChangeResult>
+      const removed = await finishCall(removing, async () => 'not-running', '移除已装包超时，未继续安装')
+      const removalApplication = removed && typeof removed.application === 'string' ? removed.application : ''
+      if (!MANAGER_OK.includes(removalApplication)) throw failureOf(removed, removalApplication)
+      result = await installOnce()
+      application = result && typeof result.application === 'string' ? result.application : ''
+      if (!MANAGER_OK.includes(application)) throw failureOf(result, application)
+    }
+    return 0
   } catch (error) {
     if ((error as { code?: unknown })?.code === 'install-failed') throw error
     throw withDetail(fail('install-failed'), detailText(error))

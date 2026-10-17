@@ -4,6 +4,19 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
+## [0.18.8] - 2026-10-17
+
+### Added
+- **HMR 守卫的回归测试（#167）**：新增 `tests/desktop-manager-hmr.test.mjs`（15 例，黑箱走公开入口）：守卫命中后的按名移除、重试时的全新 `requestId`、移除被拒/抛错/超时、非 `already-installed` 不越权移除、移除后原文仍含 `already-installed` 如实报、宿主没有 `removeBundle` 时走原失败路、宿主回包里没有 `application` 时按 `install-failed` 收场、共享预算两次收场同钟。对上游有判别力：同一套用例指向**未修**的 `src/store.ts` 是 **10 红 / 5 绿**（红的正是新契约的正向要求，绿的正是「别回归」钉子），不是只会变绿的空测试。
+
+### Changed
+- **`installBundle` 的调用形状收紧（#167）**：把方法取成常量、显式写成 `installBundle.call(manager, …)`（闭包里的属性收窄会丢，`tsc` 会拦），不再依赖「调用点恰好写成 `manager.` 前缀」这件事。既有发货代码本来就是方法调用、`this` 一向正确，所以这是加固，**不是**修一个已经发生过的故障。
+
+### Fixed
+- **已装包更新不再必然被 `already-installed` 打死（#167）**：desktop-manager 路由下，只要目标在 profile 里已经装过（直接依赖，或 `dsh.profile.bundles` 里的名字），宿主的 HMR 守卫就在跑 pnpm **之前**以 `already-installed` 拒绝安装——真机表现是 `update.install.exec ok=false durationMs=4`（同步拒绝，pnpm 根本没起）。旧码把这个错误码当终局失败直接报出，重试也只会得到同一个拒绝，因为守卫只认名字、与版本无关，于是「更新一个已装插件」在这条路由上**永远**不通。现在按宿主自己文档的出路走「如实移除 → 再装」：从 spec 抠包名（`@scope/name@1.2.3` 只认首尾 `@`，抠不出即不越权）→ `removeBundle(包名)` 按名移除（宿主文档注释写的是「Installed dependency or selected bundle name」，所以同一个管理态里的包名也算数）→ 移除成功后再拉起安装；第二次**无论以什么理由失败都如实转述**（若仍是 `already-installed`，摘要里就还是它），第二次不再重调 `removeBundle`、也不与首次共用编号（每次调用各带一个新的 `requestId`）；宿主三态（`applied`／`restart-required`／`overridden`）之外的 `application` 一律按 `install-failed` 收场——`cancelled` 用既有的「安装已被取消」，其余保留宿主原话（认不出形态时写 `application: <原文>`），不编造成功。装、移除、重装三步共用配方里那**一个**默认 15 分钟额度（`INSTALL_TIMEOUT_MS`；调用方注入 `timeoutMs` 时以注入值为准，每步只领剩下的），多一步不放宽总上界；某一步到点（安装步先请宿主 `cancelInstall` 取消，移除步没有可取消的对象）再给 3 秒终止宽限期等它自己收尾（`TERMINATION_GRACE_MS`：额度 20000ms 时实测总时长 23016ms），所以「最坏结束时间 ≈ 额度 + 3 秒」。移除这一步撞上额度时出人话 `移除已装包超时，未继续安装`（不借用「安装超时」的说法，免得让人以为还在装）。**残留风险（未修，已记档 #168）**：移除成功、重装又失败时，详情只有第二次的宿主原话，**不会**告诉用户「目标包现在已经不在册」。
+
+门禁（**发版定格**）：`npm test` **1412 例：1411 过 / 0 失败 / 1 跳过**（266 套；本批新增 1 个测试文件、15 例：HMR 更新的黑箱契约，同一套用例指向**未修**的 `src/store.ts` 是 10 红/ 5 绿，所以它不是只会在新码上变绿的陪跑）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（44 个 src 文件、349 个 key、16 错误码、19 diag 键，违规 0；新增冻结中文只有一条，`copy-baseline.json` 的 `src/store.ts` 白名单 +1，diff 里逐字可见）；`npm publish --dry-run` **95 文件**（343.4–343.6 kB 压缩 / 1.2 MB 解包：两次独立运行同口径，tarball 体积随包内 mtime 微差）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（349 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
+
 ## [0.18.7] - 2026-10-17
 
 ### Added

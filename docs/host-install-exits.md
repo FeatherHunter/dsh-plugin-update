@@ -7,6 +7,10 @@
 > 是单个档案文件，不是解包目录；下面 `asar:` 开头的路径与其行号都是**档案内**文件的行号）。
 > 当时宿主内部版本为 DSH `0.2.0-rc.2`，宿主包 `@deepseek-ai/dsh-desktop-host`。
 > 官方桌面版**没有** `.d.ts`（整个 `dsh/` 树里 0 个），最精确的契约是生成物里的内嵌声明。
+>
+> **2026-10-17 又做了一次同路径只读解析**（档案未变，内部版本升到 `@deepseek-ai/dsh-desktop 0.2.1-rc.2` /
+> `@deepseek-ai/dsh-plugin-manager 0.2.1-rc.2`，档案 mtime `2026-10-17 17:20:50`）：新增下面出口二的
+> 「HMR 与 already-installed」一条 —— 起因是真机一次 `install-failed（already-installed）`（票 #167）。
 
 ## 出口一：第三方 Desktop（`desktopProfiles` ＋ `desktopPnpm`）
 
@@ -45,6 +49,24 @@
   以 `-` 开头的整串直接 `invalid-spec`（`…/lib/types/install-spec.js:18-19`、`:57-86`；
   `…/lib/index.js:1708`）。规格整串作为**单个** `pnpm add` 参数传入（`:1749-1753`），
   **不接受任何开关**——`--save-exact`、`--registry=` 这类开关在这条路上没有位置。
+- **HMR 宿主上「已经装着的包」不许再 `add`**（2026-10-17 取证，票 #167）：`installBundle` 在起 pnpm
+  **之前**有一道同步守卫 —— `asar:…/dsh-plugin-manager/lib/index.js:1991`
+  `if (this.ownerContext.get("hmr") !== void 0 && known !== void 0 && Object.hasOwn(before, known)) throw new ManagementFailure("already-installed");`。
+  命中即折成 `application:'failed'` + `error = { code: 'already-installed' }`（**没有 `diagnostic`**，`:1301-1310`），
+  `pnpm add` 一次都没起（`:2033-2038` 走不到 —— 真机上就是毫秒级返回、宿主 operation 日志不新增）。
+  `known` 是 `specPackageName(spec, dependencies, profileDir)`（`:1373-1375`）对 registry spec 取的**包名**，
+  再在 profile manifest 的 `dependencies` 里查（`:1989-1990`）⇒ **与版本无关**：改发已装版本号一样被拒。
+  - **更新一个已装的包，这条路由上只能走宿主自己的 two-step**：先移除再装。宿主自己的 next-step 表
+    就是这么写的（`asar:…/dsh-plugin-manager/lib/types/tools.js` 的 `ERROR_STEPS['already-installed']`：
+    `call remove_bundle first, then install_bundle again`）。
+  - `removeBundle(name)` 收的是**名字**不是 spec：`@param name Installed dependency or selected bundle name.`
+    （`asar:…/dsh-plugin-manager/lib/index.js:2137-2152`；内部 `listBundles().find((item) => item.name === name)`，
+    找不到或 `removable === false` 抛 `ManagementFailure("not-removable")`）。它也走 `change()`，
+    所以回包同样是 `ChangeResult`（`application` 三态判成败）。HMR 开着时它反而**不受**
+    `startedBundles` 那圈限制（`:2142` 的守卫以 `hmr === void 0` 为前提）。
+  - 本包政策（2026-10-17 起）：只在 `already-installed` 这个码上做「先移除、再用**新** `requestId` 装一次」，
+    其余失败一律不碰移除；拿不到包名或宿主没有 `removeBundle` 就照旧诚实失败；三步共用配方里那**一个**
+    超时额度（每步只领剩下的），总上界不因多一步放宽。
 - 源：`registry` 是**选项**不是开关（`…/lib/index.js:1738` 的 `registryPlan`）。本包把注入的
   `registryUrl` 作为该选项传入；没注入就不传，由管理器用自己的源策略（宿主路径总会注入，默认即官方源）。
 - 超时与取消：管理器自己有静默超时（默认 600000ms，到点杀整棵进程树）与 profile 写锁等待
@@ -71,4 +93,14 @@
 
 - 上面所有 `asar:` 行号是档案内文件的行号，磁盘上没有可比对的同名文件。
 - 官方桌面版这条路由**尚未在真机点过一次「装上」**（本次修复只到库内测试与本地提交）。
+- **2026-10-17 补**：「先移除再装」这两步同样**尚未在真机点过**——真机只观测到拒绝那一步（票 #167）。
+  含本修复的版本发到真机后，验收点是：同一个 `dsh-opencode-palette` 2.0.28 → 2.1.0 的更新能走完，
+  且诊断摘要不再是 `already-installed`。
+- **2026-10-17 实测的残留风险（未修）**：移除成功、第二次装又失败时，抛出的详情只有第二次的宿主原话，
+  **没有**「目标包现在已经不在 profile 里」这句话——用户可能以为只是版本没换成功，实际插件已被摘掉。
+  要补这句话得动失败话术（新增冻结中文 + 契约），本版先如实记在这里（另开票 #168）；恢复办法是用面板把目标包重装一次。
+- **推断（只有代码阅读依据，未实测）**：`removeBundle` 先 deselect + reload（`:2144-2146`）、`pnpm remove`
+  之后还 `publishAndReload()`（`:2159`），`installBundle` 在 HMR 下同样以 `publishAndReload` 收尾
+  （`:2094`）⇒「移除再装」之后 bundle 在选择表里的相对次序可能变化，配置优先级随之变化。
+  发到真机后值得核一次 `dsh.profile.bundles` 的次序。
 - 命令行兜底在官方桌面版下是否可执行，证据与现场记录不一致，待现场确认（票 #1 的待验证项）。
