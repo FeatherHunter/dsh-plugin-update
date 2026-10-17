@@ -95,7 +95,7 @@ createHostUpdate(
 
 - `….updateInstall` 的 `version` 可选：给了就装这个精确版（「装合规版」这条候选路径用），不给仍装快照里的最新版。
 - `….updateInstall` 的 `approvedBuilds` 可选（`0.18.23` 起）：宿主 pnpm 因「被忽略的构建脚本」失败时，失败详情会点名**需要批准的精确包名**（见 5.9）；调用方决定批准后，把这些包名原样带回来重试一次，宿主先登记批准再跑 pnpm。重试**必须换一个新的 `requestId`**——同一个 `requestId` 重复提交会被当成重复请求直接返回旧结果（含旧的失败快照），不会真的重试；若宿主回 `stale-approval`（名单已过期/不在待批列表），说明批准窗口已过，应**重新发起一次检查+安装、且不要带上次的 `approvedBuilds`**。形状归一在宿主侧电话入口完成（非字符串、通配、开关样式、路径片段、`包@版本` 一律丢弃，去重保序、最多 32 条），认不出的项不会交给宿主；不传即现状，老调用方一字不动。
-- `snapshot` 恒为第 5.1 节那八个字段（七个核心 + `identity`）；`manual` 是第 5.3 节那条手工命令（能给则给，不能给为 `null`）。
+- `snapshot` 恒为第 5.1 节那九个字段（七个核心 + `identity` + `registered`）；`manual` 是第 5.3 节那条手工命令（能给则给，不能给为 `null`）。
 - `receipt` 查新版与合规版决议都给（`{ checkId, checkedAt, expiresAt }`）；装更新时把 `checkId` 原样带回来，`requestId` 由面板自己生成（同一个编号重复提交直接返回旧结果）。
 - 失败一律 `ok: false`：`error` 是原因码（第 5.2 节那十种，另加 `check-failed` / `invalid-release` / `check-expired` / `update-busy` / `install-failed`），`errorKind` 认不出时是 `internal`。面板按 16 码给中文文案（十种见第 5.2 节，另五种与 `internal` 见下表，未来码走兜底）；分支只认 `errorKind`，`error` 仅回退。
 - 失败可能顺带回可选 `diag`（失败证据小对象：阶段、路由、耗时、人话摘要、版本、宿主、请求与检查编号、源主机、动作提示；`0.18.5` 起另有归因三键 `causeKind` / `causePackage` / `causeUnlockAt`，共 19 键；缺省即省略，序列化恒在 1KB 内）。旧面板直接忽略它，行为逐字不变；新面板也只按稳定码分支，不拿它做分支。
@@ -488,9 +488,9 @@ const update = createHostUpdate(
 
 ## 5. 用户会看到什么
 
-### 5.1 快照八字段（`#197` 起加 `identity`；`0.17.0` 起是七字段，之前六字段）
+### 5.1 快照九字段（`#190` 起加 `registered`；`#197` 起加 `identity`；`0.17.0` 起是七字段，之前六字段）
 
-查状态与查新版都返回同一份快照：七个核心字段 + 一格安装身份（`identity`，`#197` 起）。
+查状态与查新版都返回同一份快照：七个核心字段 + 一格安装身份（`identity`，`#197` 起）+ 一格在册事实（`registered`，`#190` 起）。
 
 | 字段 | 含义 |
 |---|---|
@@ -502,12 +502,15 @@ const update = createHostUpdate(
 | `blockedReason` | 装不了的原因（能装为 null） |
 | `job` | 当前任务（只读半程恒为 null） |
 | `identity` | 安装身份（`#197` 起）：`update` / `first-install` / `up-to-date` / `null`（判定不了） |
+| `registered` | 在册事实（`#190` 起加，可选格）：目标包是否登记在本使用范围的清单里（`dsh.profile.bundles` 选中名单；老/最小清单退回 `dependencies`）。`false`＝磁盘换版也不等于重启后会加载；读不到清单为 `null`（未知不冒充事实）；老读取器/旧快照可能没有这一格，与 `null` 同义 |
 
 **安装身份（`#197` 起）**：同一个「安装」按钮背后其实是三种关系，面板不许再用一句话混着说——`update`＝磁盘装着旧版、清单在册的**换版**（官方桌面版走 remove→install，失败如实报）；`first-install`＝磁盘没有、清单也未登记的**新增依赖首次安装**（装完要重启宿主才会加载，不是换版）；`up-to-date`＝磁盘已是远端这一版（或更新），直接说「已是最新」，不要发起一次注定空转/被拒的安装。判定不了为 `null`（例如清单登记了但磁盘缺失——那是修复现场），**绝不冒充**「首次安装」。面板自己的文案按这四档走；不读这一格的集成方仍可只用 `canInstall`（行为不变）。
 
 **未安装（`0.17.0` 起）**：`installed === false` 的行不是坏包——面板版本列写「未安装 → 目标版本」，按钮是「安装」（复用既有安装词条，不新增控件）；查到远端版本即可点装，装完走既有终态（待重启提示见 5.4）。集成方零改动：不用读这个字段也能用，但读了可以少猜（不要再拿 `installedVersion` 是否为 `0.0.0` 判断未装）。
 
 **任务形状（`0.18.10` 起）**：`job` 除 `id` / `state` / `targetVersion` / `message` / `requestId` 外，多一格可选 `previousVersion`——这次安装动手之前磁盘上的版本（未安装或读不到为 null；老任务没有这一格时不补造）。字段只增不改，不读它也能用。
+
+**在册事实（`#190` 起）**：`registered === true` 时「重启宿主后生效」成立；`false` 时是「装了但重启也不会加载」——面板与批量总账都不许再说满「重启后生效」，要改说未登记并给「先在宿主插件页选中/登记该插件」的下一步。`null`（未知）时不得当作 `false` 说空，也不得当作 `true` 说满，沿用原有「待重启」话术即可。
 
 ### 5.2 十一种装不了的原因
 
@@ -564,6 +567,8 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 判断只看快照：`blockedReason === 'pending-restart'` 即展示；`installedVersion !== runningVersion` 只作辅助校验——`runningVersion` 为 `null`（未知）时这条辅助校验不成立，不得据此判待重启。
 
 **失败优先于待重启（`0.18.12` 起）**：装后校验失败（例如磁盘版本已到目标版、但 profile 清单没登记该插件）时，快照会同时带着 `blockedReason: 'pending-restart'`（磁盘与运行版确实不同）和 `job.state: 'failed'` —— 这是「装了但不会生效」，不是「待重启生效」。面板必须先判失败（`job.state === 'failed'` / `'interrupted'`，或面板自己的失败态），失败横幅优先展示，不要按本节展示待重启横幅、更不要把它说成「重启后生效」。本包自己的面板就是这个优先级（先失败、后待重启）。
+
+**在册事实（`#190` 起）**：展示待重启前还要读 `snapshot.registered`——为 `false` 时重启宿主也不会加载该插件，文案不得再说「重启后生效」；应改说「新版本已写入磁盘，但该插件未登记，重启也不会加载」并给「先在宿主插件页选中该插件」的下一步（本包单插件横幅与批量总账都按这一格分行、分计数）。为 `null` 时按未知处理，沿用原文案，不得冒充未登记。
 
 ### 5.5 轮询与凭证
 
@@ -642,7 +647,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 
 照第 2 节把名字换成自己的之后，逐条打勾：
 
-1. 宿主启动不报错，`update.phoneNames` 读到自家前缀的六个电话名，查状态返回七字段快照。
+1. 宿主启动不报错，`update.phoneNames` 读到自家前缀的六个电话名，查状态返回九字段快照。
 2. 面板按间隔轮询到快照，能展示第 5.2 节的原因文案；有新版本时安装按钮可用，无新版本与待重启时按钮状态正确。
 3. 模拟一次 `pending-restart` 能看到第 5.4 节的横幅，模拟一次自动装失败能看到第 5.3 节的命令可复制执行。
 4. 第二家同机隔离与串行：两家各传自己的插件标识与电话名前缀，电话名、落盘目录、锁文件逐个不同；安装执行跨插件串行——同范围撞上时后到者报 `update-busy`，凭队列位置（第 5.7 节）重试。
@@ -749,9 +754,9 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 ## 9. 兼容与稳定性
 
-这些形状稳定，可以放心依赖：六个电话名与入参回参（老三电话一字不动，`updateChangelog`、`logAppend`、`updateCheckFallback` 是后来加的；`updateInstall` 的 `version` 是可选参数）、快照七个核心字段 + `identity`（`#197` 起加：`update` / `first-install` / `up-to-date` / `null`，判定不了为 null；老调用方不读也能用）、任务公开形状、配置只经函数入参注入、安装配方五键、日志事件字段基线（三个旧事件各带必填 `pluginId`）、历史落盘路径。形状扩展按版本列清楚：`0.18.7` 起，快照里带着失败任务时成功回包可带可选 `diag`；`0.18.10` 起，任务形状多一格可选 `previousVersion`；`0.18.12` 起，环境视图可带可选 `registered`（装后按「在册」核实；`0.18.18` 起语义收窄为「登记不许倒退」：新装必须登记，装前就未登记的包更新成功后不因仍未登记判失败，登记倒退仍失败——形状不变），`0.18.13` 起 `includeEnv` 带回的使用范围视图也带出同一格 `registered`（面板据此识别「被摘掉但没重装」）；`0.18.16` 起，`includeEnv` 视图再多两格可选自检事实 `updaterVersion` / `updaterCopyLevel`——**此刻在说话的是哪一份本包副本**：`profile` 使用范围级、`nested` 消费方 `node_modules` 里的嵌套副本、`repo` 开发仓库、`unknown`；面板页脚与「复制诊断」都显示同一事实，嵌套副本时 05 章直接给载体 CLI 升级命令；`0.18.23` 起，`updateInstall` 电话接受可选 `approvedBuilds`（构建脚本需要批准的包：批准后把宿主给过的精确包名原样带回重试，宿主先批准再跑 pnpm；不传即现状），响应形状与其余电话逐字不变。
+这些形状稳定，可以放心依赖：六个电话名与入参回参（老三电话一字不动，`updateChangelog`、`logAppend`、`updateCheckFallback` 是后来加的；`updateInstall` 的 `version` 是可选参数）、快照七个核心字段 + `identity`（`#197` 起加：`update` / `first-install` / `up-to-date` / `null`，判定不了为 null；老调用方不读也能用）+ `registered`（`#190` 起加：在册事实，`false` 表示磁盘换版也不等于重启后会加载，未知为 null；老调用方不读也能用）、任务公开形状、配置只经函数入参注入、安装配方五键、日志事件字段基线（三个旧事件各带必填 `pluginId`）、历史落盘路径。形状扩展按版本列清楚：`0.18.7` 起，快照里带着失败任务时成功回包可带可选 `diag`；`0.18.10` 起，任务形状多一格可选 `previousVersion`；`0.18.12` 起，环境视图可带可选 `registered`（装后按「在册」核实；`0.18.18` 起语义收窄为「登记不许倒退」：新装必须登记，装前就未登记的包更新成功后不因仍未登记判失败，登记倒退仍失败——形状不变），`0.18.13` 起 `includeEnv` 带回的使用范围视图也带出同一格 `registered`（面板据此识别「被摘掉但没重装」）；`0.18.16` 起，`includeEnv` 视图再多两格可选自检事实 `updaterVersion` / `updaterCopyLevel`——**此刻在说话的是哪一份本包副本**：`profile` 使用范围级、`nested` 消费方 `node_modules` 里的嵌套副本、`repo` 开发仓库、`unknown`；面板页脚与「复制诊断」都显示同一事实，嵌套副本时 05 章直接给载体 CLI 升级命令；`0.18.23` 起，`updateInstall` 电话接受可选 `approvedBuilds`（构建脚本需要批准的包：批准后把宿主给过的精确包名原样带回重试，宿主先批准再跑 pnpm；不传即现状），响应形状与其余电话逐字不变。
 
-向后兼容的扩展：新增可选配置键、新增可选面板选项（如 `autoCompliant`）、新增可选面板渲染选项（`updater`）、新增可选回包键（成功回包里的 `diag`）、新增可选任务字段（`job.previousVersion`）、新增可选环境字段（`env.registered`、`env.updaterVersion` / `env.updaterCopyLevel`）、新增可选 `readerOverrides`（如 `targetPackageDir`、`dshVersion`）、新增 `blockedReason` 取值（如 `incompatible-dsh`）、`snapshot.runningVersion` 增加 `null`（未知）语义、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。
+向后兼容的扩展：新增可选配置键、新增可选面板选项（如 `autoCompliant`）、新增可选面板渲染选项（`updater`）、新增可选回包键（成功回包里的 `diag`）、新增可选任务字段（`job.previousVersion`）、新增可选环境字段（`env.registered`、`env.updaterVersion` / `env.updaterCopyLevel`）、新增可选快照字段（`snapshot.registered`，`#190` 起：在册事实，未知为 null）、新增可选 `readerOverrides`（如 `targetPackageDir`、`dshVersion`）、新增 `blockedReason` 取值（如 `incompatible-dsh`）、`snapshot.runningVersion` 增加 `null`（未知）语义、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。
 
 **给消费方插件的依赖声明建议（`0.18.16` 起）**：把本包声明成 `^0.18.0`（或更新 minor）——0.x 的 caret 只锁 minor，`^0.13.0` 这类旧范围会把你钉死在 0.13.x，我们之后发多少修复都不会加载进你的嵌套副本。面板上的「更新器=版本（层级）」就是此刻在说话的那份副本；`nested` 意味着升级路径在声明它的插件那边（先更新它，或按 05 章的载体 CLI 命令操作）。
 

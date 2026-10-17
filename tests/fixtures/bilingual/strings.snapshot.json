@@ -27,6 +27,16 @@
       "zh": "{count} 个待重启",
       "draft": true
     },
+    "batch-entry.label.restart-mixed": {
+      "en": "{count} restarts required, {unregistered} not registered",
+      "zh": "{count} 个待重启，{unregistered} 个未登记",
+      "draft": true
+    },
+    "batch-entry.label.restart-unregistered": {
+      "en": "{count} installed, not registered",
+      "zh": "{count} 个已装未登记（重启不会加载）",
+      "draft": true
+    },
     "batch-entry.label.update": {
       "en": "{count} updates available",
       "zh": "{count} 个可更新",
@@ -152,9 +162,24 @@
       "zh": "请重启DSH",
       "draft": true
     },
+    "batch.banner.restart-partial-title": {
+      "en": "{n} installed and will take effect after restart; {m} not registered (restarting will not load them).",
+      "zh": "已安装完成：{n} 个重启宿主后生效，{m} 个未登记（重启不会加载）。",
+      "draft": true
+    },
     "batch.banner.restart-title": {
       "en": "{n} installed; restart the host to take effect.",
       "zh": "{n} 个已安装完成，重启宿主后生效。",
+      "draft": true
+    },
+    "batch.banner.restart-unregistered-hint": {
+      "en": "Unregistered plugins: select them in the host plugin page first; they will load after restart.",
+      "zh": "未登记的行：请先在宿主插件页选中该插件，重启后才会加载。",
+      "draft": true
+    },
+    "batch.banner.restart-unregistered-title": {
+      "en": "Installed, but these plugins are not registered; restarting the host will not load them.",
+      "zh": "已安装完成，但这些插件未登记，重启宿主也不会加载。",
       "draft": true
     },
     "batch.diag.source-job": {
@@ -210,6 +235,11 @@
     "batch.hint.restart": {
       "en": "{n} installed; restart the host to take effect.",
       "zh": "{n} 个已安装完成，重启宿主后生效。",
+      "draft": true
+    },
+    "batch.hint.restart-unregistered": {
+      "en": "{n} installed but not registered; restarting the host will not load them.",
+      "zh": "{n} 个已安装但未登记，重启宿主不会加载。",
       "draft": true
     },
     "batch.hint.updatable": {
@@ -352,6 +382,11 @@
       "zh": "已安装完成，重启宿主后生效。",
       "draft": true
     },
+    "batch.row.done-restart-unregistered": {
+      "en": "Installed; not registered (restart will not load it). Select it in the host plugin page first.",
+      "zh": "已安装，未登记（重启不会加载）；请先在宿主插件页选中该插件",
+      "draft": true
+    },
     "batch.row.error-label": {
       "en": "Failed {code}: {detail}",
       "zh": "失败 {code}：{detail}",
@@ -412,6 +447,11 @@
       "zh": "状态无法识别，请选择「检查更新」重新查询。",
       "draft": true
     },
+    "batch.row.unregistered-suffix": {
+      "en": " (not registered)",
+      "zh": "（未登记）",
+      "draft": true
+    },
     "batch.row.update": {
       "en": "Update available {version}",
       "zh": "有新版本 {version}",
@@ -455,6 +495,11 @@
     "batch.summary.restart": {
       "en": "{n} restart required",
       "zh": "{n} 个待重启",
+      "draft": true
+    },
+    "batch.summary.restart-unregistered": {
+      "en": "{n} not registered (restarting will not load them)",
+      "zh": "另有 {n} 个未登记，重启不会加载",
       "draft": true
     },
     "batch.summary.settled": {
@@ -960,6 +1005,16 @@
     "panel.banner.restart-title": {
       "en": "Version {latest} is installed; restart the host to take effect.",
       "zh": "新版本 {latest} 已安装，重启宿主后生效。",
+      "draft": true
+    },
+    "panel.banner.restart-unregistered-action": {
+      "en": "Select this plugin in the host plugin page first, then restart the host to load the new version.",
+      "zh": "请先在宿主插件页选中该插件，再重启宿主以加载新版本。",
+      "draft": true
+    },
+    "panel.banner.restart-unregistered-title": {
+      "en": "Version {latest} is on disk, but this plugin is not registered in the scope selection, so restarting the host will not load it.",
+      "zh": "新版本 {latest} 已写入磁盘，但该插件未登记在使用范围清单，重启宿主也不会加载。",
       "draft": true
     },
     "panel.banner.unknown-running-action": {

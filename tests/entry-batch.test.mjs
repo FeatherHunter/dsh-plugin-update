@@ -204,6 +204,18 @@ test('收尾事实：已装合规版且不用重启的行，入口算收尾（�
   assert.doesNotMatch(s.label, /失败/)
 })
 
+// #190：未登记的行重启也不会加载——入口徽标同样分开数，不许把它们算进「待重启」。
+test('未登记待重启行：入口摘要分开计数，徽标改说「未登记」', () => {
+  const rows = [rowOf({ phase: 'done', restartRequired: true, snapshot: snapshotOf({ registered: false }) })]
+  const state = { rows, error: null }
+  const s = batchEntrySummary(state)
+  assert.equal(s.kind, 'restart')
+  assert.equal(s.restart, 0, '未登记不许算进待重启')
+  assert.equal(s.restartUnregistered, 1)
+  assert.match(s.label, /未登记/)
+  assert.equal(batchEntryLabelFor(state), s.label)
+})
+
 // ---------- 默认形态：一个按钮，进来只读查一次全表 ----------
 
 test('默认挂上就是一个按钮：挂载即静默调 .batchStatus（只读），文案即七家聚合', async () => {

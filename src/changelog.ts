@@ -12,7 +12,7 @@
  * 面板约定（#23 原文 + #41 四处优化终裁）：
  * - `Added/Fixed/Changed/Security` 必显展开；`Deprecated/Removed` 透传折叠；
  * - `Unreleased` 与空节忽略；
- * - 缺日志中性提示，不挡安装、不写 blockedReason、不动快照六字段
+ * - 缺日志中性提示，不挡安装、不写 blockedReason、不动快照字段
  *   （本模块不碰快照，面板只增一节 HTML，安装门控只跟快照）；
  * - 已装版离线读、新版按需取 tarball 同名文件复用官方源 integrity
  *   （I/O 在 `src/changelog-io.ts` Node 侧，取不到回落中性提示）；

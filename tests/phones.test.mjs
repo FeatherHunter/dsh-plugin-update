@@ -128,7 +128,7 @@ describe('宿主接线三电话的入参与回参', () => {
     assert.equal(host.phoneNames.updateInstall, 'other.updateInstall')
   })
 
-  it('查状态只读本地：快照七字段（#134 加 installed），不联网', async () => {
+  it('查状态只读本地：快照九字段（#134 加 installed，#190 加 registered），不联网', async () => {
     const fires = []
     let fetched = 0
     const store = memoryStore()
@@ -157,7 +157,7 @@ describe('宿主接线三电话的入参与回参', () => {
     )
     const out = await host.handlers['wf.updateStatus']({})
     assert.equal(out.ok, true)
-    assert.deepEqual(Object.keys(out.snapshot).sort(), ['blockedReason', 'canInstall', 'identity', 'installed', 'installedVersion', 'job', 'latestVersion', 'runningVersion'])
+    assert.deepEqual(Object.keys(out.snapshot).sort(), ['blockedReason', 'canInstall', 'identity', 'installed', 'installedVersion', 'job', 'latestVersion', 'registered', 'runningVersion'])
     assert.equal(fetched, 0)
   })
 

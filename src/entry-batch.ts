@@ -99,6 +99,8 @@ export interface BatchEntrySummary {
   installing: number
   pending: number
   restart: number
+  /** #190：待重启里插件未登记的部分（重启宿主也不会加载）。 */
+  restartUnregistered: number
   failed: number
   skipped: number
   settled: number
@@ -154,7 +156,7 @@ export interface UpdateBatchEntryController {
   close(): void
   /** 当前按钮上的聚合文案（接入方做自定义排版时读它）。 */
   label(): string
-  /** 当前聚合读数（含七档计数，接入方排版与 onActivate 共用）。 */
+  /** 当前聚合读数（含八档计数，接入方排版与 onActivate 共用）。 */
   summary(): BatchEntrySummary
   setTheme(theme: UpdatePanelTheme): void
   /** 换一套主题变量（重绘；打开的批量面板同步；传 undefined 即清掉覆盖）。 */
@@ -221,7 +223,7 @@ export function batchEntrySummary(state: UpdateBatchEntryState | null | undefine
     kind = 'busy'
   } else if (counts.failed > 0) {
     kind = 'failed'
-  } else if (counts.restart > 0) {
+  } else if (counts.restart > 0 || counts.restartUnregistered > 0) {
     kind = 'restart'
   } else if (counts.updatable > 0) {
     kind = 'update'
@@ -234,7 +236,7 @@ export function batchEntrySummary(state: UpdateBatchEntryState | null | undefine
       kind = 'failed'
     }
   }
-  const hasUpdate = counts.installing > 0 || counts.failed > 0 || counts.restart > 0 || counts.updatable > 0
+  const hasUpdate = counts.installing > 0 || counts.failed > 0 || counts.restart > 0 || counts.restartUnregistered > 0 || counts.updatable > 0
   const l: AppLang = lang !== undefined && lang !== null ? normalizeLangTag(lang) : resolveLang()
   let label: string
   switch (kind) {
@@ -245,7 +247,13 @@ export function batchEntrySummary(state: UpdateBatchEntryState | null | undefine
       label = counts.failed > 0 ? copyText('batch-entry.label.failed', l, { count: String(counts.failed) }) : copyText('entry.label.failed', l)
       break
     case 'restart':
-      label = copyText('batch-entry.label.restart', l, { count: String(counts.restart) })
+      // #190：未登记的行重启也不会加载，不许混进「待重启」的数里说满。
+      label =
+        counts.restartUnregistered > 0
+          ? counts.restart > 0
+            ? copyText('batch-entry.label.restart-mixed', l, { count: String(counts.restart), unregistered: String(counts.restartUnregistered) })
+            : copyText('batch-entry.label.restart-unregistered', l, { count: String(counts.restartUnregistered) })
+          : copyText('batch-entry.label.restart', l, { count: String(counts.restart) })
       break
     case 'update':
       label = copyText('batch-entry.label.update', l, { count: String(counts.updatable) })
@@ -261,6 +269,7 @@ export function batchEntrySummary(state: UpdateBatchEntryState | null | undefine
     installing: counts.installing,
     pending: counts.pending,
     restart: counts.restart,
+    restartUnregistered: counts.restartUnregistered,
     failed: counts.failed,
     skipped: counts.skipped,
     settled: counts.settled,
@@ -288,6 +297,8 @@ export function batchEntryBilingualKeyFor(state: UpdateBatchEntryState | null | 
     case 'failed':
       return s.failed > 0 ? 'batch-entry.label.failed' : 'entry.label.failed'
     case 'restart':
+      // #190：未登记的行重启也不会加载——入口徽标同样分开数，不把未登记算进「待重启」。
+      if (s.restartUnregistered > 0) return s.restart > 0 ? 'batch-entry.label.restart-mixed' : 'batch-entry.label.restart-unregistered'
       return 'batch-entry.label.restart'
     case 'update':
       return 'batch-entry.label.update'
@@ -303,6 +314,11 @@ export function batchEntryBilingualValuesFor(state: UpdateBatchEntryState | null
     case 'update':
       return { count: String(s.updatable) }
     case 'restart':
+      if (s.restartUnregistered > 0) {
+        return s.restart > 0
+          ? { count: String(s.restart), unregistered: String(s.restartUnregistered) }
+          : { count: String(s.restartUnregistered) }
+      }
       return { count: String(s.restart) }
     case 'failed':
       return s.failed > 0 ? { count: String(s.failed) } : {}
@@ -603,6 +619,7 @@ export function mountUpdateBatchEntry(
       installing: summary.installing,
       pending: summary.pending,
       restart: summary.restart,
+      restartUnregistered: summary.restartUnregistered,
       failed: summary.failed,
       skipped: summary.skipped,
       settled: summary.settled,

@@ -582,7 +582,7 @@ export interface PanelViewInput {
   checkPrejudge?: CheckPrejudge | null
   /**
    * 更新日志 Markdown（#23）：只影响日志节的渲染，不参与安装门控。
-   * 缺省/空串即中性提示；快照六字段与 blockedReason 一字不动。
+   * 缺省/空串即中性提示；快照字段与 blockedReason 一字不动。
    */
   changelogMarkdown?: string | null
 }
@@ -730,13 +730,19 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
   // 到这里已排除在途任务与新失败（见上），旧快照的待重启才可信（#91）。
   if (snapshot.blockedReason === 'pending-restart') {
     const latest = snapshot.latestVersion ?? snapshot.installedVersion ?? ''
+    // #190：在册事实为 false 时「重启宿主后生效」是假话——重启也不会加载。改说未登记 + 下一步。
+    const unregistered = snapshot.registered === false
     return {
       banner: {
         kind: 'restart',
         // 文案照原型（archive.html:329）：不带 emoji——警示由横幅左侧的手绘 SVG 标承担，
         // 印章在状态一侧，两者各司其职，不再三重标记。
-        title: copyText('panel.banner.restart-title', l, { latest }),
-        action: blockedCopy('pending-restart', l)?.action ?? '',
+        title: unregistered
+          ? copyText('panel.banner.restart-unregistered-title', l, { latest })
+          : copyText('panel.banner.restart-title', l, { latest }),
+        action: unregistered
+          ? copyText('panel.banner.restart-unregistered-action', l)
+          : blockedCopy('pending-restart', l)?.action ?? '',
       },
       installEnabled: false,
       installLabel: copyText('panel.action.install', l),

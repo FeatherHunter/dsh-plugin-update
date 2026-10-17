@@ -235,6 +235,8 @@ export interface BatchLedgerCounts {
   pending: number
   /** 安装好了但要重启宿主才生效（终态之外的一档，单独数）。 */
   restart: number
+  /** #190：待重启里插件未登记的部分——重启宿主也不会加载，总账不许说满「生效」。 */
+  restartUnregistered: number
   /** phase=failed。 */
   failed: number
   /** phase=skipped。 */
@@ -244,8 +246,17 @@ export interface BatchLedgerCounts {
 }
 
 /**
- * 从行上数分类账（每行恰好进一档，七档之和 === 行数）：
+ * #190：记一档「待重启」。插件未登记的行单独计数（重启也不会加载），总账才不把话说满。
+ */
+function noteRestart(counts: BatchLedgerCounts, row: BatchRowView): void {
+  if (restartUnregistered(row)) counts.restartUnregistered += 1
+  else counts.restart += 1
+}
+
+/**
+ * 从行上数分类账（每行恰好进一档，八档之和 === 行数）：
  * 失败优先（失败行永远算失败，不算待重启）；其余按相位落档；不用重启的终态才算「已最新」。
+ * #190：待重启按在册事实再拆一档（restartUnregistered），总账才不把「重启后生效」说满。
  * 例外一处：「忙失败占位」（phase=failed 但 error=update-busy）其实是**排队**不是失败——
  * 宿主忙时先写占位再回 update-busy，面板把它翻回「可更新」，免得总账把它报成失败。
  * 无轮次 pending 行看知识（#73 口径 = #82 报告 §6 推荐 A），条件与行展示同一处（isInUnfinishedRound）：
@@ -266,6 +277,7 @@ export function batchLedgerCounts(
     installing: 0,
     pending: 0,
     restart: 0,
+    restartUnregistered: 0,
     failed: 0,
     skipped: 0,
     settled: 0,
@@ -278,14 +290,14 @@ export function batchLedgerCounts(
     // 传进来的值 = 这一行要不要重启（收尾事实的 needsRestart）；不传即零回归。
     const doneRestart = phase === 'failed' ? compliantDone?.get(row.key) : undefined
     if (doneRestart !== undefined) {
-      if (doneRestart) counts.restart += 1
+      if (doneRestart) noteRestart(counts, row)
       else counts.settled += 1
     } else if (isQueueBusyRow(row)) counts.updatable += 1
     else if (phase === 'failed') {
       // 例外之二（#156 M1）：「等重启」行（phase=failed 但 error=pending-restart）其实是磁盘上
       // 已经有更新版、只差重启生效——账本相位一个字不改（目标版确实没装上），但总账与 hint
       // 把它记进「待重启」那一档，免得报成「N 个插件安装失败」冤枉它。
-      if (row.error === 'pending-restart') counts.restart += 1
+      if (row.error === 'pending-restart') noteRestart(counts, row)
       else counts.failed += 1
     }
     else if (phase === 'installing') counts.installing += 1
@@ -294,7 +306,7 @@ export function batchLedgerCounts(
       counts[isInUnfinishedRound(session, row.key) ? 'pending' : ledgerKnowledgeBucket(knowledgeEntryOf(inventory, row.key))] += 1
     else if (phase === 'checking') counts.pending += 1
     else if (phase === 'skipped') counts.skipped += 1
-    else if (row.restartRequired === true) counts.restart += 1
+    else if (row.restartRequired === true) noteRestart(counts, row)
     else counts[worldUpdateVersion(row, knowledgeEntryOf(inventory, row.key), sessionUpdatedAtOf(session, row.key)) ? 'updatable' : 'settled'] += 1
   }
   return counts
@@ -314,7 +326,7 @@ function ledgerKnowledgeBucket(entry: BatchKnowledgeEntry | null): keyof BatchLe
   return 'pending'
 }
 
-/** 分类计数 → 一句话总账（只出现非零档，顺序固定：可更新 · 安装中 · 待查 · 待重启 · 失败 · 已跳过 · 已最新；#64 单语：缺省 zh 零回归）。 */
+/** 分类计数 → 一句话总账（只出现非零档，顺序固定：可更新 · 安装中 · 待查 · 待重启 · 未登记 · 失败 · 已跳过 · 已最新；#64 单语：缺省 zh 零回归）。 */
 export function batchLedgerText(counts: BatchLedgerCounts, lang?: unknown): string {
   const l = langOf(lang)
   const parts: string[] = []
@@ -322,6 +334,7 @@ export function batchLedgerText(counts: BatchLedgerCounts, lang?: unknown): stri
   if (counts.installing > 0) parts.push(batchText('batch.summary.installing', l, { n: String(counts.installing) }))
   if (counts.pending > 0) parts.push(batchText('batch.summary.pending', l, { n: String(counts.pending) }))
   if (counts.restart > 0) parts.push(batchText('batch.summary.restart', l, { n: String(counts.restart) }))
+  if (counts.restartUnregistered > 0) parts.push(batchText('batch.summary.restart-unregistered', l, { n: String(counts.restartUnregistered) }))
   if (counts.failed > 0) parts.push(batchText('batch.summary.failed', l, { n: String(counts.failed) }))
   if (counts.skipped > 0) parts.push(batchText('batch.summary.skipped', l, { n: String(counts.skipped) }))
   if (counts.settled > 0) parts.push(batchText('batch.summary.settled', l, { n: String(counts.settled) }))
@@ -492,6 +505,15 @@ export function unfinishedCount(rows: readonly BatchRowView[], session?: unknown
 }
 
 /**
+ * #190：这一行装完了但插件未登记在使用范围清单（快照 `registered === false`）——重启宿主也不会
+ * 加载，「重启后生效」这类话不许说满。读不到快照/未知一律按已登记处理（不吓人、不冒充事实）。
+ */
+function restartUnregistered(row: BatchRowView): boolean {
+  const snapshot = row.snapshot as { registered?: unknown } | null | undefined
+  return !!snapshot && typeof snapshot === 'object' && snapshot.registered === false
+}
+
+/**
  * 一行的状态词：只回答一个问题——这家的**下一步**是什么。
  * 中文可执行，不写相位英文（相位只留在 data-phase 属性上，给人看的这句永远是动作）。
  * （#59 D2：调用方在无轮次 + 有知识时优先用 batchRowKnowledgeText；本函数语义冻结，旧快照不动。）
@@ -514,7 +536,9 @@ export function batchRowStatus(row: BatchRowView, skippedVersion?: string | null
     case 'current':
       return batchText('batch.row.current', l)
     case 'done':
-      return row.restartRequired === true ? batchText('batch.row.done-restart', l) : batchText('batch.row.done', l)
+      if (row.restartRequired !== true) return batchText('batch.row.done', l)
+      // #190：装完但未登记——重启宿主也不会加载，状态词不许说满。
+      return restartUnregistered(row) ? batchText('batch.row.done-restart-unregistered', l) : batchText('batch.row.done-restart', l)
     case 'failed': {
       // 查/装分家（#134/US15）：行上失败码属查侧说「本次未能查询」，属装侧才说安装失败。
       // 无码回退装侧（旧口径，旧快照不动）；pending/知识路由（#59 D2）一字不动。
@@ -949,6 +973,8 @@ function batchSummaryText(
   if (counts.updatable > 0)
     return batchText('batch.hint.updatable', l, { n: String(counts.updatable) })
   if (counts.restart > 0) return batchText('batch.hint.restart', l, { n: String(counts.restart) })
+  // #190：全部未登记时重启不会加载——一句话总账不许落到「已全部为最新」。
+  if (counts.restartUnregistered > 0) return batchText('batch.hint.restart-unregistered', l, { n: String(counts.restartUnregistered) })
   if (counts.pending > 0) return batchText('batch.hint.pending', l, { n: String(counts.pending) })
   return batchText('batch.hint.done', l)
 }
@@ -957,7 +983,8 @@ function batchSummaryText(
 function batchSealOf(counts: BatchLedgerCounts, lang?: unknown): { text: string; tone: 'ink' | 'green' | 'yellow' | 'red' } {
   const text = batchText('batch.seal.ledger', langOf(lang))
   if (counts.failed > 0) return { text, tone: 'red' }
-  if (counts.installing > 0 || counts.restart > 0) return { text, tone: 'yellow' }
+  // #190：未登记的行也算「有一件事要处理」（去选中），印章不许落成灰的「没事」。
+  if (counts.installing > 0 || counts.restart > 0 || counts.restartUnregistered > 0) return { text, tone: 'yellow' }
   if (counts.updatable > 0) return { text, tone: 'green' }
   return { text, tone: 'ink' }
 }
@@ -1129,16 +1156,36 @@ function bannersHTML(
   )
   if (restart.length > 0) {
     const restartAct = batchText('batch.banner.restart-action', l)
+    // #190：在册事实为 false 的行重启也不会加载——横幅分别计数，不再把「重启后生效」说满。
+    const unregistered = restart.filter(restartUnregistered)
+    const registered = restart.filter((row) => !restartUnregistered(row))
+    const title =
+      unregistered.length === 0
+        ? batchText('batch.banner.restart-title', l, { n: String(restart.length) })
+        : registered.length === 0
+          ? batchText('batch.banner.restart-unregistered-title', l)
+          : batchText('batch.banner.restart-partial-title', l, { n: String(registered.length), m: String(unregistered.length) })
+    const names = restart
+      .map((row) => escapeHtml(titleOf(row, titles)) + (restartUnregistered(row) ? escapeHtml(batchText('batch.row.unregistered-suffix', l)) : ''))
+      .join('、')
     // 措辞与单插件面板 panel.blocked.pending-restart.action 同一句（#64 按清单独立成键，英文可独立调优）；位置与单面板同口径：住框外。
     parts.push(
       '<div class="dsh-upd-banner" data-kind="restart" role="status">' +
-        '<div><strong>' + escapeHtml(batchText('batch.banner.restart-title', l, { n: String(restart.length) })) + '</strong></div>' +
+        '<div><strong>' + escapeHtml(title) + '</strong></div>' +
         // 名单居左、按钮同行居右：名单与按钮同处一行内 flex 行，窄屏换行时按钮仍靠右。
-        '<div class="dsh-upd-browline"><span class="dsh-upd-blist">' + restart.map((row) => escapeHtml(titleOf(row, titles))).join('、') + '</span>' +
-        '<button type="button" data-act="restart">' + escapeHtml(batchText('batch.banner.restart-button', l)) + '</button></div>' +
+        // #190：只有「已登记」的行重启才会加载；全部未登记时不画重启按钮，免得点了也白点。
+        '<div class="dsh-upd-browline"><span class="dsh-upd-blist">' + names + '</span>' +
+        (registered.length > 0
+          ? '<button type="button" data-act="restart">' + escapeHtml(batchText('batch.banner.restart-button', l)) + '</button>'
+          : '') +
+        '</div>' +
         '</div>',
     )
-    if (restartAct) parts.push('<div class="dsh-upd-banner-sub">' + escapeHtml(restartAct) + '</div>')
+    // #190：「重启宿主以加载新版本」只对已登记的行成立；全部未登记时这句是假指令，不出现。
+    if (registered.length > 0 && restartAct) parts.push('<div class="dsh-upd-banner-sub">' + escapeHtml(restartAct) + '</div>')
+    if (unregistered.length > 0) {
+      parts.push('<div class="dsh-upd-banner-sub">' + escapeHtml(batchText('batch.banner.restart-unregistered-hint', l)) + '</div>')
+    }
   }
   return parts.join('')
 }
@@ -1234,7 +1281,8 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
     // 文案复用 panel.action.* 既有键（经 bilingualText），零新增键。
     if (!queued && rowDone === null) actions.push(rowFallbackButtonHTML(row, ctx))
   }
-  if (row.restartRequired === true) {
+  // #190：未登记的行重启也不会加载——行级重启入口也不画，免得点了白点（状态词已给下一步）。
+  if (row.restartRequired === true && !restartUnregistered(row)) {
     // 与单插件面板同一措辞：宿主没有重启自己的电话，这里只做入口。
     actions.push('<button type="button" data-act="restart" data-key="' + keyAttr + '">' + escapeHtml(batchText('batch.row-action.restart', ctx.lang)) + '</button>')
   }

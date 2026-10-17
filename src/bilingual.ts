@@ -37,6 +37,8 @@ export type BilingualKey =
   | 'batch-entry.label.update'
   | 'batch-entry.label.busy'
   | 'batch-entry.label.restart'
+  | 'batch-entry.label.restart-unregistered'
+  | 'batch-entry.label.restart-mixed'
   | 'batch-entry.label.failed'
   | 'batch-entry.action.checking'
   | 'panel.blocked.unknown-profile.title'
@@ -102,6 +104,8 @@ export type BilingualKey =
   | 'panel.skip.skipped-title'
   | 'panel.skip.skipped-action'
   | 'panel.banner.restart-title'
+  | 'panel.banner.restart-unregistered-title'
+  | 'panel.banner.restart-unregistered-action'
   | 'panel.banner.installing-title'
   | 'panel.banner.installing-action'
   | 'panel.action.installing'
@@ -272,6 +276,7 @@ export type BilingualKey =
   | 'batch.summary.installing'
   | 'batch.summary.pending'
   | 'batch.summary.restart'
+  | 'batch.summary.restart-unregistered'
   | 'batch.summary.failed'
   | 'batch.summary.skipped'
   | 'batch.summary.settled'
@@ -291,6 +296,7 @@ export type BilingualKey =
   | 'batch.hint.failed'
   | 'batch.hint.updatable'
   | 'batch.hint.restart'
+  | 'batch.hint.restart-unregistered'
   | 'batch.hint.pending'
   | 'batch.hint.done'
   | 'batch.seal.ledger'
@@ -306,6 +312,9 @@ export type BilingualKey =
   | 'batch.banner.failed-title'
   | 'batch.banner.failed-action'
   | 'batch.banner.restart-title'
+  | 'batch.banner.restart-partial-title'
+  | 'batch.banner.restart-unregistered-title'
+  | 'batch.banner.restart-unregistered-hint'
   | 'batch.banner.restart-action'
   | 'batch.banner.restart-button'
   | 'batch.row.queued-generic'
@@ -317,6 +326,8 @@ export type BilingualKey =
   | 'batch.row.cta-generic'
   | 'batch.row.installing'
   | 'batch.row.done-restart'
+  | 'batch.row.done-restart-unregistered'
+  | 'batch.row.unregistered-suffix'
   | 'batch.row.done'
   | 'batch.row.failed-retry'
   | 'batch.row.skipped-idle'
@@ -414,6 +425,9 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch-entry.label.update': { en: '{count} updates available', zh: '{count} 个可更新', draft: true },
   'batch-entry.label.busy': { en: 'Installing…', zh: '正在安装…', draft: true },
   'batch-entry.label.restart': { en: '{count} restarts required', zh: '{count} 个待重启', draft: true },
+  // #190：未登记的行重启也不会加载，入口摘要不许把它们算进「待重启」。
+  'batch-entry.label.restart-unregistered': { en: '{count} installed, not registered', zh: '{count} 个已装未登记（重启不会加载）', draft: true },
+  'batch-entry.label.restart-mixed': { en: '{count} restarts required, {unregistered} not registered', zh: '{count} 个待重启，{unregistered} 个未登记', draft: true },
   'batch-entry.label.failed': { en: '{count} failed — View details', zh: '{count} 个失败，请查看详情', draft: true },
   'batch-entry.action.checking': { en: 'Checking for updates…', zh: '正在查询版本信息…', draft: true },
   'panel.blocked.unknown-profile.title': { en: 'Unrecognized scope or plugin location', zh: '无法识别使用范围或插件安装位置', draft: true },
@@ -479,6 +493,9 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.skip.skipped-title': { en: 'Skipped {latest}', zh: '已跳过版本 {latest}', draft: true },
   'panel.skip.skipped-action': { en: 'Select “Restore” to be reminded of this version again; newer versions will still notify.', zh: '选择「恢复提醒」可重新提醒该版本；更新的版本仍会正常提醒。', draft: true },
   'panel.banner.restart-title': { en: 'Version {latest} is installed; restart the host to take effect.', zh: '新版本 {latest} 已安装，重启宿主后生效。', draft: true },
+  // #190：在册事实为 false 时不能说满——重启宿主也不会加载未登记的插件。
+  'panel.banner.restart-unregistered-title': { en: 'Version {latest} is on disk, but this plugin is not registered in the scope selection, so restarting the host will not load it.', zh: '新版本 {latest} 已写入磁盘，但该插件未登记在使用范围清单，重启宿主也不会加载。', draft: true },
+  'panel.banner.restart-unregistered-action': { en: 'Select this plugin in the host plugin page first, then restart the host to load the new version.', zh: '请先在宿主插件页选中该插件，再重启宿主以加载新版本。', draft: true },
   'panel.banner.installing-title': { en: 'Installing {version}… Closing the panel won’t interrupt it.', zh: '正在安装 {version}…关闭面板不会中断。', draft: true },
   'panel.banner.installing-action': { en: 'Progress refreshes automatically; reopening the panel restores the view within a second.', zh: '进度将自动轮询刷新；重新打开面板将在 1 秒内恢复显示。', draft: true },
   'panel.action.installing': { en: 'Installing…', zh: '正在安装…', draft: true },
@@ -649,6 +666,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.summary.installing': { en: '{n} installing', zh: '{n} 个安装中', draft: true },
   'batch.summary.pending': { en: '{n} not checked', zh: '{n} 个待查询', draft: true },
   'batch.summary.restart': { en: '{n} restart required', zh: '{n} 个待重启', draft: true },
+  'batch.summary.restart-unregistered': { en: '{n} not registered (restarting will not load them)', zh: '另有 {n} 个未登记，重启不会加载', draft: true },
   'batch.summary.failed': { en: '{n} failed', zh: '{n} 个失败', draft: true },
   'batch.summary.skipped': { en: '{n} skipped', zh: '{n} 个已跳过', draft: true },
   'batch.summary.settled': { en: '{n} up to date', zh: '{n} 个已是最新', draft: true },
@@ -668,6 +686,8 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.hint.failed': { en: '{n} failed to install; retry each one from the failure notes below.', zh: '{n} 个插件安装失败；请按下方失败提示逐项重试。', draft: true },
   'batch.hint.updatable': { en: '{n} updates available; select \u201CUpdate all\u201D to install at once, or install each one inline.', zh: '{n} 个可更新；请选择「全部更新」一次安装完成，也可逐项选择「安装此插件」。', draft: true },
   'batch.hint.restart': { en: '{n} installed; restart the host to take effect.', zh: '{n} 个已安装完成，重启宿主后生效。', draft: true },
+  // #190：全部未登记时重启不会加载，一句话总账不许落到「已全部为最新」。
+  'batch.hint.restart-unregistered': { en: '{n} installed but not registered; restarting the host will not load them.', zh: '{n} 个已安装但未登记，重启宿主不会加载。', draft: true },
   'batch.hint.pending': { en: '{n} not checked yet; select \u201CCheck for updates\u201D for a round.', zh: '{n} 个尚未查询；请选择「检查更新」查询一轮。', draft: true },
   'batch.hint.done': { en: 'All up to date; nothing to do.', zh: '已全部为最新，无需操作。', draft: true },
   'batch.seal.ledger': { en: 'Ledger', zh: '总账', draft: true },
@@ -684,6 +704,10 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.banner.failed-title': { en: '{n} failed to install.', zh: '{n} 个插件安装失败。', draft: true },
   'batch.banner.failed-action': { en: 'Retry each one inline; if it keeps failing, send the copied diagnostics to the plugin author.', zh: '请逐家使用行内「重试」；若持续，请提交诊断信息至插件作者。', draft: true },
   'batch.banner.restart-title': { en: '{n} installed; restart the host to take effect.', zh: '{n} 个已安装完成，重启宿主后生效。', draft: true },
+  // #190：在册事实为 false 的行重启也不会加载——横幅分别计数，不再把「重启后生效」说满。
+  'batch.banner.restart-partial-title': { en: '{n} installed and will take effect after restart; {m} not registered (restarting will not load them).', zh: '已安装完成：{n} 个重启宿主后生效，{m} 个未登记（重启不会加载）。', draft: true },
+  'batch.banner.restart-unregistered-title': { en: 'Installed, but these plugins are not registered; restarting the host will not load them.', zh: '已安装完成，但这些插件未登记，重启宿主也不会加载。', draft: true },
+  'batch.banner.restart-unregistered-hint': { en: 'Unregistered plugins: select them in the host plugin page first; they will load after restart.', zh: '未登记的行：请先在宿主插件页选中该插件，重启后才会加载。', draft: true },
   'batch.banner.restart-action': { en: 'Restart the host to run the new version; this is a normal end state, not a failure.', zh: '重启宿主以加载新版本；此为正常状态，非安装失败。', draft: true },
   'batch.banner.restart-button': { en: 'Please restart DSH', zh: '请重启DSH', draft: true },
   'batch.row.queued-generic': { en: 'Queued \u00b7 waiting for the running install to finish', zh: '已排队 · 等待前方安装完成', draft: true },
@@ -695,6 +719,8 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.row.cta-generic': { en: 'Select \u201cInstall this plugin\u201d to install the new version', zh: '选择「安装此插件」安装新版本', draft: true },
   'batch.row.installing': { en: 'Installing; please wait', zh: '正在安装，请勿操作。', draft: true },
   'batch.row.done-restart': { en: 'Installed; restart the host to take effect', zh: '已安装完成，重启宿主后生效。', draft: true },
+  'batch.row.done-restart-unregistered': { en: 'Installed; not registered (restart will not load it). Select it in the host plugin page first.', zh: '已安装，未登记（重启不会加载）；请先在宿主插件页选中该插件', draft: true },
+  'batch.row.unregistered-suffix': { en: ' (not registered)', zh: '（未登记）', draft: true },
   'batch.row.done': { en: 'Installed; nothing to do', zh: '已安装完成，无需操作。', draft: true },
   'batch.row.failed-retry': { en: 'Install failed; select \u201cRetry\u201d to try again', zh: '安装失败，请选择「重试」。', draft: true },
   'batch.row.skipped-idle': { en: 'This version is skipped; nothing to do', zh: '该版本已跳过，无需操作。', draft: true },

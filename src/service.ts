@@ -232,6 +232,18 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       return null
     }
   }
+  /**
+   * 装后状态（#190）：一处真源。只有「磁盘已换成目标版、且运行版也等于目标版」才算 completed；
+   * 运行版未知、还没换过来、磁盘没到目标版，都只能算 restart-required（下一步是重启宿主，不是谎称已生效）。
+   * 任务状态、`update.install.verify` 的 result/pendingRestart、面板待重启判定全部由它派生，
+   * 不许任何一处再各算各的（F9：日志 completed、任务 restart-required、面板第三处口径的老毛病）。
+   * 「在册」事实不改变这个二值状态（未登记是另一根轴），由快照 `registered` 一格单独承载、文案据此分行。
+   */
+  function postInstallStateOf(targetVersion: string | null, diskVersion: string | null | undefined): 'completed' | 'restart-required' {
+    if (!targetVersion || diskVersion !== targetVersion) return 'restart-required'
+    const runningVersion = readRunningVersionOf()
+    return runningVersion !== null && runningVersion === targetVersion ? 'completed' : 'restart-required'
+  }
   let checked: CheckedState | null = null
   /**
    * 合规版候选第二槽（#156）：读写都经模块级槽（见 FallbackSlot 注释），本实例只留一个
@@ -334,9 +346,12 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       if (!job.targetVersion || env.installedVersion !== job.targetVersion) {
         return { ...job, state: 'interrupted', message: 'installation-changed', requestId: job.requestId ?? null }
       }
-      const runningVersion = readRunningVersionOf()
-      // #182：运行版未知时不谎称 completed（不知道在跑哪版就不算证实装上了），落到 restart-required。
-      return { ...job, state: runningVersion !== null && runningVersion === job.targetVersion ? 'completed' : 'restart-required', requestId: job.requestId ?? null }
+      // #190：与装后校验/面板同一处真源（在册事实一起进结论）；#182：运行版未知时不谎称 completed。
+      return {
+        ...job,
+        state: postInstallStateOf(job.targetVersion, env.installedVersion),
+        requestId: job.requestId ?? null,
+      }
     }
     return job
   }
@@ -356,6 +371,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     if (job?.state === 'interrupted' || job?.state === 'failed') {
       if (runningVersion !== null && env.installedVersion !== runningVersion) blockedReason = 'recovery-required'
     } else if (job?.state === 'restart-required' || (runningVersion !== null && env.installedVersion && env.installedVersion !== runningVersion)) {
+      // #190：任务状态由 postInstallStateOf 一处算出；后半句只覆盖「没有任务/任务已被清」的
+      // 纯事实形态（磁盘版 ≠ 运行版）。两者同口径，不再出现日志 completed、面板待重启的分裂。
       blockedReason = 'pending-restart'
     }
     const busy = job?.state === 'installing' || job?.state === 'verifying'
@@ -410,6 +427,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       blockedReason,
       job,
       identity,
+      // #190：在册事实进快照，单插件/批量面板才能不说满「重启宿主后生效」。未知为 null。
+      registered: env.registered ?? null,
     }
     // 主状态边沿（#124）：快照每次算出来都对一次账，只有真的变了才落一行。
     noteStatusChanged(snapshot)
@@ -686,17 +705,17 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       if (env.blockedReason && env.blockedReason !== 'pending-restart') {
         throw Object.assign(updateError('install-failed'), { detail: `装完校验没过：环境报告 ${env.blockedReason}` })
       }
-      const done: UpdateJob = { ...doing, state: 'restart-required', message: null }
+      const state = postInstallStateOf(job.targetVersion, env.installedVersion)
+      const done: UpdateJob = { ...doing, state, message: null }
       await saveJob(done)
       // 装后校验（#124）：磁盘版本与目标一致才算过；要不要重启按运行版判定——
-      // 运行版还没换过来就是 `restart-required`，已经换过来了就是 `completed`。
+      // #190：任务状态、verify 日志、面板都从 postInstallStateOf 一处派生（磁盘 / 运行两事实；
+      // 「在册」不改变这个二值状态，由快照 registered 一格单独承载、文案据此分行）。
       // #182：运行版未知时不做比较，也不谎称 completed——保守落到 restart-required（下一步是重启宿主）。
-      const runningAfterInstall = readRunningVersionOf()
-      const pendingRestart = runningAfterInstall === null ? true : runningAfterInstall !== job.targetVersion
       emit('info', 'update.install.verify', {
-        result: pendingRestart ? 'restart-required' : 'completed',
+        result: state,
         ...(env.installedVersion ? { installedVersion: env.installedVersion } : {}),
-        pendingRestart,
+        pendingRestart: state === 'restart-required',
       })
     } catch (error) {
       const code = (error as { code?: unknown })?.code
