@@ -1,7 +1,8 @@
 /**
  * src/registry-fetch.ts —— 联网取数（#163 registry 从 service.ts 独立）。
  *
- * 三个取数函数＋取数常量＋取数小工具：问官方源 latest 文档、版本文档、全量包文档时间表。
+ * 四个取数函数＋取数常量＋取数小工具：问官方源 latest 文档、版本文档、全量包文档时间表，
+ * 以及在通道内挑最高发行版（#183 的 `/latest` 回退）。
  * 只依赖判定核（version-judgment，叶子）与 ports 类型；service.ts 留垫片 re-export，老位置零变化。
  */
 
@@ -13,6 +14,7 @@ import type {
   UpdateLogPort,
 } from './ports.js'
 import {
+  compareReleaseVersions,
   isVersionAllowedInChannel,
   updateError,
   validReleaseVersion,
@@ -27,7 +29,8 @@ export const MAX_METADATA_BYTES = 256 * 1024
  * 全量包文档的字节墙（#R3 对抗审查）：latest / 版本文档天生小（256KB 足够），
  * 但 packument 会随版本数线性长大——真实包里 dsh-prompt 已 314KB、`@xmanrui/dsh-im` 458KB，
  * 用同一个 256KB 墙会把「合规版候选」这条路对真实包永久打死（探针复现）。
- * 这条只给 `fetchPackumentTimes` 用，其余两个取数口仍是 256KB。
+ * 这条给读全量包文档的两个口用（`fetchPackumentTimes` 与 `fetchNpmChannelRelease`），
+ * 其余两个取数口仍是 256KB。
  */
 const MAX_PACKUMENT_BYTES = 4 * 1024 * 1024
 export const INTEGRITY_PATTERN = '^sha512-[A-Za-z0-9+/]{86}==$'
@@ -394,6 +397,120 @@ export async function fetchPackumentTimes(
       }
     }
     return { latest, times }
+  } catch (error) {
+    if ((error as { code?: unknown })?.code === 'check-failed') throw error
+    if ((error as { code?: unknown })?.code === 'invalid-release') throw error
+    if (response !== null && response.ok) throw updateError('invalid-release')
+    throw checkFailedWithStatus(response)
+  }
+}
+
+/**
+ * 从全量包文档里挑「本通道最新发行版」（#183 剩余子项，2026-10-18）。
+ *
+ * 为什么需要它：`dist-tags.latest` 可能指向预发布版本（默认目标 deck 真机就是这样），
+ * 而 stable 通道只认纯三段版本号——只问 `/latest` 永远拿不到「本通道的最新版」。检查路径
+ * 遇到「latest 不在本通道、但已装版本在通道内」时退回这里：取全量包文档，在本通道允许的
+ * 版本里挑最高发行版。于是：
+ * - 本通道有更新的发行版 → 正常给出更新（可装）；
+ * - 本通道没有更新（远端最新的只是预发布）→ 诚实呈现本通道已是最新，不再整次 check-failed；
+ * - 全量包文档取不到/校验不过 → 如实抛（取数失败照旧大声失败，绝不悄悄画成已是最新）。
+ *
+ * 与 fetchNpmRelease 同一信任根：名字要对得上，每个版本条目各自过通道门、包地址形状与
+ * 完整性校验；坏条目与被标记 `deprecated` 的条目逐条跳过（不整表作废、也不把被撤回/弃用
+ * 的发行版当成本通道最新），一个通道内条目都收不到即
+ * `invalid-release(stage=channel)`。字节墙用包文档墙（4MB），与 `fetchPackumentTimes` 同一理由。
+ */
+export async function fetchNpmChannelRelease(
+  fetchImpl: FetchImpl,
+  timeoutMs: number = CHECK_TIMEOUT_MS,
+  opts?: {
+    targetPackageName?: string
+    registryUrl?: string
+    releaseChannel?: ReleaseChannel
+    emitLog?: UpdateLogPort
+    registryHost?: string | null
+  },
+): Promise<ReleaseInfo> {
+  const targetName = opts?.targetPackageName ?? PACKAGE_NAME
+  const registry = normalizeRegistry(opts?.registryUrl, NPM_REGISTRY)
+  const channel: ReleaseChannel = opts?.releaseChannel === 'prerelease' ? 'prerelease' : 'stable'
+  const noteFetch = makeFetchNoter(opts?.emitLog, opts?.registryHost)
+  let response: MinimalResponse | null = null
+  const startedAt = Date.now()
+  try {
+    response = await fetchImpl(`${registry}${encodeURIComponent(targetName)}`, {
+      headers: { accept: 'application/json' },
+      redirect: 'error',
+      signal: timeoutSignal(timeoutMs),
+    })
+  } catch {
+    noteFetch(null, startedAt)
+    throw updateError('check-failed')
+  }
+  noteFetch(httpStatusOf(response), startedAt)
+  try {
+    if (!response.ok) throw checkFailedWithStatus(response)
+    const declared = Number(response.headers.get('content-length'))
+    if (Number.isFinite(declared) && declared > MAX_PACKUMENT_BYTES) throw updateError('invalid-release')
+    const text = await response.text()
+    if (byteLength(text) > MAX_PACKUMENT_BYTES) throw updateError('invalid-release')
+    const value = JSON.parse(text) as { name?: unknown; versions?: unknown }
+    if (value.name !== targetName) throw updateError('invalid-release')
+    const versions = value.versions
+    if (!versions || typeof versions !== 'object') throw updateError('invalid-release')
+    const registryOrigin = new URL(registry).origin
+    let best: ReleaseInfo | null = null
+    for (const [version, raw] of Object.entries(versions as Record<string, unknown>)) {
+      // 每个版本条目独立校验：坏条目跳过（不整表作废），全坏才算版本信息无效。
+      if (!validReleaseVersion(version) || !isVersionAllowedInChannel(version, channel)) continue
+      if (!raw || typeof raw !== 'object') continue
+      const doc = raw as {
+        deprecated?: unknown
+        engines?: { node?: unknown; dsh?: unknown }
+        dist?: { tarball?: unknown; integrity?: unknown }
+      }
+      // 已弃用的发行版不参与挑选：撤回/弃用的版本不该被当成「本通道最新」推给用户。
+      if (typeof doc.deprecated === 'string' && doc.deprecated.trim()) continue
+      const nodeRange = doc.engines?.node
+      if (nodeRange !== undefined && typeof nodeRange !== 'string') continue
+      const dshRange = doc.engines?.dsh
+      if (dshRange !== undefined && typeof dshRange !== 'string') continue
+      const integrity = doc.dist?.integrity
+      if (typeof integrity !== 'string' || !new RegExp(INTEGRITY_PATTERN).test(integrity)) continue
+      let tarball: URL
+      try {
+        tarball = new URL(String(doc.dist?.tarball))
+      } catch {
+        continue
+      }
+      const shapeOk =
+        tarball.origin === registryOrigin &&
+        !tarball.username &&
+        !tarball.password &&
+        !tarball.search &&
+        !tarball.hash &&
+        tarball.pathname.endsWith(tarballPathnameOf(targetName, version))
+      if (!shapeOk) continue
+      const release: ReleaseInfo = {
+        version,
+        nodeRange: typeof nodeRange === 'string' ? nodeRange : '*',
+        dshRange: typeof dshRange === 'string' ? dshRange : '*',
+        integrity,
+        tarball: tarball.href,
+      }
+      if (!best) {
+        best = release
+        continue
+      }
+      try {
+        if (compareReleaseVersions(version, best.version) === 1) best = release
+      } catch {
+        /* 版本形状已校验过；比较异常即放弃这条，保住已选中的 */
+      }
+    }
+    if (!best) throw withStage(updateError('invalid-release'), 'channel')
+    return best
   } catch (error) {
     if ((error as { code?: unknown })?.code === 'check-failed') throw error
     if ((error as { code?: unknown })?.code === 'invalid-release') throw error

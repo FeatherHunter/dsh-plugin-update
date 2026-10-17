@@ -7,6 +7,7 @@ const FACE = [
   'fetchNpmRelease',
   'fetchNpmVersionRelease',
   'fetchPackumentTimes',
+  'fetchNpmChannelRelease',
   'PACKAGE_NAME',
   'NPM_REGISTRY',
   'CHECK_TIMEOUT_MS',
@@ -159,4 +160,55 @@ test('#183 检查口容忍：tolerateOutOfChannel 原样交回，形状校验不
   await assert.rejects(rf.fetchNpmRelease(doc(garbage), 1000, { releaseChannel: 'stable', tolerateOutOfChannel: true }), /invalid-release/)
   const wrongTarball = { ...betaRelease, dist: { ...betaRelease.dist, tarball: `https://registry.npmjs.org/${PKG}/-/${PKG}-1.9.0-beta.1.tgz` } }
   await assert.rejects(rf.fetchNpmRelease(doc(wrongTarball), 1000, { releaseChannel: 'stable', tolerateOutOfChannel: true }), /invalid-release/)
+})
+
+// ---------- #183 剩余子项：全量包文档里找「本通道最新发行版」 ----------
+
+const stableEntry = (version) => ({
+  engines: { node: '>=22' },
+  dist: {
+    tarball: `https://registry.npmjs.org/${PKG}/-/${PKG}-${version}.tgz`,
+    integrity: `sha512-${'D'.repeat(86)}==`,
+  },
+})
+
+const packumentOf = (versions, name = PKG) => ({ name, 'dist-tags': { latest: '1.9.0-beta.2' }, versions })
+
+test('#183 通道回退：只在通道允许的版本里挑最高发行版，预发布不算', async () => {
+  const body = packumentOf({
+    '1.2.1': stableEntry('1.2.1'),
+    '1.3.0': stableEntry('1.3.0'),
+    '1.9.0-beta.2': stableEntry('1.9.0-beta.2'),
+    // 不合法版本号（SemVer 不允许 +build 参与发行版判定）：整条跳过。
+    '2.0.0+build.1': { ...stableEntry('2.0.0'), dist: { ...stableEntry('2.0.0').dist, tarball: `https://registry.npmjs.org/${PKG}/-/${PKG}-2.0.0.tgz` } },
+  })
+  const release = await rf.fetchNpmChannelRelease(doc(body), 1000, { releaseChannel: 'stable' })
+  assert.equal(release.version, '1.3.0')
+  assert.equal(release.nodeRange, '>=22')
+  assert.equal(release.dshRange, '*')
+  // prerelease 通道同一份文档收得更高：不合法的版本号仍略过。
+  const beta = await rf.fetchNpmChannelRelease(doc(body), 1000, { releaseChannel: 'prerelease' })
+  assert.equal(beta.version, '1.9.0-beta.2')
+})
+
+test('#183 通道回退：坏条目逐条跳过，全坏才判版本信息无效（stage=channel）', async () => {
+  const badOrigin = { dist: { tarball: 'https://evil.example.test/x.tgz', integrity: `sha512-${'A'.repeat(86)}==` } }
+  const badIntegrity = { ...stableEntry('1.0.1'), dist: { ...stableEntry('1.0.1').dist, integrity: 'sha512-short==' } }
+  const body = packumentOf({ '1.0.0': badOrigin, '1.0.1': badIntegrity, '1.0.2': stableEntry('1.0.2'), '1.0.3': { ...stableEntry('1.0.3'), deprecated: '这个版本已弃用' } })
+  const release = await rf.fetchNpmChannelRelease(doc(body), 1000)
+  assert.equal(release.version, '1.0.2', '坏条目与已弃用版本都跳过')
+  // 一个通道内版本都没有 → 版本信息无效，阶段钉在 channel（与 latest 口同一口径）。
+  const err = await rf.fetchNpmChannelRelease(doc(packumentOf({ '1.9.0-beta.2': stableEntry('1.9.0-beta.2') })), 1000).catch((e) => e)
+  assert.equal(err.code, 'invalid-release')
+  assert.equal(err.stage, 'channel')
+})
+
+test('#183 通道回退：名字对不上判无效，连不上判检查失败并带状态', async () => {
+  await assert.rejects(
+    rf.fetchNpmChannelRelease(doc(packumentOf({ '1.0.0': stableEntry('1.0.0') }, '别人家的包')), 1000),
+    /invalid-release/,
+  )
+  const err = await rf.fetchNpmChannelRelease(doc({}, { ok: false, status: 503 }), 1000).catch((e) => e)
+  assert.equal(err.code, 'check-failed')
+  assert.equal(err.httpStatus, 503)
 })

@@ -87,6 +87,7 @@ import {
   CHECK_TIMEOUT_MS,
   NPM_REGISTRY,
   PACKAGE_NAME,
+  fetchNpmChannelRelease,
   fetchNpmRelease,
   fetchNpmVersionRelease,
   fetchPackumentTimes,
@@ -97,6 +98,7 @@ export {
   MAX_METADATA_BYTES,
   NPM_REGISTRY,
   PACKAGE_NAME,
+  fetchNpmChannelRelease,
   fetchNpmRelease,
   fetchNpmVersionRelease,
   fetchPackumentTimes,
@@ -186,6 +188,26 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       emitLog: logPort ?? undefined,
       registryHost,
     })
+  }
+  /**
+   * 查「有效远端版」的单一入口（#183 剩余子项）：先按旧纪律问 `/latest`；
+   * 若唯一的问题是「latest 不在本通道」（`invalid-release(stage=channel)`），
+   * 退回全量包文档，在本通道允许的版本里挑最高发行版。别的情况（网络坏、文档坏、
+   * 名字不对）照旧如实抛——回退只解决「latest 指向预发布」这一种事实。
+   */
+  async function fetchEffectiveRelease(tolerateOutOfChannel = false): Promise<ReleaseInfo> {
+    try {
+      return await fetchRelease(tolerateOutOfChannel)
+    } catch (error) {
+      if (stableCodeOf(error) !== 'invalid-release' || stageOfError(error) !== 'channel') throw error
+      return fetchNpmChannelRelease(ports.fetchImpl, checkTimeoutMs, {
+        targetPackageName,
+        registryUrl,
+        releaseChannel,
+        emitLog: logPort ?? undefined,
+        registryHost,
+      })
+    }
   }
   /**
    * 运行版本归一（#182）：未知一律 `null`，不伪造占位版本号、不拿它比大小。
@@ -505,14 +527,13 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     checking = (async () => {
       try {
         const env = await ports.readInstalled()
-        // #183：通道不符只在「已装版本本身就不在本通道（或压根未装）」时容忍。这时整次检查
-        // 在修复前会直接 check-failed，可真正的结论（channel-mismatch）读取器早就算出来了，
-        // 缺省 stable 遇到 latest 是预发布时用户只能看到「检查失败」。已装版本在通道内、只有
-        // 远端最新是预发布的那一支仍按旧样失败：不取 packument 就分不清「只有预发布更新」
-        // 与「取数真坏了」，宁可大声失败，也不把它悄悄画成「已是最新」。
+        // #183：通道不符分两支。已装版本本身不在本通道（或压根未装）→ 容忍 latest 原样交回，
+        // 真正的结论（channel-mismatch）读取器早就算出来了，由快照如实说；已装版本在通道内、
+        // 只有远端 latest 是预发布 → 回退全量包文档找本通道最新发行版：有更新正常给，没有就
+        // 诚实呈现本通道已是最新；全量包文档取不到则照旧大声失败，不悄悄画成已是最新。
         const installedOutOfChannel =
           env.installed === false || !isVersionAllowedInChannel(env.installedVersion ?? '', releaseChannel)
-        const release = await fetchRelease(installedOutOfChannel)
+        const release = await fetchEffectiveRelease(installedOutOfChannel)
         // #195：Node 要求与 DSH 要求分开判——DSH 拿不到当前版本时不猜（satisfiesDshRange 直接放行）。
         const dshOk = satisfiesDshRange(readDshVersionOf(), release.dshRange)
         checked = {
@@ -864,7 +885,9 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     }
     if (!(await acquire(job.id))) throw updateError('update-busy')
     try {
-      const current = await fetchRelease()
+      // 装前复核与检查路径同口径（#183）：检查时若走通道回退，这里也要走同一入口，
+      // 否则会把「本通道最新发行版」误判成远端变了（check-expired）。
+      const current = await fetchEffectiveRelease()
       if (JSON.stringify(current) !== JSON.stringify(checked.release)) throw updateError('check-expired')
       env = await ports.readInstalled()
       // 锁后重读的环境再判一次空更新（#202）：锁前判过，但等锁期间磁盘版本可能被别处换成了

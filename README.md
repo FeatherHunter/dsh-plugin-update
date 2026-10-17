@@ -497,7 +497,7 @@ const update = createHostUpdate(
 | `installed` | 在场事实：目标包在不在（`0.17.0` 起新增；缺席时 `installedVersion` 为 null） |
 | `installedVersion` | 磁盘上装着的版本 |
 | `runningVersion` | 正在跑的版本；拿不到为 `null`（未知不伪造、不参与比较） |
-| `latestVersion` | 最近一次查新版带回来的版本（没查过为 null） |
+| `latestVersion` | 最近一次查新版带回来的版本（没查过为 null）；`stable` 通道且已装版本在通道内时是本通道最新发行版，不一定是注册表 `latest` 标签；未装或已装版本在通道外时仍可能是通道外 latest（此时 `blockedReason` 报 `channel-mismatch`） |
 | `canInstall` | 现在能不能装 |
 | `blockedReason` | 装不了的原因（能装为 null） |
 | `job` | 当前任务（只读半程恒为 null） |
@@ -578,6 +578,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 - 跳过按「插件标识 + 版本」持久化：用户点“跳过”后该版本不再提醒，新版本照常提醒（跳过是 dismissal，不是全局静音）。
 - 重置入口与跳过发生在同一行：已跳过版本在更新横幅行展示为“已跳过 X.Y.Z · 恢复”，点恢复即清掉该版本的跳过并重查；不要藏进设置页。
 - 版本通道默认 `stable`（与旧行为一字不差，预发布版按版本信息无效处理）；显式配 `releaseChannel: 'prerelease'` 才收预发布版。两个通道都只装精确版（`包名@精确版本`），范围写法一律不收。
+- 远端 `dist-tags.latest` 指向预发布版本时（默认目标 deck 的真实形态），`stable` 通道不拿它当最新版：**已装版本在本通道时**，检查会再取一次全量包文档，在本通道允许的版本里挑最新发行版（坏条目与已标记弃用的版本跳过）。有更新的正式版就正常提示可装；本通道没有更新就按“已是最新”呈现，不再整次检查失败。全量包文档取不到则照旧报检查失败——不会悄悄画成“已是最新”。已装版本不在本通道或尚未安装时沿用原来的容忍分支（latest 原样回填、`blockedReason` 报通道不符）。`prerelease` 通道不受影响（直接收预发布）。
 
 ### 5.7 跨插件单队列
 

@@ -159,16 +159,33 @@ describe('通道门：默认 stable，prerelease 显式 opt-in', () => {
     assert.equal(release.version, '0.2.0-rc.2')
   })
 
-  it('核心默认通道：预发布最新版不产出可更新', async () => {
-    const core = createUpdateCore(
-      basePorts({
-        fetchImpl: fakeFetch(
-          'https://registry.npmjs.org/dsh-mattpocock-skills-deck/latest',
-          releaseBody('dsh-mattpocock-skills-deck', '2.0.0-rc.1', 'https://registry.npmjs.org/')
-        ),
-      })
-    )
-    await assert.rejects(() => core.check(), /invalid-release/)
+  it('核心默认通道：latest 是预发布时回退全量包文档，不拿预发布当更新', async () => {
+    const seen = []
+    const fetchImpl = async (url) => {
+      seen.push(url)
+      const ok = (body) => ({ ok: true, headers: { get: () => null }, text: async () => body })
+      if (url.endsWith('/latest')) {
+        return ok(releaseBody('dsh-mattpocock-skills-deck', '2.0.0-rc.1', 'https://registry.npmjs.org/'))
+      }
+      // #183 剩余子项：通道外 latest 时回退全量包文档找本通道最新发行版。
+      return ok(
+        JSON.stringify({
+          name: 'dsh-mattpocock-skills-deck',
+          'dist-tags': { latest: '2.0.0-rc.1' },
+          versions: {
+            '1.0.0': JSON.parse(releaseBody('dsh-mattpocock-skills-deck', '1.0.0', 'https://registry.npmjs.org/')),
+          },
+        })
+      )
+    }
+    const core = createUpdateCore(basePorts({ fetchImpl }))
+    const result = await core.check()
+    assert.equal(result.snapshot.latestVersion, '1.0.0', 'latestVersion 是本通道最新发行版，不是预发布')
+    assert.equal(result.snapshot.canInstall, false)
+    assert.deepEqual(seen, [
+      'https://registry.npmjs.org/dsh-mattpocock-skills-deck/latest',
+      'https://registry.npmjs.org/dsh-mattpocock-skills-deck',
+    ])
   })
 
   it('核心 prerelease 通道：预发布最新版可更新', async () => {
