@@ -16,7 +16,7 @@
 - **锁判据单源化（#181 同批跟进）**：安装锁与跨插件全局锁共用同一套「时间 + 可解析性」实现（`probeLockFile / lockAgeOf / createLockAtomically` 三 helpers；全局锁旧的「读 `startedAt` 差值」分支并入同一判据）。回收动手前加「同代二次核对」（`mtime + size` 未变才删），缩小「判陈旧 → 删锁」之间被别人重建的竞态窗口；`QUEUE_LOCK_STALE_MS` 直接取安装时限默认值，两处额度单源。
 
 ### Changed
-- 测试：新增 `tests/issue-176-batch-copy-all.test.mjs`（19 例，先红后绿——覆盖按钮出现/消失、失败集合三类排除、无命令置灰、两段聚合文本顺序与块间空行、点击复制回执、双主题成组）与 `tests/issue-181-lock-ttl.test.mjs`（6 例，先红后绿——未修树红在「空文件/非法 JSON/`null` 旧锁永久 `update-busy`」与「别人正在装的活锁被抢走」；覆盖陈旧可解析/空文件旧 mtime/非法 JSON 旧 mtime/`null` 旧 mtime 回收 + 新鲜可解析/新鲜空文件拒绝，并断言成功路径放锁、不留 `*.tmp`；首例成功断言加锁释放轮询，消灭并行满载下落锁未放的偶发红）。`tests/store-log.test.mjs` 的锁断言按新判据更新（陈旧改由注入额度造；旧「任务不在而锁还在 ⇒ 立刻回收」的断言反转为「仍拒」——那正是 #181 要改的语义）。
+- 测试：新增 `tests/issue-176-batch-copy-all.test.mjs`（19 例，先红后绿——覆盖按钮出现/消失、失败集合三类排除、无命令置灰、两段聚合文本顺序与块间空行、点击复制回执、双主题成组）与 `tests/issue-181-lock-ttl.test.mjs`（11 例，先红后绿——未修树红在「空文件/非法 JSON/`null` 旧锁永久 `update-busy`」与「别人正在装的活锁被抢走」；覆盖陈旧可解析/空文件旧 mtime/非法 JSON 旧 mtime/`null` 旧 mtime 回收 + 新鲜可解析/新鲜空文件拒绝 + 可解析锁年龄口径（`startedAt` 优先、缺格退回 mtime）+ 坏锁不堵死只读读取 + 全局锁同判据，并断言成功路径放锁、不留 `*.tmp`；首例成功断言加锁释放轮询，消灭并行满载下落锁未放的偶发红）。`tests/store-log.test.mjs` 的锁断言按新判据更新（陈旧改由注入额度造；旧「任务不在而锁还在 ⇒ 立刻回收」的断言反转为「仍拒」——那正是 #181 要改的语义）。
 - 验收证据：审查期探针 `.tmp/audit/state/probe-d.mjs` 的 T8 对当前 `dist` 复跑——「1 小时前崩溃遗留锁」被回收且装成（`restart-required`、锁已放）；「`startedAt=现在` 的活锁」被拒 `update-busy`（修复前会被抢走）。空文件/非法 JSON/`null` 三种**新鲜**形态仍按「判不了年龄」保守拒绝，但不再永久：超过 `installTimeoutMs` 后由 TTL 回收（新增测试用 `utimes` 造旧 mtime 覆盖该路径）。T8 探针里「堵死了」的旧提示文字指修复前形态，探针本体未改，以本节与测试为准。
 - `README.md` §2.6：批量失败横幅补两枚批量复制按钮口径（与横幅同生灭、无命令置灰）；§3：落盘段补安装锁自愈口径（陈旧阈值 = `installTimeoutMs`；不再需要手工删 `install.lock`）。
 - **发布口径提醒**：`0.18.8`～`0.18.11` 四段都还没发到 npm（registry 最新仍是 `0.18.7`），发版时以 `0.18.11` 一次带走即可。
