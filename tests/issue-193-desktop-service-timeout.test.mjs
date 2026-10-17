@@ -31,6 +31,7 @@ const GRACE_MS = __executorInternals.TERMINATION_GRACE_MS
 const NO_TERMINATE = '安装超时；宿主未提供终止能力，这次安装可能仍在后台继续'
 const WITH_TERMINATE = '安装超时，已请求宿主终止'
 const CRASHED = '宿主安装服务异常退出'
+const TERMINATE_FAILED = '安装超时；终止进程失败，这次安装可能仍在后台继续'
 
 function writeJson(p, obj) {
   mkdirSync(dirname(p), { recursive: true })
@@ -191,6 +192,35 @@ describe('issue #193：出口一（desktopPnpm 服务）的安装时限与人话
     )
     assert.equal(out.kind, 'ok', '宽限内成功收尾就不该报失败')
     assert.equal(terminated, 1)
+  })
+
+  it('宽限内以非零退出收尾 ⇒ 仍点名超时（与出口三同口径），不只留原话', async () => {
+    let settleDone
+    const done = new Promise((resolve) => {
+      settleDone = resolve
+    })
+    const handle = { done, terminate: () => settleDone({ exitCode: 1 }) }
+    const out = await cappedSettle(
+      () => runWith(desktopService(handle))({ version: REMOTE, profileName: 'desktop', environmentKind: 'desktop' }),
+      40 + GRACE_MS + 4000
+    )
+    assert.equal(out.kind, 'failed')
+    assert.equal(out.error.detail, WITH_TERMINATE, '到点就是超时，人不该只看到「装失败」')
+  })
+
+  it('有 terminate 但调用抛错 ⇒ 不许说「已请求宿主终止」，如实说终止失败', async () => {
+    const handle = {
+      done: never(),
+      terminate: () => {
+        throw new Error('terminate is broken')
+      },
+    }
+    const out = await cappedSettle(
+      () => runWith(desktopService(handle))({ version: REMOTE, profileName: 'desktop', environmentKind: 'desktop' }),
+      40 + GRACE_MS + 4000
+    )
+    assert.equal(out.kind, 'failed')
+    assert.equal(out.error.detail, TERMINATE_FAILED)
   })
 
   it('宿主安装服务直接拒绝收尾（done reject）⇒ 立即失败并写「宿主安装服务异常退出」，不伪装成超时', async () => {

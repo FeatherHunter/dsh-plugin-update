@@ -26,7 +26,7 @@ import { BACKUP_FILE, DEFAULT_INSTALL_TIMEOUT_MS, LEGACY_PLUGIN_ID, LOCK_FILE, S
 import { emptyBatchSession, normalizeBatchSession, type BatchSession } from './batch.js'
 import { normalizeQueueState, type QueueOwner, type UpdateQueueState } from './queue.js'
 import { validReleaseVersion } from './service.js'
-import { DETAIL_MAX_CHARS, sanitizeDetail } from './redaction.js'
+import { DETAIL_MAX_CHARS, MASKED_CREDENTIAL_NOTE, sanitizeDetail } from './redaction.js'
 import { LOG_EVENT_INSTALL_EXEC } from './log-events.js'
 import type { EnvironmentKind, InstallRecipe, ReleaseChannel, UpdateJob, UpdateLogPort } from './ports.js'
 
@@ -1239,6 +1239,24 @@ const MANAGER_ROUTE_BLOCKED_CODES = new Set(['already-installed', 'bundle-in-use
 const SERVICE_TIMEOUT_DETAIL = '安装超时，已请求宿主终止'
 const SERVICE_TIMEOUT_NO_TERMINATE_DETAIL = '安装超时；宿主未提供终止能力，这次安装可能仍在后台继续'
 const SERVICE_CRASHED_DETAIL = '宿主安装服务异常退出'
+/**
+ * 出口三（cli-process）的三格（#185，审查 A 线 R4）：同一套纪律——到点先终止（`handle` 有
+ * `terminate` 才真调）、再给终止宽限；没终止能力就如实说安装可能仍在后台；`done` reject 是崩溃
+ * 不是超时，三者详情各说各的，不许再笼统成「装失败」。终止由本包直接对子进程调用，所以这里说
+ * 「已终止子进程」而不是「已请求宿主终止」。
+ */
+const CLI_TIMEOUT_DETAIL = '安装超时，已终止子进程'
+/** 没终止能力的说法与出口一（桌面服务）共用一条（字面一致，不复制第三份）。 */
+const CLI_CRASHED_DETAIL = '宿主子进程能力异常，安装未完成'
+/**
+ * 到点后宽限内它自己收尾了（非零退出 / 崩溃）：超时仍是超时，但「可能仍在后台继续」已经不成立
+ * （#185 Spec 审查：不许拿没发生的事实凑口径）。两个出口共用这句。
+ */
+const TIMEOUT_SETTLED_DETAIL = '安装超时；任务随后退出，安装未完成'
+/**
+ * 终止能力在、调用却抛错：不许说「已终止」，也不许甩锅「宿主未提供终止能力」（#185 Spec 审查）。
+ */
+const TERMINATE_FAILED_DETAIL = '安装超时；终止进程失败，这次安装可能仍在后台继续'
 
 /** 执行零件可以是值，也可以是取值函数（桌面服务要等注入到位才能取）。 */
 function part<T>(value: T | (() => T)): T {
@@ -1323,36 +1341,6 @@ export async function resolveCliEntry(
   }
 }
 
-/** 等子进程退出事实：带时限，超时终止整棵进程树并按失败处理。 */
-async function awaitOutcome(
-  handle: { done: Promise<{ exitCode?: number } | null>; terminate?: () => void },
-  timeoutMs: number
-): Promise<{ exitCode: number | null; timedOut: boolean }> {
-  const settled = Promise.resolve(handle.done).then(
-    (value) => ({ exitCode: value && typeof value.exitCode === 'number' ? value.exitCode : null, timedOut: false }),
-    () => ({ exitCode: null, timedOut: true })
-  )
-  if (!(typeof timeoutMs === 'number' && timeoutMs > 0)) return await settled
-  let timer: ReturnType<typeof setTimeout> | null = null
-  const deadline = new Promise<{ exitCode: null; timedOut: boolean }>((settle) => {
-    timer = setTimeout(() => {
-      try {
-        if (handle && typeof handle.terminate === 'function') handle.terminate()
-      } catch {}
-      settle({ exitCode: null, timedOut: true })
-    }, timeoutMs)
-  })
-  try {
-    return await Promise.race([settled, deadline])
-  } finally {
-    if (timer !== null) {
-      try {
-        clearTimeout(timer)
-      } catch {}
-    }
-  }
-}
-
 export interface ExecutorParts {
   profileName?: string | null | (() => string | null)
   environmentKind?: EnvironmentKind | (() => EnvironmentKind)
@@ -1431,6 +1419,8 @@ async function runDesktopService(
   const readOutput = streamCollectorOf(handle)
   const canTerminate = typeof (handle as { terminate?: unknown }).terminate === 'function'
   const terminate = canTerminate ? (handle as unknown as { terminate: () => void }).terminate : null
+  let terminated = false
+  let terminateFailed = false
   // 结局只分三种：自己收尾 / 崩了（done reject） / 到点；先把 reject 折成事实，不要让它冒充超时。
   const settled = Promise.resolve(handle.done).then(
     (value) => ({ kind: 'settled' as const, value }),
@@ -1444,8 +1434,13 @@ async function runDesktopService(
     const deadline = new Promise<typeof TIMEOUT>((settle) => {
       timer = setTimeout(() => {
         try {
-          if (terminate !== null) terminate.call(handle)
-        } catch {}
+          if (terminate !== null) {
+            terminate.call(handle)
+            terminated = true
+          }
+        } catch {
+          terminateFailed = true
+        }
         settle(TIMEOUT)
       }, timeoutMs)
     })
@@ -1461,15 +1456,17 @@ async function runDesktopService(
   })()
   if (outcome === TIMEOUT) {
     // 到点时已经点过 terminate（有终止能力才会真调）；再给一段收尾宽限，拿到真实结局就按它自己的
-    // 结局判——不把已经落地的改动记成失败（同出口二 finishCall 的宽限纪律）。
+    // 结局判——不把已经落地的改动记成失败（同出口二 finishCall 的宽限纪律）；口径仍点名超时，
+    // 但按「终止是否真发出 / 任务是否已收尾」选词，不许拿没发生的事实凑（#185 Spec 审查）。
     const late = await settleWithin(settled, TERMINATION_GRACE_MS)
-    if (late && late.kind === 'settled') {
-      const lateCode = late.value && typeof late.value.exitCode === 'number' ? late.value.exitCode : null
-      if (lateCode === 0) return 0
-      throw withDetail(withExit(fail('install-failed'), lateCode), causeExcerptOf(readOutput()))
-    }
-    const hint = canTerminate ? SERVICE_TIMEOUT_DETAIL : SERVICE_TIMEOUT_NO_TERMINATE_DETAIL
-    throw withDetail(fail('install-failed'), withTimeoutHint(causeExcerptOf(readOutput()), hint))
+    const lateCode = late && late.kind === 'settled' ? (late.value && typeof late.value.exitCode === 'number' ? late.value.exitCode : null) : null
+    if (late && late.kind === 'settled' && lateCode === 0) return 0
+    const hint = timeoutHintOf(
+      { terminated, ended: late !== null, terminateFailed },
+      { terminated: SERVICE_TIMEOUT_DETAIL, noTerminate: SERVICE_TIMEOUT_NO_TERMINATE_DETAIL }
+    )
+    const excerpt = causeExcerptOf(readOutput())
+    throw withDetail(withExit(fail('install-failed'), lateCode), excerpt ? withTimeoutHint(excerpt, hint) : hint)
   }
   if (outcome.kind === 'crashed') {
     throw withDetail(fail('install-failed'), causeExcerptOf(readOutput()) || SERVICE_CRASHED_DETAIL)
@@ -1658,12 +1655,43 @@ function managerSpecOf(pluginArgs: string[]): string | null {
   return spec
 }
 
+/**
+ * 拼「宿主原文；下一步」并守住 detail 的 300 字：原文在前、建议在后。
+ * 超长时剪原文的尾巴，但不把脱敏核追加在末尾的「（原话里的账号密码已隐去…）」说明剪半
+ * （ADR-0001 决策 2：被替换过的文本必须仍能与原样文本区分）。
+ */
+function withTrailingHint(said: string, hint: string): string {
+  if (!hint) return said
+  const room = DETAIL_MAX_CHARS - hint.length - 1
+  if (room <= 0) return hint
+  const head = said.length > room ? clipDetailForHint(said, room) : said
+  return head ? `${head}；${hint}` : hint
+}
+function clipDetailForHint(said: string, room: number): string {
+  const noteSuffix = `；${MASKED_CREDENTIAL_NOTE}`
+  if (said.endsWith(noteSuffix) && room > noteSuffix.length + 1) {
+    const cut = room - noteSuffix.length - 1
+    return `${said.slice(0, cut)}…${noteSuffix}`
+  }
+  return said.slice(0, room)
+}
 /** 拼「宿主原文；超时/崩溃口径」：原文在前、下一步在后，总长仍守 detail 的 300 字（#193）。 */
 function withTimeoutHint(said: string, hint: string): string {
-  if (!said) return hint
-  const room = DETAIL_MAX_CHARS - hint.length - 1
-  const head = room > 0 && said.length > room ? said.slice(0, room) : said
-  return head ? `${head}；${hint}` : hint
+  return withTrailingHint(said, hint)
+}
+/**
+ * 到点后按「终止是否真发出 / 任务是否已收尾」挑人话格：三者互斥，不许拿没发生的事实凑口径。
+ * `terminated` = terminate 真的调成功；`ended` = 宽限内自己收尾（含崩溃）；
+ * `terminateFailed` = 有终止能力但调用抛错。
+ */
+function timeoutHintOf(
+  facts: { terminated: boolean; ended: boolean; terminateFailed: boolean },
+  wording: { terminated: string; noTerminate: string }
+): string {
+  if (facts.terminated) return wording.terminated
+  if (facts.ended) return TIMEOUT_SETTLED_DETAIL
+  if (facts.terminateFailed) return TERMINATE_FAILED_DETAIL
+  return wording.noTerminate
 }
 /** 等管理器回话：带时限；到点先请它取消（能不能取消由它答），再由调用方决定怎么收场。 */
 async function raceManager(
@@ -1931,10 +1959,7 @@ function managerCodeOf(result: ManagerChangeResult): string {
 function withManagerHint(result: ManagerChangeResult, said: string): string {
   const code = managerCodeOf(result)
   const hint = code ? MANAGER_CODE_HINTS[code] ?? '' : ''
-  if (!hint) return said
-  const room = DETAIL_MAX_CHARS - hint.length - 1
-  const head = room > 0 && said.length > room ? said.slice(0, room) : said
-  return head ? `${head}；${hint}` : hint
+  return withTrailingHint(said, hint)
 }
 
 /**
@@ -2221,13 +2246,65 @@ async function runCliProcess(
     graceMs: TERMINATION_GRACE_MS,
   })
   if (!handle || !handle.done || typeof handle.done.then !== 'function') throw fail('install-failed')
-  const outcome = await awaitOutcome(handle as { done: Promise<{ exitCode?: number } | null> }, recipe.timeoutMs)
+  const readOutput = (): string => causeExcerptOf(collectedOutputOf(handle))
+  const canTerminate = typeof (handle as { terminate?: unknown }).terminate === 'function'
+  const terminate = canTerminate ? (handle as unknown as { terminate: () => void }).terminate : null
+  let terminated = false
+  let terminateFailed = false
+  // 结局只分三种：自己收尾 / 崩了（done reject） / 到点；先把 reject 折成事实，不要让它冒充超时。
+  const settled = Promise.resolve(handle.done).then(
+    (value) => ({ kind: 'settled' as const, value }),
+    () => ({ kind: 'crashed' as const, value: null })
+  )
+  const timeoutMs = typeof recipe.timeoutMs === 'number' && recipe.timeoutMs > 0 ? recipe.timeoutMs : 0
+  const TIMEOUT = Symbol('install-timeout')
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const outcome = await (async () => {
+    if (timeoutMs === 0) return await settled
+    const deadline = new Promise<typeof TIMEOUT>((settle) => {
+      timer = setTimeout(() => {
+        try {
+          if (terminate !== null) {
+            terminate.call(handle)
+            terminated = true
+          }
+        } catch {
+          terminateFailed = true
+        }
+        settle(TIMEOUT)
+      }, timeoutMs)
+    })
+    try {
+      return await Promise.race([settled, deadline])
+    } finally {
+      if (timer !== null) {
+        try {
+          clearTimeout(timer)
+        } catch {}
+      }
+    }
+  })()
+  if (outcome === TIMEOUT) {
+    // 到点后宽限：宽限内自己以 0 收尾就算成功；否则超时是定局——即使它在被终止后落到非零/空退出码，
+    // 也必须点名超时，不许退回「装失败」的通用兜底（#185：这就是用户看到的静默失败）。口径按
+    // 「终止是否真发出 / 任务是否已收尾」选词，不许拿没发生的事实凑（Spec 审查）。
+    const late = await settleWithin(settled, TERMINATION_GRACE_MS)
+    if (late && late.kind === 'settled' && late.value && late.value.exitCode === 0) return 0
+    const lateCode = late && late.kind === 'settled' ? (late.value && typeof late.value.exitCode === 'number' ? late.value.exitCode : null) : null
+    const hint = timeoutHintOf(
+      { terminated, ended: late !== null, terminateFailed },
+      { terminated: CLI_TIMEOUT_DETAIL, noTerminate: SERVICE_TIMEOUT_NO_TERMINATE_DETAIL }
+    )
+    throw withDetail(withExit(fail('install-failed'), lateCode), withTimeoutHint(readOutput(), hint))
+  }
+  if (outcome.kind === 'crashed') {
+    throw withDetail(fail('install-failed'), readOutput() || CLI_CRASHED_DETAIL)
+  }
+  const code = outcome.value && typeof outcome.value.exitCode === 'number' ? outcome.value.exitCode : null
   // 抓取读数在退出后仍可读（宿主 subprocess 契约）：失败时把它挑成一句人话再上抛，
   // 上层按既有 message 通道给面板；挑不到就是空串，形状与从前一致。
-  if (outcome.timedOut || outcome.exitCode !== 0) {
-    throw withDetail(withExit(fail('install-failed'), outcome.exitCode), causeExcerptOf(collectedOutputOf(handle)))
-  }
-  return outcome.exitCode
+  if (code !== 0) throw withDetail(withExit(fail('install-failed'), code), readOutput())
+  return code
 }
 
 /**
