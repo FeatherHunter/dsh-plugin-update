@@ -145,9 +145,9 @@ export function thrownIsCheckExpired(err: unknown): boolean {
 
 // ---------- 复制前脱敏（#24 单源收敛：规则唯一源是 src/redaction.ts） ----------
 //
-// 面板不再自存一份 PANEL_* 镜像：脱敏五条规则、顺序、占位符、丢弃语义、落刀语义
+// 面板不再自存一份 PANEL_* 镜像：脱敏五条规则、顺序、占位符、遮蔽语义、落刀语义
 // 全部由 redaction 纯核定义（零 Node 导入，宿主/面板同缝），此处只转调。
-// 统一丢弃语义：URL 用户信息命中即整项丢弃（返空串），非遮蔽；
+// 统一遮蔽语义（#198）：URL 用户信息只遮盖 userinfo 段，其余原文保留，并追加固定中文说明；
 // file:/// 三斜杠缺口显式 known-gap（见 redaction.KNOWN_GAP_FILE_URL_PREFIX），原样放过不静默修。
 
 /** 诊断复制预算（单源：值取 redaction.COPY_BUDGET_CHARS，此处只转出口，老名保留兼容）。 */

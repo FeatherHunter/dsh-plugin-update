@@ -316,7 +316,7 @@ function hoistCauseLines(text: string): string {
   }
 }
 
-/** 人话摘要格：永远是字符串，压平空白、脱敏、300 字封顶；命中 URL 用户信息即整项丢弃（回空=省略）。
+/** 人话摘要格：永远是字符串，压平空白、脱敏、300 字封顶；URL 用户信息只遮盖 userinfo、保留其余原文（#198）。
  * #66 入字典单语（§7.1 19 行，271/273/274 复用电话表 key，其余走 diag.fallback.*）：分支只认稳定码，lang 缺省 zh 零回归。 */
 function pickDetail(errorCode: string, error: unknown, httpStatus: number | null, phoneKind?: string, lang?: AppLang | string | null): string | null {
   try {

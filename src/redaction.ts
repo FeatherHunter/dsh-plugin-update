@@ -1,19 +1,22 @@
 /**
  * src/redaction.ts —— 失败详情脱敏规则表（#19，承接 #6；#24 单源收敛）。
  *
- * 五条具名规则，顺序固定。处理方式只有两种：替换成占位符，或丢弃整项。
+ * 五条具名规则，顺序固定。处理方式只有一种：把能机械定位的秘密片段替换成占位符。
  * 判据是机械的：秘密片段的起止能否被规则无歧义定位（与 #5 风险序一致：误导 > 缺失）。
  *
  * - 绝对路径 → 替换为 `<路径>`（#5 冻结，不动）。路径终止于空白，起止唯一。
- * - URL 用户信息（scheme://user:pass@）→ 丢弃整项。密码自身可能含 `@`，起止不唯一。
+ * - URL 用户信息（scheme://user:pass@）→ 只把 userinfo 段替换为 `<脱敏>`，其余原样保留
+ *   （#198：整项丢弃会把隐私遮盖做成信息湮灭）。真动过刀时末尾追加一条固定中文说明，
+ *   既声明原话被改写，也给下一步；这同时回应 ADR-0001 决策 2 否掉替换的理由——「替换后
+ *   无法区分原话」，说明让被改写过的文本可区分。
  * - 令牌前缀（npm / GitHub / sk / Bearer 形状）→ 替换为 `<脱敏>`。
  * - 密码键值对（token / password / api_key / cookie 形状）→ 替换为 `<脱敏>`（保留键名与分隔符，只换值）。
  * - 邮箱 → 替换为 `<脱敏>`。
  *
  * 只有两个占位符：`<路径>` 与 `<脱敏>`。不为每种秘密建一套分类学。
  *
- * 处理顺序固定为：压平空白 → URL 用户信息（命中即整项丢弃）→ 路径 → 令牌 → 键值对 → 邮箱
- * → 空白边界封顶（封顶后不再扫描）。顺序的目的是输出确定性（同一输入两次运行逐字节相同），
+ * 处理顺序固定为：压平空白 → URL 用户信息（只遮盖 userinfo）→ 路径 → 令牌 → 键值对 → 邮箱
+ * → 空白边界封顶（封顶后不再扫描；遮蔽说明占尾部预算）。顺序的目的是输出确定性（同一输入两次运行逐字节相同），
  * 封顶在脱敏之后，且封顶之后不再扫描。
  *
  * 本模块是唯一的规则源（#24 单源收敛）：宿主侧（store.ts 经 sanitizeDetail）与面板侧
@@ -86,8 +89,21 @@ export const ENDORSED_REGISTRY_HOSTS = ['registry.npmjs.org'] as const
 const ABSOLUTE_PATH_RE =
   /[A-Za-z]:\\[^\s"']*|\\\\[^\s"'()\[\];]+|(^|[\s"'(\[=,])\/\/[^\s"'()\[\];]+|(^|[\s"'(\[=:,])\/(?!\/)[^\s"'()\[\];]+/g
 
-/** URL 用户信息探测（R_URL_USERINFO）：scheme:// 后、第一个 `/` 前出现 `@` 即命中，整项丢弃。 */
+/** URL 用户信息探测（R_URL_USERINFO）：scheme:// 后、第一个 `/` 前出现 `@` 即命中。 */
 const URL_USERINFO_RE = /[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s/]*@/
+
+/**
+ * 遮蔽落刀（R_URL_USERINFO）：边界取 `scheme://` 之后、首个 `/` 前的**最后一个 `@`**——
+ * 密码自身含 `@` 时最后一个 `@` 左侧整段仍是 userinfo，按此整段遮盖不漏；
+ * 第一个捕获组保留 `scheme://`，`@` 保留，host/端口/路径/查询串原样。
+ */
+const URL_USERINFO_MASK_RE = /([A-Za-z][A-Za-z0-9+.-]*:\/\/)[^\s/]*@/g
+
+/**
+ * 遮蔽 userinfo 后追加的固定说明（#198）：一句声明「原话被改写过」，一句给下一步。
+ * 只在规则真的动过刀时出现——原文在前、建议在后，且占尾部预算、总长仍守封顶。
+ */
+export const MASKED_CREDENTIAL_NOTE = '（原话里的账号密码已隐去；请核对源地址里的凭据后重试）'
 
 /**
  * 令牌前缀（R_TOKEN）：npm / GitHub / sk / Bearer 四形状。
@@ -148,9 +164,11 @@ function applyEmailRule(text: string): string {
   return text.replace(EMAIL_RE, REDACTED_SECRET)
 }
 
-function hasUserinfo(text: string): boolean {
-  URL_USERINFO_RE.lastIndex = 0
-  return URL_USERINFO_RE.test(text)
+/** 命中则只遮盖 userinfo 段：返回新文本与「是否动过刀」（说明只在动过刀时追加）。 */
+function applyUserinfoRule(text: string): { text: string; masked: boolean } {
+  if (!URL_USERINFO_RE.test(text)) return { text, masked: false }
+  URL_USERINFO_MASK_RE.lastIndex = 0
+  return { text: text.replace(URL_USERINFO_MASK_RE, `$1${REDACTED_SECRET}@`), masked: true }
 }
 
 /**
@@ -180,33 +198,48 @@ function truncateForCopy(text: string): string {
   return truncateToWordBoundary(text, COPY_BUDGET_CHARS)
 }
 
+/**
+ * 遮蔽说明 + 封顶：说明永远在末尾（原文在前、建议在后）；先给说明留位置，
+ * 原文其余部分在空白边界落刀，保证总长 ≤ budget 且占位符不被拦腰切断。
+ */
+function truncateWithMaskNote(text: string, budget: number): string {
+  const room = budget - MASKED_CREDENTIAL_NOTE.length - 1
+  if (room <= 0) return MASKED_CREDENTIAL_NOTE
+  const head = truncateToWordBoundary(text, room)
+  return head ? `${head}；${MASKED_CREDENTIAL_NOTE}` : MASKED_CREDENTIAL_NOTE
+}
+
 function scrubWithoutBudget(text: string): string {
   return applyEmailRule(applyCredPairRule(applyTokenRule(applyPathRule(text))))
 }
 
 /**
- * 把外面世界的脏错误收成一行：压平空白 → URL 用户信息（命中整项丢弃）→ 路径 → 令牌
+ * 把外面世界的脏错误收成一行：压平空白 → URL 用户信息（只遮盖 userinfo）→ 路径 → 令牌
  * → 键值对 → 邮箱 → 300 字封顶（封顶后不再扫描）。
- * URL 用户信息命中时丢弃整项（返回空串）：密码自身可能含 `@`，起止不唯一，
- * 替换会把一次泄漏变成一次静默的错（证据被销毁），丢弃至少看得出。
+ * 遮蔽后原话其余部分保留，末尾追加固定说明（MASKED_CREDENTIAL_NOTE）。
+ * 整项丢弃（#19 原语义）在真机上把隐私遮盖做成了信息湮灭：#198 审计 F6 的详情只剩
+ * 裸短码 `install-failed: operation-error`，用户定位不了失败，也看不出原文被改写过。
+ * 改成「原文保留 + 显式声明 + 中文下一步」后两头都补上。
  */
 export function sanitizeDetail(text: string): string {
   const flat = flattenWhitespace(text)
   if (!flat) return ''
-  if (hasUserinfo(flat)) return ''
-  return truncateDetail(scrubWithoutBudget(flat))
+  const userinfo = applyUserinfoRule(flat)
+  const scrubbed = scrubWithoutBudget(userinfo.text)
+  return userinfo.masked ? truncateWithMaskNote(scrubbed, DETAIL_MAX_CHARS) : truncateDetail(scrubbed)
 }
 
 /**
  * 复制前把一行文本收干净（#24 单源：与 sanitizeDetail 同规则同顺序，只换 1500 预算）。
- * 确定性：同一输入两次运行逐字节相同。URL 用户信息同样整项丢弃（返空串），
- * 调用方（panel.ts buildDiagnosticText）对空串回落到稳定码，不静默。
+ * 确定性：同一输入两次运行逐字节相同。URL 用户信息同样只遮盖 userinfo、保留其余原文，
+ * 并追加同一句固定说明（#198）；不再整项丢弃，复制出去的诊断仍可定位。
  */
 export function sanitizeForCopy(text: unknown): string {
   const flat = flattenWhitespace(String(text ?? ''))
   if (!flat) return ''
-  if (hasUserinfo(flat)) return ''
-  return truncateForCopy(scrubWithoutBudget(flat))
+  const userinfo = applyUserinfoRule(flat)
+  const scrubbed = scrubWithoutBudget(userinfo.text)
+  return userinfo.masked ? truncateWithMaskNote(scrubbed, COPY_BUDGET_CHARS) : truncateForCopy(scrubbed)
 }
 
 /**

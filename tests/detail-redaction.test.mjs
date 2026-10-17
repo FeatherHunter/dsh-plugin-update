@@ -66,7 +66,7 @@ describe('路径规则新增形状（UNC 反斜杠 / 权限拒绝）必须掩掉
 })
 
 describe('路径规则不误伤（只管路径规则不越界）', () => {
-  // 带用户信息的 URL 属于待丢弃形状，不写进本组——否则等于把待修泄漏钉成期望值（见 #19）。
+  // 带用户信息的 URL 属 #198 的「只遮盖」形状，不写进本组（本组只管路径规则不越界）。
   const CASES = [
     ['分数', 'ratio 1/2 of users', '1/2'],
     ['散文斜杠', 'and/or', 'and/or'],
@@ -83,20 +83,32 @@ describe('路径规则不误伤（只管路径规则不越界）', () => {
   }
 })
 
-describe('URL 用户信息命中时整项丢弃（退到 code 本身）', () => {
+describe('URL 用户信息只遮盖凭据段，保留可定位原文（#198）', () => {
   const CASES = [
-    ['普通用户信息', 'GET https://user:s3cret@registry.example.com/pkg failed', ['user', 's3cret', 'registry.example.com']],
-    ['密码自身含 @', 'GET https://user:p@ss@example.com/foo failed', ['user', 'example.com']],
-    ['私源凭据', 'npm ERR! 401 https://admin:hunter2@mirror.corp.example.com/dsh-plugin-update', ['admin', 'hunter2', 'corp.example.com']],
+    ['普通用户信息', 'GET https://user:s3cret@registry.example.com/pkg failed', ['user', 's3cret'], 'registry.example.com'],
+    ['密码自身含 @', 'GET https://user:p@ss@example.com/foo failed', ['user', 'p@ss'], 'example.com'],
+    ['私源凭据', 'npm ERR! 401 https://admin:hunter2@mirror.corp.example.com/dsh-plugin-update', ['admin', 'hunter2'], 'corp.example.com'],
   ]
-  for (const [what, diagnostic, secrets] of CASES) {
+  for (const [what, diagnostic, secrets, host] of CASES) {
     it(what, async () => {
       const detail = await detailFor(diagnostic)
       for (const s of secrets) assert.ok(!detail.includes(s), `${s} 不该出现在详情里，实际：${detail}`)
-      assert.ok(!detail.includes('@') || detail === 'operation-error', `用户信息形状须消失，实际：${detail}`)
-      assert.match(detail, /operation-error/, '丢弃后退到 code 本身，看得出缺失而不是静默的错')
+      assert.match(detail, /https:\/\/<脱敏>@/, '凭据段换占位、scheme 与 @ 保留，仍读得出是 URL')
+      assert.ok(detail.includes(host), `${host} 保留，仍能回答哪家源失败`)
+      assert.ok(detail.includes('账号密码已隐去'), '遮蔽必须显式声明，不能静默改原文')
+      assert.ok(detail.includes('请核对源地址里的凭据后重试'), '末尾要有中文下一步')
+      assert.ok(detail.trim().endsWith('）'), `说明在末尾（原文在前·建议在后），实际：${detail}`)
+      assert.match(detail, /operation-error/, '仍带宿主码，看得出是哪一层的失败')
+      assert.ok(detail.length <= 301, `仍守 300 字封顶，实际 ${detail.length}`)
     })
   }
+  it('超长原文被遮蔽时说明仍在末尾、不越封顶', async () => {
+    const detail = await detailFor(`failed ${'word '.repeat(60)} https://user:s3cret@registry.example.com/pkg ${'tail '.repeat(60)}`)
+    assert.ok(detail.length <= 301, `实际 ${detail.length}`)
+    assert.ok(detail.trim().endsWith('）'), `说明须在末尾：${detail.slice(-40)}`)
+    assert.ok(detail.includes('账号密码已隐去'))
+    assertPlaceholdersIntact(detail)
+  })
 })
 
 describe('令牌前缀必须换成占位（URL 主机保留）', () => {
@@ -159,7 +171,7 @@ describe('载荷负向断言（每种失败场景都不带秘密形态）', () =
   const NASTY = [
     { diagnostic: "ENOENT: no such file or directory, open '/tmp/secret/data.json'", secrets: ['/tmp'] },
     { diagnostic: 'see \\\\server\\share\\file.txt now', secrets: ['server'] },
-    { diagnostic: 'GET https://user:s3cret@registry.example.com/pkg failed', secrets: ['user', 's3cret', 'registry.example.com'] },
+    { diagnostic: 'GET https://user:s3cret@registry.example.com/pkg failed', secrets: ['user', 's3cret'] },
     { diagnostic: 'npm ERR! 401 - npm_abc123XYZ456token789', secrets: ['npm_abc123XYZ456token789'] },
     { diagnostic: 'fatal: ghp_abc123DEF456ghi789jkl000 denied', secrets: ['ghp_abc123DEF456ghi789jkl000'] },
     { diagnostic: 'key sk-abc123XYZ456789qwerty invalid', secrets: ['sk-abc123XYZ456789qwerty'] },

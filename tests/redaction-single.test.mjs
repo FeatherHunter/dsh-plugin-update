@@ -126,19 +126,28 @@ describe('单源：面板只转调纯核，无镜像', () => {
   })
 })
 
-// ---------- 统一丢弃语义 ----------
+// ---------- 统一遮蔽语义（#198：只遮盖 userinfo，不再整项丢弃） ----------
 
-describe('统一丢弃语义：用户信息整项丢弃，非遮蔽', () => {
+describe('统一遮蔽语义：用户信息只遮盖凭据段，保留可定位原文（#198）', () => {
   const CASES = [
     'GET https://user:s3cret@registry.example.com/pkg failed',
     'GET https://user:p@ss@example.com/foo failed',
     'npm ERR! 401 https://admin:hunter2@mirror.corp.example.com/dsh-plugin-update',
   ]
+  const SECRETS = ['user', 's3cret', 'p@ss', 'admin', 'hunter2']
   for (const raw of CASES) {
-    it(`丢弃：${raw.slice(0, 32)}…`, () => {
-      assert.equal(sanitizeDetail(raw), '', '核侧整项丢弃返空串')
-      assert.equal(sanitizeForCopy(raw), '', '复制侧整项丢弃返空串')
-      assert.equal(redactForCopy(raw), '', '面板侧整项丢弃返空串（非遮蔽）')
+    it(`遮蔽：${raw.slice(0, 32)}…`, () => {
+      for (const fn of [sanitizeDetail, sanitizeForCopy, redactForCopy]) {
+        const out = fn(raw)
+        assert.notEqual(out, '', '不再整项丢弃：详情必须留下可定位原文')
+        assert.match(out, /https:\/\/<脱敏>@/, '凭据段换占位、scheme 与 @ 保留，仍读得出是 URL')
+        for (const s of SECRETS) assert.ok(!out.includes(s), `${s} 不得残留：${out}`)
+        assert.ok(out.includes('账号密码已隐去'), '遮蔽显式声明（回应 ADR 决策 2「替换后无法区分」）')
+        assert.ok(out.includes('请核对源地址里的凭据后重试'), '末尾要有中文下一步')
+        assert.ok(out.trim().endsWith('）'), `说明在末尾，实际：${out.slice(-40)}`)
+        assertPlaceholdersIntact(out)
+      }
+      assert.equal(redactForCopy(raw), sanitizeForCopy(raw), '两缝逐字一致')
     })
   }
 })

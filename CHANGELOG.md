@@ -9,14 +9,17 @@
 ### Fixed
 - **#197 同一颗「安装」按钮三种身份不可辨别**：查新版时由核心按「磁盘在场 + profile 清单登记 + 版本比较」判定安装身份，写进快照新增的 `identity` 格——`update`（磁盘装着旧版、清单在册：正常换版，官方桌面版走 remove→install，失败如实报）、`first-install`（磁盘没有、清单也没登记：**新增依赖的首次安装**，装完要重启宿主才会加载，不是换版）、`up-to-date`（磁盘已是远端这一版：直接说「已是最新」，不再发起一次注定空转/被拒的安装）。判定不了为 `null`（例如清单登记了但磁盘缺失——那是修复现场），**绝不冒充**「首次安装」。面板按身份给三张不同的脸与按钮文字（此前首次安装被说成「有新版本…（当前版本 未安装）」）。
 - 读取器在「目标包磁盘缺失」的早退分支也带上清单登记态（此前该分支把 `registered` 留成 `null`）：身份判定与 `includeEnv` 都靠它区分「新增依赖」与「登记了但磁盘缺失」。
+- **#198 带凭据 URL 触发时整条失败详情被丢弃**：脱敏规则对 URL 用户信息（`https://user:token@…`）原本「整项丢弃、退到裸短码」，实际详情只剩 `install-failed: operation-error`——用户看不到阶段 / 路由 / 宿主原话，也没有下一步（C 线 F6 探针 `probe-b.mjs` S6）。现在只把 userinfo 那段换成 `<脱敏>@`（`https://<脱敏>@mirror.example.com/pkg`），scheme / 主机 / 路径 / 查询与其余原文照旧保留；命中时在详情末尾追加「（原话里的账号密码已隐去；请核对源地址里的凭据后重试）」——原文在前、建议在后，且被替换过的文本与原样文本从此可区分（正面回应 ADR-0001 决策 2 的旧理由）。300 字 / 复制 1500 字预算与占位符（`<路径>` / `<脱敏>`）行为不变；`file:///` 这类定位不到的已知形状仍原样放过。
 
 ### Changed
 - 快照形状：七个核心字段 + `identity`（`#197` 起；字段只增不改，老调用方不读也能用）。README §5.1 / §9 同步；`tests/diag-phone.test.mjs`、`tests/phones.test.mjs`、`tests/queue.test.mjs` 的快照形状断言按新契约更新（八字段，属有意的公开形状扩展）。
 - README §5.3 修正过期口径：手工命令在范围名含空白 / `$`、反引号、引号、`&`、`;` 等 shell 元字符时**只省略、不给假命令**（`0.18.21` 起的实现；旧文写「会自动加引号」）。
 - 测试：新增 `tests/issue-197-install-identity.test.mjs` 6 例（三态身份 + 「未选中但装着」「登记但磁盘缺失」两种不可冒充形态 + 面板三张脸），对 `0.18.24` 源码实测 **6 红**，修后 6 绿。
+- 文档：`docs/adr/0001-diagnostics-redaction-boundary.md` 决策 2 修订——URL 用户信息由「整项丢弃」改为「只遮盖 userinfo 段」，并说明末尾说明句为何让「被替换」与「本来干净」可区分；`src/diag.ts`、`src/panel-copy.ts`、`src/store.ts` 的注释同步新语义。
+- 测试：`tests/detail-redaction.test.mjs` 与 `tests/redaction-single.test.mjs` 的「整项丢弃」断言改为「只遮盖 userinfo、保留可定位原文 + 末尾说明」；新增超长 fixture 断言（300 字截断后说明仍在末尾、占位符完整）；`tests/fixtures/bilingual/copy-baseline.json` 增加 `src/redaction.ts` 的新中文说明句。
 - **按用户要求本批不递增版本号**（`package.json` 仍 `0.18.24`）；实际发布时与 `0.18.8`～`0.18.24` 一起带走即可。
 
-门禁（非发版定格，主树实测）：`npm test` **1533 例：1532 过 / 0 失败 / 1 跳过**；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、357 个 key、16 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.24`，379.5 kB 压缩 / 1.3 MB 解包）。
+门禁（非发版定格，主树实测）：`npm test` **1534 例：1533 过 / 0 失败 / 1 跳过**；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、357 个 key、16 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.24`，381.2 kB 压缩 / 1.3 MB 解包）。
 
 ## [0.18.24] - 2026-10-18
 

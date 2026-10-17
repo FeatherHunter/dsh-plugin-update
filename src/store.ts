@@ -1525,8 +1525,8 @@ function detailText(error: unknown): string {
     const line = [code, said].filter(Boolean).join(': ')
     if (line) {
       const clean = sanitizeDetail(line)
-      // URL 用户信息命中时整项丢弃（回空串）：密码起止无法定位，替换会销毁证据；
-      // 此时退到 code 本身（安全短码），不把含凭据的原话带回来。
+      // 脱敏已改成「只遮盖 userinfo、保留其余原文 + 末尾声明」（#198），正常不会回空串。
+      // 仍留一道兜底：万一 line 被收成空，退到 code 本身，绝不把空详情当成功。
       if (clean) return clean
       if (code) return sanitizeDetail(code)
       return ''
