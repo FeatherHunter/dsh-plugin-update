@@ -7,8 +7,9 @@
  * 直接按 `installation-changed` 诚实拒绝，且**不启动安装**（不建作业、不调 runInstall）。
  *
  * 只测外部行为（`dist/host.js` 公开电话回包）：
- * 1. 查完新版后磁盘被别处换成了目标版（真机同款竞态）⇒ 拒绝、细节说明无需安装、runInstall 零调用；
- * 2. 对照：目标确实比已装版新 ⇒ 正常走安装并落到待重启。
+ * 1. 查完新版后磁盘被别处换成了目标版（真机同款竞态）⇒ 拒绝、细节说明无需安装、不建任务、runInstall 零调用；
+ * 2. 过了入口哨兵、等锁期间磁盘被换成目标版（锁后重读竞态）⇒ 同样拒绝且不启动安装；
+ * 3. 对照：目标确实比已装版新 ⇒ 正常走安装并落到待重启。
  */
 import { describe, it, beforeEach, after } from 'node:test'
 import assert from 'node:assert/strict'
@@ -72,9 +73,10 @@ function fakeLatest(remoteVersion) {
 
 /**
  * 建宿主：运行版与磁盘已装版同号（检查期状态自洽），远端最新 `remote`；
- * `apply` 记录安装真的被调起的次数并改盘。
+ * `apply` 记录安装真的被调起的次数并改盘。`mutateOnRefetch` 让第 2 次取远端时把磁盘换成目标版，
+ * 用来复现「过了入口哨兵、等锁/重取期间磁盘被别处换成了目标版」的竞态。
  */
-function makeHost({ installed, remote }) {
+function makeHost({ installed, remote, mutateOnRefetch = false }) {
   const profileDir = mkdtempSync(join(tmpdir(), 'dpu-202-'))
   tmpRoots.push(profileDir)
   writeJson(join(profileDir, 'package.json'), {
@@ -84,6 +86,8 @@ function makeHost({ installed, remote }) {
   })
   makeTargetPackage(join(profileDir, 'node_modules', TARGET), installed)
   const runCalls = []
+  let fetches = 0
+  const latest = fakeLatest(remote)
   const host = createHostUpdate(
     {
       logCtx: { fire: () => {} },
@@ -93,7 +97,11 @@ function makeHost({ installed, remote }) {
         profileDir,
         profileName: 'desktop',
         homeDir: profileDir,
-        fetchImpl: fakeLatest(remote),
+        fetchImpl: async (url) => {
+          fetches += 1
+          if (mutateOnRefetch && fetches === 2) makeTargetPackage(join(profileDir, 'node_modules', TARGET), remote)
+          return latest(url)
+        },
         now: () => 1_000_000,
         randomId: () => `id-${runCalls.length + 1}`,
         nodeVersion: '22.0.0',
@@ -142,8 +150,24 @@ describe('#202 空更新哨兵：目标与已装版相同不启动安装', () =>
     })
     assert.equal(out.ok, false)
     assert.equal(out.error, 'installation-changed')
-    assert.match(JSON.stringify(out), /无需安装/)
+    assert.equal(out.diag && out.diag.detail, '目标版本与已装版本相同，无需安装', '失败详情必须精确说明「无需安装」')
+    assert.equal('snapshot' in out, false, '空更新不建任务：失败回包不该带快照')
     assert.deepEqual(runCalls, [], '空更新绝不能真的调起安装')
+  })
+
+  it('过了入口哨兵、等锁期间磁盘被换成目标版 ⇒ 锁后重读仍拒绝，且不启动安装', async () => {
+    const { host, runCalls } = makeHost({ installed: '0.3.53', remote: '0.3.54', mutateOnRefetch: true })
+    const check = await host.handlers['issue202.updateCheck']({})
+    assert.equal(check.ok, true)
+    const out = await host.handlers['issue202.updateInstall']({
+      checkId: check.receipt.checkId,
+      requestId: 'req-noop-race-1',
+    })
+    assert.equal(out.ok, false)
+    assert.equal(out.error, 'installation-changed')
+    assert.equal(out.diag && out.diag.detail, '目标版本与已装版本相同，无需安装')
+    assert.equal('snapshot' in out, false, '空更新不该留下作业')
+    assert.deepEqual(runCalls, [], '竞态下也不能真的调起安装')
   })
 
   it('对照：目标确实比已装版新 ⇒ 正常走安装并落到待重启', async () => {

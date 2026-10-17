@@ -6,6 +6,22 @@
 
 ## [Unreleased]
 
+## [0.18.19] - 2026-10-18
+
+### Fixed
+- **#201 / #202 / #180 的 Standards 轴审查跟进**：
+  1. **载体 CLI 命令收成单源**：原来三处人话格各拼一份，移除超时/重装失败两处硬编码 `--profile desktop`、都缺 `--save-exact` 与 `--registry=`、使用范围名含空格时不加引号。现在统一由 `carrierAddCommand(范围名, spec, 源)` 产出，形状与 `src/commands.ts` 的 `manualCommand` 一致（`add --save-exact <包>@<版本> --registry=<源>`，范围名按 shell 需要加引号），三处共用。
+  2. **空更新哨兵补锁后重读（#202）**：等锁期间磁盘被别处换成目标版时，原实现先撞安装指纹闸门报 `installation-changed`；现在锁后重读环境先判「目标=已装 ⇒ 没东西可装」，与入口哨兵同口径（放在指纹闸门之前，最诚实的事实优先）。
+  3. **`ManagerBundleTopology` 收窄**：删掉从未被读取的 `installed` 格；`listBundles()` 只认宿主证据里出现过的「直接回数组」形状（无证据的 `{ bundles: [...] }` 包装不再猜，形状不符即退回旧两步）。
+
+### Changed
+- `README.md`：§9 的 `registered` 冻结文本补 `0.18.18` 语义收窄条款（形状不变、语义=「登记不许倒退」）；§5.9 把 `not-removable` 改称「人话格原因（对外错误码仍是 `install-failed`）」；兜底口径改准确（无 `listBundles` ⇒ 退回老两步盲删，而不是「宁可诚实失败也不盲删」）。
+- `docs/host-install-exits.md`：出口二的超时额度表述从「三步共用」改为「四条宿主调用（首装、启用、移除、重装）共用一个额度」。
+- 测试：`tests/issue-202-noop-install.test.mjs` 新增「过了入口哨兵、等锁期间磁盘被换成目标版」竞态用例（现 3 例）；失败回包断言从 `JSON.stringify` 松匹配改为精确 `diag.detail`，并断言不建任务（回包不带快照）。
+- **发布口径提醒**：`0.18.8`～`0.18.19` 十二段都还没发到 npm（registry 最新仍是 `0.18.7`），发版以 `0.18.19` 一次带走即可。
+
+门禁（**发版定格**）：`npm test` **1500 例：1499 过 / 0 失败 / 1 跳过**（干净发版树 + 本批 8 个文件上实测）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、354 个 key、16 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.19`，369.2 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（354 个 key 仍全是 `draft: true`）。
+
 ## [0.18.18] - 2026-10-18
 
 ### Fixed

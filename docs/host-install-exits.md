@@ -73,8 +73,8 @@
     所以回包同样是 `ChangeResult`（`application` 三态判成败）。HMR 开着时它反而**不受**
     `startedBundles` 那圈限制（`:2142` 的守卫以 `hmr === void 0` 为前提）。
   - 本包政策（2026-10-17 起）：只在 `already-installed` 这个码上做「先移除、再用**新** `requestId` 装一次」，
-    其余失败一律不碰移除；拿不到包名或宿主没有 `removeBundle` 就照旧诚实失败；三步共用配方里那**一个**
-    超时额度（每步只领剩下的），总上界不因多一步放宽。
+    其余失败一律不碰移除；拿不到包名或宿主没有 `removeBundle` 就照旧诚实失败；四条宿主调用
+    （首装、启用、移除、重装）共用配方里那**一个**超时额度（每步只领剩下的），总上界不因多一步放宽。
   - **移除前先探拓扑（2026-10-18，#201）**：宿主 `removeBundle` 的拒绝次序是「先 `removable`、再
     `enabled ? deselect+reload : 什么都不做`、最后查活 fiber 是否还在用」。真机十一件里有六件
     （`dsh-chef` / `dsh-home-ilife` / `dsh-memo-ilife` / `dsh-schedule-ilife` / `dsh-calorie` /

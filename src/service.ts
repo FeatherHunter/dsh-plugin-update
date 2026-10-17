@@ -786,6 +786,9 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       const current = await fetchRelease()
       if (JSON.stringify(current) !== JSON.stringify(checked.release)) throw updateError('check-expired')
       env = await ports.readInstalled()
+      // 锁后重读的环境再判一次空更新（#202）：锁前判过，但等锁期间磁盘版本可能被别处换成了
+      // 目标版。放在 installationKey 闸门之前——此刻最诚实的事实是「没东西可装」，不是位置变了。
+      refuseNoopInstall(checked.release.version, env)
       if (env.installationKey !== checked.installationKey) throw updateError('installation-changed')
       if (!env.eligible || env.blockedReason) throw updateError(env.blockedReason ?? 'update-busy')
       // 前版本保真（#186）：记下「动手之前」磁盘上的版本，供 before.json 与恢复诊断对照。

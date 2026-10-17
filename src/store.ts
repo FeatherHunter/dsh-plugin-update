@@ -1723,28 +1723,21 @@ function managerSaidAlreadyInstalled(result: ManagerChangeResult): boolean {
 }
 
 /**
- * 管理器 `listBundles()` 的包拓扑（本包只需三格，其余一律不看）：
+ * 管理器 `listBundles()` 的包拓扑（本包只需两格，其余一律不看）：
  * - `enabled`：是否在 `dsh.profile.bundles` 选中名单里——宿主只对选中的 bundle 做卸载重载；
- * - `installed`：是否作为依赖装着；
  * - `removable`：宿主是否允许移除。官方桌面版里第三方包的 `removable = installed && !shipped`。
  */
 interface ManagerBundleTopology {
   /** 选中名单成员；`null` 表示宿主这一版没给这格（不拿缺省当否，避免误改用户拓扑）。 */
   enabled: boolean | null
-  installed: boolean
   /** 是否允许移除；`null` 表示宿主没给这格（不拿缺省当拒绝，避免误报 `not-removable`）。 */
   removable: boolean | null
 }
 
-/** 老实现可能直接回数组、也可能回 `{ bundles: [...] }`；两种都认，别的形状当没有。 */
+/** 宿主证据只见过「直接回数组」一种形状；别的形状当没有（调用方退回旧两步，不猜）。 */
 function managerBundleRowsOf(said: unknown): Record<string, unknown>[] {
-  const rows = Array.isArray(said)
-    ? said
-    : said && typeof said === 'object' && Array.isArray((said as { bundles?: unknown }).bundles)
-      ? ((said as { bundles: unknown[] }).bundles as unknown[])
-      : null
-  if (rows === null) return []
-  return rows.filter((row): row is Record<string, unknown> => !!row && typeof row === 'object')
+  if (!Array.isArray(said)) return []
+  return said.filter((row): row is Record<string, unknown> => !!row && typeof row === 'object')
 }
 
 /**
@@ -1767,26 +1760,38 @@ async function probeManagerTopology(
   if (!row) return null
   // 三态归一：宿主明确给了布尔值才采信，缺格/异形一律 `null`（调用方只对明确的 false 动作）。
   const tri = (value: unknown): boolean | null => (typeof value === 'boolean' ? value : null)
-  return { enabled: tri(row.enabled), installed: row.installed === true, removable: tri(row.removable) }
+  return { enabled: tri(row.enabled), removable: tri(row.removable) }
+}
+
+/**
+ * 载体 CLI 的原位更新命令（官方桌面版自带 `dsh plugin --profile <名> …` 通道，参数逐字转给 pnpm）。
+ *
+ * 形状与 `src/commands.ts` 的 `manualCommand` 同源（`add --save-exact <包>@<版本> --registry=<源>`）：
+ * 管理器配方自己的 `pluginArgs` 只有「add + spec」两个元素（它不接受开关），所以这里按包名与源
+ * 重新拼成命令行能直接执行的形状；源未知时不附 `--registry=`（用户也可自行去掉）。
+ * 管理器路的三处人话格（启用缺失、移除超时、重装失败）共用这一份实现，避免各行拼出不同命令。
+ */
+function carrierAddCommand(profileName: string, spec: string, registry: string | null): string {
+  const arg = /^[A-Za-z0-9_.-]+$/.test(profileName) ? profileName : JSON.stringify(profileName)
+  const source = registry ? ` --registry=${registry}` : ''
+  return `dsh plugin --profile ${arg} add --save-exact ${spec}${source}`
 }
 
 /**
  * 管理器通道明确走不通时，把载体 CLI 的原位更新命令补在宿主原话之后（原文在前、建议在后）。
- * 使用范围名按调用方给的来（缺省即官方桌面版的 `desktop`），命令形状与本包手工命令一致。
  */
 function withManagerRetryHint(
   error: Error & { detail?: string },
   result: ManagerChangeResult,
-  spec: string,
-  profileArg: string
+  command: string
 ): Error & { detail?: string } {
   const code = managerCodeOf(result)
   if (!MANAGER_ROUTE_BLOCKED_CODES.has(code)) return error
-  const command = ` (dsh plugin --profile ${profileArg} add --save-exact ${spec})`
+  const suffix = ` (${command})`
   const said = typeof error.detail === 'string' ? error.detail : ''
-  const room = DETAIL_MAX_CHARS - command.length - 1
+  const room = DETAIL_MAX_CHARS - suffix.length - 1
   const head = room > 0 && said.length > room ? said.slice(0, room) : said
-  return withDetail(error, head ? `${head}${command}` : command.trim())
+  return withDetail(error, head ? `${head}${suffix}` : suffix.trim())
 }
 
 /**
@@ -1834,8 +1839,8 @@ function withManagerHint(result: ManagerChangeResult, said: string): string {
  * 移除已成功、重装却没成（失败或超时）：在宿主原话之后补「目标包已被摘掉」这条事实与一条
  * 一定能用的重装命令（#168）。原文在前、本包补记在后，总长仍守 DETAIL_MAX_CHARS。
  */
-function withRemovalFact(error: Error & { detail?: string }, spec: string): Error & { detail?: string } {
-  const fact = `${REINSTALL_AFTER_REMOVAL_DETAIL} (dsh plugin --profile desktop add --save-exact ${spec})`
+function withRemovalFact(error: Error & { detail?: string }, command: string): Error & { detail?: string } {
+  const fact = `${REINSTALL_AFTER_REMOVAL_DETAIL} (${command})`
   const said = typeof error.detail === 'string' ? error.detail : ''
   const room = DETAIL_MAX_CHARS - fact.length - 1
   const head = room > 0 && said.length > room ? said.slice(0, room) : said
@@ -1853,9 +1858,10 @@ function withRemovalFact(error: Error & { detail?: string }, spec: string): Erro
  * 更新一个已在册的包要按宿主自己的 two-step 配方走：HMR 宿主里 `installBundle` 对已装包在跑
  * pnpm 之前就同步拒绝 `already-installed`（宿主自己的 next-step 表：先移除再装），本包若只调
  * `installBundle`，更新就永远停在这句拒绝上。所以命中这个拒绝时先按包名 removeBundle，再带新
- * requestId 装一次；别的失败一律不碰移除。三步共用配方里的一个超时额度，总上界不因多一步放宽。
+ * requestId 装一次；别的失败一律不碰移除。四条宿主调用（首装、启用、移除、重装）共用配方里的
+ * 一个超时额度，总上界不因多一步放宽。
  */
-async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: number }, parts: ExecutorParts): Promise<number | null> {
+async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): Promise<number | null> {
   try {
     const manager = part(parts.pluginManager ?? null) as {
       installBundle?: (spec: string, options: { requestId: string; registry?: string }) => unknown
@@ -1871,9 +1877,20 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
     const installBundle = manager.installBundle
     const spec = managerSpecOf(recipe.pluginArgs)
     if (!spec) throw fail('install-failed')
+    // 使用范围名取配方自己的（`installRecipe` 已在入口归一过），注入值只作老调用形状的兜底。
     const profileName = part(parts.profileName ?? null)
-    const profileArg = typeof profileName === 'string' && profileName ? profileName : 'desktop'
+    const profileArg =
+      typeof recipe.profileName === 'string' && recipe.profileName
+        ? recipe.profileName
+        : typeof profileName === 'string' && profileName
+          ? profileName
+          : 'desktop'
     const registry = part(parts.registryUrl ?? '') as unknown
+    const carrierCommand = carrierAddCommand(
+      profileArg,
+      spec,
+      typeof registry === 'string' && registry ? registry : null
+    )
     // 源不进参数数组（管理器不吃开关），走它自己的 registry 选项，取同一个注入值；
     // 没人注入源就不传，由管理器用自己的源策略（宿主路径总会注入，默认即官方源）。
     const optionsFor = (requestId: string): { requestId: string; registry?: string } => {
@@ -1881,7 +1898,7 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
       if (typeof registry === 'string' && registry) options.registry = registry
       return options
     }
-    // 一个配方额度管三步（装／移除／重装）：每步只领剩下的，领完给 1ms 让 raceManager 走自己的超时收场。
+    // 一个配方额度管四条宿主调用（首装／启用／移除／重装）：每步只领剩下的，领完给 1ms 让 raceManager 走自己的超时收场。
     const budgetMs = typeof recipe.timeoutMs === 'number' && recipe.timeoutMs > 0 ? recipe.timeoutMs : 0
     const deadline = budgetMs > 0 ? Date.now() + budgetMs : 0
     const stepTimeoutMs = (): number => (budgetMs > 0 ? Math.max(1, deadline - Date.now()) : recipe.timeoutMs)
@@ -1932,7 +1949,7 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
       const failure = fail('install-failed')
       const rawCode = result && result.packageResult ? result.packageResult.exitCode : undefined
       const coded = typeof rawCode === 'number' && Number.isInteger(rawCode) ? withExit(failure, rawCode) : failure
-      return withManagerRetryHint(withDetail(coded, withManagerHint(result, said)), result, spec, profileArg)
+      return withManagerRetryHint(withDetail(coded, withManagerHint(result, said)), result, carrierCommand)
     }
     let result = await installOnce()
     let application = result && typeof result.application === 'string' ? result.application : ''
@@ -1946,6 +1963,8 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
       // `bundle-in-use`（2–3ms 就回），两步配方永远走不完。所以先探拓扑：不可移除就诚实拒绝；
       // 未选中就先用宿主能力恢复选中，再按常规两步走。老宿主没有探测/启用能力时退回旧行为。
       const topology = await probeManagerTopology(manager, targetName)
+      // 这两个码宿主在这条路径上没回过话，是包侧按宿主语义给的推断原因；人话格会照常
+      // 拼「宿主原话不够用 → 本包建议」，不冒充宿主原话。
       if (topology !== null && topology.removable === false) {
         throw failureOf({ application: 'failed', error: { code: 'not-removable' } }, 'failed')
       }
@@ -1963,16 +1982,16 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
       // 移除步刻意不请求取消；超时意味着「可能已经摘掉了、但没来得及重装」（#184）——要当场说清并给下一步。
       // 这一步的「手工命令」面板里可能拿不到（目标已不在 dependencies，读取器会判成源码安装、不给命令），
       // 所以把这条桌面 CLI 一定能用的重装命令直接写进人话格（spec = 包名@目标版本）。
-      const removalTimeoutDetail = `${REMOVE_TIMEOUT_DETAIL} (dsh plugin --profile desktop add --save-exact ${spec})`
+      const removalTimeoutDetail = `${REMOVE_TIMEOUT_DETAIL} (${carrierCommand})`
       const removing = Promise.resolve(removeBundle.call(manager, targetName)) as Promise<ManagerChangeResult>
       const removed = await finishCall(removing, async () => 'not-running', removalTimeoutDetail)
       const removalApplication = removed && typeof removed.application === 'string' ? removed.application : ''
       if (!MANAGER_OK.includes(removalApplication)) throw failureOf(removed, removalApplication)
       result = await installOnce().catch((error) => {
-        throw withRemovalFact(error as Error & { detail?: string }, spec)
+        throw withRemovalFact(error as Error & { detail?: string }, carrierCommand)
       })
       application = result && typeof result.application === 'string' ? result.application : ''
-      if (!MANAGER_OK.includes(application)) throw withRemovalFact(failureOf(result, application), spec)
+      if (!MANAGER_OK.includes(application)) throw withRemovalFact(failureOf(result, application), carrierCommand)
     }
     return 0
   } catch (error) {

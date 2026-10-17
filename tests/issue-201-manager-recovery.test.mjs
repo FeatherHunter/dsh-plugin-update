@@ -12,7 +12,8 @@
  * 2. 已选中 ⇒ 不碰选中名单，直接 remove→install（旧行为不变）；
  * 3. 不可移除 ⇒ 不调 remove，诚实失败，细节带宿主码 + 中文下一步 + 载体 CLI 命令；
  * 4. 宿主没有 `listBundles`（老宿主）⇒ 退回旧两步，成功；
- * 5. 有探测但没 `setBundleEnabled` ⇒ 不调 remove，诚实失败并在细节里给手工命令。
+ * 5. 有探测但没 `setBundleEnabled` ⇒ 不调 remove，诚实失败并在细节里给手工命令；
+ * 6. 清单行缺 `enabled` / `removable` 格（异形老宿主形状）⇒ 不拿缺省当否，退回旧两步。
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
