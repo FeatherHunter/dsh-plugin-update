@@ -6,6 +6,21 @@
 
 ## [Unreleased]
 
+## [0.18.16] - 2026-10-18
+
+### Added
+- **更新器自检：面板知道自己现在跑的是哪一份副本（#196，S1，审查 D 线部署偏斜）**：同一台机器上本包可能有多份副本（使用范围级、各消费方 `node_modules` 里的嵌套副本、开发仓库），而修复只随版本走——面板里看到的故障可能来自一份旧副本，用户与集成方都无从分辨。现在（`src/self.ts`）从 `import.meta.url` 定位包根读出版本号与层级（`profile` 使用范围级 / `nested` 消费方嵌套 / `repo` 开发仓库 / `unknown`），并经 `includeEnv` 的环境视图多带两格：`updaterVersion`、`updaterCopyLevel`（不回任何路径）。面板据此：① dialog 页脚显示 ASCII 身份 `dsh-plugin-update@<版本> (<层级>)`；② 「复制诊断」在「宿主」行后多一行「更新器=版本（层级）」（健康态与失败态都带，旧覆盖实现不给则整行省略）；③ 05 章手工命令在嵌套副本时追加一句「本面板的更新器是嵌套副本（版本），被声明它的插件钉住；请先更新该插件，或运行：`dsh plugin --profile <使用范围> add --save-exact dsh-plugin-update@latest`」（使用范围级不画这行）。
+- **发布侧依赖治理（#196，`docs/maintainers.md` 新增「发布侧依赖治理」节）**：记录已知消费方的声明范围快照（`dsh-opencode-palette@2.0.28 → ^0.13.0` 钉死旧 minor、`dsh-life-pack`/`dsh-mattpocock-skills-deck → ^0.18.6`、`dsh-im-companion → 精确 0.18.7`）、建议范围 `^0.18.0`（0.x 的 caret 只锁 minor）、以及「本包不能从面板升级嵌套副本，必须先由消费方发版抬范围或用户走载体 CLI」的边界。
+
+### Changed
+- 测试：新增 `tests/issue-196-self-copy.test.mjs`（12 例，先红后绿——未修树红基线是 `ERR_MODULE_NOT_FOUND dist/self.js`，覆盖层级判据四态、真实 dist 自检、嵌套/使用范围两级在面板与诊断里的表现、`includeEnv` 两格、页脚身份、05 章命令只在嵌套时出现）。
+- `tests/panel-prototype-skeleton.test.mjs`：`includeEnv` 期望补 `updaterVersion`（随 `package.json` 动态读）与 `updaterCopyLevel: 'repo'`。
+- `src/bilingual.ts`：+2 key（`panel.manual.updater-nested`、`panel.diag.copy.field.updater`，`en`/`zh` 成对），字典 353 key；`tests/fixtures/bilingual/strings.snapshot.json` 同步 +2 key（--update-snapshot）。
+- `README.md` §9：形状扩展补 `0.18.16` 两格环境字段与面板渲染选项 `updater`、兼容扩展清单同步、新增「给消费方插件的依赖声明建议」段。
+- **发布口径提醒**：`0.18.8`～`0.18.16` 九段都还没发到 npm（registry 最新仍是 `0.18.7`），发版时以 `0.18.16` 一次带走即可。
+
+门禁（**发版定格**）：`npm test` **1488 例：1487 过 / 0 失败 / 1 跳过**（干净发版树 `02307ec` + 本批 12 个文件上实测；本批新增 12 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、353 个 key、16 错误码、19 diag 键，违规 0；本批新增 2 key、零新增散落中文）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.16`，364.1 kB 压缩 / 1.3 MB 解包；比上版多 2 个文件 = `dist/self.js` + `dist/self.d.ts`）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（353 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
+
 ## [0.18.15] - 2026-10-18
 
 ### Fixed

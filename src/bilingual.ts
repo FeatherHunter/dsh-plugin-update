@@ -201,6 +201,7 @@ export type BilingualKey =
   | 'panel.error.log-follow'
   | 'panel.manual.heading'
   | 'panel.manual.absent'
+  | 'panel.manual.updater-nested'
   | 'panel.footer.note'
   | 'panel.footer.close'
   | 'panel.footer.close-title'
@@ -234,6 +235,7 @@ export type BilingualKey =
   | 'panel.diag.copy.field.request'
   | 'panel.diag.copy.field.check'
   | 'panel.diag.copy.field.queue'
+  | 'panel.diag.copy.field.updater'
   | 'panel.diag.copy.field.target'
   | 'panel.diag.copy.line.summary'
   | 'panel.diag.copy.line.remedy'
@@ -567,6 +569,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.error.log-follow': { en: 'Match the request/check IDs above in {eFail}; baseline timing in {eCall}, execution result in {eExec}.', zh: '凭上方请求／检查编号在 {eFail} 中匹配；基线耗时请查看 {eCall}，执行结果请查看 {eExec}。', draft: true },
   'panel.manual.heading': { en: 'Manual fallback command (copy the full line to run):', zh: '手工备用命令（请复制整行执行）：', draft: true },
   'panel.manual.absent': { en: 'No manual command available (unrecognized scope or source install).', zh: '当前没有可用的手工命令（使用范围无法识别或源码安装场景不提供）。', draft: true },
+  'panel.manual.updater-nested': { en: 'This panel runs a nested copy of the updater ({version}) pinned by the plugin that declares it; update that plugin first, or run: {command}', zh: '本面板的更新器是嵌套副本（{version}），被声明它的插件钉住；请先更新该插件，或运行：{command}', draft: true },
   'panel.footer.note': { en: 'Closing never interrupts updates; come back anytime', zh: '关闭窗口，更新不受影响，可随时返回查看。', draft: true },
   'panel.footer.close': { en: 'Close', zh: '关闭', draft: true },
   'panel.footer.close-title': { en: 'Close the window; updates keep running', zh: '关闭窗口，更新不受影响', draft: true },
@@ -600,6 +603,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.diag.copy.field.request': { en: 'Request={request}', zh: '请求={request}', draft: true },
   'panel.diag.copy.field.check': { en: 'Check={check}', zh: '检查={check}', draft: true },
   'panel.diag.copy.field.queue': { en: 'Queue={queue}', zh: '队列={queue}', draft: true },
+  'panel.diag.copy.field.updater': { en: 'Updater={version} ({level})', zh: '更新器={version}（{level}）', draft: true },
   'panel.diag.copy.field.target': { en: 'Target={version}', zh: '目标={version}', draft: true },
   'panel.diag.copy.line.summary': { en: 'Summary={summary}', zh: '摘要={summary}', draft: true },
   'panel.diag.copy.line.remedy': { en: 'Remedy={remedy}', zh: '怎么办={remedy}', draft: true },

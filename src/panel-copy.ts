@@ -182,8 +182,31 @@ export interface PanelDiagnosticInput {
   /** 显式来源（diag 没有时用；有 diag 时显式优先，缺省仍说人话，不留白）。 */
   route?: string | null
   checkId?: string | null
+  /**
+   * 更新器自检（#196 部署偏斜）：本面板实际加载到的本包副本版本与层级。
+   * 缺省即老调用——输出一字不差（不掺空字段）；给了才多一格「更新器=版本（层级）」。
+   */
+  updater?: UpdaterSelfView | null
   /** 渲染语言（#63 单语：缺省 zh 零回归；挂载态传 currentLang，纯函数直调可显式传 en/zh）。 */
   lang?: AppLang | string | null
+}
+
+/** 更新器自检格（#196）：版本与副本层级；两格都可被旧调用省略。 */
+export interface UpdaterSelfView {
+  version?: unknown
+  level?: unknown
+}
+
+/**
+ * 更新器自检格：有版本才出（没版本不编造），层级缺省 unknown。
+ * 层级 token（profile / nested / repo / unknown）是机读事实，不翻译；标签走字典。
+ */
+function updaterFieldText(updater: UpdaterSelfView | null | undefined, lang: AppLang): string | null {
+  if (!updater || typeof updater !== 'object') return null
+  const version = typeof updater.version === 'string' && updater.version.trim() ? updater.version.trim() : null
+  if (!version) return null
+  const level = typeof updater.level === 'string' && updater.level.trim() ? updater.level.trim() : 'unknown'
+  return copyText('panel.diag.copy.field.updater', lang, { version, level })
 }
 
 /** 组出一段自包含诊断（调用方直接拿去粘工单/issue；粘之前已脱敏，不必手检；#63 入字典单语，lang 缺省 zh 零回归）。 */
@@ -206,6 +229,9 @@ export function buildDiagnosticText(input: PanelDiagnosticInput, langOverride?: 
   const hostLine = [copyText('panel.diag.label.host', l, { host: input.hostKind ?? unknown })]
   if (typeof input.profileName === 'string' && input.profileName) hostLine.push(copyText('panel.diag.label.profile', l, { profile: input.profileName }))
   hostLine.push(copyText('panel.diag.label.queue', l, { queue }))
+  // #196：更新器自检格只在调用方给了版本时出现（老调用输出一字不差）。
+  const updaterLine = updaterFieldText(input.updater, l)
+  if (updaterLine) hostLine.push(updaterLine)
   lines.push(hostLine.join(' / ') + (input.requestId ? ` / ${copyText('panel.diag.label.request', l, { requestId: input.requestId })}` : ''))
   const manual = redactForCopy(input.manual ?? '')
   if (manual) lines.push(copyText('panel.diag.label.manual', l, { manual }))
@@ -417,6 +443,9 @@ export function buildUpdateDiagCopy(input: UpdateDiagCopyInput, langOverride?: A
   if (typeof requestRaw === 'string' && requestRaw.trim()) prov.push(copyText('panel.diag.copy.field.request', l, { request: requestRaw.trim() }))
   if (typeof checkRaw === 'string' && checkRaw.trim()) prov.push(copyText('panel.diag.copy.field.check', l, { check: checkRaw.trim() }))
   prov.push(copyText('panel.diag.copy.field.queue', l, { queue }))
+  // #196 部署偏斜：来源行补「更新器=版本（层级）」，缺省省略（老调用/未知副本不编）。
+  const updaterText = updaterFieldText((input as { updater?: UpdaterSelfView | null }).updater, l)
+  if (updaterText) prov.push(updaterText)
   const format: DiagCopyFormat = (input as { format?: unknown }).format === 'line' ? 'line' : 'block'
   const provLine = redactForCopy(prov.join(' · '))
   if (format === 'line') {
@@ -453,6 +482,8 @@ export interface HealthyDiagCopyInput {
   profileName: string | null
   requestId: string | null
   checkId: string | null
+  /** 更新器自检（#196）：本面板加载到的本包副本版本与层级；缺省即老输出不变。 */
+  updater?: UpdaterSelfView | null
   format?: DiagCopyFormat
   lang?: AppLang | string | null
 }
@@ -473,6 +504,9 @@ export function buildHealthyDiagCopy(input: HealthyDiagCopyInput): string {
   ]
   if (input.requestId) envBits.push(`请求=${input.requestId}`)
   if (input.checkId) envBits.push(`检查=${input.checkId}`)
+  // #196 部署偏斜：健康态也报「更新器=版本（层级）」，缺省省略（老调用一字不差）。
+  const updaterLine = updaterFieldText(input.updater, l)
+  if (updaterLine) envBits.push(updaterLine)
   const segs = [
     `[update-diag] 当前无失败：${stateLine}`,
     `版本：运行 ${input.runningVersion}／磁盘 ${input.installedVersion ?? '未知'}／远端 ${input.latestVersion ?? '未查过'}`,

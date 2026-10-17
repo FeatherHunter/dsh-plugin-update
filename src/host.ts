@@ -38,6 +38,7 @@ import { updateLogRouter } from './log/router.js'
 import { createPendingSink, sinkFromLogCtx, type LogSink } from './log/sink.js'
 import { withLogTrace } from './log/trace.js'
 import { fetchNpmVersionRelease, isVersionAllowedInChannel, updateError, validReleaseVersion, validRequestId } from './service.js'
+import { selfCopyInfo, type SelfCopyInfo, type SelfCopyLevel } from './self.js'
 import { createUpdateDiskPorts, createUpdateExecutor, createUpdateQueuePorts } from './store.js'
 import { createUpdateReader, defaultHomeDir, resolveProfileName, resolveTargetPackage } from './reader.js'
 import { resolveRegistryHost } from './redaction.js'
@@ -625,6 +626,21 @@ export interface PhoneEnvView {
    * null=旧读取器/旧覆盖实现没给这格，按未知（面板不据此判失败）。
    */
   registered: boolean | null
+  /**
+   * 更新器自检（#196 部署偏斜）：这块面板实际加载到的本包副本版本与层级。
+   * 同机可能并存使用范围级 / 消费方嵌套的多代副本，同一动作行为不同，先看这两格对账；
+   * 只给版本与层级，**不回本机路径**（路径留在宿主日志/诊断里，电话形状不带目录）。
+   */
+  updaterVersion: string | null
+  updaterCopyLevel: SelfCopyLevel
+}
+
+/** 更新器自检缓存：整个宿主生命周期内只算一次（模块加载地址定死，不会变）。 */
+let selfCopyInfoPromise: Promise<SelfCopyInfo> | null = null
+
+function currentSelfCopy(): Promise<SelfCopyInfo> {
+  selfCopyInfoPromise ??= selfCopyInfo()
+  return selfCopyInfoPromise
 }
 
 async function readEnvForPanel(reader: { readEnv?: () => Promise<unknown> }): Promise<PhoneEnvView | null> {
@@ -632,10 +648,13 @@ async function readEnvForPanel(reader: { readEnv?: () => Promise<unknown> }): Pr
     if (typeof reader.readEnv !== 'function') return null
     const env = (await reader.readEnv()) as { profileName?: unknown; environmentKind?: unknown; registered?: unknown } | null
     if (!env || typeof env !== 'object') return null
+    const self = await currentSelfCopy().catch(() => null)
     return {
       profileName: typeof env.profileName === 'string' && env.profileName ? env.profileName : null,
       environmentKind: typeof env.environmentKind === 'string' && env.environmentKind ? env.environmentKind : null,
       registered: typeof env.registered === 'boolean' ? env.registered : null,
+      updaterVersion: self && self.version ? self.version : null,
+      updaterCopyLevel: self ? self.level : 'unknown',
     }
   } catch {
     return null

@@ -1202,6 +1202,11 @@
       "zh": "目标={version}",
       "draft": true
     },
+    "panel.diag.copy.field.updater": {
+      "en": "Updater={version} ({level})",
+      "zh": "更新器={version}（{level}）",
+      "draft": true
+    },
     "panel.diag.copy.field.version": {
       "en": "Version={run}→{inst}",
       "zh": "版本={run}→{inst}",
@@ -1450,6 +1455,11 @@
     "panel.manual.heading": {
       "en": "Manual fallback command (copy the full line to run):",
       "zh": "手工备用命令（请复制整行执行）：",
+      "draft": true
+    },
+    "panel.manual.updater-nested": {
+      "en": "This panel runs a nested copy of the updater ({version}) pinned by the plugin that declares it; update that plugin first, or run: {command}",
+      "zh": "本面板的更新器是嵌套副本（{version}），被声明它的插件钉住；请先更新该插件，或运行：{command}",
       "draft": true
     },
     "panel.masthead.kicker": {

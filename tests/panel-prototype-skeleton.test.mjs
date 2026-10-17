@@ -12,11 +12,13 @@
  */
 import { beforeEach, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { UPDATE_PANEL_CSS, UPDATE_PANEL_ARCHIVE_CSS, mountUpdatePanel, renderUpdatePanelHTML } from '../dist/panel.js'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
 
 const TARGET = 'demo-plugin'
 const REGISTRY = 'https://registry.npmjs.org/'
+const PKG_VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version
 
 function baseSnapshot(overrides = {}) {
   return {
@@ -224,7 +226,14 @@ describe('宿主：includeEnv 才带使用范围，老调用形状不变', () =>
     const out = await host.handlers['demo.updateStatus']({ includeEnv: true })
     assert.equal(out.ok, true)
     // registered：该用例的旧覆盖实现不给这格（旧读取器行为）⇒ 按未知 null 转发，面板不据此判失败。
-    assert.deepEqual(out.env, { profileName: 'web', environmentKind: 'cli', registered: null })
+    // updater*：更新器自检（#196）——本仓 dist 跑 = 开发仓库层，版本随 package.json，不编造。
+    assert.deepEqual(out.env, {
+      profileName: 'web',
+      environmentKind: 'cli',
+      registered: null,
+      updaterVersion: PKG_VERSION,
+      updaterCopyLevel: 'repo',
+    })
     assert.ok(!JSON.stringify(out.env).includes('C:'), '使用范围一栏不得带本机路径')
   })
 

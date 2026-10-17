@@ -56,6 +56,14 @@ npm publish
 
 本包唯一的运行期依赖是 `dsh-log@^0.3.4`（决策见 `docs/adr/0005-dsh-log-as-first-runtime-dependency.md`）。下限跟着链上下文抬过一档：`store.trace()` 要 `0.3.3` 起，`0.3.4` 起启动头幂等且记 `os`（见 CHANGELOG 的 `0.16.4` 节）。纪律：**只有 `src/log/**` 能碰它**，而且是按需动态取（拿不到就降级，绝不外抛）；`tests/gate.test.mjs` 递归扫 `src/` 全树，别处出现 `dsh-log` 或任何别家外部包即红。
 
+### 发布侧依赖治理（`0.18.16` 起，#196）
+
+部署偏斜的根子在**消费方声明的范围**：同一台机器上会有使用范围级副本 + 各消费方 `node_modules` 里的嵌套副本；消费方把本包声明成 `^0.13.0` 这类旧 minor 时，`^0.13.0` 只允许 0.13.x，**我们发多少版它都不会加载**（面板里看到的故障来自那份旧副本，不是新发出去的版本）。发布前按 checklist 核一遍消费方声明：
+
+- 已知消费方（2026-10-18 快照，随对方发版更新）：`dsh-opencode-palette@2.0.28 → ^0.13.0`（钉死 0.13.x，最危险）、`dsh-life-pack@0.3.66 → ^0.18.6`、`dsh-mattpocock-skills-deck@1.9.0-beta.2 → ^0.18.6`、`dsh-im-companion@0.2.12 → 精确 0.18.7`。
+- 建议范围：`^0.18.0`（或更新 minor）——0.x 的 caret 只锁 minor，写 `^0.18.0` 才能吃到 0.18.x 后续修复。精确版本也能用，但每次我们发版都要他们跟着发版才能升级。
+- 本包自己**不能**从面板里升级嵌套副本：先让消费方发版抬范围（或用户用载体 CLI 把本包装到使用范围级，见 README §9）。发布说明里点一句「嵌套副本的消费方需自行抬依赖范围」即可，不必逐家催。
+
 ## 发布面（npm 页 / GitHub 仓库页 / Release）
 
 读者见到的是三张脸，同一件事得同一句话：**npm 页**（`description` + `keywords` + tarball 里的 README）、**GitHub 仓库页**（About 的 description / homepage / topics，以及 Releases 页）、**用户手册**（README）。发版时按这个顺序对齐：
