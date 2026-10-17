@@ -21,7 +21,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, link, open, readFile, rename, realpath, stat, unlink, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { installRecipe } from './commands.js'
-import { BACKUP_FILE, LEGACY_PLUGIN_ID, LOCK_FILE, SKIPPED_FILE, STATE_FILE } from './config.js'
+import { BACKUP_FILE, DEFAULT_INSTALL_TIMEOUT_MS, LEGACY_PLUGIN_ID, LOCK_FILE, SKIPPED_FILE, STATE_FILE } from './config.js'
 import { emptyBatchSession, normalizeBatchSession, type BatchSession } from './batch.js'
 import { normalizeQueueState, type QueueOwner, type UpdateQueueState } from './queue.js'
 import { validReleaseVersion } from './service.js'
@@ -36,8 +36,6 @@ const LEGACY_DIR_PLUGIN = LEGACY_PLUGIN_ID
 
 const JOB_STATES = ['installing', 'verifying', 'restart-required', 'completed', 'failed', 'interrupted']
 const SNAPSHOT_FILES = ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']
-// 原子建锁依赖硬链接（#181）；不吃硬链接的盘（个别网络盘/FAT）退回 open(wx)+write，可用优先。
-const LOCK_LINK_FALLBACK_CODES = new Set(['EPERM', 'ENOSYS', 'ENOTSUP', 'EACCES'])
 
 function fail(code: string): Error & { code: string } {
   return Object.assign(new Error(code), { code })
@@ -94,6 +92,122 @@ function lockAgeMs(lock: Record<string, unknown> | null, nowMs: number): number 
   if (typeof startedAt !== 'number' || !Number.isFinite(startedAt) || startedAt <= 0) return undefined
   const age = nowMs - startedAt
   return Number.isFinite(age) && age >= 0 ? age : undefined
+}
+
+// ---- 锁位判据（#181）：安装锁（按插件）与跨插件全局锁共用同一套「时间 + 可解析性」 ----
+
+/** 锁位此刻的样子：在不在、认不认得出主人、以及判「还是不是刚才那一代」用的 mtime 与大小。 */
+interface LockProbe {
+  present: boolean
+  owner: Record<string, unknown> | null
+  mtimeMs: number | undefined
+  size: number | undefined
+}
+
+/** 只有「盘不支持硬链接 / 权限受限」才退回原地创建；其余错误照旧上抛，由调用方记 `acquire-*`。 */
+const LOCK_LINK_FALLBACK_CODES = new Set(['EACCES', 'EMLINK', 'ENOSYS', 'ENOTSUP', 'EPERM', 'EXDEV'])
+
+/**
+ * 原子建锁（#181）：先写同目录临时文件，再 `link` 到锁位——`link` 在目标已存在时回 `EEXIST`，天然互斥；
+ * 锁位于是要么不存在、要么是完整内容（具备硬链接的文件系统上），不再有「`open(wx)` 后、写内容前崩溃」的空锁。
+ * 不吃硬链接的盘退回原地 `open(wx)` + 写（形态退化回旧版的空文件窗口，可用优先）；降级本身按调用方的
+ * `acquire-*` 动作留痕（失败必须留痕，但不因此拒绝安装）。
+ * 返回 `false` 只表示「锁被占」；其余真故障上抛。
+ */
+async function createLockAtomically(
+  lockPath: string,
+  directory: string,
+  payload: string,
+  onFallback: (error: unknown) => void
+): Promise<boolean> {
+  const temporary = join(directory, `${LOCK_FILE}.${randomUUID()}.tmp`)
+  try {
+    await writeFile(temporary, payload, { mode: 0o600 })
+    await link(temporary, lockPath)
+    return true
+  } catch (error) {
+    const code = (error as { code?: string }).code
+    if (code === 'EEXIST') return false
+    if (code && LOCK_LINK_FALLBACK_CODES.has(code)) {
+      onFallback(error)
+      try {
+        const handle = await open(lockPath, 'wx', 0o600)
+        try {
+          await handle.writeFile(payload)
+        } finally {
+          await handle.close()
+        }
+        return true
+      } catch (fallbackError) {
+        if ((fallbackError as { code?: string }).code === 'EEXIST') return false
+        throw fallbackError
+      }
+    }
+    throw error
+  } finally {
+    await unlink(temporary).catch(() => {})
+  }
+}
+
+/**
+ * 读锁位（#181 判据的另一半）：先读内容再 `stat`——读坏时用的是「之后」的 mtime，方向保守（宁可判新鲜）。
+ * 可解析且是对象才算「读得到主人」；空文件/半截 JSON/内容 `null` 一律当不可解析，年龄退回 mtime。
+ * 读失败按 `onReadFail` 留痕后当「占着但认不出主人」，交给时间列判。
+ */
+async function probeLockFile(
+  lockPath: string,
+  readOf: (filename: string) => Promise<string>,
+  statOf: (filename: string) => Promise<{ size: number; mtimeMs?: number }>,
+  onReadFail: (error: unknown) => void
+): Promise<LockProbe> {
+  let raw: string | null = null
+  let readMissing = false
+  try {
+    raw = await readOf(lockPath)
+  } catch (error) {
+    if (isMissingFileError(error)) readMissing = true
+    else onReadFail(error)
+  }
+  let mtimeMs: number | undefined
+  let size: number | undefined
+  let statMissing = false
+  try {
+    const info = await statOf(lockPath)
+    mtimeMs = typeof info.mtimeMs === 'number' ? info.mtimeMs : undefined
+    size = typeof info.size === 'number' ? info.size : undefined
+  } catch (error) {
+    if (isMissingFileError(error)) statMissing = true
+    else onReadFail(error)
+  }
+  if (readMissing && statMissing) return { present: false, owner: null, mtimeMs: undefined, size: undefined }
+  let owner: Record<string, unknown> | null = null
+  if (raw !== null && raw !== '') {
+    try {
+      const parsed = JSON.parse(raw) as unknown
+      owner = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null
+    } catch (error) {
+      // 半截 JSON：真读故障，留痕；内容 null 不算读故障（可解析，只是认不出主人）。
+      onReadFail(error)
+    }
+  }
+  return { present: true, owner, mtimeMs, size }
+}
+
+/** 锁的年龄：可解析看 `startedAt`；不可解析/缺格退回 mtime；两条都判不了返回 undefined（保守拒）。 */
+function lockAgeOf(probe: LockProbe, nowMs: number): number | undefined {
+  return (probe.owner ? lockAgeMs(probe.owner, nowMs) : undefined) ?? (probe.mtimeMs === undefined ? undefined : nowMs - probe.mtimeMs)
+}
+
+/** 锁位还是不是刚才那一代（回收动手前的二次核对，缩小「判陈旧 → 删锁」之间被别人重建的竞态窗口）。 */
+function sameLockGeneration(before: LockProbe, after: LockProbe): boolean {
+  return (
+    before.present &&
+    after.present &&
+    before.mtimeMs !== undefined &&
+    before.size !== undefined &&
+    after.mtimeMs === before.mtimeMs &&
+    after.size === before.size
+  )
 }
 
 interface StoreLogPorts {
@@ -351,84 +465,43 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
     await mkdir(paths.directory, { recursive: true, mode: 0o700 })
     await writeJsonAtomic(paths.state, job, (error) => storeLog.fail('write-job', error))
   }
-  /** 抢锁的陈旧阈值：注入的安装额度优先；未注入时与跨插件全局锁同源（同一口径，改一处即可）。 */
+  /** 抢锁的陈旧阈值：注入的安装额度优先；未注入时退回 QUEUE_LOCK_STALE_MS（= 默认安装时限，同一口径）。 */
   function lockStaleMs(options: { timeoutMs?: number } = {}): number {
     const timeoutMs = options.timeoutMs
     return typeof timeoutMs === 'number' && Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : QUEUE_LOCK_STALE_MS
   }
-  /**
-   * 原子建锁（#181）：先写同目录临时文件，再 link 到锁位——link 在目标已存在时回 EEXIST，天然互斥；
-   * 锁位于是要么不存在、要么是完整内容，不会再有「open(wx) 后、写内容前崩溃」留下的空锁。
-   * 不吃硬链接的盘退回 open(wx)+write（形态退化回空文件窗口，可用优先）。
-   */
-  async function tryCreateLockFile(lockId: string): Promise<boolean> {
-    if (!paths) return false
-    const payload = JSON.stringify({ id: lockId, pid: process.pid, startedAt: Date.now() })
-    const temporary = join(paths.directory, `${LOCK_FILE}.${randomUUID()}.tmp`)
-    try {
-      await writeFile(temporary, payload, { mode: 0o600 })
-      await link(temporary, paths.lock)
-      return true
-    } catch (error) {
-      const code = (error as { code?: string }).code
-      if (code === 'EEXIST') return false
-      if (code && LOCK_LINK_FALLBACK_CODES.has(code)) {
-        try {
-          const handle = await open(paths.lock, 'wx', 0o600)
-          try {
-            await handle.writeFile(payload)
-          } finally {
-            await handle.close()
-          }
-          return true
-        } catch (fallbackError) {
-          if ((fallbackError as { code?: string }).code === 'EEXIST') return false
-          throw fallbackError
-        }
-      }
-      throw error
-    } finally {
-      await unlink(temporary).catch(() => {})
-    }
+  /** 安装锁的锁位视图（读失败记在当前动作 `acquire-lock` 上；`reclaim-stale-owner` 只留给真回收）。 */
+  function probeInstallLock(): Promise<LockProbe> {
+    return probeLockFile(
+      paths!.lock,
+      (filename) => readFile(filename, 'utf8'),
+      (filename) => stat(filename),
+      (error) => storeLog.fail('acquire-lock', error)
+    )
   }
-  /**
-   * 读锁位：可解析且是对象才算「读得到主人」；空文件/半截 JSON/内容 `null` 一律当不可解析，
-   * 年龄退回 mtime（#181 的判据：时间 + 可解析性，不再拿 state.json 的 id 当证据）。
-   */
-  async function readLockOwner(): Promise<{ present: boolean; owner: Record<string, unknown> | null; mtimeMs: number | undefined }> {
-    if (!paths) return { present: false, owner: null, mtimeMs: undefined }
-    let mtimeMs: number | undefined
-    try {
-      mtimeMs = (await stat(paths.lock)).mtimeMs
-    } catch (error) {
-      if (isMissingFileError(error)) return { present: false, owner: null, mtimeMs: undefined }
-      storeLog.fail('reclaim-stale-owner', error)
-      return { present: true, owner: null, mtimeMs: undefined }
-    }
-    try {
-      const parsed = JSON.parse(await readFile(paths.lock, 'utf8')) as unknown
-      const owner = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null
-      return { present: true, owner, mtimeMs }
-    } catch (error) {
-      if (isMissingFileError(error)) return { present: false, owner: null, mtimeMs: undefined }
-      // 空文件/半截 JSON/锁位被目录占着：不可解析但仍是「占着」，回收判据改看 mtime。
-      storeLog.fail('reclaim-stale-owner', error)
-      return { present: true, owner: null, mtimeMs }
-    }
+  function createInstallLock(lockId: string): Promise<boolean> {
+    const payload = JSON.stringify({ id: lockId, pid: process.pid, startedAt: Date.now() })
+    return createLockAtomically(paths!.lock, paths!.directory, payload, (error) => storeLog.fail('acquire-lock', error))
   }
   async function tryAcquireLock(lockId: string, options: { timeoutMs?: number } = {}): Promise<boolean> {
     if (!paths) return false
     const staleMs = lockStaleMs(options)
     try {
       await mkdir(paths.directory, { recursive: true, mode: 0o700 })
-      if (await tryCreateLockFile(lockId)) return true
-      const held = await readLockOwner()
-      if (!held.present) return tryCreateLockFile(lockId)
+      if (await createInstallLock(lockId)) return true
+      const held = await probeInstallLock()
+      // 锁刚被放掉（两次读之间消失）：直接再抢一次，不算回收。
+      if (!held.present) return createInstallLock(lockId)
       // 可解析看锁里记的 startedAt；不可解析/缺格退回 mtime；判不了年龄就按「别人正持有」拒（保守）。
-      const age =
-        (held.owner ? lockAgeMs(held.owner, Date.now()) : undefined) ??
-        (held.mtimeMs === undefined ? undefined : Date.now() - held.mtimeMs)
+      const age = lockAgeOf(held, Date.now())
       if (age === undefined || age <= staleMs) return false
+      // 二次核对：年龄仍超、且锁没被换过才动手——别人可能在「判陈旧 → 删锁」之间已经重建。
+      // 残余窗口（B 的删锁落在 A 的重建之后）在直接集成 createUpdateDiskPorts 时仍存在；宿主路径先拿
+      // 跨插件全局锁（src/host.ts:355-370），到不了这里。记在 #181 票面，不在本批扩大。
+      const again = await probeInstallLock()
+      if (!again.present) return createInstallLock(lockId)
+      const ageAgain = lockAgeOf(again, Date.now())
+      if (ageAgain === undefined || ageAgain <= staleMs || !sameLockGeneration(held, again)) return false
       try {
         await unlink(paths.lock)
       } catch (error) {
@@ -439,9 +512,9 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
         }
       }
       // 回收与建锁之间被别人抢先：认输（不递归重试，避免两个进程互摘）。
-      if (!(await tryCreateLockFile(lockId))) return false
+      if (!(await createInstallLock(lockId))) return false
       // 回收成功＝锁的主人早该收尾却没放（孤儿/陈旧）而这次真被摘掉：真边沿，年龄记判据来路。
-      storeLog.anomaly(LOCK_ANOMALY_STALE_OWNER, null, age)
+      storeLog.anomaly(LOCK_ANOMALY_STALE_OWNER, null, ageAgain)
       return true
     } catch (error) {
       // 非「占着」的真故障原来静默回 false（对调用方看起来就是「被别人占着」）：留一条痕。
@@ -508,8 +581,8 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
 export const QUEUE_DIR_SEGMENT = 'update-queue'
 export const QUEUE_FILE = 'queue.json'
 export const QUEUE_LOCK_FILE = 'global.lock'
-/** 全局锁陈旧回收默认口径：15 分钟（与安装时限同口径，调用方可按注入覆盖）。 */
-export const QUEUE_LOCK_STALE_MS = 15 * 60_000
+/** 全局锁陈旧回收默认口径：15 分钟（直接取安装时限默认值，两处口径单源；调用方可按注入覆盖）。 */
+export const QUEUE_LOCK_STALE_MS = DEFAULT_INSTALL_TIMEOUT_MS
 
 export interface UpdateQueuePaths {
   directory: string
@@ -530,7 +603,7 @@ export function queuePathsForUpdate(homeDir: string, profileDir: string): Update
 
 export interface QueuePortsDeps {
   readFileImpl?: (filename: string, encoding: string) => Promise<string>
-  statImpl?: (filename: string) => Promise<{ size: number }>
+  statImpl?: (filename: string) => Promise<{ size: number; mtimeMs?: number }>
   nowImpl?: () => number
   /**
    * 按当次动作方插件标识取发射口（#124，可选）：队列是跨插件共享的，所以这里不能要一个固定
@@ -668,6 +741,21 @@ export function createUpdateQueuePorts(
       return null
     }
   }
+  /** 全局锁的锁位视图（读失败记在 read-global-lock 上；reclaim-stale-owner 只留给真回收）。 */
+  function probeGlobalLock(actor: string): Promise<LockProbe> {
+    return probeLockFile(
+      paths!.lock,
+      (filename) => readText(filename, 'utf8'),
+      statFile,
+      (error) => storeLog.fail('read-global-lock', error, actor)
+    )
+  }
+  function createGlobalLock(lockId: string, pluginId: string): Promise<boolean> {
+    const payload = JSON.stringify({ id: lockId, pluginId, pid: process.pid, startedAt: now() })
+    return createLockAtomically(paths!.lock, paths!.directory, payload, (error) =>
+      storeLog.fail('acquire-global-lock', error, pluginId)
+    )
+  }
   async function tryAcquireGlobalLock(lockId: string, pluginId: string, opts: { timeoutMs?: number } = {}): Promise<boolean> {
     if (!paths) return false
     if (typeof lockId !== 'string' || !lockId || typeof pluginId !== 'string' || !pluginId) return false
@@ -677,42 +765,36 @@ export function createUpdateQueuePorts(
         : QUEUE_LOCK_STALE_MS
     try {
       await mkdir(paths.directory, { recursive: true, mode: 0o700 })
-      const handle = await open(paths.lock, 'wx', 0o600)
+      if (await createGlobalLock(lockId, pluginId)) return true
+      const held = await probeGlobalLock(pluginId)
+      // 锁刚被放掉（两次读之间消失）：直接再抢一次，不算回收。
+      if (!held.present) return createGlobalLock(lockId, pluginId)
+      // 与安装锁同一判据：可解析看 startedAt，不可解析/缺格退回 mtime，判不了年龄就保守拒。
+      const age = lockAgeOf(held, now())
+      if (age === undefined || age <= timeoutMs) return false
+      // 二次核对：别人可能在「判陈旧 → 删锁」之间已经重建（同安装锁的残余窗口，见 tryAcquireLock 注）。
+      const again = await probeGlobalLock(pluginId)
+      if (!again.present) return createGlobalLock(lockId, pluginId)
+      const ageAgain = lockAgeOf(again, now())
+      if (ageAgain === undefined || ageAgain <= timeoutMs || !sameLockGeneration(held, again)) return false
       try {
-        await handle.writeFile(JSON.stringify({ id: lockId, pluginId, pid: process.pid, startedAt: now() }))
-      } finally {
-        await handle.close()
+        await unlink(paths.lock)
+      } catch (error) {
+        if (!isMissingFileError(error)) {
+          storeLog.fail('reclaim-stale-owner', error, pluginId)
+          return false
+        }
       }
+      // 回收与建锁之间被别人抢先：认输（不递归重试，避免两个进程互摘）。
+      if (!(await createGlobalLock(lockId, pluginId))) return false
+      // 回收成功是真跃迁：陈旧主人被摘掉（lock.anomaly）＋锁到了我手里（queue.transition 的 reclaimed）。
+      storeLog.anomaly(LOCK_ANOMALY_STALE_OWNER, pluginId, ageAgain)
+      storeLog.transition('reclaimed', pluginId)
       return true
     } catch (error) {
-      if (!error || (error as { code?: string }).code !== 'EEXIST') {
-        // 非 EEXIST 的真故障原来静默回 false（对调用方看起来就是「有人在装」）：留一条痕。
-        storeLog.fail('acquire-global-lock', error, pluginId)
-        return false
-      }
-      // 占着：看是不是陈旧（持有者早该收尾却没放），陈旧才回收一次，不陈旧直接认输。
-      try {
-        const current = await readLockRaw(pluginId)
-        const startedAt = current && typeof current['startedAt'] === 'number' ? (current['startedAt'] as number) : 0
-        if (!current || now() - startedAt < timeoutMs) return false
-        const ageMs = lockAgeMs(current, now())
-        await unlink(paths.lock).catch((error: unknown) => {
-          if (!isMissingFileError(error)) storeLog.fail('reclaim-stale-owner', error, pluginId)
-        })
-        const handle = await open(paths.lock, 'wx', 0o600)
-        try {
-          await handle.writeFile(JSON.stringify({ id: lockId, pluginId, pid: process.pid, startedAt: now() }))
-        } finally {
-          await handle.close()
-        }
-        // 回收成功是真跃迁：陈旧主人被摘掉（lock.anomaly）＋锁到了我手里（queue.transition 的 reclaimed）。
-        storeLog.anomaly(LOCK_ANOMALY_STALE_OWNER, pluginId, ageMs)
-        storeLog.transition('reclaimed', pluginId)
-        return true
-      } catch (error) {
-        storeLog.fail('reclaim-stale-owner', error, pluginId)
-        return false
-      }
+      // 非「占着」的真故障原来静默回 false（对调用方看起来就是「有人在装」）：留一条痕。
+      storeLog.fail('acquire-global-lock', error, pluginId)
+      return false
     }
   }
   async function releaseGlobalLock(lockId: string): Promise<void> {
