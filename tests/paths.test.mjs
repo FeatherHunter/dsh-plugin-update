@@ -1,7 +1,7 @@
 /**
- * tests/paths.test.mjs —— 落盘目录派生、旧路径冻结、双读规则。
+ * tests/paths.test.mjs —— 落盘目录派生、旧路径冻结、按插件标识隔离（#203）。
  *
- * 只测外部行为：在落盘层断言新旧路径读写规则。不测内部私有常量与函数名。
+ * 只测外部行为：在落盘层断言路径派生与读写边界。不测内部私有常量与函数名。
  * 文件读写走真实临时目录（前缀隔离），不碰生产路径；网络与子进程一律不用。
  */
 import { describe, it, before, after } from 'node:test'
@@ -29,7 +29,7 @@ after(() => {
   rmSync(profileDir, { recursive: true, force: true })
 })
 
-describe('落盘执行器的目录派生与双读', () => {
+describe('落盘执行器的目录派生与按标识隔离', () => {
   it('目录按标识派生，三文件名不变', () => {
     const paths = pathsForUpdate(homeDir, 'my-plugin', profileDir)
     assert.equal(paths.directory, join(homeDir, 'updates', 'my-plugin', shortHash(profileDir)))
@@ -60,26 +60,25 @@ describe('落盘执行器的目录派生与双读', () => {
     assert.equal(await ports.readJob(), null)
   })
 
-  it('读走双读：新路径没有回退读旧路径', async () => {
-    // 先往旧影子写一份（模拟升级前的老用户资产）。
-    const legacyPorts = createUpdateDiskPorts(homeDir, 'dsh-mattpocock-skills-deck', profileDir)
-    const legacyJob = { id: 'legacy-job', state: 'failed', targetVersion: '0.9.0', message: 'install-failed', requestId: null }
-    await legacyPorts.writeJob(legacyJob)
-    // 新标识的端口读不到自己的新文件时，回退读到旧资产。
-    const ports = createUpdateDiskPorts(homeDir, 'brand-new-plugin', profileDir)
-    const fallback = await ports.readJob()
-    assert.equal(fallback.id, 'legacy-job')
-    // 新路径一旦有自己的文件，优先读新，不再回退。
+  it('#203：旧字面目录里的任务不会被别的插件标识回退采信', async () => {
+    // 旧字面目录恰好是默认标识自己的实时目录：里面放一份默认标识的任务。
+    const defaultPorts = createUpdateDiskPorts(homeDir, 'dsh-mattpocock-skills-deck', profileDir)
+    const defaultJob = { id: 'default-job', state: 'failed', targetVersion: '0.9.0', message: 'install-failed', requestId: null }
+    await defaultPorts.writeJob(defaultJob)
+    // 别家标识自己的新路径还没有文件时，不得回退读默认标识的目录（真机跨插件污染的来源）。
+    const otherPorts = createUpdateDiskPorts(homeDir, 'brand-new-plugin', profileDir)
+    assert.equal(await otherPorts.readJob(), null)
+    // 自己的任务照常读写，且旧字面目录里的别家任务一字不动。
     const ownJob = { id: 'own-job', state: 'failed', targetVersion: '1.0.0', message: 'install-failed', requestId: null }
-    await ports.writeJob(ownJob)
-    assert.equal((await ports.readJob()).id, 'own-job')
-    await ports.writeJob(null)
-    await legacyPorts.writeJob(null)
+    await otherPorts.writeJob(ownJob)
+    assert.equal((await otherPorts.readJob()).id, 'own-job')
+    assert.equal((await defaultPorts.readJob()).id, 'default-job')
+    await otherPorts.writeJob(null)
+    await defaultPorts.writeJob(null)
   })
 
-  it('旧标识自己的读写不受双读干扰（新旧同一目录）', async () => {
+  it('默认标识自己的读写只认自己目录（旧字面即其新路径）', async () => {
     const ports = createUpdateDiskPorts(homeDir, 'dsh-mattpocock-skills-deck', profileDir)
-    assert.equal(ports.legacyPaths, null)
     const job = { id: 'legacy-self', state: 'installing', targetVersion: '1.0.0', message: null, requestId: 'r' }
     await ports.writeJob(job)
     assert.equal((await ports.readJob()).id, 'legacy-self')

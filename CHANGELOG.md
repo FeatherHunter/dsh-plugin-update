@@ -6,6 +6,19 @@
 
 ## [Unreleased]
 
+## [0.18.22] - 2026-10-18
+
+### Fixed
+- **#203 状态落盘跨插件污染：取消旧字面目录的回退读取**：`createUpdateDiskPorts` 原来在「自己目录没有 `state.json`」时回退读冻结字面 `~/.dsh/updates/dsh-mattpocock-skills-deck/<指纹>`。新版里这个字面**就是默认标识自己的实时目录**：别的插件读到的其实是默认标识正在跑的任务，`healJob`（`restart-required`/`completed` 与自己的已装版对不上 ⇒ `interrupted` + `installation-changed`）顺手把它写回自己目录。真机证据（2026-10-18 01:25）：同一个 deck 任务（job id `aaf9ea32-…`、requestId `rmvco30gx8wcv9`、target `1.9.0-beta.4`）出现在 `life-life-pack`、`dsh-prompt`、`life-calorie` 三个目录，而三份 `before.json` 的 jobId 各不相同——证明它们没有各自跑过安装，只是读别家任务后回写。现在任务与锁都只读自己的新路径；冻结节文字面保留（`legacyPathsForUpdate` 只作迁移与诊断常量，不参与任何读写）。
+
+### Changed
+- 兼容说明：从旧版升级的**非默认标识**插件，旧字面目录里的历史任务不再被采信（那份目录现在是默认标识的实时目录，无法区分「自己的老任务」与「别家现任务」）；默认标识不受影响（旧字面即其新路径）。老版本已经污染出来的 `state.json` 无法自动识别归属（老文件没有插件标识字段），下次任务覆盖或手工删除即可。
+- `tests/paths.test.mjs`：「读走双读」契约改写为「旧字面不被别的标识采信」，并删除 `ports.legacyPaths` 断言。
+- 新增 `tests/issue-203-state-isolation.test.mjs`：真实磁盘端口、同一家目录与使用范围下的两个插件实例——①默认标识跑完的任务不被别家读成自己的（对 `0.18.21` 实测红：读到 deck 任务 `interrupted`/`installation-changed`、`previousVersion` 被补成 1.0.0）；②两个插件各自更新时同一 requestId 只落一个标识目录；③默认标识重启后仍读回自己目录的任务。
+- **发布口径提醒**：`0.18.8`～`0.18.22` 十五段都还没发到 npm（registry 最新仍是 `0.18.7`），发版以 `0.18.22` 一次带走即可。
+
+门禁（**发版定格**）：`npm test` **1515 例：1514 过 / 0 失败 / 1 跳过**（干净发版树 + 本批 6 个文件上实测）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、354 个 key、16 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.22`，373.1 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（354 个 key 仍全是 `draft: true`）。
+
 ## [0.18.21] - 2026-10-18
 
 ### Fixed

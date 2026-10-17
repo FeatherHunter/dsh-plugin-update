@@ -6,8 +6,9 @@
  *    三文件名保持 state.json、install.lock、before.json 不变。
  * 2. 默认旧路径冻结（第 14 条）：插件标识取旧值 dsh-mattpocock-skills-deck 时路径与旧原文
  *    一字不差——下面的旧字面是永久冻结特例，注释永不删除（动默认即破冰）。
- * 3. 读走双读、写只写新（第 7 条）：先读新路径，没有再回退读旧路径；写只写新路径，
- *    旧路径只读不写永久留作只读影子。旧文件不动，清理另票再议。
+ * 3. 只读自己的新路径（第 7 条，2026-10-18 #203 修订）：不再回退读旧路径。旧路径的冻结字面
+ *    恰好是默认标识自己的实时目录，别的插件回退读它只会读到**别家正在跑的任务**，heal 之后
+ *    又写回自己目录（真机跨插件污染）。旧文件不动，清理另票再议。
  * 4. 三处注入默认现状（第 4 条）：目标包名、官方源、安装时限经零件注入，默认值等于现状。
  * 5. 安装执行日志带必填插件标识（第 8、13 条）：update.install.exec 加完标识后 5 键为基线。
  *
@@ -313,7 +314,10 @@ export function pathsForUpdate(homeDir: string, pluginId: string, profileDir: st
   return { directory, state: join(directory, STATE_FILE), lock: join(directory, LOCK_FILE), backup: join(directory, BACKUP_FILE) }
 }
 
-/** 旧只读影子目录（规格 #591 第 7 条）：只读不写，永久留作回退读取用。 */
+/**
+ * 旧路径冻结字面（规格 #591 第 7 条，2026-10-18 #203 修订）：常量保留（迁移与诊断要能说出旧目录在哪），
+ * **不参与任何读写**——旧字面恰好是默认标识自己的实时目录，跨标识回退读会读到别家任务。
+ */
 export function legacyPathsForUpdate(homeDir: string, profileDir: string): UpdatePaths | null {
   // 旧字面永不删除：join(家目录, 'updates', 'dsh-mattpocock-skills-deck', 短指纹)。
   if (typeof homeDir !== 'string' || !homeDir || typeof profileDir !== 'string' || !profileDir) return null
@@ -364,11 +368,10 @@ export interface DiskPortsDeps {
 
 /**
  * 建任务存取与锁：调用方按当前插件标识建一份，转交核心当零件。
- * 读走双读（先新后旧），写只写新（旧影子只读不写）。
+ * 只读自己的新路径（#203：旧路径字面是默认标识的实时目录，跨标识回退读会串插件），写只写自己的。
  */
 export function createUpdateDiskPorts(homeDir: string, pluginId: string, profileDir: string, deps: DiskPortsDeps = {}): {
   paths: UpdatePaths | null
-  legacyPaths: UpdatePaths | null
   readJob: () => Promise<UpdateJob | null>
   writeJob: (job: UpdateJob | null) => Promise<void>
   tryAcquireLock: (lockId: string, options?: { timeoutMs?: number }) => Promise<boolean>
@@ -376,8 +379,6 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
   backupJob: (job: UpdateJob) => Promise<void>
 } {
   const paths = pathsForUpdate(homeDir, pluginId, profileDir)
-  // 旧标识自己的新路径就是旧路径：此时旧影子与新路径同一目录，不做重复回退。
-  const legacyPaths = pluginId === LEGACY_DIR_PLUGIN ? null : legacyPathsForUpdate(homeDir, profileDir)
   const readText = deps.readFileImpl ?? ((filename: string, encoding: string) => readFile(filename, encoding))
   const statFile = deps.statImpl ?? ((filename: string) => stat(filename))
   // 日志接线（#124）：不传 log 时下面每一条记账都是空转，行为与今天一字不差。
@@ -423,16 +424,6 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
       }
       return withPreviousVersion(paths, { requestId: null, message: null, ...job } as UpdateJob)
     }
-    // 新路径没有再回退读旧路径（只读影子，不触发回写）。
-    if (legacyPaths) {
-      const legacyJob = await readAt(legacyPaths)
-      if (legacyJob) {
-        if (!JOB_STATES.includes(String(legacyJob.state)) || typeof legacyJob.id !== 'string') {
-          return { id: 'corrupt', state: 'interrupted', message: 'recovery-required', targetVersion: null, requestId: null }
-        }
-        return withPreviousVersion(legacyPaths, { requestId: null, message: null, ...legacyJob } as UpdateJob)
-      }
-    }
     const lock = await readJsonGuarded(paths.lock, null).catch((error: unknown) => {
       // #181：半截/空锁（open-write 之间崩溃的形态）不该让整次状态读取失败。当「没有锁」，
       // 把「是否陈旧、要不要回收」留给抢锁那一步判；否则坏锁在快照层就永远 update-busy。
@@ -440,18 +431,9 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
       return null
     })
     if (lock) return { id: 'locked', state: 'interrupted', message: 'recovery-required', targetVersion: null, requestId: null }
-    if (legacyPaths) {
-      // 旧影子的锁读坏只当没有（原来静默吞）：记一条 store.fail，回参与行为不变。
-      const legacyLock = await readJsonGuarded(legacyPaths.lock, null).catch((error: unknown) => {
-        storeLog.fail('read-job', error)
-        return null
-      })
-      if (legacyLock) return { id: 'locked', state: 'interrupted', message: 'recovery-required', targetVersion: null, requestId: null }
-    }
     return null
   }
   async function writeJob(job: UpdateJob | null): Promise<void> {
-    // 写只写新路径：旧影子只读不写，永久保留。
     if (!paths) throw fail('install-failed')
     if (job === null) {
       await unlink(paths.state).catch((error: { code?: string }) => {
@@ -567,7 +549,7 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
       (error) => storeLog.fail('write-backup', error)
     )
   }
-  return { paths, legacyPaths, readJob, writeJob, tryAcquireLock, releaseLock, backupJob }
+  return { paths, readJob, writeJob, tryAcquireLock, releaseLock, backupJob }
 }
 
 /** 跨插件队列的共享落盘（#15，新增强制串行的归属与持久化，不碰按插件隔离的旧树）。
