@@ -1458,8 +1458,13 @@
       "draft": true
     },
     "panel.manual.updater-nested": {
-      "en": "This panel runs a nested copy of the updater ({version}) pinned by the plugin that declares it; update that plugin first, or run: {command}",
-      "zh": "本面板的更新器是嵌套副本（{version}），被声明它的插件钉住；请先更新该插件，或运行：{command}",
+      "en": "This panel runs a nested copy of the updater ({version}), pinned by the plugin that declares it; update that plugin first (this panel picks up a newer updater only after that plugin widens its range). You can also install the updater at the profile level with the carrier CLI so other plugins sharing that copy get the fixes first: {command}",
+      "zh": "本面板的更新器是嵌套副本（{version}），由声明它的插件钉住；请先更新那个插件（它发版抬了依赖范围后，本面板才会换新）。也可用载体命令行把更新器装到使用范围级，让共用那一份的其他插件先拿到修复：{command}",
+      "draft": true
+    },
+    "panel.manual.updater-nested-nocmd": {
+      "en": "This panel runs a nested copy of the updater ({version}), pinned by the plugin that declares it; update that plugin first (this panel picks up a newer updater only after that plugin widens its range).",
+      "zh": "本面板的更新器是嵌套副本（{version}），由声明它的插件钉住；请先更新那个插件（它发版抬了依赖范围后，本面板才会换新）。",
       "draft": true
     },
     "panel.masthead.kicker": {

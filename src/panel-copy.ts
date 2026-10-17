@@ -198,15 +198,27 @@ export interface UpdaterSelfView {
 }
 
 /**
- * 更新器自检格：有版本才出（没版本不编造），层级缺省 unknown。
- * 层级 token（profile / nested / repo / unknown）是机读事实，不翻译；标签走字典。
+ * 更新器自检两格的规范化（#196）：只认非空字符串版本（没有就不编造），层级缺省 unknown。
+ * 面板身份、诊断行、05 章嵌套指引共用这一份口径，避免三处各写一遍。
  */
-function updaterFieldText(updater: UpdaterSelfView | null | undefined, lang: AppLang): string | null {
+export function updaterPartsOf(
+  updater: UpdaterSelfView | null | undefined,
+): { version: string; level: string } | null {
   if (!updater || typeof updater !== 'object') return null
   const version = typeof updater.version === 'string' && updater.version.trim() ? updater.version.trim() : null
   if (!version) return null
   const level = typeof updater.level === 'string' && updater.level.trim() ? updater.level.trim() : 'unknown'
-  return copyText('panel.diag.copy.field.updater', lang, { version, level })
+  return { version, level }
+}
+
+/**
+ * 更新器自检格：有版本才出（没版本不编造），层级缺省 unknown。
+ * 层级 token（profile / nested / repo / unknown）是机读事实，不翻译；标签走字典。
+ */
+function updaterFieldText(updater: UpdaterSelfView | null | undefined, lang: AppLang): string | null {
+  const parts = updaterPartsOf(updater)
+  if (!parts) return null
+  return copyText('panel.diag.copy.field.updater', lang, { version: parts.version, level: parts.level })
 }
 
 /** 组出一段自包含诊断（调用方直接拿去粘工单/issue；粘之前已脱敏，不必手检；#63 入字典单语，lang 缺省 zh 零回归）。 */
@@ -423,7 +435,7 @@ export function buildUpdateDiagCopy(input: UpdateDiagCopyInput, langOverride?: A
   const requestRaw = (diag.requestId ?? input.requestId) as unknown
   const checkRaw = (diag.checkId ?? (input as { checkId?: unknown }).checkId) as unknown
   const queue = queueTextOf(input.queuePosition ?? null, l)
-  // 来源顺序固定：插件 → 版本 → 目标 → 宿主 → 使用范围 → 路由 → 阶段 → 方法 → HTTP/exit/耗时 → 源 → 建议 → 请求/检查 → 队列
+  // 来源顺序固定：插件 → 版本 → 目标 → 宿主 → 更新器 → 使用范围 → 路由 → 阶段 → 方法 → HTTP/exit/耗时 → 源 → 建议 → 请求/检查 → 队列
   // 缺省即省略：路由/请求/检查/目标等无值即不出现；插件/版本/宿主/使用范围/队列恒显；源缺省给人话。
   const prov: string[] = [copyText('panel.diag.copy.field.plugin', l, { plugin: pluginName }), copyText('panel.diag.copy.field.version', l, { run: runVer, inst: instVer })]
   const targetRaw = (input as { targetVersion?: unknown }).targetVersion

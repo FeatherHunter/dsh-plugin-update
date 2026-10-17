@@ -22,7 +22,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHostUpdate } from '../dist/host.js'
 import { renderUpdatePanelHTML } from '../dist/panel.js'
 import { buildHealthyDiagCopy, buildUpdateDiagCopy } from '../dist/panel-copy.js'
-import { selfCopyInfo, selfCopyLevelOf, selfUpgradeCommand } from '../dist/self.js'
+import { selfCopyInfo, selfCopyLevelOf } from '../dist/self.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const PKG_DIR = join(HERE, '..')
@@ -96,17 +96,6 @@ describe('selfCopyInfo：按模块地址（import.meta.url 口径）反查这一
     const broken = await selfCopyInfo('file:///D:/nope/nowhere/dist/self.js')
     assert.equal(broken.version, null)
     assert.equal(broken.level, 'unknown')
-  })
-})
-
-describe('selfUpgradeCommand：嵌套副本的可执行升级指引', () => {
-  it('给使用范围名就产出载体 CLI 重装命令；缺范围名不编命令', () => {
-    assert.equal(
-      selfUpgradeCommand('desktop'),
-      'dsh plugin --profile desktop add --save-exact dsh-plugin-update@latest',
-    )
-    assert.equal(selfUpgradeCommand(''), null)
-    assert.equal(selfUpgradeCommand(null), null)
   })
 })
 
@@ -238,12 +227,28 @@ describe('面板：页脚恒显更新器身份；嵌套副本在 05 章给可执
     const html = renderUpdatePanelHTML(inputFor({ updater: { version: '0.13.0', level: 'nested' } }))
     assert.ok(html.includes('dsh plugin --profile desktop add --save-exact dsh-plugin-update@latest'), html)
     assert.ok(html.includes('嵌套副本'), '要说清为什么升级不生效')
+    assert.ok(html.includes('请先更新那个插件'), '要先说清唯一真正能修好本面板副本的那一步')
+    assert.ok(html.includes('让共用那一份的其他插件先拿到修复'), 'CLI 一步只帮共用使用范围级副本的其他插件，不能冒充本面板的修复')
+  })
+
+  it('嵌套副本但不知道使用范围名：不画「或运行：」空命令，只说明升级路径', () => {
+    const html = renderUpdatePanelHTML(inputFor({ profileName: null, updater: { version: '0.13.0', level: 'nested' } }))
+    assert.ok(html.includes('嵌套副本'), '仍要说清为什么升级不生效')
+    assert.ok(!html.includes('dsh plugin --profile'), '没有范围名就不能编命令（假命令比没有更糟）')
+    assert.ok(!/或载体 CLI[^<]*$/.test(html), '不得留下指向空命令的半句话')
   })
 
   it('使用范围级副本：不冒充嵌套，不画升级指引', () => {
     const html = renderUpdatePanelHTML(inputFor({ updater: { version: '0.18.16', level: 'profile' } }))
     assert.ok(html.includes('dsh-plugin-update@0.18.16 (profile)'))
     assert.ok(!html.includes('dsh plugin --profile desktop add --save-exact dsh-plugin-update@latest'))
+  })
+
+  it('没有 footer 的形态（embedded）由 05 章兜底显示身份', () => {
+    const html = renderUpdatePanelHTML(inputFor({ mode: 'embedded', updater: { version: '0.18.16', level: 'repo' } }))
+    assert.ok(html.includes('dsh-upd-updater-id'), 'embedded 面板也要能看到本面板跑的是哪一份副本')
+    assert.ok(html.includes('dsh-plugin-update@0.18.16 (repo)'))
+    assert.ok(!html.includes('class="dsh-upd-updater-note"'), 'embedded 不画 dialog 专属的 footer 身份')
   })
 })
 

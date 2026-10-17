@@ -202,6 +202,7 @@ export type BilingualKey =
   | 'panel.manual.heading'
   | 'panel.manual.absent'
   | 'panel.manual.updater-nested'
+  | 'panel.manual.updater-nested-nocmd'
   | 'panel.footer.note'
   | 'panel.footer.close'
   | 'panel.footer.close-title'
@@ -569,7 +570,8 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.error.log-follow': { en: 'Match the request/check IDs above in {eFail}; baseline timing in {eCall}, execution result in {eExec}.', zh: '凭上方请求／检查编号在 {eFail} 中匹配；基线耗时请查看 {eCall}，执行结果请查看 {eExec}。', draft: true },
   'panel.manual.heading': { en: 'Manual fallback command (copy the full line to run):', zh: '手工备用命令（请复制整行执行）：', draft: true },
   'panel.manual.absent': { en: 'No manual command available (unrecognized scope or source install).', zh: '当前没有可用的手工命令（使用范围无法识别或源码安装场景不提供）。', draft: true },
-  'panel.manual.updater-nested': { en: 'This panel runs a nested copy of the updater ({version}) pinned by the plugin that declares it; update that plugin first, or run: {command}', zh: '本面板的更新器是嵌套副本（{version}），被声明它的插件钉住；请先更新该插件，或运行：{command}', draft: true },
+  'panel.manual.updater-nested': { en: 'This panel runs a nested copy of the updater ({version}), pinned by the plugin that declares it; update that plugin first (this panel picks up a newer updater only after that plugin widens its range). You can also install the updater at the profile level with the carrier CLI so other plugins sharing that copy get the fixes first: {command}', zh: '本面板的更新器是嵌套副本（{version}），由声明它的插件钉住；请先更新那个插件（它发版抬了依赖范围后，本面板才会换新）。也可用载体命令行把更新器装到使用范围级，让共用那一份的其他插件先拿到修复：{command}', draft: true },
+  'panel.manual.updater-nested-nocmd': { en: 'This panel runs a nested copy of the updater ({version}), pinned by the plugin that declares it; update that plugin first (this panel picks up a newer updater only after that plugin widens its range).', zh: '本面板的更新器是嵌套副本（{version}），由声明它的插件钉住；请先更新那个插件（它发版抬了依赖范围后，本面板才会换新）。', draft: true },
   'panel.footer.note': { en: 'Closing never interrupts updates; come back anytime', zh: '关闭窗口，更新不受影响，可随时返回查看。', draft: true },
   'panel.footer.close': { en: 'Close', zh: '关闭', draft: true },
   'panel.footer.close-title': { en: 'Close the window; updates keep running', zh: '关闭窗口，更新不受影响', draft: true },

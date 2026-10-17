@@ -353,6 +353,7 @@ import {
   thrownIsCheckExpired,
 } from './panel-copy.js'
 import type { DiagCopyFormat, UpdaterSelfView } from './panel-copy.js'
+import { updaterPartsOf } from './panel-copy.js'
 export type { UpdaterSelfView } from './panel-copy.js'
 export {
   PANEL_DIAG_MAX_CHARS,
@@ -923,7 +924,9 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--dsh-update-border,#e5e7eb)}',
   '.dsh-upd-foot-note{margin-right:auto;font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.7}',
   // 更新器自检（#196）：页脚里一行机读事实（品牌名 + 版本 + 层级 token），字号更小、等宽、弱化。
-  '.dsh-upd-updater-note{font-size:var(--dsh-update-panel-small-font-size,11px);opacity:.55;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}',
+  '.dsh-upd-updater-note{font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.55;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}',
+  '.dsh-upd-updater-id{margin-top:8px;font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.55;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+  '.dsh-upd-updater-nested{margin-top:8px;font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.8;line-height:1.5;word-break:break-word}',
   '.dsh-upd-footer button{margin:0}',
   '.dsh-upd-chap-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}',
   '.dsh-upd-chap-no{font-size:var(--dsh-update-panel-chapter-font-size,13px);font-style:italic;opacity:.6}',
@@ -1561,12 +1564,26 @@ function progressBar(snapshot: UpdateSnapshot | null, lang?: AppLang | string | 
  * 这是机读事实（品牌名 + 版本 + 层级 token），不进字典、不翻译；缺版本即不画（不编造）。
  */
 function updaterIdentityOf(input: PanelRenderInput): string | null {
-  const updater = (input as { updater?: UpdaterSelfView | null }).updater
-  if (!updater || typeof updater !== 'object') return null
-  const version = typeof updater.version === 'string' && updater.version.trim() ? updater.version.trim() : null
-  if (!version) return null
-  const level = typeof updater.level === 'string' && updater.level.trim() ? updater.level.trim() : 'unknown'
-  return `dsh-plugin-update@${version} (${level})`
+  const parts = updaterPartsOf((input as { updater?: UpdaterSelfView | null }).updater)
+  return parts ? `dsh-plugin-update@${parts.version} (${parts.level})` : null
+}
+
+/** 从 includeEnv 回包两格取自检事实（#196）；本包版本读不到就 null（不编造）。 */
+function updaterSelfOfEnv(env: Record<string, unknown>): UpdaterSelfView | null {
+  const uv = env['updaterVersion']
+  const ul = env['updaterCopyLevel']
+  if (typeof uv !== 'string' || !uv.trim()) return null
+  return { version: uv.trim(), level: typeof ul === 'string' && ul.trim() ? ul.trim() : 'unknown' }
+}
+
+/**
+ * 嵌套副本的载体 CLI 升级指引（#196）：把更新器装到使用范围级，让共用那一份的其他插件先换新。
+ * 缺使用范围名就是假命令 ⇒ null（宁可只说明为什么升级不生效，也不画「或运行：」空着）。
+ */
+function selfUpgradeCommandOf(profileName: string | null | undefined): string | null {
+  const profile = typeof profileName === 'string' ? profileName.trim() : ''
+  if (!profile) return null
+  return `dsh plugin --profile ${profile} add --save-exact dsh-plugin-update@latest`
 }
 
 /** 内核 HTML（双形态行为等价的根：同一视图产出同一内核，只换外层；#62 按 lang 单语，缺省 zh 零回归）。 */
@@ -1926,16 +1943,24 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
       : `<div class="dsh-upd-manual"><div class="dsh-upd-changelog-neutral">${escapeHtml(copyText('panel.manual.absent', l))}</div></div>`
   // #196 部署偏斜：嵌套副本（被消费方声明范围钉死）在这里给可执行的升级指引。
   // 缺使用范围名就不给命令（假命令比没有更糟），只说明为什么升级不生效。
-  const updaterSelf = (input as { updater?: UpdaterSelfView | null }).updater
-  if (updaterSelf && typeof updaterSelf === 'object' && typeof updaterSelf.version === 'string' && updaterSelf.version.trim()) {
-    const level = typeof updaterSelf.level === 'string' && updaterSelf.level.trim() ? updaterSelf.level.trim() : 'unknown'
-    if (level === 'nested') {
-      const command = profileName ? `dsh plugin --profile ${profileName} add --save-exact dsh-plugin-update@latest` : ''
-      manualHtml +=
-        `<div class="dsh-upd-updater-nested">` +
-        escapeHtml(copyText('panel.manual.updater-nested', l, { version: updaterSelf.version.trim(), command })) +
-        `</div>`
-    }
+  const selfParts = updaterPartsOf((input as { updater?: UpdaterSelfView | null }).updater)
+  if (selfParts && selfParts.level === 'nested') {
+    const command = selfUpgradeCommandOf(profileName)
+    manualHtml +=
+      `<div class="dsh-upd-updater-nested">` +
+      escapeHtml(
+        command
+          ? copyText('panel.manual.updater-nested', l, { version: selfParts.version, command })
+          : copyText('panel.manual.updater-nested-nocmd', l, { version: selfParts.version }),
+      ) +
+      `</div>`
+  }
+  // 身份兜底：footer 只在 dialog + 有动作面时画；embedded / 只读渲染由 05 章补一行，
+  // 保证「任意宿主插件面板都能看到本面板跑的是哪一份副本」（#196 验收）。
+  const updaterIdentity = updaterIdentityOf(input)
+  const footerRendersIdentity = showActions && mode === 'dialog'
+  if (updaterIdentity && !footerRendersIdentity) {
+    manualHtml += `<div class="dsh-upd-updater-id">${escapeHtml(updaterIdentity)}</div>`
   }
   chapters.push(chapterOf(5, manualHtml, '', l))
   parts.push('<div class="dsh-upd-body">' + chapters.join('\n') + '</div>')
@@ -1943,7 +1968,6 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   // dialog 才有，永远在 05 章之后；embedded 无（宿主框架自带关）；
   // 只读渲染（actions:'none'）下不画（动作面归调用方，免得出现可点却没人接的死按钮）。
   if (showActions && mode === 'dialog') {
-    const updaterIdentity = updaterIdentityOf(input)
     parts.push(
       '<div class="dsh-upd-footer"><span class="dsh-upd-foot-note">' + escapeHtml(copyText('panel.footer.note', l)) + '</span>' +
         (updaterIdentity ? `<span class="dsh-upd-updater-note">${escapeHtml(updaterIdentity)}</span>` : '') +
@@ -2854,11 +2878,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         const hk = env['environmentKind']
         if (typeof pn === 'string' && pn.trim()) envProfileName = pn.trim()
         if (typeof hk === 'string' && hk.trim()) envHostKind = hk.trim()
-        const uv = env['updaterVersion']
-        const ul = env['updaterCopyLevel']
-        if (typeof uv === 'string' && uv.trim()) {
-          envUpdater = { version: uv.trim(), level: typeof ul === 'string' && ul.trim() ? ul.trim() : 'unknown' }
-        }
+        const selfView = updaterSelfOfEnv(env)
+        if (selfView) envUpdater = selfView
       }
       // 成功回包的锁存规则（#58）：只读轮询永不清除非瞬态锁存；diag 不覆写既有证据。
       const jobState = snapshot?.job?.state ?? null
@@ -2909,11 +2930,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           const hk = env['environmentKind']
           if (typeof pn === 'string' && pn.trim()) envProfileName = pn.trim()
           if (typeof hk === 'string' && hk.trim()) envHostKind = hk.trim()
-          const uv = env['updaterVersion']
-          const ul = env['updaterCopyLevel']
-          if (typeof uv === 'string' && uv.trim()) {
-            envUpdater = { version: uv.trim(), level: typeof ul === 'string' && ul.trim() ? ul.trim() : 'unknown' }
-          }
+          const selfView = updaterSelfOfEnv(env)
+          if (selfView) envUpdater = selfView
         }
       } catch {
         // 忽略：失败回包的环境栏是选填。

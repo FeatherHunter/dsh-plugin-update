@@ -65,13 +65,3 @@ export async function selfCopyInfo(moduleUrl: string = import.meta.url): Promise
     return { version: null, directory: null, level: 'unknown' }
   }
 }
-
-/**
- * 嵌套副本的可执行升级指引：把本包装到使用范围级（载体 CLI，官方桌面自带，绕过面板的 already-installed 困境）。
- * 缺使用范围名就返回 null —— 没有范围名的命令是假命令。
- */
-export function selfUpgradeCommand(profileName: string | null | undefined): string | null {
-  const profile = String(profileName ?? '').trim()
-  if (!profile) return null
-  return `dsh plugin --profile ${profile} add --save-exact ${PACKAGE_NAME}@latest`
-}

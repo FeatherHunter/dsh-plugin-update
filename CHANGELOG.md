@@ -6,6 +6,24 @@
 
 ## [Unreleased]
 
+## [0.18.17] - 2026-10-18
+
+### Fixed
+- **#196 双轴审查跟进（Standards + Spec）**：
+  1. **README 不再把 npm 读者指向未随包发布的维护者文档**（Standards 硬违规：`docs/` 不在 `files` 白名单，`npm` 页上那个指针是死链；`AGENTS.md` 也规定 README 是集成方手册、不放仓库内流程）。
+  2. **嵌套副本升级指引说实话**：原来只要有使用范围名就渲染「…请先更新该插件，或运行：<命令>」，读起来像载体 CLI 能替代更新所属插件——其实把本包装到使用范围级并不会换掉这个面板正在跑的那份嵌套副本（只让共用使用范围级副本的其他插件先换新）。现在措辞改准确，且**没有使用范围名时不再渲染「或运行：」半句**（原来会留下指向空命令的半句话）；新增 `panel.manual.updater-nested-nocmd`。
+  3. **身份在任意面板可见**：footer 身份只在 dialog + 有动作面时画；embedded 与只读渲染（`actions:'none'`）由 05 章兜底一行 ASCII 身份，兑现验收「真机上任意宿主插件面板能看到本面板跑的是哪一份副本」。
+  4. 删掉未接线的 `selfUpgradeCommand` 导出（死 API，面板才是唯一实现）；抽 `panel-copy.updaterPartsOf` 统一面板身份 / 诊断行 / 05 章三处「版本 + 层级」规范化，`includeEnv` 两处解析收成 `updaterSelfOfEnv`。
+
+### Changed
+- 测试：`tests/issue-196-self-copy.test.mjs` 13 例（新增「无使用范围名不编命令」与「embedded 由 05 章兜底显示身份」；删除死 API 直测）；面板相关回归 82/82。
+- `src/bilingual.ts`：`panel.manual.updater-nested` 文案改准确、新增 `panel.manual.updater-nested-nocmd`（354 key），`tests/fixtures/bilingual/strings.snapshot.json` 同步。
+- CSS：`.dsh-upd-updater-nested` / `.dsh-upd-updater-id` 补规则，footer 身份字号与 `.dsh-upd-foot-note` 统一 12px。
+- `docs/maintainers.md` 发布流程新增预检条：核对已知消费方的 `dsh-plugin-update` 依赖范围；本包自更新走常规面板路径（不在 profile `dependencies` 键里，守卫不拦）。
+- **发布口径提醒**：`0.18.8`～`0.18.17` 十段都还没发到 npm（registry 最新仍是 `0.18.7`），发版时以 `0.18.17` 一次带走即可。
+
+门禁（**发版定格**）：`npm test` **1489 例：1488 过 / 0 失败 / 1 跳过**（干净发版树 `7ec97b3` + 本批 10 个文件上实测）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、354 个 key、16 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.17`，365.2 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（354 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
+
 ## [0.18.16] - 2026-10-18
 
 ### Added
