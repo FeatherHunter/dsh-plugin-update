@@ -631,6 +631,14 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
   }
 
   /**
+   * 前版本保真（#186）：动手前记下磁盘上的版本（未安装或读不到即 null，不拿运行版顶替），
+   * 供 before.json 与恢复诊断对照。两条安装入口共用，免得动作分叉。
+   */
+  function rememberPreviousVersion(job: UpdateJob, env: EnvironmentView): void {
+    job.previousVersion = env.installedVersion ?? null
+  }
+
+  /**
    * 候选安装（#156）：把用户点"装合规版"的意图落成任务。门与 latest 路径同口径：
    * 绑定（槽×版本×凭证×有效期）、指纹、忙、环境、运行版比较——门名一个不新增，
    * 失败码仍是旧四码（check-expired/installation-changed/update-busy/环境阻拦），
@@ -688,6 +696,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       const env = await ports.readInstalled()
       if (env.installationKey !== slot.installationKey) throw updateError('installation-changed')
       if (!env.eligible || env.blockedReason) throw updateError(env.blockedReason ?? 'update-busy')
+      // 前版本保真（#186）：记下「动手之前」磁盘上的版本，供 before.json 与恢复诊断对照。
+      rememberPreviousVersion(job, env)
       if (ports.backupJob) await ports.backupJob(job)
       await saveJob(job)
       activeJobId = job.id
@@ -747,6 +757,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       env = await ports.readInstalled()
       if (env.installationKey !== checked.installationKey) throw updateError('installation-changed')
       if (!env.eligible || env.blockedReason) throw updateError(env.blockedReason ?? 'update-busy')
+      // 前版本保真（#186）：记下「动手之前」磁盘上的版本，供 before.json 与恢复诊断对照。
+      rememberPreviousVersion(job, env)
       if (ports.backupJob) await ports.backupJob(job)
       await saveJob(job)
       activeJobId = job.id

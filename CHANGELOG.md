@@ -4,6 +4,22 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
+## [0.18.10] - 2026-10-17
+
+### Added
+- **任务状态落盘、崩溃后可恢复（#179）**：宿主默认接线原来把任务读写接在**内存镜像**上（`mirroredReadJob/mirroredWriteJob`），`createUpdateDiskPorts` 的 `readJob/writeJob` 全仓无人消费——真机 `~/.dsh/updates/<插件>/<hash>/` 9/9 只有 `before.json`、没有 `state.json`。后果：①进程一崩任务即失，安装中的任务重启后变成「没有任务」，`recovery-required` 永不点亮，半装态（磁盘已换版、运行版未换）还会被环境比较画成 `pending-restart`，用户看到的是「待重启」而不是「上次安装没完成」；②失败原文与诊断跨进程即失；③`store` 里坏状态/双读/旧影子回退的既有语义全成死代码。现在写任务时**同时落盘**（显式注入照旧优先；写盘失败不挡安装，`store` 已记 `store.fail`），冷启动首次读任务从盘上取回初值，既有 `corrupt → interrupted`、`recovery-required` 换算接上。
+
+### Fixed
+- **前版本保真（#186，并入 #179 同批）**：安装开始时把「动手之前」磁盘上的版本记进任务（`previousVersion`；未安装或读不到即为 null，不拿运行版顶替），`before.json` 与 `state.json` 都带上；读回时保留这一格并把非字符串脏值归一为 null；老形状 `state.json` 缺这一格时，状态读取路径从**同一条任务**（`jobId` 对得上才采信）的 `before.json` 补读。两条安装入口共用同一个 `rememberPreviousVersion`，动作不分叉。
+
+### Changed
+- 测试：新增 `tests/issue-179-job-persistence.test.mjs`（3 例，先红后绿——未修树红在「安装中必须留下 state.json」「重启后任务必须还在」「before.json 必须记住前版本」）。用例只用公开电话 + 真实临时家目录/临时使用范围，**不注入** `readJob/writeJob`，强制走真实磁盘端口，否则测的又是内存镜像本身。
+- `README.md`：§5.1 补任务形状新增的可选 `previousVersion`；§9 的「唯一形状扩展」改为按版本列出（`0.18.7` 的 `diag`、`0.18.10` 的 `job.previousVersion`），并把「新增可选任务字段」列进向后兼容扩展——公开形状变了，集成方手册必须同步，CHANGELOG 披露替不了。
+- 验收证据：审查期探针 `.tmp/audit/state/probe-d.mjs` 的 T9 已对新代码复跑转绿——安装失败后磁盘 `state.json` 存在；「重启后」（新宿主实例）`job` 仍在（`failed`，`message` 带宿主原文）、`previousVersion=2.0.28`、`failedJobDiagOf` 仍取得到失败原文（复制诊断不再跨进程即失）。修复前同一探针红在「磁盘没有 state.json / 重启后 job=null」。T8（锁）与 T9 同文件但属 #181，本批未动，锁的语义仍按票面待修。
+- **发布口径提醒**：`0.18.8`、`0.18.9`、`0.18.10` 三段都还没发到 npm（registry 最新仍是 `0.18.7`），发版时以 `0.18.10` 一次带走即可；本批不改变既有快照/电话/字段形状，`UpdateJob` 只增 `previousVersion?` 一格。
+
+门禁（**发版定格**）：`npm test` **1427 例：1426 过 / 0 失败 / 1 跳过**（干净发版树 `b44d2c5` + 本批 8 个文件上实测；本批新增 1 个测试文件、3 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **四道硬门禁过**（44 个 src 文件、349 个 key、16 错误码、19 diag 键，违规 0；本批零新增冻结中文，`copy-baseline.json` 未动）；`npm publish --dry-run` **95 文件**（`dsh-plugin-update@0.18.10`，349.7 kB 压缩 / 1.2 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（349 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
+
 ## [0.18.9] - 2026-10-17
 
 ### Added

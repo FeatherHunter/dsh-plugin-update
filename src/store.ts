@@ -276,6 +276,28 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
       throw error && (error as { code?: string }).code ? error : fail('install-failed')
     }
   }
+  // 前版本保真（#186）：state.json 老形状没有这一格时从 before.json 补读。
+  // 只认同一条任务写下的快照（jobId 对得上才采信）；读不到/读坏都不挡状态读取，返回 null。
+  async function previousVersionFromBackup(p: UpdatePaths | null, jobId: string): Promise<string | null> {
+    if (!p) return null
+    try {
+      const backup = await readJsonGuarded(p.backup, null)
+      if (!backup || String(backup.jobId ?? '') !== jobId) return null
+      const value = (backup as { previousVersion?: unknown }).previousVersion
+      return typeof value === 'string' && value ? value : null
+    } catch {
+      return null
+    }
+  }
+  async function withPreviousVersion(p: UpdatePaths | null, job: UpdateJob): Promise<UpdateJob> {
+    const direct = typeof job.previousVersion === 'string' && job.previousVersion ? job.previousVersion : null
+    const fromBackup = direct ? null : await previousVersionFromBackup(p, job.id)
+    const previousVersion = direct ?? fromBackup
+    if (previousVersion) return { ...job, previousVersion }
+    // 非字符串脏值归一为 null，别让它原样漏进公开形状；原本就没有这一格的老任务不补造。
+    if (job.previousVersion === undefined || job.previousVersion === null) return job
+    return { ...job, previousVersion: null }
+  }
   async function readJob(): Promise<UpdateJob | null> {
     if (!paths) return null
     const job = await readAt(paths)
@@ -283,7 +305,7 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
       if (!JOB_STATES.includes(String(job.state)) || typeof job.id !== 'string') {
         return { id: 'corrupt', state: 'interrupted', message: 'recovery-required', targetVersion: null, requestId: null }
       }
-      return { requestId: null, message: null, ...job } as UpdateJob
+      return withPreviousVersion(paths, { requestId: null, message: null, ...job } as UpdateJob)
     }
     // 新路径没有再回退读旧路径（只读影子，不触发回写）。
     if (legacyPaths) {
@@ -292,7 +314,7 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
         if (!JOB_STATES.includes(String(legacyJob.state)) || typeof legacyJob.id !== 'string') {
           return { id: 'corrupt', state: 'interrupted', message: 'recovery-required', targetVersion: null, requestId: null }
         }
-        return { requestId: null, message: null, ...legacyJob } as UpdateJob
+        return withPreviousVersion(legacyPaths, { requestId: null, message: null, ...legacyJob } as UpdateJob)
       }
     }
     const lock = await readJsonGuarded(paths.lock, null)
@@ -401,7 +423,7 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
       paths.backup,
       {
         jobId: job.id,
-        previousVersion: (job as unknown as Record<string, unknown>).previousVersion ?? null,
+        previousVersion: job.previousVersion ?? null,
         files,
       },
       (error) => storeLog.fail('write-backup', error)

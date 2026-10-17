@@ -128,6 +128,11 @@ export interface UpdateJob {
   message: string | null
   /** 提交时的请求编号：同一个编号重复提交直接返回旧结果，不重装。 */
   requestId: string | null
+  /**
+   * 开始安装前磁盘上的版本（#186）：未安装或读不到为 null，供恢复诊断与 before.json 对照。
+   * 字段集只增不改；老任务没有这一格时不补造。
+   */
+  previousVersion?: string | null
 }
 
 /**

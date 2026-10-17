@@ -377,12 +377,27 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
       if (next.released) await writeQueueBestEffort(next.state)
     } catch {}
   }
-  // 任务镜像：持久化路由与现状一字不差（有注入走注入，无注入走内存），只顺带把 owner
-  // 状态对齐进队列（安装中记牌、终态摘牌）。队列异常只吞不抛，安装成败归类不动。
+  // 任务落盘（#179）：以前这里只留内存镜像，进程一崩任务就没了——`recovery-required` 永不点亮，
+  // 半装态还会被环境比较画成「待重启」。现在写镜像的同时写盘（无注入走真实磁盘端口），
+  // 首次读任务时先尝试从盘上取回初值（冷启动/重启后的唯一真相）。
+  // 磁盘写失败不挡安装：内存镜像仍是本次真值，store 侧已记 store.fail；落盘的失败语义由装后校验兜底。
+  // 落盘只在「两侧都没注入」时启用：只注一侧时不混两套真相（写走注入、读走镜像）。
+  const jobDisk = overrides.readJob || overrides.writeJob ? null : disk
   let memJobFallback: import('./ports.js').UpdateJob | null = null
+  let jobStoreSeeded = false
   async function mirroredWriteJob(job: import('./ports.js').UpdateJob | null): Promise<void> {
-    if (overrides.writeJob) await overrides.writeJob(job)
-    else memJobFallback = job
+    if (overrides.writeJob) {
+      memJobFallback = job
+      await overrides.writeJob(job)
+    } else {
+      memJobFallback = job
+      jobStoreSeeded = true
+      if (jobDisk) {
+        try {
+          await jobDisk.writeJob(job)
+        } catch {}
+      }
+    }
     try {
       if (!job) return
       const current = await readQueueBestEffort()
@@ -424,6 +439,14 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   }
   async function mirroredReadJob(): Promise<import('./ports.js').UpdateJob | null> {
     if (overrides.readJob) return (await overrides.readJob()) ?? null
+    // 冷启动首次读盘取初值；读失败不写死空——下一次读还会再试，免得一次瞬时失败把本进程画成「无任务」。
+    // 坏形状的收敛在 store.readJob 里（corrupt → interrupted / recovery-required），这里不另立判据。
+    if (!jobStoreSeeded && !memJobFallback && jobDisk) {
+      try {
+        memJobFallback = await jobDisk.readJob()
+        jobStoreSeeded = true
+      } catch {}
+    }
     return memJobFallback
   }
   // 执行零件按需现取（桌面服务要等注入到位）：路由与参数形态由核心的 installRecipe 定，

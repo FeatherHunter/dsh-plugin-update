@@ -496,6 +496,8 @@ const update = createHostUpdate(
 
 **未安装（`0.17.0` 起）**：`installed === false` 的行不是坏包——面板版本列写「未安装 → 目标版本」，按钮是「安装」（复用既有安装词条，不新增控件）；查到远端版本即可点装，装完走既有终态（待重启提示见 5.4）。集成方零改动：不用读这个字段也能用，但读了可以少猜（不要再拿 `installedVersion` 是否为 `0.0.0` 判断未装）。
 
+**任务形状（`0.18.10` 起）**：`job` 除 `id` / `state` / `targetVersion` / `message` / `requestId` 外，多一格可选 `previousVersion`——这次安装动手之前磁盘上的版本（未安装或读不到为 null；老任务没有这一格时不补造）。字段只增不改，不读它也能用。
+
 ### 5.2 十种装不了的原因
 
 面板拿到非空 `blockedReason` 时，直接展示下表「用户该做什么」那一列的一句话，不要只展示英文原因本身。
@@ -715,9 +717,9 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 ## 9. 兼容与稳定性
 
-这些形状稳定，可以放心依赖：六个电话名与入参回参（老三电话一字不动，`updateChangelog`、`logAppend`、`updateCheckFallback` 是后来加的；`updateInstall` 的 `version` 是可选参数）、快照七字段、任务公开形状、配置只经函数入参注入、安装配方五键、日志事件字段基线（三个旧事件各带必填 `pluginId`）、历史落盘路径。`0.18.7` 起唯一的形状扩展是：快照里带着失败任务时，成功回包可带可选 `diag`；无失败任务时形状逐字不变。
+这些形状稳定，可以放心依赖：六个电话名与入参回参（老三电话一字不动，`updateChangelog`、`logAppend`、`updateCheckFallback` 是后来加的；`updateInstall` 的 `version` 是可选参数）、快照七字段、任务公开形状、配置只经函数入参注入、安装配方五键、日志事件字段基线（三个旧事件各带必填 `pluginId`）、历史落盘路径。形状扩展按版本列清楚：`0.18.7` 起，快照里带着失败任务时成功回包可带可选 `diag`；`0.18.10` 起，任务形状多一格可选 `previousVersion`；其余形状逐字不变。
 
-向后兼容的扩展：新增可选配置键、新增可选面板选项（如 `autoCompliant`）、新增可选回包键（成功回包里的 `diag`）、新增可选 `readerOverrides`（如 `targetPackageDir`）、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。
+向后兼容的扩展：新增可选配置键、新增可选面板选项（如 `autoCompliant`）、新增可选回包键（成功回包里的 `diag`）、新增可选任务字段（`job.previousVersion`）、新增可选 `readerOverrides`（如 `targetPackageDir`）、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。
 
 ## 10. 日志（dsh-log 0.3.4）
 
