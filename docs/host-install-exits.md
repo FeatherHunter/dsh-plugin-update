@@ -21,6 +21,11 @@
   <https://github.com/anywhere-labs/deepseek-harness-desktop/blob/4f68147091e585aaa1d815f99d30a657b3842d7c/dsh-plugin-desktop/docs/plugin-services.md>
 - 本包政策：桌面服务固定装进「当前激活的使用范围」，激活范围与本插件所在范围对不上时宁可不装
   （诚实失败转手工命令）。
+- 超时政策（`0.18.14` 起，票 #193）：`done` 只报退出事实、契约里没有取消/查询，所以本包自己设
+  deadline（`installTimeoutMs`）；`done` 不带 `terminate` 时到点没有任何终止手段，人话格要如实写
+  「宿主未提供终止能力，这次安装可能仍在后台继续」，不许谎称已请求终止；带了 `terminate` 则到点调一次，
+  再给 3 秒终止宽限等它自己收尾——宽限内以 `exitCode 0` 收尾按成功算（不把已经落地的改动记成失败），
+  否则按超时失败。`done` 直接 reject（服务崩了）立即失败并写「宿主安装服务异常退出」，不伪装成超时。
 
 ## 出口二：官方桌面版（宿主进程内的插件管理器）
 

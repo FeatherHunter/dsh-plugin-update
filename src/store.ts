@@ -1227,6 +1227,14 @@ const TERMINATION_GRACE_MS = 3000
 const INSTALL_TIMEOUT_DETAIL = '安装超时，已请求宿主取消'
 const INSTALL_TIMEOUT_NO_CANCEL_DETAIL = '安装超时；宿主未提供取消能力，这次安装可能仍在后台继续'
 const REMOVE_TIMEOUT_DETAIL = '移除已装包超时，未继续安装；目标包可能已不在册，请重启宿主检查并按手工命令重装'
+/**
+ * 出口一（第三方 Desktop 的 desktopPnpm 服务）的三格（#193，审查 A 线 R3）：
+ * 与出口二 #184 同一套纪律——宿主给了 terminate 才说「已请求终止」，没给就一次终止都没发过、
+ * 安装可能还在后台跑；服务直接崩了也要如实说，不许伪装成超时。
+ */
+const SERVICE_TIMEOUT_DETAIL = '安装超时，已请求宿主终止'
+const SERVICE_TIMEOUT_NO_TERMINATE_DETAIL = '安装超时；宿主未提供终止能力，这次安装可能仍在后台继续'
+const SERVICE_CRASHED_DETAIL = '宿主安装服务异常退出'
 
 /** 执行零件可以是值，也可以是取值函数（桌面服务要等注入到位才能取）。 */
 function part<T>(value: T | (() => T)): T {
@@ -1387,9 +1395,16 @@ function emitInstall(
   } catch {}
 }
 
-/** 桌面宿主：交给桌面端公开的 desktopPnpm 服务，由它用参数数组拉起打包好的 CLI。 */
+/**
+ * 桌面宿主：交给桌面端公开的 desktopPnpm 服务，由它用参数数组拉起打包好的 CLI。
+ *
+ * 出口一原来只 `await handle.done`、根本不执行安装时限（#193 / 审查 A 线 R3）：宿主服务不收尾，
+ * 作业就永久停在 `installing`，之后所有动作 `update-busy`，用户只能在宿主重启前干等。
+ * 这里照出口二（#184）的纪律：deadline + 终止（`handle` 有 `terminate` 才真调）+ 终止宽限 +
+ * 诚实超时口径——没终止能力就如实说「这次安装可能仍在后台继续」，绝不谎称已请求终止。
+ */
 async function runDesktopService(
-  recipe: { pluginArgs: string[]; profileName: string },
+  recipe: { pluginArgs: string[]; profileName: string; timeoutMs: number },
   parts: ExecutorParts
 ): Promise<number | null> {
   const service = part(parts.desktopPnpm) as { runPlugin?: (args: string[], dir: string, extra: undefined) => { done: Promise<{ exitCode?: number }> } } | null
@@ -1404,8 +1419,52 @@ async function runDesktopService(
   if (!handle || !handle.done || typeof handle.done.then !== 'function') throw fail('install-failed')
   // 双流由调用方负责读（契约）：先挂监听再等退出，失败原文才拿得到。
   const readOutput = streamCollectorOf(handle)
-  const outcome = await handle.done
-  const code = outcome && typeof outcome.exitCode === 'number' ? outcome.exitCode : null
+  const canTerminate = typeof (handle as { terminate?: unknown }).terminate === 'function'
+  const terminate = canTerminate ? (handle as unknown as { terminate: () => void }).terminate : null
+  // 结局只分三种：自己收尾 / 崩了（done reject） / 到点；先把 reject 折成事实，不要让它冒充超时。
+  const settled = Promise.resolve(handle.done).then(
+    (value) => ({ kind: 'settled' as const, value }),
+    () => ({ kind: 'crashed' as const, value: null })
+  )
+  const timeoutMs = typeof recipe.timeoutMs === 'number' && recipe.timeoutMs > 0 ? recipe.timeoutMs : 0
+  const TIMEOUT = Symbol('install-timeout')
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const outcome = await (async () => {
+    if (timeoutMs === 0) return await settled
+    const deadline = new Promise<typeof TIMEOUT>((settle) => {
+      timer = setTimeout(() => {
+        try {
+          if (terminate !== null) terminate.call(handle)
+        } catch {}
+        settle(TIMEOUT)
+      }, timeoutMs)
+    })
+    try {
+      return await Promise.race([settled, deadline])
+    } finally {
+      if (timer !== null) {
+        try {
+          clearTimeout(timer)
+        } catch {}
+      }
+    }
+  })()
+  if (outcome === TIMEOUT) {
+    // 到点时已经点过 terminate（有终止能力才会真调）；再给一段收尾宽限，拿到真实结局就按它自己的
+    // 结局判——不把已经落地的改动记成失败（同出口二 finishCall 的宽限纪律）。
+    const late = await settleWithin(settled, TERMINATION_GRACE_MS)
+    if (late && late.kind === 'settled') {
+      const lateCode = late.value && typeof late.value.exitCode === 'number' ? late.value.exitCode : null
+      if (lateCode === 0) return 0
+      throw withDetail(withExit(fail('install-failed'), lateCode), causeExcerptOf(readOutput()))
+    }
+    const hint = canTerminate ? SERVICE_TIMEOUT_DETAIL : SERVICE_TIMEOUT_NO_TERMINATE_DETAIL
+    throw withDetail(fail('install-failed'), withTimeoutHint(causeExcerptOf(readOutput()), hint))
+  }
+  if (outcome.kind === 'crashed') {
+    throw withDetail(fail('install-failed'), causeExcerptOf(readOutput()) || SERVICE_CRASHED_DETAIL)
+  }
+  const code = outcome.value && typeof outcome.value.exitCode === 'number' ? outcome.value.exitCode : null
   if (code !== 0) throw withDetail(withExit(fail('install-failed'), code), causeExcerptOf(readOutput()))
   return code
 }
@@ -1573,6 +1632,13 @@ function managerSpecOf(pluginArgs: string[]): string | null {
   return spec
 }
 
+/** 拼「宿主原文；超时/崩溃口径」：原文在前、下一步在后，总长仍守 detail 的 300 字（#193）。 */
+function withTimeoutHint(said: string, hint: string): string {
+  if (!said) return hint
+  const room = DETAIL_MAX_CHARS - hint.length - 1
+  const head = room > 0 && said.length > room ? said.slice(0, room) : said
+  return head ? `${head}；${hint}` : hint
+}
 /** 等管理器回话：带时限；到点先请它取消（能不能取消由它答），再由调用方决定怎么收场。 */
 async function raceManager(
   running: Promise<ManagerChangeResult>,

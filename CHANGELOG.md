@@ -6,6 +6,24 @@
 
 ## [Unreleased]
 
+## [0.18.14] - 2026-10-18
+
+### Fixed
+- **出口一（第三方 Desktop 的 `desktopPnpm` 服务）补上安装时限（#193，S1，审查 A 线 R3）**：原来 `runDesktopService` 只 `await handle.done`，配方里的 `timeoutMs` 只对另两条路由生效——宿主服务不收尾时作业永久停在 `installing`（审查探针：注入 300ms 额度、假服务永不落定，5 秒后仍未收场），之后所有动作 `update-busy`，用户只能重启宿主。现在照出口二（#184）的纪律补上 deadline + 终止 + 终止宽限：
+  1. `done` 带 `terminate` ⇒ 到点调一次，人话格「安装超时，已请求宿主终止」；
+  2. 不带 `terminate` ⇒ 一次终止都没发过，人话格「安装超时；宿主未提供终止能力，这次安装可能仍在后台继续」，不谎称已请求终止；
+  3. 到点后再给 3 秒终止宽限，宽限内以 `exitCode 0` 收尾按成功算（不把已经落地的改动记成失败），非 0 按失败并带真实退码；
+  4. `done` 直接 reject（宿主安装服务崩了）⇒ 立即失败并写「宿主安装服务异常退出」，不伪装成超时。
+  失败详情都守「宿主原文在前、下一步在后」，总长仍封顶 300 字。
+
+### Changed
+- 测试：新增 `tests/issue-193-desktop-service-timeout.test.mjs`（5 例，先红后绿——未修树五条全红：无 `terminate` 时永久挂住、有 `terminate` 却从不调、宽限内成功被挂住、reject 被拖成超时且无详情、宿主机级作业 12 秒不收尾）。
+- `tests/fixtures/bilingual/copy-baseline.json`：+3 条新冻结抛错文案（两条超时口径 + 服务异常退出）。
+- `README.md` §5.2 时间口径补第三方 Desktop 的 terminate/宽限说明；`docs/host-install-exits.md` 出口一新增「超时政策」条目（含 `done` reject 口径）。
+- **发布口径提醒**：`0.18.8`～`0.18.14` 七段都还没发到 npm（registry 最新仍是 `0.18.7`），发版时以 `0.18.14` 一次带走即可。
+
+门禁（**发版定格**）：`npm test` **1474 例：1473 过 / 0 失败 / 1 跳过**（干净发版树 `58442a0` + 本批 6 个文件上实测；本批新增 1 个测试文件、5 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（44 个 src 文件、351 个 key、16 错误码、19 diag 键，违规 0；本批零新增 key，`copy-baseline.json` +3 条冻结抛错文案）；`npm publish --dry-run` **95 文件**（`dsh-plugin-update@0.18.14`，359.2 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（351 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
+
 ## [0.18.13] - 2026-10-18
 
 ### Fixed
