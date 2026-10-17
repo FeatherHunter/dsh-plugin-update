@@ -35,6 +35,20 @@ async function readOptional(filename: string): Promise<string> {
   }
 }
 
+/**
+ * profile 清单里的 bundle 选择（#180）：取 `dsh.profile.bundles` 这一层。
+ * 返回 `layer: false` = 清单没有这一层概念（老/最小 profile，调用方退回 `dependencies` 键）；
+ * `layer: true` = 有这一层，`names` 为选中名单——不过 `names` 为 null 表示层在但读不成数组
+ * （`bundles: null` / 对象等），按「未登记」处理：宁可大声失败，也不退回 dependencies 把半装态洗成成功。
+ */
+function bundleSelection(manifest: Record<string, unknown>): { layer: boolean; names: string[] | null } {
+  const dsh = manifest.dsh as { profile?: Record<string, unknown> } | undefined
+  const profile = dsh?.profile
+  const layer = typeof profile === 'object' && profile !== null && Object.prototype.hasOwnProperty.call(profile, 'bundles')
+  const raw = layer ? profile.bundles : undefined
+  return { layer, names: Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : null }
+}
+
 async function packageAt(directory: string): Promise<{ directory: string; manifest: Record<string, unknown>; contents: string }> {
   const contents = await readFile(join(directory, 'package.json'), 'utf8')
   return { directory: await realpath(directory), manifest: JSON.parse(contents) as Record<string, unknown>, contents }
@@ -291,6 +305,7 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
       installedVersion: null,
       packageValid: false,
       sourceInstall: false,
+      registered: null,
       blockedReason: null,
       installationKey: null,
       eligible: false,
@@ -346,6 +361,13 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
       return result
     }
     const deps = (profile.manifest.dependencies ?? {}) as Record<string, unknown>
+    // 在册（#180）：清单有 bundles 层就以它为准（插件没被选中 ⇒ 重启后不会加载，磁盘换版也不等于生效；
+    // 层在但读不成数组同样按未登记，宁可大声失败）；没有这一层概念的老/最小清单退回 dependencies 键。
+    // 读不到整体清单时上面已走 invalid-installation。
+    const selection = bundleSelection(profile.manifest)
+    result.registered = selection.layer
+      ? selection.names !== null && selection.names.includes(targetPackageName)
+      : Object.prototype.hasOwnProperty.call(deps, targetPackageName)
     result.sourceInstall = !registrySpec(deps[targetPackageName]) || !inside(join(profileDir, 'node_modules'), installed.directory)
     result.installedVersion = typeof installed.manifest.version === 'string' ? installed.manifest.version : null
     result.packageValid = await validPackage(installed, targetPackageName)

@@ -4,6 +4,18 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
+## [0.18.12] - 2026-10-17
+
+### Added
+- **装后按「在册」核实（#180，S0）**：装后校验原来只比 `node_modules/<目标包>/package.json` 的版本——磁盘换到目标版本就报 `restart-required`。可「磁盘上有」不等于「重启后会加载」：官方桌面版 profile 的加载名单是清单里的 `dsh.profile.bundles`，宿主只把包体与依赖落盘、没把包重新登记回选中名单时（审查期 probe-b S2/S3 形态：`bundles=[]` + 磁盘已到目标版本；宿主 `removeBundle` 先摘选中、重装又失败），面板会拿到「待重启」的假成功，重启后插件直接消失。现在读取器把在册事实算进环境视图（`env.registered`）：清单有 `dsh.profile.bundles` 就以它为准（目标包名在不在选中名单里）；没有这一层概念的老/最小清单退回 `dependencies` 键。装后校验明确 `registered === false` 即走 `install-failed` 分支，细节写「装完校验没过：profile 未登记该插件（重启后不会加载）」；旧覆盖实现省略本格按未知，不据此判失败（向后兼容）。
+
+### Changed
+- 测试：新增 `tests/issue-180-registered.test.mjs`（6 例，先红后绿——未修树红在四种形态：①宿主 applied 但清单没登记（磁盘到目标版、`bundles` 里没有）②`dependencies` 更新了但 `bundles` 仍没有 ③`bundles` 层在但读不成数组（`null`，不退回 `dependencies` 洗成成功）④老/最小清单装后清单里没有该包（证明读的是装后清单）；修复后转绿，另两例钉正常形态与老/最小清单退回 `dependencies` 的成功路径）。`tests/fixtures/bilingual/copy-baseline.json` 只增 1 条新冻结抛错文案（散落中文基线「只许减不许增」，新增须在评审里看见）。
+- `README.md`：§9 形状扩展按版本列新增 `0.18.12` 的 `env.registered`，并把「新增可选环境字段」列进向后兼容扩展；§5.4 补「失败优先于待重启」——装后校验失败时快照会同时带 `blockedReason: 'pending-restart'` 与 `job.state: 'failed'`，面板必须先展示失败横幅，不能按待重启说「重启后生效」（本包自己面板已是这个优先级）。
+- **发布口径提醒**：`0.18.8`～`0.18.12` 五段都还没发到 npm（registry 最新仍是 `0.18.7`），发版时以 `0.18.12` 一次带走即可。
+
+门禁（**发版定格**）：`npm test` **1463 例：1462 过 / 0 失败 / 1 跳过**（干净发版树 `d803ec9` + 本批 8 个文件上实测；本批新增 1 个测试文件、6 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（44 个 src 文件、351 个 key、16 错误码、19 diag 键，违规 0；本批零新增 key，`copy-baseline.json` +1 条冻结抛错文案）；`npm publish --dry-run` **95 文件**（`dsh-plugin-update@0.18.12`，356.4 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（351 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
+
 ## [0.18.11] - 2026-10-17
 
 ### Added

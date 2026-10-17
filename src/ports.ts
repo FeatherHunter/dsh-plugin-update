@@ -234,6 +234,13 @@ export interface EnvironmentView {
   installedVersion: string | null
   packageValid: boolean
   sourceInstall: boolean
+  /**
+   * 在册事实（#180）：目标包名是否登记在 profile 清单里——清单有 `dsh.profile.bundles`
+   * 就看它被没被选中（插件只有被选中才会在重启后加载；这一层在但读不成数组也按未登记）；
+   * 没有这一层概念的老/最小清单退回 `dependencies` 键。读不到清单或覆盖实现省略本格时为
+   * null（未知，装后校验不据此判失败）。
+   */
+  registered?: boolean | null
   blockedReason: BlockedReason | null
   installationKey: string | null
   eligible: boolean

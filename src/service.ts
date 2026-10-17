@@ -591,6 +591,15 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
           detail: `装完校验没过：磁盘上是 ${env.installedVersion ?? '未知'}，目标是 ${job.targetVersion ?? '未知'}`,
         })
       }
+      // 在册核实（#180）：磁盘换版 ≠ 重启后会加载。宿主（尤其官方桌面版的 remove→install 两步）
+      // 可能只落了「包体+依赖」却没把包登记回 `dsh.profile.bundles`——重启后插件直接消失，
+      // 这种半装态不许对外报成功。清单没有 bundles 概念的老 profile 由读取器退回 dependencies 判，
+      // 这里只认明确的 false；未知（旧覆盖实现省略本格）不判失败。
+      if (env.registered === false) {
+        throw Object.assign(updateError('install-failed'), {
+          detail: '装完校验没过：profile 未登记该插件（重启后不会加载）',
+        })
+      }
       if (env.blockedReason && env.blockedReason !== 'pending-restart') {
         throw Object.assign(updateError('install-failed'), { detail: `装完校验没过：环境报告 ${env.blockedReason}` })
       }
