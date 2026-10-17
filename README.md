@@ -518,6 +518,8 @@ const update = createHostUpdate(
 | `recovery-required` | 上次安装异常中断，存在未完成任务 | 重新执行安装；若持续，请按第 6 节排错 |
 | `channel-mismatch` | 已安装版本与当前版本通道不符 | 切换至预发布通道，或重新安装本通道正式版本后查询 |
 
+`installation-changed` 有一个常见子形态（`0.18.18` 起详情点明）：目标版本与磁盘已装版本相同（批量行或旧快照拿已装版当目标发起安装），此时详情写「目标版本与已装版本相同，无需安装」——处置是重新查一次新版再装，不要重试旧请求（见 5.9）。
+
 电话专属码与 `internal`（面板同样给中文，不只给英文码；未来码走兜底并带上原码）：
 
 | 原因 | 中文含义 | 用户该做什么 |
@@ -592,6 +594,18 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 - `BREAKING:`/`不兼容:` 只认条目开头，badge + 前缀加粗；疑似误写由 validate 报 warning。
 - `validateChangelog(markdown)` 为纯函数（零导入、永不抛错），回 `{ ok, diagnostics: { line, code, hint }[] }`，line 为原文件行号；仅 CI/发布前用。
 - memo：成功与取不到（null）按版本永久记；传输失败不记，手动查/换版/重开立即重试，轮询按退避问；`autoChangelog: false` 关闭整链。
+
+### 5.9 桌面管理器路由的两步配方（`0.18.18` 起）
+
+官方桌面版（`environmentKind: 'desktop-manager'`）的宿主管理器对「已经装着的包」不允许再 `add`（HMR 守卫，`already-installed`），所以更新已装包只能走宿主自己的「先移除、再装」两步。`0.18.18` 起这两步在移除前先探一次拓扑，并对失败人话格补上可复制的救急命令：
+
+- **移除前先探拓扑**：用宿主 `listBundles()` 查目标包的 `removable` / `enabled`。
+  - `removable === false`（宿主自带或受管理的包）⇒ 不尝试移除，直接诚实失败（错误码 `not-removable`）。
+  - `enabled === false`（装着、在跑、但不在 `dsh.profile.bundles` 选中名单里——真机六件的形态）⇒ 先 `setBundleEnabled(name, true)` 恢复选中（宿主 `installBundle` 默认也做这一步，只是本包拆到移除之前），再 `removeBundle` → `installBundle`。
+  - 旧宿主没有 `listBundles` / `setBundleEnabled` ⇒ 按老两步走；探测不到拓扑或能力缺失时宁可诚实失败，不盲删。
+- **救急命令**：`already-installed` / `bundle-in-use` / `not-removable` 三个码的失败详情尾部会补一条 ASCII 命令 ` (dsh plugin --profile <范围> add --save-exact <包名>@<版本>)`——载体 CLI 在官方桌面版机器上可执行，是管理器外唯一能原地换版的通道。面板展示 `job.message` 时原样显示即可，不需要解析。
+- **空更新哨兵**：安装请求的目标版本与磁盘已装版本相同 ⇒ 直接回 `installation-changed`（详情写「目标版本与已装版本相同，无需安装」），不建任务、不起安装；批量/旧快照拿已装版当目标时不再跑到装后校验才报错。
+- **装后「在册」核实收窄为「登记不许倒退」**：新装必须进 `dsh.profile.bundles`（或老清单的 `dependencies`），否则失败（`0.18.12` 起的行为）；更新一个装前就未登记的包已经成功过的那次不因「仍未登记」判失败——否则真机那六件（装着、在跑、未选中）永远升不了级；装前登记过、装后清单里丢了（倒退）仍然失败。
 
 ## 6. 排错
 

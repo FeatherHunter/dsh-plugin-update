@@ -75,6 +75,20 @@
   - 本包政策（2026-10-17 起）：只在 `already-installed` 这个码上做「先移除、再用**新** `requestId` 装一次」，
     其余失败一律不碰移除；拿不到包名或宿主没有 `removeBundle` 就照旧诚实失败；三步共用配方里那**一个**
     超时额度（每步只领剩下的），总上界不因多一步放宽。
+  - **移除前先探拓扑（2026-10-18，#201）**：宿主 `removeBundle` 的拒绝次序是「先 `removable`、再
+    `enabled ? deselect+reload : 什么都不做`、最后查活 fiber 是否还在用」。真机十一件里有六件
+    （`dsh-chef` / `dsh-home-ilife` / `dsh-memo-ilife` / `dsh-schedule-ilife` / `dsh-calorie` /
+    `dsh-im-companion`）装着、在跑、但不在 profile 的 `dsh.profile.bundles` 选中名单里 ⇒ `enabled=false`
+    ⇒ 宿主不做卸载这一步 ⇒ 活 fiber 还在 ⇒ 2–3ms 撞 `bundle-in-use`。所以本包在两步配方前用
+    `listBundles()` 探一次：`removable === false` 直接诚实失败（合成 `not-removable`，不白跑 remove）；
+    `enabled === false` 就先 `setBundleEnabled(name, true)`（宿主官方通道，`selectBundle` + `publishAndReload`，
+    会把该 bundle 追加到选中名单末尾）再 remove→install；宿主没有 `listBundles`/`setBundleEnabled`（旧版或降级
+    宿主）就按老两步走，或诚实失败并给载体 CLI 命令。**不静默改写用户拓扑之外的东西**：这里恢复选中是
+    宿主自己 `installBundle({enabled:true})` 的正常语义（每次安装都做），只是被拆分到移除之前。
+  - **失败人话格加「换通道」命令（2026-10-18，#201）**：`already-installed` / `bundle-in-use` /
+    `not-removable` 这三个码意味着「管理器这条路走不通」，细节尾部补
+    ` (dsh plugin --profile <范围> add --save-exact <包名>@<版本>)`——载体 CLI 在机器上可执行（见本节末），
+    是用户侧唯一能原地换版的通道。命令是 ASCII，不加中文说明，避免与 300 字符人话上限抢位置。
   - **本包超时人话格（2026-10-18，#184）**：按能力分支，不许笼统。管理器没有 `cancelInstall` 时本包
     一次取消都没发过 ⇒ 不许写「已请求宿主取消」，写「宿主未提供取消能力，这次安装可能仍在后台继续」
     （这类宿主里超时的安装可能仍在后台跑完：被告知失败、实际装上）。移除步超时写「移除已装包超时，

@@ -1,21 +1,20 @@
 /**
- * tests/issue-180-registered.test.mjs —— 装后按「在册」核实（#180，S0）。
+ * tests/issue-180-registered.test.mjs —— 装后按「在册」核实（#180，S0；#201 起收窄为「登记不许倒退」）。
  *
  * 只测外部行为（宿主公开电话出口 `dist/host.js` 的回包），不直调内部函数：
  * 用真临时 profile 目录造盘面，`runInstall` 假件按场景改盘（磁盘版本 + 清单登记），网络一律假件。
  *
- * 钉死的契约（#180 修形）：
- * 1. 装完磁盘版本到目标、但 profile 清单 `dsh.profile.bundles` 里没有这个包
- *    ⇒ 必须 `install-failed`，细节写明「profile 未登记该插件（重启后不会加载）」——
- *    磁盘换版不等于重启后会加载，不能对外报成功（probe-b S2 的静默成功形态）。
- * 2. 清单里 `dependencies` 更新了、但 `dsh.profile.bundles` 仍没有 ⇒ 同上（宿主编排只落了一半）。
- * 3. 正常形态：清单更新且 bundles 里有这个包 ⇒ 终态 `restart-required`。
- * 4. 老/最小清单没有 `dsh.profile.bundles` 这一层概念 ⇒ 退回 `dependencies` 键判在册，照旧成功。
- * 5. bundles 层在但读不成数组（`null`）⇒ 按未登记失败，不退回 `dependencies` 把半装态洗成成功。
- * 6. 老/最小清单（无 bundles 层）：装后清单里没有该包 ⇒ 退回 `dependencies` 也判未登记
- *    （证明读的是装后清单，不是装前快照）。
+ * 钉死的契约（#180 修形 + #201 真机事实收窄）：
+ * 1. **新装**：装前不在盘、装完磁盘有包但 profile 清单未登记它 ⇒ 必须 `install-failed`，
+ *    细节写明「profile 未登记该插件（重启后不会加载）」——磁盘换版不等于重启后会加载。
+ * 2. **更新一个装前就未登记的包**（真机六件形态：装着、在跑、不在 `dsh.profile.bundles` 选中名单）
+ *    ⇒ 不判失败，终态 `restart-required`：这类包只有就地换版通道，要求登记等于永远升不了级（#201）。
+ * 3. **登记不许倒退**：装前登记过、装后清单里没了 ⇒ 仍然 `install-failed`。
+ * 4. 正常形态：装后仍在册 ⇒ `restart-required`。
+ * 5. 老/最小清单没有 `dsh.profile.bundles` ⇒ 退回 `dependencies` 键判在册；装后被从 deps 删掉即倒退。
+ * 6. bundles 层在但读不成数组（`null`）⇒ 装前未登记的更新不倒退、照旧成功；新装仍必须登记。
  *
- * 先红后绿：未修树红在 1/2/5/6（会以 `restart-required` 收尾，把「重启后不会加载」当成功）。
+ * 先红后绿：未修树红在 1 与 5（旧实现对新装未登记判失败、对登记倒退判成功，且没有「不倒退」概念）。
  */
 import { describe, it, beforeEach, after } from 'node:test'
 import assert from 'node:assert/strict'
@@ -42,12 +41,12 @@ function readProfile(profileDir) {
 }
 
 /** 造 profile：deps 里有目标包（^旧版），bundles 可给可不给（不给=老/最小清单）。 */
-function makeProfile({ bundles } = {}) {
+function makeProfile({ bundles, deps } = {}) {
   const profileDir = mkdtempSync(join(tmpdir(), 'dpu-180-'))
   const manifest = {
     name: 'fake-profile',
     version: '0.0.0',
-    dependencies: { [TARGET]: `^${INSTALLED}` },
+    dependencies: deps ?? { [TARGET]: `^${INSTALLED}` },
   }
   if (bundles !== undefined) manifest.dsh = { profile: { bundles } }
   writeJson(join(profileDir, 'package.json'), manifest)
@@ -99,10 +98,11 @@ function fakeLatest(version) {
 
 /**
  * 建宿主：`runInstall` 按场景改盘。
- *   diskOnly      —— 只把 node_modules 版本换成目标版本（宿主 applied 但清单没登记）
- *   depsOnly      —— 换盘 + 把 dependencies 写成目标精确版本，但不进 bundles（只落了一半）
- *   legacyRemoveDep——换盘 + 把 dependencies 里的目标包删掉（证明老清单也读装后清单）
- *   registered    —— 换盘 + 写 dependencies + 目标包进 bundles（正常形态）
+ *   diskOnly        —— 只把 node_modules 版本换成目标版本（宿主 applied 但清单没登记）
+ *   depsOnly        —— 换盘 + 把 dependencies 写成目标精确版本，但不进 bundles（只落了一半）
+ *   legacyRemoveDep —— 换盘 + 把 dependencies 里的目标包删掉（证明老清单也读装后清单）
+ *   registered      —— 换盘 + 写 dependencies + 目标包进 bundles（正常形态）
+ *   registrationLost—— 换盘 + 写 dependencies + 把目标包从 bundles 里摘掉（登记倒退）
  */
 function makeHost(profileDir, { mode } = {}) {
   const runInstall = async ({ version }) => {
@@ -111,10 +111,14 @@ function makeHost(profileDir, { mode } = {}) {
     const manifest = readProfile(profileDir)
     manifest.dependencies = { ...(manifest.dependencies ?? {}), [TARGET]: version }
     if (mode === 'legacyRemoveDep') delete manifest.dependencies[TARGET]
-    if (mode === 'registered') {
+    if (mode === 'registered' || mode === 'registrationLost') {
       const profile = manifest.dsh?.profile ?? {}
       const bundles = Array.isArray(profile.bundles) ? profile.bundles : []
-      manifest.dsh = { profile: { ...profile, bundles: bundles.includes(TARGET) ? bundles : [...bundles, TARGET] } }
+      const next =
+        mode === 'registered'
+          ? bundles.includes(TARGET) ? bundles : [...bundles, TARGET]
+          : bundles.filter((name) => name !== TARGET)
+      manifest.dsh = { profile: { ...profile, bundles: next } }
     }
     writeJson(join(profileDir, 'package.json'), manifest)
   }
@@ -170,35 +174,57 @@ after(() => {
   for (const dir of tmpRoots) rmSync(dir, { recursive: true, force: true })
 })
 
-describe('issue #180：装后按「在册」核实（磁盘换版 ≠ 重启后会加载）', () => {
-  it('清单 bundles 里没有该包（宿主 applied 但没登记）⇒ install-failed，细节说清「未登记」', async () => {
+describe('issue #180：装后按「在册」核实（磁盘换版 ≠ 重启后会加载；#201 收窄为「登记不许倒退」）', () => {
+  it('新装：宿主 applied 但没登记 ⇒ install-failed，细节说清「未登记」', async () => {
+    const profileDir = makeProfile({ bundles: [], deps: {} })
+    tmpRoots.push(profileDir)
+    const host = makeHost(profileDir, { mode: 'diskOnly' })
+    const final = await installAndWait(host)
+    assert.equal(final.installedVersion, REMOTE, '磁盘确实换到目标版本了')
+    assert.ok(final.job, '必须有终态任务')
+    assert.equal(final.job.state, 'failed', '新装未登记不能对外报成功')
+    assert.equal(final.job.message, NOT_REGISTERED)
+  })
+
+  it('更新装前就未登记的包（真机六件形态：装着、在跑、不在选中名单）⇒ 登记状态不倒退即成功', async () => {
     const profileDir = makeProfile({ bundles: [] })
     tmpRoots.push(profileDir)
     makeTargetPackage(join(profileDir, 'node_modules', TARGET), INSTALLED)
     const host = makeHost(profileDir, { mode: 'diskOnly' })
     const final = await installAndWait(host)
-    assert.equal(final.installedVersion, REMOTE, '磁盘确实换到目标版本了')
-    assert.ok(final.job, '必须有终态任务')
-    assert.equal(final.job.state, 'failed')
-    assert.equal(final.job.message, NOT_REGISTERED)
+    assert.ok(final.job)
+    assert.equal(final.job.state, 'restart-required', '#201：这类包只有就地换版通道，不能因未登记永远升不了级')
+    assert.equal(final.job.message, null)
+    assert.equal(final.installedVersion, REMOTE)
   })
 
-  it('dependencies 更新了但 bundles 仍没有该包（只落了一半）⇒ 同样 install-failed', async () => {
+  it('更新装前就未登记的包、dependencies 与 bundles 都不动（宿主只落一半）⇒ 同样成功', async () => {
     const profileDir = makeProfile({ bundles: [] })
     tmpRoots.push(profileDir)
     makeTargetPackage(join(profileDir, 'node_modules', TARGET), INSTALLED)
     const host = makeHost(profileDir, { mode: 'depsOnly' })
     const final = await installAndWait(host)
     assert.ok(final.job)
-    assert.equal(final.job.state, 'failed')
-    assert.equal(final.job.message, NOT_REGISTERED)
+    assert.equal(final.job.state, 'restart-required')
+    assert.equal(final.job.message, null)
   })
 
-  it('bundles 层在但读不成数组（null）⇒ 按未登记失败，不退回 dependencies 洗成成功', async () => {
+  it('bundles 层在但读不成数组（null）且装前未登记 ⇒ 不倒退，成功', async () => {
     const profileDir = makeProfile({ bundles: null })
     tmpRoots.push(profileDir)
     makeTargetPackage(join(profileDir, 'node_modules', TARGET), INSTALLED)
     const host = makeHost(profileDir, { mode: 'depsOnly' })
+    const final = await installAndWait(host)
+    assert.ok(final.job)
+    assert.equal(final.job.state, 'restart-required')
+    assert.equal(final.job.message, null)
+  })
+
+  it('登记不许倒退：装前在册，装后清单里没了 ⇒ install-failed', async () => {
+    const profileDir = makeProfile({ bundles: [TARGET] })
+    tmpRoots.push(profileDir)
+    makeTargetPackage(join(profileDir, 'node_modules', TARGET), INSTALLED)
+    const host = makeHost(profileDir, { mode: 'registrationLost' })
     const final = await installAndWait(host)
     assert.ok(final.job)
     assert.equal(final.job.state, 'failed')
@@ -228,7 +254,7 @@ describe('issue #180：装后按「在册」核实（磁盘换版 ≠ 重启后�
     assert.equal(final.installedVersion, REMOTE)
   })
 
-  it('老/最小清单：装后清单里没有该包 ⇒ 退回 dependencies 也判未登记（读的是装后清单）', async () => {
+  it('老/最小清单：装后清单里没有该包 ⇒ 退回 dependencies 也判未登记（倒退）', async () => {
     const profileDir = makeProfile()
     tmpRoots.push(profileDir)
     makeTargetPackage(join(profileDir, 'node_modules', TARGET), INSTALLED)

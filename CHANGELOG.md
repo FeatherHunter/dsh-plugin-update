@@ -6,6 +6,23 @@
 
 ## [Unreleased]
 
+## [0.18.18] - 2026-10-18
+
+### Fixed
+- **#201 桌面管理器路由：已装但未选中的包不再毫秒级撞 `bundle-in-use`**：真机十一件里六件（`dsh-chef`、`dsh-home-ilife`、`dsh-memo-ilife`、`dsh-schedule-ilife`、`dsh-calorie`、`dsh-im-companion`）装着、在跑、但不在 profile 的 `dsh.profile.bundles` 选中名单里；宿主 `removeBundle` 只在目标 bundle `enabled` 时才 deselect + reload，于是活 fiber 还在，移除被 `bundle-in-use` 拒绝（真机 2–3ms 返回）。现在两步配方在移除前先用 `listBundles()` 探一次拓扑：`removable === false` 直接诚实失败（不白跑移除）；`enabled === false` 先 `setBundleEnabled(name, true)` 恢复选中（宿主 `installBundle` 默认也做这一步）再 `removeBundle` → `installBundle`；旧宿主没有这些能力就按老两步走或诚实失败，绝不盲删。
+- **#201 失败人话格补「换通道」命令**：`already-installed` / `bundle-in-use` / `not-removable` 这三个码意味着管理器路走不通，失败详情尾部补 ASCII 命令 ` (dsh plugin --profile <范围> add --save-exact <包名>@<版本>)`（仍是原文在前、建议在后、总长守 300 字符）——官方桌面版机器上的载体 CLI 是唯一能原地换版的用户通道。
+- **#202 空更新哨兵**：安装请求的目标版本与磁盘已装版本相同时直接回 `installation-changed`（详情写「目标版本与已装版本相同，无需安装」），不建任务、不启动安装。批量行或旧快照拿已装版当目标时，不再等到装后校验才报一个含混的「安装位置变了」。
+- **#180 装后「在册」核实收窄为「登记不许倒退」**：新装仍必须进 `dsh.profile.bundles`（或老清单的 `dependencies`），否则 `install-failed`；但更新一个装前就未登记的包不再因为「装完仍未登记」判失败——真机那六件只有就地换版通道，要求登记等于永远升不了级（#201 真机形态）；装前登记过、装后清单里丢了（倒退）仍然失败。
+
+### Changed
+- 测试：新增 `tests/issue-201-manager-recovery.test.mjs`（6 例：探拓扑后恢复选中再两步、已选中不碰选中名单、不可移除不盲删、无 `listBundles` 老宿主走旧两步、有探测无 `setBundleEnabled` 诚实失败并给命令、清单行缺 `enabled`/`removable` 格时不拿缺省当否）与 `tests/issue-202-noop-install.test.mjs`（2 例：查完后磁盘被换成目标版 ⇒ 拒绝且一次都不装、对照目标确实更新 ⇒ 正常待重启）；改写 `tests/issue-180-registered.test.mjs`（8 例：新装未登记失败、装前未登记更新成功 ×3 形态、登记倒退失败、正常形态、老清单退回 deps ×2）。未修树红基线实测 8 红（#201 4 红 + #202 1 红 + #180 3 红）。
+- `README.md`：新增 §5.9「桌面管理器路由的两步配方（`0.18.18` 起）」（拓扑探测、救急命令、空更新哨兵、在册核实口径）；§5.2 补 `installation-changed` 的「无需安装」子形态。
+- `docs/host-install-exits.md`：出口二补「移除前先探拓扑（#201）」与「失败人话格加换通道命令（#201）」两条，写明宿主拒绝次序与真机六件的形态。
+- bilingual：新增散落中文 2 条进 `tests/fixtures/bilingual/copy-baseline.json`（启用超时人话、「无需安装」人话）；字典 key 数不变（354）。
+- **发布口径提醒**：`0.18.8`～`0.18.18` 十一段都还没发到 npm（registry 最新仍是 `0.18.7`），发版时以 `0.18.18` 一次带走即可。
+
+门禁（**发版定格**）：`npm test` **1499 例：1498 过 / 0 失败 / 1 跳过**（干净发版树 `e2c003a` + 本批 7 个文件上实测）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、354 个 key、16 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.18`，368.2 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（354 个 key 仍全是 `draft: true`）。
+
 ## [0.18.17] - 2026-10-18
 
 ### Fixed

@@ -591,11 +591,12 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
           detail: `装完校验没过：磁盘上是 ${env.installedVersion ?? '未知'}，目标是 ${job.targetVersion ?? '未知'}`,
         })
       }
-      // 在册核实（#180）：磁盘换版 ≠ 重启后会加载。宿主（尤其官方桌面版的 remove→install 两步）
-      // 可能只落了「包体+依赖」却没把包登记回 `dsh.profile.bundles`——重启后插件直接消失，
-      // 这种半装态不许对外报成功。清单没有 bundles 概念的老 profile 由读取器退回 dependencies 判，
-      // 这里只认明确的 false；未知（旧覆盖实现省略本格）不判失败。
-      if (env.registered === false) {
+      // 在册核实（#180；#201 起改成「登记不许倒退」）：新装必须登记，否则重启后插件根本不会加载；
+      // 但更新一个**装前就没登记**的包时，唯一可用的通道是就地换版（宿主 removeBundle 卸不掉未选中的
+      // bundle，见 #201），更新后仍未登记不是这次安装造成的——拿它判失败等于让这类包永远升不了级。
+      // 装前登记过、装后却没了的半装态仍然大声失败（宿主两步配方只落一半的典型形态）。
+      const registrationWasMissing = envAtStart.installed === true && envAtStart.registered === false
+      if (env.registered === false && !registrationWasMissing) {
         throw Object.assign(updateError('install-failed'), {
           detail: '装完校验没过：profile 未登记该插件（重启后不会加载）',
         })
@@ -663,6 +664,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     if (!slot || slot.version !== version || !slot.checkId || slot.checkId !== ctx.checkId || ports.now() >= slot.expiresAt) {
       throw updateError('check-expired')
     }
+    // 空更新哨兵（#202）：目标与磁盘已装版相同即无需安装，先于指纹/环境闸门给结论。
+    refuseNoopInstall(version, ctx.env)
     if (ctx.env.installationKey !== slot.installationKey) throw updateError('installation-changed')
     if (!ctx.env.eligible || ctx.env.blockedReason) throw updateError(ctx.env.blockedReason ?? 'update-busy')
     const runningVersion = ports.readRunningVersion()
@@ -705,6 +708,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       const env = await ports.readInstalled()
       if (env.installationKey !== slot.installationKey) throw updateError('installation-changed')
       if (!env.eligible || env.blockedReason) throw updateError(env.blockedReason ?? 'update-busy')
+      // 空更新哨兵（#202）：重取环境后目标与磁盘已装版相同即不再动手。
+      refuseNoopInstall(version, env)
       // 前版本保真（#186）：记下「动手之前」磁盘上的版本，供 before.json 与恢复诊断对照。
       rememberPreviousVersion(job, env)
       if (ports.backupJob) await ports.backupJob(job)
@@ -717,6 +722,20 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       await release(job.id)
       throw error
     }
+  }
+
+  /**
+   * 空更新哨兵（#202）：批量编排在「查不到运行版」时会把「已装版」当目标再发起一次安装
+   * （真机 20:03 那五行就是 target 与已装版相同，2–6ms 被宿主拒绝或白跑两步）。
+   * 目标与磁盘已装版完全相同时不启动安装：没有要换的版本，装完读到的还是它。
+   * 只挡相等——合规降级路径的目标本来就低于磁盘版，那是另一条合法意图（#156）。
+   */
+  function refuseNoopInstall(targetVersion: string, env: EnvironmentView): void {
+    if (env.installed !== true || typeof env.installedVersion !== 'string') return
+    if (compareReleaseVersions(targetVersion, env.installedVersion) !== 0) return
+    throw Object.assign(updateError('installation-changed'), {
+      detail: '目标版本与已装版本相同，无需安装',
+    })
   }
 
   async function install(args: { checkId: string; requestId: string; from?: InstallSource; version?: string }): Promise<UpdateSnapshot> {
@@ -737,6 +756,9 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     if (!checked || !checked.checkId || checked.checkId !== checkId || ports.now() >= checked.expiresAt) {
       throw updateError('check-expired')
     }
+    // 空更新哨兵（#202）：目标与磁盘已装版相同就到此为止，不建作业、不惊动静默状态机。
+    // 放在安装指纹/环境闸门之前：这类请求的「错」不是安装位置变了、也不是恢复待重启，而是根本没东西可装。
+    refuseNoopInstall(checked.release.version, env)
     if (env.installationKey !== checked.installationKey) throw updateError('installation-changed')
     const snap = buildSnapshot(env, previous)
     if (!snap.canInstall) {

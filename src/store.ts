@@ -1233,6 +1233,18 @@ const REMOVE_TIMEOUT_DETAIL = '移除已装包超时，未继续安装；目标�
  */
 const REINSTALL_AFTER_REMOVAL_DETAIL = '目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装'
 /**
+ * 未选中的已装包要先恢复选中才能走宿主的两步配方（#201）：真机六个第三方插件都在
+ * `dependencies` 里、却不在 `dsh.profile.bundles` 选中名单里，且仍在运行——宿主
+ * `removeBundle` 只对选中的 bundle 先取消选中再重载卸载，未选中的包直接判 `bundle-in-use`。
+ * 恢复选中本身也可能被宿主拖住，所以同样有额度与诚实超时口径。
+ */
+const ENABLE_TIMEOUT_DETAIL = '启用已装包超时，未继续安装；请在宿主插件页确认该插件已启用后重试'
+/**
+ * 这几种拒绝码说明「管理器通道对这个包走不通」：把一定能用的载体 CLI 命令补进人话格，
+ * 用户不必再回面板翻手工命令（有些半装态下面板已经不给命令了，见 #168 同类处置）。
+ */
+const MANAGER_ROUTE_BLOCKED_CODES = new Set(['already-installed', 'bundle-in-use', 'not-removable'])
+/**
  * 出口一（第三方 Desktop 的 desktopPnpm 服务）的三格（#193，审查 A 线 R3）：
  * 与出口二 #184 同一套纪律——宿主给了 terminate 才说「已请求终止」，没给就一次终止都没发过、
  * 安装可能还在后台跑；服务直接崩了也要如实说，不许伪装成超时。
@@ -1711,6 +1723,73 @@ function managerSaidAlreadyInstalled(result: ManagerChangeResult): boolean {
 }
 
 /**
+ * 管理器 `listBundles()` 的包拓扑（本包只需三格，其余一律不看）：
+ * - `enabled`：是否在 `dsh.profile.bundles` 选中名单里——宿主只对选中的 bundle 做卸载重载；
+ * - `installed`：是否作为依赖装着；
+ * - `removable`：宿主是否允许移除。官方桌面版里第三方包的 `removable = installed && !shipped`。
+ */
+interface ManagerBundleTopology {
+  /** 选中名单成员；`null` 表示宿主这一版没给这格（不拿缺省当否，避免误改用户拓扑）。 */
+  enabled: boolean | null
+  installed: boolean
+  /** 是否允许移除；`null` 表示宿主没给这格（不拿缺省当拒绝，避免误报 `not-removable`）。 */
+  removable: boolean | null
+}
+
+/** 老实现可能直接回数组、也可能回 `{ bundles: [...] }`；两种都认，别的形状当没有。 */
+function managerBundleRowsOf(said: unknown): Record<string, unknown>[] {
+  const rows = Array.isArray(said)
+    ? said
+    : said && typeof said === 'object' && Array.isArray((said as { bundles?: unknown }).bundles)
+      ? ((said as { bundles: unknown[] }).bundles as unknown[])
+      : null
+  if (rows === null) return []
+  return rows.filter((row): row is Record<string, unknown> => !!row && typeof row === 'object')
+}
+
+/**
+ * 为「更新一个已在册的包」探一次宿主拓扑（#201）。管理器没有 `listBundles`、或调用失败、
+ * 或清单里找不到这个包，都回 null——调用方退回旧两步配方，不拿猜测代替探测。
+ */
+async function probeManagerTopology(
+  manager: { listBundles?: () => unknown },
+  name: string
+): Promise<ManagerBundleTopology | null> {
+  const listBundles = manager.listBundles
+  if (typeof listBundles !== 'function') return null
+  let said: unknown
+  try {
+    said = await listBundles.call(manager)
+  } catch {
+    return null
+  }
+  const row = managerBundleRowsOf(said).find((item) => item.name === name)
+  if (!row) return null
+  // 三态归一：宿主明确给了布尔值才采信，缺格/异形一律 `null`（调用方只对明确的 false 动作）。
+  const tri = (value: unknown): boolean | null => (typeof value === 'boolean' ? value : null)
+  return { enabled: tri(row.enabled), installed: row.installed === true, removable: tri(row.removable) }
+}
+
+/**
+ * 管理器通道明确走不通时，把载体 CLI 的原位更新命令补在宿主原话之后（原文在前、建议在后）。
+ * 使用范围名按调用方给的来（缺省即官方桌面版的 `desktop`），命令形状与本包手工命令一致。
+ */
+function withManagerRetryHint(
+  error: Error & { detail?: string },
+  result: ManagerChangeResult,
+  spec: string,
+  profileArg: string
+): Error & { detail?: string } {
+  const code = managerCodeOf(result)
+  if (!MANAGER_ROUTE_BLOCKED_CODES.has(code)) return error
+  const command = ` (dsh plugin --profile ${profileArg} add --save-exact ${spec})`
+  const said = typeof error.detail === 'string' ? error.detail : ''
+  const room = DETAIL_MAX_CHARS - command.length - 1
+  const head = room > 0 && said.length > room ? said.slice(0, room) : said
+  return withDetail(error, head ? `${head}${command}` : command.trim())
+}
+
+/**
  * 管理器拒绝码的「下一步」翻译（#R1 对抗审查，S2「报错无下一步」）。
  *
  * 宿主自己有一张 ERROR_STEPS 表（`asar:…/dsh-plugin-manager/lib/types/tools.js:7-21`）给每个拒绝码
@@ -1782,12 +1861,18 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
       installBundle?: (spec: string, options: { requestId: string; registry?: string }) => unknown
       cancelInstall?: (requestId: string) => unknown
       removeBundle?: (name: string) => unknown
+      /** 拓扑探测（#201）：已装包是否在宿主选中名单里、能不能移走。老宿主没有这格。 */
+      listBundles?: () => unknown
+      /** 恢复选中（#201）：官方桌面版用它把「装着但未选中」的 bundle 放回选中名单。 */
+      setBundleEnabled?: (name: string, enabled: boolean) => unknown
     } | null
     if (!manager || typeof manager.installBundle !== 'function') throw fail('install-failed')
     // 取成常量再 `.call(manager, …)`：闭包里属性收窄会丢，this 也必须还是管理器自己。
     const installBundle = manager.installBundle
     const spec = managerSpecOf(recipe.pluginArgs)
     if (!spec) throw fail('install-failed')
+    const profileName = part(parts.profileName ?? null)
+    const profileArg = typeof profileName === 'string' && profileName ? profileName : 'desktop'
     const registry = part(parts.registryUrl ?? '') as unknown
     // 源不进参数数组（管理器不吃开关），走它自己的 registry 选项，取同一个注入值；
     // 没人注入源就不传，由管理器用自己的源策略（宿主路径总会注入，默认即官方源）。
@@ -1847,7 +1932,7 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
       const failure = fail('install-failed')
       const rawCode = result && result.packageResult ? result.packageResult.exitCode : undefined
       const coded = typeof rawCode === 'number' && Number.isInteger(rawCode) ? withExit(failure, rawCode) : failure
-      return withDetail(coded, withManagerHint(result, said))
+      return withManagerRetryHint(withDetail(coded, withManagerHint(result, said)), result, spec, profileArg)
     }
     let result = await installOnce()
     let application = result && typeof result.application === 'string' ? result.application : ''
@@ -1856,6 +1941,25 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
       const targetName = managerSaidAlreadyInstalled(result) ? managerPackageNameOf(spec) : ''
       const removeBundle = manager.removeBundle
       if (!targetName || typeof removeBundle !== 'function') throw failureOf(result, application)
+      // #201：宿主只对**选中**的 bundle 先取消选中再重载卸载。真机上有一批包装着、也在跑，
+      // 却不在选中名单里（`dsh.profile.bundles` 没有它们）——直接 remove 会在活 fiber 判
+      // `bundle-in-use`（2–3ms 就回），两步配方永远走不完。所以先探拓扑：不可移除就诚实拒绝；
+      // 未选中就先用宿主能力恢复选中，再按常规两步走。老宿主没有探测/启用能力时退回旧行为。
+      const topology = await probeManagerTopology(manager, targetName)
+      if (topology !== null && topology.removable === false) {
+        throw failureOf({ application: 'failed', error: { code: 'not-removable' } }, 'failed')
+      }
+      if (topology !== null && topology.enabled === false) {
+        const setBundleEnabled = manager.setBundleEnabled
+        if (typeof setBundleEnabled !== 'function') {
+          throw failureOf({ application: 'failed', error: { code: 'bundle-in-use' } }, 'failed')
+        }
+        const enabling = Promise.resolve(setBundleEnabled.call(manager, targetName, true)) as Promise<ManagerChangeResult>
+        // 启用步没有可取消的安装请求：超时口径不谎称「已请求取消」，只说没继续安装。
+        const enabled = await finishCall(enabling, async () => 'not-running', ENABLE_TIMEOUT_DETAIL)
+        const enableApplication = enabled && typeof enabled.application === 'string' ? enabled.application : ''
+        if (!MANAGER_OK.includes(enableApplication)) throw failureOf(enabled, enableApplication)
+      }
       // 移除步刻意不请求取消；超时意味着「可能已经摘掉了、但没来得及重装」（#184）——要当场说清并给下一步。
       // 这一步的「手工命令」面板里可能拿不到（目标已不在 dependencies，读取器会判成源码安装、不给命令），
       // 所以把这条桌面 CLI 一定能用的重装命令直接写进人话格（spec = 包名@目标版本）。
