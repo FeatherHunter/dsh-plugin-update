@@ -1228,6 +1228,11 @@ const INSTALL_TIMEOUT_DETAIL = '安装超时，已请求宿主取消'
 const INSTALL_TIMEOUT_NO_CANCEL_DETAIL = '安装超时；宿主未提供取消能力，这次安装可能仍在后台继续'
 const REMOVE_TIMEOUT_DETAIL = '移除已装包超时，未继续安装；目标包可能已不在册，请重启宿主检查并按手工命令重装'
 /**
+ * 两步配方的第二次没成时要补的事实（#168）：移除已经成功，用户面对的不再是「装着旧版、可重试」，
+ * 而是「什么都没装」——必须点明并给一条一定能用的重装命令，否则会把「摘掉了」当成「升级没成功」。
+ */
+const REINSTALL_AFTER_REMOVAL_DETAIL = '目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装'
+/**
  * 出口一（第三方 Desktop 的 desktopPnpm 服务）的三格（#193，审查 A 线 R3）：
  * 与出口二 #184 同一套纪律——宿主给了 terminate 才说「已请求终止」，没给就一次终止都没发过、
  * 安装可能还在后台跑；服务直接崩了也要如实说，不许伪装成超时。
@@ -1747,6 +1752,18 @@ function withManagerHint(result: ManagerChangeResult, said: string): string {
 }
 
 /**
+ * 移除已成功、重装却没成（失败或超时）：在宿主原话之后补「目标包已被摘掉」这条事实与一条
+ * 一定能用的重装命令（#168）。原文在前、本包补记在后，总长仍守 DETAIL_MAX_CHARS。
+ */
+function withRemovalFact(error: Error & { detail?: string }, spec: string): Error & { detail?: string } {
+  const fact = `${REINSTALL_AFTER_REMOVAL_DETAIL} (dsh plugin --profile desktop add --save-exact ${spec})`
+  const said = typeof error.detail === 'string' ? error.detail : ''
+  const room = DETAIL_MAX_CHARS - fact.length - 1
+  const head = room > 0 && said.length > room ? said.slice(0, room) : said
+  return withDetail(error, head ? `${head}；${fact}` : fact)
+}
+
+/**
  * 官方桌面版：把安装交给宿主进程内的插件管理器（`ctx.get('pluginManager')`）。
  *
  * 与命令行那条同政策：精确版本、官方源（走管理器的 registry 选项）、超时即终止（请求取消）。
@@ -1847,9 +1864,11 @@ async function runDesktopManager(recipe: { pluginArgs: string[]; timeoutMs: numb
       const removed = await finishCall(removing, async () => 'not-running', removalTimeoutDetail)
       const removalApplication = removed && typeof removed.application === 'string' ? removed.application : ''
       if (!MANAGER_OK.includes(removalApplication)) throw failureOf(removed, removalApplication)
-      result = await installOnce()
+      result = await installOnce().catch((error) => {
+        throw withRemovalFact(error as Error & { detail?: string }, spec)
+      })
       application = result && typeof result.application === 'string' ? result.application : ''
-      if (!MANAGER_OK.includes(application)) throw failureOf(result, application)
+      if (!MANAGER_OK.includes(application)) throw withRemovalFact(failureOf(result, application), spec)
     }
     return 0
   } catch (error) {

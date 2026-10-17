@@ -296,6 +296,45 @@ describe('官方桌面版：更新已装包的配方（remove_bundle → install
     assert.equal(manager.calls.install.length, 2)
   })
 
+  it('移除成功、重装失败：详情必须在宿主原话之后说明目标包已被移除、现在不在使用范围里，并给可执行重装命令', async () => {
+    const manager = scripted({
+      install: [
+        alreadyInstalled('宿主原话-FIRST'),
+        { application: 'failed', error: { code: 'operation-error', diagnostic: '第二次的错-SECOND' } },
+      ],
+      remove: [{ application: 'applied' }],
+    })
+    const error = await rejectedOf(() => call(runWith({ pluginManager: manager, log: () => {} })))
+    const detail = String(error.detail)
+    assert.equal(error.code, 'install-failed')
+    assert.match(detail, /SECOND/, '宿主原话要在详情里')
+    assert.match(detail, /已被宿主移除/, '必须点明移除这一步已经发生（#168）')
+    assert.match(detail, /不在使用范围里/, '必须说明目标包现在不在册，处置与「可以重试」不同')
+    assert.match(detail, /dsh plugin --profile desktop add --save-exact/, '必须给一条一定能用的重装命令')
+    assert.ok(detail.includes(SPEC), `重装命令要带完整规格（期望含 ${SPEC}）`)
+    assert.ok(
+      detail.indexOf('SECOND') < detail.indexOf('已被宿主移除'),
+      '契约：宿主原话在前、本包补记的事实与下一步在后'
+    )
+    assert.ok(detail.length <= 301, '详情仍受 300 字封顶')
+  })
+
+  it('重装步超时（移除已成功）：详情同样要说明目标包可能已被移除，并给可执行重装命令', async () => {
+    const manager = scripted({ install: [alreadyInstalled(), () => new Promise(() => {})], remove: [{ application: 'applied' }] })
+    const outcome = await cappedSettle(
+      () => call(runWith({ installTimeoutMs: 30, pluginManager: manager, log: () => {} })),
+      30 + GRACE_MS + 4000
+    )
+    const detail = String(outcome.error.detail)
+    assert.equal(outcome.kind, 'failed')
+    assert.equal(outcome.error.code, 'install-failed')
+    assert.equal(manager.calls.install.length, 2, '移除成功后必须真的尝试过重装')
+    assert.match(detail, /安装超时/, '超时口径仍在')
+    assert.match(detail, /已被宿主移除|不在使用范围里/, '必须点明移除已经发生、包可能不在册')
+    assert.match(detail, /dsh plugin --profile desktop add --save-exact/, '必须给一条一定能用的重装命令')
+    assert.ok(detail.length <= 301, '详情仍受 300 字封顶')
+  })
+
   it('removeBundle 抛异常或拒绝：不炸出别的码，收成 install-failed，且不重装', async () => {
     const cases = [
       ['同步抛', new Error('remove 炸了')],
