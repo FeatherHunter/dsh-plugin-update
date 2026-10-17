@@ -186,7 +186,16 @@ function devSource(): Error & { code: string } {
 export interface ReaderOverrides {
   env?: Record<string, string | undefined>
   osHome?: string
-  runningVersion?: string
+  /**
+   * 运行版本（宿主自带清单）。**未知请显式传 `null`**（#182）——不要伪造 `0.0.0`：
+   * 未知不参与比较、不落事件 `current`、面板按未知呈现。不传则回落到读宿主清单。
+   */
+  runningVersion?: string | null
+  /**
+   * 当前 DSH 运行时版本（#195，可选）：未知时不传或传 `null`/空串。
+   * 检查层只在拿得到时提前判远端 `engines.dsh` 要求；拿不到就不猜、不误拦。
+   */
+  dshVersion?: string | null
   profileDir?: string
   profileName?: string | null
   homeDir?: string
@@ -261,18 +270,21 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   )
   // 运行版本只认“是不是合法发行版”，通道政策不在这里门控（issue #98）：
   // 定位得到但版本不被通道接受 → 照常建成读取器，阻拦由 readInstalled 的
-  // channel-mismatch 分支诚实报告；unknown-profile 只留给“定位不到”与“版本非法”。
+  // channel-mismatch 分支诚实报告；unknown-profile 只留给“定位不到”。
+  // #182：运行版本「未知」是一等状态——显式 null/空串即未知；不传才回落到宿主清单。
   const loadedVersion = loaded ? (loaded.manifest as { version?: unknown }).version : null
   const overrideVersion = overrides.runningVersion
   let runningVersion: string | null = null
-  if (overrideVersion !== undefined && overrideVersion !== null) {
-    // 显式覆盖即调用方责任，原样采用、有效性门不过问（与改造前一致：
-    // 空串等退化输入同样落到下面的未知分支，行为一字不动）。
+  if (overrideVersion === null || overrideVersion === '') {
+    runningVersion = null
+  } else if (overrideVersion !== undefined) {
+    // 显式覆盖即调用方责任，原样采用、有效性门不过问（与改造前一致）。
     runningVersion = overrideVersion
   } else if (validReleaseVersion(loadedVersion)) {
     runningVersion = String(loadedVersion)
   }
-  if (!runningVersion) throw unknownProfile()
+  const rawDshVersion = overrides.dshVersion
+  const dshVersion: string | null = typeof rawDshVersion === 'string' && rawDshVersion.trim() ? rawDshVersion.trim() : null
   let profileDirInput: string
   if (overrides.profileDir) {
     profileDirInput = String(overrides.profileDir)
@@ -295,7 +307,7 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   const confirmationTtlMs = overrides.confirmationTtlMs ?? config.confirmationTtlMs
   const installTimeoutMs = overrides.installTimeoutMs ?? config.installTimeoutMs
   const registryUrl = overrides.registryUrl ?? config.registryUrl
-  const key = `${pluginId}\0${config.prefix}\0${runningVersion}\0${profileDirInput}\0${overrides.profileName ?? ''}\0${homeDirInput}\0${overrides.runInstall ? 'exec' : ''}\0${environmentKind}\0${targetPackageName}\0${explicitTargetDir}\0${releaseChannel}`
+  const key = `${pluginId}\0${config.prefix}\0${runningVersion}\0${dshVersion}\0${profileDirInput}\0${overrides.profileName ?? ''}\0${homeDirInput}\0${overrides.runInstall ? 'exec' : ''}\0${environmentKind}\0${targetPackageName}\0${explicitTargetDir}\0${releaseChannel}`
   if (sharedReader && sharedReaderKey === key) return sharedReader
   // 绑好插件标识的发射口（#124）：中立文件不 import node、也不认识插件标识，端口一律在宿主侧绑好再递进去。
   // 磁盘侧就是本插件这一家；队列与全局锁是**跨插件共享**的，所以给一个「按当次动作方取口」的工厂——
@@ -489,6 +501,7 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   sharedReader = Object.assign(
     createUpdateReader({
       runningVersion,
+      dshVersion,
       profileDir: profileDirInput,
       pluginId,
       profileName: overrides.profileName ?? undefined,
@@ -532,7 +545,7 @@ function toUpdateErrorPayload(error: unknown): { error: string; errorKind: strin
 
 function manualOfEnv(
   env: { profileName?: string | null; sourceInstall?: boolean } | null,
-  snapshot: { latestVersion?: string | null; installedVersion?: string | null; runningVersion?: string; job?: { targetVersion?: string | null } | null; blockedReason?: string | null } | null,
+  snapshot: { latestVersion?: string | null; installedVersion?: string | null; runningVersion?: string | null; job?: { targetVersion?: string | null } | null; blockedReason?: string | null } | null,
   config: ReturnType<typeof resolveUpdateConfig>
 ): string | null {
   try {
@@ -540,7 +553,7 @@ function manualOfEnv(
       profileName: env?.profileName ?? null,
       latestVersion: snapshot?.latestVersion ?? null,
       installedVersion: snapshot?.installedVersion ?? null,
-      runningVersion: String(snapshot?.runningVersion ?? ''),
+      runningVersion: snapshot?.runningVersion ?? null,
       jobTargetVersion: snapshot?.job?.targetVersion ?? null,
       blockedReason: (snapshot?.blockedReason as never) ?? null,
       sourceInstall: env?.sourceInstall === true,
@@ -555,7 +568,7 @@ function manualOfEnv(
 
 async function snapWithManual(
   reader: ReturnType<typeof createUpdateReader>,
-  snapshot: { latestVersion?: string | null; installedVersion?: string | null; runningVersion?: string; job?: { targetVersion?: string | null } | null; blockedReason?: string | null },
+  snapshot: { latestVersion?: string | null; installedVersion?: string | null; runningVersion?: string | null; job?: { targetVersion?: string | null } | null; blockedReason?: string | null },
   config: ReturnType<typeof resolveUpdateConfig>
 ): Promise<{ snapshot: unknown; manual: string | null; diag?: DiagObject }> {
   try {

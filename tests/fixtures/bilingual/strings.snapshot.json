@@ -647,6 +647,11 @@
       "zh": "数据源返回 {status}，重试后仍失败。",
       "draft": true
     },
+    "diag.fallback.incompatible-dsh": {
+      "en": "New version needs a newer DSH runtime than the running one",
+      "zh": "宿主运行时版本不兼容",
+      "draft": true
+    },
     "diag.fallback.incompatible-node": {
       "en": "New version needs a different Node version than the running one",
       "zh": "Node 运行时版本不兼容",
@@ -957,6 +962,16 @@
       "zh": "新版本 {latest} 已安装，重启宿主后生效。",
       "draft": true
     },
+    "panel.banner.unknown-running-action": {
+      "en": "Check the plugin version in the host manifest and reopen the host, then check again.",
+      "zh": "请检查宿主清单里的插件版本，重启宿主后重新查询",
+      "draft": true
+    },
+    "panel.banner.unknown-running-title": {
+      "en": "Running version unknown; cannot tell whether an update is available.",
+      "zh": "运行版本未知，无法判断是否有新版可装。",
+      "draft": true
+    },
     "panel.banner.update-action": {
       "en": "Install runs the exact version; only one install runs per scope at a time.",
       "zh": "选择安装将按精确版本安装；同一使用范围同时仅安装一项。",
@@ -990,6 +1005,16 @@
     "panel.blocked.dev-source.title": {
       "en": "Dev-mode source link, update center unavailable",
       "zh": "开发态挂载（源码链接），更新中心不可用",
+      "draft": true
+    },
+    "panel.blocked.incompatible-dsh.action": {
+      "en": "The running DSH does not satisfy the new version; upgrade DSH first, then update.",
+      "zh": "当前宿主运行时版本不满足新版本要求，请先升级宿主再更新",
+      "draft": true
+    },
+    "panel.blocked.incompatible-dsh.title": {
+      "en": "New version requires a newer DSH runtime",
+      "zh": "新版本要求更高的宿主运行时版本",
       "draft": true
     },
     "panel.blocked.incompatible-node.action": {

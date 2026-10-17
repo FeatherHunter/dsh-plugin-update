@@ -22,10 +22,10 @@
 | 事件码 | 级别 | 字段白名单 | 说明与脱敏 |
 | --- | --- | --- | --- |
 | `update.wire.ready` | info | `logSink: 'external'\|'self'\|'off'`、`logDirHash` | 接线自陈（外部实例/自建/关）。目录只给 hash8，不给路径 |
-| `update.check.done` | info | `ok: true`、`current`、`latest`、`channel`、`source`、`latencyMs` | 版本号经中央校验器规范化；`source` 只给白名单主机名（复用 `resolveRegistryHost`）、**不带路径与账号** |
+| `update.check.done` | info | `ok: true`、`current?`、`latest`、`channel`、`source`、`latencyMs` | 版本号经中央校验器规范化；`source` 只给白名单主机名（复用 `resolveRegistryHost`）、**不带路径与账号**。`current` 可选：运行版本未知时省略（不伪造版号） |
 | `update.check.fail` | warn | `stage: 'fetch'\|'compare'\|'channel'\|'verify'`、`errorKind`、`httpStatus?` | 稳定码，无自由文本。四个值都是**合法值**，但**实际可达三个**：`fetch`（取数失败，`src/service.ts:308`）、`channel`（通道判定不认，`:400/:463/:493` 的 `withStage(..., 'channel')`）、`verify`（`stageOfError()` 的兜底：非 `check-failed` 又没贴阶段）。`compare` 在白名单里但**没有生产者** |
 | `update.status.changed` | info | `kind: 'update-available'\|'up-to-date'\|'unknown'`、`latest?` | 轮询的**边沿**：状态没变就不发（见 §4） |
-| `update.install.request` | info | `from: 'panel'\|'entry'\|'batch'`、`current`、`latest`、`checkAgeMs` | 不含凭证；`checkId`/`requestId` 不进日志（关联靠 `traceId`） |
+| `update.install.request` | info | `from: 'panel'\|'entry'\|'batch'`、`current?`、`latest`、`checkAgeMs` | 不含凭证；`checkId`/`requestId` 不进日志（关联靠 `traceId`）。`current` 可选：运行版本未知时省略（不伪造版号） |
 | `update.install.verify` | info | `result: 'completed'\|'restart-required'\|'failed'\|'interrupted'`、`installedVersion`、`pendingRestart: boolean` | 枚举 + 版本号 |
 | `update.batch.entry.request` | info | `total`、`ownCount`、`foreignCount` | 只给数量，不给插件标识清单 |
 | `update.batch.entry.fail` | warn | `targetHash`、`errorKind`、`exitCode?` | 目标标识一律 hash8（绝不给包名/路径原文） |

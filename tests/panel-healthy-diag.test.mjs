@@ -51,7 +51,7 @@ test('#166 健康态复制：英文界面队列词跟随语言（旧内联漏传
   assert.doesNotMatch(text, /未排队/)
 })
 
-test('#166 健康态复制：未安装无新版分支（单行，逐字冻结，含运行 null 现状）', () => {
+test('#166 健康态复制：未安装无新版分支（单行，逐字冻结，运行未知不写成 null，#182）', () => {
   const text = pc.buildHealthyDiagCopy({
     canInstall: false,
     latestVersion: null,
@@ -69,6 +69,6 @@ test('#166 健康态复制：未安装无新版分支（单行，逐字冻结，
   })
   assert.equal(
     text,
-    '[update-diag] 当前无失败：未安装 · 版本：运行 null／磁盘 未知／远端 未查过 · 来源：插件=demo · 宿主=未知 · 使用范围=未知 · 队列=排队第 2 位',
+    '[update-diag] 当前无失败：未安装 · 版本：运行 未知／磁盘 未知／远端 未查过 · 来源：插件=demo · 宿主=未知 · 使用范围=未知 · 队列=排队第 2 位',
   )
 })

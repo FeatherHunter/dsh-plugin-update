@@ -33,6 +33,7 @@ const BLOCKED_KEYS: Record<BlockedReason, { title: BilingualKey; action: Bilingu
   'pending-restart': { title: 'panel.blocked.pending-restart.title', action: 'panel.blocked.pending-restart.action' },
   'registry-conflict': { title: 'panel.blocked.registry-conflict.title', action: 'panel.blocked.registry-conflict.action' },
   'incompatible-node': { title: 'panel.blocked.incompatible-node.title', action: 'panel.blocked.incompatible-node.action' },
+  'incompatible-dsh': { title: 'panel.blocked.incompatible-dsh.title', action: 'panel.blocked.incompatible-dsh.action' },
   'recovery-required': { title: 'panel.blocked.recovery-required.title', action: 'panel.blocked.recovery-required.action' },
   'dev-source': { title: 'panel.blocked.dev-source.title', action: 'panel.blocked.dev-source.action' },
 }
@@ -503,10 +504,14 @@ export interface HealthyDiagCopyInput {
 export function buildHealthyDiagCopy(input: HealthyDiagCopyInput): string {
   const l = normalizeLangTag(input.lang ?? 'zh')
   const notInstalledWord = input.installed === false ? copyText('panel.banner.not-installed', l) : null
+  // #182：运行版本未知时不许把 null 拼成「null」，也不许冒充「已是最新」。
+  const runningWord = input.runningVersion ?? copyText('panel.meta.unknown', l)
   const stateLine =
     input.canInstall && input.latestVersion
-      ? `有新版 ${input.latestVersion} 可装（当前 ${notInstalledWord ?? input.runningVersion}）`
-      : (notInstalledWord ?? '已是最新，无需更新。')
+      ? `有新版 ${input.latestVersion} 可装（当前 ${notInstalledWord ?? runningWord}）`
+      : input.installed !== false && input.runningVersion === null
+        ? '运行版本未知，无法判断是否有新版可装。'
+        : (notInstalledWord ?? '已是最新，无需更新。')
   const queueName = queueTextOf(input.queuePosition ?? null, l)
   const envBits = [
     `插件=${input.pluginId}`,
@@ -521,7 +526,7 @@ export function buildHealthyDiagCopy(input: HealthyDiagCopyInput): string {
   if (updaterLine) envBits.push(updaterLine)
   const segs = [
     `[update-diag] 当前无失败：${stateLine}`,
-    `版本：运行 ${input.runningVersion}／磁盘 ${input.installedVersion ?? '未知'}／远端 ${input.latestVersion ?? '未查过'}`,
+    `版本：运行 ${input.runningVersion ?? '未知'}／磁盘 ${input.installedVersion ?? '未知'}／远端 ${input.latestVersion ?? '未查过'}`,
     `来源：${envBits.join(' · ')}`,
   ].map((s) => redactForCopy(s))
   return input.format === 'line' ? segs.join(' · ') : segs.join('\n')

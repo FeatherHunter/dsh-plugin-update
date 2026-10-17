@@ -162,6 +162,10 @@ function hasUpdateOf(snapshot: UpdateSnapshot | null): boolean {
   if (!snapshot) return false
   const latest = snapshot.latestVersion
   if (typeof latest !== 'string' || !latest.trim()) return false
+  // #134/#182：磁盘上没有（首次安装）时服务端主状态就是 update-available，入口件同样如实说「有」。
+  if (snapshot.installed === false) return true
+  // #182：磁盘在场但运行版本未知——不知道在跑哪版就没有「不同」这个事实，不宣称有新版。
+  if (snapshot.runningVersion === null) return false
   return latest.trim() !== snapshot.runningVersion
 }
 
@@ -339,7 +343,8 @@ function isObject(value: unknown): value is Record<string, unknown> {
 /** 宽容读快照：形状不对就当没查到（不猜、不抛）。 */
 function asSnapshot(value: unknown): UpdateSnapshot | null {
   if (!isObject(value)) return null
-  if (typeof value['runningVersion'] !== 'string') return null
+  // #182：运行版本未知是合法状态（null）；只在既不是字符串也不是 null 时拒收。
+  if (value['runningVersion'] !== null && typeof value['runningVersion'] !== 'string') return null
   if (typeof value['canInstall'] !== 'boolean') return null
   return value as unknown as UpdateSnapshot
 }

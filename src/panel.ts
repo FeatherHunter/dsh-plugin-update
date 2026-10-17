@@ -764,6 +764,22 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
       queueNote,
     }
   }
+  // #182：磁盘在场但运行版本未知——不知道在跑哪版，既不宣称有新版、也不谎称已是最新。
+  if (snapshot.installed !== false && snapshot.runningVersion === null) {
+    return {
+      banner: {
+        kind: 'blocked',
+        title: copyText('panel.banner.unknown-running-title', l),
+        action: copyText('panel.banner.unknown-running-action', l),
+      },
+      installEnabled: false,
+      installLabel: copyText('panel.action.install', l),
+      skippedLatest: false,
+      showManual: manual ? true : false,
+      showReset: false,
+      queueNote,
+    }
+  }
   if (snapshot.canInstall && snapshot.latestVersion) {
     // #197：首次安装（磁盘没有 + 清单未登记的新增依赖）与换版是两种身份，给两张脸。
     // 判不出身份（identity 为 null）时退回旧文案，绝不猜。
@@ -784,7 +800,9 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
     }
     // 未装时标题的「当前版本」不许填注入的假版号（#134/US19）：填人话状态词。
     const running =
-      snapshot.installed === false ? copyText('panel.banner.not-installed', l) : snapshot.runningVersion
+      snapshot.installed === false
+        ? copyText('panel.banner.not-installed', l)
+        : snapshot.runningVersion ?? copyText('panel.meta.unknown', l)
     // #156 场景二：记住的窗口正对当前新版——不说"可安装"骗点，主按钮置灰，
     // 横幅说清"哪一版、何时可装、先装合规版"；按钮由内核渲染按同一纯门补［装合规版］。
     if (gated) {
@@ -1772,8 +1790,11 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
           hasLog = false
         } else {
           const changelogHTML = renderChangelogHTML(ranged, { lang: l, truncated: report.truncation })
-          // 缺席时日志区间的左端不许写注入的假版号（#134/US19）：写人话状态词。
-          const fromText = snapshot.installed === false ? copyText('panel.banner.not-installed', l) : String(snapshot.runningVersion ?? '')
+          // 缺席时日志区间的左端不许写注入的假版号（#134/US19）：写人话状态词；运行版未知同样写「未知」（#182）。
+          const fromText =
+            snapshot.installed === false
+              ? copyText('panel.banner.not-installed', l)
+              : snapshot.runningVersion ?? copyText('panel.meta.unknown', l)
           const toText = String(snapshot.latestVersion ?? '')
           const rangeTitle =
             fromText && toText ? copyText('panel.changelog.heading-range', l, { from: fromText, to: toText }) : copyText('panel.changelog.heading', l)
@@ -2054,7 +2075,8 @@ function isObject(value: unknown): value is Record<string, unknown> {
 function asSnapshot(value: unknown): UpdateSnapshot | null {
   if (!isObject(value)) return null
   const s = value as Partial<Record<keyof UpdateSnapshot, unknown>>
-  if (typeof s['runningVersion'] !== 'string') return null
+  // #182：运行版本未知是合法状态（null）；只在既不是字符串也不是 null 时拒收。
+  if (s['runningVersion'] !== null && typeof s['runningVersion'] !== 'string') return null
   if (typeof s['canInstall'] !== 'boolean') return null
   return value as unknown as UpdateSnapshot
 }

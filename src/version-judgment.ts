@@ -163,6 +163,19 @@ function upperBound(t: [number, number, number], kind: '^' | '~', kept: number):
 }
 
 /**
+ * caret 的上界要按 npm 语义处理 0.x：`^0.2.0` = `>=0.2.0 <0.3.0`、`^0.0.3` = `>=0.0.3 <0.0.4`。
+ * （Node 运行时不会出现 0.x，故只给 DSH 判定用；`satisfiesNodeRange` 的既有语义不动。）
+ */
+function upperBoundRelease(t: [number, number, number], kind: '^' | '~'): [number, number, number] {
+  if (kind === '~') {
+    return t[0] > 0 || t[1] > 0 ? [t[0], t[1] + 1, 0] : [0, 0, t[2] + 1]
+  }
+  if (t[0] > 0) return [t[0] + 1, 0, 0]
+  if (t[1] > 0) return [0, t[1] + 1, 0]
+  return [0, 0, t[2] + 1]
+}
+
+/**
  * 运行环境是否满足远端要求的 Node 范围。
  * 只看懂星号、精确版与 ^ ~ > >= < <= 比较式；看不懂的写法一律放行不误拦。
  */
@@ -188,6 +201,70 @@ export function satisfiesNodeRange(nodeVersion: string, range: string | undefine
       continue
     }
     if (!compareOne(node, op, target)) return false
+  }
+  return true
+}
+
+/**
+ * 运行中的 DSH 是否满足远端声明的 DSH 范围（#195，取自 metadata 的 `engines.dsh`）。
+ *
+ * 与 Node 判定同一条宽松原则：看不懂的写法一律放行不误拦。但这里按**发行版**语义比较，
+ * 能处理 `>=0.2.0-rc.2` 这类带预发布的目标（Node 运行时不会出现预发布，故不复用
+ * `satisfiesNodeRange`——它的 parseTriple 会把预发布目标当看不懂而放行）。
+ *
+ * `dshVersion` 未知（null/空串/非法）时返回 true：不知道当前 DSH 版本就不许替用户判不兼容。
+ */
+export function satisfiesDshRange(dshVersion: string | null | undefined, range: string | undefined | null): boolean {
+  if (range === undefined || range === null) return true
+  const text = String(range).trim()
+  if (text === '' || text === '*') return true
+  const current = typeof dshVersion === 'string' ? dshVersion.trim() : ''
+  if (!current || !validReleaseVersion(current)) return true
+  if (text.includes('||')) {
+    return text
+      .split('||')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .some((part) => satisfiesDshRange(current, part))
+  }
+  const parts = text.split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return true
+  for (const part of parts) {
+    const m = part.match(/^(\^|~|>=|<=|>|<|=)?(.+)$/)
+    if (!m) return true
+    const op = m[1] || ''
+    const target = m[2]
+    if (!validReleaseVersion(target)) return true
+    const order = compareReleaseVersions(current, target)
+    if (op === '^' || op === '~') {
+      const core = target.split('-')[0]
+      const triple = parseTriple(core)
+      if (!triple) return true
+      if (order < 0) return false
+      const bound = upperBoundRelease(triple, op).join('.')
+      if (compareReleaseVersions(current, bound) >= 0) return false
+      continue
+    }
+    if (op === '=' || op === '') {
+      if (order !== 0) return false
+      continue
+    }
+    if (op === '>') {
+      if (order !== 1) return false
+      continue
+    }
+    if (op === '>=') {
+      if (order < 0) return false
+      continue
+    }
+    if (op === '<') {
+      if (order !== -1) return false
+      continue
+    }
+    if (op === '<=') {
+      if (order > 0) return false
+      continue
+    }
   }
   return true
 }

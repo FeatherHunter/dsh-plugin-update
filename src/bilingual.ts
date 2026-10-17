@@ -55,6 +55,8 @@ export type BilingualKey =
   | 'panel.blocked.registry-conflict.action'
   | 'panel.blocked.incompatible-node.title'
   | 'panel.blocked.incompatible-node.action'
+  | 'panel.blocked.incompatible-dsh.title'
+  | 'panel.blocked.incompatible-dsh.action'
   | 'panel.blocked.recovery-required.title'
   | 'panel.blocked.recovery-required.action'
   | 'panel.blocked.dev-source.title'
@@ -105,6 +107,8 @@ export type BilingualKey =
   | 'panel.action.installing'
   | 'panel.banner.update-title'
   | 'panel.banner.update-action'
+  | 'panel.banner.unknown-running-title'
+  | 'panel.banner.unknown-running-action'
   | 'panel.banner.first-install-title'
   | 'panel.banner.first-install-action'
   | 'panel.action.first-install-version'
@@ -375,6 +379,7 @@ export type BilingualKey =
   | 'diag.fallback.installation-changed'
   | 'diag.fallback.pending-restart'
   | 'diag.fallback.incompatible-node'
+  | 'diag.fallback.incompatible-dsh'
   | 'diag.fallback.registry-conflict'
   | 'diag.fallback.recovery-required'
   | 'diag.fallback.dev-source'
@@ -427,6 +432,8 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.blocked.registry-conflict.action': { en: 'Open the scope manifest and set the target package line to the version number, then retry.', zh: '核对使用范围清单文件中目标包的版本声明，修正后重试', draft: true },
   'panel.blocked.incompatible-node.title': { en: 'Required Node version does not match the running Node', zh: 'Node 运行时版本不兼容', draft: true },
   'panel.blocked.incompatible-node.action': { en: 'Upgrade Node to 22 or later, then check again.', zh: '请升级 Node 至 22 或更高版本后重新查询', draft: true },
+  'panel.blocked.incompatible-dsh.title': { en: 'New version requires a newer DSH runtime', zh: '新版本要求更高的宿主运行时版本', draft: true },
+  'panel.blocked.incompatible-dsh.action': { en: 'The running DSH does not satisfy the new version; upgrade DSH first, then update.', zh: '当前宿主运行时版本不满足新版本要求，请先升级宿主再更新', draft: true },
   'panel.blocked.recovery-required.title': { en: 'Last install was interrupted, leaving a partial task', zh: '上次安装异常中断，存在未完成任务', draft: true },
   'panel.blocked.recovery-required.action': { en: 'Run install once more; if it persists, follow section 6 to troubleshoot.', zh: '重新执行安装；若持续，请按第 6 节排错', draft: true },
   'panel.blocked.dev-source.title': { en: 'Dev-mode source link, update center unavailable', zh: '开发态挂载（源码链接），更新中心不可用', draft: true },
@@ -477,6 +484,8 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.action.installing': { en: 'Installing…', zh: '正在安装…', draft: true },
   'panel.banner.update-title': { en: 'Update available: {latest} (current: {running}).', zh: '有新版本 {latest} 可安装（当前版本 {running}）。', draft: true },
   'panel.banner.update-action': { en: 'Install runs the exact version; only one install runs per scope at a time.', zh: '选择安装将按精确版本安装；同一使用范围同时仅安装一项。', draft: true },
+  'panel.banner.unknown-running-title': { en: 'Running version unknown; cannot tell whether an update is available.', zh: '运行版本未知，无法判断是否有新版可装。', draft: true },
+  'panel.banner.unknown-running-action': { en: 'Check the plugin version in the host manifest and reopen the host, then check again.', zh: '请检查宿主清单里的插件版本，重启宿主后重新查询', draft: true },
   'panel.action.install-version': { en: 'Install {latest}', zh: '安装版本 {latest}', draft: true },
   'panel.banner.first-install-title': { en: 'First install: {latest} (new dependency).', zh: '首次安装 {latest}（新增依赖）。', draft: true },
   'panel.banner.first-install-action': { en: 'Restart the host after installing for it to load.', zh: '装完需要重启宿主才会加载。', draft: true },
@@ -748,6 +757,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'diag.fallback.installation-changed': { en: 'Install location changed during use', zh: '安装位置发生变更', draft: true },
   'diag.fallback.pending-restart': { en: 'New version is on disk. The running version is still the old one.', zh: '新版本已写入磁盘，当前运行仍为旧版本', draft: true },
   'diag.fallback.incompatible-node': { en: 'New version needs a different Node version than the running one', zh: 'Node 运行时版本不兼容', draft: true },
+  'diag.fallback.incompatible-dsh': { en: 'New version needs a newer DSH runtime than the running one', zh: '宿主运行时版本不兼容', draft: true },
   'diag.fallback.registry-conflict': { en: 'Declared version conflicts with the on-disk version', zh: '版本声明与磁盘实际版本冲突', draft: true },
   'diag.fallback.recovery-required': { en: 'Last install was interrupted, leaving a partial task', zh: '上次安装异常中断，存在未完成任务', draft: true },
   'diag.fallback.dev-source': { en: 'Dev-mode source link; update center unavailable', zh: '开发态源码链接，更新中心不可用', draft: true },

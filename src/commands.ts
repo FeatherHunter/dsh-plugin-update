@@ -241,7 +241,7 @@ export function installRecipe(input: {
  * 源码安装 / 开发态挂载 / 认不出使用范围等不安全情形不给命令；无安全可选项（候选全低于运行版、
  * 通道外、无候选、比不出）同样不给，不回退旧 picks[0]、不猜 latest。
  */
-export function manualCommand(input: { profileName: string | null; latestVersion: string | null; installedVersion: string | null; runningVersion: string; jobTargetVersion: string | null; blockedReason: BlockedReason | null; sourceInstall: boolean; targetPackageName?: string; registryUrl?: string; releaseChannel?: ReleaseChannel }): string | null {
+export function manualCommand(input: { profileName: string | null; latestVersion: string | null; installedVersion: string | null; runningVersion: string | null; jobTargetVersion: string | null; blockedReason: BlockedReason | null; sourceInstall: boolean; targetPackageName?: string; registryUrl?: string; releaseChannel?: ReleaseChannel }): string | null {
   if (input.sourceInstall || input.blockedReason === 'source-install' || input.blockedReason === 'unknown-profile' || input.blockedReason === 'dev-source') return null
   const name = usableProfileName(input.profileName)
   if (!name) return null
@@ -257,8 +257,11 @@ export function manualCommand(input: { profileName: string | null; latestVersion
   // 安全可选项：通道允许且不低于运行版；没有即回空（issue #98：beta 运行 +
   // 更低 stable 远端时，旧回退曾产出降级命令）。
   let version: string | null = null
+  // #182：运行版未知时不给手工命令——无法验证不会降级，不猜、不冒充安全建议。
+  if (typeof input.runningVersion !== 'string' || !input.runningVersion) return null
+  const runningVersion = input.runningVersion
   try {
-    const ranked = picks.filter((v) => compareReleaseVersions(v, input.runningVersion) >= 0)
+    const ranked = picks.filter((v) => compareReleaseVersions(v, runningVersion) >= 0)
     if (ranked.length > 0) {
       version = ranked[0]
       for (const v of ranked) if (compareReleaseVersions(v, version) === 1) version = v

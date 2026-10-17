@@ -70,7 +70,8 @@ export interface CompliantVersionInput {
   /** 被拦住的版本（报文里点名的那一个；本模型只覆盖它恰好是 latest 的情形）。 */
   readonly targetVersion: string
   readonly latestVersion: string
-  readonly runningVersion: string
+  /** 运行版本：未知为 `null`（#182）；决议层不得拿伪造版号当「正在跑的版本」。 */
+  readonly runningVersion: string | null
   readonly releaseChannel?: ReleaseChannel
   /** 策略窗口（毫秒；调用方从报文自述或门限反推，本层不猜）。 */
   readonly windowMs: number | null
@@ -106,8 +107,12 @@ export type InstallIdentity = 'update' | 'first-install' | 'up-to-date'
 
 /** 快照：七个核心字段 + 安装身份（#197），永远不带钥匙（检查编号与环境指纹另交）。 */
 export interface UpdateSnapshot {
-  /** 运行版本：宿主自带清单里的版本号。 */
-  runningVersion: string
+  /**
+   * 运行版本：宿主自带清单里的版本号。
+   * 未知为 `null`（#182）：集成方拿不到运行版时必须交未知，**不许伪造 `0.0.0`**；
+   * 未知时不与任何版本比大小、也不据此宣称「有新版」，面板按未知呈现。
+   */
+  runningVersion: string | null
   /**
    * 在场事实（#134）：目标包在磁盘上是否存在。缺席时 `installedVersion` 为 null；
    * 未装的可安装性不看 `runningVersion`（集成方注入值缺席时不可采信）。
@@ -196,6 +201,12 @@ export interface FallbackCheckResult {
 export interface ReleaseInfo {
   version: string
   nodeRange: string
+  /**
+   * 远端包声明的 DSH 运行时范围（#195，取自 metadata 的 `engines.dsh`）。
+   * 可选：缺省（或 `*`）即「没声明 / 不限制」——老的自定义取数实现不补这格也能用。
+   * 检查层只在拿得到当前 DSH 版本时据此提前判不兼容；拿不到就不猜、不误拦。
+   */
+  dshRange?: string
   integrity: string
   tarball: string
 }
@@ -288,7 +299,17 @@ export type FetchImpl = (
  * 插件标识、目标包名、官方源、安装时限。不传即走现状，老调用补一个标识即可。
  */
 export interface UpdatePorts {
-  readRunningVersion(): string
+  /**
+   * 正在运行的版本（宿主自带清单）：**未知返回 `null`**（#182）。
+   * 拿不到时绝不伪造占位版本号（旧行为 `0.0.0` 会让假版本进事件与比较）；
+   * 未知时检查/决策/事件统一按未知呈现，不与任何版本比大小。
+   */
+  readRunningVersion(): string | null
+  /**
+   * 当前 DSH 运行时版本（#195，可选）：未知即不传（或返回 `null`/空串）。
+   * 检查层据此提前判远端 `engines.dsh` 是否满足；拿不到就不猜、不误拦。
+   */
+  readDshVersion?(): string | null
   readInstalled(): EnvironmentView | Promise<EnvironmentView>
   fetchImpl: FetchImpl
   now(): number

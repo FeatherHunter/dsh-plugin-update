@@ -10,6 +10,8 @@
 - **#197 同一颗「安装」按钮三种身份不可辨别**：查新版时由核心按「磁盘在场 + profile 清单登记 + 版本比较」判定安装身份，写进快照新增的 `identity` 格——`update`（磁盘装着旧版、清单在册：正常换版，官方桌面版走 remove→install，失败如实报）、`first-install`（磁盘没有、清单也没登记：**新增依赖的首次安装**，装完要重启宿主才会加载，不是换版）、`up-to-date`（磁盘已是远端这一版：直接说「已是最新」，不再发起一次注定空转/被拒的安装）。判定不了为 `null`（例如清单登记了但磁盘缺失——那是修复现场），**绝不冒充**「首次安装」。面板按身份给三张不同的脸与按钮文字（此前首次安装被说成「有新版本…（当前版本 未安装）」）。
 - 读取器在「目标包磁盘缺失」的早退分支也带上清单登记态（此前该分支把 `registered` 留成 `null`）：身份判定与 `includeEnv` 都靠它区分「新增依赖」与「登记了但磁盘缺失」。
 - **#198 带凭据 URL 触发时整条失败详情被丢弃**：脱敏规则对 URL 用户信息（`https://user:token@…`）原本「整项丢弃、退到裸短码」，实际详情只剩 `install-failed: operation-error`——用户看不到阶段 / 路由 / 宿主原话，也没有下一步（C 线 F6 探针 `probe-b.mjs` S6）。现在只把 userinfo 那段换成 `<脱敏>@`（`https://<脱敏>@mirror.example.com/pkg`），scheme / 主机 / 路径 / 查询与其余原文照旧保留；命中时在详情末尾追加「（原话里的账号密码已隐去；请核对源地址里的凭据后重试）」——原文在前、建议在后，且被替换过的文本与原样文本从此可区分（正面回应 ADR-0001 决策 2 的旧理由）。300 字 / 复制 1500 字预算与占位符（`<路径>` / `<脱敏>`）行为不变；`file:///` 这类定位不到的已知形状仍原样放过。
+- **#182 运行版本未知被伪造成 `0.0.0`**：集成方拿不到「正在跑的版本」时用占位版号交进来，本包原样采用、写进事件 `update.check.done.current` 还参与新旧比较（B 线 R6，真机日志出现两行 `current:"0.0.0"` 随后真跑 pnpm）。现在端口 `readRunningVersion(): string | null` 把「未知」显式化：`null` / 空串 / 非版本一律归一为未知，**不再抛 `unknown-profile` 挡掉整次查询**，也不伪造占位版号。检查 / 决策 / 事件 / 面板统一按未知呈现——快照 `runningVersion` 为 `null`、不宣称「有新版」、不判 `pending-restart`、`update.check.done` 不落 `current`，面板明说「运行版本未知」且不冒充「已是最新」；**入口件、批量面板、复制诊断与手工命令跟同一口径**（未知时不给手工命令、批量详情不退回「正在读取」）；首次安装照常可装；安装路径不再拿未知去比大小（已装时退回磁盘版本这条可靠事实，防降级但不无据拒绝）。
+- **#195 新版本声明的 `engines.dsh` 被忽略**：取数层只读 `engines.node`，远端包要求更高 DSH 时检查层认为可装，点装后宿主按 `incompatible-version` 拒绝，用户只见裸码（B 线 R4）。现在两处取数口都读 `engines.dsh`（缺省 `*`），并新增可选端口 `readDshVersion`（集成方注入当前 DSH 版本）：拿得到且不满足 → 检查层提前给 `blockedReason: 'incompatible-dsh'`（加法扩展，双语 / 面板 / 诊断同步）；拿不到就不猜、不误拦（宿主没有公开的 DSH 版本端口）。DSH 自身在 0.x，范围判定按 npm 语义收 caret 上界（`^0.2.0` 不认可 `0.3.x`、`^0.0.3` 不认可 `0.0.4`），预发布目标（`>=0.2.0-rc.2`）按发行版语义比较。宿主真拒绝时把管理器回包的 `error.incompatible[]`（键是 `engines.dsh` 或 DSH peer 包名，`runtimeVersion` 即当前 DSH 版本）翻成「要求 ≥X（当前 Y）」拼在原文之后（原文在前、建议在后，宿主文本仍走脱敏出口，总长仍守 300 字）；CLI 路只拿得到子进程文本，没有结构化明细可翻，如实保留原话。
 
 ### Changed
 - 快照形状：七个核心字段 + `identity`（`#197` 起；字段只增不改，老调用方不读也能用）。README §5.1 / §9 同步；`tests/diag-phone.test.mjs`、`tests/phones.test.mjs`、`tests/queue.test.mjs` 的快照形状断言按新契约更新（八字段，属有意的公开形状扩展）。
@@ -17,9 +19,12 @@
 - 测试：新增 `tests/issue-197-install-identity.test.mjs` 6 例（三态身份 + 「未选中但装着」「登记但磁盘缺失」两种不可冒充形态 + 面板三张脸），对 `0.18.24` 源码实测 **6 红**，修后 6 绿。
 - 文档：`docs/adr/0001-diagnostics-redaction-boundary.md` 决策 2 修订——URL 用户信息由「整项丢弃」改为「只遮盖 userinfo 段」，并说明末尾说明句为何让「被替换」与「本来干净」可区分；`src/diag.ts`、`src/panel-copy.ts`、`src/store.ts` 的注释同步新语义。
 - 测试：`tests/detail-redaction.test.mjs` 与 `tests/redaction-single.test.mjs` 的「整项丢弃」断言改为「只遮盖 userinfo、保留可定位原文 + 末尾说明」；新增超长 fixture 断言（300 字截断后说明仍在末尾、占位符完整）；`tests/fixtures/bilingual/copy-baseline.json` 增加 `src/redaction.ts` 的新中文说明句。
+- 测试（#182 / #195）：新增 `tests/issue-182-unknown-running-version.test.mjs` 5 例（未知运行版不伪造 / 不宣称有新版 / 不判待重启 / 事件无 `current` / 面板说「未知」；首次安装照常；入口件与服务端主状态一致；未知时不给手工命令）与 `tests/issue-195-engines-dsh.test.mjs` 9 例（`engines.dsh` 满足 / 不满足 / 预发布比较 / 0.x caret 上界 / 拿不到不猜 / 面板文案；宿主 `incompatible[]` 翻译含 `engines.dsh` 与 peer 包名两种键），先红后绿。`tests/issue-98-channel-mismatch.test.mjs` 三条「分叉守住」按新语义更新（未知运行版不再坍缩成 `unknown-profile`；坏包体按 `invalid-installation` 如实说）；`tests/panel-healthy-diag.test.mjs` 的「运行 null」冻结串改为「运行 未知」。
+- 公开契约（加法扩展，字段只增不改）：端口 `readRunningVersion(): string | null` 与可选 `readDshVersion`；`ReleaseInfo.dshRange`（可选，缺省 `*`）；`UpdateSnapshot.runningVersion` 允许 `null`；新 `blockedReason` 取值 `incompatible-dsh`；`readerOverrides.runningVersion` 接受 `null`、新增可选 `readerOverrides.dshVersion`。双语快照与散落文案基线按新 key / 新文案重算（362 key、17 错误码）。
+- 文档：README §3 补「运行版本未知」与「DSH 运行时版本」两条集成口径；§5.1 `runningVersion` 可为 `null`；§5.2 增 `incompatible-dsh` 行；§5.4 待重启辅助判据加未知守卫；§9 兼容扩展清单同步。`docs/maintainers.md` 门禁计数改为 17 码 / 11 阻塞，`docs/research/20261014-log-event-catalog.md` 把 `current` 标为可选（未知时省略），`src/diag.ts` 的 §7.1 行数注释同步。
 - **按用户要求本批不递增版本号**（`package.json` 仍 `0.18.24`）；实际发布时与 `0.18.8`～`0.18.24` 一起带走即可。
 
-门禁（非发版定格，主树实测）：`npm test` **1534 例：1533 过 / 0 失败 / 1 跳过**；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、357 个 key、16 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.24`，381.2 kB 压缩 / 1.3 MB 解包）。
+门禁（非发版定格，主树实测）：`npm test` **1548 例：1547 过 / 0 失败 / 1 跳过**；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、362 个 key、17 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.24`，386.9 kB 压缩 / 1.4 MB 解包）。
 
 ## [0.18.24] - 2026-10-18
 

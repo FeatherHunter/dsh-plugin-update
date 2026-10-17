@@ -1491,7 +1491,16 @@ interface ManagerChangeResult {
    * `exitCode` 是真跑过 pnpm 时的退出码（#R8 对抗审查：以前只抄 output，失败日志里
    * 真实退码被丢掉，一律记成 null——探针给 137 也一样）。
    */
-  packageResult?: { output?: unknown; exitCode?: unknown }
+  packageResult?: {
+    output?: unknown
+    exitCode?: unknown
+    /**
+     * 兼容性预检拒绝的明细（#195）：host 契约里与 `error.incompatible` 同形状，
+     * `requirements` 的键是 `engines.dsh` 或 DSH peer 包名，值是不满足的范围；
+     * `runtimeVersion` 是当前 DSH 版本。用来把「裸码」翻成「要求 ≥X（当前 Y）」。
+     */
+    incompatible?: unknown
+  }
   /**
    * 待批准的构建脚本（#194）：宿主的 pnpm 失败且报告了「被忽略的构建脚本」时，会先把
    * `recordPendingBuilds()` 的结果（等待构建决策的精确包名）写进这一格再 throw；
@@ -1929,6 +1938,50 @@ function withManagerHint(result: ManagerChangeResult, said: string): string {
 }
 
 /**
+ * 宿主拒绝 `incompatible-version` 的明细（#195）：`incompatible[]` 每项带 `requirements`
+ * （键是 `engines.dsh` 或 DSH peer 包名，值是不满足的范围）与 `runtimeVersion`（当前 DSH 版本）。
+ * 只翻看得懂的形状；认不出即空串——绝不替宿主编原因、不编造要求。
+ */
+function incompatibleFactOf(value: unknown): string {
+  if (!Array.isArray(value)) return ''
+  const facts: string[] = []
+  for (const raw of value.slice(0, 2)) {
+    if (!raw || typeof raw !== 'object') continue
+    const entry = raw as { name?: unknown; runtimeVersion?: unknown; requirements?: unknown }
+    const requirements = entry.requirements
+    if (!requirements || typeof requirements !== 'object' || Array.isArray(requirements)) continue
+    const runtime = typeof entry.runtimeVersion === 'string' && entry.runtimeVersion.trim() ? entry.runtimeVersion.trim() : ''
+    const who = typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : ''
+    const keys = Object.keys(requirements as Record<string, unknown>).slice(0, 2)
+    for (const key of keys) {
+      const range = (requirements as Record<string, unknown>)[key]
+      if (typeof range !== 'string' || !range.trim()) continue
+      const what = key === 'engines.dsh' ? 'DSH' : key
+      const current = runtime ? `（当前 ${runtime}）` : ''
+      facts.push(`要求 ${who ? `${who} 的 ` : ''}${what} ${range.trim()}${current}`)
+    }
+  }
+  return facts.slice(0, 2).join('；')
+}
+
+/**
+ * 把「要求 ≥X（当前 Y）」补在宿主原话与既有建议之后（#195，验收：详情/面板点明要求与当前版本）。
+ * 原文永远在前、建议在后；总长仍守 DETAIL_MAX_CHARS；没有可翻译的 incompatible[] 时一字不加。
+ */
+function withIncompatibleFact(error: Error & { detail?: string }, result: ManagerChangeResult): Error & { detail?: string } {
+  if (managerCodeOf(result) !== 'incompatible-version') return error
+  const fromError = result?.error && typeof result.error === 'object' ? (result.error as { incompatible?: unknown }).incompatible : undefined
+  // 宿主给的 name / requirements / runtimeVersion 也是外部文本：照旧走唯一自由文本出口脱敏。
+  const fact = sanitizeDetail(incompatibleFactOf(fromError !== undefined ? fromError : result?.packageResult?.incompatible))
+  if (!fact) return error
+  const said = typeof error.detail === 'string' ? error.detail : ''
+  const room = DETAIL_MAX_CHARS - fact.length - 1
+  if (room <= 0) return error
+  const head = said.length > room ? said.slice(0, room) : said
+  return withDetail(error, head ? `${head}；${fact}` : fact)
+}
+
+/**
  * 移除已成功、重装却没成（失败或超时）：在宿主原话之后补「目标包已被摘掉」这条事实与一条
  * 一定能用的重装命令（#168）。原文在前、本包补记在后，总长仍守 DETAIL_MAX_CHARS。
  * 命令为 null（插值不安全）时只说事实；原文里已经带过同一条命令时不再重复拼。
@@ -2067,7 +2120,7 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
       const failure = fail('install-failed')
       const rawCode = result && result.packageResult ? result.packageResult.exitCode : undefined
       const coded = typeof rawCode === 'number' && Number.isInteger(rawCode) ? withExit(failure, rawCode) : failure
-      const withHints = withManagerRetryHint(withDetail(coded, withManagerHint(result, said)), result, carrierCommand)
+      const withHints = withIncompatibleFact(withManagerRetryHint(withDetail(coded, withManagerHint(result, said)), result, carrierCommand), result)
       // 需要批准的构建脚本（#194）：宿主把名单写进失败回包（pendingBuilds），本包负责点名与给批准路径；
       // 调用方带 approvedBuilds 重试时宿主先批准再跑 pnpm，不再永远卡在同一句失败上。
       return withPendingBuildsHint(

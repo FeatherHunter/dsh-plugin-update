@@ -58,6 +58,7 @@ export function validRequestId(v: unknown): v is string {
 import {
   compareReleaseVersions,
   isVersionAllowedInChannel,
+  satisfiesDshRange,
   satisfiesNodeRange,
   updateError,
   validReleaseVersion,
@@ -70,6 +71,7 @@ export {
   isPrereleaseVersion,
   isVersionAllowedInChannel,
   RELEASE_CHANNELS,
+  satisfiesDshRange,
   satisfiesNodeRange,
   updateError,
   validReleaseChannel,
@@ -185,6 +187,29 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       registryHost,
     })
   }
+  /**
+   * 运行版本归一（#182）：未知一律 `null`，不伪造占位版本号、不拿它比大小。
+   * 读取端口坏了也按未知处理——「不知道」永远不是「失败」。
+   */
+  function readRunningVersionOf(): string | null {
+    try {
+      const value = ports.readRunningVersion()
+      return typeof value === 'string' && value.trim() ? value.trim() : null
+    } catch {
+      return null
+    }
+  }
+  /** 当前 DSH 运行时版本（#195）：端口没注入/返回空即未知，检查层不据此猜结论。 */
+  function readDshVersionOf(): string | null {
+    try {
+      const read = ports.readDshVersion
+      if (typeof read !== 'function') return null
+      const value = read()
+      return typeof value === 'string' && value.trim() ? value.trim() : null
+    } catch {
+      return null
+    }
+  }
   let checked: CheckedState | null = null
   /**
    * 合规版候选第二槽（#156）：读写都经模块级槽（见 FallbackSlot 注释），本实例只留一个
@@ -231,7 +256,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       blame: 'target',
       targetVersion: decision.targetVersion ?? packument.latest,
       latestVersion: packument.latest,
-      runningVersion: ports.readRunningVersion(),
+      runningVersion: readRunningVersionOf(),
       releaseChannel,
       windowMs: decision.windowMs,
       windowSource: decision.windowSource,
@@ -287,8 +312,9 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       if (!job.targetVersion || env.installedVersion !== job.targetVersion) {
         return { ...job, state: 'interrupted', message: 'installation-changed', requestId: job.requestId ?? null }
       }
-      const runningVersion = ports.readRunningVersion()
-      return { ...job, state: runningVersion === job.targetVersion ? 'completed' : 'restart-required', requestId: job.requestId ?? null }
+      const runningVersion = readRunningVersionOf()
+      // #182：运行版未知时不谎称 completed（不知道在跑哪版就不算证实装上了），落到 restart-required。
+      return { ...job, state: runningVersion !== null && runningVersion === job.targetVersion ? 'completed' : 'restart-required', requestId: job.requestId ?? null }
     }
     return job
   }
@@ -297,6 +323,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     // 在场事实优先（#134）：缺席分支在 newer / 通道 / Node 判定之前；`installed` 缺字段的老
     // 生产者按在场走（宽容读），只有显式 false 才算缺席。
     const present = env.installed !== false
+    // #182：运行版本只读一次，未知即 null；下面所有比较都必须先问「知不知道」。
+    const runningVersion = readRunningVersionOf()
     // 缺席时不采信 checked 的旧阻拦（A1/A2：stable 通道判定内联在这里算，永不进 checked；
     // Node 不兼容只记不拦，行仍可点，失败落装侧）。
     let blockedReason: BlockedReason | null = present ? (env.blockedReason ?? checked?.blockedReason ?? null) : (env.blockedReason ?? null)
@@ -304,13 +332,12 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       if (!isVersionAllowedInChannel(checked.release.version, releaseChannel)) blockedReason = 'channel-mismatch'
     }
     if (job?.state === 'interrupted' || job?.state === 'failed') {
-      if (env.installedVersion !== ports.readRunningVersion()) blockedReason = 'recovery-required'
-    } else if (job?.state === 'restart-required' || (env.installedVersion && env.installedVersion !== ports.readRunningVersion())) {
+      if (runningVersion !== null && env.installedVersion !== runningVersion) blockedReason = 'recovery-required'
+    } else if (job?.state === 'restart-required' || (runningVersion !== null && env.installedVersion && env.installedVersion !== runningVersion)) {
       blockedReason = 'pending-restart'
     }
     const busy = job?.state === 'installing' || job?.state === 'verifying'
     const fresh = checked !== null && checked.checkId !== null && ports.now() < checked.expiresAt
-    const runningVersion = ports.readRunningVersion()
     // 通道门（#16）：stable 默认与旧行为一字不差（纯三段 + 数字比较）；
     // prerelease 通道下运行版与远端版都按发行版语义比（预发布 < 同号正式版）。
     // 缺席时不与注入的运行版号比大小（#137 硬要求 / US19）：只看远端版本是否存在、
@@ -318,13 +345,14 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     let newer = false
     let remoteOk = false
     try {
-      if (present) {
+      if (present && runningVersion !== null) {
+        // #182：运行版本未知时不宣称「有新版」——这正是旧 0.0.0 伪造会造成的误判。
         newer =
           isVersionAllowedInChannel(runningVersion, releaseChannel) &&
           !!checked?.release &&
           isVersionAllowedInChannel(checked.release.version, releaseChannel) &&
           compareReleaseVersions(checked.release.version, runningVersion) === 1
-      } else if (checked?.release) {
+      } else if (!present && checked?.release) {
         remoteOk = isVersionAllowedInChannel(checked.release.version, releaseChannel)
       }
     } catch {
@@ -372,6 +400,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     // 缺席时不拿远端版与注入的运行版号比大小（#134/US16）：有远端可装即 update-available，
     // 否则绝不谎称 up-to-date。
     if (snapshot.installed === false) return 'update-available'
+    // #182：运行版本未知 → 主状态就是「不知道」；不拿假版号比出 update-available/up-to-date。
+    if (snapshot.runningVersion === null) return 'unknown'
     try {
       const newer =
         isVersionAllowedInChannel(snapshot.runningVersion, releaseChannel) &&
@@ -403,7 +433,10 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
    * 通道判定（#124）：一次成功检查落一行。四值是相互排斥的判定结果，不是自由文本：
    * 版本形状都不像版本 → `invalid`；形状像但有一条不被本通道接受 → `mismatch`；都收 → 本通道名。
    */
-  function noteChannelDecision(current: string, latest: string): void {
+  function noteChannelDecision(current: string | null, latest: string): void {
+    // #182：运行版本未知时不做通道判定——没有「当前版本」就没有「与通道是否相符」，
+    // 不拿 invalid/mismatch 冒充判定结果，也不在事件里落伪造版号。
+    if (current === null) return
     const shapeOk = validVersion(current) && validVersion(latest)
     let reason: 'stable' | 'prerelease' | 'mismatch' | 'invalid'
     if (!shapeOk) reason = 'invalid'
@@ -480,13 +513,19 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
         const installedOutOfChannel =
           env.installed === false || !isVersionAllowedInChannel(env.installedVersion ?? '', releaseChannel)
         const release = await fetchRelease(installedOutOfChannel)
+        // #195：Node 要求与 DSH 要求分开判——DSH 拿不到当前版本时不猜（satisfiesDshRange 直接放行）。
+        const dshOk = satisfiesDshRange(readDshVersionOf(), release.dshRange)
         checked = {
           release,
           checkId: ports.randomId(),
           checkedAt: ports.now(),
           expiresAt: ports.now() + confirmationTtlMs,
           installationKey: env.installationKey,
-          blockedReason: satisfiesNodeRange(ports.nodeVersion, release.nodeRange) ? null : 'incompatible-node',
+          blockedReason: satisfiesNodeRange(ports.nodeVersion, release.nodeRange)
+            ? dshOk
+              ? null
+              : 'incompatible-dsh'
+            : 'incompatible-node',
         }
         // 新检查结论落地，旧候选即失效（#156）：latest 变了，基于旧 latest 的决议不许再用。
         // 只清同一安装指纹的槽：清全部会把别家的候选一起抹掉（批量逐家检查即互踩）。
@@ -497,7 +536,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
         noteChannelDecision(snapshot.runningVersion, release.version)
         emit('info', 'update.check.done', {
           ok: true,
-          current: snapshot.runningVersion,
+          // #182：运行版未知时省掉 current 格（省略本身即信息），绝不落伪造版本号。
+          ...(snapshot.runningVersion === null ? {} : { current: snapshot.runningVersion }),
           latest: release.version,
           channel: releaseChannel,
           ...(registryHost ? { source: registryHost } : {}),
@@ -545,7 +585,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     if (windowMs === null) {
       // 评都评不了：本实例没有可用候选。别家的槽不按"猜的键"清（B2 教训），只等它自己到期。
       clearFallbackSlot(null)
-      return { verdict: resolve({ kind, blame, targetVersion: targetVersion ?? '', latestVersion: '', runningVersion: '', windowMs: null, windowSource, publishedAtMs, timeTable: {}, nowMs: ports.now() }), candidate: null, receipt: null }
+      return { verdict: resolve({ kind, blame, targetVersion: targetVersion ?? '', latestVersion: '', runningVersion: null, windowMs: null, windowSource, publishedAtMs, timeTable: {}, nowMs: ports.now() }), candidate: null, receipt: null }
     }
     if (blame !== 'target') {
       clearFallbackSlot(null)
@@ -629,7 +669,9 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       await saveJob(done)
       // 装后校验（#124）：磁盘版本与目标一致才算过；要不要重启按运行版判定——
       // 运行版还没换过来就是 `restart-required`，已经换过来了就是 `completed`。
-      const pendingRestart = ports.readRunningVersion() !== job.targetVersion
+      // #182：运行版未知时不做比较，也不谎称 completed——保守落到 restart-required（下一步是重启宿主）。
+      const runningAfterInstall = readRunningVersionOf()
+      const pendingRestart = runningAfterInstall === null ? true : runningAfterInstall !== job.targetVersion
       emit('info', 'update.install.verify', {
         result: pendingRestart ? 'restart-required' : 'completed',
         ...(env.installedVersion ? { installedVersion: env.installedVersion } : {}),
@@ -689,15 +731,24 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     refuseNoopInstall(version, ctx.env)
     if (ctx.env.installationKey !== slot.installationKey) throw updateError('installation-changed')
     if (!ctx.env.eligible || ctx.env.blockedReason) throw updateError(ctx.env.blockedReason ?? 'update-busy')
-    const runningVersion = ports.readRunningVersion()
+    const runningVersion = readRunningVersionOf()
     // 候选必须严格新于运行版（决议时验过，这里再验一次：环境可能在决议后前进了）。
-    if (!validReleaseVersion(runningVersion) || compareReleaseVersions(version, runningVersion) !== 1) {
+    // #182：运行版未知时不与假版本比大小，也不无据拒绝——退回磁盘已装版这条可靠事实：
+    // 首次安装（磁盘没有）无需比较；已装则仍须严格更新，防降级/空转。
+    if (runningVersion === null) {
+      if (ctx.env.installed !== false) {
+        const installed = ctx.env.installedVersion
+        if (typeof installed !== 'string' || !validReleaseVersion(installed) || compareReleaseVersions(version, installed) !== 1) {
+          throw updateError('installation-changed')
+        }
+      }
+    } else if (!validReleaseVersion(runningVersion) || compareReleaseVersions(version, runningVersion) !== 1) {
       throw updateError('installation-changed')
     }
     // 用户意图（#124）：字段与 latest 路径同名同口径，latest 格填的是这次真要装的版本，不新增键。
     emit('info', 'update.install.request', {
       from: installSourceOf(ctx.from),
-      current: runningVersion,
+      ...(runningVersion === null ? {} : { current: runningVersion }),
       latest: version,
       checkAgeMs: Math.max(0, ports.now() - slot.checkedAt),
     })
@@ -796,9 +847,11 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       throw updateError(env.blockedReason ?? checked.blockedReason ?? 'update-busy')
     }
     // 用户意图（#124）：过完所有闸门、真的要装了才落这一条；被闸门挡掉的请求不算一次意图。
+    // #182：运行版未知时省掉 current 格，不落伪造版本号。
+    const currentRunningVersion = readRunningVersionOf()
     emit('info', 'update.install.request', {
       from: installSourceOf(args?.from),
-      current: ports.readRunningVersion(),
+      ...(currentRunningVersion === null ? {} : { current: currentRunningVersion }),
       latest: checked.release.version,
       checkAgeMs: Math.max(0, ports.now() - checked.checkedAt),
     })

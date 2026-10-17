@@ -317,7 +317,7 @@ function hoistCauseLines(text: string): string {
 }
 
 /** 人话摘要格：永远是字符串，压平空白、脱敏、300 字封顶；URL 用户信息只遮盖 userinfo、保留其余原文（#198）。
- * #66 入字典单语（§7.1 19 行，271/273/274 复用电话表 key，其余走 diag.fallback.*）：分支只认稳定码，lang 缺省 zh 零回归。 */
+ * #66 入字典单语（§7.1 20 行，271/273/274 复用电话表 key，其余走 diag.fallback.*）：分支只认稳定码，lang 缺省 zh 零回归。 */
 function pickDetail(errorCode: string, error: unknown, httpStatus: number | null, phoneKind?: string, lang?: AppLang | string | null): string | null {
   try {
     const rawDetail = (error as { detail?: unknown })?.detail
@@ -357,6 +357,7 @@ function pickDetail(errorCode: string, error: unknown, httpStatus: number | null
     else if (code === 'installation-changed') key = 'diag.fallback.installation-changed'
     else if (code === 'pending-restart') key = 'diag.fallback.pending-restart'
     else if (code === 'incompatible-node') key = 'diag.fallback.incompatible-node'
+    else if (code === 'incompatible-dsh') key = 'diag.fallback.incompatible-dsh'
     else if (code === 'registry-conflict') key = 'diag.fallback.registry-conflict'
     else if (code === 'recovery-required') key = 'diag.fallback.recovery-required'
     else if (code === 'dev-source') key = 'diag.fallback.dev-source'

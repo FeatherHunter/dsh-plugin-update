@@ -180,7 +180,7 @@ export async function fetchNpmRelease(
     const value = JSON.parse(text) as {
       name?: unknown
       version?: unknown
-      engines?: { node?: unknown }
+      engines?: { node?: unknown; dsh?: unknown }
       dist?: { tarball?: unknown; integrity?: unknown }
     }
     if (value.name !== targetName) throw updateError('invalid-release')
@@ -194,6 +194,10 @@ export async function fetchNpmRelease(
     const version = value.version
     const nodeRange = value.engines?.node
     if (nodeRange !== undefined && typeof nodeRange !== 'string') throw updateError('invalid-release')
+    // #195：远端包的 DSH 运行时要求（engines.dsh）。只取声明，不在这里判定——
+    // 判定需要「当前 DSH 版本」，那由检查层在拿得到时做；拿不到就不猜。
+    const dshRange = value.engines?.dsh
+    if (dshRange !== undefined && typeof dshRange !== 'string') throw updateError('invalid-release')
     const tarballText = value.dist?.tarball
     const integrity = value.dist?.integrity
     let tarball: URL
@@ -213,7 +217,13 @@ export async function fetchNpmRelease(
       typeof integrity === 'string' &&
       new RegExp(INTEGRITY_PATTERN).test(integrity)
     if (!shapeOk) throw updateError('invalid-release')
-    return { version, nodeRange: typeof nodeRange === 'string' ? nodeRange : '*', integrity, tarball: tarball.href }
+    return {
+      version,
+      nodeRange: typeof nodeRange === 'string' ? nodeRange : '*',
+      dshRange: typeof dshRange === 'string' ? dshRange : '*',
+      integrity,
+      tarball: tarball.href,
+    }
   } catch (error) {
     if ((error as { code?: unknown })?.code === 'check-failed') throw error
     if ((error as { code?: unknown })?.code === 'invalid-release') throw error
@@ -276,7 +286,7 @@ export async function fetchNpmVersionRelease(
     const value = JSON.parse(text) as {
       name?: unknown
       version?: unknown
-      engines?: { node?: unknown }
+      engines?: { node?: unknown; dsh?: unknown }
       dist?: { tarball?: unknown; integrity?: unknown }
     }
     if (value.name !== targetName || value.version !== version) throw updateError('invalid-release')
@@ -286,6 +296,9 @@ export async function fetchNpmVersionRelease(
     }
     const nodeRange = value.engines?.node
     if (nodeRange !== undefined && typeof nodeRange !== 'string') throw updateError('invalid-release')
+    // #195：同 fetchNpmRelease——只取声明（engines.dsh），判定留给检查层。
+    const dshRange = value.engines?.dsh
+    if (dshRange !== undefined && typeof dshRange !== 'string') throw updateError('invalid-release')
     const tarballText = value.dist?.tarball
     const integrity = value.dist?.integrity
     let tarball: URL
@@ -305,7 +318,13 @@ export async function fetchNpmVersionRelease(
       typeof integrity === 'string' &&
       new RegExp(INTEGRITY_PATTERN).test(integrity)
     if (!shapeOk) throw updateError('invalid-release')
-    return { version, nodeRange: typeof nodeRange === 'string' ? nodeRange : '*', integrity, tarball: tarball.href }
+    return {
+      version,
+      nodeRange: typeof nodeRange === 'string' ? nodeRange : '*',
+      dshRange: typeof dshRange === 'string' ? dshRange : '*',
+      integrity,
+      tarball: tarball.href,
+    }
   } catch (error) {
     if ((error as { code?: unknown })?.code === 'check-failed') throw error
     if ((error as { code?: unknown })?.code === 'invalid-release') throw error

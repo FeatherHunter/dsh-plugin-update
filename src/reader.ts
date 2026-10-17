@@ -227,7 +227,13 @@ export function defaultHomeDir(env: Record<string, string | undefined>, osHome: 
 }
 
 export interface UpdateReaderOptions {
-  runningVersion: string
+  /**
+   * 运行版本（宿主自带清单）：**未知传 `null`**（#182），不许伪造 `0.0.0`。
+   * 未知时不判 pending-restart、不参与任何版本比较，快照/事件如实报未知。
+   */
+  runningVersion: string | null
+  /** 当前 DSH 运行时版本（#195，可选）：未知即不传（或传 null/空串），检查层不拿它猜结论。 */
+  dshVersion?: string | null
   profileDir: string
   pluginId: string
   profileName?: string
@@ -268,12 +274,14 @@ export interface UpdateReaderOptions {
   registryHost?: string | null
 }
 
-/** 建更新读取器：运行版本、使用范围目录、插件标识三者必填，其余不给用本机默认。 */
+/** 建更新读取器：使用范围目录、插件标识必填；运行版本可未知（null），未知不参与判定（#182）。 */
 export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & { readEnv: () => Promise<EnvironmentView> } {
-  const runningVersion = options.runningVersion
-  if (typeof runningVersion !== 'string' || !runningVersion) {
-    throw new Error('[dsh-plugin-update] 建读取器必须给运行版本 runningVersion（读宿主自带清单）')
-  }
+  const rawRunningVersion = options.runningVersion
+  // #182：未知是一等状态——null/空串/非字符串一律归一为 null，绝不伪造占位版本号。
+  const runningVersion: string | null =
+    typeof rawRunningVersion === 'string' && rawRunningVersion.trim() ? rawRunningVersion.trim() : null
+  const rawDshVersion = options.dshVersion
+  const dshVersion: string | null = typeof rawDshVersion === 'string' && rawDshVersion.trim() ? rawDshVersion.trim() : null
   const profileDirInput = options.profileDir
   if (typeof profileDirInput !== 'string' || !isAbsolute(profileDirInput)) {
     throw new Error('[dsh-plugin-update] 建读取器必须给绝对路径的使用范围目录 profileDir')
@@ -422,7 +430,8 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
     // → channel-mismatch。unknown-profile 只留给定位不到；invalid-installation
     // 只留给包体不完整。pending-restart 只在通道通过后才判。
     else if (!isVersionAllowedInChannel(result.installedVersion, releaseChannel)) result.blockedReason = 'channel-mismatch'
-    else if (result.installedVersion !== runningVersion) result.blockedReason = 'pending-restart'
+    // #182：运行版本未知时不判 pending-restart——没有「正在跑哪版」就没有「新旧不同」的事实。
+    else if (runningVersion !== null && result.installedVersion !== runningVersion) result.blockedReason = 'pending-restart'
     result.eligible = !result.blockedReason
     result.blockedReason = result.blockedReason ?? null
     return result
@@ -430,6 +439,8 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
   const readInstalled = options.readInstalled ?? readInstalledReal
   const core = createUpdateCore({
     readRunningVersion: () => runningVersion,
+    // #195：DSH 运行时版本与运行版同一条信任线——未知即 null，检查层拿不到就不猜。
+    readDshVersion: () => dshVersion,
     readInstalled,
     fetchImpl,
     now,

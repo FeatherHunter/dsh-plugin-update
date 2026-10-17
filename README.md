@@ -460,6 +460,10 @@ const update = createHostUpdate(
 
 配置只经函数入参注入，不读配置文件。越界直接抛错，不静默取整。
 
+**运行版本未知**：宿主侧拿不到「正在跑的版本」时，`readerOverrides.runningVersion` 请传 `null`（或省略，由宿主清单推导），**不要伪造 `0.0.0` 之类的占位版号**——伪造值会进事件 `update.check.done.current` 并参与新旧比较。未知时快照 `runningVersion` 为 `null`：不宣称「有新版」、不判 `pending-restart`、`update.check.done` 不再落 `current`，面板显示「运行版本未知」而不是「已是最新」；安装路径不再拿未知去比大小（首次安装照常可装）。
+
+**DSH 运行时版本（可选）**：`readerOverrides.dshVersion` 给了就按远端声明的 `engines.dsh` 提前判不兼容（`blockedReason: 'incompatible-dsh'`）；不给就不猜、不误拦。宿主真拒绝时把 `error.incompatible[]`（键是 `engines.dsh` 或 DSH peer 包名）翻成「要求 ≥X（当前 Y）」拼进失败详情，原文仍在前面。
+
 落盘目录按标识派生：家目录下 `updates` 加插件标识加使用范围短指纹，三个文件名是 `state.json`、`install.lock`、`before.json`。只读自己的新路径，写也只写自己的（`0.18.22` 起，#203：旧字面目录恰好是默认标识自己的实时目录，跨标识回退读会把别家正在跑的任务读进来再回写，真机上把 deck 的任务写进了 life-pack/prompt/calorie 的目录）。
 标识取历史值 `dsh-mattpocock-skills-deck` 时，路径与旧版一字不差（升级不丢状态）。
 安装锁是自愈的（`0.18.11` 起）：锁位先生成完整内容再原子占位，所以在**支持硬链接的盘上**不存在「空锁」（不吃硬链接的盘退回「先写内容再放锁位」，仍有极短窗口，但坏锁不再堵死读取）；判陈旧只看时间——锁里 `startedAt`（读不出就看文件 mtime）超过 `installTimeoutMs` 才回收，否则一律按「别人正在装」回 `update-busy`。**同一使用范围内发现任意陈旧锁时不需要再手工删 `install.lock`。**
@@ -492,7 +496,7 @@ const update = createHostUpdate(
 |---|---|
 | `installed` | 在场事实：目标包在不在（`0.17.0` 起新增；缺席时 `installedVersion` 为 null） |
 | `installedVersion` | 磁盘上装着的版本 |
-| `runningVersion` | 正在跑的版本 |
+| `runningVersion` | 正在跑的版本；拿不到为 `null`（未知不伪造、不参与比较） |
 | `latestVersion` | 最近一次查新版带回来的版本（没查过为 null） |
 | `canInstall` | 现在能不能装 |
 | `blockedReason` | 装不了的原因（能装为 null） |
@@ -505,7 +509,7 @@ const update = createHostUpdate(
 
 **任务形状（`0.18.10` 起）**：`job` 除 `id` / `state` / `targetVersion` / `message` / `requestId` 外，多一格可选 `previousVersion`——这次安装动手之前磁盘上的版本（未安装或读不到为 null；老任务没有这一格时不补造）。字段只增不改，不读它也能用。
 
-### 5.2 十种装不了的原因
+### 5.2 十一种装不了的原因
 
 面板拿到非空 `blockedReason` 时，直接展示下表「用户该做什么」那一列的一句话，不要只展示英文原因本身。
 
@@ -519,6 +523,7 @@ const update = createHostUpdate(
 | `pending-restart` | 新版本已写入磁盘，当前运行仍为旧版本 | 重启宿主以加载新版本；此为正常状态，非安装失败 |
 | `registry-conflict` | 版本声明与磁盘实际版本冲突 | 核对使用范围清单文件中目标包的版本声明，修正后重试 |
 | `incompatible-node` | Node 运行时版本不兼容 | 请升级 Node 至 22 或更高版本后重新查询 |
+| `incompatible-dsh` | 新版本要求更高的宿主运行时版本（只在集成方给了 `dshVersion` 时提前判） | 当前宿主运行时版本不满足新版本要求，请先升级宿主再更新 |
 | `recovery-required` | 上次安装异常中断，存在未完成任务 | 重新执行安装；若持续，请按第 6 节排错 |
 | `channel-mismatch` | 已安装版本与当前版本通道不符 | 切换至预发布通道，或重新安装本通道正式版本后查询 |
 
@@ -556,7 +561,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 2. 文案说清两件事：新版号是多少、重启后才生效。例如：`⚠️ 新版 1.2.3 已装好，正在跑的还是 1.2.2，重启宿主后生效。`
 3. 待重启期间不再提供安装按钮（快照里 `canInstall` 已为假），只给重启指引与手工命令入口。
 
-判断只看快照：`blockedReason === 'pending-restart'` 即展示；`installedVersion !== runningVersion` 只作辅助校验。
+判断只看快照：`blockedReason === 'pending-restart'` 即展示；`installedVersion !== runningVersion` 只作辅助校验——`runningVersion` 为 `null`（未知）时这条辅助校验不成立，不得据此判待重启。
 
 **失败优先于待重启（`0.18.12` 起）**：装后校验失败（例如磁盘版本已到目标版、但 profile 清单没登记该插件）时，快照会同时带着 `blockedReason: 'pending-restart'`（磁盘与运行版确实不同）和 `job.state: 'failed'` —— 这是「装了但不会生效」，不是「待重启生效」。面板必须先判失败（`job.state === 'failed'` / `'interrupted'`，或面板自己的失败态），失败横幅优先展示，不要按本节展示待重启横幅、更不要把它说成「重启后生效」。本包自己的面板就是这个优先级（先失败、后待重启）。
 
@@ -745,7 +750,7 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 这些形状稳定，可以放心依赖：六个电话名与入参回参（老三电话一字不动，`updateChangelog`、`logAppend`、`updateCheckFallback` 是后来加的；`updateInstall` 的 `version` 是可选参数）、快照七个核心字段 + `identity`（`#197` 起加：`update` / `first-install` / `up-to-date` / `null`，判定不了为 null；老调用方不读也能用）、任务公开形状、配置只经函数入参注入、安装配方五键、日志事件字段基线（三个旧事件各带必填 `pluginId`）、历史落盘路径。形状扩展按版本列清楚：`0.18.7` 起，快照里带着失败任务时成功回包可带可选 `diag`；`0.18.10` 起，任务形状多一格可选 `previousVersion`；`0.18.12` 起，环境视图可带可选 `registered`（装后按「在册」核实；`0.18.18` 起语义收窄为「登记不许倒退」：新装必须登记，装前就未登记的包更新成功后不因仍未登记判失败，登记倒退仍失败——形状不变），`0.18.13` 起 `includeEnv` 带回的使用范围视图也带出同一格 `registered`（面板据此识别「被摘掉但没重装」）；`0.18.16` 起，`includeEnv` 视图再多两格可选自检事实 `updaterVersion` / `updaterCopyLevel`——**此刻在说话的是哪一份本包副本**：`profile` 使用范围级、`nested` 消费方 `node_modules` 里的嵌套副本、`repo` 开发仓库、`unknown`；面板页脚与「复制诊断」都显示同一事实，嵌套副本时 05 章直接给载体 CLI 升级命令；`0.18.23` 起，`updateInstall` 电话接受可选 `approvedBuilds`（构建脚本需要批准的包：批准后把宿主给过的精确包名原样带回重试，宿主先批准再跑 pnpm；不传即现状），响应形状与其余电话逐字不变。
 
-向后兼容的扩展：新增可选配置键、新增可选面板选项（如 `autoCompliant`）、新增可选面板渲染选项（`updater`）、新增可选回包键（成功回包里的 `diag`）、新增可选任务字段（`job.previousVersion`）、新增可选环境字段（`env.registered`、`env.updaterVersion` / `env.updaterCopyLevel`）、新增可选 `readerOverrides`（如 `targetPackageDir`）、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。
+向后兼容的扩展：新增可选配置键、新增可选面板选项（如 `autoCompliant`）、新增可选面板渲染选项（`updater`）、新增可选回包键（成功回包里的 `diag`）、新增可选任务字段（`job.previousVersion`）、新增可选环境字段（`env.registered`、`env.updaterVersion` / `env.updaterCopyLevel`）、新增可选 `readerOverrides`（如 `targetPackageDir`、`dshVersion`）、新增 `blockedReason` 取值（如 `incompatible-dsh`）、`snapshot.runningVersion` 增加 `null`（未知）语义、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。
 
 **给消费方插件的依赖声明建议（`0.18.16` 起）**：把本包声明成 `^0.18.0`（或更新 minor）——0.x 的 caret 只锁 minor，`^0.13.0` 这类旧范围会把你钉死在 0.13.x，我们之后发多少修复都不会加载进你的嵌套副本。面板上的「更新器=版本（层级）」就是此刻在说话的那份副本；`nested` 意味着升级路径在声明它的插件那边（先更新它，或按 05 章的载体 CLI 命令操作）。
 

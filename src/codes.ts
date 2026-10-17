@@ -33,6 +33,8 @@ export const BLOCKED_REASONS = [
   'pending-restart',
   'registry-conflict',
   'incompatible-node',
+  // #195：远端包声明的 engines.dsh 不满足当前 DSH 运行时版本（只在拿得到当前 DSH 版本时判）。
+  'incompatible-dsh',
   'recovery-required',
   'dev-source',
 ] as const

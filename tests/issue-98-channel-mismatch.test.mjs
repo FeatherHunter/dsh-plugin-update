@@ -182,7 +182,7 @@ describe('issue #98：缺省 stable + 已装 beta 不再坍缩成 unknown-profil
     assert.equal(out.snapshot.blockedReason, 'channel-mismatch')
   })
 
-  it('分叉守住：空串运行覆盖与改造前一致，仍报 unknown-profile（不 fallback 磁盘）', async () => {
+  it('#182 分叉更新：运行版为空串=未知，不再整次 unknown-profile；通道结论照常给出', async () => {
     const profileDir = makeBetaProfile()
     tmpRoots.push(profileDir)
     const host = createHostUpdate(
@@ -206,11 +206,14 @@ describe('issue #98：缺省 stable + 已装 beta 不再坍缩成 unknown-profil
       { pluginId: 'issue-98-plugin', prefix: 'issue98', targetPackageName: TARGET }
     )
     const out = await host.handlers['issue98.updateStatus']({})
-    assert.equal(out.ok, false)
-    assert.equal(out.error, 'unknown-profile')
+    // #182：未知是一等状态，不是「整次查询失败」；空串归一为 null，绝不 fallback 磁盘或伪造 0.0.0。
+    assert.equal(out.ok, true)
+    assert.equal(out.snapshot.runningVersion, null)
+    // 通道结论仍按磁盘事实给：已装 beta 不在 stable 通道。
+    assert.equal(out.snapshot.blockedReason, 'channel-mismatch')
   })
 
-  it('分叉守住：目标包真定位不到仍是 unknown-profile', async () => {
+  it('#182 分叉更新：目标包定位不到时按「未装」如实呈现，不再 unknown-profile', async () => {
     const profileDir = makeBetaProfile()
     tmpRoots.push(profileDir)
     const host = createHostUpdate(
@@ -234,11 +237,14 @@ describe('issue #98：缺省 stable + 已装 beta 不再坍缩成 unknown-profil
       { pluginId: 'issue-98-plugin', prefix: 'issue98', targetPackageName: 'no-such-pkg' }
     )
     const out = await host.handlers['issue98.updateStatus']({})
-    assert.equal(out.ok, false)
-    assert.equal(out.error, 'unknown-profile')
+    // #182：以前「拿不到运行版」被当成定位失败（unknown-profile），把未装插件也挡在门外；
+    // 现在运行版未知是合法状态，读取器如实报「未装」。
+    assert.equal(out.ok, true)
+    assert.equal(out.snapshot.installed, false)
+    assert.equal(out.snapshot.runningVersion, null)
   })
 
-  it('分叉守住：清单版本非法仍是 unknown-profile（运行身份无法确立，行为不变）', async () => {
+  it('#182 分叉更新：清单版本非法按「安装不完整」如实呈现，不再 unknown-profile', async () => {
     const profileDir = mkdtempSync(join(tmpdir(), 'dpu-98-badver-'))
     tmpRoots.push(profileDir)
     writeJson(join(profileDir, 'package.json'), {
@@ -249,8 +255,9 @@ describe('issue #98：缺省 stable + 已装 beta 不再坍缩成 unknown-profil
     makeTargetPackage(join(profileDir, 'node_modules', TARGET), 'not-a-version')
     const host = makeDefaultHost(profileDir)
     const out = await host.handlers['issue98.updateStatus']({})
-    assert.equal(out.ok, false)
-    assert.equal(out.error, 'unknown-profile')
+    // #182：运行身份不再由「清单版本是否解析得了」决定；坏包体由读取器按 invalid-installation 如实说。
+    assert.equal(out.ok, true)
+    assert.equal(out.snapshot.blockedReason, 'invalid-installation')
   })
 })
 

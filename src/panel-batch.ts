@@ -1760,7 +1760,8 @@ function asBatchPhase(value: unknown): BatchPhase {
 /** 单插件快照宽容读：形状不对当没有（详情退回「正在读取更新状态…」）。 */
 function asSnapshotLike(value: unknown): UpdateSnapshot | null {
   if (!isObject(value)) return null
-  if (typeof value['runningVersion'] !== 'string') return null
+  // #182：运行版本未知是合法状态（null）；只在既不是字符串也不是 null 时拒收。
+  if (value['runningVersion'] !== null && typeof value['runningVersion'] !== 'string') return null
   if (typeof value['canInstall'] !== 'boolean') return null
   return value as unknown as UpdateSnapshot
 }
