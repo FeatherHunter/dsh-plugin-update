@@ -4,9 +4,11 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
-## [Unreleased]
+## [0.18.24] - 2026-10-18
 
 ### Fixed
+- **#194 审查跟进（Spec 轴 HARD）**：①旧实现在长名单退让时只在第一条候选里带 `approve-builds` 命令，名单一长就退到一句「去宿主插件页批准后重试」——而宿主页的批准入口只出现在宿主自己的安装失败页，本包的 `updateInstall` 走不到，等于告诉用户一个不存在的按钮；现在批准命令（没有命令时是诚实的宿主页说法）是**每条候选的固定部分**，退让只发生在「点名多少个包」（全名单 → 少点几个 →「首个 等 N 个」→「有构建脚本被忽略」），命令不再丢。②`stale-approval` 的文案与文档原写「重试一次即可」自相矛盾（宿主对不在 pending 名单里的名字会再次抛 `stale-approval`）——改为「名单已过期（宿主已重新记录），重新发起安装、不要沿用上次的名单」；同时补文档：带 `approvedBuilds` 重试必须换**新的 `requestId`**（同一个 id 会被去重直接返回旧失败快照，不会重试）。
+- 批准名单归一收紧：`normalizeApprovedBuilds` 从纯 shell 白名单改为「npm 包名文法 + shell 安全」双重过滤——`../x`、`a/b/c`、`包@版本` 这类不是包名的字符串不再交回宿主（scoped 名 `@scope/name` 仍支持）。
 - **#197 同一颗「安装」按钮三种身份不可辨别**：查新版时由核心按「磁盘在场 + profile 清单登记 + 版本比较」判定安装身份，写进快照新增的 `identity` 格——`update`（磁盘装着旧版、清单在册：正常换版，官方桌面版走 remove→install，失败如实报）、`first-install`（磁盘没有、清单也没登记：**新增依赖的首次安装**，装完要重启宿主才会加载，不是换版）、`up-to-date`（磁盘已是远端这一版：直接说「已是最新」，不再发起一次注定空转/被拒的安装）。判定不了为 `null`（例如清单登记了但磁盘缺失——那是修复现场），**绝不冒充**「首次安装」。面板按身份给三张不同的脸与按钮文字（此前首次安装被说成「有新版本…（当前版本 未安装）」）。
 - 读取器在「目标包磁盘缺失」的早退分支也带上清单登记态（此前该分支把 `registered` 留成 `null`）：身份判定与 `includeEnv` 都靠它区分「新增依赖」与「登记了但磁盘缺失」。
 - **#198 带凭据 URL 触发时整条失败详情被丢弃**：脱敏规则对 URL 用户信息（`https://user:token@…`）原本「整项丢弃、退到裸短码」，实际详情只剩 `install-failed: operation-error`——用户看不到阶段 / 路由 / 宿主原话，也没有下一步（C 线 F6 探针 `probe-b.mjs` S6）。现在只把 userinfo 那段换成 `<脱敏>@`（`https://<脱敏>@mirror.example.com/pkg`），scheme / 主机 / 路径 / 查询与其余原文照旧保留；命中时在详情末尾追加「（原话里的账号密码已隐去；请核对源地址里的凭据后重试）」——原文在前、建议在后，且被替换过的文本与原样文本从此可区分（正面回应 ADR-0001 决策 2 的旧理由）。300 字 / 复制 1500 字预算与占位符（`<路径>` / `<脱敏>`）行为不变；`file:///` 这类定位不到的已知形状仍原样放过。
@@ -17,6 +19,9 @@
 - **#190 「装完待重启」三处口径不一致、文案对「重启也不会加载」说满（S3）**：装后任务状态一直硬编码 `restart-required`，日志 `update.install.verify.result` 却按运行版区分 `completed` / `restart-required`，面板待重启判定又是第三处口径（0.13.0 起长期存在）；同时 verify 只证磁盘顶层副本换了版，没核对「在册」——profile 清单未登记该插件时文案仍说「重启宿主后生效」，而重启也不会加载。现在装后状态收敛到一处真源 `postInstallStateOf`（磁盘 / 运行两事实）：磁盘已到目标版且运行版也换成目标版才 `completed`，运行版未知 / 还是旧的 / 磁盘没到目标版一律 `restart-required`；任务持久状态、`update.install.verify` 的 `result` / `pendingRestart`（历史持久任务重算时同样走它；运行版未知时从 `completed` 回落 `restart-required`，与 #182 同向）与面板待重启判定全部由它派生，不再出现「日志说 completed、任务说 restart-required」。「在册」不改变这个二值状态（未登记是另一根轴），单独由快照新增的 `registered` 格承载（`dsh.profile.bundles` 选中名单，老 / 最小清单退回 `dependencies`；`false`＝磁盘换版也不等于重启后会加载，读不到为 `null` 未知）：单插件待重启横幅在 `registered === false` 时改说「未登记，重启也不会加载」并给「先在宿主插件页选中」的下一步；批量面板的行状态、总账档位（新增「另有 N 个未登记」）、入口摘要标签（待重启 / 未登记分开数，不再把未登记算进「待重启」）与重启横幅（分别计数、全部未登记时不画重启按钮也不给「重启以加载新版本」的假指令）同一口径；`registered` 为 `null` 不冒充事实，沿用原文案。README §5.1 / §5.4 / §9 与 CONTEXT.md 词表同步。
 
 ### Changed
+- `runInstall` 的类型声明（`src/host.ts` 的读取器覆盖、`src/reader.ts`）补上 `approvedBuilds`，与运行时的透明转发一致。
+- 测试：`tests/issue-194-pending-builds.test.mjs` 扩到 12 例（长名单退让后命令仍在、两步配方两次 `installBundle` 都带批准名单、归一上限/保序、路径片段与 `包@版本` 被拒）；`tests/issue-202-noop-install.test.mjs` 的候选（带 `version`）路径补「批准名单转发」断言。
+- 文档：README §2 电话入参表、§5.9、`docs/host-install-exits.md` 出口二同步新口径（命令始终保留、`stale-approval` 重新发起、重试换新 `requestId`）。
 - 快照形状：七个核心字段 + `identity` + `registered`（`#197` 起加 `identity`、`#190` 起加 `registered`；字段只增不改，老调用方不读也能用）。README §5.1 / §5.4 / §9 同步；`tests/diag-phone.test.mjs`、`tests/phones.test.mjs`、`tests/queue.test.mjs` 的快照形状断言按新契约更新（九字段，属有意的公开形状扩展）。
 - 公开契约（加法扩展）：`UpdateSnapshot.registered`（可选格；在册事实，布尔或 `null`，未知为 `null`，老读取器/旧快照没有这一格与 `null` 同义）；装后状态由 `postInstallStateOf` 一处派生（磁盘 / 运行两事实，任务状态 / `update.install.verify` / 面板待重启判定同口径；「在册」不改变二值状态，单独由快照 `registered` 承载），事件字段形状不变；`BatchLedgerCounts.restartUnregistered` 与 `BatchEntrySummary.restartUnregistered` 两格、入口徽标 / 一句话总账 / 分类总账 / 印章新增的「未登记」档（`batch-entry.label.restart-unregistered` / `batch-entry.label.restart-mixed` / `batch.row.unregistered-suffix` / `batch.hint.restart-unregistered` 四个新 key），老调用方不读照旧。
 - 测试（#190）：新增 `tests/issue-190-verify-state.test.mjs` 7 例（运行版已换 ⇒ 任务 / verify / 快照 / 面板四处 `completed`；运行版仍旧 ⇒ 四处一致待重启；宿主未登记 ⇒ 快照 `registered: false` 且面板改说「重启不会加载」；正常登记 ⇒ 旧文案一字不变；批量一半 / 全部未登记（全部未登记时不许画重启按钮 / 给假指令）/ 在册未知时沿用原文案）；对 `0.18.24` 源码实测 7 红，修后 7 绿；`tests/{diag-phone,phones,queue}.test.mjs` 的快照形状标题按九字段叫法修正；双语字典快照按新 key / 改后文案重算（373 key，无新增散落中文）。文档：`CONTEXT.md` 词表补「在册（`registered`）」，README 同步。
@@ -32,23 +37,9 @@
 - 文档：README §3 补「运行版本未知」与「DSH 运行时版本」两条集成口径；§5.1 `runningVersion` 可为 `null`；§5.2 增 `incompatible-dsh` 行；§5.4 待重启辅助判据加未知守卫；§9 兼容扩展清单同步。`docs/maintainers.md` 门禁计数改为 17 码 / 11 阻塞，`docs/research/20261014-log-event-catalog.md` 把 `current` 标为可选（未知时省略），`src/diag.ts` 的 §7.1 行数注释同步。
 - 文档：README 第 4 节时间口径补普通 DSH 宿主的终止能力分支与「超时是独立结局」；`docs/host-install-exits.md` 出口三补超时政策（2026-10-18，#185）。
 - 测试（#185）：新增 `tests/issue-185-cli-timeout.test.mjs` 10 例（有 / 无 `terminate` 两种超时人话、被终止后落到非零或空退出码仍点名超时、宽限内 `exitCode 0` 收尾按成功算、宽限内自己以非零退出收尾改写口径、`terminate` 抛错改写口径、`done` reject 不算超时、抓取读数原文在前口径在后、接近 300 字时脱敏说明不被剪半、普通非零退出形状不变），`tests/issue-193-desktop-service-timeout.test.mjs` 补 2 例（宽限内非零收尾仍点名超时、`terminate` 抛错如实说终止失败），先红后绿；`tests/fixtures/bilingual/copy-baseline.json` 增加 `src/store.ts` 的四条新中文冻结句。
-- **按用户要求本批不递增版本号**（`package.json` 仍 `0.18.24`）；实际发布时与 `0.18.8`～`0.18.24` 一起带走即可。
+- **发布口径**：`0.18.12`～`0.18.24` 各段此前均未单独发到 npm（registry 上最近发布是 `0.18.11`，`0.18.8`～`0.18.10` 的内容随它首发）；本次首次把这一整段一次性发成 `0.18.24`，并包含 `0.18.24` 提交之后的 #197/#198/#182/#183/#185/#190 修复。嵌套副本的消费方需自行把 `dsh-plugin-update` 依赖范围抬到 `^0.18.0` 或更新，否则吃不到本版修复（`0.18.16` 起 #196）。
 
-门禁（非发版定格，主树实测）：`npm test` **1574 例：1573 过 / 0 失败 / 1 跳过**；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、373 个 key、17 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.24`，394.3 kB 压缩 / 1.4 MB 解包）。
-
-## [0.18.24] - 2026-10-18
-
-### Fixed
-- **#194 审查跟进（Spec 轴 HARD）**：①旧实现在长名单退让时只在第一条候选里带 `approve-builds` 命令，名单一长就退到一句「去宿主插件页批准后重试」——而宿主页的批准入口只出现在宿主自己的安装失败页，本包的 `updateInstall` 走不到，等于告诉用户一个不存在的按钮；现在批准命令（没有命令时是诚实的宿主页说法）是**每条候选的固定部分**，退让只发生在「点名多少个包」（全名单 → 少点几个 →「首个 等 N 个」→「有构建脚本被忽略」），命令不再丢。②`stale-approval` 的文案与文档原写「重试一次即可」自相矛盾（宿主对不在 pending 名单里的名字会再次抛 `stale-approval`）——改为「名单已过期（宿主已重新记录），重新发起安装、不要沿用上次的名单」；同时补文档：带 `approvedBuilds` 重试必须换**新的 `requestId`**（同一个 id 会被去重直接返回旧失败快照，不会重试）。
-- 批准名单归一收紧：`normalizeApprovedBuilds` 从纯 shell 白名单改为「npm 包名文法 + shell 安全」双重过滤——`../x`、`a/b/c`、`包@版本` 这类不是包名的字符串不再交回宿主（scoped 名 `@scope/name` 仍支持）。
-
-### Changed
-- `runInstall` 的类型声明（`src/host.ts` 的读取器覆盖、`src/reader.ts`）补上 `approvedBuilds`，与运行时的透明转发一致。
-- 测试：`tests/issue-194-pending-builds.test.mjs` 扩到 12 例（长名单退让后命令仍在、两步配方两次 `installBundle` 都带批准名单、归一上限/保序、路径片段与 `包@版本` 被拒）；`tests/issue-202-noop-install.test.mjs` 的候选（带 `version`）路径补「批准名单转发」断言。
-- 文档：README §2 电话入参表、§5.9、`docs/host-install-exits.md` 出口二同步新口径（命令始终保留、`stale-approval` 重新发起、重试换新 `requestId`）。
-- **发布口径提醒**：`0.18.8`～`0.18.24` 仍未发到 npm（registry 最新仍是 `0.18.7`），发版以 `0.18.24` 一次带走即可。
-
-门禁（**发版定格**）：`npm test` **1527 例：1526 过 / 0 失败 / 1 跳过**（干净发版树 + 本批 11 个文件上实测）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、354 个 key、16 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.24`，378.4 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（354 个 key 仍全是 `draft: true`）。
+门禁（**发版定格**）：`npm test` **1574 例：1573 过 / 0 失败 / 1 跳过**；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（45 个 src 文件、373 个 key、17 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **97 文件**（`dsh-plugin-update@0.18.24`，394.3 kB 压缩 / 1.4 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（373 个 key 仍全是 `draft: true`）。
 
 ## [0.18.23] - 2026-10-18
 
