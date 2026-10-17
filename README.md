@@ -461,7 +461,7 @@ const update = createHostUpdate(
 
 落盘目录按标识派生：家目录下 `updates` 加插件标识加使用范围短指纹，三个文件名是 `state.json`、`install.lock`、`before.json`。读走双读（先新后旧），写只写新。
 标识取历史值 `dsh-mattpocock-skills-deck` 时，路径与旧版一字不差（升级不丢状态）。
-安装锁是自愈的（`0.18.11` 起）：锁位先生成完整内容再原子占位，所以不存在「空锁」；判陈旧只看时间——锁里 `startedAt`（读不出就看文件 mtime）超过 `installTimeoutMs` 才回收，否则一律按「别人正在装」回 `update-busy`。**同一使用范围内发现任意陈旧锁时不需要再手工删 `install.lock`。**
+安装锁是自愈的（`0.18.11` 起）：锁位先生成完整内容再原子占位，所以在**支持硬链接的盘上**不存在「空锁」（不吃硬链接的盘退回「先写内容再放锁位」，仍有极短窗口，但坏锁不再堵死读取）；判陈旧只看时间——锁里 `startedAt`（读不出就看文件 mtime）超过 `installTimeoutMs` 才回收，否则一律按「别人正在装」回 `update-busy`。**同一使用范围内发现任意陈旧锁时不需要再手工删 `install.lock`。**
 
 ## 4. 安装是怎么执行的
 

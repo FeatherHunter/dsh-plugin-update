@@ -21,7 +21,7 @@
 - `README.md` §2.6：批量失败横幅补两枚批量复制按钮口径（与横幅同生灭、无命令置灰）；§3：落盘段补安装锁自愈口径（陈旧阈值 = `installTimeoutMs`；不再需要手工删 `install.lock`）。
 - **发布口径提醒**：`0.18.8`～`0.18.11` 四段都还没发到 npm（registry 最新仍是 `0.18.7`），发版时以 `0.18.11` 一次带走即可。
 
-门禁（**发版定格**）：`npm test` **1457 例：1456 过 / 0 失败 / 1 跳过**（干净发版树 `245be3a` + 本批 12 个文件上实测；本批新增 2 个测试文件、30 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **四道硬门禁过**（44 个 src 文件、351 个 key、16 错误码、19 diag 键，违规 0；本批新增 2 文案键已进字典+快照，`copy-baseline.json` 未动）；`npm publish --dry-run` **95 文件**（`dsh-plugin-update@0.18.11`，354.6 kB 压缩 / 1.3 MB 解包）。
+门禁（**发版定格**）：`npm test` **1457 例：1456 过 / 0 失败 / 1 跳过**（干净发版树 `245be3a` + 本批 12 个文件上实测；本批新增 2 个测试文件、30 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（44 个 src 文件、351 个 key、16 错误码、19 diag 键，违规 0；本批新增 2 文案键已进字典+快照，`copy-baseline.json` 未动）；`npm publish --dry-run` **95 文件**（`dsh-plugin-update@0.18.11`，354.6 kB 压缩 / 1.3 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（351 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
 
 ## [0.18.10] - 2026-10-17
 
@@ -37,7 +37,7 @@
 - 验收证据：审查期探针 `.tmp/audit/state/probe-d.mjs` 的 T9 已对新代码复跑转绿——安装失败后磁盘 `state.json` 存在；「重启后」（新宿主实例）`job` 仍在（`failed`，`message` 带宿主原文）、`previousVersion=2.0.28`、`failedJobDiagOf` 仍取得到失败原文（复制诊断不再跨进程即失）。修复前同一探针红在「磁盘没有 state.json / 重启后 job=null」。T8（锁）与 T9 同文件但属 #181，本批未动，锁的语义仍按票面待修。
 - **发布口径提醒**：`0.18.8`、`0.18.9`、`0.18.10` 三段都还没发到 npm（registry 最新仍是 `0.18.7`），发版时以 `0.18.10` 一次带走即可；本批不改变既有快照/电话/字段形状，`UpdateJob` 只增 `previousVersion?` 一格。
 
-门禁（**发版定格**）：`npm test` **1427 例：1426 过 / 0 失败 / 1 跳过**（干净发版树 `b44d2c5` + 本批 8 个文件上实测；本批新增 1 个测试文件、3 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **四道硬门禁过**（44 个 src 文件、349 个 key、16 错误码、19 diag 键，违规 0；本批零新增冻结中文，`copy-baseline.json` 未动）；`npm publish --dry-run` **95 文件**（`dsh-plugin-update@0.18.10`，349.7 kB 压缩 / 1.2 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（349 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
+门禁（**发版定格**）：`npm test` **1427 例：1426 过 / 0 失败 / 1 跳过**（干净发版树 `b44d2c5` + 本批 8 个文件上实测；本批新增 1 个测试文件、3 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（44 个 src 文件、349 个 key、16 错误码、19 diag 键，违规 0；本批零新增冻结中文，`copy-baseline.json` 未动）；`npm publish --dry-run` **95 文件**（`dsh-plugin-update@0.18.10`，349.7 kB 压缩 / 1.2 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（349 个 key 仍全是 `draft: true`，理由见 `0.16.0` 节末）。
 
 ## [0.18.9] - 2026-10-17
 
