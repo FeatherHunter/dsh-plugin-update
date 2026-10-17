@@ -21,7 +21,7 @@
 - `README.md` §2.6：批量失败横幅补两枚批量复制按钮口径（与横幅同生灭、无命令置灰）；§3：落盘段补安装锁自愈口径（陈旧阈值 = `installTimeoutMs`；不再需要手工删 `install.lock`）。
 - **发布口径提醒**：`0.18.8`～`0.18.11` 四段都还没发到 npm（registry 最新仍是 `0.18.7`），发版时以 `0.18.11` 一次带走即可。
 
-门禁（**发版定格**）：`npm test` **1452 例：1451 过 / 0 失败 / 1 跳过**（干净发版树 `245be3a` + 本批 11 个文件上实测；本批新增 2 个测试文件、25 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **四道硬门禁过**（44 个 src 文件、351 个 key、16 错误码、19 diag 键，违规 0；本批新增 2 文案键已进字典+快照，`copy-baseline.json` 未动）；`npm publish --dry-run` **95 文件**（`dsh-plugin-update@0.18.11`，353.2 kB 压缩 / 1.2 MB 解包）。
+门禁（**发版定格**）：`npm test` **1457 例：1456 过 / 0 失败 / 1 跳过**（干净发版树 `245be3a` + 本批 12 个文件上实测；本批新增 2 个测试文件、30 例，均先红后绿）；`npm run typecheck` 过；`npm run gate:bilingual` **四道硬门禁过**（44 个 src 文件、351 个 key、16 错误码、19 diag 键，违规 0；本批新增 2 文案键已进字典+快照，`copy-baseline.json` 未动）；`npm publish --dry-run` **95 文件**（`dsh-plugin-update@0.18.11`，354.6 kB 压缩 / 1.3 MB 解包）。
 
 ## [0.18.10] - 2026-10-17
 
