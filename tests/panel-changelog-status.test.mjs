@@ -172,8 +172,48 @@ describe('#213 面板更新说明分档', () => {
       await settled()
       await settled()
       await settled()
+      // verify-213 D4-ME：只看 innerHTML 会被残留 DOM 骗过（「状态被清但那一帧没重绘」的实现也能全绿），
+      // 断言前用同一版快照再刷一次，逼 DOM 反映真实状态。
+      await panel.refresh()
+      await settled()
+      await settled()
       assert.ok(slot.innerHTML.includes('自动取日志'), '认不出分档就照老样子，不擅自清正文')
       assert.ok(!slot.innerHTML.includes('该版本包里没有更新说明文件'), '没有分档就没有分档话术')
+    } finally {
+      panel.unmount()
+    }
+  })
+
+  it('上一版的迟到空白回包不许擦掉新版正文（verify-213 D3-5 反例）', async () => {
+    let status = baseSnapshot({ latestVersion: '1.1.0' })
+    let releaseOld = () => {}
+    const oldReply = new Promise((resolve) => {
+      releaseOld = () => resolve({ ok: true, version: '1.1.0', markdown: null, status: 'missing', cached: false })
+    })
+    const { call } = panelCall({
+      getStatus: () => status,
+      getChangelog: (args) =>
+        args && args.version === '1.1.0'
+          ? oldReply
+          : { ok: true, version: '1.2.0', markdown: SAMPLE, status: 'ok', cached: false },
+    })
+    const slot = fakeContainer()
+    const panel = mountUpdatePanel(slot, { pluginId: 'p', prefix: 't', call })
+    try {
+      await panel.refresh()
+      await settled()
+      // 1.1.0 那通电话还挂在网上；新版 1.2.0 先回来并上屏：
+      status = baseSnapshot({ latestVersion: '1.2.0' })
+      await panel.refresh()
+      await settled()
+      await settled()
+      assert.ok(slot.innerHTML.includes('自动取日志'), '新版正文先上屏')
+      // 现在放行 1.1.0 的迟到结论性空白——它说的是上一版，不许动屏上这一版：
+      releaseOld()
+      await settled()
+      await settled()
+      assert.ok(slot.innerHTML.includes('自动取日志'), '上一版的迟到空白不许擦掉新版正文')
+      assert.ok(!slot.innerHTML.includes('该版本包里没有更新说明文件'), '也不许把上一版的分档贴到新版上')
     } finally {
       panel.unmount()
     }

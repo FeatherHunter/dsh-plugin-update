@@ -3390,7 +3390,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
             // #213：宿主对**这一版**给了结论性分档（空文件 / 包里没有 / 取不到）却没有正文——
             // 上一版的正文不许留在新版标题下：那会让空白区既拿不到分档话术，还可能把旧版说明
             // 冒充新版（两轴评审都点了这一格）。认不出分档的老宿主不动旧正文，行为与 #213 之前一致。
-            if (statusChanged && changelogMarkdown !== null) changelogMarkdown = null
+            // 闸门（verify-213 D3-5 反例）：回包可能是**上一版**的迟到答案——取数按版本在飞，升版会
+            // 另发一通电话，慢的那通后到；只有回的正是屏上这一版才清，否则会把新版刚上屏的正文擦掉。
+            if (statusChanged && v === changelogStatusVersionNow() && changelogMarkdown !== null) changelogMarkdown = null
             // 没有文本时也要重绘一次——空白分支的话术要跟着分档走。
             if (statusChanged) render()
           }
