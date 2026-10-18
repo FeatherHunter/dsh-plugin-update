@@ -740,7 +740,7 @@ lintEventFields(manifest, row.event, stripReservedLogFields(Object.keys(row.fiel
 
 事件清单的每条要写四样：事件名、级别（`error`/`warn`/`info`/`debug`）、允许字段（之外的键不许记；运行期由发射口摘掉该字段并记一条 `update.log.degraded`，开发期直接抛）、脱敏引用（`codes` 是截断或散列代号，`rules` 是具名正则名——都只记引用名，不记原文）。
 **字段允许值的机器声明（`#210`）写在清单顶层 `fieldEnums`**：事件名 → 字段名 → 允许的稳定码数组。条目形状仍是上句四样——dsh-log 0.3.4 会拒绝条目里的未知键（整份清单不认），所以枚举只放顶层；顶层未知键 dsh-log 收下不用，随包清单因此可以整份交给它建实例。
-`kind` 分三类只为计数服务：`resident` 常驻、`ondemand` 按需、`selfmon` 自监控。空模板见包内的 `event-list.template.json`；**本包自己的事件表见 `event-list.update.json`**（27 个事件：常驻 19、按需 7、自监控 1），第二家可以整份并进自己的清单（`mergeUpdateEvents`，字段与枚举值取并集，级别与归类仍按你的声明）。
+`kind` 分三类只为计数服务：`resident` 常驻、`ondemand` 按需、`selfmon` 自监控。空模板见包内的 `event-list.template.json`；**本包自己的事件表见 `event-list.update.json`**（27 个事件：常驻 20、按需 6、自监控 1），第二家可以整份并进自己的清单（`mergeUpdateEvents`，字段与枚举值取并集，级别与归类仍按你的声明）。
 清单要以**对象**传入：字符串或数组会被拦下并给出中文说明，不静默修补。
 `checkEventFields` 与 `checkEventCounts` 是 `0.16.0` 之前的旧名（`0.13.0` 及更早已发布版本里就是这两个名字），保留一版、行为不变，新代码用 `lintEventFields` 与 `computeEventCounts`。
 
