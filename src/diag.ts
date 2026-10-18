@@ -37,6 +37,7 @@
 import { DIAG_INLINE_BUDGET_BYTES, diagByteLength, enforceDiagBudget, resolveRegistryHost, sanitizeDetail } from './redaction.js'
 import { causeInterpreter } from './install-cause.js'
 import { validReleaseVersion, validRequestId } from './service.js'
+import { hash8 } from './hash.js'
 import { copyText, type BilingualKey } from './bilingual.js'
 import { normalizeLangTag, type AppLang } from './lang.js'
 
@@ -73,6 +74,11 @@ export const DIAG_KNOWN_TYPES: Record<string, 'number' | 'string'> = {
   latestVersion: 'string',
   environmentKind: 'string',
   requestId: 'string',
+  /**
+   * 意图哈希（#207）：requestId 的 djb2 八位十六进制，供用户把「复制诊断」里那一次安装
+   * 与日志里的 update.install.request / update.install.fail 对上；不落原始编号进日志行。
+   */
+  intentHash: 'string',
   checkId: 'string',
   registryHost: 'string',
   action: 'string',
@@ -133,6 +139,8 @@ export interface DiagObject {
   latestVersion?: string
   environmentKind?: string
   requestId?: string
+  /** 意图哈希（#207）：八位十六进制，等于日志行里的 intentHash 字段。 */
+  intentHash?: string
   checkId?: string
   registryHost?: string
   action?: DiagAction
@@ -403,6 +411,8 @@ export function buildDiag(input: DiagInput): DiagObject | undefined {
     const args = input?.args && typeof input.args === 'object' ? (input.args as Record<string, unknown>) : {}
     const requestId = pickId(args['requestId'])
     const checkId = pickId(args['checkId'])
+    // #207 意图哈希：与日志行同一个算法（hash8），用户把复制诊断与日志里的同一次安装对上。
+    const intentHash = requestId ? hash8(requestId) : null
     let registryHost: string | null = null
     try {
       registryHost = resolveRegistryHost(String(input?.registryUrl ?? ''))
@@ -450,6 +460,7 @@ export function buildDiag(input: DiagInput): DiagObject | undefined {
     if (latestVersion) diag.latestVersion = latestVersion
     if (environmentKind) diag.environmentKind = environmentKind
     if (requestId) diag.requestId = requestId
+    if (intentHash) diag.intentHash = intentHash
     if (checkId) diag.checkId = checkId
     if (registryHost) diag.registryHost = registryHost
     if (causeKind) diag.causeKind = causeKind

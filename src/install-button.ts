@@ -43,7 +43,7 @@ import { lastResortVerdictOf, type ManualSource } from './last-resort.js'
 // #174：last-resort 的类型经既有子路径转出，消费者无需新子路径即可命名（`ManualSource` 已出现在本模块导出签名里）。
 export type { LastResortKind, RescueRouteKey, ManualSource, LastResortVerdict } from './last-resort.js'
 import { createClientLogChannel, type ClientLogChannel } from './log/client-queue.js'
-import type { UpdateSnapshot } from './ports.js'
+import type { InstallSource, UpdateSnapshot } from './ports.js'
 import type { VisibleQueue } from './queue.js'
 
 // ---------- 对外类型 ----------
@@ -67,6 +67,11 @@ export interface InstallButtonOptions {
   theme?: 'default' | 'archive'
   themeTokens?: UpdateThemeTokens
   copyText?: InstallButtonCopyText
+  /**
+   * 安装意图来源（#207）：落进 update.install.request.from。缺省 `entry`——按钮是嵌在宿主界面里的
+   * 入口，可嵌入任何页面；面板本体自己的调用显式传 `panel`，批量编排传 `batch`。
+   */
+  from?: InstallSource
   clientLog?: UpdatePanelClientLogOptions | null
 }
 
@@ -691,6 +696,7 @@ export function mountInstallButton(
   const profileNameOption = typeof options.profileName === 'string' && options.profileName ? options.profileName : null
   const copyTextOut = options.copyText ?? defaultCopyText
   const call = options.call
+  const installSource: InstallSource = options.from ?? 'entry'
 
   let mounted = true
   let snapshot: UpdateSnapshot | null = null
@@ -1164,6 +1170,7 @@ export function mountInstallButton(
         reply = await call(phoneNames.updateInstall, {
           checkId: receipt.checkId,
           requestId,
+          from: installSource,
           ...queueArgs(),
         })
       } catch (err) {
@@ -1336,6 +1343,7 @@ export function mountInstallButton(
           checkId: offer.checkId,
           requestId,
           version: offer.candidate,
+          from: installSource,
           ...queueArgs(),
         })
       } catch (err) {

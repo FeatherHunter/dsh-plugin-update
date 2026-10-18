@@ -82,6 +82,11 @@ export type { ReleaseChannel } from './version-judgment.js'
 // 检查结论编排已搬家（#163 故事 3 收尾）：实体见 ./check-conclusion.js，本文件只留内部引用。
 // 纯函数零值依赖；从未进包导出表，无垫片需要（#159 冻结）。
 import { httpStatusOfError, installSourceOf, stableCodeOf, stageOfError, triggerOf } from './check-conclusion.js'
+// 安装失败原因链（#207）：现场事实分类与行字段收敛放在中立文件，本文件只负责「何时记一行」。
+import { attachInstallFail, installFailRowFields, readInstallFail } from './install-fail.js'
+import type { InstallFailFacts } from './install-fail.js'
+import { BLOCKED_REASONS } from './codes.js'
+import { hash8 } from './hash.js'
 // ---------- 取数垫片（#163：实现搬 registry-fetch，老位置 re-export，行为零变化） ----------
 import {
   CHECK_TIMEOUT_MS,
@@ -177,6 +182,37 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       logPort(level, event, fields, opts)
     } catch {
       /* 记日志绝不挡功能 */
+    }
+  }
+  /**
+   * 安装失败原因行（#207）：一次意图恰好一条常驻 warn。字段固定八格、值只放枚举与派生量；
+   * 意图哈希与请求行同一个算法，跨电话聚合靠它（不落原始 requestId）。
+   */
+  function noteInstallFail(facts: InstallFailFacts, validation: { intentHash: string; observedVersion?: string | null }): void {
+    emit(
+      'warn',
+      'update.install.fail',
+      installFailRowFields({
+        ...facts,
+        intentHash: validation.intentHash,
+        observedVersion: validation.observedVersion ?? null,
+        pendingRestart: false,
+      }),
+    )
+  }
+  /**
+   * 装前闸门拒绝的分类（#207）：空更新、环境阻拦、其余稳定码各成一类；
+   * 分类只看稳定码与既有 detail，不改任何拒绝语义。
+   */
+  function classifyGateFailure(error: unknown): InstallFailFacts {
+    const code = stableCodeOf(error)
+    const blocked = (BLOCKED_REASONS as readonly string[]).includes(code)
+    return {
+      stage: 'gate',
+      reason: blocked ? 'env-blocked' : 'gate-refused',
+      hostCode: /^[a-z][a-z0-9-]{0,31}$/.test(code) ? code : 'none',
+      check: 'none',
+      exitCode: null,
     }
   }
   function fetchRelease(tolerateOutOfChannel = false): Promise<ReleaseInfo> {
@@ -688,9 +724,12 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       verifiedEnv = env
       // 装完校验也会失败：它同样要给出一句能读的说明，不能只留一个死码（验收判据 1）。
       if (env.installedVersion !== job.targetVersion) {
-        throw Object.assign(updateError('install-failed'), {
-          detail: `装完校验没过：磁盘上是 ${env.installedVersion ?? '未知'}，目标是 ${job.targetVersion ?? '未知'}`,
-        })
+        throw attachInstallFail(
+          Object.assign(updateError('install-failed'), {
+            detail: `装完校验没过：磁盘上是 ${env.installedVersion ?? '未知'}，目标是 ${job.targetVersion ?? '未知'}`,
+          }),
+          { stage: 'verify', reason: 'version-mismatch', hostCode: 'none', check: 'version', exitCode: null },
+        )
       }
       // 在册核实（#180；#201 起改成「登记不许倒退」）：新装必须登记，否则重启后插件根本不会加载；
       // 但更新一个**装前就没登记**的包时，唯一可用的通道是就地换版（宿主 removeBundle 卸不掉未选中的
@@ -698,12 +737,21 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       // 装前登记过、装后却没了的半装态仍然大声失败（宿主两步配方只落一半的典型形态）。
       const registrationWasMissing = envAtStart.installed === true && envAtStart.registered === false
       if (env.registered === false && !registrationWasMissing) {
-        throw Object.assign(updateError('install-failed'), {
-          detail: '装完校验没过：profile 未登记该插件（重启后不会加载）',
-        })
+        throw attachInstallFail(
+          Object.assign(updateError('install-failed'), {
+            detail: '装完校验没过：profile 未登记该插件（重启后不会加载）',
+          }),
+          { stage: 'verify', reason: 'not-registered', hostCode: 'none', check: 'registered', exitCode: null },
+        )
       }
       if (env.blockedReason && env.blockedReason !== 'pending-restart') {
-        throw Object.assign(updateError('install-failed'), { detail: `装完校验没过：环境报告 ${env.blockedReason}` })
+        throw attachInstallFail(Object.assign(updateError('install-failed'), { detail: `装完校验没过：环境报告 ${env.blockedReason}` }), {
+          stage: 'verify',
+          reason: 'env-blocked',
+          hostCode: env.blockedReason,
+          check: 'env',
+          exitCode: null,
+        })
       }
       const state = postInstallStateOf(job.targetVersion, env.installedVersion)
       const done: UpdateJob = { ...doing, state, message: null }
@@ -732,6 +780,23 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
         memJob = failedJob
       }
       // 安装或装后校验失败（#124）：`result:'failed'`；磁盘上读到什么版本就记什么，读不到省这一格。
+      // #207：原因链另落一条常驻 warn（一次意图恰好一条）；执行器/校验器把现场事实挂在错上，
+      // 这里只补齐意图哈希与可观测事实。无法归类时 reason=unknown，仍照记、不静默。
+      const facts: InstallFailFacts = readInstallFail(error) ?? {
+        stage: 'exec',
+        reason: 'unknown',
+        hostCode: 'none',
+        check: 'none',
+        exitCode:
+          typeof (error as { exitCode?: unknown } | null | undefined)?.exitCode === 'number' &&
+          Number.isInteger((error as { exitCode?: number }).exitCode)
+            ? ((error as { exitCode?: number }).exitCode as number)
+            : null,
+      }
+      noteInstallFail(facts, {
+        intentHash: hash8(typeof job.requestId === 'string' && job.requestId ? job.requestId : job.id),
+        observedVersion: verifiedEnv?.installedVersion ?? null,
+      })
       emit('info', 'update.install.verify', {
         result: 'failed',
         ...(verifiedEnv?.installedVersion ? { installedVersion: verifiedEnv.installedVersion } : {}),
@@ -786,11 +851,13 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       throw updateError('installation-changed')
     }
     // 用户意图（#124）：字段与 latest 路径同名同口径，latest 格填的是这次真要装的版本，不新增键。
+    // #207：intentHash 与失败行同一算法，按意图聚合「点了一次装 → 为什么没成」。
     emit('info', 'update.install.request', {
       from: installSourceOf(ctx.from),
       ...(runningVersion === null ? {} : { current: runningVersion }),
       latest: version,
       checkAgeMs: Math.max(0, ports.now() - slot.checkedAt),
+      intentHash: hash8(ctx.requestId),
     })
     const job: UpdateJob = {
       id: ports.randomId(),
@@ -847,15 +914,35 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
   function refuseNoopInstall(targetVersion: string, env: EnvironmentView): void {
     if (env.installed !== true || typeof env.installedVersion !== 'string') return
     if (compareReleaseVersions(targetVersion, env.installedVersion) !== 0) return
-    throw Object.assign(updateError('installation-changed'), {
-      detail: '目标版本与已装版本相同，无需安装',
-    })
+    // #207：空更新不是「装失败」，是「没东西可装」——失败事实在抛点就贴好，闸门兜底不再猜原因。
+    throw attachInstallFail(
+      Object.assign(updateError('installation-changed'), {
+        detail: '目标版本与已装版本相同，无需安装',
+      }),
+      { stage: 'gate', reason: 'noop', hostCode: 'installation-changed', check: 'none', exitCode: null },
+    )
   }
 
   async function install(args: { checkId: string; requestId: string; from?: InstallSource; version?: string; approvedBuilds?: string[] }): Promise<UpdateSnapshot> {
     const checkId = typeof args?.checkId === 'string' ? args.checkId : ''
     const requestId = typeof args?.requestId === 'string' ? args.requestId : ''
     if (!checkId || !validRequestId(requestId)) throw updateError('check-expired')
+    const intentHash = hash8(requestId)
+    try {
+      return await attemptInstall(args, checkId, requestId)
+    } catch (error) {
+      // 装前闸门拒绝（#207）：一次意图恰好一条原因行；抛点贴好事实的（如空更新）原样采用，其余按稳定码分类。
+      noteInstallFail(readInstallFail(error) ?? classifyGateFailure(error), { intentHash })
+      throw error
+    }
+  }
+
+  /** install 的真身：闸门、任务落盘与后台启动（失败分类在外层统一记录，避免漏记/重记）。 */
+  async function attemptInstall(
+    args: { checkId: string; requestId: string; from?: InstallSource; version?: string; approvedBuilds?: string[] },
+    checkId: string,
+    requestId: string,
+  ): Promise<UpdateSnapshot> {
     // 批准构建名单（#194）：形状归一在 host 侧完成（本文件零运行时导入契约），核心只做透明转发，
     // 且只对本次安装生效——不进 job、不落盘、不跨请求复用。
     const approvedBuilds = Array.isArray(args?.approvedBuilds)
@@ -894,6 +981,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       ...(currentRunningVersion === null ? {} : { current: currentRunningVersion }),
       latest: checked.release.version,
       checkAgeMs: Math.max(0, ports.now() - checked.checkedAt),
+      intentHash: hash8(requestId),
     })
     const job: UpdateJob = {
       id: ports.randomId(),

@@ -100,7 +100,7 @@ createHostUpdate(
 - `snapshot` 恒为第 5.1 节那九个字段（七个核心 + `identity` + `registered`）；`manual` 是第 5.3 节那条手工命令（能给则给，不能给为 `null`）。
 - `receipt` 查新版与合规版决议都给（`{ checkId, checkedAt, expiresAt }`）；装更新时把 `checkId` 原样带回来，`requestId` 由面板自己生成（同一个编号重复提交直接返回旧结果）。
 - 失败一律 `ok: false`：`error` 是原因码（第 5.2 节那十一种，另加 `check-failed` / `invalid-release` / `check-expired` / `update-busy` / `install-failed`），`errorKind` 认不出时是 `internal`。面板按 17 码给中文文案（十一种见第 5.2 节，另五种与 `internal` 见下表，未来码走兜底）；分支只认 `errorKind`，`error` 仅回退。
-- 失败可能顺带回可选 `diag`（失败证据小对象：阶段、路由、耗时、人话摘要、版本、宿主、请求与检查编号、源主机、动作提示；`0.18.5` 起另有归因三键 `causeKind` / `causePackage` / `causeUnlockAt`，共 19 键；缺省即省略，序列化恒在 1KB 内）。旧面板直接忽略它，行为逐字不变；新面板也只按稳定码分支，不拿它做分支。
+- 失败可能顺带回可选 `diag`（失败证据小对象：阶段、路由、耗时、人话摘要、版本、宿主、请求与检查编号、源主机、动作提示；`0.18.5` 起另有归因三键 `causeKind` / `causePackage` / `causeUnlockAt`；`#207` 起再加一格 `intentHash`——请求编号的短指纹，拿它就能把这次失败的诊断回包、`update.install.request` 行与 `update.install.fail` 行对上；共 20 键；缺省即省略，序列化恒在 1KB 内）。旧面板直接忽略它，行为逐字不变；新面板也只按稳定码分支，不拿它做分支。
 - `0.18.7` 起，快照里带着失败任务时**成功回包**也可能带这份 `diag`（批量面板与安装按钮靠它认出「该装合规版」）；无失败任务时成功回包形状逐字不变。
 
 ### 第 3 步：面板侧接线（构建期派生）
@@ -740,7 +740,7 @@ lintEventFields(manifest, row.event, stripReservedLogFields(Object.keys(row.fiel
 
 事件清单的每条要写四样：事件名、级别（`error`/`warn`/`info`/`debug`）、允许字段（之外的键不许记；运行期由发射口摘掉该字段并记一条 `update.log.degraded`，开发期直接抛）、脱敏引用（`codes` 是截断或散列代号，`rules` 是具名正则名——都只记引用名，不记原文）。
 **字段允许值的机器声明（`#210`）写在清单顶层 `fieldEnums`**：事件名 → 字段名 → 允许的稳定码数组。条目形状仍是上句四样——dsh-log 0.3.4 会拒绝条目里的未知键（整份清单不认），所以枚举只放顶层；顶层未知键 dsh-log 收下不用，随包清单因此可以整份交给它建实例。
-`kind` 分三类只为计数服务：`resident` 常驻、`ondemand` 按需、`selfmon` 自监控。空模板见包内的 `event-list.template.json`；**本包自己的事件表见 `event-list.update.json`**（26 个事件：常驻 18、按需 7、自监控 1），第二家可以整份并进自己的清单（`mergeUpdateEvents`，字段与枚举值取并集，级别与归类仍按你的声明）。
+`kind` 分三类只为计数服务：`resident` 常驻、`ondemand` 按需、`selfmon` 自监控。空模板见包内的 `event-list.template.json`；**本包自己的事件表见 `event-list.update.json`**（27 个事件：常驻 19、按需 7、自监控 1），第二家可以整份并进自己的清单（`mergeUpdateEvents`，字段与枚举值取并集，级别与归类仍按你的声明）。
 清单要以**对象**传入：字符串或数组会被拦下并给出中文说明，不静默修补。
 `checkEventFields` 与 `checkEventCounts` 是 `0.16.0` 之前的旧名（`0.13.0` 及更早已发布版本里就是这两个名字），保留一版、行为不变，新代码用 `lintEventFields` 与 `computeEventCounts`。
 
@@ -803,11 +803,11 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 **启动头自述（`0.16.4` 起）。**建库时 dsh-log 会在目录里写一行 `host.start`（`0.3.4` 起幂等：同一个实例只写一行），本包在那一行填 `pluginVersion` —— 本包自己的版本号（`ownPackageVersion()` 读随包 `package.json`，可用 `acquireOwnLog({ pluginVersion })` 覆盖成你那一版），`os` 由引擎记。交日志时对方先看这一行，就知道「这堆行出自哪一版」。
 
-**事件：三个旧事件形状冻结，`update.*` 按环节铺开。**`host.call`、`host.call.fail`、`update.install.exec` 的名字一字不动；字段只有一次破冰加格——`host.call.fail` 自 #150 起多一格 `error`（与回包同一稳定码，旧读数忽略未知格，余下两事件字段仍冻结）。新增事件按 19 个环节（检查、源查询、通道、安装、校验、重试、队列、批量、重启、面板…）命名，全表与字段白名单在包内 `event-list.update.json`，是实现的唯一事实源。日志行**只承载稳定码与参数**，人话留给面板与诊断渲染（ADR-0006）——所以日志里不会出现「安装失败：……」这类句子。
+**事件：三个旧事件形状冻结，`update.*` 按环节铺开。**`host.call`、`host.call.fail`、`update.install.exec` 的名字一字不动；字段只有一次破冰加格——`host.call.fail` 自 #150 起多一格 `error`（与回包同一稳定码，旧读数忽略未知格，余下两事件字段仍冻结）。`#207` 起新增常驻 `warn` 事件 `update.install.fail`：一次安装失败**恰好一行**，字段回答三件事——失败在哪个阶段（`stage`：`gate` 闸门拒绝 / `exec` 宿主执行 / `verify` 装后校验）、原因属于哪一类（`reason` 十二值枚举：宿主拒绝、超时、崩溃、非零退出、起进程失败、终止失败、版本不符、未在册、环境阻拦、空更新、闸门拒绝、未知）、走过哪些校验（`check`）与宿主侧稳定码（`hostCode`）、退出码与观察到的版本、是否需要重启，以及 `intentHash`（`hash8(requestId)`，把这次点击的请求行、失败行与诊断回包聚成一组；老请求没有请求编号时退用任务号）。`update.install.request` 同步多一格可选 `intentHash`；`update.install.exec` 与 `update.install.verify` 的形状一字不动，失败原因只在新事件里出现一次，不在两处重复。新增事件按 19 个环节（检查、源查询、通道、安装、校验、重试、队列、批量、重启、面板…）命名，全表与字段白名单在包内 `event-list.update.json`，是实现的唯一事实源。日志行**只承载稳定码与参数**，人话留给面板与诊断渲染（ADR-0006）——所以日志里不会出现「安装失败：……」这类句子。
 
 **噪声预算。**轮询看状态**一条常驻行都不落**——第一次也不算事件（它的第一次观测没有可比的上次），状态真变了才留一条 `update.status.changed` 供追溯；稳态一天不超过 50 行，一个操作日不超过 500 行。`info` 只在调试开关打开或事件是常驻时落盘；`warn`、`error` 始终落盘。检查电话与安装电话另各收一个**只进日志**的可选参数（`trigger`、`from`），不传即老样子。
 
-**开关：默认关着，改了要重启。**`info` 的准入由 dsh-log 的开关文件决定：`<DSH_HOME>/logs/log-switch-<派生命名空间>.json`，内容就是 `{ "enabled": false }`，默认关。注意它在 `logs/` **根下**、与日志目录平级，不是目录里的文件（`pluginId` 恰为 `wf` 时文件名退化为 `log-switch.json`）。两件事要知道：① 它只管**按需**事件——`warn`/`error` 与常驻事件不受它影响（本包 26 条事件里 19 条恒落、7 条受它管）；② dsh-log 在实例启动时把开关读进内存后**永久缓存**，运行中改这个 JSON 对活着的实例无效，**要重启宿主**才生效。本包不注册 dsh-log 的宿主日志电话（`logGetSwitch`/`logSetSwitch` 等六个都不注册），所以没有「在面板里拧开关」这条路。
+**开关：默认关着，改了要重启。**`info` 的准入由 dsh-log 的开关文件决定：`<DSH_HOME>/logs/log-switch-<派生命名空间>.json`，内容就是 `{ "enabled": false }`，默认关。注意它在 `logs/` **根下**、与日志目录平级，不是目录里的文件（`pluginId` 恰为 `wf` 时文件名退化为 `log-switch.json`）。两件事要知道：① 它只管**按需**事件——`warn`/`error` 与常驻事件不受它影响（本包 27 条事件里 20 条恒落、7 条受它管）；② dsh-log 在实例启动时把开关读进内存后**永久缓存**，运行中改这个 JSON 对活着的实例无效，**要重启宿主**才生效。本包不注册 dsh-log 的宿主日志电话（`logGetSwitch`/`logSetSwitch` 等六个都不注册），所以没有「在面板里拧开关」这条路。
 
 **面板侧的日志（`0.16.0` 起）。**面板跑在浏览器闭包里，落盘是宿主的事，中间隔着 `….logAppend` 电话：面板把行攒进一个有界环形缓冲（缺省 200 行，满了挤掉最老的并计数），按批交回宿主（缺省一批 50 行、间隔 1 秒；页面切到后台立即冲刷一次），失败退避重试 2 次后丢弃并计数 —— 整条路**永不外抛**，日志坏了不挡更新。宿主侧这一头是协议面：只收五个客户端事件（`update.panel.mount` / `update.panel.action` / `update.panel.render.fail` / `update.panel.state` / `update.lang.applied`），级别必须是 `debug`/`info`/`warn`/`error`；**事件必须在本包事件清单里**（整行不在清单才计入回包的 `dropped`），字段不合清单或枚举值不合法时只摘该字段、整行仍落盘，并记一条 `update.log.degraded`（`#210`：降级行含事件名与字段名，不含原文）；超量（一次 200 行以上）、过期（10 分钟以上的旧行）、形状不对一律计入 `dropped`，**不产生 `host.call` 行**（不给日志自己制造噪声）。面板默认自建这条通道（电话名从前缀派生）；`mountUpdatePanel` 的 `clientLog` 选项可以换成你自己的通道或明确关掉：`{ channel }` 注入、`{ mount: 'entry' }` 记挂载点、`null` 关闭。入口件与 HTTP 直挂已经替你传好挂载点。
 

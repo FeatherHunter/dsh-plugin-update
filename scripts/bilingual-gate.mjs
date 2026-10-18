@@ -19,7 +19,7 @@
  *    错误码真源在 src/codes.ts（本门禁从 dist/codes.js 读进来，**不另抄一份码表**）：
  *    每个码都有文案、都判已知；字典里也不许留下真源没有的码族（真源删一个码即红）；未知码走未来兜底；
  *    注意读的是构建产物：改过 src 要先 npm run build（npm test 的 pretest 已经把这一步兜住了）。
- *    诊断解析契约：宽容读 diag 对象（19 键，未知键忽略、错类型忽略、永不抛）＋
+ *    诊断解析契约：宽容读 diag 对象（20 键，未知键忽略、错类型忽略、永不抛）＋
  *    两种复制形态（三行块 / 单行）都能解析回同一组字段，字段顺序冻结（码 → 摘要 → 来源 → 怎么办）。
  *
  * 4. 零 draft 放行（--release）：字典里还有 draft 就红。母语 + 域内双签转正才放行合入/发布（#57）。
@@ -60,7 +60,7 @@ export const DEFAULT_SNAPSHOT_PATH = join(PKG_DIR, 'tests', 'fixtures', 'bilingu
 /** 「未来码」兜底那一族文案键：不是码，是未知码的人话兜底，反查时豁免。 */
 export const FUTURE_FAILURE_FAMILY = 'unknown'
 
-/** 诊断对象已知键（19 键 = 16 + #155 翻译官 3 键，宽容读的目录；值与键名都冻结不译）。 */
+/** 诊断对象已知键（20 键 = 16 + #155 翻译官 3 键 + #207 意图指纹 1 键，宽容读的目录；值与键名都冻结不译）。 */
 export const DIAG_KNOWN_KEYS = [
   'v',
   'stage',
@@ -75,6 +75,7 @@ export const DIAG_KNOWN_KEYS = [
   'latestVersion',
   'environmentKind',
   'requestId',
+  'intentHash',
   'checkId',
   'registryHost',
   'action',
@@ -668,7 +669,7 @@ function copyKeyFamilies(dictKeys, prefix) {
 
 /**
  * 诊断解析契约：
- * - 宽容读 diag 对象：19 键全读、未知键忽略但记账、错类型忽略、脏输入永不抛；
+ * - 宽容读 diag 对象：20 键全读、未知键忽略但记账、错类型忽略、脏输入永不抛；
  * - 两种复制形态都能解析回同一组字段，字段顺序冻结（码 → 摘要 → 来源 → 怎么办）。
  */
 export function checkDiagParseContract(options = {}) {
@@ -700,6 +701,7 @@ export function checkDiagParseContract(options = {}) {
     latestVersion: '1.1.0',
     environmentKind: 'desktop',
     requestId: 'req-1',
+    intentHash: 'a1b2c3d4',
     checkId: 'chk-1',
     registryHost: 'registry.npmjs.org',
     action: 'retry',

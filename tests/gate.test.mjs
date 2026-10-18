@@ -103,7 +103,7 @@ describe('门禁模板：空模板与本包事件表随包发布', () => {
     assert.equal(linted.ok, true)
     // 0.16.3 契约回填：删掉两条零发射点事件（update.install.retry / update.restart.outcome）
     // 与一个从未出现的字段名（update.registry.fetch.cacheHit），常驻 20 → 18、总数 28 → 26。
-    assert.deepEqual(linted.counts, { resident: 18, ondemand: 7, selfmon: 1 })
+    assert.deepEqual(linted.counts, { resident: 19, ondemand: 7, selfmon: 1 })
     // 冻结的三个旧事件名一字不动；host.call.fail 的字段经 #150 破冰加 `error`
     // （只增稳定码一格，旧读数忽略未知格，见 #150 进度区）：其余两事件字段仍冻结。
     const events = manifest.events

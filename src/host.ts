@@ -694,12 +694,14 @@ export function failedJobDiagOf(
     // 电话种类只在「解码 → 阶段」这一步有用：失败码自带上下文（install-* 即安装侧），认不出的码
     // 落到同一支兜底（buildDiag 里 deriveStage 对未知 kind 也按安装上下文解），故这里不问调用方。
     const phoneKind = code.startsWith('install') ? 'update-install' : code.startsWith('check') ? 'update-check' : 'update-status'
+    const jobRequestId = typeof job['requestId'] === 'string' ? job['requestId'] : ''
     const built = buildDiag({
       errorCode: code,
       phoneKind,
       // 任务里只剩「码 + 原文」；把原文放回 detail 格，翻译官照旧从同一处挑因。
       error: detail ? { code, detail } : { code },
-      args: {},
+      // #207：把任务里的请求编号带进诊断，回包 diag.intentHash 与日志失败行同值，跨落点可聚合。
+      args: jobRequestId ? { requestId: jobRequestId } : {},
       targetPackageName: input.targetPackageName,
       registryUrl: input.registryUrl,
       runningVersion: snap?.['runningVersion'],

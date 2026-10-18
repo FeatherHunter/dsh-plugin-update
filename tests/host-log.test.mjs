@@ -222,10 +222,12 @@ describe('#124 安装环节：install.request / install.verify', () => {
 
     const request = rows(fires, 'update.install.request')
     assert.equal(request.length, 1)
-    assert.deepEqual(keysOf(request[0].fields), ['checkAgeMs', 'current', 'from', 'latest'])
+    assert.deepEqual(keysOf(request[0].fields), ['checkAgeMs', 'current', 'from', 'intentHash', 'latest'])
     assert.equal(request[0].fields.from, 'batch')
     assert.equal(request[0].fields.current, '1.0.0')
     assert.equal(request[0].fields.latest, RELEASE_VERSION)
+    // #207：意图哈希八位十六进制，失败行用它聚合（同一 requestId 同一哈希）。
+    assert.match(request[0].fields.intentHash, /^[0-9a-f]{8}$/)
 
     const verify = await waitForEvent(fires, 'update.install.verify')
     assert.equal(verify.length, 1)

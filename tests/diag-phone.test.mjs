@@ -125,6 +125,8 @@ const DIAG_KEYS_16 = [
   'latestVersion',
   'environmentKind',
   'requestId',
+  // #207 意图哈希：requestId 的八位派生值，供复制诊断与日志行对上同一次安装。
+  'intentHash',
   'checkId',
   'registryHost',
   'action',
@@ -143,7 +145,7 @@ function assertDiagWellFormed(diag) {
   // 路由与方法正交：各自独立缺省（预算墙可单独省 method 而留 route，见 #24 顺序）。
   if ('route' in diag) assert.equal(typeof diag.route, 'string')
   if ('method' in diag) assert.equal(typeof diag.method, 'string')
-  // 19 键目录（16 + #155 翻译官 3 键）：除显式 truncated 位外，其余一律易变即面板必须忽略——此处断言绝不出现 queuePos。
+  // 20 键目录（16 + #155 翻译官 3 键 + #207 intentHash）：除显式 truncated 位外，其余一律易变即面板必须忽略——此处断言绝不出现 queuePos。
   for (const k of Object.keys(diag)) {
     if (k === 'truncated') {
       assert.equal(diag.truncated, true, 'truncated 只在超墙动过手时出现，且恒为 true')
@@ -188,7 +190,7 @@ describe('成功形状不动（成功回包永不带 diag）', () => {
   })
 })
 
-describe('失败回包加可选 diag（19 键目录 + 脱敏构造）', () => {
+describe('失败回包加可选 diag（20 键目录 + 脱敏构造）', () => {
   it('取数 429：fetch-release + httpStatus + retry + 已脱敏', async () => {
     const fires = []
     const host = makeHost({

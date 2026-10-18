@@ -3407,6 +3407,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
               reply = await call(phoneNames.updateInstall, {
                 checkId: receipt.checkId,
                 requestId,
+                from: 'panel',
                 ...queueArgs(),
               })
             } catch (err) {
@@ -3522,6 +3523,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
               checkId: offer.checkId,
               requestId,
               version: offer.candidate,
+              from: 'panel',
               ...queueArgs(),
             })
           } catch (err) {

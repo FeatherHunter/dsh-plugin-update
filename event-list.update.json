@@ -4,6 +4,24 @@
   "fieldEnums": {
     "update.wire.ready": { "logSink": ["external", "self", "off"] },
     "update.install.verify": { "result": ["completed", "restart-required", "failed", "interrupted"] },
+    "update.install.fail": {
+      "stage": ["gate", "exec", "verify"],
+      "reason": [
+        "host-rejected",
+        "timeout",
+        "crashed",
+        "nonzero-exit",
+        "spawn-failed",
+        "terminate-failed",
+        "version-mismatch",
+        "not-registered",
+        "env-blocked",
+        "noop",
+        "gate-refused",
+        "unknown"
+      ],
+      "check": ["version", "registered", "env", "none"]
+    },
     "update.log.degraded": {
       "reason": ["no-dsh-log", "lease-conflict", "write-fail", "emit-threw", "unknown-event", "unknown-field", "invalid-enum"]
     }
@@ -56,8 +74,14 @@
     "update.install.request": {
       "level": "info",
       "kind": "resident",
-      "fields": ["from", "current", "latest", "checkAgeMs"],
+      "fields": ["from", "current", "latest", "checkAgeMs", "intentHash"],
       "guard": "一次用户意图一条"
+    },
+    "update.install.fail": {
+      "level": "warn",
+      "kind": "resident",
+      "fields": ["stage", "reason", "hostCode", "check", "exitCode", "observedVersion", "pendingRestart", "intentHash"],
+      "guard": "一次安装失败一条；同一意图只记一次原因，无法归类时 reason=unknown 照记"
     },
     "update.install.verify": {
       "level": "info",

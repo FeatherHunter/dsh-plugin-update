@@ -276,6 +276,7 @@ const DIAG_KNOWN_TYPES: Record<string, string> = {
   latestVersion: 'string',
   environmentKind: 'string',
   requestId: 'string',
+  intentHash: 'string',
   checkId: 'string',
   registryHost: 'string',
   action: 'string',
@@ -297,6 +298,8 @@ export interface TolerantDiag {
   latestVersion: string | null
   environmentKind: string | null
   requestId: string | null
+  /** #207 安装意图指纹（hash8(requestId)）：诊断回包与日志行之间的跨落点聚合键。 */
+  intentHash: string | null
   checkId: string | null
   registryHost: string | null
   action: string | null
@@ -323,6 +326,7 @@ export function readDiagTolerant(diag: unknown): TolerantDiag {
     latestVersion: null,
     environmentKind: null,
     requestId: null,
+    intentHash: null,
     checkId: null,
     registryHost: null,
     action: null,

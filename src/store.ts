@@ -28,6 +28,8 @@ import { normalizeQueueState, type QueueOwner, type UpdateQueueState } from './q
 import { validReleaseVersion } from './service.js'
 import { DETAIL_MAX_CHARS, MASKED_CREDENTIAL_NOTE, sanitizeDetail } from './redaction.js'
 import { LOG_EVENT_INSTALL_EXEC } from './log-events.js'
+import { attachInstallFail, normalizeHostCode, readInstallFail } from './install-fail.js'
+import type { InstallFailFacts } from './install-fail.js'
 import type { EnvironmentKind, InstallRecipe, ReleaseChannel, UpdateJob, UpdateLogPort } from './ports.js'
 
 // 永久冻结的旧字面（规格 #591 第 14 条）：默认旧路径原文加三固定名永久冻结，永不删除。
@@ -1394,6 +1396,24 @@ function emitInstall(
 }
 
 /**
+ * 执行现场的失败分类（#207 / 审查 S1-2）：路由分支早就知道「超时/崩溃/非零退出/起进程失败/
+ * 终止失败/宿主拒绝」，以前只变成一句人话详情；现在把事实挂到抛错上，服务侧一条原因行即可落盘。
+ * 只挂稳定枚举与数字，不碰错误码、消息与既有 detail 形状。
+ */
+function failExec(
+  error: Error,
+  facts: { reason: InstallFailFacts['reason']; hostCode?: string; exitCode?: number | null }
+): Error {
+  return attachInstallFail(error, {
+    stage: 'exec',
+    reason: facts.reason,
+    hostCode: facts.hostCode ?? 'none',
+    check: 'none',
+    exitCode: typeof facts.exitCode === 'number' && Number.isInteger(facts.exitCode) ? facts.exitCode : null,
+  })
+}
+
+/**
  * 桌面宿主：交给桌面端公开的 desktopPnpm 服务，由它用参数数组拉起打包好的 CLI。
  *
  * 出口一原来只 `await handle.done`、根本不执行安装时限（#193 / 审查 A 线 R3）：宿主服务不收尾，
@@ -1406,15 +1426,16 @@ async function runDesktopService(
   parts: ExecutorParts
 ): Promise<number | null> {
   const service = part(parts.desktopPnpm) as { runPlugin?: (args: string[], dir: string, extra: undefined) => { done: Promise<{ exitCode?: number }> } } | null
-  if (!service || typeof service.runPlugin !== 'function') throw fail('install-failed')
+  if (!service || typeof service.runPlugin !== 'function') throw failExec(fail('install-failed'), { reason: 'spawn-failed' })
   const profiles = part(parts.desktopProfiles) as { current?: { dir?: string } } | null
   const active = profiles && profiles.current ? profiles.current : null
   const profileDir = part(parts.profileDir) as string
   // 桌面服务固定装进「当前激活的使用范围」，所以激活范围必须就是本插件所在的那个；
   // 对不上宁可不装（装错范围比装不上更糟），交回核心按诚实失败转手工命令。
-  if (!active || !active.dir || !profileDir || !(await sameDir(active.dir, profileDir))) throw fail('install-failed')
+  if (!active || !active.dir || !profileDir || !(await sameDir(active.dir, profileDir)))
+    throw failExec(fail('install-failed'), { reason: 'spawn-failed' })
   const handle = service.runPlugin(recipe.pluginArgs, profileDir, undefined)
-  if (!handle || !handle.done || typeof handle.done.then !== 'function') throw fail('install-failed')
+  if (!handle || !handle.done || typeof handle.done.then !== 'function') throw failExec(fail('install-failed'), { reason: 'spawn-failed' })
   // 双流由调用方负责读（契约）：先挂监听再等退出，失败原文才拿得到。
   const readOutput = streamCollectorOf(handle)
   const canTerminate = typeof (handle as { terminate?: unknown }).terminate === 'function'
@@ -1466,13 +1487,16 @@ async function runDesktopService(
       { terminated: SERVICE_TIMEOUT_DETAIL, noTerminate: SERVICE_TIMEOUT_NO_TERMINATE_DETAIL }
     )
     const excerpt = causeExcerptOf(readOutput())
-    throw withDetail(withExit(fail('install-failed'), lateCode), excerpt ? withTimeoutHint(excerpt, hint) : hint)
+    throw failExec(withDetail(withExit(fail('install-failed'), lateCode), excerpt ? withTimeoutHint(excerpt, hint) : hint), {
+      reason: terminateFailed ? 'terminate-failed' : 'timeout',
+      exitCode: lateCode,
+    })
   }
   if (outcome.kind === 'crashed') {
-    throw withDetail(fail('install-failed'), causeExcerptOf(readOutput()) || SERVICE_CRASHED_DETAIL)
+    throw failExec(withDetail(fail('install-failed'), causeExcerptOf(readOutput()) || SERVICE_CRASHED_DETAIL), { reason: 'crashed' })
   }
   const code = outcome.value && typeof outcome.value.exitCode === 'number' ? outcome.value.exitCode : null
-  if (code !== 0) throw withDetail(withExit(fail('install-failed'), code), causeExcerptOf(readOutput()))
+  if (code !== 0) throw failExec(withDetail(withExit(fail('install-failed'), code), causeExcerptOf(readOutput())), { reason: 'nonzero-exit', exitCode: code })
   return code
 }
 
@@ -2065,11 +2089,11 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
       /** 恢复选中（#201）：官方桌面版用它把「装着但未选中」的 bundle 放回选中名单。 */
       setBundleEnabled?: (name: string, enabled: boolean) => unknown
     } | null
-    if (!manager || typeof manager.installBundle !== 'function') throw fail('install-failed')
+    if (!manager || typeof manager.installBundle !== 'function') throw failExec(fail('install-failed'), { reason: 'spawn-failed' })
     // 取成常量再 `.call(manager, …)`：闭包里属性收窄会丢，this 也必须还是管理器自己。
     const installBundle = manager.installBundle
     const spec = managerSpecOf(recipe.pluginArgs)
-    if (!spec) throw fail('install-failed')
+    if (!spec) throw failExec(fail('install-failed'), { reason: 'spawn-failed' })
     // 使用范围名取配方自己的（`installRecipe` 已在入口归一过），注入值只作老调用形状的兜底。
     const profileName = part(parts.profileName ?? null)
     const profileArg =
@@ -2123,7 +2147,7 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
       const settled = await settleWithin(running, TERMINATION_GRACE_MS)
       if (!settled) {
         void running.catch(() => {})
-        throw withDetail(fail('install-failed'), timeoutDetail)
+        throw failExec(withDetail(fail('install-failed'), timeoutDetail), { reason: 'timeout' })
       }
       return settled
     }
@@ -2134,7 +2158,8 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
       return await finishCall(running, () => cancelInstallOf(requestId), installTimeoutDetail)
     }
     const failureOf = (result: ManagerChangeResult, application: string): Error => {
-      if (application === 'cancelled') return withDetail(fail('install-failed'), '安装已被取消')
+      if (application === 'cancelled')
+        return failExec(withDetail(fail('install-failed'), '安装已被取消'), { reason: 'host-rejected', hostCode: 'cancelled' })
       // 失败原文优先取 packageResult.output（契约里 pnpm 的原话就在那格，error 只有 code/diagnostic）；
       // 取不到才退回 error 的短码。挑因与封顶口径同另两条路。
       const rawOutput = result && result.packageResult && typeof result.packageResult.output === 'string' ? result.packageResult.output : ''
@@ -2148,10 +2173,16 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
       const withHints = withIncompatibleFact(withManagerRetryHint(withDetail(coded, withManagerHint(result, said)), result, carrierCommand), result)
       // 需要批准的构建脚本（#194）：宿主把名单写进失败回包（pendingBuilds），本包负责点名与给批准路径；
       // 调用方带 approvedBuilds 重试时宿主先批准再跑 pnpm，不再永远卡在同一句失败上。
-      return withPendingBuildsHint(
-        withHints,
-        normalizeApprovedBuilds(result ? result.pendingBuilds : []),
-        carrierApproveBuildsCommand(profileArg)
+      // #207：把「宿主拒绝 / 真跑过 pnpm 的非零退出」分类挂到错上；宿主码只收稳定码形状。
+      const hostCode = normalizeHostCode(managerCodeOf(result) || 'none')
+      const exitCode = typeof rawCode === 'number' && Number.isInteger(rawCode) ? rawCode : null
+      return failExec(
+        withPendingBuildsHint(
+          withHints,
+          normalizeApprovedBuilds(result ? result.pendingBuilds : []),
+          carrierApproveBuildsCommand(profileArg)
+        ),
+        exitCode === null ? { reason: 'host-rejected', hostCode } : { reason: 'nonzero-exit', exitCode },
       )
     }
     let result = await installOnce()
@@ -2177,7 +2208,7 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
           // 真实原因是「宿主没有恢复选中的能力」，不是活 fiber 占用：给诚实原因 + 换通道命令，
           // 不合成 bundle-in-use 之类的宿主码（Spec 审查 HARD ②）。
           const error = withDetail(fail('install-failed'), ENABLE_UNSUPPORTED_DETAIL)
-          throw withCarrierHint(error, carrierCommand)
+          throw failExec(withCarrierHint(error, carrierCommand), { reason: 'spawn-failed' })
         }
         const enabling = Promise.resolve(setBundleEnabled.call(manager, targetName, true)) as Promise<ManagerChangeResult>
         // 宿主 `setBundleEnabled` 走内部 `change()`，resolve 出 `{ application, error? }`（不 reject；
@@ -2217,8 +2248,12 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
     }
     return 0
   } catch (error) {
-    if ((error as { code?: unknown })?.code === 'install-failed') throw error
-    throw withDetail(fail('install-failed'), detailText(error))
+    // #207：已经带分类的错误原样上抛；认不出的一律 reason=unknown 照记，不猜原因。
+    if ((error as { code?: unknown })?.code === 'install-failed') {
+      if (readInstallFail(error)) throw error
+      throw failExec(error as Error, { reason: 'unknown' })
+    }
+    throw failExec(withDetail(fail('install-failed'), detailText(error)), { reason: 'unknown' })
   }
 }
 
@@ -2233,19 +2268,19 @@ async function runCliProcess(
     part(parts.runtimeExecArgs) ??
     (typeof process !== 'undefined' && Array.isArray(process.execArgv) ? (process.execArgv as string[]) : [])
   const entry = part(parts.cliEntry) ?? (await resolveCliEntry(typeof process !== 'undefined' && process.argv ? process.argv[1] : ''))
-  if (!executable || !entry) throw fail('install-failed')
+  if (!executable || !entry) throw failExec(fail('install-failed'), { reason: 'spawn-failed' })
   const argv = [executable, ...execArgs, entry, 'plugin', '--profile', recipe.profileName, ...recipe.pluginArgs]
   const subprocess = part(parts.subprocess) as {
     spawn?: (opts: { argv: string[]; cwd?: string; stdio: unknown; graceMs: number }) => { done: Promise<{ exitCode?: number } | null> }
   } | null
-  if (!subprocess || typeof subprocess.spawn !== 'function') throw fail('install-failed')
+  if (!subprocess || typeof subprocess.spawn !== 'function') throw failExec(fail('install-failed'), { reason: 'spawn-failed' })
   const handle = subprocess.spawn({
     argv,
     cwd: (part(parts.profileDir) as string) || undefined,
     stdio: INSTALL_STDIO,
     graceMs: TERMINATION_GRACE_MS,
   })
-  if (!handle || !handle.done || typeof handle.done.then !== 'function') throw fail('install-failed')
+  if (!handle || !handle.done || typeof handle.done.then !== 'function') throw failExec(fail('install-failed'), { reason: 'spawn-failed' })
   const readOutput = (): string => causeExcerptOf(collectedOutputOf(handle))
   const canTerminate = typeof (handle as { terminate?: unknown }).terminate === 'function'
   const terminate = canTerminate ? (handle as unknown as { terminate: () => void }).terminate : null
@@ -2295,15 +2330,18 @@ async function runCliProcess(
       { terminated, ended: late !== null, terminateFailed },
       { terminated: CLI_TIMEOUT_DETAIL, noTerminate: SERVICE_TIMEOUT_NO_TERMINATE_DETAIL }
     )
-    throw withDetail(withExit(fail('install-failed'), lateCode), withTimeoutHint(readOutput(), hint))
+    throw failExec(withDetail(withExit(fail('install-failed'), lateCode), withTimeoutHint(readOutput(), hint)), {
+      reason: terminateFailed ? 'terminate-failed' : 'timeout',
+      exitCode: lateCode,
+    })
   }
   if (outcome.kind === 'crashed') {
-    throw withDetail(fail('install-failed'), readOutput() || CLI_CRASHED_DETAIL)
+    throw failExec(withDetail(fail('install-failed'), readOutput() || CLI_CRASHED_DETAIL), { reason: 'crashed' })
   }
   const code = outcome.value && typeof outcome.value.exitCode === 'number' ? outcome.value.exitCode : null
   // 抓取读数在退出后仍可读（宿主 subprocess 契约）：失败时把它挑成一句人话再上抛，
   // 上层按既有 message 通道给面板；挑不到就是空串，形状与从前一致。
-  if (code !== 0) throw withDetail(withExit(fail('install-failed'), code), readOutput())
+  if (code !== 0) throw failExec(withDetail(withExit(fail('install-failed'), code), readOutput()), { reason: 'nonzero-exit', exitCode: code })
   return code
 }
 
@@ -2344,9 +2382,9 @@ export function createUpdateExecutor(parts: ExecutorParts = {}): (args?: { versi
     const startedAt = Date.now()
     let exitCode: number | null = null
     try {
-      if (!recipe) throw fail('install-failed')
+      if (!recipe) throw failExec(fail('install-failed'), { reason: 'spawn-failed' })
       const runner = INSTALL_RUNNERS[recipe.route] ?? null
-      if (!runner) throw fail('install-failed')
+      if (!runner) throw failExec(fail('install-failed'), { reason: 'spawn-failed' })
       exitCode = await runner(recipe, partsForCall)
       emitInstall(parts, recipe, true, exitCode, Date.now() - startedAt)
     } catch (error) {
@@ -2354,9 +2392,12 @@ export function createUpdateExecutor(parts: ExecutorParts = {}): (args?: { versi
       // 失败详情（宿主原话，已截断脱敏）随错误一起上抛，由上层决定给谁看；不塞进日志字段。
       // 不带原始调用栈：栈里全是本机绝对路径，零读者，且一旦有人读就会顺着越界。
       const detail = (error as { detail?: unknown })?.detail
-      throw Object.assign(fail('install-failed'), {
+      const wrapped = Object.assign(fail('install-failed'), {
         ...(typeof detail === 'string' && detail ? { detail } : {}),
       })
+      // #207：执行器是失败事实的搬运工——路由分支挂上的分类原样带到上层（服务侧只落一行）。
+      const facts = readInstallFail(error)
+      throw facts ? attachInstallFail(wrapped, facts) : failExec(wrapped, { reason: 'unknown' })
     }
   }
 }
