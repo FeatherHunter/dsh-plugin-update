@@ -212,6 +212,13 @@ export type BilingualKey =
   | 'panel.error.log-follow'
   | 'panel.manual.heading'
   | 'panel.manual.absent'
+  | 'panel.manual.absent.unknown-profile'
+  | 'panel.manual.absent.source-install'
+  | 'panel.manual.absent.dev-source'
+  | 'panel.manual.absent.running-unknown'
+  | 'panel.manual.absent.no-safe-candidate'
+  | 'panel.manual.absent-comment'
+  | 'panel.manual.absent-comment-unknown'
   | 'panel.manual.updater-nested'
   | 'panel.manual.updater-nested-nocmd'
   | 'panel.footer.note'
@@ -601,7 +608,14 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.error.log-hint': { en: 'Check logs: {dir} (one directory per plugin, no overlap). Read them with {cmd}; filter by plugin ID {pluginId} for events {e1}, {e2}, {e3}.', zh: '请查看日志：{dir}（一个插件一棵目录，互不覆盖）。一条命令看：{cmd}；按插件标识 {pluginId} 筛选 {e1}、{e2}、{e3} 事件。', draft: true },
   'panel.error.log-follow': { en: 'Match the request/check IDs above in {eFail}; baseline timing in {eCall}, execution result in {eExec}.', zh: '凭上方请求／检查编号在 {eFail} 中匹配；基线耗时请查看 {eCall}，执行结果请查看 {eExec}。', draft: true },
   'panel.manual.heading': { en: 'Manual fallback command (copy the full line to run):', zh: '手工备用命令（请复制整行执行）：', draft: true },
-  'panel.manual.absent': { en: 'No manual command available (unrecognized scope or source install).', zh: '当前没有可用的手工命令（使用范围无法识别或源码安装场景不提供）。', draft: true },
+  'panel.manual.absent': { en: 'No manual command is available right now.', zh: '当前没有可用的手工命令。', draft: true },
+  'panel.manual.absent.unknown-profile': { en: 'The plugin scope cannot be recognized, so there is no scope name for the command. Restart the host and check again; if it still cannot be recognized, send the copied diagnostics to the plugin author.', zh: '认不出插件所在的使用范围，命令没有可指向的范围名。重启宿主后重新查询；若仍认不出来，请把复制诊断发给插件作者。', draft: true },
+  'panel.manual.absent.source-install': { en: 'This plugin was installed from source; installing by version would overwrite the source. To update, reinstall it by package name@version.', zh: '这是源码安装的插件，按版本安装会覆盖源码。如需更新，请按包名@版本号重新安装。', draft: true },
+  'panel.manual.absent.dev-source': { en: 'This is a dev-mode mount (source link); the update center only serves version installs. Edit the repo and restart the host to see the changes.', zh: '这是开发态挂载（源码链接），更新中心只服务按版本安装。改完仓库代码后重启宿主再看效果。', draft: true },
+  'panel.manual.absent.running-unknown': { en: 'The running version cannot be read, so no command can be guaranteed not to downgrade. Restart the host and check again; if it still cannot be read, send the copied diagnostics to the plugin author.', zh: '读不到正在运行的版本号，无法保证给出的命令不会降级。重启宿主后再查一次；若仍读不到，请把复制诊断发给插件作者。', draft: true },
+  'panel.manual.absent.no-safe-candidate': { en: 'No safe target version or argument set: candidates may all be older than the running version, outside the current channel, or the scope name/registry cannot be safely embedded in a command. Check again after a newer version ships, or fix the blocked reason in section 5.2 first.', zh: '没有可安全执行的目标版本或参数：可能候选都低于运行版、不在当前通道，或范围名/源地址无法安全拼进命令。请等新版发布后再查，或先按第 5.2 节的受阻原因修好环境。', draft: true },
+  'panel.manual.absent-comment': { en: 'no manual command ({reason})', zh: '无手工命令（{reason}）', draft: true },
+  'panel.manual.absent-comment-unknown': { en: 'no manual command (cause unknown)', zh: '无手工命令（原因未知）', draft: true },
   'panel.manual.updater-nested': { en: 'This panel runs a nested copy of the updater ({version}), pinned by the plugin that declares it; update that plugin first (this panel picks up a newer updater only after that plugin widens its range). You can also install the updater at the profile level with the carrier CLI so other plugins sharing that copy get the fixes first: {command}', zh: '本面板的更新器是嵌套副本（{version}），由声明它的插件钉住；请先更新那个插件（它发版抬了依赖范围后，本面板才会换新）。也可用载体命令行把更新器装到使用范围级，让共用那一份的其他插件先拿到修复：{command}', draft: true },
   'panel.manual.updater-nested-nocmd': { en: 'This panel runs a nested copy of the updater ({version}), pinned by the plugin that declares it; update that plugin first (this panel picks up a newer updater only after that plugin widens its range).', zh: '本面板的更新器是嵌套副本（{version}），由声明它的插件钉住；请先更新那个插件（它发版抬了依赖范围后，本面板才会换新）。', draft: true },
   'panel.footer.note': { en: 'Closing never interrupts updates; come back anytime', zh: '关闭窗口，更新不受影响，可随时返回查看。', draft: true },

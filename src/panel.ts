@@ -35,6 +35,7 @@ import type { BlockedReason, UpdateSnapshot } from './ports.js'
 import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './codes.js'
 export { isCheckSideFailureCode } // 查侧判定从单点真源派生（#134/US15；#141 铁律：本文件不另建第二张表）
 import { copyText, type BilingualKey } from './bilingual.js'
+import { manualAbsentReasonOf, manualAbsentTextOf, manualAppliesToBanner } from './manual-absent.js'
 import { blameCausePackage, CAUSE_KINDS, formatUnlockAt, interpretInstallCause } from './install-cause.js'
 import { langSignalSource, normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
 
@@ -1981,10 +1982,15 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
     chapters.push(chapterOf(4, errLines.join(''), '', l))
   }
   // —— 05 手工命令（原型 :242-245）：章节恒在；没有可给的手工命令就说清为什么 ——
+  // #92：空态分原因说清（源码安装 / 开发态 / 范围认不出 / 运行版未知 / 没有安全候选）。
+  // 只在「用户本该拿到命令」的横幅状态（失败 / 待重启 / 受阻 / 可更新）里套原因，判据与
+  // 面板分支共用 manual-absent 的一张表；读取中、已最新这类状态不涉及命令，仍给中性兜底句。
+  const manualAbsentReason =
+    !manual && manualAppliesToBanner(b.kind) ? manualAbsentReasonOf(snapshot) : null
   let manualHtml =
     view.showManual && manual
       ? `<div class="dsh-upd-manual"><div>${escapeHtml(copyText('panel.manual.heading', l))}</div><code>${escapeHtml(manual)}</code></div>`
-      : `<div class="dsh-upd-manual"><div class="dsh-upd-changelog-neutral">${escapeHtml(copyText('panel.manual.absent', l))}</div></div>`
+      : `<div class="dsh-upd-manual"><div class="dsh-upd-changelog-neutral">${escapeHtml(manualAbsentTextOf(manualAbsentReason, l))}</div></div>`
   // #196 部署偏斜：嵌套副本（被消费方声明范围钉死）在这里给可执行的升级指引。
   // 缺使用范围名就不给命令（假命令比没有更糟），只说明为什么升级不生效。
   const selfParts = updaterPartsOf((input as { updater?: UpdaterSelfView | null }).updater)

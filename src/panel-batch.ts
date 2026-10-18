@@ -35,6 +35,12 @@
 
 import { assertPrefix, MIN_PANEL_POLL_MS } from './config.js'
 import { copyText as bilingualText, type BilingualKey } from './bilingual.js'
+import {
+  manualAbsentReasonOf,
+  manualAbsentReasonTextOf,
+  manualAbsentTextOf,
+  type ManualAbsentReason,
+} from './manual-absent.js'
 import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
 import { compareReleaseVersions, validReleaseVersion } from './service.js'
 import { shouldFetchChangelog } from './changelog.js'
@@ -1075,13 +1081,23 @@ function bannersHTML(
     // 一条手工命令都没有时按钮置灰并说明原因（复制一段只有 # 注释的文本没有意义）。
     const failedManual = batchFailedManualText(failed, l, titles)
     const manualAbsent = failedManual.commands === 0
+    // #92：置灰说明只在整批原因一致时点名原因；混着不同原因（或判不出）时给中性一句话，
+    // 不把第一行的原因扣给整批（逐行原因仍写在「复制手工命令」的注释行里）。
+    const absentReasons = failed.map((row) => manualAbsentReasonOf(asSnapshotLike(row.snapshot)))
+    const absentReasonSet = new Set<ManualAbsentReason>(
+      absentReasons.filter((reason): reason is ManualAbsentReason => reason !== null),
+    )
+    const absentTitle =
+      absentReasonSet.size === 1 && absentReasons.every((reason) => reason !== null)
+        ? manualAbsentTextOf([...absentReasonSet][0], l)
+        : manualAbsentTextOf(null, l)
     parts.push(
       '<div class="dsh-upd-banner" data-kind="failed" data-mini="阻" role="status">' +
         '<div><span class="dsh-upd-sealmini" aria-hidden="true">阻</span><strong>' + escapeHtml(batchText('batch.banner.failed-title', l, { n: String(failed.length) })) + '</strong></div>' +
         '<div class="dsh-upd-blist">' + lines + '</div>' +
         '<div class="dsh-upd-browline"><span class="dsh-upd-bcopy">' +
         '<button type="button" data-act="copy-all-diag">' + escapeHtml(batchText('batch.row-action.copy-diag', l)) + '</button>' +
-        '<button type="button" data-act="copy-all-manual"' + (manualAbsent ? ' disabled title="' + escapeHtml(batchText('panel.manual.absent', l)) + '"' : '') + '>' +
+        '<button type="button" data-act="copy-all-manual"' + (manualAbsent ? ' disabled title="' + escapeHtml(absentTitle) + '"' : '') + '>' +
         escapeHtml(batchText('batch.row-action.copy-manual', l)) + '</button>' +
         '</span></div>' +
         '</div>',
@@ -1992,7 +2008,12 @@ export function batchFailedManualText(
       commands += 1
       continue
     }
-    lines.push('# ' + titleOf(row, titles) + '：' + batchText('panel.manual.absent', l))
+    const reason = manualAbsentReasonOf(asSnapshotLike(row.snapshot))
+    const comment = reason
+      ? // 「# 包名：无手工命令（原因）」——原因句只拼一次，别再套「当前没有可用的手工命令」整句。
+        batchText('panel.manual.absent-comment', l, { reason: manualAbsentReasonTextOf(reason, l) })
+      : batchText('panel.manual.absent-comment-unknown', l)
+    lines.push('# ' + titleOf(row, titles) + '：' + comment)
   }
   return { text: lines.join('\n'), commands }
 }

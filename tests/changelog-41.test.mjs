@@ -102,7 +102,7 @@ test('yanked 横幅：只看 to 版，文案冻结，role alert，后缀保留',
   assert.ok(panelHtml.includes('role="alert"'), '横幅有 alert 语义');
   const nBanner = panelHtml.split('已被作者撤回').length - 1;
   assert.ok(nBanner >= 1 && nBanner <= 3, 'to 版一条横幅 + 每节后缀（中间版本不另刷横幅）');
-  assert.ok(panelHtml.split('目标版本').length - 1 === 1, '横幅只一条，只看 to 版');
+  assert.ok(panelHtml.split('目标版本 1.1.0 已被作者撤回（yanked）').length - 1 === 1, '横幅只一条，只看 to 版');
   const banner = yankedBannerHTML('1.1.0');
   assert.ok(banner.includes('目标版本 1.1.0 已被作者撤回（yanked），安装不受影响，继续前请确认。'), '横幅文案冻结一字对应');
 });

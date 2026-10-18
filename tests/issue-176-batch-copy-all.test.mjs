@@ -22,8 +22,11 @@ import {
 const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 const FAILED_BANNER = '<div class="dsh-upd-banner" data-kind="failed" data-mini="阻"';
-const ABSENT_ZH = '当前没有可用的手工命令（使用范围无法识别或源码安装场景不提供）。';
-const ABSENT_EN = 'No manual command available (unrecognized scope or source install).';
+// #92：置灰说明与注释行按快照原因说清；本文件行快照的默认原因是「没有安全候选」。
+const NO_SAFE_ZH = '没有可安全执行的目标版本或参数：可能候选都低于运行版、不在当前通道，或范围名/源地址无法安全拼进命令。请等新版发布后再查，或先按第 5.2 节的受阻原因修好环境。';
+const NO_SAFE_EN = 'No safe target version or argument set: candidates may all be older than the running version, outside the current channel, or the scope name/registry cannot be safely embedded in a command. Check again after a newer version ships, or fix the blocked reason in section 5.2 first.';
+const ABSENT_ZH = '当前没有可用的手工命令。' + NO_SAFE_ZH;
+const ABSENT_EN = 'No manual command is available right now. ' + NO_SAFE_EN;
 const NL = String.fromCharCode(10);
 
 function fakeContainer() {
@@ -295,7 +298,7 @@ describe('#176 复制手工命令：命令逐字 + 缺失行 # 注释', () => {
     assert.equal(lines[0], manualLine, '命令逐字复制');
     assert.ok(lines[1].startsWith('# '), '缺失行是 # 注释行：' + lines[1]);
     assert.ok(lines[1].includes('乙插件'), '注释行要给行名');
-    assert.ok(lines[1].includes(ABSENT_ZH), '注释行要说清为什么没有命令');
+    assert.ok(lines[1].includes('无手工命令（' + NO_SAFE_ZH + '）'), '注释行要说清为什么没有命令');
   });
 
   it('行名认调用方的 titles 覆盖（与面板行名同源）', () => {

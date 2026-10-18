@@ -8,10 +8,13 @@
 
 ### Fixed
 - **#204 宿主内解析使用范围（profile）只靠目标包反推目录**：`getSharedReader` 此前只有「显式 `readerOverrides.profileDir`」与「从已定位目标包目录反推」两条路，插件明明跑在某个 profile 内也会报 `unknown-profile` / `dev-source`；默认集成只传 `ctx`，因此直接受影响。现在增加 DSH 权威身份解析链：显式 `profileDir` / `profileName` → `ctx.profileContext`（DSH 在插件挂载前注入，含 `name` 与 `dir`）→ 第三方 Desktop 的 `ctx.desktopProfiles.current`（`{ name, dir }`）→ 显式传入的 `readerOverrides.env.DSH_PROFILE_DIR`（名字取 `DSH_PROFILE`）→ 目标包反推兜底；只有完全没有 profile 上下文、也没显式覆盖且反推不到的嵌入场景才保留 `unknown-profile`（开发态挂载的 `dev-source` 语义不变）。解析出的名字用于环境判定、读取器、安装执行器、手工命令 `--profile` 与共享读取器键；不读隐式 `process.env`、不新增端口。
+- **#92 手工命令为空时只剩一句含糊话**：`manual` 为空时 05 章只写「使用范围无法识别或源码安装场景不提供」，把「源码安装 / 开发态挂载 / 认不出范围 / 运行版本未知 / 没有安全候选」五类原因混成一句，用户猜不到该做什么。现在按快照事实分因：新增 `manualAbsentReasonOf` 纯函数（单一真源），单插件 05 章、批量失败横幅的置灰说明、批量「复制手工命令」聚合注释行都按原因写清下一步（批量注释逐家写，整段仍可安全粘终端）。给不给命令的政策不变（#98 不降级 / #153 不覆盖源码安装 / #182 运行版未知不猜 / #201 命令必须可执行）——本项只改「为什么没有」的话术。审查后收紧：源码安装 / 开发态 / 范围认不出三类的判据与 `manualCommand` 早退共用 `manualCommandSuppressedBy` 单一 predicate，不再两处各抄；旧快照缺 `runningVersion` 格视为判不出给兜底句，空串按「运行版未知」；批量置灰说明只在整批原因一致时点名原因，混杂时中性一句；聚合注释行只写原因句、不套整句抬头；「没有安全候选」与 dev-source 文案按对抗审查改成可能式说法（不再断言未验证的原因，也不再说「生效」）；`verify-*.html` 验资页面里的旧句同步替换（`docs/research/52-inventory.md` 属历史清点快照，保留原样）。
 
 ### Changed
 - 文档：README §2 补使用范围（profile）解析顺序与 `unknown-profile` 边界，排错第 13 条按新来源改写。
 - 测试：新增 `tests/issue-204-profile-identity.test.mjs` 6 例（`profileContext` / `desktopProfiles.current` / 显式 `env` 三来源各一例；无来源仍如实 `unknown-profile`；开发态外部目录仍 `dev-source`；相对路径目录跳过不崩），先红后绿。
+- 文档：README §5.3 重写「手工命令为空」的五类原因与下一步，排错第 7 条同步。
+- 测试：新增 `tests/issue-92-manual-absent.test.mjs` 18 例（分类纯函数 3 + 单插件 05 章 9 + 批量面板 6，覆盖五类原因、兜底、有命令回归、已最新不硬套、混杂原因中性置灰、判不出原因写「原因未知」）；`tests/issue-176-batch-copy-all.test.mjs` 两条断言按新文案更新。
 
 ## [0.18.24] - 2026-10-18
 

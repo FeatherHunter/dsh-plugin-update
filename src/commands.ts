@@ -16,6 +16,18 @@
 
 import type { BlockedReason, EnvironmentKind, InstallRecipe, ReleaseChannel } from './ports.js'
 
+/**
+ * #92 单点真源：哪些阻塞原因本身就意味「不该给手工命令」。
+ * 源码安装会被按版本安装覆盖（#153）、开发态挂载只服务版本安装、认不出使用范围就没有可指向的范围名。
+ * `manualCommand` 的早退与面板空态分类（src/manual-absent.ts）共用这一个 predicate，别在两处各抄一份。
+ */
+const MANUAL_SUPPRESSING_REASONS = ['source-install', 'unknown-profile', 'dev-source'] as const
+export type ManualSuppressingReason = (typeof MANUAL_SUPPRESSING_REASONS)[number]
+
+export function manualCommandSuppressedBy(reason: BlockedReason | null | undefined): reason is ManualSuppressingReason {
+  return reason !== null && reason !== undefined && (MANUAL_SUPPRESSING_REASONS as readonly string[]).includes(reason)
+}
+
 const PACKAGE_NAME = 'dsh-mattpocock-skills-deck'
 const NPM_REGISTRY = 'https://registry.npmjs.org/'
 /**
@@ -242,7 +254,7 @@ export function installRecipe(input: {
  * 通道外、无候选、比不出）同样不给，不回退旧 picks[0]、不猜 latest。
  */
 export function manualCommand(input: { profileName: string | null; latestVersion: string | null; installedVersion: string | null; runningVersion: string | null; jobTargetVersion: string | null; blockedReason: BlockedReason | null; sourceInstall: boolean; targetPackageName?: string; registryUrl?: string; releaseChannel?: ReleaseChannel }): string | null {
-  if (input.sourceInstall || input.blockedReason === 'source-install' || input.blockedReason === 'unknown-profile' || input.blockedReason === 'dev-source') return null
+  if (input.sourceInstall || manualCommandSuppressedBy(input.blockedReason)) return null
   const name = usableProfileName(input.profileName)
   if (!name) return null
   const arg = shellSafeArg(name)

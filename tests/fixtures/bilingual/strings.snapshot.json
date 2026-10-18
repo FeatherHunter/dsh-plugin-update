@@ -1543,8 +1543,43 @@
       "draft": true
     },
     "panel.manual.absent": {
-      "en": "No manual command available (unrecognized scope or source install).",
-      "zh": "当前没有可用的手工命令（使用范围无法识别或源码安装场景不提供）。",
+      "en": "No manual command is available right now.",
+      "zh": "当前没有可用的手工命令。",
+      "draft": true
+    },
+    "panel.manual.absent-comment": {
+      "en": "no manual command ({reason})",
+      "zh": "无手工命令（{reason}）",
+      "draft": true
+    },
+    "panel.manual.absent-comment-unknown": {
+      "en": "no manual command (cause unknown)",
+      "zh": "无手工命令（原因未知）",
+      "draft": true
+    },
+    "panel.manual.absent.dev-source": {
+      "en": "This is a dev-mode mount (source link); the update center only serves version installs. Edit the repo and restart the host to see the changes.",
+      "zh": "这是开发态挂载（源码链接），更新中心只服务按版本安装。改完仓库代码后重启宿主再看效果。",
+      "draft": true
+    },
+    "panel.manual.absent.no-safe-candidate": {
+      "en": "No safe target version or argument set: candidates may all be older than the running version, outside the current channel, or the scope name/registry cannot be safely embedded in a command. Check again after a newer version ships, or fix the blocked reason in section 5.2 first.",
+      "zh": "没有可安全执行的目标版本或参数：可能候选都低于运行版、不在当前通道，或范围名/源地址无法安全拼进命令。请等新版发布后再查，或先按第 5.2 节的受阻原因修好环境。",
+      "draft": true
+    },
+    "panel.manual.absent.running-unknown": {
+      "en": "The running version cannot be read, so no command can be guaranteed not to downgrade. Restart the host and check again; if it still cannot be read, send the copied diagnostics to the plugin author.",
+      "zh": "读不到正在运行的版本号，无法保证给出的命令不会降级。重启宿主后再查一次；若仍读不到，请把复制诊断发给插件作者。",
+      "draft": true
+    },
+    "panel.manual.absent.source-install": {
+      "en": "This plugin was installed from source; installing by version would overwrite the source. To update, reinstall it by package name@version.",
+      "zh": "这是源码安装的插件，按版本安装会覆盖源码。如需更新，请按包名@版本号重新安装。",
+      "draft": true
+    },
+    "panel.manual.absent.unknown-profile": {
+      "en": "The plugin scope cannot be recognized, so there is no scope name for the command. Restart the host and check again; if it still cannot be recognized, send the copied diagnostics to the plugin author.",
+      "zh": "认不出插件所在的使用范围，命令没有可指向的范围名。重启宿主后重新查询；若仍认不出来，请把复制诊断发给插件作者。",
       "draft": true
     },
     "panel.manual.heading": {
