@@ -76,6 +76,8 @@ createHostUpdate(
 )
 ```
 
+**使用范围（profile）怎么定**：本包按下面的顺序解析，前一步拿到就不再往后走——① 调用方显式传的 `readerOverrides.profileDir` / `profileName`；② DSH 注入的 `ctx.profileContext`（profile 启动的宿主在插件挂载前提供，含 `name` 与 `dir`）；③ 第三方 Desktop 的 `ctx.desktopProfiles.current`（`{ name, dir }`）；④ 调用方显式传入的 `readerOverrides.env.DSH_PROFILE_DIR`（名字取 `DSH_PROFILE`）；⑤ 从已定位的目标包目录反推 `<使用范围>/node_modules/<目标包>`。所以在 DSH 里运行（普通 profile 启动或 Desktop）不会因为目标包不在预期位置而认不出使用范围；只有完全没有 profile 上下文、也没显式覆盖、又反推不到的嵌入方才会拿到 `unknown-profile`（这时传 `readerOverrides.profileDir` / `profileName`）。识别出的名字会用于面板横幅与手工命令里的 `--profile`。本包不读隐式 `process.env`；要传环境快照请走 `readerOverrides.env`。
+
 本包是 ESM（`"type": "module"`）：ESM 插件直接 `import`；CJS 插件用 `await import('dsh-plugin-update')`。
 
 ### 六个电话的入参与回参
@@ -425,7 +427,7 @@ const button = mountInstallButton(document.getElementById('bill-install-slot'), 
 
 两处例外必须动代码（它们把自动探测挡住了）：显式传了 `readerOverrides.environmentKind`；显式传了与真实使用范围不符的 `profileDir` / `profileName`。
 
-`targetPackageName` 建议就是你自己的包名：使用范围目录按「装好的包住在 `<范围>/node_modules/<目标包名>`」反推。
+`targetPackageName` 建议就是你自己的包名：使用范围目录按「装好的包住在 `<范围>/node_modules/<目标包名>`」反推（这是最后一步兜底；能拿到上面那几条权威身份时不用反推）。
 
 `0.2.0` 起目标包**按包名解析**（清单直解 → 入口反查 → `node_modules` 步行 → 自锚定兜底），`exports` 没导出 `.` 与 `./package.json` 的包也能命中。
 `0.1.x` 只能在本包被 vendor 进插件目录时找到目标包；以依赖形态安装时一键升级会永远不可用（面板显示假的 `installation-changed`）。
@@ -641,7 +643,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 10. 官方桌面版（使用范围名 `desktop`）装不上：看任务里的 `message`，形如 `install-failed: <宿主原话>`，里面带着宿主的错误码（例如 `operation-error`）。`message` 可能带详情，**匹配请匹配前缀错误码，不要整串相等**；日志里这条路的路由是 `desktop-manager`。
 11. 还定位不到：打开调试日志（第 10 节），用 `npx dsh-log <日志目录>` 看（`--since 2h`、`--level warn`、`--json` 都好用）。**命令里不要写 `tail`**：`dsh-log` 0.3.1 的解析器把非 `-` 开头的词一律当路径，写 `tail` 它会去找一个叫 `tail` 的目录并多吐一句「没找到日志目录：tail」（日志照常输出）。**`--trace <traceId>` 现在对本包自建落点的行也有效**（`0.16.4` 起）：一次电话一条链，同一通电话里的多行共享一个 `traceId`、`spanId` 分步骤边界（集成方注入客户端实例时照旧由 dsh-log 的客户端 SDK 建链）。按时间窗加事件名筛仍然好使。日志按插件标识分目录，同一台机器上多个用更新系统的插件**各写各的、不相互覆盖**；三个旧事件 `host.call`、`host.call.fail`、`update.install.exec` 照旧，`update.*` 是本包按环节新增的事件（全表见包内 `event-list.update.json`）。日志里不记命令与路径原文。
 12. 以依赖形态接入后一直显示「安装位置在使用中途变了」（`installation-changed`）：`0.1.x` 的已知缺陷（拿「本包自己住在哪」推断目标包位置，依赖形态下恒失败）；升到 `0.2.0` 即修复。
-13. 报 `unknown-profile` 但使用范围名与目录都没问题：本包按包名找不到你的插件包。让集成方传 `readerOverrides.targetPackageDir`，或把本包装成插件包的依赖（别装到别的 `node_modules` 树里）。
+13. 报 `unknown-profile` 但使用范围名与目录都没问题：先确认调用方传了 `ctx`（DSH 激活的插件自带 `ctx.profileContext`）；完全没有 profile 上下文的嵌入方请显式传 `readerOverrides.profileDir` / `profileName`。仍定位不到目标包时，让集成方传 `readerOverrides.targetPackageDir`，或把本包装成插件包的依赖（别装到别的 `node_modules` 树里）。
 
 ## 7. 接入自检清单
 

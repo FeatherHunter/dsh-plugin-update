@@ -13,7 +13,7 @@
 
 import { realpath } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { join, sep } from 'node:path'
+import { isAbsolute, join, sep } from 'node:path'
 import {
   DEFAULT_CONFIRMATION_TTL_MS,
   DEFAULT_CHECK_TIMEOUT_MS,
@@ -85,6 +85,69 @@ function ctxService(ctx: unknown, name: string): unknown {
   } catch {
     return undefined
   }
+}
+
+/** 取服务值：既接受服务对象，也接受零件工厂（executor parts 惯用形式；取不到算没有）。 */
+function serviceValueOf(value: unknown): unknown {
+  try {
+    return typeof value === 'function' ? (value as () => unknown)() : value
+  } catch {
+    return undefined
+  }
+}
+
+/** 非空字符串（trim 后）；其余一律视为「不知道」。 */
+function nonEmptyText(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
+}
+
+/** 只收绝对路径：相对路径不是一个可用的使用范围身份（跳过该来源，不猜）。 */
+function absoluteDirOf(value: unknown): string {
+  const text = nonEmptyText(value)
+  if (!text) return ''
+  try {
+    return isAbsolute(text) ? text : ''
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * #204：当前 profile 的权威身份（DSH 内运行必得）。
+ *
+ * 来源一：`ctx.profileContext`——DSH 在插件挂载前 `provide("profileContext", { name, dir, ... })`
+ * （`dsh/lib/profile-boot-*.js`），每个 profile 启动的宿主都有，是最权威的一手身份。
+ * 来源二：`desktopProfiles.current { name, dir }`——第三方 Desktop 的公开服务；官方桌面版没有它
+ * （走 pluginManager），所以两个来源互补。
+ *
+ * 只读宿主给的权威值：不读隐式 process.env、不猜 `profiles/web`。取不到返回 null。
+ */
+function profileIdentityFromContext(overrides: ReaderOverrides): { dir: string; name: string } | null {
+  try {
+    const profile = ctxService(overrides.ctx, 'profileContext') as { name?: unknown; dir?: unknown } | null | undefined
+    const dir = absoluteDirOf(profile?.dir)
+    if (dir) return { dir, name: nonEmptyText(profile?.name) }
+  } catch {}
+  try {
+    const desktop = serviceValueOf(overrides.desktopProfiles) ?? ctxService(overrides.ctx, 'desktopProfiles')
+    const current = (desktop as { current?: { name?: unknown; dir?: unknown } } | null | undefined)?.current
+    const dir = absoluteDirOf(current?.dir)
+    if (dir) return { dir, name: nonEmptyText(current?.name) }
+  } catch {}
+  return null
+}
+
+/**
+ * #204 第三来源：调用方显式传入的 env 快照（`DSH_PROFILE_DIR` / `DSH_PROFILE` 是
+ * `dsh-shell-env` 的保留内置变量）。**只认 `overrides.env`，不读隐式 `process.env`**——
+ * 嵌入方/测试不该因为进程环境里恰好有值而被串到别的 profile。
+ */
+function profileIdentityFromEnv(overrides: ReaderOverrides): { dir: string; name: string } | null {
+  const env = overrides.env
+  if (!env) return null
+  const dir = absoluteDirOf(env.DSH_PROFILE_DIR)
+  if (!dir) return null
+  return { dir, name: nonEmptyText(env.DSH_PROFILE) }
 }
 
 /**
@@ -285,9 +348,24 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   }
   const rawDshVersion = overrides.dshVersion
   const dshVersion: string | null = typeof rawDshVersion === 'string' && rawDshVersion.trim() ? rawDshVersion.trim() : null
+  // #204：profile 身份优先用宿主给的权威来源，不再只靠目标包目录反推。
+  // 顺序：显式覆盖 → ctx.profileContext（DSH 权威）→ desktopProfiles.current（第三方 Desktop）
+  //      → 显式 env.DSH_PROFILE_DIR/DSH_PROFILE（集成方注入）→ 从目标包反推（旧兜底）。
+  // 只有在「没有权威来源、也反推不到」的嵌入场景，才保留 #3/#153 的诚实失败语义。
+  const explicitProfileName = nonEmptyText(overrides.profileName)
+  const contextIdentity = profileIdentityFromContext(overrides)
+  const envIdentity = profileIdentityFromEnv(overrides)
   let profileDirInput: string
+  let profileNameInput: string | undefined
   if (overrides.profileDir) {
     profileDirInput = String(overrides.profileDir)
+    profileNameInput = explicitProfileName || undefined
+  } else if (contextIdentity) {
+    profileDirInput = contextIdentity.dir
+    profileNameInput = explicitProfileName || contextIdentity.name || undefined
+  } else if (envIdentity) {
+    profileDirInput = envIdentity.dir
+    profileNameInput = explicitProfileName || envIdentity.name || undefined
   } else {
     const anchorDir = (loaded && loaded.directory ? String(loaded.directory) : '') || explicitTargetDir
     const inferred = anchorDir ? await tryInferProfileDir(anchorDir, targetPackageName) : null
@@ -299,15 +377,16 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
     const located = !!(loaded && loaded.directory)
     if (!inferred) throw (located ? devSource() : unknownProfile())
     profileDirInput = inferred
+    profileNameInput = explicitProfileName || undefined
   }
   const homeDirInput = overrides.homeDir ?? config.homeDir ?? homeDirDefault
   const environmentKind =
-    overrides.environmentKind ?? detectEnvironmentKind(overrides.ctx, resolveProfileName(overrides.profileName, profileDirInput))
+    overrides.environmentKind ?? detectEnvironmentKind(overrides.ctx, resolveProfileName(profileNameInput, profileDirInput))
   const checkTimeoutMs = overrides.checkTimeoutMs ?? config.checkTimeoutMs
   const confirmationTtlMs = overrides.confirmationTtlMs ?? config.confirmationTtlMs
   const installTimeoutMs = overrides.installTimeoutMs ?? config.installTimeoutMs
   const registryUrl = overrides.registryUrl ?? config.registryUrl
-  const key = `${pluginId}\0${config.prefix}\0${runningVersion}\0${dshVersion}\0${profileDirInput}\0${overrides.profileName ?? ''}\0${homeDirInput}\0${overrides.runInstall ? 'exec' : ''}\0${environmentKind}\0${targetPackageName}\0${explicitTargetDir}\0${releaseChannel}`
+  const key = `${pluginId}\0${config.prefix}\0${runningVersion}\0${dshVersion}\0${profileDirInput}\0${profileNameInput ?? ''}\0${homeDirInput}\0${overrides.runInstall ? 'exec' : ''}\0${environmentKind}\0${targetPackageName}\0${explicitTargetDir}\0${releaseChannel}`
   if (sharedReader && sharedReaderKey === key) return sharedReader
   // 绑好插件标识的发射口（#124）：中立文件不 import node、也不认识插件标识，端口一律在宿主侧绑好再递进去。
   // 磁盘侧就是本插件这一家；队列与全局锁是**跨插件共享**的，所以给一个「按当次动作方取口」的工厂——
@@ -476,7 +555,7 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   // 执行零件按需现取（桌面服务要等注入到位）：路由与参数形态由核心的 installRecipe 定，
   // 这里只提供「用哪个可执行文件、哪份 CLI 入口、哪条子进程口子」。
   const defaultRun = createUpdateExecutor({
-    profileName: overrides.profileName ?? null,
+    profileName: profileNameInput ?? null,
     environmentKind,
     releaseChannel,
     profileDir: profileDirInput,
@@ -504,7 +583,7 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
       dshVersion,
       profileDir: profileDirInput,
       pluginId,
-      profileName: overrides.profileName ?? undefined,
+      profileName: profileNameInput,
       homeDir: overrides.homeDir,
       targetPackageDir: explicitTargetDir || undefined,
       env,

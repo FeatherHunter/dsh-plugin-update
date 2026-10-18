@@ -4,6 +4,15 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
+## [Unreleased]
+
+### Fixed
+- **#204 宿主内解析使用范围（profile）只靠目标包反推目录**：`getSharedReader` 此前只有「显式 `readerOverrides.profileDir`」与「从已定位目标包目录反推」两条路，插件明明跑在某个 profile 内也会报 `unknown-profile` / `dev-source`；默认集成只传 `ctx`，因此直接受影响。现在增加 DSH 权威身份解析链：显式 `profileDir` / `profileName` → `ctx.profileContext`（DSH 在插件挂载前注入，含 `name` 与 `dir`）→ 第三方 Desktop 的 `ctx.desktopProfiles.current`（`{ name, dir }`）→ 显式传入的 `readerOverrides.env.DSH_PROFILE_DIR`（名字取 `DSH_PROFILE`）→ 目标包反推兜底；只有完全没有 profile 上下文、也没显式覆盖且反推不到的嵌入场景才保留 `unknown-profile`（开发态挂载的 `dev-source` 语义不变）。解析出的名字用于环境判定、读取器、安装执行器、手工命令 `--profile` 与共享读取器键；不读隐式 `process.env`、不新增端口。
+
+### Changed
+- 文档：README §2 补使用范围（profile）解析顺序与 `unknown-profile` 边界，排错第 13 条按新来源改写。
+- 测试：新增 `tests/issue-204-profile-identity.test.mjs` 6 例（`profileContext` / `desktopProfiles.current` / 显式 `env` 三来源各一例；无来源仍如实 `unknown-profile`；开发态外部目录仍 `dev-source`；相对路径目录跳过不崩），先红后绿。
+
 ## [0.18.24] - 2026-10-18
 
 ### Fixed
