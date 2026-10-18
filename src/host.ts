@@ -703,7 +703,9 @@ export function failedJobDiagOf(
       args: jobRequestId ? { requestId: jobRequestId } : {},
       targetPackageName: input.targetPackageName,
       registryUrl: input.registryUrl,
-      runningVersion: snap?.['runningVersion'],
+      // #215：缺席目标没有运行版——集成方给缺席包注入的占位版号（0.0.0 之类）不许进诊断，
+      // 与面板复制文本同一口径（快照里也不该再有，这里对旧形状兜底）。
+      runningVersion: snap && snap['installed'] === false ? null : snap?.['runningVersion'],
     })
     return built && typeof built === 'object' ? built : undefined
   } catch {

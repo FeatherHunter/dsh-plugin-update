@@ -2015,7 +2015,9 @@ function diagTextOf(row: BatchRowView, lang?: string | null): string {
     pluginId: pluginIdOf(row),
     code: job !== null && job.code !== null ? job.code : row.error || 'check-failed',
     detail,
-    runningVersion: text(snapshot ? snapshot['runningVersion'] : null),
+    // #215：缺席目标没有运行版——快照若还带着集成方注入的占位版号（旧宿主/旧缓存可能是
+    // 0.0.0），复制文本一律按未知显示，绝不让假版号漏进用户贴出去的诊断。
+    runningVersion: snapshot && snapshot['installed'] !== false ? text(snapshot['runningVersion']) : null,
     installedVersion: text(snapshot ? snapshot['installedVersion'] : null),
     latestVersion: text(snapshot ? snapshot['latestVersion'] : null),
     hostKind: text(row.hostKind),

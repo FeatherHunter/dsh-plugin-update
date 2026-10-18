@@ -405,12 +405,17 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     if (!present && blockedReason === null && checked?.release) {
       if (!isVersionAllowedInChannel(checked.release.version, releaseChannel)) blockedReason = 'channel-mismatch'
     }
-    if (job?.state === 'interrupted' || job?.state === 'failed') {
-      if (runningVersion !== null && env.installedVersion !== runningVersion) blockedReason = 'recovery-required'
-    } else if (job?.state === 'restart-required' || (runningVersion !== null && env.installedVersion && env.installedVersion !== runningVersion)) {
-      // #190：任务状态由 postInstallStateOf 一处算出；后半句只覆盖「没有任务/任务已被清」的
-      // 纯事实形态（磁盘版 ≠ 运行版）。两者同口径，不再出现日志 completed、面板待重启的分裂。
-      blockedReason = 'pending-restart'
+    // #215：任务/运行版派生的阻拦只在「目标在场」时判。缺席目标（未安装）没有「安装现场被弄脏」
+    // 这回事——旧失败任务的历史不该把「未安装」判成 recovery-required；集成方为缺席目标注入的
+    // 占位运行版（0.0.0 之类）也不许参与任何版本比较（#182 同一口径）。
+    if (present) {
+      if (job?.state === 'interrupted' || job?.state === 'failed') {
+        if (runningVersion !== null && env.installedVersion !== runningVersion) blockedReason = 'recovery-required'
+      } else if (job?.state === 'restart-required' || (runningVersion !== null && env.installedVersion && env.installedVersion !== runningVersion)) {
+        // #190：任务状态由 postInstallStateOf 一处算出；后半句只覆盖「没有任务/任务已被清」的
+        // 纯事实形态（磁盘版 ≠ 运行版）。两者同口径，不再出现日志 completed、面板待重启的分裂。
+        blockedReason = 'pending-restart'
+      }
     }
     const busy = job?.state === 'installing' || job?.state === 'verifying'
     const fresh = checked !== null && checked.checkId !== null && ports.now() < checked.expiresAt
@@ -456,7 +461,9 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       }
     }
     const snapshot: UpdateSnapshot = {
-      runningVersion,
+      // #215：缺席目标没有「正在跑哪版」这回事——集成方给缺席包注入的占位版号（0.0.0 之类）
+      // 不许从快照漏出去（复制诊断、手工命令、日志均从这里取）。在场时照旧原样透传。
+      runningVersion: present ? runningVersion : null,
       installed: present,
       installedVersion: env.installedVersion ?? null,
       latestVersion: checked?.release.version ?? null,
