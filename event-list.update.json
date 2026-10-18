@@ -189,7 +189,7 @@
       "level": "info",
       "kind": "resident",
       "fields": ["version", "entries", "truncated", "degraded", "status", "cached", "source"],
-      "guard": "边沿触发：与上一次同形（字段指纹相同，含 version）不发"
+      "guard": "边沿触发：同 (version,status,cached) 每进程至多一行，不重复发"
     },
     "update.poll": {
       "level": "info",

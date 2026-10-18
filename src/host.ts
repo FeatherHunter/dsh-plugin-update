@@ -1129,24 +1129,33 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
   // 缓存命中不得把「取数失败」冒充成「包里没这个文件」（面板据此分文案，见 #213）。
   const changelogCache = new Map<string, ReleaseChangelogOutcome>()
   const changelogFailedAt = new Map<string, number>()
+  // #213 噪声账：同 (version,status,cached) 每进程至多一行。清单的边沿指纹只压**连续**同形行
+  // （A,B,A,B 交错时回到 A 会再发一行），这里再记一层「这个组合已经说过」，兑现票面
+  // 「每次新版至多一行」与研究文档 §4.5 的噪声承诺。内容态真变了（传输失败不进缓存，
+  // 重查成功 → fetch-failed → ok）就是新组合，照发不误。
+  const changelogEmitted = new Set<string>()
 
   /**
-   * 落一行更新说明证据（#213）：resident + 边沿（清单 guard），每次「新版」至多一行。
+   * 落一行更新说明证据（#213）：resident + 边沿，同 (version,status,cached) 每进程至多一行。
    * `status` 记的是**取数方式位**（缓存命中即 `cache-hit`），`degraded` 按缓存里那条**内容态**算——
    * 于是 (cache-hit, degraded:false) 与 (cache-hit, degraded:true) 能分开「缓存了成功」与「缓存了失败」。
    */
   function emitChangelogParse(version: string, outcome: ReleaseChangelogOutcome, cached: boolean): void {
     try {
+      const status = cached ? 'cache-hit' : outcome.status
+      const edgeKey = `${version}|${status}|${cached ? '1' : '0'}`
+      if (changelogEmitted.has(edgeKey)) return
       const report = parseChangelogReport(outcome.markdown ?? '')
       emitUpdateLog('info', 'update.changelog.parse', {
         version,
         entries: Array.isArray(report.entries) ? report.entries.length : 0,
         truncated: isChangelogTruncated(report.truncation),
         degraded: isChangelogDegraded(outcome.status),
-        status: cached ? 'cache-hit' : outcome.status,
+        status,
         cached,
         source: 'npm',
       }, { pluginId })
+      changelogEmitted.add(edgeKey)
     } catch { /* 打点绝不影响取日志 */ }
   }
 
