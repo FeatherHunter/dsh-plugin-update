@@ -1566,9 +1566,10 @@ export function createMultiHostUpdate(
       // 收尾总账（#209 起同时记「没跑完就停」的那一行）：面板只渲染不重发。
       noteRunOutcome(driven)
     } catch (error) {
-      // #209：驱动自己抛异常也是一次「停止」——先把为什么停记下来（有账本才记），再按原形状回包。
+      // #209：驱动自己抛异常也是一次「停止」——记之前先读回最新账本（推进是逐步落盘的），
+      // 否则停止行的计数会停在推进开始前（把已装好的算成没装）。
       try {
-        if (session) noteBatchStopped(session, 'error')
+        noteBatchStopped(await readSession(), 'error')
       } catch {}
       return { ok: false, ...errorPayloadOf(error) }
     } finally {
@@ -1594,9 +1595,9 @@ export function createMultiHostUpdate(
       noteRunOutcome(driven)
       return { ...(await table(driven)), resumed: true }
     } catch (error) {
-      // #209：续跑时驱动抛异常同样是「停止」——记一行原因（会话还没收尾）。
+      // #209：续跑时驱动抛异常同样是「停止」——同样读回最新账本再记（计数跟事实走）。
       try {
-        noteBatchStopped(resumed, 'error')
+        noteBatchStopped(await readSession(), 'error')
       } catch {}
       return { ok: false, ...errorPayloadOf(error) }
     }
@@ -1637,9 +1638,10 @@ export function createMultiHostUpdate(
       // 排上队/按策略停下也各有一行（#209）。
       noteRunOutcome(await drive(disk, null, 1))
     } catch {
-      // #209：驱动自己抛异常不再静默——记一行「为什么停」（同一原因只记一次），再照旧吞掉（后台节拍）。
+      // #209：驱动自己抛异常不再静默——读回最新账本后记一行「为什么停」（同一原因只记一次），
+      // 再照旧吞掉（后台节拍）。
       try {
-        noteBatchStopped(disk, 'error')
+        noteBatchStopped(await readSession(), 'error')
       } catch {}
     }
   }

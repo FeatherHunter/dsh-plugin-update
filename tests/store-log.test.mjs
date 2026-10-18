@@ -36,6 +36,7 @@ import {
   releaseOwnerInQueue,
 } from '../dist/queue.js'
 import { hash8 } from '../dist/hash.js'
+import { pruneEventFields } from '../dist/gate.js'
 
 /** 三个事件的字段白名单（逐字抄 event-list.update.json，多一格整行会被发射口丢掉）。 */
 const WHITELIST = {
@@ -574,5 +575,38 @@ describe('与真发射口对得上', () => {
     const landed = rows.filter((row) => row.event !== 'update.log.degraded')
     assert.equal(landed.length, 11, 'dev 模式在发射前就抛，落点仍只有先前通过校验的行')
     assert.ok(!JSON.stringify(landed).includes('someone'), '自由文本一格都不许落')
+  })
+
+  // ADR-0006 的「改三处」：新增枚举除了清单与发射点，还要有负断言——表外值被摘成字段级降级，
+  // 整行其余字段照落（不是整行丢）。这里直接对真清单跑裁剪器，钉住两个新枚举的逐值登记。
+  it('负断言：queue.transition.phase 与 lock.anomaly.kind 只收清单登记过的值', () => {
+    const holderHash = hash8('p-a')
+    const bogusPhase = pruneEventFields(table, 'update.queue.transition', {
+      phase: 'settling',
+      waitedMs: 1200,
+      holderHash,
+    })
+    assert.deepEqual(bogusPhase.prunedFields, [{ field: 'phase', reason: 'invalid-enum' }])
+    assert.deepEqual(bogusPhase.keptFields, { waitedMs: 1200, holderHash }, '摘掉的只是表外 phase，整行其余字段照落')
+    for (const phase of ['queued', 'running', 'done', 'reclaimed', 'pruned', 'abandoned']) {
+      const ok = pruneEventFields(table, 'update.queue.transition', { phase, holderHash })
+      assert.equal(ok.ok, true, phase + ' 是登记值，不该被摘')
+    }
+
+    const bogusKind = pruneEventFields(table, 'update.lock.anomaly', {
+      kind: 'busy-timeout',
+      ageMs: 900,
+      ownerHash: holderHash,
+    })
+    assert.deepEqual(bogusKind.prunedFields, [{ field: 'kind', reason: 'invalid-enum' }])
+    assert.deepEqual(bogusKind.keptFields, { ageMs: 900, ownerHash: holderHash })
+    for (const kind of ['stale-owner', 'release-failed', 'busy-owner']) {
+      const ok = pruneEventFields(table, 'update.lock.anomaly', { kind })
+      assert.equal(ok.ok, true, kind + ' 是登记值，不该被摘')
+    }
+
+    // 持有者指纹两个事件刻意不同名：queue 只认 holderHash，锁只认 ownerHash，串名按未知字段摘掉。
+    const wrongName = pruneEventFields(table, 'update.queue.transition', { phase: 'queued', ownerHash: holderHash })
+    assert.deepEqual(wrongName.prunedFields, [{ field: 'ownerHash', reason: 'unknown-field' }])
   })
 })

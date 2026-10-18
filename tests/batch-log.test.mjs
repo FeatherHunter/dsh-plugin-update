@@ -834,6 +834,33 @@ describe('#208 批量会话串联字段', () => {
     host.dispose()
   })
 
+  it('驱动异常时停止行的计数取最新账本：装好的家不会被算成没装', async () => {
+    const { scope } = await mkScope()
+    const transport = {
+      check: async () => ({ kind: 'update', version: '2.0.0' }),
+      install: async (key) => {
+        if (key === 'self') throw new Error('install crashed after first done')
+        return { kind: 'done', restartRequired: false }
+      },
+    }
+    const host = createMultiHostUpdate(
+      { scope, transport },
+      { prefix: 'life', targets: [mkTarget('a'), mkTarget('self')], selfKey: 'self' },
+    )
+    const owner = collector()
+    bind('plugin-self', owner.sink)
+
+    const reply = await host.handlers['life.batchInstall']({})
+    assert.equal(reply.ok, false)
+    const stopRows = rowsOf(owner, 'update.batch.summary')
+    assert.equal(stopRows.length, 1, '驱动异常一条停止行')
+    assert.equal(stopRows[0].fields.stoppedBecause, 'error')
+    assert.equal(stopRows[0].fields.total, 2)
+    assert.equal(stopRows[0].fields.ok, 1, '先装好的那家已落盘：停止行的 ok 必须是 1 而不是 0')
+    assert.equal(stopRows[0].fields.failed, 0)
+    host.dispose()
+  })
+
   it('用户取消：清账本前记一条 stoppedBecause=user-cancel，同一份账本只记一次', async () => {
     const { dir, scope } = await mkScope()
     await seedQueue(dir, [

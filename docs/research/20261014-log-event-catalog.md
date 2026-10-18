@@ -255,7 +255,7 @@
 
 ## 10. 四次回填（2026-10-19）：`#209` 的队列 / 锁 / 存储颗粒度与常驻 warn 限速
 
-本次**不新增事件、不改档位归属**：条目总数仍 27（常驻 20 / 按需 6 / 自监控 1），字段白名单合计 **+3**（`update.queue.transition` +1 `holderHash`、`update.lock.anomaly` 的 `ownerHash` 由「声明未发」转实发、`update.store.fail` 的 `dirHash` 由「声明未发」转实发）；枚举扩三处（新增 `update.queue.transition.phase` 与 `update.lock.anomaly.kind` 两个 `fieldEnums`，`update.batch.summary.stoppedBecause` 五值 → 七值），`host.call.fail` 只扩 guard（轮询失败限速）、字段与形状不动。
+本次**不新增事件、不改档位归属**：条目总数仍 27（常驻 20 / 按需 6 / 自监控 1），字段**实发** +3（白名单净新增 1 格 `update.queue.transition.holderHash`；`update.lock.anomaly` 的 `ownerHash` 与 `update.store.fail` 的 `dirHash` 原已声明，本次由「声明未发」转实发）；枚举扩三处（新增 `update.queue.transition.phase` 与 `update.lock.anomaly.kind` 两个 `fieldEnums`，`update.batch.summary.stoppedBecause` 五值 → 七值，三者都补了负断言用例），`host.call.fail` 只扩 guard（轮询失败限速）、字段与形状不动。
 ### 10.1 队列跃迁：清理/放弃相位与持有者指纹
 
 - 相位判据在发射侧 `src/store.ts` 的 `queueEdgesOf(previous, next, { now, ttlMs })`：写盘前读到的旧队列与写盘后的新队列逐项比对，**一份状态可以产出多条边**（多条待办同时被摘时逐条发）。
