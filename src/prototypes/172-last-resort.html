@@ -179,7 +179,22 @@
     padding: 0 6px; border-radius: var(--dsh-update-radius-badge);
     border: 1px solid currentColor; vertical-align: 1px;
   }
-  .lr-icon { font-size: 15px; line-height: 1; }
+  .lr-icon { font-size: 15px; line-height: 1; display: inline-flex; align-items: center; }
+  .lr-icon svg { display: block; }
+  .lr-B .lr-icon svg { width: 22px; height: 22px; }
+
+  /* 按钮交互效果（实现规格同源）：hover 提亮 / active 下压 / focus-visible 焦点环 / 复制成功反馈 */
+  .dsh-upd button {
+    cursor: pointer;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease,
+      filter 120ms ease, transform 80ms ease, box-shadow 120ms ease;
+  }
+  .dsh-upd button:hover { filter: brightness(1.06); }
+  .dsh-upd button:active { transform: translateY(1px); filter: brightness(.97); }
+  .dsh-upd button:focus-visible { outline: 2px solid var(--dsh-update-primary); outline-offset: 2px; }
+  .dsh-upd button:disabled { cursor: default; filter: none; }
+  .dsh-upd button.copied { box-shadow: 0 0 0 2px var(--dsh-update-bg, #fff), 0 0 0 4px var(--dsh-update-bad-border); }
+  .dsh-upd button.cta .icon { margin-right: 6px; }
 
   /* A：告警条内联主按钮（失败横幅第一行） */
   .lr-A { border: 2px solid var(--dsh-update-bad-border); border-radius: 6px; background: var(--dsh-update-bad-bg); padding: 9px 11px; margin: 0 0 8px; }
@@ -217,7 +232,7 @@
   /* C：动作行前置主按钮（结构不动，只把按钮拉到第一颗并升主按钮） */
   .lr-C .promote { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 12.5px; color: var(--dsh-update-bad-text); }
   .lr-C .actions button.cta { font-weight: 700; }
-  .lr-C .actions button.cta::after { content: " →"; }
+
 
   /* D：加码档——失败块顶部通栏警示条 + 大号入口 */
   .lr-D .stripbar {
@@ -440,13 +455,31 @@ function nonLastResortBlock() {
 }
 
 /* ───────────────────────── 四档形态 ───────────────────────── */
+function iconSvg(kind) {
+  var head = 'viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"';
+  if (kind === 'alert') {
+    return '<svg class="icon" width="16" height="16" ' + head + '>' +
+      '<path d="M5.1 1.9h5.8l3.2 3.2v5.8l-3.2 3.2H5.1l-3.2-3.2V5.1l3.2-3.2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
+      '<path d="M8 4.9v3.9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>' +
+      '<circle cx="8" cy="11.2" r="0.95" fill="currentColor"/>' +
+    '</svg>';
+  }
+  if (kind === 'copy') {
+    return '<svg class="icon" width="16" height="16" ' + head + '>' +
+      '<rect x="5.4" y="5.4" width="8.1" height="8.1" rx="1.6" stroke="currentColor" stroke-width="1.5"/>' +
+      '<path d="M10.6 3.9v-.7c0-.9-.7-1.6-1.6-1.6H3.6c-.9 0-1.6.7-1.6 1.6v5.8c0 .9.7 1.6 1.6 1.6H4.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+    '</svg>';
+  }
+  return '';
+}
+
 function blockA() {
   return '' +
     '<div class="lr-A" data-last-resort="1">' +
-      '<div class="row1"><span class="lr-icon">⛔</span><strong>最后手段</strong>' +
+      '<div class="row1"><span class="lr-icon">' + iconSvg('alert') + '</span><strong>最后手段</strong>' +
         '<span class="lr-label">自动恢复不可用</span></div>' +
       '<div class="row2"><span class="reason">没有可用的自动救援路径；复制这条命令是唯一出路。</span>' +
-        '<button type="button" class="primary cta">📋 复制手工命令</button></div>' +
+        '<button type="button" class="primary cta">' + iconSvg('copy') + '复制手工命令</button></div>' +
       commandLine() +
     '</div>' + banner() +
     '<div class="actions">' + subActions(true) + '</div>' +
@@ -456,10 +489,10 @@ function blockA() {
 function blockA2() {
   return '' +
     '<div class="lr-A2" data-last-resort="1">' +
-      '<span class="lr-icon">⛔</span><strong>最后手段</strong>' +
+      '<span class="lr-icon">' + iconSvg('alert') + '</span><strong>最后手段</strong>' +
       '<span class="lr-label">自动恢复不可用</span>' +
       '<span class="reason">没有可用的自动救援路径；复制这条命令是唯一出路。</span>' +
-      '<button type="button" class="primary cta">📋 复制手工命令</button>' +
+      '<button type="button" class="primary cta">' + iconSvg('copy') + '复制手工命令</button>' +
     '</div>' + banner() +
     '<div class="actions">' + subActions() + '</div>' +
     '<div class="chapter"><div class="chap-head"><span class="chap-no">05</span><h3 class="chap-title">手工备用命令</h3></div>' +
@@ -483,10 +516,10 @@ function blockB() {
 function blockC() {
   return '' +
     '<div class="lr-C" data-last-resort="1">' +
-      '<div class="promote"><span class="lr-icon">⛔</span><b>自动恢复不可用</b>：这次失败只能复制手工命令执行</div>' +
+      '<div class="promote"><span class="lr-icon">' + iconSvg('alert') + '</span><b>自动恢复不可用</b>：这次失败只能复制手工命令执行</div>' +
       banner() +
       '<div class="actions">' +
-        '<button type="button" class="primary cta">📋 复制手工命令</button>' + subActions(false) +
+        '<button type="button" class="primary cta">' + iconSvg('copy') + '复制手工命令</button>' + subActions(false) +
       '</div>' +
       '<details open class="chapter"><summary>05 · 手工备用命令</summary>' + commandLine() +
         '<p class="note">按钮已前置到动作行第一颗；不再混在次要按钮里。</p></details>' +
@@ -496,11 +529,11 @@ function blockD() {
   return '' +
     '<div class="lr-D" data-last-resort="1">' +
       '<div class="stripbar">' +
-        '<span class="lr-icon">⛔</span>' +
+        '<span class="lr-icon">' + iconSvg('alert') + '</span>' +
         '<strong>最后手段</strong>' +
         '<span class="lr-label label-ondark">自动恢复不可用</span>' +
         '<span class="spacer"></span>' +
-        '<button type="button" class="cta">📋 复制手工命令</button>' +
+        '<button type="button" class="cta">' + iconSvg('copy') + '复制手工命令</button>' +
       '</div>' +
       banner() + commandLine() +
       '<div class="actions">' + subActions(true) + '</div>' +
@@ -626,6 +659,22 @@ document.addEventListener('keydown', ev => {
 
 /* 初始 */
 setState({});
+
+// 原型交互演示：复制按钮 hover/active/focus 由 CSS 负责；这里演示点击后的「已复制」反馈。
+document.addEventListener('click', function (event) {
+  var target = event.target;
+  var button = target && target.closest ? target.closest('.dsh-upd button.cta') : null;
+  if (!button || button.dataset.busy === '1') return;
+  button.dataset.busy = '1';
+  var original = button.innerHTML;
+  button.innerHTML = iconSvg('copy') + '已复制';
+  button.classList.add('copied');
+  setTimeout(function () {
+    button.innerHTML = original;
+    button.classList.remove('copied');
+    delete button.dataset.busy;
+  }, 1200);
+});
 </script>
 </body>
 </html>
