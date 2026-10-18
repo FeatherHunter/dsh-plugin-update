@@ -508,3 +508,48 @@ describe('纯函数视图', () => {
     assert.equal(view.buttonLabel, '检查更新')
   })
 })
+
+describe('#212 复制诊断带日志健康', () => {
+  const health = {
+    sink: 'self',
+    dirHash: 'deadbeef',
+    switchEnabled: false,
+    droppedSinceStart: 0,
+    lastEventAt: null,
+    contract: 'ok',
+    external: null,
+    reason: null,
+  }
+  const failedSnap = () =>
+    absentInstallable({
+      installed: true,
+      installedVersion: '0.3.53',
+      job: { id: 'j1', state: 'failed', targetVersion: '0.3.54', message: 'install-failed: boom', requestId: 'r9' },
+    })
+
+  it('成功回包带 logHealth：复制诊断里出现同一句健康读数', async () => {
+    const copies = []
+    const { container } = await settledMount(
+      { autoCheck: 'never', copyText: (text) => copies.push(text) },
+      { status: statusReply(failedSnap(), { logHealth: health }) },
+    )
+    assert.ok(container.innerHTML.includes('data-action="copy-diag"'))
+    container.click({ 'data-action': 'copy-diag' })
+    await flush(10)
+    assert.equal(copies.length, 1)
+    assert.ok(copies[0].includes('落点=self'), copies[0])
+    assert.ok(copies[0].includes('目录指纹=deadbeef'), copies[0])
+  })
+
+  it('老宿主不带 logHealth：复制诊断不出健康句（旧输出逐字不变）', async () => {
+    const copies = []
+    const { container } = await settledMount(
+      { autoCheck: 'never', copyText: (text) => copies.push(text) },
+      { status: statusReply(failedSnap()) },
+    )
+    container.click({ 'data-action': 'copy-diag' })
+    await flush(10)
+    assert.equal(copies.length, 1)
+    assert.ok(!copies[0].includes('落点='), copies[0])
+  })
+})

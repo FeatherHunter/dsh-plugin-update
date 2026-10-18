@@ -4,6 +4,11 @@
  * 这里只放对外形状。取值一律来自本进程的真实接线状态与引擎自述，
  * 不含任何目录路径（目录只用 8 位指纹，算式与日志行 logDirHash 相同）。
  * 混入本模块的类型进 `./log` 公共出口，再从 host.ts 重新导出给主入口消费者。
+ *
+ * 为什么是「扁平八格 + 按 sink 判读」而不是可判别联合：这是**电话回包的线上形状**，
+ * 新旧副本会同时在线（老宿主不回、新面板要能读，反之亦然），所以非法组合必须能被
+ * 消费方安全忽略，而不是在类型层禁止（类型再严，JSON 对面仍是任意的）。真正的不变量
+ * 由 `buildUpdateLogHealth` 一处保证（按 sink 归一），读侧 `logHealthText` 只做兜底。
  */
 import { logEmitterCountsFor, type LogPluginCounts } from './emit.js'
 import { updateContractStatus, type UpdateContractStatus } from './manifest.js'
@@ -103,8 +108,9 @@ function normalizeContract(value: unknown): LogHealthContractState {
   return CONTRACT_STATES.includes(value as LogHealthContractState) ? (value as LogHealthContractState) : 'unloaded'
 }
 
-function normalizeSink(value: unknown): LogHealthSink {
-  return SINKS.includes(value as LogHealthSink) ? (value as LogHealthSink) : 'pending'
+/** 落点认不出的形状（宿主与消费方版本不一致）不算读数：不猜成任何一种落点。 */
+function isLogHealthSink(value: unknown): value is LogHealthSink {
+  return SINKS.includes(value as LogHealthSink)
 }
 
 function readCounts(deps: LogHealthDeps, pluginId: string): LogPluginCounts {
@@ -149,11 +155,13 @@ function readPendingDropped(deps: LogHealthDeps, pending: PendingLogSink): numbe
  *   1. `dirHash` 只对**本包自己写/本该自己写**的目录给指纹；external 一律 null —— 对方的目录本包不猜。
  *   2. `switchEnabled` 只对 self 有意义（开关文件在那个目录里）；其余落点为 null。
  *   3. `lastEventAt` 与 off 互斥：没有落点时一行也没到过落点，缓冲里转一圈又倒掉的不算。
- * 没有接线状态（老宿主形状）时回 null：回包不带这个键，老调用形状一字不变。
+ * 没有接线状态（老宿主形状）或落点认不出时回 null：回包不带这个键，老调用形状一字不变；
+ * 也不许把认不出的落点猜成 pending —— 那会让消费方以为「再等等就有」。
  */
 export function buildUpdateLogHealth(wiring: UpdateLogWiring | null | undefined, deps: LogHealthDeps = {}): UpdateLogHealth | null {
   if (!wiring || typeof wiring !== 'object' || typeof wiring.pluginId !== 'string' || !wiring.pluginId) return null
-  const sink = normalizeSink(wiring.sink)
+  if (!isLogHealthSink(wiring.sink)) return null
+  const sink = wiring.sink
   const counts = readCounts(deps, wiring.pluginId)
   const engine = wiring.handle ? readEngine(deps, wiring.handle) : null
   const pendingDropped = wiring.pendingSink ? readPendingDropped(deps, wiring.pendingSink) : 0

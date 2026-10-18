@@ -35,8 +35,6 @@ export interface OwnLogStore {
    * 也认「直接回布尔」的自建实现。取不到就是 null（未验证），绝不当成 false 或 true 猜。
    */
   getSwitchState?: () => boolean | { enabled?: unknown }
-  /** 还在缓冲区里、没落盘的行数（dsh-log 0.3.x 的 store 有）。 */
-  getPendingCount?: () => number
   getLastPersistFail?: () => { op?: string; reason?: string; dirHash?: string; at?: number } | null
   synced?: () => Promise<void>
   release?: () => void

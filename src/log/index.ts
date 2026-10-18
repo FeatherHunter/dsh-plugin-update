@@ -56,24 +56,20 @@ export {
   releaseOwnLog,
   OWN_LOG_REGISTRY_KEY,
   __resetOwnLogRegistryForTests,
-  __setOwnLogAcquireSeamsForTests,
   type OwnLogAcquireInput,
   type OwnLogAcquireResult,
-  type OwnLogAcquireSeams,
   type OwnLogDegradeReason,
   type OwnLogHandle,
 } from './registry.js'
-// 日志健康（#212）：回包读数从「接线状态 + 真实计数」算出来，不依赖任何目录路径。
+// 日志健康（#212）：对外只转出消费方要用的类型；映射函数、接线形状与测试注入点留在
+// `./log/health.js` 内部（与 #210 的测试缝纪律一致：`__loadUpdateEventTableForTests`
+// 同样只从内部模块导入，不上公共出口）。
 export {
-  buildUpdateLogHealth,
   type LogHealthContractState,
-  type LogHealthDeps,
-  type LogHealthEngineReport,
   type LogHealthExternalGate,
   type LogHealthOffReason,
   type LogHealthSink,
   type UpdateLogHealth,
-  type UpdateLogWiring,
 } from './health.js'
 // 客户端通道（#122）：浏览器安全的那个模块，面板侧与入口件都引它；本文件其余部分会拖进 node:，
 // 所以第三方工具要单独用客户端队列时走 `dsh-plugin-update/log` 的类型面 + panel 的注入点即可。

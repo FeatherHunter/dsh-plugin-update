@@ -849,6 +849,8 @@ function wireUpdateLog(
     // 对方写到哪本包不猜：external 不给目录指纹（连自己的预期目录也不给，免得被读成「它在写这儿」）。
     wiring.dirHash = null
     wiring.external = probeExternalGate(external)
+    // 这一行的 logDirHash 是**本包算出的预期目录指纹**，不是对方实例实际写的目录：
+    // 回包 logHealth.dirHash 在 external 支恒为 null，两者不要互相对照（README 第 11 节明说）。
     emitUpdateLog('info', 'update.wire.ready', { logSink: 'external', logDirHash: namespaceDirHash }, { pluginId })
     return wiring
   }

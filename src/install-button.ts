@@ -43,6 +43,8 @@ import { lastResortVerdictOf, type ManualSource } from './last-resort.js'
 // #174：last-resort 的类型经既有子路径转出，消费者无需新子路径即可命名（`ManualSource` 已出现在本模块导出签名里）。
 export type { LastResortKind, RescueRouteKey, ManualSource, LastResortVerdict } from './last-resort.js'
 import { createClientLogChannel, type ClientLogChannel } from './log/client-queue.js'
+// #212：只借类型（浏览器侧不许运行时引 ./log 的 Node 模块；类型导入编译即抹掉）。
+import type { UpdateLogHealth } from './log/health.js'
 import type { InstallSource, UpdateSnapshot } from './ports.js'
 import type { VisibleQueue } from './queue.js'
 
@@ -717,6 +719,8 @@ export function mountInstallButton(
   let pollCapped = false
   let envHostKind: string | null = null
   let envProfileName: string | null = null
+  /** #212 日志健康读数：成功回包才带；老宿主一直 null，复制诊断与旧输出逐字一致。 */
+  let envLogHealth: UpdateLogHealth | null = null
   let copyNotice: string | null = null
   let noticeExpiresAt = 0
   // #173 v1.3：复制成功气泡（状态提示，不改按钮文案/图标）；1.4s 后撤掉。
@@ -854,6 +858,11 @@ export function mountInstallButton(
     }
   }
 
+  /** #212：日志健康读数只按对象收；undefined（老宿主 / 补读没带）= 不动，非对象 = 清空。 */
+  function adoptLogHealth(value: unknown): void {
+    envLogHealth = isObject(value) ? (value as unknown as UpdateLogHealth) : null
+  }
+
   // Parity with panel latch rules (#58): readonly polling never clears a
   // non-transient latch; a new round / terminal state yields to fresh evidence.
   function applyStatusReply(reply: Record<string, unknown>, via: 'refresh' | 'check' | 'install'): void {
@@ -876,6 +885,8 @@ export function mountInstallButton(
         if (typeof pn === 'string' && pn.trim()) envProfileName = pn.trim()
         if (typeof hk === 'string' && hk.trim()) envHostKind = hk.trim()
       }
+      // #212：日志健康（与面板 adoptLogHealth 同口径：缺省不动，非对象清空；只在成功回包里带）。
+      if (reply['logHealth'] !== undefined) adoptLogHealth(reply['logHealth'])
       const jobState = snapshot?.job?.state ?? null
       if (jobState === 'installing' || jobState === 'verifying') {
         clearLatch()
@@ -949,6 +960,7 @@ export function mountInstallButton(
         manualSource = manual !== null ? 'frame' : null
         const q = asQueue(reply['queue'])
         if (q) queue = q
+        if (reply['logHealth'] !== undefined) adoptLogHealth(reply['logHealth'])
         paint()
       } catch {
         // 静默：补读只是最后一次读数机会；不写锁存、不重试。
@@ -1233,6 +1245,7 @@ export function mountInstallButton(
           targetVersion: latch.targetVersion,
           diag: latch.diag,
           checkId: latch.checkId,
+          logHealth: envLogHealth,
           lang: currentLang(),
         },
         currentLang(),

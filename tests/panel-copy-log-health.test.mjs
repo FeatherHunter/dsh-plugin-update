@@ -4,7 +4,7 @@
  * 只测外部行为：调 logHealthText / buildUpdateDiagCopy / buildHealthyDiagCopy /
  * scripts 里的 parseDiagCopy，断言
  * 1. 没读数（老宿主）回 null，面板与复制「零输出」，老调用一字不差；
- * 2. 四种落点各有措辞，未知一律显式说「未验证」，off 说清「日志目录不会有行」；
+ * 2. 四种落点各有措辞，未知一律显式说「未验证」，off 说清「本包不会再往日志目录写行」；
  * 3. 分支只认枚举/稳定码，自由文本不进面板；
  * 4. 两形态都带同一句，且解析契约（码→摘要→来源→怎么办）不被破坏，单行封顶后仍可解析。
  * 不测内部实现、不测样式像素。
@@ -131,7 +131,7 @@ test('#212 external：open 确认放行 / closed 明确未放行 / unknown 必�
   assert.ok(logHealthText({ ...externalHealth('open'), droppedSinceStart: 3 }).includes('启动以来丢弃 3 行'), '发射口丢弃数照报')
 })
 
-test('#212 off：三个原因码各有出处，句子里必须有「日志目录不会有行」与带外证据', () => {
+test('#212 off：三个原因码各有出处，句子里必须有「本包不会再往日志目录写行」与带外证据', () => {
   const cases = [
     ['no-dsh-log', '没安装'],
     ['lease-conflict', '同目录写者冲突'],
@@ -142,7 +142,7 @@ test('#212 off：三个原因码各有出处，句子里必须有「日志目录
     assert.ok(t.includes('落点=off'), reason + '：' + t)
     assert.ok(t.includes(word), reason + ' 要说清是哪类没接上：' + t)
     assert.ok(t.includes(reason), reason + ' 原因码原样可读（机读真值不译）')
-    assert.ok(t.includes('日志目录不会有行'), reason + ' 必须说清日志目录不会有行：' + t)
+    assert.ok(t.includes('本包不会再往日志目录写行'), reason + ' 必须说清本包不会再往日志目录写行：' + t)
     assert.ok(t.includes('带外证据'), reason + ' 必须给出替代证据口径：' + t)
     assert.ok(t.includes('更新回包') && t.includes('本面板') && t.includes('复制诊断'), reason + ' 三样带外证据都在：' + t)
   }

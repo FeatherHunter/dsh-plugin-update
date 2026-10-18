@@ -1638,8 +1638,8 @@
       "draft": true
     },
     "panel.loghealth.off": {
-      "en": "sink={sink} (not wired up); reason={reason}; the log directory will have no rows — rely on out-of-band evidence (status reply / this panel / copied diagnostics); dropped since start: {dropped} rows; event contract={contract}",
-      "zh": "落点={sink}（没接上）；原因={reason}；日志目录不会有行，请以带外证据为准（更新回包 / 本面板 / 复制诊断）；启动以来丢弃 {dropped} 行；事件契约={contract}",
+      "en": "sink={sink} (not wired up); reason={reason}; this package will write no more rows to the log directory — rely on out-of-band evidence (status reply / this panel / copied diagnostics); dropped since start: {dropped} rows; event contract={contract}",
+      "zh": "落点={sink}（没接上）；原因={reason}；本包不会再往日志目录写行，请以带外证据为准（更新回包 / 本面板 / 复制诊断）；启动以来丢弃 {dropped} 行；事件契约={contract}",
       "draft": true
     },
     "panel.loghealth.pending": {

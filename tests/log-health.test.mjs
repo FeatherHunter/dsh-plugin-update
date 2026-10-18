@@ -20,18 +20,21 @@ import { join } from 'node:path'
 
 const log = await import('../dist/log/index.js')
 const logManifest = await import('../dist/log/manifest.js')
+const logHealthMod = await import('../dist/log/health.js')
+const logRegistry = await import('../dist/log/registry.js')
 const hostMod = await import('../dist/host.js')
 
+// 映射函数与测试缝只从内部模块取，不走 `./log` 公共出口（#210 纪律：测试缝不上公共面）。
+const { buildUpdateLogHealth } = logHealthMod
 const {
-  buildUpdateLogHealth,
   createLogRouter,
   createLogEmitter,
   logEmitterCountsFor,
   deriveLogNamespace,
   logDirHash,
   __resetOwnLogRegistryForTests,
-  __setOwnLogAcquireSeamsForTests,
 } = log
+const { __setOwnLogAcquireSeamsForTests } = logRegistry
 const { __forceUpdateContractStatusForTests, __resetUpdateEventTableForTests } = logManifest
 const { createHostUpdate, __resetSharedUpdateReaderForTests } = hostMod
 
@@ -239,6 +242,11 @@ describe('#212 纯映射：buildUpdateLogHealth 按落点给口径（注入 deps
     assert.equal(buildUpdateLogHealth(null), null)
     assert.equal(buildUpdateLogHealth(undefined), null)
     assert.equal(buildUpdateLogHealth({}), null)
+  })
+
+  it('落点认不出时回 null：不猜成 pending，也不外放半截读数', () => {
+    assert.equal(buildUpdateLogHealth(wiringOf({ sink: 'mystery' }), { counts: ZERO_COUNTS, contract: () => 'ok' }), null)
+    assert.equal(buildUpdateLogHealth(wiringOf({ sink: 42 }), { counts: ZERO_COUNTS, contract: () => 'ok' }), null)
   })
 })
 

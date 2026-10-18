@@ -114,7 +114,7 @@ test('#212 external 未放行/未验证、off、pending 在面板上都说人话
     [{ ...selfHealth(), sink: 'external', external: 'open', dirHash: null, switchEnabled: null }, '对方引擎确认放行本包事件'],
     [{ ...selfHealth(), sink: 'external', external: 'closed', dirHash: null, switchEnabled: null }, '对方引擎未放行本包事件'],
     [{ ...selfHealth(), sink: 'external', external: 'unknown', dirHash: null, switchEnabled: null }, '未验证'],
-    [{ ...selfHealth(), sink: 'off', reason: 'no-dsh-log', dirHash: null, switchEnabled: null }, '日志目录不会有行'],
+    [{ ...selfHealth(), sink: 'off', reason: 'no-dsh-log', dirHash: null, switchEnabled: null }, '本包不会再往日志目录写行'],
     [{ ...selfHealth(), sink: 'off', reason: 'lease-conflict', dirHash: null, switchEnabled: null }, '同目录写者冲突'],
     [{ ...selfHealth(), sink: 'pending', switchEnabled: null }, '接线中，稍后重查'],
   ]

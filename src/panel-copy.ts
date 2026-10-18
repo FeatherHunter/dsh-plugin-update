@@ -460,7 +460,7 @@ export function logHealthText(health: UpdateLogHealth | null | undefined, lang?:
       const gate = gateRaw === 'open' || gateRaw === 'closed' ? gateRaw : 'unknown'
       body = copyText(`panel.loghealth.external.${gate}` as BilingualKey, l, { sink, dropped, lastEvent, contract })
     } else if (sink === 'off') {
-      // 没接上：说清「日志目录不会有行 + 以带外证据为准」，并把原因归到三个稳定码之一。
+      // 没接上：说清「本包不会再往日志目录写行 + 以带外证据为准」，并把原因归到三个稳定码之一。
       const reasonRaw = typeof h['reason'] === 'string' ? h['reason'] : ''
       const reason = LOG_HEALTH_REASONS.includes(reasonRaw)
         ? copyText(`panel.loghealth.reason.${reasonRaw}` as BilingualKey, l, { code: reasonRaw })

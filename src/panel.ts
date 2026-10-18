@@ -2176,7 +2176,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
       )
       // #212 日志健康：成功回包带了读数就多一行（这一帧日志到底有没有、落点是谁、为什么没有）；
       // 老宿主没有这个键 / 没读数即不出现（不占位），措辞全部来自 panel-copy.logHealthText。
-      const healthLine = logHealthText((input as { logHealth?: UpdateLogHealth | null }).logHealth, l)
+      const healthLine = logHealthText(input.logHealth, l)
       if (healthLine) errLines.push(`<div class="dsh-upd-log">${escapeHtml(healthLine)}</div>`)
       if (b.kind === 'failed' && failRef && (failRef.requestId || failRef.checkId)) {
         errLines.push(
