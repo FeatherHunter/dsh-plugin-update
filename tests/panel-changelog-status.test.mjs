@@ -274,4 +274,53 @@ describe('#213 面板更新说明分档', () => {
       panel.unmount()
     }
   })
+
+  it('版本号暂缺那一帧不作废分档：重查在飞时到的空白，版本回来后仍说这一版的话（verify-213 G2-null）', async () => {
+    let status = baseSnapshot({ latestVersion: '2.4.0' })
+    const pending = {}
+    const hold = (v) =>
+      new Promise((resolve) => {
+        pending[v] = () => resolve({ ok: true, version: v, markdown: null, status: 'missing', cached: false })
+      })
+    const { call } = panelCall({
+      getStatus: () => status,
+      getChangelog: (args) => {
+        const v = args && args.version
+        if (v === '2.4.0') return { ok: true, version: '2.4.0', markdown: BODY_240, status: 'ok', cached: false }
+        return hold(v)
+      },
+    })
+    const slot = fakeContainer()
+    const panel = mountUpdatePanel(slot, { pluginId: 'p', prefix: 't', call })
+    try {
+      await panel.refresh()
+      await settled()
+      await settled()
+      assert.ok(slot.innerHTML.includes('二四零正文'), '2.4.0 的正文先上屏')
+      status = baseSnapshot({ latestVersion: '2.5.0' })
+      await panel.refresh()
+      await settled()
+      // 重查在飞：这一帧快照里读不到新版（02 章本就不渲染）——
+      // 分档此时刚记上就撞上「版本号暂缺」，作废了的话回来就再也说不出口。
+      status = baseSnapshot({ latestVersion: null })
+      await panel.refresh()
+      await settled()
+      pending['2.5.0']()
+      await settled()
+      await settled()
+      assert.ok(!slot.innerHTML.includes('二四零正文'), '更旧一版的正文不许留在新版标题下')
+      // 版本号回来，还是这一版：它自己的分档话术必须还在。
+      status = baseSnapshot({ latestVersion: '2.5.0' })
+      await panel.refresh()
+      await settled()
+      await settled()
+      assert.ok(
+        slot.innerHTML.includes('该版本包里没有更新说明文件，不是取数失败。'),
+        '同一版的分档话术不许因版本号暂缺而丢',
+      )
+      assert.ok(!slot.innerHTML.includes('二四零正文'), '旧正文也不许回来')
+    } finally {
+      panel.unmount()
+    }
+  })
 })

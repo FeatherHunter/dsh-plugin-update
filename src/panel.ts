@@ -3356,9 +3356,13 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     return typeof v === 'string' && v ? v : null
   }
 
-  /** #213：换版本（或无新版）即作废已记的分档——上一版的话术绝不许落到新版上。 */
+  /** #213：换版本即作废已记的分档——上一版的话术绝不许落到新版上。 */
   function syncChangelogStatusVersion(): void {
     const now = changelogStatusVersionNow()
+    // #213（verify-213 G2-null）：版本号**暂时**读不到（重查在飞、快照里没新版）那一帧不作废——
+    // 02 章那一帧本来就不渲染，作废只会让同一版的分档话术凭空丢掉（回来的还是这一版时无从恢复）；
+    // 等版本号回来再按「同版保留、异版作废」判，旧话术仍落不到新版上。
+    if (now === null) return
     if (now === changelogStatusFor) return
     changelogStatusFor = now
     changelogStatus = null
