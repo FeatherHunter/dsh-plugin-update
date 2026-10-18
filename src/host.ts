@@ -32,6 +32,7 @@ import { isCoreErrorCode } from './codes.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL } from './log-events.js'
 import { emitUpdateLog, logEmitterCounts } from './log/emit.js'
 import { pruneEventFields } from './gate.js'
+import { buildUpdateLogHealth, type LogHealthExternalGate, type UpdateLogHealth, type UpdateLogWiring } from './log/health.js'
 import { buildUpdateManifest, currentUpdateEventTable, primeUpdateEventTable, updateContractStatus, type UpdateContractStatus } from './log/manifest.js'
 import { deriveLogNamespace } from './log/namespace.js'
 import { isClientLogEvent, LOG_LEVELS } from './log/client-queue.js'
@@ -39,6 +40,14 @@ import { acquireOwnLog, logDirHash } from './log/registry.js'
 import { updateLogRouter } from './log/router.js'
 import { createPendingSink, sinkFromLogCtx, type LogSink } from './log/sink.js'
 import { withLogTrace } from './log/trace.js'
+// 日志健康读数（#212）：主入口的 d.ts 要把这格暴露给面板与集成方（浏览器侧只引类型，不拖 Node 侧实现）。
+export type {
+  LogHealthContractState,
+  LogHealthExternalGate,
+  LogHealthOffReason,
+  LogHealthSink,
+  UpdateLogHealth,
+} from './log/health.js'
 import { fetchNpmVersionRelease, isVersionAllowedInChannel, updateError, validReleaseVersion, validRequestId } from './service.js'
 import { selfCopyInfo, type SelfCopyInfo, type SelfCopyLevel } from './self.js'
 import { createUpdateDiskPorts, createUpdateExecutor, createUpdateQueuePorts } from './store.js'
@@ -787,6 +796,20 @@ export function updateLogDirFor(pluginId: string, homeDir?: string | null): stri
 }
 
 /**
+ * 外部落点的准入探针（#212）：集成方注入的实例**可能**不给 `isEnabled`（老客户端），
+ * 此时「有没有在写」无从判定 —— 如实报 `unknown`（未验证），不许当成 open 也不许当成 closed。
+ * 判据给了但抛错同样是「问不出来」= unknown；只有真回布尔才算验过。
+ */
+function probeExternalGate(sink: LogSink): LogHealthExternalGate {
+  if (typeof sink.isEnabled !== 'function') return 'unknown'
+  try {
+    return sink.isEnabled('info', 'update.wire.ready') ? 'open' : 'closed'
+  } catch {
+    return 'unknown'
+  }
+}
+
+/**
  * 接线日志：把落点挂进路由表，并如实记一条 `update.wire.ready`。
  *
  * 归属规则（ADR-0005 决策 2）：集成方给了 `logCtx` 就用它的实例，本包绝不再开第二个写者；
@@ -795,6 +818,9 @@ export function updateLogDirFor(pluginId: string, homeDir?: string | null): stri
  *
  * 建库是异步的（`dsh-log/node` 要动态 import 再读盘），而 `createHostUpdate` 是同步契约，
  * 所以先接一个「先收后转」的待接落点：建好了按序灌进真落点，建不起来就整体丢弃。
+ *
+ * 返回的是一份**可变接线状态**（#212）：调用方持有它，回包读数据此回答「日志到底有没有在写」。
+ * 里面只有事实与 8 位指纹，**没有目录路径**。
  */
 function wireUpdateLog(
   homeDir: string,
@@ -803,16 +829,31 @@ function wireUpdateLog(
   namespace: string,
   integratorLogCtx: unknown,
   integratorEventList: unknown
-): void {
+): UpdateLogWiring {
   const logsRoot = updateLogRootDir(homeDir)
   const namespaceDirHash = logDirHash(`${logsRoot}${sep}${namespace}`)
+  // 初始是 pending：自建实例的建库是异步的，落定之前**不许**报 self 也不许报 off。
+  const wiring: UpdateLogWiring = {
+    pluginId,
+    sink: 'pending',
+    dirHash: namespaceDirHash,
+    external: null,
+    reason: null,
+    pendingSink: null,
+    handle: null,
+  }
   const external = sinkFromLogCtx(integratorLogCtx)
   if (external) {
     updateLogRouter.bind(pluginId, external)
+    wiring.sink = 'external'
+    // 对方写到哪本包不猜：external 不给目录指纹（连自己的预期目录也不给，免得被读成「它在写这儿」）。
+    wiring.dirHash = null
+    wiring.external = probeExternalGate(external)
     emitUpdateLog('info', 'update.wire.ready', { logSink: 'external', logDirHash: namespaceDirHash }, { pluginId })
-    return
+    return wiring
   }
   const pending = createPendingSink()
+  wiring.pendingSink = pending
   updateLogRouter.bind(pluginId, pending.sink)
   void (async (): Promise<void> => {
     const built = await buildUpdateManifest(namespace, integratorEventList)
@@ -828,13 +869,21 @@ function wireUpdateLog(
     })
     if (got.sink) {
       pending.attach(got.sink)
+      wiring.sink = 'self'
+      wiring.dirHash = logDirHash(got.dir)
+      wiring.handle = got.handle
       emitUpdateLog('info', 'update.wire.ready', { logSink: 'self', logDirHash: logDirHash(got.dir) }, { pluginId })
       return
     }
     pending.attach(null)
     updateLogRouter.unbind(pluginId, pending.sink)
+    wiring.sink = 'off'
+    // 降级也要报「本来该写哪」的指纹：没有它，对方连去哪个目录确认「确实没日志」都不知道。
+    wiring.dirHash = namespaceDirHash
+    wiring.reason = got.reason ?? 'write-fail'
     emitUpdateLog('info', 'update.wire.ready', { logSink: 'off', logDirHash: namespaceDirHash }, { pluginId })
   })()
+  return wiring
 }
 
 /** 电话回包里的可选队列视图（#15）：只在调用方显式要时才带，不传即与改造前一字不差。 */
@@ -885,6 +934,8 @@ function loggedPhone(
     env?: PhoneEnvView | null
     /** 可选：契约健康（#210），只有 updateStatus 带。 */
     logContract?: UpdateContractStatus
+    /** 可选：日志健康（#212），只有 updateStatus 带；值来自真实接线状态，绝不含目录路径。 */
+    logHealth?: UpdateLogHealth
     /** 可选：机读诊断（#21/#18），成功回包在快照里有失败任务时才带。 */
     diag?: unknown
   }>,
@@ -944,6 +995,8 @@ function loggedPhone(
         receipt: out && out.receipt ? out.receipt : null,
         // 新增选填（#210）：契约健康——面板/诊断据此知道「字段门禁这轮有没有尺子」。
         ...(out && out.logContract ? { logContract: out.logContract } : {}),
+        // 新增选填（#212）：日志健康——面板/诊断据此判定「日志是不是真的写不进去」。
+        ...(out && out.logHealth ? { logHealth: out.logHealth } : {}),
         // 新增选填（#15）：调用方没要时不带该键，老调用形状不变。
         ...(out && out.queue ? { queue: out.queue } : {}),
         // 新增选填：使用范围一栏（只有调用方传了 includeEnv 才带，老调用形状不变）。
@@ -1115,7 +1168,8 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
   const logHomeDir =
     logOverrides.homeDir ?? config.homeDir ?? defaultHomeDir(logOverrides.env ?? process.env, logOverrides.osHome ?? homedir())
   primeUpdateEventTable()
-  wireUpdateLog(logHomeDir, config.prefix, pluginId, deriveLogNamespace(pluginId), deps.logCtx, deps.logEventList)
+  // 接线状态是活的（#212）：`updateStatus` 每次回包都从它现算 logHealth，不缓存读数。
+  const logWiring = wireUpdateLog(logHomeDir, config.prefix, pluginId, deriveLogNamespace(pluginId), deps.logCtx, deps.logEventList)
   // 宿主上下文：探测宿主种类（桌面 / 普通 DSH）并接上执行零件（子进程口子、桌面服务）。
   const ctx = deps.ctx ?? null
   if (deps.desktopPnpm) sharedDesktopPnpm = deps.desktopPnpm
@@ -1212,6 +1266,7 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
     snapshot: unknown
     manual: string | null
     logContract?: UpdateContractStatus
+    logHealth?: UpdateLogHealth
     env?: PhoneEnvView | null
     queue?: VisibleQueue | null
   }> {
@@ -1223,11 +1278,20 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
     // 契约健康（#210）：除了清单状态，还带「本进程有多少行在没尺子的情况下仍落盘」——
     // 这就是「字段门禁不被静默绕过」的可核对数字（0 才是真的全都量过）。
     const logContract: UpdateContractStatus = { ...updateContractStatus(), unvalidated: logEmitterCounts().unvalidated }
+    // 日志健康（#212）：落点、指纹、丢弃数、最近一次到过落点的时间——「日志是空的」从此可判定。
+    // 现算（接线状态是活的）；取不到就不带这个键，老回包形状一字不变。
+    const logHealth = buildUpdateLogHealth(logWiring)
     const env = wantsEnv(args) ? { env: await readEnvForPanel(reader) } : {}
     const { includeQueue, showOthers } = queueArgsOf(args)
-    if (!includeQueue) return { ...out, logContract, ...env }
+    if (!includeQueue) return { ...out, logContract, ...(logHealth ? { logHealth } : {}), ...env }
     const requestId = args && typeof args.requestId === 'string' ? args.requestId : undefined
-    return { ...out, logContract, ...env, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
+    return {
+      ...out,
+      logContract,
+      ...(logHealth ? { logHealth } : {}),
+      ...env,
+      queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId),
+    }
   }
   async function readCheck(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; receipt: unknown; env?: PhoneEnvView | null; queue?: VisibleQueue | null }> {
     const reader = await getSharedReader(pluginId, config, {

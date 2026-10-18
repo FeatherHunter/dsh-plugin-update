@@ -12,6 +12,7 @@ import { blameCausePackage, CAUSE_KINDS, formatUnlockAt, interpretInstallCause }
 import { normalizeLangTag, type AppLang } from './lang.js'
 import { COPY_BUDGET_CHARS, sanitizeForCopy } from './redaction.js'
 import type { BlockedReason } from './ports.js'
+import type { UpdateLogHealth } from './log/health.js'
 
 // ---------- 状态与失败文案（#61 起全部出自集中字典，单语渲染；分支只认稳定码） ----------
 //
@@ -354,6 +355,8 @@ export function readDiagTolerant(diag: unknown): TolerantDiag {
 export interface UpdateDiagCopyInput extends PanelDiagnosticInput {
   /** 复制形态：默认三行块；单行用于单行输入框，内容顺序与块完全一致。 */
   format?: DiagCopyFormat
+  /** 日志健康读数（#212，回包键 logHealth）：选填；老宿主不给即不出现健康句（老输出一字不差）。 */
+  logHealth?: UpdateLogHealth | null
 }
 
 function pickText(value: unknown, fallback: string): string {
@@ -401,6 +404,76 @@ export function causeRemedyText(
           ? 'diag.cause.age.other.timed'
           : 'diag.cause.age.other.untimed'
     return copyText(key as BilingualKey, l, { package: spec, time: timeRaw ?? '' })
+  } catch {
+    return null
+  }
+}
+
+// ---------- 日志健康读数（#212）：面板日志区与复制诊断共用的唯一措辞源 ----------
+//
+// 第一性：日志可判定不是「有没有目录」，而是「这一帧有没有一行到过落点、落点是谁、为什么没有」。
+// 读数来自宿主的 UpdateLogHealth（src/log/health.ts；成功回包键 logHealth，选填）：
+// 本函数只做形状校验 + 枚举分支 + 措辞拼接，不猜语义、不读自由文本（自由文本一律不进面板）。
+// 老宿主没有这个键 → 调用方传 null/undefined → 回 null，调用方零输出（老渲染一字不差）。
+// 认不出的形状 → 显式说「无法识别」，绝不假装正常；没判据的 external → 明说「未验证」。
+// 返回值已脱敏（redactForCopy）：同一句既进面板 HTML（调用方再转义），也进复制诊断（要能贴出去）。
+// 分支只认稳定码：落点四枚举、契约四态、三个原因码；其余一律按「未知」办，不把自由文本搬上面板。
+
+const LOG_HEALTH_CONTRACTS: readonly string[] = ['ok', 'unloaded', 'missing', 'invalid']
+const LOG_HEALTH_REASONS: readonly string[] = ['no-dsh-log', 'lease-conflict', 'write-fail']
+
+export function logHealthText(health: UpdateLogHealth | null | undefined, lang?: AppLang | string | null): string | null {
+  if (typeof health !== 'object' || health === null) return null
+  const l = normalizeLangTag(lang ?? 'zh')
+  const h = health as unknown as Record<string, unknown>
+  try {
+    const unknown = copyText('panel.loghealth.unknown', l)
+    const droppedRaw = h['droppedSinceStart']
+    const dropped = typeof droppedRaw === 'number' && Number.isFinite(droppedRaw) && droppedRaw >= 0 ? String(droppedRaw) : unknown
+    const contractRaw = typeof h['contract'] === 'string' ? h['contract'].trim() : ''
+    const contract = LOG_HEALTH_CONTRACTS.includes(contractRaw)
+      ? copyText(`panel.loghealth.contract.${contractRaw}` as BilingualKey, l, { state: contractRaw })
+      : unknown
+    const lastRaw = h['lastEventAt']
+    const lastEvent =
+      lastRaw === null || lastRaw === undefined
+        ? copyText('panel.loghealth.last-event.never', l)
+        : typeof lastRaw === 'number' && Number.isFinite(lastRaw) && lastRaw > 0
+          ? (formatUnlockAt(lastRaw, l) ?? unknown)
+          : unknown
+    const switchEnabled =
+      h['switchEnabled'] === true
+        ? copyText('panel.loghealth.switch.on', l)
+        : h['switchEnabled'] === false
+          ? copyText('panel.loghealth.switch.off', l)
+          : unknown
+    const dirHashRaw = typeof h['dirHash'] === 'string' ? h['dirHash'].trim() : ''
+    const dirHash = dirHashRaw || unknown
+    const sink = typeof h['sink'] === 'string' ? h['sink'] : ''
+    let body: string
+    if (sink === 'self') {
+      // 自建落点：指纹与开关是本包自己的，报得出就报。
+      body = copyText('panel.loghealth.self', l, { sink, dirHash, switch: switchEnabled, dropped, lastEvent, contract })
+    } else if (sink === 'external') {
+      // 集成方实例落盘：目录指纹不猜（那是对方实例的目录），只报对方引擎放行与否 + 本包发射口计数。
+      const gateRaw = typeof h['external'] === 'string' ? h['external'] : ''
+      const gate = gateRaw === 'open' || gateRaw === 'closed' ? gateRaw : 'unknown'
+      body = copyText(`panel.loghealth.external.${gate}` as BilingualKey, l, { sink, dropped, lastEvent, contract })
+    } else if (sink === 'off') {
+      // 没接上：说清「日志目录不会有行 + 以带外证据为准」，并把原因归到三个稳定码之一。
+      const reasonRaw = typeof h['reason'] === 'string' ? h['reason'] : ''
+      const reason = LOG_HEALTH_REASONS.includes(reasonRaw)
+        ? copyText(`panel.loghealth.reason.${reasonRaw}` as BilingualKey, l, { code: reasonRaw })
+        : unknown
+      body = copyText('panel.loghealth.off', l, { sink, reason, dropped, contract })
+    } else if (sink === 'pending') {
+      // 自建实例异步建库的瞬时态：明说「接线中，稍后重查」，不让人以为日志坏了。
+      body = copyText('panel.loghealth.pending', l, { sink, dirHash, dropped, contract })
+    } else {
+      // 认不出的落点（新后端 + 旧面板）：按未验证办，不给「正常/有日志」的错觉。
+      body = copyText('panel.loghealth.unrecognized', l)
+    }
+    return redactForCopy(copyText('panel.loghealth.line', l, { text: body }))
   } catch {
     return null
   }
@@ -468,18 +541,24 @@ export function buildUpdateDiagCopy(input: UpdateDiagCopyInput, langOverride?: A
   if (updaterText) prov.push(updaterText)
   const format: DiagCopyFormat = (input as { format?: unknown }).format === 'line' ? 'line' : 'block'
   const provLine = redactForCopy(prov.join(' · '))
+  // #212 日志健康：排在冻结四段（码→摘要→来源→怎么办）之后 —— 解析契约与来源字段一个字不动；
+  // 单行封顶 1500 时，先被截掉的是这句新内容，不是编解码契约。
+  const logHealth = logHealthText(input.logHealth ?? null, l)
+  const healthTail = logHealth ? ` · ${logHealth}` : ''
   if (format === 'line') {
-    const line = `[update-diag] code=${rawCode} · ${copy.zh} · ${copyText('panel.diag.copy.line.summary', l, { summary: detail })} · ${provLine} · ${copyText('panel.diag.copy.line.remedy', l, { remedy })}`
+    const line = `[update-diag] code=${rawCode} · ${copy.zh} · ${copyText('panel.diag.copy.line.summary', l, { summary: detail })} · ${provLine} · ${copyText('panel.diag.copy.line.remedy', l, { remedy })}${healthTail}`
     return redactForCopy(line)
   }
   // 块形态保留换行：各段已脱敏，不再整块压平（压平会把三行块变成单行）。
-  const block = [
+  const blockLines = [
     `[update-diag] ${rawCode} — ${copy.zh}`,
     `  ${copyText('panel.diag.copy.block.summary', l, { summary: detail })}`,
     `  ${copyText('panel.diag.copy.block.source', l, { source: provLine })}`,
     `  ${copyText('panel.diag.copy.block.remedy', l, { remedy })}`,
-  ].join('\n')
-  return block
+  ]
+  // 日志健康单独一行：不动码/摘要/来源/怎么办四行的顺序，解析契约（按标签找行）照旧。
+  if (logHealth) blockLines.push(`  ${logHealth}`)
+  return blockLines.join('\n')
 }
 
 // ---------- 健康态复制（#166 切片 2：panel.ts 里最后一块硬编码中文用户文案） ----------
@@ -504,6 +583,8 @@ export interface HealthyDiagCopyInput {
   checkId: string | null
   /** 更新器自检（#196）：本面板加载到的本包副本版本与层级；缺省即老输出不变。 */
   updater?: UpdaterSelfView | null
+  /** 日志健康读数（#212）：选填；老宿主不给即不出现健康句（老输出一字不差）。 */
+  logHealth?: UpdateLogHealth | null
   format?: DiagCopyFormat
   lang?: AppLang | string | null
 }
@@ -536,5 +617,8 @@ export function buildHealthyDiagCopy(input: HealthyDiagCopyInput): string {
     `版本：运行 ${input.runningVersion ?? '未知'}／磁盘 ${input.installedVersion ?? '未知'}／远端 ${input.latestVersion ?? '未查过'}`,
     `来源：${envBits.join(' · ')}`,
   ].map((s) => redactForCopy(s))
+  // #212 日志健康：接在末尾（与失败复制同口径）；老调用没有读数即一字不差。
+  const logHealth = logHealthText(input.logHealth ?? null, l)
+  if (logHealth) segs.push(logHealth)
   return input.format === 'line' ? segs.join(' · ') : segs.join('\n')
 }

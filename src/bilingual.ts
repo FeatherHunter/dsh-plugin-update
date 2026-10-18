@@ -214,6 +214,25 @@ export type BilingualKey =
   | 'panel.error.no-failure'
   | 'panel.error.log-hint'
   | 'panel.error.log-follow'
+  | 'panel.loghealth.line'
+  | 'panel.loghealth.self'
+  | 'panel.loghealth.external.open'
+  | 'panel.loghealth.external.closed'
+  | 'panel.loghealth.external.unknown'
+  | 'panel.loghealth.off'
+  | 'panel.loghealth.pending'
+  | 'panel.loghealth.unrecognized'
+  | 'panel.loghealth.switch.on'
+  | 'panel.loghealth.switch.off'
+  | 'panel.loghealth.unknown'
+  | 'panel.loghealth.last-event.never'
+  | 'panel.loghealth.contract.ok'
+  | 'panel.loghealth.contract.unloaded'
+  | 'panel.loghealth.contract.missing'
+  | 'panel.loghealth.contract.invalid'
+  | 'panel.loghealth.reason.no-dsh-log'
+  | 'panel.loghealth.reason.lease-conflict'
+  | 'panel.loghealth.reason.write-fail'
   | 'panel.manual.heading'
   | 'panel.manual.absent'
   | 'panel.manual.absent.unknown-profile'
@@ -624,6 +643,27 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.error.no-failure': { en: 'No failure: copying diagnostics gives the current state snapshot.', zh: '暂无失败：此时复制诊断提供的是当前状态快照。', draft: true },
   'panel.error.log-hint': { en: 'Check logs: {dir} (one directory per plugin, no overlap). Read them with {cmd}; filter by plugin ID {pluginId} for events {e1}, {e2}, {e3}.', zh: '请查看日志：{dir}（一个插件一棵目录，互不覆盖）。一条命令看：{cmd}；按插件标识 {pluginId} 筛选 {e1}、{e2}、{e3} 事件。', draft: true },
   'panel.error.log-follow': { en: 'Match the request/check IDs above in {eFail}; baseline timing in {eCall}, execution result in {eExec}.', zh: '凭上方请求／检查编号在 {eFail} 中匹配；基线耗时请查看 {eCall}，执行结果请查看 {eExec}。', draft: true },
+  // #212 日志健康（面板日志区与复制诊断共用的唯一措辞源）：机读码（self/external/pending/off、
+  // contract 四态、三个原因码）全部走具名槽传值，模板本身不含 ASCII —— 中文只存这里，机读真值不译。
+  'panel.loghealth.line': { en: 'Log: {text}', zh: '日志：{text}', draft: true },
+  'panel.loghealth.self': { en: 'sink={sink} (own store built by this package); dir hash={dirHash}; on-demand info switch={switch}; dropped since start: {dropped} rows; last event={lastEvent}; event contract={contract}', zh: '落点={sink}（本包自建落点）；目录指纹={dirHash}；按需信息开关={switch}；启动以来丢弃 {dropped} 行；最近事件={lastEvent}；事件契约={contract}', draft: true },
+  'panel.loghealth.external.open': { en: 'sink={sink} (rows land in the integrator instance); the other engine confirms this package\'s events are allowed; dir hash not guessed (that is the other instance\'s directory); dropped since start: {dropped} rows (this package\'s emit side only); last event={lastEvent}; event contract={contract}', zh: '落点={sink}（落盘归集成方实例）；对方引擎确认放行本包事件；目录指纹本包不猜（那是对方实例的目录）；启动以来丢弃 {dropped} 行（只算本包发射口）；最近事件={lastEvent}；事件契约={contract}', draft: true },
+  'panel.loghealth.external.closed': { en: 'sink={sink} (rows land in the integrator instance); the other engine has not allowed this package\'s events (not on the always-on list, or the switch is off); dir hash not guessed (that is the other instance\'s directory); dropped since start: {dropped} rows (this package\'s emit side only); last event={lastEvent}; event contract={contract}', zh: '落点={sink}（落盘归集成方实例）；对方引擎未放行本包事件（常驻名单没它，或开关没开）；目录指纹本包不猜（那是对方实例的目录）；启动以来丢弃 {dropped} 行（只算本包发射口）；最近事件={lastEvent}；事件契约={contract}', draft: true },
+  'panel.loghealth.external.unknown': { en: 'sink={sink} (rows land in the integrator instance); unverified (the other side gave no criterion; do not conclude that logs exist); dir hash not guessed (that is the other instance\'s directory); dropped since start: {dropped} rows (this package\'s emit side only); last event={lastEvent}; event contract={contract}', zh: '落点={sink}（落盘归集成方实例）；未验证（对方没给判据，不能当有日志下结论）；目录指纹本包不猜（那是对方实例的目录）；启动以来丢弃 {dropped} 行（只算本包发射口）；最近事件={lastEvent}；事件契约={contract}', draft: true },
+  'panel.loghealth.off': { en: 'sink={sink} (not wired up); reason={reason}; the log directory will have no rows — rely on out-of-band evidence (status reply / this panel / copied diagnostics); dropped since start: {dropped} rows; event contract={contract}', zh: '落点={sink}（没接上）；原因={reason}；日志目录不会有行，请以带外证据为准（更新回包 / 本面板 / 复制诊断）；启动以来丢弃 {dropped} 行；事件契约={contract}', draft: true },
+  'panel.loghealth.pending': { en: 'sink={sink} (the own store is still being created asynchronously); still wiring up, re-check shortly; dir hash={dirHash}; dropped since start: {dropped} rows; event contract={contract}', zh: '落点={sink}（自建实例正在异步建库）；接线中，稍后重查；目录指纹={dirHash}；启动以来丢弃 {dropped} 行；事件契约={contract}', draft: true },
+  'panel.loghealth.unrecognized': { en: 'sink reading not recognized (the panel and the updater may be different versions); treat it as unverified — do not judge whether logs exist', zh: '落点读数无法识别（可能是面板与更新器版本不一致）；按未验证处理，不能据此判断日志有无', draft: true },
+  'panel.loghealth.switch.on': { en: 'on', zh: '开', draft: true },
+  'panel.loghealth.switch.off': { en: 'off', zh: '关', draft: true },
+  'panel.loghealth.unknown': { en: 'unknown', zh: '未知', draft: true },
+  'panel.loghealth.last-event.never': { en: 'never (no row has reached the sink since start)', zh: '从未（启动以来没有一行到过落点）', draft: true },
+  'panel.loghealth.contract.ok': { en: 'ok', zh: '正常', draft: true },
+  'panel.loghealth.contract.unloaded': { en: '{state} (event contract not loaded)', zh: '未加载（{state}）：事件契约没读进来', draft: true },
+  'panel.loghealth.contract.missing': { en: '{state} (field gate has no ruler this round)', zh: '缺失（{state}）：字段门禁这轮没有尺子', draft: true },
+  'panel.loghealth.contract.invalid': { en: '{state} (field gate has no ruler this round)', zh: '非法（{state}）：字段门禁这轮没有尺子', draft: true },
+  'panel.loghealth.reason.no-dsh-log': { en: '{code} (not installed / wrong version / failed to load)', zh: '{code}（没安装 / 版本不匹配 / 加载失败）', draft: true },
+  'panel.loghealth.reason.lease-conflict': { en: '{code} (another writer on the same directory)', zh: '{code}（同目录写者冲突）', draft: true },
+  'panel.loghealth.reason.write-fail': { en: '{code} (failed to create the store or write to disk)', zh: '{code}（建库或写盘失败）', draft: true },
   'panel.manual.heading': { en: 'Manual fallback command (copy the full line to run):', zh: '手工备用命令（请复制整行执行）：', draft: true },
   'panel.manual.absent': { en: 'No manual command is available right now.', zh: '当前没有可用的手工命令。', draft: true },
   'panel.manual.absent.unknown-profile': { en: 'The plugin scope cannot be recognized, so there is no scope name for the command. Restart the host and check again; if it still cannot be recognized, send the copied diagnostics to the plugin author.', zh: '认不出插件所在的使用范围，命令没有可指向的范围名。重启宿主后重新查询；若仍认不出来，请把复制诊断发给插件作者。', draft: true },

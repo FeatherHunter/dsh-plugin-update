@@ -33,6 +33,8 @@ import {
 import { visibleQueueFor, type UpdateQueueState, type VisibleQueue } from './queue.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } from './log-events.js'
 import { createClientLogChannel, type ClientLogChannel, type ClientLogEvent } from './log/client-queue.js'
+// #212：只要类型（import type 在编译期擦除，浏览器闭包里不会多出 log/ 内部模块的运行时依赖）。
+import type { UpdateLogHealth } from './log/health.js'
 import type { BlockedReason, UpdateSnapshot } from './ports.js'
 import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './codes.js'
 export { isCheckSideFailureCode } // 查侧判定从单点真源派生（#134/US15；#141 铁律：本文件不另建第二张表）
@@ -353,6 +355,7 @@ import {
   buildUpdateDiagCopy,
   failureCodeOf,
   failureCopy,
+  logHealthText,
   readDiagTolerant,
   redactForCopy,
   replyIsCheckExpired,
@@ -371,6 +374,7 @@ export {
   failureCodeOf,
   failureCopy,
   isKnownFailureCode,
+  logHealthText,
   readDiagTolerant,
   redactForCopy,
   replyIsCheckExpired,
@@ -1321,6 +1325,11 @@ export interface PanelRenderInput extends PanelViewInput {
    */
   logDir?: string | null
   /**
+   * 日志健康读数（#212）：宿主成功回包里的 logHealth，只在日志区露一行；缺省（老宿主）不出现，
+   * 输出与旧版一字不差。面板不解释语义，措辞全部来自 panel-copy 的 logHealthText（单一措辞源）。
+   */
+  logHealth?: UpdateLogHealth | null
+  /**
    * 动作面归谁：`default`（缺省）由内核画动作按钮；`none` 只画内容、不画按钮。
    * 给「调用方自己提供动作面」的场景（如批量面板的详情：动作由批量面板经自己的通道提供）。
    * 只读渲染下五章内容、进度条、「已跳过」提示一字不减，只是没有动作按钮。
@@ -2165,6 +2174,10 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
           e3: `<code>${LOG_EVENT_INSTALL_EXEC}</code>`,
         })}</div>`,
       )
+      // #212 日志健康：成功回包带了读数就多一行（这一帧日志到底有没有、落点是谁、为什么没有）；
+      // 老宿主没有这个键 / 没读数即不出现（不占位），措辞全部来自 panel-copy.logHealthText。
+      const healthLine = logHealthText((input as { logHealth?: UpdateLogHealth | null }).logHealth, l)
+      if (healthLine) errLines.push(`<div class="dsh-upd-log">${escapeHtml(healthLine)}</div>`)
       if (b.kind === 'failed' && failRef && (failRef.requestId || failRef.checkId)) {
         errLines.push(
           `<div class="dsh-upd-log">${copyText('panel.error.log-follow', l, {
@@ -2927,6 +2940,11 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   let envHostKind: string | null = null
   // 更新器自检（#196 部署偏斜）：这块面板实际加载到的本包副本（版本 + 层级）；旧宿主不给即 null。
   let envUpdater: UpdaterSelfView | null = null
+  /**
+   * 日志健康读数（#212）：宿主成功回包里的 logHealth；旧宿主没有这个键就一直是 null，
+   * 面板日志区那一行随之不出现（老输出一字不差）。语义判断全在 panel-copy.logHealthText。
+   */
+  let envLogHealth: UpdateLogHealth | null = null
 
   /** 记一条 transient 回执：5 秒后过期（toast 语义），下次点击不清它、时间到才清。 */
   function sayCopy(text: string): void {
@@ -3164,6 +3182,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       updater: envUpdater,
       // 日志目录（#123）：挂载项给的真值；没给就由错误章路牌退回算式与命令模板。
       logDir: logDirOption,
+      // 日志健康（#212）：成功回包里的 logHealth；老宿主一直是 null，渲染一字不差。
+      logHealth: envLogHealth,
     })
     if (nextHTML !== lastHTML) {
       lastHTML = nextHTML
@@ -3171,6 +3191,17 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     }
     // 状态行（按需）：画完再算 —— 状态行是给第三方看「面板此刻什么状态」的，不是渲染输入。
     logPanelState()
+  }
+
+  /**
+   * #212：采纳成功回包里的日志健康读数（选填键）。
+   * 键缺席（老宿主 / 该回包不带）→ 保持现状，不动已有读数、也不制造新读数；
+   * 键在但不是对象（null / 字符串…）→ 显式清空：「这一帧说没有」就照实没有，不沿用旧值；
+   * 形状对不对由 panel-copy.logHealthText 在渲染时按枚举分支判定（认不出即「无法识别」）。
+   */
+  function adoptLogHealth(value: unknown): void {
+    if (value === undefined) return
+    envLogHealth = isObject(value) ? (value as unknown as UpdateLogHealth) : null
   }
 
   function applyStatusReply(reply: Record<string, unknown>, via: 'refresh' | 'check' | 'install'): void {
@@ -3200,6 +3231,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         const selfView = updaterSelfOfEnv(env)
         if (selfView) envUpdater = selfView
       }
+      // #212 日志健康（选填键）：老宿主没有这个键即不动，输出与旧版一字不差。
+      adoptLogHealth(reply['logHealth'])
       // 成功回包的锁存规则（#58）：只读轮询永不清除非瞬态锁存；diag 不覆写既有证据。
       const jobState = snapshot?.job?.state ?? null
       if (jobState === 'installing' || jobState === 'verifying') {
@@ -3303,6 +3336,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           } catch {
             // 忽略：补读回包的环境栏是选填。
           }
+          // #212 日志健康：补读同权只补当帧读数（老宿主没有这个键即不动）。
+          adoptLogHealth(value['logHealth'])
           render()
         }
       } catch {
@@ -3722,6 +3757,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
             requestId,
             checkId: receipt?.checkId ?? null,
             updater: envUpdater,
+            // #212 日志健康：与面板日志区同一句（单一措辞源）；老宿主没有读数即不出现。
+            logHealth: envLogHealth,
             format: diagCopyFormat,
             lang: currentLang(),
           })
@@ -3761,6 +3798,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           diag: frozen?.diag ?? null,
           manual,
           updater: envUpdater,
+          // #212 日志健康：与面板日志区同一句（单一措辞源）；老宿主没有读数即不出现。
+          logHealth: envLogHealth,
           format: diagCopyFormat,
           lang: currentLang(),
         })

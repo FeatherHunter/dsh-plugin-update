@@ -133,12 +133,19 @@ export function createPendingSink(maxQueue = 200): PendingLogSink {
   return {
     sink,
     attach: (next) => {
-      target = next ?? NOOP_SINK
+      // 判据是「有没有真落点」：`attach(null)`（建库失败的降级路径）下，缓冲里的行倒进
+      // 无操作落点，等于当场蒸发 —— 必须逐行计入丢弃，否则「丢弃数」会把最该看见的那批行漏掉。
+      const real = next ?? null
+      target = real ?? NOOP_SINK
       while (buffer.length) {
         const row = buffer.shift()
         if (!row) break
+        if (!real) {
+          dropped++
+          continue
+        }
         try {
-          target.fire(row.level, row.event, row.fields)
+          real.fire(row.level, row.event, row.fields)
         } catch {
           dropped++
         }

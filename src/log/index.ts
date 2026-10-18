@@ -19,6 +19,7 @@ export {
   createLogEmitter,
   emitUpdateLog,
   logEmitterCounts,
+  logEmitterCountsFor,
   sanitizeLogFields,
   fieldFingerprint,
   updateLogEmitter,
@@ -26,6 +27,7 @@ export {
   type LogEmitterCounts,
   type LogEmitOptions,
   type LogDropReason,
+  type LogPluginCounts,
 } from './emit.js'
 export {
   buildUpdateManifest,
@@ -54,11 +56,25 @@ export {
   releaseOwnLog,
   OWN_LOG_REGISTRY_KEY,
   __resetOwnLogRegistryForTests,
+  __setOwnLogAcquireSeamsForTests,
   type OwnLogAcquireInput,
   type OwnLogAcquireResult,
+  type OwnLogAcquireSeams,
   type OwnLogDegradeReason,
   type OwnLogHandle,
 } from './registry.js'
+// 日志健康（#212）：回包读数从「接线状态 + 真实计数」算出来，不依赖任何目录路径。
+export {
+  buildUpdateLogHealth,
+  type LogHealthContractState,
+  type LogHealthDeps,
+  type LogHealthEngineReport,
+  type LogHealthExternalGate,
+  type LogHealthOffReason,
+  type LogHealthSink,
+  type UpdateLogHealth,
+  type UpdateLogWiring,
+} from './health.js'
 // 客户端通道（#122）：浏览器安全的那个模块，面板侧与入口件都引它；本文件其余部分会拖进 node:，
 // 所以第三方工具要单独用客户端队列时走 `dsh-plugin-update/log` 的类型面 + panel 的注入点即可。
 export {

@@ -30,6 +30,13 @@ export interface OwnLogStore {
   log: (level: string, event: string, fields: Record<string, unknown>) => unknown
   isEnabled?: (level: string, event?: string) => boolean
   getDroppedCount?: () => number
+  /**
+   * 按需信息开关的当前状态（#212）。dsh-log 0.3.x 的 store 回 `{ enabled: boolean }`；
+   * 也认「直接回布尔」的自建实现。取不到就是 null（未验证），绝不当成 false 或 true 猜。
+   */
+  getSwitchState?: () => boolean | { enabled?: unknown }
+  /** 还在缓冲区里、没落盘的行数（dsh-log 0.3.x 的 store 有）。 */
+  getPendingCount?: () => number
   getLastPersistFail?: () => { op?: string; reason?: string; dirHash?: string; at?: number } | null
   synced?: () => Promise<void>
   release?: () => void
@@ -45,8 +52,15 @@ export interface OwnLogHandle {
   /** 落点（直接交给路由表）。 */
   sink: LogSink
   store: OwnLogStore
-  /** 取本目录的引擎自述（丢弃数、最近一次落盘失败）。纯读，绝不抛。 */
-  health: () => { namespace: string; dir: string; refs: number; dropped: number; lastPersistFail: { op?: string; reason?: string; dirHash?: string; at?: number } | null }
+  /** 取本目录的引擎自述（丢弃数、按需开关、最近一次落盘失败）。纯读，绝不抛。 */
+  health: () => {
+    namespace: string
+    dir: string
+    refs: number
+    dropped: number
+    switchEnabled: boolean | null
+    lastPersistFail: { op?: string; reason?: string; dirHash?: string; at?: number } | null
+  }
 }
 
 export interface OwnLogAcquireInput {
@@ -131,6 +145,24 @@ export function lastOwnLogDegraded(): { reason: OwnLogDegradeReason; dir: string
   }
 }
 
+/**
+ * 测试缝（#212）：接线路径（`createHostUpdate` → `acquireOwnLog`）不显式传 loader/退避表，
+ * 而「建库失败 → 降级成没有落点」这条分支必须在测试里可复现（否则只能靠真把 dsh-log 弄坏）。
+ * **入参显式给了就用入参**，缝只在没给时生效；默认（null）完全不动既有行为。
+ */
+export interface OwnLogAcquireSeams {
+  loader?: () => Promise<unknown>
+  retryDelaysMs?: number[]
+  cooldownMs?: number
+}
+
+let acquireSeams: OwnLogAcquireSeams | null = null
+
+/** 装/拆测试缝：只影响之后发起的 `acquireOwnLog`。 */
+export function __setOwnLogAcquireSeamsForTests(seams: OwnLogAcquireSeams | null): void {
+  acquireSeams = seams ?? null
+}
+
 /** 目录指纹：日志目录不进日志行，只进 8 位指纹（第三方交日志时用来对齐目录，不泄露路径）。 */
 export function logDirHash(dir: string): string {
   return hashToken(String(dir ?? ''), 8)
@@ -166,7 +198,7 @@ export async function acquireOwnLog(input: OwnLogAcquireInput): Promise<OwnLogAc
       return { ...base, reason }
     }
     const pluginVersion = resolvePluginVersion(input.pluginVersion)
-    const load = input.loader ?? (() => import('dsh-log/node') as Promise<unknown>)
+    const load = input.loader ?? acquireSeams?.loader ?? (() => import('dsh-log/node') as Promise<unknown>)
     let mod: unknown
     try {
       mod = await load()
@@ -175,7 +207,7 @@ export async function acquireOwnLog(input: OwnLogAcquireInput): Promise<OwnLogAc
     }
     const factory = (mod as { createNodeHostLog?: unknown } | null | undefined)?.createNodeHostLog
     if (typeof factory !== 'function') return degrade(state, input, base, 'no-dsh-log', now(), key, dir)
-    const delays = input.retryDelaysMs ?? DEFAULT_RETRY_DELAYS
+    const delays = input.retryDelaysMs ?? acquireSeams?.retryDelaysMs ?? DEFAULT_RETRY_DELAYS
     let store: OwnLogStore | null = null
     let lastError: unknown = null
     for (let attempt = 0; attempt <= delays.length; attempt++) {
@@ -217,18 +249,29 @@ export async function acquireOwnLog(input: OwnLogAcquireInput): Promise<OwnLogAc
       store,
       health: () => {
         let dropped = 0
+        let switchEnabled: boolean | null = null
         let lastPersistFail: ReturnType<NonNullable<OwnLogStore['getLastPersistFail']>> = null
         try {
           dropped = Number(store?.getDroppedCount?.() ?? 0)
         } catch {
           dropped = 0
         }
+        // 开关自述两种形状都认（`{ enabled }` 与裸布尔）；取不到或形状不对＝null（未验证）。
+        try {
+          const state = store?.getSwitchState?.()
+          if (typeof state === 'boolean') switchEnabled = state
+          else if (state && typeof state === 'object' && typeof (state as { enabled?: unknown }).enabled === 'boolean') {
+            switchEnabled = (state as { enabled: boolean }).enabled
+          }
+        } catch {
+          switchEnabled = null
+        }
         try {
           lastPersistFail = store?.getLastPersistFail?.() ?? null
         } catch {
           lastPersistFail = null
         }
-        return { namespace, dir, refs: handle.refs, dropped, lastPersistFail }
+        return { namespace, dir, refs: handle.refs, dropped, switchEnabled, lastPersistFail }
       },
     }
     state.handles.set(key, handle)
@@ -301,7 +344,7 @@ function degrade(
   dir: string
 ): OwnLogAcquireResult {
   state.degraded.set(key, { reason, at })
-  state.cooldownUntil.set(key, at + (input.cooldownMs ?? DEFAULT_COOLDOWN_MS))
+  state.cooldownUntil.set(key, at + (input.cooldownMs ?? acquireSeams?.cooldownMs ?? DEFAULT_COOLDOWN_MS))
   state.lastDegraded = { reason, dir, at }
   try {
     input.onDegrade?.(reason, dir)
@@ -347,6 +390,7 @@ export function __resetOwnLogRegistryForTests(): void {
     state.degraded.clear()
     state.cooldownUntil.clear()
     state.lastDegraded = null
+    acquireSeams = null
   } catch {
     /* 忽略 */
   }

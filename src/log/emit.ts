@@ -65,9 +65,23 @@ export interface LogEmitOptions {
   always?: boolean
 }
 
+/**
+ * 单插件的发射读数（#212）：全局 `counts()` 回答「这个进程写了多少」，它回答「**这个插件**的行去哪了」
+ * —— 日志健康回包要的正是后者（别人的行不算我的）。`lastEventAt` 只在真的把行交给落点时更新：
+ * 被准入跳过、被边沿抑制、被丢弃的行都不算「到过落点」。
+ */
+export interface LogPluginCounts {
+  emitted: number
+  skipped: number
+  dropped: number
+  lastEventAt: number | null
+}
+
 export interface LogEmitter {
   emit: (level: string, event: string, fields: Record<string, unknown>, opts?: LogEmitOptions) => boolean
   counts: () => LogEmitterCounts
+  /** 按插件标识的读数（#212）；从没发射过的插件是全零，不是别人的数。 */
+  pluginCounts: (pluginId: string) => LogPluginCounts
   /** 已记过 degraded 的去重键：整行丢弃是原因本身；字段级漂移是 `原因\\u0000事件\\u0000字段`。 */
   degradedReasons: () => string[]
 }
@@ -147,6 +161,8 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
   const degraded = new Set<string>()
   const degradedCodes = new Set<string>()
   const seen = new Map<string, string>()
+  // 按插件标识分家的读数（#212）：全局 counts 形状不变，这里记「这个插件自己的账」。
+  const perPlugin = new Map<string, LogPluginCounts>()
   const mode = deps.mode ?? 'drop'
   const table = (): ReturnType<typeof currentUpdateEventTable> => {
     try {
@@ -156,8 +172,19 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
     }
   }
 
+  /** 取（必要时建）某个插件的读数格：只有被问到的插件才建格，从没发射过的插件是全零。 */
+  function pluginSlot(pluginId: string): LogPluginCounts {
+    let slot = perPlugin.get(pluginId)
+    if (!slot) {
+      slot = { emitted: 0, skipped: 0, dropped: 0, lastEventAt: null }
+      perPlugin.set(pluginId, slot)
+    }
+    return slot
+  }
+
   function countDrop(reason: LogDropReason, pluginId: string): void {
     counts.dropped++
+    pluginSlot(pluginId).dropped++
     counts.droppedByReason[reason] = (counts.droppedByReason[reason] ?? 0) + 1
     degrade(reason, pluginId)
   }
@@ -217,9 +244,12 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
   }
 
   function emit(level: string, event: string, fields: Record<string, unknown>, opts?: LogEmitOptions): boolean {
+    // 路由标识在 try 外留一份：抛错兜底（emit-threw）也得记在**这个插件**头上，不能记到空标识上。
+    let routeId = ''
     try {
       const raw = fields && typeof fields === 'object' ? fields : {}
       const pluginId = opts?.pluginId ?? (typeof raw['pluginId'] === 'string' ? (raw['pluginId'] as string) : '')
+      routeId = pluginId
       if (!pluginId) {
         countDrop('no-plugin-id', pluginId)
         if (mode === 'throw') throw new Error('日志行缺 pluginId：无法路由到落点')
@@ -253,6 +283,7 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
         try {
           if (!sink.isEnabled(level, event)) {
             counts.skipped++
+            pluginSlot(pluginId).skipped++
             return false
           }
         } catch {
@@ -273,10 +304,14 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
       // 被准入跳过/边沿抑制/丢弃的行不算（#210 契约健康：计数必须对得上落点）。
       if (!tableNow) counts.unvalidated++
       writeRow(sink, level, event, sanitized)
+      // 「到过落点」的判据是这一行真的交给了落点：skip/suppress/drop 都不算（#212）。
+      const slot = pluginSlot(pluginId)
+      slot.emitted++
+      slot.lastEventAt = Date.now()
       counts.emitted++
       return true
     } catch (error) {
-      countDrop('emit-threw', opts?.pluginId ?? '')
+      countDrop('emit-threw', routeId)
       if (mode === 'throw') throw error
       return false
     }
@@ -285,6 +320,7 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
   return {
     emit,
     counts: () => ({ ...counts, droppedByReason: { ...counts.droppedByReason } }),
+    pluginCounts: (pluginId) => ({ ...pluginSlot(String(pluginId ?? '')) }),
     degradedReasons: () => Array.from(degradedCodes),
   }
 }
@@ -312,6 +348,18 @@ export function emitUpdateLog(
 /** 丢弃/短路计数出口（诊断面 #125 会把它们摆到面板上，这里先有只读口）。 */
 export function logEmitterCounts(): LogEmitterCounts {
   return updateLogEmitter.counts()
+}
+
+/**
+ * 按插件标识的发射读数（#212）：日志健康回包用它回答「**这个插件**的行去哪了」。
+ * 取不到（发射口坏了）时回全零 —— 宁可报「没记到」，也不许抛。
+ */
+export function logEmitterCountsFor(pluginId: string): LogPluginCounts {
+  try {
+    return updateLogEmitter.pluginCounts(String(pluginId ?? ''))
+  } catch {
+    return { emitted: 0, skipped: 0, dropped: 0, lastEventAt: null }
+  }
 }
 
 /**
