@@ -18,7 +18,7 @@
 import { describe, it, after, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import {
@@ -192,10 +192,21 @@ describe('落盘层：陈旧锁回收与失败记账', () => {
     assert.match(busyOf()[0].fields.ownerHash, /^[0-9a-f]{8}$/)
 
     // 换了一代持有者：指纹变了，值得再记一条（否则「谁在占」还是看不出来）。
-    writeFileSync(ports.paths.lock, JSON.stringify({ id: 'job-other', pid: 5151, startedAt: Date.now() }))
+    const otherLock = JSON.stringify({ id: 'job-other', pid: 5151, startedAt: Date.now() })
+    writeFileSync(ports.paths.lock, otherLock)
     assert.equal(await ports.tryAcquireLock('job-me'), false)
     assert.equal(busyOf().length, 2, '换持有者算新异常')
     assert.notEqual(busyOf()[0].fields.ownerHash, busyOf()[1].fields.ownerHash)
+
+    // 锁换代（我抢到了又放掉）：去重记忆要清。否则同一个持有者下次再挡会被永久吞掉，
+    // 比 guard「同一持有者连续只记首次」宽——「连续」指同一段持有，不是永远。
+    unlinkSync(ports.paths.lock)
+    assert.equal(await ports.tryAcquireLock('job-me'), true, '锁位空着，该我抢到')
+    await ports.releaseLock('job-me')
+    writeFileSync(ports.paths.lock, otherLock)
+    assert.equal(await ports.tryAcquireLock('job-me'), false)
+    assert.equal(busyOf().length, 3, '抢到过锁之后，同一持有者再挡要重新记一条')
+    assert.equal(busyOf()[2].fields.ownerHash, busyOf()[1].fields.ownerHash, '指纹还是那个持有者')
     assertRowsSane(rec.rows)
     assertNoPathText(rec.rows, [homeDir, profileDir, ports.paths.lock])
   })

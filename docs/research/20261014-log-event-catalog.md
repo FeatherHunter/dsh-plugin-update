@@ -1,6 +1,6 @@
 # 日志事件目录：19 环节 → 事件码 / 级别 / 档位 / 字段 / 脱敏
 
-- 日期：2026-10-14（**2026-10-15 契约回填**：本文件的「事件名 / 字段 / 取值」三处与随包清单、实现对齐；见文末 §7。**2026-10-19 二次回填（`#211`）**：五个事件的字段与枚举按随包清单一字回填，错误类别细化见 §8。**2026-10-19 三次回填（`#208`）**：批量三事件补 `sessionHash` / `stage` / `index` / `stoppedBecause`，`host.call.fail` 与批量面板客户端日志接上批量现场；事件名与档位归属不变、字段 +6，见 §9。**2026-10-19 四次回填（`#209`）**：队列 / 锁 / 存储三行补持有者指纹与清理相位、批量异常停止行、轮询失败心跳；事件名与档位归属不变、字段 +3，见 §10）
+- 日期：2026-10-14（**2026-10-15 契约回填**：本文件的「事件名 / 字段 / 取值」三处与随包清单、实现对齐；见文末 §7。**2026-10-19 二次回填（`#211`）**：五个事件的字段与枚举按随包清单一字回填，错误类别细化见 §8。**2026-10-19 三次回填（`#208`）**：批量三事件补 `sessionHash` / `stage` / `index` / `stoppedBecause`，`host.call.fail` 与批量面板客户端日志接上批量现场；事件名与档位归属不变、字段 +6，见 §9。**2026-10-19 四次回填（`#209`）**：队列 / 锁 / 存储三行补持有者指纹与清理相位、批量异常停止行、轮询失败心跳；事件名与档位归属不变、字段实发 +3（白名单净新增一栏 `update.queue.transition.holderHash`，`update.lock.anomaly.ownerHash` 与 `update.store.fail.dirHash` 原已声明、本票转为实发），见 §10）
 - 本票：[规格定稿](https://github.com/FeatherHunter/dsh-plugin-update/issues/119)（地图 [本包全面集成 dsh-log 0.3.1](https://github.com/FeatherHunter/dsh-plugin-update/issues/117)）
 - 上游事实源：`docs/research/20261014-update-logging-inventory.md`（19 环节清单与逐条 `文件:行号`）、`docs/research/20261014-dsh-log-031-api.md`、`docs/research/20261014-dsh-host-logging-surface.md`
 - 立规的两份 ADR：[ADR-0005 运行期依赖与落盘归属](https://github.com/FeatherHunter/dsh-plugin-update/blob/main/docs/adr/0005-dsh-log-as-first-runtime-dependency.md)、[ADR-0006 行只承载稳定码](https://github.com/FeatherHunter/dsh-plugin-update/blob/main/docs/adr/0006-log-rows-carry-codes-not-prose.md)

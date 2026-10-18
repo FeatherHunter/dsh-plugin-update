@@ -26,6 +26,7 @@ import { BACKUP_FILE, DEFAULT_INSTALL_TIMEOUT_MS, LEGACY_PLUGIN_ID, LOCK_FILE, S
 import { emptyBatchSession, normalizeBatchSession, type BatchSession } from './batch.js'
 import { QUEUE_INTENT_TTL_MS, normalizeQueueState, type QueueOwner, type UpdateQueueState } from './queue.js'
 import { hash8 } from './hash.js'
+import { hashToken } from './log/namespace.js'
 import { validReleaseVersion } from './service.js'
 import { DETAIL_MAX_CHARS, MASKED_CREDENTIAL_NOTE, sanitizeDetail } from './redaction.js'
 import { LOG_EVENT_INSTALL_EXEC } from './log-events.js'
@@ -50,11 +51,6 @@ function shortHash(text: string): string {
   } catch {
     return '00000000'
   }
-}
-
-/** 目录短指纹（#209）：与 `logDirHash` 同族（sha256 前 8 位十六进制），只做同一性聚合，不可逆。 */
-function shortHash8(text: string): string {
-  return shortHash(text).slice(0, 8)
 }
 
 /** 持有者指纹（#209）：从锁文件里记得下的稳定量算 8 位短哈希，绝不入原文（ADR-0006）。 */
@@ -264,6 +260,11 @@ interface StoreLogPorts {
     /** 边沿主体：同一相位下逐条待办（如同时被摘的多条意向）靠它各留一条，不给则按「动作方 + 相位」边沿去重。 */
     fingerprintSalt?: string
   ): void
+  /**
+   * 抢锁成功后清掉 busy-owner 的去重记忆（#209）：持有者放锁、锁真的换了代以后，
+   * 同一个持有者再挡一次要重新记——「连续只记首次」说的是同一次占用，不是永久沉默。
+   */
+  clearBusyOwner(): void
 }
 
 /**
@@ -355,6 +356,9 @@ function createStoreLog(
         // 逐条待办的边沿另带主体盐（intentKey），同一相位下不同待办各记一条。
         fire(port, 'info', LOG_EVENT_QUEUE_TRANSITION, fields, `${pluginId}\u0000${phase}\u0000${fingerprintSalt ?? ''}`)
       } catch {}
+    },
+    clearBusyOwner() {
+      lastBusyOwner.clear()
     },
   }
 }
@@ -450,7 +454,7 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
     typeof deps.log === 'function' ? deps.log : null,
     null,
     pluginId,
-    paths ? shortHash8(paths.directory) : undefined
+    paths ? hashToken(paths.directory, 8) : undefined
   )
   async function readAt(p: UpdatePaths | null): Promise<Record<string, unknown> | null> {
     if (!p) return null
@@ -539,10 +543,17 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
     const staleMs = lockStaleMs(options)
     try {
       await mkdir(paths.directory, { recursive: true, mode: 0o700 })
-      if (await createInstallLock(lockId)) return true
+      if (await createInstallLock(lockId)) {
+        storeLog.clearBusyOwner()
+        return true
+      }
       const held = await probeInstallLock()
       // 锁刚被放掉（两次读之间消失）：直接再抢一次，不算回收。
-      if (!held.present) return createInstallLock(lockId)
+      if (!held.present) {
+        const won = await createInstallLock(lockId)
+        if (won) storeLog.clearBusyOwner()
+        return won
+      }
       // 可解析看锁里记的 startedAt；不可解析/缺格退回 mtime；判不了年龄就按「别人正持有」拒（保守）。
       const age = lockAgeOf(held, Date.now())
       if (age === undefined || age <= staleMs) {
@@ -555,7 +566,11 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
       // 残余窗口（B 的删锁落在 A 的重建之后）在直接集成 createUpdateDiskPorts 时仍存在；宿主路径先拿
       // 跨插件全局锁（src/host.ts:355-370），到不了这里。记在 #181 票面，不在本批扩大。
       const again = await probeInstallLock()
-      if (!again.present) return createInstallLock(lockId)
+      if (!again.present) {
+        const won = await createInstallLock(lockId)
+        if (won) storeLog.clearBusyOwner()
+        return won
+      }
       const ageAgain = lockAgeOf(again, Date.now())
       if (ageAgain === undefined || ageAgain <= staleMs || !sameLockGeneration(held, again)) return false
       try {
@@ -569,6 +584,8 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
       }
       // 回收与建锁之间被别人抢先：认输（不递归重试，避免两个进程互摘）。
       if (!(await createInstallLock(lockId))) return false
+      // 锁换代了：busy-owner 的去重记忆作废，同一持有者下次再挡要重新记（#209）。
+      storeLog.clearBusyOwner()
       // 回收成功＝锁的主人早该收尾却没放（孤儿/陈旧）而这次真被摘掉：真边沿，年龄记判据来路，
       // 持有者指纹说明被摘掉的是哪一把（#209）。
       storeLog.anomaly(LOCK_ANOMALY_STALE_OWNER, null, ageAgain, lockOwnerHash(again.owner))
@@ -787,7 +804,7 @@ export function createUpdateQueuePorts(
     null,
     typeof deps.logFor === 'function' ? deps.logFor : null,
     null,
-    paths ? shortHash8(paths.directory) : undefined
+    paths ? hashToken(paths.directory, 8) : undefined
   )
   /** 判跃迁要「写盘前」那一份：只有接了发射口才多读这一次，读不到就判不了（宁可不发，不猜）。 */
   async function readQueueForEdge(): Promise<UpdateQueueState | null> {
@@ -876,10 +893,17 @@ export function createUpdateQueuePorts(
         : QUEUE_LOCK_STALE_MS
     try {
       await mkdir(paths.directory, { recursive: true, mode: 0o700 })
-      if (await createGlobalLock(lockId, pluginId)) return true
+      if (await createGlobalLock(lockId, pluginId)) {
+        storeLog.clearBusyOwner()
+        return true
+      }
       const held = await probeGlobalLock(pluginId)
       // 锁刚被放掉（两次读之间消失）：直接再抢一次，不算回收。
-      if (!held.present) return createGlobalLock(lockId, pluginId)
+      if (!held.present) {
+        const won = await createGlobalLock(lockId, pluginId)
+        if (won) storeLog.clearBusyOwner()
+        return won
+      }
       // 与安装锁同一判据：可解析看 startedAt，不可解析/缺格退回 mtime，判不了年龄就保守拒。
       const age = queueLockAge(held, now())
       if (age === undefined || age <= timeoutMs) {
@@ -889,7 +913,11 @@ export function createUpdateQueuePorts(
       }
       // 二次核对：别人可能在「判陈旧 → 删锁」之间已经重建（同安装锁的残余窗口，见 tryAcquireLock 注）。
       const again = await probeGlobalLock(pluginId)
-      if (!again.present) return createGlobalLock(lockId, pluginId)
+      if (!again.present) {
+        const won = await createGlobalLock(lockId, pluginId)
+        if (won) storeLog.clearBusyOwner()
+        return won
+      }
       const ageAgain = queueLockAge(again, now())
       if (ageAgain === undefined || ageAgain <= timeoutMs || !sameLockGeneration(held, again)) return false
       try {
@@ -902,6 +930,8 @@ export function createUpdateQueuePorts(
       }
       // 回收与建锁之间被别人抢先：认输（不递归重试，避免两个进程互摘）。
       if (!(await createGlobalLock(lockId, pluginId))) return false
+      // 锁换代了：busy-owner 的去重记忆作废（#209）。
+      storeLog.clearBusyOwner()
       // 回收成功是真跃迁：陈旧主人被摘掉（lock.anomaly）＋锁到了我手里（queue.transition 的 reclaimed）。
       storeLog.anomaly(LOCK_ANOMALY_STALE_OWNER, pluginId, ageAgain, lockOwnerHash(again.owner))
       storeLog.transition('reclaimed', pluginId, { holderHash: hash8(pluginId) })
