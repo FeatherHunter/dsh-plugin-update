@@ -66,6 +66,7 @@ import { assertPluginId, assertPrefix, resolveUpdateConfig, type UpdateConfigInp
 import { CROSS_SCOPE_CODE, isBatchReplyCode, isCoreErrorCode } from './codes.js'
 import { createHostUpdate, type HostUpdate, type ReaderOverrides } from './host.js'
 import { emitUpdateLog } from './log/emit.js'
+import type { ManualSource } from './last-resort.js'
 import type { UpdateLogPort } from './ports.js'
 import { defaultHomeDir } from './reader.js'
 import { compareReleaseVersions } from './service.js'
@@ -403,6 +404,11 @@ function pluginIdOf(spec: MultiTargetSpec, batchPrefix: string): string {
 interface RowCache {
   snapshot: unknown
   manual: string | null
+  /**
+   * 手工命令可信来源（#177）：`frame` = manual 与 snapshot 来自同一成功回包；
+   * `carried-over` = 失败回包沿用旧值（行详情 fail-closed）；`null` = 当帧确认没有命令。
+   */
+  manualSource: ManualSource | null
   queue: unknown
   profileName: string | null
   /** 宿主种类（env.environmentKind；面板诊断与详情用，取不到即 null，说人话未知）。 */
@@ -415,6 +421,7 @@ interface RowCache {
 const EMPTY_CACHE: RowCache = {
   snapshot: null,
   manual: null,
+  manualSource: null,
   queue: null,
   profileName: null,
   hostKind: null,
@@ -482,7 +489,14 @@ async function callPhone(rt: TargetRuntime, name: string, args: Record<string, u
   const next: RowCache = { ...rt.cache }
   if (value['ok'] === true) {
     if ('snapshot' in value) next.snapshot = value['snapshot'] ?? null
-    if ('manual' in value) next.manual = firstText(value['manual'])
+    // #177：manual 只在成功回包里算当帧事实；回包没带 `manual` 键 = 当帧确认没有命令（老宿主同样口径）。
+    if ('manual' in value) {
+      next.manual = firstText(value['manual'])
+      next.manualSource = next.manual !== null ? 'frame' : null
+    } else {
+      next.manual = null
+      next.manualSource = null
+    }
     if ('queue' in value) next.queue = value['queue'] ?? null
     if ('env' in value) {
       next.profileName = firstText(asRecord(value['env'])['profileName'])
@@ -494,6 +508,8 @@ async function callPhone(rt: TargetRuntime, name: string, args: Record<string, u
   } else {
     // 失败回包才可能带 diag（status / check / install 三电话同一套 #21 契约），有就收下。
     next.diag = 'diag' in value ? (value['diag'] ?? null) : null
+    // #177：失败回包沿用旧命令 = 遗留值（carried-over），渲染侧据此 fail-closed，不展示/不给复制。
+    next.manualSource = next.manual !== null ? 'carried-over' : null
     // 失败也带使用范围与宿主种类（#45：调用方显式要才带；读不到即保留旧值，不猜）。
     if ('env' in value) {
       const envRec = asRecord(value['env'])
@@ -986,6 +1002,8 @@ export function createMultiHostUpdate(
         error: entry ? entry.error : rt.cache.error,
         snapshot: rt.cache.snapshot,
         manual: rt.cache.manual,
+        // #177：行判定也要知道这条命令是不是当帧读数（frame）还是失败后沿用的旧值。
+        manualSource: rt.cache.manualSource,
         queue: rt.cache.queue,
         profileName: rt.cache.profileName,
         hostKind: rt.cache.hostKind,

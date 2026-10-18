@@ -30,12 +30,18 @@ import {
   panelViewModel,
   redactForCopy,
   replyIsCheckExpired,
+  lastResortBarHTML,
+  lastResortCopyButtonHTML,
+  copyBubbleHTML,
   themeTokensStyleFor,
   thrownIsCheckExpired,
   type UpdatePanelClientLogOptions,
   type UpdateThemeTokens,
 } from './panel.js'
 import { formatUnlockAt } from './install-cause.js'
+import { lastResortVerdictOf, type ManualSource } from './last-resort.js'
+// #174：last-resort 的类型经既有子路径转出，消费者无需新子路径即可命名（`ManualSource` 已出现在本模块导出签名里）。
+export type { LastResortKind, RescueRouteKey, ManualSource, LastResortVerdict } from './last-resort.js'
 import { createClientLogChannel, type ClientLogChannel } from './log/client-queue.js'
 import type { UpdateSnapshot } from './ports.js'
 import type { VisibleQueue } from './queue.js'
@@ -135,11 +141,24 @@ export const INSTALL_BUTTON_CSS = [
   '.dsh-upd-ib-status{font-weight:600;overflow-wrap:anywhere}',
   '.dsh-upd-ib-sub{opacity:.85;overflow-wrap:anywhere}',
   '.dsh-upd-ib-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}',
-  '.dsh-upd-ib button{cursor:pointer}',
+  '.dsh-upd-ib button{cursor:pointer;transition:border-color 120ms ease,box-shadow 120ms ease,transform 80ms ease}',
   '.dsh-upd-ib button[disabled]{cursor:default}',
+  // #173 v1.3：按钮 hover 必须看得见边框变化（主色边框 + 2px 外环），不能只靠 brightness。
+  '.dsh-upd-ib button:hover:not(:disabled){border-color:var(--dsh-update-primary,#2563eb);box-shadow:0 0 0 2px var(--dsh-update-primary,#2563eb)}',
+  '.dsh-upd-ib button:active:not(:disabled){transform:translateY(1px)}',
+  '.dsh-upd-ib button:focus-visible{outline:2px solid var(--dsh-update-primary,#2563eb);outline-offset:2px}',
+  '@media (prefers-reduced-motion: reduce){.dsh-upd-ib button{transition:none}}',
   '.dsh-upd-ib-manual summary{cursor:pointer}',
   '.dsh-upd-ib-manual code{display:block;white-space:pre-wrap;overflow-wrap:anywhere}',
+  // #174：折叠细节里的最后手段条与 #177 的 stale 说明（主题令牌走既有变量；内联回退色与同文件既有变量写法一致）。
+  '.dsh-upd-ib-manual .dsh-upd-lastresort{margin-top:6px}',
+  '.dsh-upd-ib-manual .dsh-upd-lr-go{margin:0}',
+  '.dsh-upd-ib-stale{color:var(--dsh-update-text-muted,inherit);font-size:var(--dsh-update-panel-small-font-size,12px)}',
   '.dsh-upd-ib-notice{opacity:.8}',
+  // #173 v1.3：复制成功气泡（fixed 定位，不挤动布局；系统色/减弱动态下可用）。
+  '.dsh-upd-ib .dsh-upd-copy-bubble{position:fixed;z-index:10000;transform:translate(-50%,-100%);background:var(--dsh-update-text,#1f2937);color:var(--dsh-update-bg,#ffffff);border-radius:4px;padding:3px 9px;font-size:var(--dsh-update-panel-small-font-size,12px);line-height:1.5;pointer-events:none}',
+  '@media (prefers-reduced-motion: reduce){.dsh-upd-ib .dsh-upd-copy-bubble{animation:none}}',
+  '@media (forced-colors: active){.dsh-upd-ib .dsh-upd-copy-bubble{border:1px solid CanvasText;background:Canvas;color:CanvasText}}',
   '.dsh-upd-ib[data-theme="archive"] .dsh-upd-ib-status{font-family:serif}',
 ].join('\n')
 
@@ -399,9 +418,36 @@ export function installButtonViewModel(input: InstallButtonViewInput): InstallBu
 
 export function renderInstallButtonHTML(
   view: InstallButtonView,
-  opts: { manual: string | null; notice: string | null; theme: 'default' | 'archive'; lang: AppLang },
+  opts: {
+    manual: string | null
+    notice: string | null
+    theme: 'default' | 'archive'
+    lang: AppLang
+    manualSource?: ManualSource | null
+    /** 该帧失败码（给了才判最后手段；缺省按无码 → unknown，不误亮）。 */
+    failureCode?: string | null
+    /** 合规版救援证据（给了就把 install-failed 判成 salvageable）。 */
+    fallbackAvailable?: boolean
+    /** 待重启那档的在册事实（#190；false → 救援路径是「在宿主里选择」）。 */
+    registered?: boolean | null
+    /** 复制成功气泡（#173 v1.3）：缺省即不画。 */
+    bubble?: { text: string; left: number; top: number } | null
+  },
 ): string {
   const l = opts.lang
+  // #177：命令可信来源（缺省按 frame，兼容老调用方）；carried-over 一律 fail-closed。
+  const manualSource: ManualSource | null =
+    opts.manualSource === 'carried-over' ? 'carried-over' : opts.manualSource === null ? null : 'frame'
+  const manualTrusted =
+    typeof opts.manual === 'string' && opts.manual.trim() !== '' && manualSource === 'frame'
+  const lastResort = lastResortVerdictOf({
+    code: opts.failureCode ?? null,
+    blockedReason: null,
+    manual: typeof opts.manual === 'string' ? opts.manual : null,
+    manualSource,
+    fallbackAvailable: opts.fallbackAvailable === true,
+    registered: opts.registered ?? null,
+  })
   const parts: string[] = []
   parts.push('<style>' + INSTALL_BUTTON_CSS + '</style>')
   parts.push('<div class="dsh-upd-ib" data-theme="' + opts.theme + '">')
@@ -479,22 +525,46 @@ export function renderInstallButtonHTML(
         '</button></div>',
     )
   }
-  if (view.showManual && opts.manual) {
+  // 手工命令折叠区（#174 A′）：只有最后手段那一档在折叠细节里插 A′ 条，按钮落在主位；
+  // 其余档沿用原样。carried-over（#177）不给命令、不给复制、只说明未按当帧确认。
+  if (view.showManual && manualTrusted) {
+    const bar = lastResortBarHTML({
+      verdict: lastResort,
+      lang: l,
+      buttonHtml: lastResortCopyButtonHTML(l),
+    })
     parts.push(
       '<details class="dsh-upd-ib-manual"><summary>' +
         escapeHtml(copyText('panel.chapter.manual', l)) +
-        '</summary><code>' +
-        escapeHtml(opts.manual) +
-        '</code><button type="button" data-action="copy-manual" title="' +
-        escapeHtml(copyText('panel.action.copy-manual-title', l)) +
-        '">' +
-        escapeHtml(copyText('panel.action.copy-manual', l)) +
-        '</button></details>',
+        '</summary>' +
+        bar +
+        '<code>' +
+        escapeHtml(opts.manual ?? '') +
+        '</code>' +
+        (bar
+          ? ''
+          : '<button type="button" data-action="copy-manual" title="' +
+            escapeHtml(copyText('panel.action.copy-manual-title', l)) +
+            '">' +
+            escapeHtml(copyText('panel.action.copy-manual', l)) +
+            '</button>') +
+        '</details>',
+    )
+  } else if (view.showManual && manualSource === 'carried-over' && opts.manual) {
+    parts.push(
+      '<details class="dsh-upd-ib-manual"><summary>' +
+        escapeHtml(copyText('panel.chapter.manual', l)) +
+        '</summary><div class="dsh-upd-ib-stale">' +
+        escapeHtml(copyText('panel.manual.stale', l)) +
+        '</div></details>',
     )
   }
   if (opts.notice) {
     parts.push('<div class="dsh-upd-ib-notice" role="status">' + escapeHtml(opts.notice) + '</div>')
   }
+  // v1.3：复制成功气泡挂在槽位根部之内（CSS `.dsh-upd-ib .dsh-upd-copy-bubble` 才能管到定位/配色）；
+  // fixed 定位不挤压布局，按钮文案/图标不变。
+  parts.push(copyBubbleHTML(opts.bubble ?? null))
   parts.push('</div>')
   return parts.join('')
 }
@@ -625,6 +695,10 @@ export function mountInstallButton(
   let mounted = true
   let snapshot: UpdateSnapshot | null = null
   let manual: string | null = null
+  // #177：命令可信来源（frame / carried-over）；失败回包沿用旧值即不可信。
+  let manualSource: ManualSource | null = null
+  // #177 D3：失败回包后只补读一次（成功才应用；不写锁存、不重试、失败即静默）。
+  let failureRereadDone = false
   let queue: VisibleQueue | null = null
   let receipt: { checkId: string } | null = null
   let requestId: string | null = null
@@ -639,6 +713,10 @@ export function mountInstallButton(
   let envProfileName: string | null = null
   let copyNotice: string | null = null
   let noticeExpiresAt = 0
+  // #173 v1.3：复制成功气泡（状态提示，不改按钮文案/图标）；1.4s 后撤掉。
+  let copyBubble: { text: string; left: number; top: number } | null = null
+  let copyBubbleTimer: ReturnType<typeof setTimeout> | null = null
+  let copyAnchorEl: unknown = null
   let actionBytes = -1
   let actionTruncated = false
 
@@ -778,6 +856,8 @@ export function mountInstallButton(
       const s = asSnapshot(reply['snapshot'])
       if (s) snapshot = s
       manual = typeof reply['manual'] === 'string' ? (reply['manual'] as string) : null
+      manualSource = manual !== null ? 'frame' : null
+      failureRereadDone = false
       if (reply['receipt'] && isObject(reply['receipt']) && typeof reply['receipt']['checkId'] === 'string') {
         receipt = { checkId: reply['receipt']['checkId'] as string }
       }
@@ -819,6 +899,9 @@ export function mountInstallButton(
       const errText = typeof reply['error'] === 'string' ? reply['error'].trim() : ''
       if ((kindText || errText) !== 'update-busy') {
         setLatch(latchFromReply(reply, via === 'install' ? 'install' : 'check'))
+        // #177：失败回包里的命令只是上一帧沿用值 —— fail-closed，等补读确认为当帧。
+        manualSource = manual ? 'carried-over' : null
+        scheduleFailureReread()
       }
       try {
         const env = reply['env']
@@ -838,6 +921,33 @@ export function mountInstallButton(
         // Failed-reply queue view is optional.
       }
     }
+  }
+
+  /**
+   * #177 D3：失败回包后的静默补读（只一次）。
+   * 只发一次只读 updateStatus：成功才按当帧应用（manual 恢复 frame）并重绘；失败静默，
+   * 不写失败锁存、不重试、不制造新的失败帧。成功回包会重置闸门，给下一次失败留同一次机会。
+   */
+  function scheduleFailureReread(): void {
+    if (failureRereadDone || !mounted) return
+    failureRereadDone = true
+    void (async () => {
+      try {
+        const reply = await call(phoneNames.updateStatus, queueArgs())
+        if (!mounted) return
+        if (!isObject(reply) || reply['ok'] !== true) return
+        // 补读只补当帧读数（快照 / 命令 / 队列），不跑成功回包的锁存规则——失败帧原样保留。
+        const s = asSnapshot(reply['snapshot'])
+        if (s) snapshot = s
+        manual = typeof reply['manual'] === 'string' ? (reply['manual'] as string) : null
+        manualSource = manual !== null ? 'frame' : null
+        const q = asQueue(reply['queue'])
+        if (q) queue = q
+        paint()
+      } catch {
+        // 静默：补读只是最后一次读数机会；不写锁存、不重试。
+      }
+    })()
   }
 
   function queueArgs(): Record<string, unknown> {
@@ -870,7 +980,19 @@ export function mountInstallButton(
       }
       const lang = currentLang()
       const view = currentView()
-      const html = renderInstallButtonHTML(view, { manual, notice: copyNotice, theme, lang })
+      const html = renderInstallButtonHTML(view, {
+        manual,
+        notice: copyNotice,
+        theme,
+        lang,
+        manualSource,
+        // #174：最后手段判定要失败码；槽位自己的失败锁存就是当帧码。
+        failureCode: latch?.code ?? null,
+        // #156 合规版救援在槽位表现为兜底按钮出现——有救援就不判最后手段。
+        fallbackAvailable: view.fallbackStage !== null,
+        registered: snapshot?.registered ?? null,
+        bubble: copyBubble,
+      })
       try {
         container.innerHTML = html
       } catch {
@@ -889,6 +1011,37 @@ export function mountInstallButton(
       copyNotice = null
       noticeExpiresAt = 0
     }
+  }
+
+  /** 复制成功气泡：量按钮矩形、fixed 定位；量不到就落在左上角兜底，绝不因缺坐标不给反馈。 */
+  function showCopyBubble(anchor: unknown): void {
+    if (copyBubbleTimer !== null) {
+      try { clearTimeout(copyBubbleTimer) } catch { /* 忽略 */ }
+      copyBubbleTimer = null
+    }
+    let left = 0
+    let top = 0
+    try {
+      const el = anchor as { getBoundingClientRect?: () => { left?: unknown; top?: unknown; width?: unknown } } | null
+      const rect = el && typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect() : null
+      if (rect) {
+        const l = Number(rect.left)
+        const t = Number(rect.top)
+        const w = Number(rect.width)
+        if (Number.isFinite(l)) left = l + (Number.isFinite(w) ? w / 2 : 0)
+        if (Number.isFinite(t)) top = t - 6
+      }
+    } catch { left = 0; top = 0 }
+    try {
+      copyBubble = { text: copyText('panel.lastresort.copied', currentLang()), left, top }
+    } catch { copyBubble = null }
+    try {
+      copyBubbleTimer = setTimeout(() => {
+        copyBubbleTimer = null
+        copyBubble = null
+        if (mounted) paint()
+      }, 1400)
+    } catch { copyBubbleTimer = null }
   }
 
   async function refresh(): Promise<void> {
@@ -1084,8 +1237,10 @@ export function mountInstallButton(
 
   async function act(
     kind: 'install' | 'check' | 'copy-manual' | 'copy-diag' | 'install-fallback' | 'install-fallback-confirm' | 'wait-latest',
+    anchor: unknown = null,
   ): Promise<void> {
     if (!mounted) return
+    copyAnchorEl = anchor
     actionBytes = -1
     actionTruncated = false
     try {
@@ -1258,14 +1413,17 @@ export function mountInstallButton(
         return
       }
       case 'copy-manual': {
-        if (manual) {
+        // #177：只复制当帧可信的命令（遗留值连按钮都没有，这里再守一道）。
+        if (manual && manualSource === 'frame') {
           try {
             await copyTextOut(manual)
-            sayCopyKey('panel.toast.copy-manual-ok')
+            // v1.3：成功不改按钮文案/图标，只在按钮上方浮出「已复制」气泡（不另发 toast，避免双重反馈）。
+            showCopyBubble(copyAnchorEl)
           } catch {
             sayCopyKey('panel.toast.copy-manual-fail')
           }
         }
+        copyAnchorEl = null
         paint()
         return
       }
@@ -1321,7 +1479,7 @@ export function mountInstallButton(
         kind !== 'wait-latest'
       )
         return
-      void act(kind)
+      void act(kind, btn ?? null)
     } catch {
       // Click failure never blocks install.
     }
@@ -1339,6 +1497,10 @@ export function mountInstallButton(
       timer.clear(handle)
     } catch {
       // Poll timer is view-only; install keeps running host-side.
+    }
+    if (copyBubbleTimer !== null) {
+      try { clearTimeout(copyBubbleTimer) } catch { /* 忽略 */ }
+      copyBubbleTimer = null
     }
     try {
       container.removeEventListener?.('click', onClick)

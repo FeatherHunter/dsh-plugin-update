@@ -217,6 +217,13 @@ export type BilingualKey =
   | 'panel.manual.absent.dev-source'
   | 'panel.manual.absent.running-unknown'
   | 'panel.manual.absent.no-safe-candidate'
+  | 'panel.manual.stale'
+  | 'panel.lastresort.badge'
+  | 'panel.lastresort.status'
+  | 'panel.lastresort.reason'
+  | 'panel.lastresort.copy'
+  | 'panel.lastresort.copied'
+  | 'batch.lastresort.row-badge'
   | 'panel.manual.absent-comment'
   | 'panel.manual.absent-comment-unknown'
   | 'panel.manual.updater-nested'
@@ -614,6 +621,13 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.manual.absent.dev-source': { en: 'This is a dev-mode mount (source link); the update center only serves version installs. Edit the repo and restart the host to see the changes.', zh: '这是开发态挂载（源码链接），更新中心只服务按版本安装。改完仓库代码后重启宿主再看效果。', draft: true },
   'panel.manual.absent.running-unknown': { en: 'The running version cannot be read, so no command can be guaranteed not to downgrade. Restart the host and check again; if it still cannot be read, send the copied diagnostics to the plugin author.', zh: '读不到正在运行的版本号，无法保证给出的命令不会降级。重启宿主后再查一次；若仍读不到，请把复制诊断发给插件作者。', draft: true },
   'panel.manual.absent.no-safe-candidate': { en: 'No safe target version or argument set: candidates may all be older than the running version, outside the current channel, or the scope name/registry cannot be safely embedded in a command. Check again after a newer version ships, or fix the blocked reason in section 5.2 first.', zh: '没有可安全执行的目标版本或参数：可能候选都低于运行版、不在当前通道，或范围名/源地址无法安全拼进命令。请等新版发布后再查，或先按第 5.2 节的受阻原因修好环境。', draft: true },
+  'panel.manual.stale': { en: 'This manual command has not been confirmed against the current reading. Re-query before copying.', zh: '手工命令尚未按当帧读数确认，重新查询后再复制。', draft: true },
+  'panel.lastresort.badge': { en: 'Last resort', zh: '最后手段', draft: true },
+  'panel.lastresort.status': { en: 'No automatic recovery left', zh: '自动恢复不可用', draft: true },
+  'panel.lastresort.reason': { en: 'There is no automatic data path left; copying this command is the only way forward.', zh: '没有可用的自动数据路径；复制这条命令是唯一出路。', draft: true },
+  'panel.lastresort.copy': { en: 'Copy manual command', zh: '复制手工命令', draft: true },
+  'panel.lastresort.copied': { en: 'Copied', zh: '已复制', draft: true },
+  'batch.lastresort.row-badge': { en: 'Last resort', zh: '最后手段', draft: true },
   'panel.manual.absent-comment': { en: 'no manual command ({reason})', zh: '无手工命令（{reason}）', draft: true },
   'panel.manual.absent-comment-unknown': { en: 'no manual command (cause unknown)', zh: '无手工命令（原因未知）', draft: true },
   'panel.manual.updater-nested': { en: 'This panel runs a nested copy of the updater ({version}), pinned by the plugin that declares it; update that plugin first (this panel picks up a newer updater only after that plugin widens its range). You can also install the updater at the profile level with the carrier CLI so other plugins sharing that copy get the fixes first: {command}', zh: '本面板的更新器是嵌套副本（{version}），由声明它的插件钉住；请先更新那个插件（它发版抬了依赖范围后，本面板才会换新）。也可用载体命令行把更新器装到使用范围级，让共用那一份的其他插件先拿到修复：{command}', draft: true },

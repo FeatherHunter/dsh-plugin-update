@@ -741,10 +741,10 @@ describe('rows 新增 pluginId 与 diag（只增不改）', () => {
     assert.deepEqual(
       Object.keys(rowOf.a).sort(),
       [
-        'diag', 'error', 'hostKind', 'key', 'manual', 'phase', 'phoneNames', 'pluginId',
+        'diag', 'error', 'hostKind', 'key', 'manual', 'manualSource', 'phase', 'phoneNames', 'pluginId',
         'profileName', 'queue', 'restartRequired', 'snapshot', 'targetVersion', 'title',
       ],
-      '既有字段一个没动，只加了 pluginId 与 diag（#84 再加 hostKind，只增不改）',
+      '既有字段一个没动，只加了 pluginId 与 diag（#84 再加 hostKind、#177 再加 manualSource，只增不改）',
     )
     host.dispose()
   })

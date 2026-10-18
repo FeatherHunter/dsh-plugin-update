@@ -263,9 +263,44 @@ describe('失败分家与兜底', () => {
     await flush(10)
     assert.ok(container.innerHTML.includes('重试安装'))
     assert.ok(container.innerHTML.includes('data-action="copy-diag"'))
-    assert.ok(container.innerHTML.includes('手工命令'))
+    // #177：失败回包自带的 manual 也是上一帧沿用值，不按当帧事实展示，也不给复制。
+    assert.ok(!container.innerHTML.includes('data-action="copy-manual"'))
+    assert.ok(!container.innerHTML.includes('手工命令'))
     const st = btn.state()
     assert.equal(st.failedCode, 'install-failed')
+  })
+
+  it('#177 失败回包后静默补读一次：补到当帧命令即恢复「最后手段」', async () => {
+    let n = 0
+    const { container, log } = await settledMount({ autoCheck: 'never' }, {
+      status: () =>
+        ++n <= 2
+          ? statusReply(absentInstallable())
+          : statusReply(absentInstallable(), {
+              manual: 'dsh plugin --profile web add --save-exact dsh-bill-ilife@0.3.54 --registry=https://registry.npmjs.org/',
+            }),
+      install: failedReply('install-failed', 'install-failed'),
+    })
+    log.length = 0
+    container.click({ 'data-action': 'install' })
+    await flush(10)
+    assert.equal(callsOf(log, '.updateStatus').length, 1)
+    assert.ok(container.innerHTML.includes('data-last-resort="last-resort"'))
+    assert.ok(container.innerHTML.includes('data-action="copy-manual"'))
+  })
+
+  it('#177 补读也失败：保持失败帧、不展示旧命令、不重复补读', async () => {
+    const { container, log } = await settledMount({ autoCheck: 'never' }, {
+      install: failedReply('install-failed', 'install-failed'),
+    })
+    log.length = 0
+    container.click({ 'data-action': 'install' })
+    await flush(10)
+    assert.equal(callsOf(log, '.updateStatus').length, 1)
+    assert.ok(container.innerHTML.includes('重试安装'))
+    assert.ok(!container.innerHTML.includes('data-last-resort'))
+    await flush(10)
+    assert.equal(callsOf(log, '.updateStatus').length, 1)
   })
 
   it('job failed 进锁存：message 前缀码被识别', async () => {

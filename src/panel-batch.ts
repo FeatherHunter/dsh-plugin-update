@@ -70,6 +70,7 @@ import {
   type UpdateThemeTokens,
 } from './panel.js'
 import { formatUnlockAt } from './install-cause.js'
+import { lastResortVerdictOf, type LastResortVerdict, type ManualSource } from './last-resort.js'
 import type { UpdateSnapshot } from './ports.js'
 import type { VisibleQueue } from './queue.js'
 
@@ -87,6 +88,11 @@ export interface BatchRowView {
   /** 该行的单插件快照（展开详情与「安装这家」按钮的门控都用它）。 */
   snapshot: unknown
   manual?: string | null
+  /**
+   * 手工命令的可信来源（#177）：`frame` = 与当帧快照同一回包；`carried-over` = 失败回包沿用的旧值
+   * （fail-closed：不展示、不给复制、不高亮）。缺省按 `frame` 处理，兼容老调用方。
+   */
+  manualSource?: ManualSource | null
   queue?: unknown
   profileName?: string | null
   /** 该行的插件标识（跳过存储与诊断文本用；缺省用 key）。宿主侧后补字段，缺了照样跑。 */
@@ -1240,6 +1246,40 @@ function rowFallbackButtonHTML(row: BatchRowView, ctx: RowRenderContext): string
   }
 }
 
+/** #177：行命令来源归一。`undefined` 是旧调用方/旧行视图的缺省格，按「未标遗留」信任（只增不改）；显式 null 才是「当帧确认没有」。 */
+function batchManualSourceOf(row: BatchRowView): ManualSource | null {
+  return row.manualSource === 'carried-over' ? 'carried-over' : row.manualSource === null ? null : 'frame'
+}
+
+/**
+ * #174：一行自己的最后手段判定（与单面板共用同一个纯函数，批量不共享结论）。
+ * 行上只有 `error`（码）与快照，没有合规版决议证据，故不臆造 fallbackAvailable；
+ * 命令的可信来源随宿主回包带下来（#177）。
+ */
+function batchRowLastResortOf(row: BatchRowView): LastResortVerdict {
+  const snap = asSnapshotLike(row.snapshot) as
+    | { blockedReason?: unknown; runningVersion?: unknown; registered?: unknown }
+    | null
+  const manualSource = batchManualSourceOf(row)
+  // 只有失败行才谈「最后手段」：没失败的行走同一判定会因「命令可信 + 无救援」被误判高亮。
+  const failed = asBatchPhase(row.phase) === 'failed'
+  return lastResortVerdictOf({
+    code: failed && typeof row.error === 'string' && row.error ? row.error : null,
+    blockedReason: snap && typeof snap.blockedReason === 'string' ? snap.blockedReason : null,
+    manual: typeof row.manual === 'string' ? row.manual : null,
+    manualSource,
+    runningVersionKnown: snap ? snap.runningVersion !== null : null,
+    // #174：合规版救援证据只认批量自己的同一个判据（详情 01 章双按钮也用它），不臆造。
+    fallbackAvailable: batchFallbackCauseOf(row) !== null,
+    registered: snap && typeof snap.registered === 'boolean' ? snap.registered : null,
+  })
+}
+
+/** 一行的手工命令是否可信（展示 / 复制 / 高亮三处共用这一个判据，#177）。 */
+function batchRowManualTrusted(row: BatchRowView): boolean {
+  return typeof row.manual === 'string' && row.manual.trim() !== '' && batchManualSourceOf(row) === 'frame'
+}
+
 /** 一行一家（含点开时的详情：详情就是单插件内核本身）。 */
 function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const phase = asBatchPhase(row.phase)
@@ -1262,6 +1302,13 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
         : ctx.inRound
           ? (batchRowKnowledgeText(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))
           : (batchRowPendingStatus(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))
+  // #174：只有判定为 last-resort 的行才在状态区落轻量标记（badge；不画空红轨，不动行内按钮）。
+  const lastResort = batchRowLastResortOf(row)
+  const lastResortBadge =
+    lastResort.kind === 'last-resort'
+      ? '<span class="dsh-upd-lr-rowbadge" data-last-resort="last-resort">' +
+        escapeHtml(batchText('batch.lastresort.row-badge', ctx.lang)) + '</span>'
+      : ''
   const actions: string[] = []
   // 忙守卫按行：正在装的那一行禁自己（不许重复提交）；**别的行不灰**——点下去是「加入队列」。
   const off = ctx.inFlight ? ' disabled' : ''
@@ -1341,7 +1388,7 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
     '<span class="dsh-upd-updot" data-tone="' + dotToneOf(row, phase, skipped, queued, ctx.worldLatest, rowDone === null ? null : rowDone.needsRestart) + '"></span>' +
     '<span class="dsh-upd-bname">' + escapeHtml(titleOf(row, ctx.titles)) + '</span>' +
     versionHTML +
-    '<span class="dsh-upd-bstat">' + escapeHtml(rowStatusText) + (ctx.inRound && !queued ? '（' + escapeHtml(batchText('batch.row.unfinished-tag', ctx.lang)) + '）' : '') + '</span>' +
+    '<span class="dsh-upd-bstat">' + lastResortBadge + escapeHtml(rowStatusText) + (ctx.inRound && !queued ? '（' + escapeHtml(batchText('batch.row.unfinished-tag', ctx.lang)) + '）' : '') + '</span>' +
     failLine +
     '</button>'
   // 详情默认弹窗（#108：删内嵌展开路径——行内不再叠 `.dsh-upd-bdetail`，展开走弹窗 sibling overlay，见 detailDialogHTML）。
@@ -1410,7 +1457,7 @@ function detailActionsHTML(row: BatchRowView, ctx: RowRenderContext): string {
         '>' + escapeHtml(batchText('batch.row-action.unskip', ctx.lang, { version: ctx.skipped })) + '</button>',
     )
   }
-  if (typeof row.manual === 'string' && row.manual) {
+  if (batchRowManualTrusted(row)) {
     buttons.push(
       '<button type="button" data-act="row-copy-manual" data-key="' + keyAttr + '"' + off + '>' + escapeHtml(batchText('batch.row-action.copy-manual', ctx.lang)) + '</button>',
     )
@@ -1451,6 +1498,7 @@ function detailDialogHTML(row: BatchRowView, ctx: RowRenderContext): string {
   const kernel = renderUpdatePanelHTML({
     snapshot: asSnapshotLike(row.snapshot),
     manual: typeof row.manual === 'string' ? row.manual : null,
+    manualSource: batchManualSourceOf(row),
     changelogMarkdown: typeof ctx.changelogMarkdown === 'string' ? ctx.changelogMarkdown : null,
     queue: asQueueLike(row.queue),
     skippedLatest: ctx.skipped !== null,
@@ -1540,6 +1588,10 @@ export const UPDATE_BATCH_PANEL_CSS = [
   '.dsh-upd-bver-new{color:var(--dsh-update-new-text,#dc2626);font-weight:700}',
   '.dsh-upd-bver-new-ok{color:var(--dsh-update-new-ok-text,#047857);font-weight:700}',
   '.dsh-upd-bstat{font-size:var(--dsh-update-panel-small-font-size,12.5px);opacity:.9;min-width:0;overflow-wrap:anywhere}',
+  // #174：行状态区的轻量标记（只有最后手段那档出现；不新增按钮）。
+  '.dsh-upd-lr-rowbadge{display:inline-block;margin-right:5px;font-size:var(--dsh-update-panel-small-font-size,11px);font-weight:700;letter-spacing:.06em;border:1px solid currentColor;border-radius:3px;padding:0 4px;color:var(--dsh-update-bad-text,#b91c1c)}',
+  // #174：展开详情复用单插件内核的最后手段条；大卡里 alert 图标放大到 22px（行内只留文字徽标）。
+  '.dsh-upd-bdetail-dialog .dsh-upd-lr-ico{width:22px;height:22px}',
   '.dsh-upd-bfail{grid-column:1/-1;display:block;font-size:var(--dsh-update-panel-small-font-size,12.5px);color:var(--dsh-update-bad-border,#dc2626)}',
   '/* #156 finishing fact: ledger phase failed but the newest installable build did get installed — green, not red. */',
   '.dsh-upd-bdone{color:var(--dsh-update-ok-border,#059669)}',

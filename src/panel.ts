@@ -36,6 +36,9 @@ import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './
 export { isCheckSideFailureCode } // 查侧判定从单点真源派生（#134/US15；#141 铁律：本文件不另建第二张表）
 import { copyText, type BilingualKey } from './bilingual.js'
 import { manualAbsentReasonOf, manualAbsentTextOf, manualAppliesToBanner } from './manual-absent.js'
+import { lastResortVerdictOf, type LastResortVerdict, type ManualSource } from './last-resort.js'
+// #174：last-resort 的类型经既有子路径转出，消费者无需新子路径即可命名（`ManualSource` 已出现在本模块导出签名里）。
+export type { LastResortKind, RescueRouteKey, ManualSource, LastResortSubject, LastResortInput, LastResortVerdict } from './last-resort.js'
 import { blameCausePackage, CAUSE_KINDS, formatUnlockAt, interpretInstallCause } from './install-cause.js'
 import { langSignalSource, normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
 
@@ -889,6 +892,20 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-update-bad-border);background:var(--dsh-update-bad-bg)}',
   '.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}',
   '.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-update-busy-border);background:var(--dsh-update-busy-bg)}',
+  // —— 最后手段条（#174 A′ 形态）——
+  // 只有判定为 last-resort（无自动救援且命令当帧可信）才画；语义类 `.dsh-upd-lastresort` 也只在那一档出现，
+  // 测试靠 data-last-resort 钩子与它区分「有高亮」和「只是样式表里恰好有这个名字」。
+  '.dsh-upd-lastresort{display:flex;align-items:flex-start;gap:9px;flex-wrap:wrap;border:1px solid var(--dsh-update-bad-border,#dc2626);border-left:4px solid var(--dsh-update-bad-text,#b91c1c);background:var(--dsh-update-bad-bg,#fef2f2);padding:8px 10px;margin:0 0 8px}',
+  '.dsh-upd-lr-ico{flex:none;width:18px;height:18px;color:var(--dsh-update-bad-border,#dc2626);margin-top:2px}',
+  '.dsh-upd-lr-main{flex:1 1 220px;min-width:0}',
+  '.dsh-upd-lr-line{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}',
+  '.dsh-upd-lr-badge{display:inline-block;font-size:var(--dsh-update-panel-small-font-size,11px);font-weight:700;letter-spacing:.08em;border:1px solid currentColor;color:var(--dsh-update-bad-border,#dc2626);border-radius:3px;padding:0 5px}',
+  '.dsh-upd-lr-status{font-weight:700}',
+  '.dsh-upd-lr-reason{font-size:var(--dsh-update-panel-log-font-size,13px);opacity:.9;margin-top:2px;overflow-wrap:anywhere}',
+  '.dsh-upd-lr-go{margin:0;padding:4px 10px;font-size:var(--dsh-update-panel-small-font-size,12.5px);align-self:center}',
+  '.dsh-upd-lr-chap-badge{flex:none;display:inline-block;font-size:var(--dsh-update-panel-small-font-size,11px);font-weight:700;border:1px solid currentColor;color:var(--dsh-update-bad-border,#dc2626);border-radius:3px;padding:0 5px;margin-left:6px;vertical-align:baseline}',
+  // 复制成功气泡（#173 v1.3）：fixed 定位，不挤压布局；角色 status 由标记带出，按钮文案/图标不变。
+  '.dsh-upd-copy-bubble{position:fixed;z-index:10000;transform:translate(-50%,-100%);background:var(--dsh-update-text,#1f2937);color:var(--dsh-update-bg,#ffffff);border-radius:4px;padding:3px 9px;font-size:var(--dsh-update-panel-small-font-size,12px);line-height:1.5;pointer-events:none;animation:dsh-upd-fadein .12s ease}',
   '.dsh-upd code{font-family:Consolas,Menlo,monospace;font-size:var(--dsh-update-panel-log-font-size,12px);word-break:break-all}',
   '.dsh-upd-manual,.dsh-upd-queue,.dsh-upd-log{margin:4px 0;font-size:var(--dsh-update-panel-log-font-size,13px)}',
   '.dsh-upd-changelog-wrap{margin:4px 0 0;font-size:var(--dsh-update-panel-log-font-size,13px)}',
@@ -1005,9 +1022,10 @@ export const UPDATE_PANEL_CSS = [
   // —— 04 错误信息长行换行（#199）：日志/错误行补换行契约，与版本号/状态列同风格；纵滚区横向裁断不动 ——
   '.dsh-upd-log,.dsh-upd-err{overflow-wrap:anywhere}',
   // —— 全按钮交互反馈（#36：悬停/按下/过渡/在途忙态；浅深双主题通用写法，不碰上面的既有串）——
-  '.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}',
-  '.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-update-focus,#2563eb)}',
-  '.dsh-upd button[data-primary="1"]:hover:not(:disabled){filter:brightness(.93)}',
+  '.dsh-upd button{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease,box-shadow .15s ease}',
+  // #173 v1.3：hover 必须有明显边框变化（主色边框 + 外环），不能只靠 brightness。
+  '.dsh-upd button:hover:not(:disabled){border-color:var(--dsh-update-primary,#2563eb);box-shadow:0 0 0 2px var(--dsh-update-primary,#2563eb)}',
+  '.dsh-upd button[data-primary="1"]:hover:not(:disabled){border-color:var(--dsh-update-focus,#2563eb);box-shadow:0 0 0 2px var(--dsh-update-primary,#2563eb)}',
   '.dsh-upd button:active:not(:disabled){transform:translateY(1px)}',
   '.dsh-upd button[aria-busy="true"]{cursor:wait;animation:dsh-upd-pulse 1s ease-in-out infinite}',
   '@keyframes dsh-upd-pulse{0%,100%{opacity:1}50%{opacity:.55}}',
@@ -1021,8 +1039,8 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd button[aria-busy="true"]::after{content:"";display:inline-block;width:11px;height:11px;margin-left:8px;vertical-align:-1px;',
   'border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:dsh-upd-spin .8s linear infinite}',
   '@keyframes dsh-upd-spin{to{transform:rotate(360deg)}}',
-  '@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}.dsh-upd-banner{animation:none}.dsh-upd-changelog-foldbox{transition:none}}',
-  '@media (forced-colors: active){.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{background:Canvas}}',
+  '@media (prefers-reduced-motion: reduce){.dsh-upd button{transition:none}.dsh-upd button:active:not(:disabled){transform:none}.dsh-upd button[aria-busy="true"]{animation:none}.dsh-upd-skv{animation:none}.dsh-upd-banner{animation:none}.dsh-upd-changelog-foldbox{transition:none}.dsh-upd-copy-bubble{animation:none}}',
+  '@media (forced-colors: active){.dsh-upd-overlay .dsh-upd-body .dsh-upd-chap-head{background:Canvas}.dsh-upd-lastresort{border-color:CanvasText}.dsh-upd-lr-badge,.dsh-upd-lr-chap-badge{border-color:CanvasText;color:CanvasText}.dsh-upd-copy-bubble{border:1px solid CanvasText;background:Canvas;color:CanvasText}}',
   // —— 查新版布局稳定：按钮预留宽度 + 动态区最小高度 + 锚定不漂（只稳布局，不改文案语义）——
   '.dsh-upd{overflow-anchor:none}',
   '.dsh-upd-body{overflow-anchor:none}',
@@ -1311,6 +1329,21 @@ export interface PanelRenderInput extends PanelViewInput {
    * 嵌套副本另在 05 章给「先更新所属插件 / 或载体 CLI」的可执行指引。
    */
   updater?: UpdaterSelfView | null
+  /**
+   * 手工命令的可信来源（#177）：`frame` = 与当帧快照来自同一回包且回包带 `manual` 键；
+   * `carried-over` = 失败回包沿用的旧值（fail-closed：不展示、不给复制、不高亮）；
+   * `null` = 当帧确认没有命令。缺省（undefined）按 `frame` 处理，兼容纯渲染直调。
+   */
+  manualSource?: ManualSource | null
+  /** 合规版通道是否可用（#174 判定输入之一；缺省由 `failure` 证据推导，不传即老口径）。 */
+  fallbackAvailable?: boolean
+  /**
+   * 当前帧运行版读数是否已知（#174：`false` → 先判「可重查」而不是「无救」；
+   * 缺省由 snapshot.runningVersion 推导，纯渲染要覆盖时显式给）。
+   */
+  runningVersionKnown?: boolean | null
+  /** 复制成功气泡（#173 v1.3）：坐标由点击时的 getBoundingClientRect 算出；缺省即不画。 */
+  copyBubble?: { text: string; left: number; top: number } | null
 }
 
 /** 章节骨架（照原型 archive.html:218-245 的 01–05 编号顺序；#62 入字典按 lang 单语）。 */
@@ -1628,6 +1661,87 @@ function selfUpgradeCommandOf(profileName: string | null | undefined): string | 
   return `dsh plugin --profile ${profile} add --save-exact dsh-plugin-update@latest`
 }
 
+/**
+ * #177：渲染输入里的 manualSource 归一。
+ * - `undefined` = 纯渲染直调（老调用方没这个概念）：按 `frame` 处理，保持既有输出；
+ * - `null` = 当帧确认没有命令；
+ * - `carried-over` = 失败回包沿用的旧值（不可信）。
+ */
+function manualSourceOfRender(input: { manualSource?: ManualSource | null }): ManualSource | null {
+  const value = input.manualSource
+  if (value === 'carried-over') return 'carried-over'
+  if (value === null) return null
+  return 'frame'
+}
+
+/** 命令是否可信（当帧且非空）——展示/复制/高亮三件事共用这一个判据。 */
+function manualTrustedOf(manual: string | null, source: ManualSource | null): boolean {
+  return typeof manual === 'string' && manual.trim() !== '' && source === 'frame'
+}
+
+/** 手绘 alert 图标（八角停形 + 惊叹号；#174：统一 16×16 viewBox，inline SVG，禁 emoji，不引外部图标）。 */
+const LAST_RESORT_ALERT_SVG =
+  '<svg class="dsh-upd-lr-ico" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">' +
+  '<path d="M8 1.8 12.4 3.6 14.2 8 12.4 12.4 8 14.2 3.6 12.4 1.8 8 3.6 3.6Z"/><path d="M8 5.2v4"/>' +
+  '<circle cx="8" cy="11.6" r="0.85" fill="currentColor" stroke="none"/></svg>'
+
+/** 手绘 copy 图标（双页，16×16 viewBox）。复制按钮前后一字不变（v1.3：成功不改按钮文案/图标）。 */
+const COPY_ICON_SVG =
+  '<svg class="dsh-upd-copy-ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">' +
+  '<rect x="5.5" y="5.5" width="7.5" height="7.5" rx="1"/>' +
+  '<path d="M10.5 5.5V4.2a1 1 0 0 0-1-1H4.2a1 1 0 0 0-1 1v5.3a1 1 0 0 0 1 1h1.3"/></svg>'
+
+/**
+ * A′ 最后手段条（#174）：左红轨 + alert SVG + 「最后手段」徽标 + 状态短语 + 归因句 + 紧凑主按钮。
+ * 只有 `kind === 'last-resort'` 才输出；其它三态返回空串（不画空高亮）。按钮由调用方决定：
+ * 有动作面的渲染点给 copy-manual，只读渲染（批量详情）不给按钮，沿用详情自己的动作行。
+ */
+export function lastResortBarHTML(opts: {
+  verdict: LastResortVerdict | null
+  lang: AppLang | string | null
+  buttonHtml?: string
+}): string {
+  const verdict = opts.verdict
+  if (!verdict || verdict.kind !== 'last-resort') return ''
+  const l = normalizeLangTag(opts.lang ?? 'zh')
+  const badge = escapeHtml(copyText('panel.lastresort.badge', l))
+  return (
+    '<div class="dsh-upd-lastresort" data-last-resort="last-resort">' +
+    LAST_RESORT_ALERT_SVG +
+    '<div class="dsh-upd-lr-main">' +
+    '<div class="dsh-upd-lr-line"><span class="dsh-upd-lr-badge">' +
+    badge +
+    '</span><strong class="dsh-upd-lr-status">' +
+    escapeHtml(copyText('panel.lastresort.status', l)) +
+    '</strong></div>' +
+    '<div class="dsh-upd-lr-reason">' + escapeHtml(copyText('panel.lastresort.reason', l)) + '</div>' +
+    '</div>' +
+    (opts.buttonHtml ?? '') +
+    '</div>'
+  )
+}
+
+/** 最后手段条里的紧凑主按钮（#174 A′：按钮在主位；文案/图标在复制前后不变，见 v1.3）。 */
+export function lastResortCopyButtonHTML(lang: AppLang | string | null): string {
+  const l = normalizeLangTag(lang ?? 'zh')
+  return (
+    '<button type="button" class="dsh-upd-lr-go primary" data-primary="1" data-action="copy-manual" data-copy-anchor="1" title="' +
+    escapeHtml(copyText('panel.lastresort.copy', l)) +
+    '">' + COPY_ICON_SVG + escapeHtml(copyText('panel.lastresort.copy', l)) + '</button>'
+  )
+}
+
+/** 复制成功气泡（v1.3）：fixed 定位、role=status，约 1.4s 由挂载侧撤掉。 */
+export function copyBubbleHTML(bubble: { text: string; left: number; top: number } | null | undefined): string {
+  if (!bubble) return ''
+  const left = Number.isFinite(bubble.left) ? Math.round(bubble.left) : 0
+  const top = Number.isFinite(bubble.top) ? Math.round(bubble.top) : 0
+  return (
+    '<span class="dsh-upd-copy-bubble" role="status" style="position:fixed;left:' + left + 'px;top:' + top + 'px">' +
+    escapeHtml(bubble.text) + '</span>'
+  )
+}
+
 /** 内核 HTML（双形态行为等价的根：同一视图产出同一内核，只换外层；#62 按 lang 单语，缺省 zh 零回归）。 */
 export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView, lang?: AppLang | string | null): string {
   const { snapshot, manual, queue, mode, showOthers, pluginId, copyNotice } = input
@@ -1641,6 +1755,34 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   const b = view.banner
   const seal = view.seal
   const parts: string[] = []
+  // #174：最后手段判定只算一次（纯函数是唯一真源，三处渲染点共用；渲染器不各自推导）。
+  // manualSource 缺省按 frame（见 manualSourceOfRender）；只有 last-resort 这一档才落高亮。
+  const manualSource = manualSourceOfRender(input)
+  const manualTrusted = manualTrustedOf(manual, manualSource)
+  // #174：失败码优先取 errorKind（与 viewModel 同口径；lastError 仅兜底），否则实际码会被上一帧的码盖住。
+  const lastResortCode =
+    (typeof (input as { errorKind?: unknown }).errorKind === 'string' && (input as { errorKind: string }).errorKind.trim()
+      ? (input as { errorKind: string }).errorKind.trim()
+      : '') ||
+    (typeof (input as { lastError?: unknown }).lastError === 'string' ? (input as { lastError: string }).lastError.trim() : '')
+  const lastResort = lastResortVerdictOf({
+    code: lastResortCode || null,
+    blockedReason: snapshot ? snapshot.blockedReason : null,
+    manual,
+    manualSource,
+    // 合规版救援证据只认 #156 的正式渲染门（与 01 章双按钮同一判据），不凭 cause 字段猜。
+    fallbackAvailable: input.fallbackAvailable === true || fallbackBlockedVersionOf(input.failure, pluginId) !== null,
+    runningVersionKnown:
+      typeof input.runningVersionKnown === 'boolean'
+        ? input.runningVersionKnown
+        : snapshot
+          ? snapshot.runningVersion !== null
+          : null,
+    // #174：待重启救援按「在册」分叉（未登记 → 在宿主里先选中，重启也不会加载）。
+    registered: snapshot ? snapshot.registered ?? null : null,
+  })
+  // 动作面开关要在横幅之前算：最后手段条的紧凑主按钮与 01 章按钮同权，只读渲染（批量详情）不给。
+  const showActions = input.actions !== 'none'
   // 卷宗抬头（原型 :195-203 的刊头；主题切换按钮按用户口径去掉——那排按钮不重要）。
   // 两个主题共用同一份内核 HTML：默认（最小）主题由 CSS 不显示，Archive 档案卷才画。
   parts.push(
@@ -1658,6 +1800,17 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   // 横幅：状态行 / 待重启横幅（原型 :213-215 restartSlot + 状态行）。
   // 小印章是首行内的真实行内节点（#99；原型 :215 `.sealmini + 文字` 同结构）；待重启档不挂印章——
   // 那一档的标记是手绘 SVG（原型 :446 只有 SVG）。章对读屏隐藏（标题文本已含语义），默认主题由 CSS 隐藏。
+  // #174 A′：失败 / 待重启 / 受阻帧的失败块第一行插最后手段条（只在判定为 last-resort 时真有内容，
+  // 其余三态返回空串，不留空壳）。放在横幅之前 = 失败块第一行，也避开横幅的 role=status 活区。
+  const lastResortBarHtml =
+    b.kind === 'failed' || b.kind === 'restart' || b.kind === 'blocked'
+      ? lastResortBarHTML({
+          verdict: lastResort,
+          lang: l,
+          buttonHtml: showActions ? lastResortCopyButtonHTML(l) : '',
+        })
+      : ''
+  if (lastResortBarHtml) parts.push(lastResortBarHtml)
   parts.push(`<div class="dsh-upd-banner" data-kind="${b.kind}" data-mini="${escapeHtml(seal.mini)}" role="status" aria-live="polite">`)
   parts.push(`<div>${b.kind === 'restart' ? '' : `<span class="dsh-upd-sealmini" aria-hidden="true">${escapeHtml(seal.mini)}</span>`}<strong>${escapeHtml(b.title)}</strong></div>`)
   parts.push('</div>')
@@ -1670,7 +1823,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   // —— 01 检查与安装（原型 :218-224）：动作 + 进度条 + 跳过行 ——
   // 只读渲染（`actions: 'none'`）：调用方自己提供动作面时用（批量面板的详情就是这种）。
   // 五章内容、进度条、「已跳过」提示照画，唯独不画动作按钮——免得出现「可点却没人接」的死按钮。
-  const showActions = input.actions !== 'none'
+  // showActions 已在横幅之前算过（最后手段条的按钮要先知道动作面开不开）。
   const actions: string[] = []
   if (showActions) {
   const busyAct = (input as { busyAct?: unknown }).busyAct
@@ -1723,7 +1876,8 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   if (view.showReset && snapshot?.latestVersion) {
     actions.push(`<button type="button" data-action="reset-skip" title="${escapeHtml(copyText('panel.action.unskip-title', l))}">${escapeHtml(copyText('panel.action.unskip', l, { version: snapshot.latestVersion }))}</button>`)
   }
-  if (view.showManual && manual) {
+  // 最后手段条已经给了同一颗主按钮时，01 章不再画第二颗一模一样的「复制手工命令」。
+  if (view.showManual && manualTrusted && !lastResortBarHtml) {
     actions.push(`<button type="button" data-action="copy-manual" title="${escapeHtml(copyText('panel.action.copy-manual-title', l))}">${escapeHtml(copyText('panel.action.copy-manual', l))}</button>`)
   }
   // 原型的待重启横幅右侧有个主动作「重启宿主」（archive.html:448）。
@@ -1987,10 +2141,16 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   // 面板分支共用 manual-absent 的一张表；读取中、已最新这类状态不涉及命令，仍给中性兜底句。
   const manualAbsentReason =
     !manual && manualAppliesToBanner(b.kind) ? manualAbsentReasonOf(snapshot) : null
+  // #177：失败回包沿用的旧命令不可信 —— fail-closed：不展示、不给复制、不高亮，只说明它还没按当帧读数确认。
+  const manualStale = manualSource === 'carried-over' && Boolean(manual)
   let manualHtml =
-    view.showManual && manual
-      ? `<div class="dsh-upd-manual"><div>${escapeHtml(copyText('panel.manual.heading', l))}</div><code>${escapeHtml(manual)}</code></div>`
-      : `<div class="dsh-upd-manual"><div class="dsh-upd-changelog-neutral">${escapeHtml(manualAbsentTextOf(manualAbsentReason, l))}</div></div>`
+    view.showManual && manualTrusted
+      ? `<div class="dsh-upd-manual"><div>${escapeHtml(copyText('panel.manual.heading', l))}</div><code>${escapeHtml(manual ?? '')}</code></div>`
+      : `<div class="dsh-upd-manual"><div class="dsh-upd-changelog-neutral">${
+          manualStale
+            ? escapeHtml(copyText('panel.manual.stale', l))
+            : escapeHtml(manualAbsentTextOf(manualAbsentReason, l))
+        }</div></div>`
   // #196 部署偏斜：嵌套副本（被消费方声明范围钉死）在这里给可执行的升级指引。
   // 缺使用范围名就不给命令（假命令比没有更糟），只说明为什么升级不生效。
   const selfParts = updaterPartsOf((input as { updater?: UpdaterSelfView | null }).updater)
@@ -2012,7 +2172,12 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   if (updaterIdentity && !footerRendersIdentity) {
     manualHtml += `<div class="dsh-upd-updater-id">${escapeHtml(updaterIdentity)}</div>`
   }
-  chapters.push(chapterOf(5, manualHtml, '', l))
+  // #174：05 章命令块 title 旁的小徽标 —— 命令是唯一出路的提示，告诉读者 05 章这条就是最后手段。
+  const manualChapNote =
+    lastResortBarHtml && lastResort.kind === 'last-resort'
+      ? `<span class="dsh-upd-lr-chap-badge">${escapeHtml(copyText('panel.lastresort.badge', l))}</span>`
+      : ''
+  chapters.push(chapterOf(5, manualHtml, manualChapNote, l))
   parts.push('<div class="dsh-upd-body">' + chapters.join('\n') + '</div>')
   // —— 右下角独立 footer 区（#47 定案 A：一次找到，脱离第一章 actions）——
   // dialog 才有，永远在 05 章之后；embedded 无（宿主框架自带关）；
@@ -2024,6 +2189,8 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         `<button type="button" data-action="close-view" title="${escapeHtml(copyText('panel.footer.close-title', l))}">${escapeHtml(copyText('panel.footer.close', l))}</button></div>`,
     )
   }
+  // v1.3：复制成功气泡是 fixed 定位的状态提示，画在卷宗根部（不挤压布局），约 1.4s 由挂载侧撤掉。
+  if (input.copyBubble) parts.push(copyBubbleHTML(input.copyBubble))
   return parts.join('\n')
 }
 
@@ -2352,6 +2519,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
 
   let snapshot: UpdateSnapshot | null = null
   let manual: string | null = null
+  // #177：命令的可信来源。成功回包带 manual 键才写 frame；失败回包沿用旧值即 carried-over（不可信）。
+  let manualSource: ManualSource | null = null
+  // #177 D3：失败回包后只补读一次（成功才应用；不写锁存、不重试、失败即静默）。
+  let failureRereadDone = false
   let queue: VisibleQueue | null = null
   let receipt: { checkId: string } | null = null
   let requestId: string | null = null
@@ -2689,6 +2860,11 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   }
   let copyNotice: string | null = null
   let noticeExpiresAt = 0
+  // v1.3：复制成功气泡（fixed 定位，约 1.4s）。按钮文案/图标不参与，故与 copyNotice 分开存。
+  let copyBubble: { text: string; left: number; top: number } | null = null
+  let copyBubbleTimer: ReturnType<typeof setTimeout> | null = null
+  /** 点击时的按钮元素（只给气泡量坐标用，不参与任何状态判断）。 */
+  let copyAnchorEl: unknown = null
   // 在途动作（#36）：点下查新版/安装到回包前的那一帧，按钮置忙 + 并发连点只认第一次。
   let busyAct: 'check' | 'install' | 'fallback' | null = null
   /**
@@ -2719,6 +2895,41 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     } catch {
       noticeExpiresAt = 0
     }
+  }
+
+  /**
+   * 复制成功：在按钮上方浮出「已复制」气泡（v1.3）。
+   * 只加一层 fixed 定位的状态提示，按钮文案与图标一字不变；1.4s 后撤掉。
+   * 拿不到矩形（老测试桩 / 非浏览器）就画在左上角兜底，绝不因为量不到坐标而不给反馈。
+   */
+  function showCopyBubble(anchor: unknown): void {
+    if (copyBubbleTimer !== null) {
+      try { clearTimeout(copyBubbleTimer) } catch { /* 忽略 */ }
+      copyBubbleTimer = null
+    }
+    let left = 0
+    let top = 0
+    try {
+      const el = anchor as { getBoundingClientRect?: () => { left?: unknown; top?: unknown; width?: unknown } } | null
+      const rect = el && typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect() : null
+      if (rect) {
+        const l = Number(rect.left)
+        const t = Number(rect.top)
+        const w = Number(rect.width)
+        if (Number.isFinite(l)) left = l + (Number.isFinite(w) ? w / 2 : 0)
+        if (Number.isFinite(t)) top = t - 6
+      }
+    } catch { left = 0; top = 0 }
+    try {
+      copyBubble = { text: copyText('panel.lastresort.copied', currentLang()), left, top }
+    } catch { copyBubble = null }
+    try {
+      copyBubbleTimer = setTimeout(() => {
+        copyBubbleTimer = null
+        copyBubble = null
+        if (mounted) render()
+      }, 1400)
+    } catch { copyBubbleTimer = null }
   }
 
   function setStableHTML(target: UpdatePanelContainer, html: string): void {
@@ -2830,6 +3041,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     const nextHTML = renderUpdatePanelHTML({
       snapshot,
       manual,
+      manualSource,
+      copyBubble,
       queue,
       busyAct,
       lang: langNow,
@@ -2918,6 +3131,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       const s = asSnapshot(reply['snapshot'])
       if (s) snapshot = s
       manual = typeof reply['manual'] === 'string' ? (reply['manual'] as string) : null
+      // #177 D2：manual 与 snapshot 同回包且回包带 manual 键 → 当帧可信；没有该键 = 当帧确实没有命令。
+      manualSource = manual !== null ? 'frame' : null
+      failureRereadDone = false
       if (reply['receipt'] && isObject(reply['receipt']) && typeof reply['receipt']['checkId'] === 'string') {
         receipt = { checkId: reply['receipt']['checkId'] as string }
       }
@@ -2972,6 +3188,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         // 忙是瞬态排队态：不锁存、不清除（位置走队列视图实时渲染）
       } else {
         setLatch(latchFromReply(reply, via === 'install' ? 'install' : 'check'))
+        // #177：失败回包里的 manual 只是上一帧沿用的旧值 —— 标 carried-over（fail-closed：不展示/不复制/不高亮），
+        // 然后静默补读一次 updateStatus，补到当帧命令才恢复可信；补读失败不改锁存、不重试。
+        manualSource = manual ? 'carried-over' : null
+        scheduleFailureReread()
       }
       // #45：失败也收使用范围与队列（快照/凭证不动；best-effort，形状不对即忽略）。
       try {
@@ -2994,6 +3214,49 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         // 忽略：失败回包的队列视图是选填。
       }
     }
+  }
+
+  /**
+   * #177 D3：失败回包后的静默补读（只一次）。
+   * 只发一次只读 updateStatus：成功才按当帧应用（manual 恢复 frame）并重绘；失败静默，
+   * 不写失败锁存、不重试、不制造新的失败帧。成功回包会重置闸门，给下一次失败留同一次机会。
+   */
+  function scheduleFailureReread(): void {
+    if (failureRereadDone || !mounted) return
+    failureRereadDone = true
+    void (async () => {
+      try {
+        const reply = await call(phoneNames.updateStatus, queueArgs())
+        if (!mounted) return
+        const value = reply as Record<string, unknown>
+        if (value && value['ok'] === true) {
+          // #177 D3：补读只补读当帧读数（快照 / 命令 / 队列 / 环境），不跑成功回包的锁存规则——
+          // 它不是一次新的判定，只用来把命令从「沿用值」恢复成「当帧事实」；失败帧原样保留。
+          const s = asSnapshot(value['snapshot'])
+          if (s) snapshot = s
+          manual = typeof value['manual'] === 'string' ? (value['manual'] as string) : null
+          manualSource = manual !== null ? 'frame' : null
+          const q = asQueue(value['queue'])
+          if (q) queue = q
+          try {
+            const env = value['env']
+            if (isObject(env)) {
+              const pn = env['profileName']
+              const hk = env['environmentKind']
+              if (typeof pn === 'string' && pn.trim()) envProfileName = pn.trim()
+              if (typeof hk === 'string' && hk.trim()) envHostKind = hk.trim()
+              const selfView = updaterSelfOfEnv(env)
+              if (selfView) envUpdater = selfView
+            }
+          } catch {
+            // 忽略：补读回包的环境栏是选填。
+          }
+          render()
+        }
+      } catch {
+        // 静默：补读只是最后一次读数机会；不写锁存、不重试、不打断已有失败帧。
+      }
+    })()
   }
 
   /** 自动取日志的触发条件（#41 终裁）：仅有新版可装、未跳过该版时按退避问一次。 */
@@ -3329,14 +3592,17 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         return
       }
       case 'copy-manual': {
-        if (manual) {
+        // #177：只复制当帧可信的命令；遗留值不提供按钮，这里再守一道（纵深防御）。
+        if (manual && manualSource === 'frame') {
           try {
             await copyTextOut(manual)
-            sayCopyKey('panel.toast.copy-manual-ok')
+            // v1.3：成功不改按钮文案/图标，只在按钮上方浮出「已复制」气泡（不再另发 toast，避免双重反馈）。
+            showCopyBubble(copyAnchorEl)
           } catch {
             sayCopyKey('panel.toast.copy-manual-fail')
           }
         }
+        copyAnchorEl = null
         render()
         return
       }
@@ -3506,6 +3772,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       const btn = t?.target && typeof t.target.closest === 'function' ? t.target.closest('[data-action]') : null
       const kind = btn?.getAttribute ? btn.getAttribute('data-action') : null
       if (!kind) return
+      // v1.3 气泡要贴着按钮浮出：点击时把按钮元素交给动作体量一次矩形（拿不到就兜底）。
+      copyAnchorEl = btn
       void act(kind as UpdatePanelActionKind)
     } catch {
       // 点坏了也不挡更新。
@@ -3558,6 +3826,11 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       timer.clear(handle)
     } catch {
       // 停不掉也无妨：安装在宿主侧跑，面板计时器只是轮询。
+    }
+    // 气泡计时器随面板一起停，拆掉后不再回调重绘。
+    if (copyBubbleTimer !== null) {
+      try { clearTimeout(copyBubbleTimer) } catch { /* 忽略 */ }
+      copyBubbleTimer = null
     }
     try {
       container.removeEventListener?.('click', onClick)

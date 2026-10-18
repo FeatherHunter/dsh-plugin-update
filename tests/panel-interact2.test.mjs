@@ -47,20 +47,65 @@ test('单面板：首帧 loading 有骨架占位', async () => {
   panel.unmount()
 })
 
-test('单面板：复制回执 5 秒后过期（toast 语义）', async () => {
+test('单面板：复制手工命令只浮出气泡，按钮文案不变（v1.3；不再发旧 toast）', async () => {
   const { mountUpdatePanel } = await import('../dist/panel.js')
   const box = fakeContainer()
-  const realNow = Date.now
-  let now = 1_000_000
-  Date.now = () => now
+  const panel = mountUpdatePanel(box, {
+    pluginId: 'p',
+    prefix: 't',
+    call: async () => ({
+      ok: true,
+      snapshot: {
+        runningVersion: '1.0.0',
+        installedVersion: '1.0.0',
+        latestVersion: '1.0.1',
+        canInstall: false,
+        job: { state: 'failed', message: '安装失败' },
+      },
+      manual: 'dsh plugin --profile x add foo@1.0.1',
+    }),
+    pollMs: 60000,
+  })
+  await tick()
+  await tick()
+  const before = box.innerHTML
+  const labelCount = (before.match(/复制手工命令/g) || []).length
+  assert.ok(before.includes('data-action="copy-manual"'), '复制按钮在')
+  box.click({ 'data-action': 'copy-manual' })
+  await tick()
+  assert.ok(box.innerHTML.includes('class="dsh-upd-copy-bubble"'), '气泡出现')
+  assert.ok(box.innerHTML.includes('已复制'), '气泡文案是「已复制」')
+  assert.ok(!box.innerHTML.includes('手工命令已复制'), '不再发旧的复制回执 toast')
+  assert.equal((box.innerHTML.match(/复制手工命令/g) || []).length, labelCount, '按钮文案不变')
+  panel.unmount()
+})
+
+test('单面板：复制成功气泡约 1.4 秒后消失（v1.3）', async () => {
+  const { mountUpdatePanel } = await import('../dist/panel.js')
+  const box = fakeContainer()
+  const realSetTimeout = globalThis.setTimeout
+  let bubbleTimer = null
   try {
+    globalThis.setTimeout = ((fn, ms, ...rest) => {
+      if (ms === 1400) {
+        bubbleTimer = fn
+        return 0
+      }
+      return realSetTimeout(fn, ms, ...rest)
+    })
     const panel = mountUpdatePanel(box, {
       pluginId: 'p',
       prefix: 't',
       call: async () => ({
         ok: true,
-        snapshot: { runningVersion: '1.0.0', installedVersion: '1.0.0', latestVersion: null, canInstall: false },
-        manual: 'dsh plugin --profile x add foo@1.0.0',
+        snapshot: {
+          runningVersion: '1.0.0',
+          installedVersion: '1.0.0',
+          latestVersion: '1.0.1',
+          canInstall: false,
+          job: { state: 'failed', message: '安装失败' },
+        },
+        manual: 'dsh plugin --profile x add foo@1.0.1',
       }),
       pollMs: 60000,
     })
@@ -68,17 +113,14 @@ test('单面板：复制回执 5 秒后过期（toast 语义）', async () => {
     await tick()
     box.click({ 'data-action': 'copy-manual' })
     await tick()
-    assert.ok(box.innerHTML.includes('手工命令已复制'), '复制回执当即出现')
-    box.click({ 'data-action': 'copy-manual' })
+    assert.ok(box.innerHTML.includes('class="dsh-upd-copy-bubble"'), '气泡当即出现')
+    assert.equal(typeof bubbleTimer, 'function', '1.4 秒计时器已排上')
+    bubbleTimer()
     await tick()
-    assert.ok(box.innerHTML.includes('手工命令已复制'), '再次点击是新的 5 秒，不沿用旧戳')
-    now += 6000
-    await panel.refresh() // 下一次重绘触发过期检查
-    await tick()
-    assert.ok(!box.innerHTML.includes('手工命令已复制'), '过期后消失')
+    assert.ok(!box.innerHTML.includes('class="dsh-upd-copy-bubble"'), '计时到点后消失')
     panel.unmount()
   } finally {
-    Date.now = realNow
+    globalThis.setTimeout = realSetTimeout
   }
 })
 

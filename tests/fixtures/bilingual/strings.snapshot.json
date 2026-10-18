@@ -247,6 +247,11 @@
       "zh": "{n} 个可更新；请选择「全部更新」一次安装完成，也可逐项选择「安装此插件」。",
       "draft": true
     },
+    "batch.lastresort.row-badge": {
+      "en": "Last resort",
+      "zh": "最后手段",
+      "draft": true
+    },
     "batch.notice.auto-resumed": {
       "en": "Auto-continued the unfinished batch ({count} left).",
       "zh": "已自动继续上次未完成的更新（剩余 {count} 个）。",
@@ -1542,6 +1547,31 @@
       "zh": "关闭窗口，更新不受影响，可随时返回查看。",
       "draft": true
     },
+    "panel.lastresort.badge": {
+      "en": "Last resort",
+      "zh": "最后手段",
+      "draft": true
+    },
+    "panel.lastresort.copied": {
+      "en": "Copied",
+      "zh": "已复制",
+      "draft": true
+    },
+    "panel.lastresort.copy": {
+      "en": "Copy manual command",
+      "zh": "复制手工命令",
+      "draft": true
+    },
+    "panel.lastresort.reason": {
+      "en": "There is no automatic data path left; copying this command is the only way forward.",
+      "zh": "没有可用的自动数据路径；复制这条命令是唯一出路。",
+      "draft": true
+    },
+    "panel.lastresort.status": {
+      "en": "No automatic recovery left",
+      "zh": "自动恢复不可用",
+      "draft": true
+    },
     "panel.manual.absent": {
       "en": "No manual command is available right now.",
       "zh": "当前没有可用的手工命令。",
@@ -1585,6 +1615,11 @@
     "panel.manual.heading": {
       "en": "Manual fallback command (copy the full line to run):",
       "zh": "手工备用命令（请复制整行执行）：",
+      "draft": true
+    },
+    "panel.manual.stale": {
+      "en": "This manual command has not been confirmed against the current reading. Re-query before copying.",
+      "zh": "手工命令尚未按当帧读数确认，重新查询后再复制。",
       "draft": true
     },
     "panel.manual.updater-nested": {
