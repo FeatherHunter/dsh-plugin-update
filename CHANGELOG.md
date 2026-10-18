@@ -4,7 +4,7 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
-## [Unreleased]
+## [0.18.25] - 2026-10-18
 
 ### Fixed
 - **#174 失败之后还剩不剩路，面板从不区分**：装不了时，有时还有自动救援（重新查询、等忙任务退出、重启宿主、切通道、修清单、升级运行时、装合规版），有时只剩一条手工命令，有时连命令都没有——三处渲染点此前一律按「失败」平铺，用户分不清是该点重试还是该去复制命令。现在新增纯派生模块 `src/last-resort.ts`（单一真源，不动 `src/codes.ts` 码值、不加快照字段、不改 verify 事件）：`lastResortVerdictOf` 给出四态 `last-resort` / `salvageable` / `dead-end` / `unknown`，救援路径表用穷尽 `Record<BlockedReason, …>` 收口（新增阻塞码不登记会直接编译红，测试再遍历 `BLOCKED_REASONS` 兜底）：安装失败有合规版决议 → `install-compliant`；查侧三码与 `pending-restart` 的运行版未知 → `recheck`；`update-busy` → `wait-retry`；`pending-restart` → `restart-host`（`registered === false` 时改 `select-in-host`，不把未证明的登记当事实）；`channel-mismatch` → `switch-channel`；`registry-conflict` → `fix-manifest`；`incompatible-node` / `incompatible-dsh` → `upgrade-runtime`；`invalid-installation` / `installation-changed` / `unknown-profile` / `source-install` / `dev-source` / `recovery-required` 与 `internal` 认不出 → 按证据落 `dead-end` / `unknown`。**只有**「没有救援 + 当帧命令可信」才判 `last-resort` 并高亮；没有救援也没有命令（`dead-end`）保留 #92 的 05 章原因说明，绝不画一条空的红色高亮。三处落点同形：单插件面板失败块顶行、批量失败行状态区与展开详情、槽位安装按钮的手工命令折叠区——A′ 形态（左侧红轨 + 行内 SVG 警示图标 + 「最后手段」徽标 + 状态短语 + 归因句 + 紧凑主按钮），`data-last-resort="<kind>"` 是统一钩子、语义类 `.dsh-upd-lastresort` 只在 `last-resort` 出现；命令正文仍留在「05 手工命令」章，标题旁加小徽标，不重复塞进条里。批量行内不新增按钮（沿用详情既有的复制手工命令），行状态区只加轻量标记。
@@ -15,13 +15,17 @@
 
 ### Changed
 - 公开面（加法扩展）：新增内部纯派生模块 `src/last-resort.ts`（不新开包导出子路径）；对外在既有 `./panel` / `./install-button` 子路径增加可选入参与类型转出——`LastResortKind` / `RescueRouteKey` / `ManualSource` / `LastResortVerdict` 等类型可被消费者命名；`PanelRenderInput` 新增可选 `manualSource` / `fallbackAvailable` / `runningVersionKnown` / `copyBubble`，`renderInstallButtonHTML` 的 opts 新增可选 `manualSource` / `failureCode` / `fallbackAvailable`，批量行视图新增可选 `manualSource`。全部可选，不传即旧行为。
-- 契约（只增不改）：新增双语 key `panel.lastresort.badge` / `.status` / `.reason` / `.copy` / `.copied`、`batch.lastresort.row-badge` 与 `panel.manual.stale`（`draft: true`；中文不含冻结词）；快照字段、verify 事件字段、`manualCommand` 安全政策与 `src/codes.ts` 码值全部不变。批量行回包新增可选 `manualSource`（加法扩展，旧宿主无此格按未知处理）。
+- 契约（只增不改）：新增双语 key `panel.lastresort.badge` / `.status` / `.reason` / `.copy` / `.copied`、`batch.lastresort.row-badge` 与 `panel.manual.stale`，以及 #92 空态分因的 `panel.manual.absent.unknown-profile` / `.source-install` / `.dev-source` / `.running-unknown` / `.no-safe-candidate` 与 `panel.manual.absent-comment` / `panel.manual.absent-comment-unknown`（`draft: true`；中文不含冻结词）；快照字段、verify 事件字段、`manualCommand` 安全政策与 `src/codes.ts` 码值全部不变。批量行回包新增可选 `manualSource`（加法扩展，旧宿主无此格按未知处理）。
 - 测试：新增 `tests/last-resort.test.mjs` 31 例（四态 × 命令来源三态、11 个 `BlockedReason` 与 5 个电话失败码逐项遍历、错误输入 → `unknown`、`pending-restart` 的 `registered` 分叉）与 `tests/issue-174-last-resort-render.test.mjs` 14 例（单面板 / 批量行与详情 / 槽位三处 A′ 形态与钩子、carried-over fail-closed、无命令不出空高亮、补读成功/失败两例、复制气泡与按钮文案不变、CSS 令牌与无障碍降级）；`tests/install-button.test.mjs` 另补槽位补读成功/失败两例；`tests/batch-host.test.mjs` 的字段冻结清单按 #177 增补 `manualSource`（只增不改）。全部先红后绿。
 - 文档：README §5.3 改为「成功后刷新；失败回包后先补一次当帧读数，补不到不展示旧命令、只给重新查询」，新增 §5.10 说明四态判定、三处落点、A′ 形态与无障碍/交互约定（集成方手册口径，不写票号与设计理由）。
 - 文档：README §2 补使用范围（profile）解析顺序与 `unknown-profile` 边界，排错第 13 条按新来源改写。
 - 测试：新增 `tests/issue-204-profile-identity.test.mjs` 6 例（`profileContext` / `desktopProfiles.current` / 显式 `env` 三来源各一例；无来源仍如实 `unknown-profile`；开发态外部目录仍 `dev-source`；相对路径目录跳过不崩），先红后绿。
 - 文档：README §5.3 重写「手工命令为空」的五类原因与下一步，排错第 7 条同步。
 - 测试：新增 `tests/issue-92-manual-absent.test.mjs` 18 例（分类纯函数 3 + 单插件 05 章 9 + 批量面板 6，覆盖五类原因、兜底、有命令回归、已最新不硬套、混杂原因中性置灰、判不出原因写「原因未知」）；`tests/issue-176-batch-copy-all.test.mjs` 两条断言按新文案更新。
+
+- `package-lock.json` 的 `version` 与 `package.json` 对齐：此前锁文件停在 `0.16.4`（只影响本地 `npm ci` 的元数据，不影响发布内容），本次发版一并校正到 `0.18.25`。
+
+门禁（**发版定格**）：`npm test` **1646 例：1645 过 / 0 失败 / 1 跳过**（主树 `0e1d043` + 本批发版文件上实测）；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（47 个 src 文件、387 个 key、17 错误码、19 diag 键，违规 0）；`npm publish --dry-run` **101 文件**（`dsh-plugin-update@0.18.25`，413.7 kB 压缩 / 1.4 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（387 个 key 仍全是 `draft: true`）。
 
 ## [0.18.24] - 2026-10-18
 
