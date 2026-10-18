@@ -9,6 +9,9 @@
  * - 已装版离线读：`node_modules/<目标包>/CHANGELOG.md`（与版本 pin 绑定，零新增联网）；
  * - 新版按需取：新版 tarball 内同名文件，复用官方源 + integrity 校验；
  * 取不到一律回 null（调用方渲染中性提示，不挡安装、不写 blockedReason）。
+ * #213：「取不到」的**成因**不再一律同形——`fetchReleaseChangelogOutcome` 多回一格 `status`
+ * （missing=包里没有这个文件 / empty=文件在但是空的 / fetch-failed=网络·超时·integrity·解包失败），
+ * 老的 `fetchReleaseChangelogText` 保持「只要文本、取不到 null」的公开契约一字不动。
  *
  * 记住策略（#41 终裁，三墙不动，只澄清注释）：成功与取不到（null）按版本永久记
  * （面板内存会话级 + 宿主进程级，不落盘，显式文本永不覆盖）；传输失败不进缓存，
@@ -20,7 +23,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { gunzipSync } from 'node:zlib'
-import { CHANGELOG_FILENAME, CHANGELOG_MAX_CHARS } from './changelog.js'
+import { CHANGELOG_FILENAME, CHANGELOG_MAX_CHARS, classifyChangelog, type ChangelogContentStatus } from './changelog.js'
 import { INTEGRITY_PATTERN } from './service.js'
 
 /** tarball 下载上限（字节，压缩态）：超限直接回落中性提示，不解包、不OOM。 */
@@ -191,15 +194,18 @@ function isChangelogEntryName(normalized: string): boolean {
 }
 
 /**
- * 从已解压的 tar 包里取同名文件（best-effort，找不到回 null）。
+ * tar 里找同名文件的三种结论（#213 起区分「没有这个文件」与「文件在但是空的」）：
+ * `found` 找到了（text 可能空白，如实带回）；`absent` 扫完确实没有；`broken` 包本身坏了（诚实失败）。
+ */
+type TarChangelogScan = { kind: 'found'; text: string } | { kind: 'absent' } | { kind: 'broken' }
+
+/**
+ * 从已解压的 tar 包里找同名文件。
  * 只收普通文件（typeflag `0`/`\0`），目录与特殊文件一律跳过。
  */
-export function extractChangelogFromTar(tarBytes: Uint8Array, maxBytes = CHANGELOG_FETCH_MAX_BYTES): string | null {
+function scanChangelogInTar(tarBytes: Uint8Array, maxBytes: number): TarChangelogScan {
   try {
-    if (!tarBytes || tarBytes.length < 512 || tarBytes.length % 512 !== 0) {
-      // 允许非 512 对齐的截断包？严格要求对齐，否则回 null（诚实失败）。
-      if (!tarBytes || tarBytes.length < 512) return null
-    }
+    if (!tarBytes || tarBytes.length < 512) return { kind: 'broken' }
     let offset = 0
     while (offset + 512 <= tarBytes.length) {
       // 空块（全零）即 tar 结尾。
@@ -214,11 +220,11 @@ export function extractChangelogFromTar(tarBytes: Uint8Array, maxBytes = CHANGEL
       const rawName = readTarName(tarBytes, offset)
       const name = normalizeTarEntryName(rawName)
       const size = parseOctal(tarBytes, offset + 124, 12)
-      if (!Number.isFinite(size) || size < 0) return null
+      if (!Number.isFinite(size) || size < 0) return { kind: 'broken' }
       const typeflag = String.fromCharCode(tarBytes[offset + 156] ?? 0)
       const dataStart = offset + 512
       const dataEnd = dataStart + size
-      if (dataEnd > tarBytes.length) return null
+      if (dataEnd > tarBytes.length) return { kind: 'broken' }
       const isFile = typeflag === '0' || typeflag === '\0' || typeflag === ''
       if (isFile && isChangelogEntryName(name)) {
         const slice = tarBytes.slice(dataStart, dataEnd)
@@ -226,23 +232,32 @@ export function extractChangelogFromTar(tarBytes: Uint8Array, maxBytes = CHANGEL
         try {
           text = Buffer.from(slice).toString()
         } catch {
-          return null
+          return { kind: 'broken' }
         }
-        if (!text.trim()) return null
         if (text.length > CHANGELOG_MAX_CHARS) text = text.slice(0, CHANGELOG_MAX_CHARS)
         if (byteLengthOf(text) > maxBytes) text = truncateToBytes(text, maxBytes)
-        return text.trim() ? text : null
+        return { kind: 'found', text }
       }
       // 数据区按 512 对齐跳过。
       const blocks = Math.ceil(size / 512)
       offset = dataStart + blocks * 512
       // 防死循环：offset 必须前进。
-      if (blocks < 0) return null
+      if (blocks < 0) return { kind: 'broken' }
     }
-    return null
+    return { kind: 'absent' }
   } catch {
-    return null
+    return { kind: 'broken' }
   }
+}
+
+/**
+ * 从已解压的 tar 包里取同名文件（best-effort，找不到或空白一律回 null）。
+ * 公开契约一字不动（#23/#41 的调用方只看文本）；「文件在但是空的」这一格由
+ * `fetchReleaseChangelogOutcome` 走 `scanChangelogInTar` 单独认领（#213）。
+ */
+export function extractChangelogFromTar(tarBytes: Uint8Array, maxBytes = CHANGELOG_FETCH_MAX_BYTES): string | null {
+  const scan = scanChangelogInTar(tarBytes, maxBytes)
+  return scan.kind === 'found' && scan.text.trim() ? scan.text : null
 }
 
 function verifyIntegrity(bytes: Uint8Array, integrity: string): boolean {
@@ -256,29 +271,44 @@ function verifyIntegrity(bytes: Uint8Array, integrity: string): boolean {
   }
 }
 
+/** 新版按需取的入参（精确路径校验用目标包名 + 版本，超时与两道字节墙可覆写）。 */
+export interface ReleaseChangelogFetchOpts {
+  targetPackageName?: string
+  registryUrl?: string
+  timeoutMs?: number
+  maxTarballBytes?: number
+  maxChangelogBytes?: number
+}
+
 /**
- * 新版按需取（best-effort，任何一步失败回 null，调用方渲染中性提示）：
+ * 新版按需取的结果（#213）：文本与「为什么没有文本」的成因一起回。
+ * `markdown` 与老的 `fetchReleaseChangelogText` 逐字同形（失败一律 null）；`status` 只回答成因：
+ * `ok`/`empty`/`parse-degraded` 由文本本身给出（classifyChangelog 同口径），
+ * `missing` = 包里没有同名文件，`fetch-failed` = 网络·超时·integrity 不符·解包失败·地址不合规。
+ */
+export interface ReleaseChangelogOutcome {
+  markdown: string | null
+  status: ChangelogContentStatus
+}
+
+/**
+ * 新版按需取（best-effort，任何一步失败回 null + 成因）：
  * 取 tarball → 验 integrity（官方源同一信任根）→ gunzip → 取包内同名文件。
  * 同源校验：tarball 与 registryUrl 同 origin、无用户信息、无 search/hash；
  * 有目标包名 + 版本时再要求精确路径（与 service.fetchNpmRelease 同形）。
  */
-export async function fetchReleaseChangelogText(
+export async function fetchReleaseChangelogOutcome(
   fetchImpl: unknown,
   release: ReleaseChangelogRef | null | undefined,
-  opts?: {
-    targetPackageName?: string
-    registryUrl?: string
-    timeoutMs?: number
-    maxTarballBytes?: number
-    maxChangelogBytes?: number
-  },
-): Promise<string | null> {
+  opts?: ReleaseChangelogFetchOpts,
+): Promise<ReleaseChangelogOutcome> {
+  const failed: ReleaseChangelogOutcome = { markdown: null, status: 'fetch-failed' }
   try {
-    if (typeof fetchImpl !== 'function') return null
+    if (typeof fetchImpl !== 'function') return failed
     const tarballText = (release as { tarball?: unknown } | null)?.tarball
     const integrityText = (release as { integrity?: unknown } | null)?.integrity
-    if (typeof tarballText !== 'string' || !tarballText) return null
-    if (typeof integrityText !== 'string' || !new RegExp(INTEGRITY_PATTERN).test(integrityText)) return null
+    if (typeof tarballText !== 'string' || !tarballText) return failed
+    if (typeof integrityText !== 'string' || !new RegExp(INTEGRITY_PATTERN).test(integrityText)) return failed
     const registryUrl =
       opts && typeof opts.registryUrl === 'string' && opts.registryUrl ? String(opts.registryUrl) : CHANGELOG_DEFAULT_REGISTRY
     let tarballUrl: URL
@@ -287,12 +317,12 @@ export async function fetchReleaseChangelogText(
       tarballUrl = new URL(tarballText)
       registryOrigin = new URL(registryUrl).origin
     } catch {
-      return null
+      return failed
     }
-    if (tarballUrl.protocol !== 'https:') return null
-    if (tarballUrl.origin !== registryOrigin) return null
-    if (tarballUrl.username || tarballUrl.password || tarballUrl.search || tarballUrl.hash) return null
-    if (!tarballUrl.pathname.endsWith('.tgz')) return null
+    if (tarballUrl.protocol !== 'https:') return failed
+    if (tarballUrl.origin !== registryOrigin) return failed
+    if (tarballUrl.username || tarballUrl.password || tarballUrl.search || tarballUrl.hash) return failed
+    if (!tarballUrl.pathname.endsWith('.tgz')) return failed
     const targetName = opts && typeof opts.targetPackageName === 'string' ? String(opts.targetPackageName) : ''
     const versionText =
       release && typeof (release as { version?: unknown }).version === 'string'
@@ -300,7 +330,7 @@ export async function fetchReleaseChangelogText(
         : ''
     if (targetName && versionText) {
       const expectPath = `/${targetName}/-/${targetName}-${versionText}.tgz`
-      if (tarballUrl.pathname !== expectPath) return null
+      if (tarballUrl.pathname !== expectPath) return failed
     }
     const timeoutMs =
       opts && typeof opts.timeoutMs === 'number' && Number.isFinite(opts.timeoutMs) && opts.timeoutMs > 0
@@ -322,30 +352,46 @@ export async function fetchReleaseChangelogText(
         signal: timeoutSignal(timeoutMs),
       })
     } catch {
-      return null
+      return failed
     }
     const ok = (response as { ok?: unknown })?.ok
-    if (ok !== true) return null
+    if (ok !== true) return failed
     try {
       const headers = (response as { headers?: { get?: (n: string) => string | null } }).headers
       const declared = headers && typeof headers.get === 'function' ? Number(headers.get('content-length')) : NaN
-      if (Number.isFinite(declared) && declared > maxTarballBytes) return null
+      if (Number.isFinite(declared) && declared > maxTarballBytes) return failed
     } catch {
       // 头读不到即不拦，由字节数兜底。
     }
     const bytes = await readResponseBytes(response)
-    if (!bytes || bytes.length === 0 || bytes.length > maxTarballBytes) return null
-    if (!verifyIntegrity(bytes, integrityText)) return null
+    if (!bytes || bytes.length === 0 || bytes.length > maxTarballBytes) return failed
+    if (!verifyIntegrity(bytes, integrityText)) return failed
     let tar: Uint8Array
     try {
       const out = gunzipSync(Buffer.from(bytes))
       tar = new Uint8Array(out.buffer, out.byteOffset, out.byteLength)
     } catch {
-      return null
+      return failed
     }
-    if (tar.length === 0 || tar.length > CHANGELOG_TAR_MAX_BYTES) return null
-    return extractChangelogFromTar(tar, maxChangelogBytes)
+    if (tar.length === 0 || tar.length > CHANGELOG_TAR_MAX_BYTES) return failed
+    // #213：包坏了/没这个文件/文件是空的，三件事分开说——面板与日志就靠这一格分辨「谁忘了写」。
+    const scan = scanChangelogInTar(tar, maxChangelogBytes)
+    if (scan.kind === 'broken') return failed
+    if (scan.kind === 'absent') return { markdown: null, status: 'missing' }
+    return { markdown: scan.text.trim() ? scan.text : null, status: classifyChangelog(scan.text) }
   } catch {
-    return null
+    return failed
   }
+}
+
+/**
+ * 兼容口：只要文本（取不到一律 null，公开契约一字不动）。
+ * 想知道「为什么取不到」的调用方用 `fetchReleaseChangelogOutcome`（#213）。
+ */
+export async function fetchReleaseChangelogText(
+  fetchImpl: unknown,
+  release: ReleaseChangelogRef | null | undefined,
+  opts?: ReleaseChangelogFetchOpts,
+): Promise<string | null> {
+  return (await fetchReleaseChangelogOutcome(fetchImpl, release, opts)).markdown
 }

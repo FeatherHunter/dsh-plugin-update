@@ -158,18 +158,22 @@ describe('宿主 updateChangelog 电话', () => {
     assert.equal(calls.length, 0)
   })
 
-  it('取到全文：回包只有 version + markdown，同一版本只取一次', async () => {
+  it('取到全文：回包是 version + markdown + status + cached（#213 起），同一版本只取一次', async () => {
     const calls = []
     const tgz = makeTgz({ 'package/CHANGELOG.md': SAMPLE })
     const host = makeHost({ pluginId: 'cl-hit', fetchImpl: registryFetch({ version: '1.1.0', tgz, calls }) })
     const first = await host.handlers[host.phoneNames.updateChangelog]({ version: '1.1.0' })
-    assert.deepEqual(Object.keys(first).sort(), ['markdown', 'ok', 'version'])
+    assert.deepEqual(Object.keys(first).sort(), ['cached', 'markdown', 'ok', 'status', 'version'])
     assert.equal(first.ok, true)
     assert.equal(first.version, '1.1.0')
     assert.equal(first.markdown, SAMPLE)
+    assert.equal(first.status, 'ok', '#213：有结构的内容态是 ok')
+    assert.equal(first.cached, false, '#213：这一次是真取数')
     assert.equal(calls.length, 2, '版本文档一次 + tarball 一次')
     const second = await host.handlers[host.phoneNames.updateChangelog]({ version: '1.1.0' })
     assert.equal(second.markdown, SAMPLE)
+    assert.equal(second.status, 'ok', '#213：缓存命中帧的 status 仍是原始内容态，不是 cache-hit')
+    assert.equal(second.cached, true, '#213：第二次是缓存命中')
     assert.equal(calls.length, 2, '记住结果后不再联网')
   })
 
@@ -180,8 +184,12 @@ describe('宿主 updateChangelog 电话', () => {
     const out = await host.handlers[host.phoneNames.updateChangelog]({ version: '1.1.0' })
     assert.equal(out.ok, true)
     assert.equal(out.markdown, null)
+    assert.equal(out.status, 'missing', '#213：包里没这个文件，与取数失败分开说')
+    assert.equal(out.cached, false)
     assert.equal(calls.length, 2)
-    await host.handlers[host.phoneNames.updateChangelog]({ version: '1.1.0' })
+    const again = await host.handlers[host.phoneNames.updateChangelog]({ version: '1.1.0' })
+    assert.equal(again.status, 'missing', '#213：缓存命中不得把 missing 重算成别的（也不得反过来）')
+    assert.equal(again.cached, true)
     assert.equal(calls.length, 2, '取不到也记住')
   })
 

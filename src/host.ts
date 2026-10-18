@@ -24,8 +24,8 @@ import {
   type UpdateConfigInput,
 } from './config.js'
 import { manualCommand, normalizeApprovedBuilds } from './commands.js'
-import { fetchReleaseChangelogText } from './changelog-io.js'
-import { parseChangelogReport, shouldFetchChangelog } from './changelog.js'
+import { fetchReleaseChangelogOutcome, type ReleaseChangelogOutcome } from './changelog-io.js'
+import { isChangelogDegraded, isChangelogTruncated, parseChangelogReport, shouldFetchChangelog, type ChangelogContentStatus } from './changelog.js'
 import { buildDiag, type DiagObject } from './diag.js'
 import { hash8 } from './hash.js'
 import { isCoreErrorCode } from './codes.js'
@@ -1033,7 +1033,12 @@ function loggedPhone(
 function loggedChangelogPhone(
   method: string,
   pluginId: string,
-  fn: (args: Record<string, unknown>) => Promise<{ version: string; markdown: string | null }>,
+  fn: (args: Record<string, unknown>) => Promise<{
+    version: string
+    markdown: string | null
+    status: ChangelogContentStatus
+    cached: boolean
+  }>,
   diagCtx?: {
     config: ReturnType<typeof resolveUpdateConfig>
     readerOverrides: ReaderOverrides
@@ -1057,7 +1062,7 @@ function loggedChangelogPhone(
     try {
       const out = await fn(safeArgs)
       emit('info', LOG_EVENT_CALL, { method, latencyMs: Date.now() - t0, ok: true, kind: 'update-changelog', pluginId })
-      return { ok: true, version: out.version, markdown: out.markdown }
+      return { ok: true, version: out.version, markdown: out.markdown, status: out.status, cached: out.cached }
     } catch (error) {
       const payload = toUpdateErrorPayload(error)
       emit('warn', LOG_EVENT_CALL_FAIL, { method, kind: 'update-changelog', error: payload.error, errorHash: hash8(String((error as Error)?.message || payload.error)), pluginId })
@@ -1117,16 +1122,49 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
   else watchDesktopPnpm(ctx)
   const readerOverrides = { ...(deps.readerOverrides ?? {}), ctx, ...(deps.pluginManager ? { pluginManager: deps.pluginManager } : {}) } as ReaderOverrides
   const phoneNames = buildPhoneNames(config.prefix)
-  // 更新日志按版本记住结果（#41 终裁）：成功与取不到按版本永久记（宿主进程级，不落盘）；
-  // 传输失败（抛错）不进缓存，下次重查；轮询退避由面板侧按 shouldFetchChangelog 门控，宿主侧总视为手动（有缓存即回，无缓存即取）。
-  const changelogCache = new Map<string, string | null>()
+  // 更新日志按版本记住结果（#41 终裁 + #213）：缓存条目存「文本 + 成因」一整条，成功与取不到都按版本永久记
+  // （宿主进程级，不落盘）；传输失败（抛错）不进缓存，下次重查；轮询退避由面板侧按 shouldFetchChangelog 门控，
+  // 宿主侧总视为手动（有缓存即回，无缓存即取）。
+  // 缓存命中也要发一行（status:'cache-hit' + cached:true），但**回包里的 status 仍是那次取数的原始内容态**：
+  // 缓存命中不得把「取数失败」冒充成「包里没这个文件」（面板据此分文案，见 #213）。
+  const changelogCache = new Map<string, ReleaseChangelogOutcome>()
   const changelogFailedAt = new Map<string, number>()
-  async function readChangelog(args: Record<string, unknown>): Promise<{ version: string; markdown: string | null }> {
+
+  /**
+   * 落一行更新说明证据（#213）：resident + 边沿（清单 guard），每次「新版」至多一行。
+   * `status` 记的是**取数方式位**（缓存命中即 `cache-hit`），`degraded` 按缓存里那条**内容态**算——
+   * 于是 (cache-hit, degraded:false) 与 (cache-hit, degraded:true) 能分开「缓存了成功」与「缓存了失败」。
+   */
+  function emitChangelogParse(version: string, outcome: ReleaseChangelogOutcome, cached: boolean): void {
+    try {
+      const report = parseChangelogReport(outcome.markdown ?? '')
+      emitUpdateLog('info', 'update.changelog.parse', {
+        version,
+        entries: Array.isArray(report.entries) ? report.entries.length : 0,
+        truncated: isChangelogTruncated(report.truncation),
+        degraded: isChangelogDegraded(outcome.status),
+        status: cached ? 'cache-hit' : outcome.status,
+        cached,
+        source: 'npm',
+      }, { pluginId })
+    } catch { /* 打点绝不影响取日志 */ }
+  }
+
+  async function readChangelog(args: Record<string, unknown>): Promise<{
+    version: string
+    markdown: string | null
+    status: ChangelogContentStatus
+    cached: boolean
+  }> {
     const raw = args ? (args as Record<string, unknown>)['version'] : undefined
     if (!validReleaseVersion(raw)) throw updateError('invalid-release')
     const version = raw as string
     if (!isVersionAllowedInChannel(version, config.releaseChannel)) throw updateError('invalid-release')
-    if (changelogCache.has(version)) return { version, markdown: changelogCache.get(version) ?? null }
+    if (changelogCache.has(version)) {
+      const cachedOutcome = changelogCache.get(version) as ReleaseChangelogOutcome
+      emitChangelogParse(version, cachedOutcome, true)
+      return { version, markdown: cachedOutcome.markdown, status: cachedOutcome.status, cached: true }
+    }
     try {
       let nowMs = 0
       try { nowMs = Date.now(); } catch { nowMs = 0; }
@@ -1140,9 +1178,9 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
       releaseChannel: config.releaseChannel,
       version,
     })
-    let markdown: string | null
+    let outcome: ReleaseChangelogOutcome
     try {
-      markdown = await fetchReleaseChangelogText(
+      outcome = await fetchReleaseChangelogOutcome(
         fetchImpl,
         { tarball: release.tarball, integrity: release.integrity, version },
         { targetPackageName: config.targetPackageName, registryUrl: config.registryUrl, timeoutMs: config.checkTimeoutMs },
@@ -1151,20 +1189,12 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
       try { changelogFailedAt.set(version, Date.now()); } catch { try { changelogFailedAt.set(version, 0); } catch {} }
       throw err
     }
-    changelogCache.set(version, markdown)
+    changelogCache.set(version, outcome)
     try { changelogFailedAt.delete(version); } catch { }
     // changelog 解析（#124，ondemand 档）：宿主侧只**多算一次统计**用于落行，不改回包形状
-    // （回包仍是原文，渲染方自己解析）。缓存命中在上面的早退分支返回，不发这条——那次没有解析发生。
-    try {
-      const report = parseChangelogReport(markdown ?? '')
-      emitUpdateLog('info', 'update.changelog.parse', {
-        entries: Array.isArray(report.entries) ? report.entries.length : 0,
-        truncated: report.truncation ? true : false,
-        degraded: markdown === null,
-        source: 'npm',
-      }, { pluginId })
-    } catch { /* 打点绝不影响取日志 */ }
-    return { version, markdown }
+    // （回包仍是原文，渲染方自己解析）。#213 起这次统计连同成因一起进 resident 边沿行。
+    emitChangelogParse(version, outcome, false)
+    return { version, markdown: outcome.markdown, status: outcome.status, cached: false }
   }
   async function readStatus(args: Record<string, unknown>): Promise<{
     snapshot: unknown

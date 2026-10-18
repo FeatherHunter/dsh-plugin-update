@@ -759,6 +759,60 @@ export function parseChangelog(markdown: unknown): ChangelogEntry[] {
   return parseChangelogReport(markdown).entries
 }
 
+/**
+ * 「有新版，但更新说明一片空白」到底为什么（#213，来源 docs/research/20261018-日志必要性对抗审查.md §4.5）：
+ * `ok` 解析出了结构；`empty` 包里那个文件在、但是空的；`missing` 包里根本没这个文件；
+ * `fetch-failed` 取数这步就没成（网络/超时/integrity 不符/JSON 坏）；`parse-degraded` 有内容但解析不出结构；
+ * `cache-hit` 本次只是回宿主缓存（内容态由缓存里记着的那次结论给出，见下面 ChangelogContentStatus）。
+ * 六值都是稳定代号（进日志枚举与面板分支判断），改一字就是改契约。
+ */
+export const CHANGELOG_STATUSES = ['ok', 'empty', 'missing', 'fetch-failed', 'parse-degraded', 'cache-hit'] as const
+export type ChangelogStatus = (typeof CHANGELOG_STATUSES)[number]
+
+/** 内容态：取数/文本本身给出的结论，不含「本次是不是回缓存」这个取数方式位。 */
+export type ChangelogContentStatus = Exclude<ChangelogStatus, 'cache-hit'>
+
+/**
+ * 日志 `degraded` 位（#213）：只有 `ok` 算「有可用内容」，其余内容态（empty/missing/fetch-failed/parse-degraded）
+ * 都是降级——老写法 `markdown === null` 与它在 ok/empty/missing 上同结论，多出来的只是 parse-degraded 那一格。
+ * 传进来的必须是**内容态**（`ChangelogContentStatus`）；认不出的野值一律算降级（宁可多报，不可漏报）。
+ */
+export function isChangelogDegraded(status: unknown): boolean {
+  return status !== 'ok'
+}
+
+/** 截断台账里是否真动过手（#213：老写法 `report.truncation ? true : false` 恒为 true，是死信号）。 */
+export function isChangelogTruncated(tr: ChangelogTruncation | null | undefined): boolean {
+  if (!tr || typeof tr !== 'object') return false
+  return (
+    tr.chars === true ||
+    tr.tailVersions > 0 ||
+    tr.entries > 0 ||
+    tr.sections > 0 ||
+    tr.sectionItems > 0 ||
+    tr.items > 0
+  )
+}
+
+/** 认不认这个代号（老宿主/手搓回包不带或带野值时，面板必须回老文案而不是瞎猜）。 */
+export function isChangelogStatus(value: unknown): value is ChangelogStatus {
+  return typeof value === 'string' && (CHANGELOG_STATUSES as readonly string[]).indexOf(value) >= 0
+}
+
+/**
+ * 文本 → 内容态（纯函数，不抛错）。`undefined`/null 一律 `missing`（调用方若知道是取数失败，
+ * 该走 `fetch-failed`，别拿 null 冒充「没这个文件」——#213 要除的就是这口锅）。
+ */
+export function classifyChangelog(markdown: unknown): ChangelogContentStatus {
+  if (typeof markdown !== 'string') return 'missing'
+  if (!markdown.trim()) return 'empty'
+  try {
+    return parseChangelogReport(markdown).entries.length ? 'ok' : 'parse-degraded'
+  } catch {
+    return 'parse-degraded'
+  }
+}
+
 /** 该节是否有可见内容（六类任一非空，或自定义小节里有条目）。 */
 export function hasVisibleSections(entry: ChangelogEntry | null | undefined): boolean {
   if (!entry || typeof entry !== 'object') return false

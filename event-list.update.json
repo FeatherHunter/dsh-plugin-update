@@ -45,6 +45,9 @@
     },
     "update.log.degraded": {
       "reason": ["no-dsh-log", "lease-conflict", "write-fail", "emit-threw", "unknown-event", "unknown-field", "invalid-enum"]
+    },
+    "update.changelog.parse": {
+      "status": ["ok", "empty", "missing", "fetch-failed", "parse-degraded", "cache-hit"]
     }
   },
   "events": {
@@ -184,8 +187,9 @@
     },
     "update.changelog.parse": {
       "level": "info",
-      "kind": "ondemand",
-      "fields": ["entries", "truncated", "degraded", "source"]
+      "kind": "resident",
+      "fields": ["version", "entries", "truncated", "degraded", "status", "cached", "source"],
+      "guard": "边沿触发：与上一次同形（字段指纹相同，含 version）不发"
     },
     "update.poll": {
       "level": "info",

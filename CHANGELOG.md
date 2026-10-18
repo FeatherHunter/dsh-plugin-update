@@ -4,6 +4,12 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
+## [Unreleased]
+
+### Changed
+- **#213 有新版，但更新说明一片空白时分不清是谁的锅**：`update.changelog.parse` 由按需升为常驻 + 边沿（清单档位 19/7/1 → 20/6/1，事件总数仍 27），并扩 `version` / `status` / `cached` 三格——`status ∈ ok|empty|missing|fetch-failed|parse-degraded|cache-hit`，前五格是内容成因（解析出了结构 / 文件在但是空的 / 包里没这个文件 / 取数这步没成 / 有内容但解析不出结构），`cache-hit` 只表示这一帧回的是宿主缓存；缓存命中同样发一行，边沿指纹含 `version`（两个版本即使行字段完全同形也各发各的，同版本同组合不重复）。宿主 `updateChangelog` 回包新增 `status` 与 `cached`（`markdown` 形状不变）：缓存命中时回包的 `status` 仍是那次取数的**原始内容态**，不会被重算成「包里没这个文件」。面板空白说明按 `status` 分四种文案（作者没写 / 文件是空的 / 取数失败 / 解析不出结构），不再一律说「作者未提供更新说明」。取数层新增 `fetchReleaseChangelogOutcome`（成因与文本一起回），`fetchReleaseChangelogText` 保留为兼容口、公开契约一字不变。顺手修 `truncated` 位：老写法 `report.truncation ? true : false` 恒为真，改成按截断台账计数判定。
+- 测试：新增 `tests/changelog-status.test.mjs`（六例：五种内容成因各恰好一行 + 缓存边沿只发一次、空白三态互不同形、跨版本不互相抑制、行内不出现路径/URL/凭据、清单档位与字段冻结），`tests/gate.test.mjs` 的档位断言同步到 20/6/1。
+
 ## [0.18.25] - 2026-10-18
 
 ### Fixed
