@@ -459,6 +459,9 @@ export function buildUpdateDiagCopy(input: UpdateDiagCopyInput, langOverride?: A
   if (diag.action) prov.push(copyText('panel.diag.copy.field.action', l, { action: diag.action }))
   if (typeof requestRaw === 'string' && requestRaw.trim()) prov.push(copyText('panel.diag.copy.field.request', l, { request: requestRaw.trim() }))
   if (typeof checkRaw === 'string' && checkRaw.trim()) prov.push(copyText('panel.diag.copy.field.check', l, { check: checkRaw.trim() }))
+  // #207：意图短指纹是机读 tag（与 HTTP=/exit= 同待遇，不进字典），让复制出来的工单证据
+  // 能与 update.install.request / update.install.fail 两类日志行对上；缺省即省略。
+  if (diag.intentHash) prov.push(`intent=${diag.intentHash}`)
   prov.push(copyText('panel.diag.copy.field.queue', l, { queue }))
   // #196 部署偏斜：来源行补「更新器=版本（层级）」，缺省省略（老调用/未知副本不编）。
   const updaterText = updaterFieldText((input as { updater?: UpdaterSelfView | null }).updater, l)

@@ -142,11 +142,11 @@ function fullFields(overrides) {
   return {
     stage: 'gate',
     reason: 'unknown',
-    hostCode: 'none',
+    code: 'install-failed',
+    hostCodeHash: 'none',
     check: 'none',
     exitCode: null,
     observedVersion: null,
-    pendingRestart: false,
     intentHash: '',
     ...overrides,
   }
@@ -158,7 +158,7 @@ describe('#207 十种失败现场：一次意图恰好一条 update.install.fail
     svc.setRunInstall(async () => {
       throw Object.assign(new Error('安装超时'), {
         code: 'install-failed',
-        installFail: { stage: 'exec', reason: 'timeout', hostCode: 'none', check: 'none', exitCode: null },
+        installFail: { stage: 'exec', reason: 'timeout', code: 'install-failed', hostCode: 'none', check: 'none', exitCode: null },
       })
     })
     await svc.checkAndInstall('req-timeout')
@@ -178,7 +178,7 @@ describe('#207 十种失败现场：一次意图恰好一条 update.install.fail
     svc.setRunInstall(async () => {
       throw Object.assign(new Error('装载器挂了'), {
         code: 'install-failed',
-        installFail: { stage: 'exec', reason: 'crashed', hostCode: 'none', check: 'none', exitCode: null },
+        installFail: { stage: 'exec', reason: 'crashed', code: 'install-failed', hostCode: 'none', check: 'none', exitCode: null },
       })
     })
     await svc.checkAndInstall('req-crash')
@@ -193,7 +193,7 @@ describe('#207 十种失败现场：一次意图恰好一条 update.install.fail
       throw Object.assign(new Error('pnpm 退出 1'), {
         code: 'install-failed',
         exitCode: 1,
-        installFail: { stage: 'exec', reason: 'nonzero-exit', hostCode: 'none', check: 'none', exitCode: 1 },
+        installFail: { stage: 'exec', reason: 'nonzero-exit', code: 'install-failed', hostCode: 'none', check: 'none', exitCode: 1 },
       })
     })
     await svc.checkAndInstall('req-nonzero')
@@ -207,7 +207,7 @@ describe('#207 十种失败现场：一次意图恰好一条 update.install.fail
     svc.setRunInstall(async () => {
       throw Object.assign(new Error('起不来'), {
         code: 'install-failed',
-        installFail: { stage: 'exec', reason: 'spawn-failed', hostCode: 'none', check: 'none', exitCode: null },
+        installFail: { stage: 'exec', reason: 'spawn-failed', code: 'install-failed', hostCode: 'none', check: 'none', exitCode: null },
       })
     })
     await svc.checkAndInstall('req-spawn')
@@ -221,7 +221,7 @@ describe('#207 十种失败现场：一次意图恰好一条 update.install.fail
     svc.setRunInstall(async () => {
       throw Object.assign(new Error('终止没发出去'), {
         code: 'install-failed',
-        installFail: { stage: 'exec', reason: 'terminate-failed', hostCode: 'none', check: 'none', exitCode: null },
+        installFail: { stage: 'exec', reason: 'terminate-failed', code: 'install-failed', hostCode: 'none', check: 'none', exitCode: null },
       })
     })
     await svc.checkAndInstall('req-term')
@@ -242,7 +242,7 @@ describe('#207 十种失败现场：一次意图恰好一条 update.install.fail
       fullFields({
         stage: 'verify',
         reason: 'version-mismatch',
-        hostCode: 'none',
+        code: 'install-failed',
         check: 'version',
         observedVersion: '1.0.0',
         intentHash: expectedHash8('req-mismatch'),
@@ -263,7 +263,7 @@ describe('#207 十种失败现场：一次意图恰好一条 update.install.fail
       fullFields({
         stage: 'verify',
         reason: 'not-registered',
-        hostCode: 'none',
+        code: 'install-failed',
         check: 'registered',
         observedVersion: RELEASE_VERSION,
         intentHash: expectedHash8('req-unreg'),
@@ -271,7 +271,7 @@ describe('#207 十种失败现场：一次意图恰好一条 update.install.fail
     )
   })
 
-  it('装后环境阻拦：verify 阶段 reason=env-blocked check=env（hostCode 是阻塞码）', async () => {
+  it('装后环境阻拦：verify 阶段 reason=env-blocked check=env（code 是阻塞码）', async () => {
     const svc = makeService()
     await svc.checkAndInstall('req-env', (refs) => {
       refs.installedVersion = RELEASE_VERSION
@@ -284,7 +284,7 @@ describe('#207 十种失败现场：一次意图恰好一条 update.install.fail
       fullFields({
         stage: 'verify',
         reason: 'env-blocked',
-        hostCode: 'recovery-required',
+        code: 'recovery-required',
         check: 'env',
         observedVersion: RELEASE_VERSION,
         intentHash: expectedHash8('req-env'),
@@ -303,19 +303,31 @@ describe('#207 十种失败现场：一次意图恰好一条 update.install.fail
     assert.equal(fails.length, 1)
     assert.deepEqual(
       fails[0].fields,
-      fullFields({ stage: 'gate', reason: 'noop', hostCode: 'installation-changed', intentHash: expectedHash8('req-noop') })
+      fullFields({ stage: 'gate', reason: 'noop', code: 'installation-changed', intentHash: expectedHash8('req-noop') })
     )
     assert.equal(requestRows(svc.rows).length, 0)
   })
 
-  it('闸门拒绝：gate 阶段 reason=gate-refused（hostCode 是稳定码），且没有请求行', async () => {
+  it('闸门拒绝：gate 阶段 reason=gate-refused（code 是稳定码），且没有请求行', async () => {
     const svc = makeService()
     await assert.rejects(svc.core.install({ checkId: 'no-such-check', requestId: 'req-gate' }))
     const fails = failRows(svc.rows)
     assert.equal(fails.length, 1)
     assert.deepEqual(
       fails[0].fields,
-      fullFields({ stage: 'gate', reason: 'gate-refused', hostCode: 'check-expired', intentHash: expectedHash8('req-gate') })
+      fullFields({ stage: 'gate', reason: 'gate-refused', code: 'check-expired', intentHash: expectedHash8('req-gate') })
+    )
+    assert.equal(requestRows(svc.rows).length, 0)
+  })
+
+  it('凭证/编号不齐也被拒：gate 行照落（老收据重放也要有一条原因）', async () => {
+    const svc = makeService()
+    await assert.rejects(svc.core.install({ checkId: '', requestId: 'req-bad' }))
+    const fails = failRows(svc.rows)
+    assert.equal(fails.length, 1)
+    assert.deepEqual(
+      fails[0].fields,
+      fullFields({ stage: 'gate', reason: 'gate-refused', code: 'check-expired', intentHash: expectedHash8('req-bad') })
     )
     assert.equal(requestRows(svc.rows).length, 0)
   })
@@ -348,7 +360,14 @@ describe('#207 执行器分类：抛错里带着可上报的失败事实', () =>
   it('起进程能力缺失 → spawn-failed', async () => {
     await assert.rejects(cliExecutor(null)({ version: RELEASE_VERSION }), (error) => {
       assert.equal(error.code, 'install-failed')
-      assert.deepEqual(error.installFail, { stage: 'exec', reason: 'spawn-failed', hostCode: 'none', check: 'none', exitCode: null })
+      assert.deepEqual(error.installFail, {
+        stage: 'exec',
+        reason: 'spawn-failed',
+        code: 'install-failed',
+        hostCode: 'none',
+        check: 'none',
+        exitCode: null,
+      })
       return true
     })
   })
@@ -386,7 +405,14 @@ describe('#207 执行器分类：抛错里带着可上报的失败事实', () =>
   it('非零退出 → nonzero-exit 带真实退出码', async () => {
     const handle = { done: Promise.resolve({ exitCode: 1 }) }
     await assert.rejects(cliExecutor({ spawn: () => handle })({ version: RELEASE_VERSION }), (error) => {
-      assert.deepEqual(error.installFail, { stage: 'exec', reason: 'nonzero-exit', hostCode: 'none', check: 'none', exitCode: 1 })
+      assert.deepEqual(error.installFail, {
+        stage: 'exec',
+        reason: 'nonzero-exit',
+        code: 'install-failed',
+        hostCode: 'none',
+        check: 'none',
+        exitCode: 1,
+      })
       return true
     })
   })
@@ -401,7 +427,15 @@ describe('#207 执行器分类：抛错里带着可上报的失败事实', () =>
     })
     await assert.rejects(executor({ version: RELEASE_VERSION }), (error) => {
       assert.equal(error.code, 'install-failed')
-      assert.deepEqual(error.installFail, { stage: 'exec', reason: 'host-rejected', hostCode: 'already-installed', check: 'none', exitCode: null })
+      // 宿主原始标识只在内部事实里；落行时折成 hostCodeHash（不落 already-installed 原码）。
+      assert.deepEqual(error.installFail, {
+        stage: 'exec',
+        reason: 'host-rejected',
+        code: 'install-failed',
+        hostCode: 'already-installed',
+        check: 'none',
+        exitCode: null,
+      })
       return true
     })
   })
@@ -416,11 +450,11 @@ describe('#207 契约与负向断言', () => {
     assert.equal(entry.kind, 'resident')
     assert.deepEqual([...entry.fields].sort(), [
       'check',
+      'code',
       'exitCode',
-      'hostCode',
+      'hostCodeHash',
       'intentHash',
       'observedVersion',
-      'pendingRestart',
       'reason',
       'stage',
     ])
@@ -442,6 +476,28 @@ describe('#207 契约与负向断言', () => {
       assert.ok(raw.fieldEnums['update.install.fail'].reason.includes(reason), `reason 枚举缺 ${reason}`)
     }
     assert.deepEqual(raw.fieldEnums['update.install.fail'].check, ['version', 'registered', 'env', 'none'])
+    // code 只收本包码面（src/codes.ts 的 CORE_ERROR_CODES + internal/unsupported + none），逐值声明。
+    assert.deepEqual([...raw.fieldEnums['update.install.fail'].code].sort(), [
+      'channel-mismatch',
+      'check-expired',
+      'check-failed',
+      'dev-source',
+      'incompatible-dsh',
+      'incompatible-node',
+      'install-failed',
+      'installation-changed',
+      'internal',
+      'invalid-installation',
+      'invalid-release',
+      'none',
+      'pending-restart',
+      'recovery-required',
+      'registry-conflict',
+      'source-install',
+      'unknown-profile',
+      'unsupported',
+      'update-busy',
+    ])
     assert.ok(raw.events['update.install.request'].fields.includes('intentHash'))
   })
 
@@ -461,21 +517,81 @@ describe('#207 契约与负向断言', () => {
     assert.equal(legacy.intentHash, undefined)
   })
 
-  it('负向断言：失败行只含稳定码与枚举，不含路径、URL、宿主原话', async () => {
+  it('负向断言：失败行只含稳定码与枚举，不含路径、URL、宿主原话、令牌、键值与邮箱', async () => {
     const svc = makeService()
+    const prose =
+      'pnpm ERR! https://registry.npmjs.org/secret C:\\Users\\me\\profile token=abc123 password=hunter2 user@example.com'
     svc.setRunInstall(async () => {
-      throw Object.assign(new Error('pnpm ERR! https://registry.npmjs.org/secret C:\\Users\\me\\profile'), {
-        code: 'install-failed',
-        detail: 'pnpm ERR! https://registry.npmjs.org/secret C:\\Users\\me\\profile',
-      })
+      throw Object.assign(new Error(prose), { code: 'install-failed', detail: prose })
     })
     await svc.checkAndInstall('req-neg')
     await waitFor(() => failRows(svc.rows).length > 0)
     assert.equal(failRows(svc.rows).length, 1)
     const text = JSON.stringify(failRows(svc.rows)[0].fields)
-    for (const needle of ['C:\\', 'https://', 'http://', 'npmjs.org', 'secret']) {
+    for (const needle of [
+      'C:\\',
+      'https://',
+      'http://',
+      'npmjs.org',
+      'secret',
+      'token=',
+      'password=',
+      'hunter2',
+      'user@example.com',
+    ]) {
       assert.equal(text.includes(needle), false, `失败行里出现了 ${needle}：${text}`)
     }
     assert.match(failRows(svc.rows)[0].fields.intentHash, /^[0-9a-f]{8}$/)
+  })
+
+  it('宿主原始标识不落行：hostCode 折成 hostCodeHash（与哈希同算法）', async () => {
+    const svc = makeService()
+    svc.setRunInstall(async () => {
+      throw Object.assign(new Error('宿主拒绝'), {
+        code: 'install-failed',
+        installFail: {
+          stage: 'exec',
+          reason: 'host-rejected',
+          code: 'install-failed',
+          hostCode: 'already-installed',
+          check: 'none',
+          exitCode: null,
+        },
+      })
+    })
+    await svc.checkAndInstall('req-host')
+    await waitFor(() => failRows(svc.rows).length > 0)
+    const fields = failRows(svc.rows)[0].fields
+    assert.equal(fields.hostCodeHash, expectedHash8('already-installed'))
+    assert.equal(JSON.stringify(fields).includes('already-installed'), false, '宿主原始标识不许进行')
+  })
+
+  it('值域表：八格每格都落在 ADR-0006 允许的类别里（null/bool/number/hash8/semver/声明枚举）', async () => {
+    const raw = JSON.parse(await readFile(new URL('../event-list.update.json', import.meta.url), 'utf8'))
+    const enums = raw.fieldEnums['update.install.fail']
+    const svc = makeService()
+    await svc.checkAndInstall('req-classes', (refs) => {
+      refs.installedVersion = RELEASE_VERSION
+      refs.blockedReason = 'recovery-required'
+    })
+    await waitFor(() => failRows(svc.rows).length > 0)
+    const fields = failRows(svc.rows)[0].fields
+    for (const [key, value] of Object.entries(fields)) {
+      if (value === null || typeof value === 'boolean') continue
+      if (typeof value === 'number') {
+        assert.ok(Number.isInteger(value), `${key} 应是整数`)
+        continue
+      }
+      assert.equal(typeof value, 'string', `${key} 类型越界`)
+      if (key === 'intentHash') assert.match(value, /^[0-9a-f]{8}$/, `${key} 应是 hash8`)
+      else if (key === 'hostCodeHash') assert.ok(value === 'none' || /^[0-9a-f]{8}$/.test(value), `${key} 应是 hash8 或 none`)
+      else if (key === 'observedVersion') assert.match(value, /^\d+\.\d+\.\d+/, `${key} 应是归一 semver`)
+      else {
+        const allowed = enums[key]
+        assert.ok(Array.isArray(allowed), `${key} 应有声明枚举`)
+        assert.ok(allowed.includes(value), `${key} 值 ${value} 不在声明枚举里`)
+        assert.ok(raw.events['update.install.fail'].fields.includes(key), `${key} 未在事件清单声明`)
+      }
+    }
   })
 })

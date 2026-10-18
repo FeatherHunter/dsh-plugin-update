@@ -20,6 +20,27 @@
         "gate-refused",
         "unknown"
       ],
+      "code": [
+        "check-failed",
+        "invalid-release",
+        "check-expired",
+        "update-busy",
+        "install-failed",
+        "unknown-profile",
+        "channel-mismatch",
+        "source-install",
+        "invalid-installation",
+        "installation-changed",
+        "pending-restart",
+        "registry-conflict",
+        "incompatible-node",
+        "incompatible-dsh",
+        "recovery-required",
+        "dev-source",
+        "internal",
+        "unsupported",
+        "none"
+      ],
       "check": ["version", "registered", "env", "none"]
     },
     "update.log.degraded": {
@@ -80,8 +101,8 @@
     "update.install.fail": {
       "level": "warn",
       "kind": "resident",
-      "fields": ["stage", "reason", "hostCode", "check", "exitCode", "observedVersion", "pendingRestart", "intentHash"],
-      "guard": "一次安装失败一条；同一意图只记一次原因，无法归类时 reason=unknown 照记"
+      "fields": ["stage", "reason", "code", "hostCodeHash", "check", "exitCode", "observedVersion", "intentHash"],
+      "guard": "一次安装失败一条；同一意图的请求行用 intentHash 聚合，无法归类时 reason=unknown 照记"
     },
     "update.install.verify": {
       "level": "info",

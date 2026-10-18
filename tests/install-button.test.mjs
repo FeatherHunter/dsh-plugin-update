@@ -191,6 +191,8 @@ describe('点击安装', () => {
     assert.equal(installs[0].args.checkId, 'check-1')
     assert.equal(typeof installs[0].args.requestId, 'string')
     assert.ok(installs[0].args.requestId.length > 0)
+    // #207：来源如实上报（安装按钮=入口件；不许再冒充面板）。
+    assert.equal(installs[0].args.from, 'entry')
   })
 
   it('连点只认第一次（在途安装未收尾前不重发）', async () => {

@@ -34,6 +34,14 @@ function shortHash(text) {
   return createHash('sha256').update(String(text)).digest('hex').slice(0, 24)
 }
 
+/** 独立口径的 djb2→8 位十六进制（与实现同算法但各写一份，避免自证）。 */
+function expectedHash8(value) {
+  let h = 5381
+  const text = String(value ?? '')
+  for (let i = 0; i < text.length; i += 1) h = ((h << 5) + h + text.charCodeAt(i)) >>> 0
+  return ('0000000' + h.toString(16)).slice(-8)
+}
+
 describe('纯决策：占位与位置', () => {
   it('同一编号幂等占一位，已在不挪位', () => {
     let s = emptyQueueState()
@@ -435,6 +443,20 @@ describe('宿主接线：老形状冻结与队列开关', () => {
     const blocked = await hostSecond.handlers['wf.updateInstall']({ checkId: 'y', requestId: 'second' })
     assert.equal(blocked.ok, false)
     assert.equal(blocked.error, 'update-busy')
+    // #207：公平门拒绝也要留一条原因行（用户侧「被拒」不是无痕的）。
+    const fails = fires.filter((row) => row.event === 'update.install.fail')
+    assert.equal(fails.length, 1)
+    assert.equal(fails[0].level, 'warn')
+    assert.deepEqual(fails[0].fields, {
+      stage: 'gate',
+      reason: 'gate-refused',
+      code: 'update-busy',
+      hostCodeHash: 'none',
+      check: 'none',
+      exitCode: null,
+      observedVersion: null,
+      intentHash: expectedHash8('second'),
+    })
   })
 
   it('取消占位：撤自己的成功，撤他人的不动', async () => {

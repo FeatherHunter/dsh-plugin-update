@@ -28,7 +28,7 @@ import { normalizeQueueState, type QueueOwner, type UpdateQueueState } from './q
 import { validReleaseVersion } from './service.js'
 import { DETAIL_MAX_CHARS, MASKED_CREDENTIAL_NOTE, sanitizeDetail } from './redaction.js'
 import { LOG_EVENT_INSTALL_EXEC } from './log-events.js'
-import { attachInstallFail, normalizeHostCode, readInstallFail } from './install-fail.js'
+import { attachInstallFail, normalizeCode, normalizeHostCode, readInstallFail } from './install-fail.js'
 import type { InstallFailFacts } from './install-fail.js'
 import type { EnvironmentKind, InstallRecipe, ReleaseChannel, UpdateJob, UpdateLogPort } from './ports.js'
 
@@ -1402,11 +1402,13 @@ function emitInstall(
  */
 function failExec(
   error: Error,
-  facts: { reason: InstallFailFacts['reason']; hostCode?: string; exitCode?: number | null }
+  facts: { reason: InstallFailFacts['reason']; code?: string; hostCode?: string; exitCode?: number | null }
 ): Error {
   return attachInstallFail(error, {
     stage: 'exec',
     reason: facts.reason,
+    // 码格只收本包码面：执行器抛出的码是 install-failed；宿主自由标识走 hostCodeHash，不进这格。
+    code: normalizeCode(facts.code ?? (error as { code?: unknown })?.code),
     hostCode: facts.hostCode ?? 'none',
     check: 'none',
     exitCode: typeof facts.exitCode === 'number' && Number.isInteger(facts.exitCode) ? facts.exitCode : null,

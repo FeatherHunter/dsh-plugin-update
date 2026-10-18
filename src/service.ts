@@ -3,7 +3,7 @@
  *
  * 由 update-core/src/service.ts 原样拎入：只记得规矩，不动手装：查状态读本地、查新版联网问一次、
  * 装前复核用的凭证与指纹在这里生成与比对，安装的排队、去重、复核、备份顺序也在此。
- * 真正的跑腿（读盘、联网、拼命令、执行）全在适配器，本文件零导入，依赖全当参数传。
+ * 真正的跑腿（读盘、联网、拼命令、执行）全在适配器；本文件只导入纯函数与类型（无 Node 专属能力），运行期依赖全当参数传。
  *
  * 相对原样的增量（规格 #591 第 4、5 条）：目标包名、官方源、联网超时、凭证有效期经 UpdatePorts
  * 的可选字段注入，默认值等于现状常量（冻结默认值）。不传即走现状，老调用零变化。
@@ -83,7 +83,7 @@ export type { ReleaseChannel } from './version-judgment.js'
 // 纯函数零值依赖；从未进包导出表，无垫片需要（#159 冻结）。
 import { httpStatusOfError, installSourceOf, stableCodeOf, stageOfError, triggerOf } from './check-conclusion.js'
 // 安装失败原因链（#207）：现场事实分类与行字段收敛放在中立文件，本文件只负责「何时记一行」。
-import { attachInstallFail, installFailRowFields, readInstallFail } from './install-fail.js'
+import { attachInstallFail, installFailRowFields, normalizeCode, readInstallFail } from './install-fail.js'
 import type { InstallFailFacts } from './install-fail.js'
 import { BLOCKED_REASONS } from './codes.js'
 import { hash8 } from './hash.js'
@@ -195,8 +195,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       installFailRowFields({
         ...facts,
         intentHash: validation.intentHash,
-        observedVersion: validation.observedVersion ?? null,
-        pendingRestart: false,
+        observedVersion:
+          typeof validation.observedVersion === 'string' && validReleaseVersion(validation.observedVersion) ? validation.observedVersion : null,
       }),
     )
   }
@@ -210,7 +210,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     return {
       stage: 'gate',
       reason: blocked ? 'env-blocked' : 'gate-refused',
-      hostCode: /^[a-z][a-z0-9-]{0,31}$/.test(code) ? code : 'none',
+      code: normalizeCode(code),
+      hostCode: 'none',
       check: 'none',
       exitCode: null,
     }
@@ -728,7 +729,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
           Object.assign(updateError('install-failed'), {
             detail: `装完校验没过：磁盘上是 ${env.installedVersion ?? '未知'}，目标是 ${job.targetVersion ?? '未知'}`,
           }),
-          { stage: 'verify', reason: 'version-mismatch', hostCode: 'none', check: 'version', exitCode: null },
+          { stage: 'verify', reason: 'version-mismatch', code: 'install-failed', hostCode: 'none', check: 'version', exitCode: null },
         )
       }
       // 在册核实（#180；#201 起改成「登记不许倒退」）：新装必须登记，否则重启后插件根本不会加载；
@@ -741,14 +742,15 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
           Object.assign(updateError('install-failed'), {
             detail: '装完校验没过：profile 未登记该插件（重启后不会加载）',
           }),
-          { stage: 'verify', reason: 'not-registered', hostCode: 'none', check: 'registered', exitCode: null },
+          { stage: 'verify', reason: 'not-registered', code: 'install-failed', hostCode: 'none', check: 'registered', exitCode: null },
         )
       }
       if (env.blockedReason && env.blockedReason !== 'pending-restart') {
         throw attachInstallFail(Object.assign(updateError('install-failed'), { detail: `装完校验没过：环境报告 ${env.blockedReason}` }), {
           stage: 'verify',
           reason: 'env-blocked',
-          hostCode: env.blockedReason,
+          code: normalizeCode(env.blockedReason),
+          hostCode: 'none',
           check: 'env',
           exitCode: null,
         })
@@ -785,6 +787,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       const facts: InstallFailFacts = readInstallFail(error) ?? {
         stage: 'exec',
         reason: 'unknown',
+        code: normalizeCode(base),
         hostCode: 'none',
         check: 'none',
         exitCode:
@@ -919,16 +922,17 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       Object.assign(updateError('installation-changed'), {
         detail: '目标版本与已装版本相同，无需安装',
       }),
-      { stage: 'gate', reason: 'noop', hostCode: 'installation-changed', check: 'none', exitCode: null },
+      { stage: 'gate', reason: 'noop', code: 'installation-changed', hostCode: 'none', check: 'none', exitCode: null },
     )
   }
 
   async function install(args: { checkId: string; requestId: string; from?: InstallSource; version?: string; approvedBuilds?: string[] }): Promise<UpdateSnapshot> {
     const checkId = typeof args?.checkId === 'string' ? args.checkId : ''
     const requestId = typeof args?.requestId === 'string' ? args.requestId : ''
-    if (!checkId || !validRequestId(requestId)) throw updateError('check-expired')
     const intentHash = hash8(requestId)
     try {
+      // 凭证/编号不齐也是「被拒」的一种现场（老收据、旧面板重放）：同样落一条原因行。
+      if (!checkId || !validRequestId(requestId)) throw updateError('check-expired')
       return await attemptInstall(args, checkId, requestId)
     } catch (error) {
       // 装前闸门拒绝（#207）：一次意图恰好一条原因行；抛点贴好事实的（如空更新）原样采用，其余按稳定码分类。
@@ -943,7 +947,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     checkId: string,
     requestId: string,
   ): Promise<UpdateSnapshot> {
-    // 批准构建名单（#194）：形状归一在 host 侧完成（本文件零运行时导入契约），核心只做透明转发，
+    // 批准构建名单（#194）：形状归一在 host 侧完成，核心只做透明转发，
     // 且只对本次安装生效——不进 job、不落盘、不跨请求复用。
     const approvedBuilds = Array.isArray(args?.approvedBuilds)
       ? args.approvedBuilds.filter((name) => typeof name === 'string' && name)

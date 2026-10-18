@@ -420,6 +420,8 @@ test('安装自动带凭证：mount 自动查已拿凭证时安装直接复用�
   const installArgs = log[installAt].args
   assert.equal(installArgs.checkId, 'check-1', '装更新带回检查更新的凭证')
   assert.ok(typeof installArgs.requestId === 'string' && installArgs.requestId.length >= 1, '请求编号自带')
+  // #207：来源如实上报（面板=panel）。
+  assert.equal(installArgs.from, 'panel')
   panel.unmount()
 })
 

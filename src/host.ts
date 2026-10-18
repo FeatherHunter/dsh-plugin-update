@@ -27,6 +27,7 @@ import { manualCommand, normalizeApprovedBuilds } from './commands.js'
 import { fetchReleaseChangelogText } from './changelog-io.js'
 import { parseChangelogReport, shouldFetchChangelog } from './changelog.js'
 import { buildDiag, type DiagObject } from './diag.js'
+import { hash8 } from './hash.js'
 import { isCoreErrorCode } from './codes.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL } from './log-events.js'
 import { emitUpdateLog, logEmitterCounts } from './log/emit.js'
@@ -199,17 +200,6 @@ function watchDesktopPnpm(ctx: unknown): void {
       } catch {}
     })
   } catch {}
-}
-
-function hash8(s: string): string {
-  try {
-    const t = String(s || '')
-    let h = 5381
-    for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) >>> 0
-    return (`0000000${h.toString(16)}`).slice(-8)
-  } catch {
-    return '00000000'
-  }
 }
 
 /**
@@ -1249,7 +1239,9 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
     // 安装意图来源（#124）：调用方自报就照传（批量驱动报 `'batch'`），认不出按 `'panel'`——
     // 老调用方不传即现状，只影响日志行 `update.install.request.from`，不参与任何决策。
     const installFrom: InstallSource =
-      args && (args['from'] === 'entry' || args['from'] === 'batch') ? (args['from'] as InstallSource) : 'panel'
+      args && (args['from'] === 'panel' || args['from'] === 'entry' || args['from'] === 'batch')
+        ? (args['from'] as InstallSource)
+        : 'panel'
     // 候选安装（#156）：调用方点"装合规版"时带候选版；不带即走 latest 老路。
     // 只做形状提取（非空字符串），绑定校验归核心第二槽——这里不认任何版本。
     const installVersion = args && typeof args['version'] === 'string' && args['version'] ? String(args['version']) : undefined
@@ -1295,6 +1287,25 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
     // 公平门：非队首直接忙（沿用 update-busy，不新增码）；已是拥有者（同编号重复提交）
     // 不受此门阻拦，交给核心按旧结果返回。
     if (queuePositionOf(placed.state, pluginId, requestId) !== 0 && !isHeadOfQueue(placed.state, pluginId, requestId)) {
+      // #207：公平门拒绝也要留一行原因（用户侧「点了没反应/被拒」四态之一）；
+      // 意图哈希与核心侧同一算法，失败行与请求行/诊断回包可聚合。
+      try {
+        emitUpdateLog(
+          'warn',
+          'update.install.fail',
+          {
+            stage: 'gate',
+            reason: 'gate-refused',
+            code: 'update-busy',
+            hostCodeHash: 'none',
+            check: 'none',
+            exitCode: null,
+            observedVersion: null,
+            intentHash: hash8(requestId),
+          },
+          { pluginId },
+        )
+      } catch {}
       throw updateBusyError()
     }
     try {

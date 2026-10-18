@@ -40,6 +40,7 @@
 //      failed 计数。落点未知（没 selfKey、键不在清单里、没有日志接线）时一行不发：不知道去哪就不猜。
 
 import { homedir } from 'node:os'
+import { hash8 } from './hash.js'
 import {
   batchEntryOf,
   batchProgress,
@@ -200,17 +201,6 @@ function firstText(...values: unknown[]): string | null {
     if (typeof value === 'string' && value) return value
   }
   return null
-}
-
-function hash8(text: string): string {
-  try {
-    const t = String(text || '')
-    let h = 5381
-    for (let i = 0; i < t.length; i += 1) h = ((h << 5) + h + t.charCodeAt(i)) >>> 0
-    return ('0000000' + h.toString(16)).slice(-8)
-  } catch {
-    return '00000000'
-  }
 }
 
 /**

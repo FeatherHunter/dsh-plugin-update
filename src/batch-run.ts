@@ -18,6 +18,7 @@ import {
   type BatchSession,
 } from './batch.js'
 import type { UpdateLogPort } from './ports.js'
+import { hash8 } from './hash.js'
 
 /** 查一家的结果。 */
 export type BatchCheckOutcome =
@@ -90,21 +91,13 @@ export interface BatchRunOptions {
 // 只记「稳定短码 + 目标指纹」：目标键（可能是包名、路径或标识）与错误原话一个字都不入行（ADR-0006）。
 // 行里只有枚举白名单值与导出量，所以这些函数只做两件事：算 hash8、把错误折成稳定码。
 
-/** 内核 hash8 的同算法实现（djb2 → 8 位十六进制）：中立文件不许 import node，这里自带一份同方言口径。 */
-function targetHash8(text: string): string {
-  const t = String(text || '')
-  let h = 5381
-  for (let i = 0; i < t.length; i += 1) h = ((h << 5) + h + t.charCodeAt(i)) >>> 0
-  return ('0000000' + h.toString(16)).slice(-8)
-}
-
 /** 稳定错误码的形状（小写字母开头、短、无空白）：不像的一律折成 unknown——error.message 里可能有路径/URL。 */
 const STABLE_ERROR_CODE = /^[a-z][a-z0-9-]{0,31}$/
 
 /** 一家失败记一条：targetHash 只指纹目标，exitCode 只有真拿到才进字段（多一个键整行会被白名单丢掉）。 */
 function noteEntryFail(deps: BatchRunDeps, key: string, error: string, exitCode?: number): void {
   const fields: Record<string, unknown> = {
-    targetHash: targetHash8(key),
+    targetHash: hash8(key),
     errorKind: STABLE_ERROR_CODE.test(error) ? error : 'unknown',
   }
   if (typeof exitCode === 'number' && Number.isFinite(exitCode)) fields['exitCode'] = Math.trunc(exitCode)
