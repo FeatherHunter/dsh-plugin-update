@@ -183,17 +183,39 @@
   .lr-icon svg { display: block; }
   .lr-B .lr-icon svg { width: 22px; height: 22px; }
 
-  /* 按钮交互效果（实现规格同源）：hover 提亮 / active 下压 / focus-visible 焦点环 / 复制成功反馈 */
+  /* 按钮交互效果（实现规格同源）：hover 边框非常明显 + 提亮 / active 下压 / focus-visible 焦点环 */
   .dsh-upd button {
     cursor: pointer;
     transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease,
       filter 120ms ease, transform 80ms ease, box-shadow 120ms ease;
   }
-  .dsh-upd button:hover { filter: brightness(1.06); }
-  .dsh-upd button:active { transform: translateY(1px); filter: brightness(.97); }
+  .dsh-upd button:hover {
+    border-color: var(--dsh-update-primary);
+    box-shadow: 0 0 0 2px var(--dsh-update-primary);
+    filter: brightness(1.05);
+  }
+  .dsh-upd button.primary:hover {
+    border-color: var(--dsh-update-primary);
+    filter: brightness(1.1);
+    box-shadow: 0 0 0 2px var(--dsh-update-bg, #fff), 0 0 0 4px var(--dsh-update-primary);
+  }
+  .dsh-upd button:active { transform: translateY(1px); filter: brightness(.96); }
   .dsh-upd button:focus-visible { outline: 2px solid var(--dsh-update-primary); outline-offset: 2px; }
-  .dsh-upd button:disabled { cursor: default; filter: none; }
-  .dsh-upd button.copied { box-shadow: 0 0 0 2px var(--dsh-update-bg, #fff), 0 0 0 4px var(--dsh-update-bad-border); }
+  .dsh-upd button:disabled { cursor: default; filter: none; box-shadow: none; border-color: var(--dsh-update-border); }
+
+  /* 复制成功提示：悬浮在按钮上方的气泡，不动按钮文案（#172 补充口径） */
+  .copy-toast {
+    position: fixed; transform: translate(-50%, -100%); z-index: 50;
+    background: #111827; color: #f9fafb; font-size: 12px; line-height: 1.3;
+    padding: 4px 9px; border-radius: 5px; white-space: nowrap; pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .28);
+    opacity: 0; transition: opacity 120ms ease, transform 120ms ease;
+  }
+  .copy-toast.show { opacity: 1; transform: translate(-50%, calc(-100% - 2px)); }
+  .copy-toast::after {
+    content: ''; position: absolute; top: 100%; left: 50%; margin-left: -4px;
+    border: 4px solid transparent; border-top-color: #111827;
+  }
   .dsh-upd button.cta .icon { margin-right: 6px; }
 
   /* A：告警条内联主按钮（失败横幅第一行） */
@@ -377,6 +399,7 @@ const LOCATIONS = { single: '单插件面板', batch: '批量面板', slot: '槽
 const THEMES = { default: '默认主题', archive: 'D5 档案卷' };
 
 /* ───────────────────────── 状态与 URL ───────────────────────── */
+const RAW_SEARCH = location.search;
 const params = new URLSearchParams(location.search);
 const state = {
   variant: ['A', 'A2', 'B', 'C', 'D'].includes(params.get('variant')) ? params.get('variant') : 'A',
@@ -660,21 +683,47 @@ document.addEventListener('keydown', ev => {
 /* 初始 */
 setState({});
 
-// 原型交互演示：复制按钮 hover/active/focus 由 CSS 负责；这里演示点击后的「已复制」反馈。
+// 原型交互演示：hover/active/focus 由 CSS 负责；复制成功只在按钮上方浮出「已复制」气泡，按钮文案与图标保持不变。
+var COPY_SELECTOR = '.dsh-upd button[data-action="copy-manual"], .dsh-upd button[data-act="row-copy-manual"], .dsh-upd button.cta';
+function showCopyToast(button) {
+  var rect = button.getBoundingClientRect();
+  var toast = document.getElementById('copy-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'copy-toast';
+    toast.className = 'copy-toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    toast.textContent = '已复制';
+    document.body.appendChild(toast);
+  }
+  toast.style.left = (rect.left + rect.width / 2) + 'px';
+  toast.style.top = (rect.top - 8) + 'px';
+  toast.classList.add('show');
+  clearTimeout(showCopyToast._timer);
+  showCopyToast._timer = setTimeout(function () { toast.classList.remove('show'); }, 1400);
+}
 document.addEventListener('click', function (event) {
   var target = event.target;
-  var button = target && target.closest ? target.closest('.dsh-upd button.cta') : null;
-  if (!button || button.dataset.busy === '1') return;
-  button.dataset.busy = '1';
-  var original = button.innerHTML;
-  button.innerHTML = iconSvg('copy') + '已复制';
-  button.classList.add('copied');
-  setTimeout(function () {
-    button.innerHTML = original;
-    button.classList.remove('copied');
-    delete button.dataset.busy;
-  }, 1200);
+  var button = target && target.closest ? target.closest(COPY_SELECTOR) : null;
+  if (!button || button.disabled) return;
+  event.preventDefault();
+  showCopyToast(button);
 });
+
+// 截图演示：?toast=1 时在首个复制按钮上预演「已复制」气泡（静态截图捕捉不到点击过程）。
+// 注意：syncUrl() 会把 URL 归一化（丢弃未知参数），所以这里用挂载时抓到的 RAW_SEARCH。
+if (/[?&]toast=1\b/.test(RAW_SEARCH)) {
+  var demoBtn = document.querySelector(COPY_SELECTOR);
+  if (demoBtn) {
+    showCopyToast(demoBtn);
+    var demoToast = document.getElementById('copy-toast');
+    if (demoToast) {
+      demoToast.style.opacity = '1';
+      demoToast.style.transform = 'translate(-50%, calc(-100% - 2px))';
+    }
+  }
+}
 </script>
 </body>
 </html>
