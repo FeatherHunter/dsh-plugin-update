@@ -30,7 +30,8 @@ import { buildDiag, type DiagObject } from './diag.js'
 import { isCoreErrorCode } from './codes.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL } from './log-events.js'
 import { emitUpdateLog } from './log/emit.js'
-import { buildUpdateManifest, checkLogFields, currentUpdateEventTable, primeUpdateEventTable } from './log/manifest.js'
+import { pruneEventFields } from './gate.js'
+import { buildUpdateManifest, currentUpdateEventTable, primeUpdateEventTable, updateContractStatus, type UpdateContractStatus } from './log/manifest.js'
 import { deriveLogNamespace } from './log/namespace.js'
 import { isClientLogEvent, LOG_LEVELS } from './log/client-queue.js'
 import { acquireOwnLog, logDirHash } from './log/registry.js'
@@ -884,7 +885,17 @@ function loggedPhone(
   method: string,
   kind: string,
   pluginId: string,
-  fn: (args: Record<string, unknown>) => Promise<{ snapshot: unknown; manual?: string | null; receipt?: unknown; queue?: VisibleQueue | null; env?: PhoneEnvView | null }>,
+  fn: (args: Record<string, unknown>) => Promise<{
+    snapshot: unknown
+    manual?: string | null
+    receipt?: unknown
+    queue?: VisibleQueue | null
+    env?: PhoneEnvView | null
+    /** 可选：契约健康（#210），只有 updateStatus 带。 */
+    logContract?: UpdateContractStatus
+    /** 可选：机读诊断（#21/#18），成功回包在快照里有失败任务时才带。 */
+    diag?: unknown
+  }>,
   diagCtx?: {
     config: ReturnType<typeof resolveUpdateConfig>
     readerOverrides: ReaderOverrides
@@ -939,13 +950,15 @@ function loggedPhone(
         snapshot,
         manual: out && out.snapshot ? (out.manual ?? null) : null,
         receipt: out && out.receipt ? out.receipt : null,
+        // 新增选填（#210）：契约健康——面板/诊断据此知道「字段门禁这轮有没有尺子」。
+        ...(out && out.logContract ? { logContract: out.logContract } : {}),
         // 新增选填（#15）：调用方没要时不带该键，老调用形状不变。
         ...(out && out.queue ? { queue: out.queue } : {}),
         // 新增选填：使用范围一栏（只有调用方传了 includeEnv 才带，老调用形状不变）。
         ...(out && out.env ? { env: out.env } : {}),
         // 新增选填（#156 第四轮）：异步安装的失败藏在快照任务里——此时成功回包也带机读诊断，
         // 因为「哪家的哪个包被拦下」只有宿主知道，面板拿插件标识猜不出来（B4）。无失败任务即不带。
-        ...(out && (out as { diag?: unknown }).diag ? { diag: (out as { diag?: unknown }).diag } : {}),
+        ...(out && out.diag ? { diag: out.diag } : {}),
       }
     } catch (error) {
       const payload = toUpdateErrorPayload(error)
@@ -1161,17 +1174,24 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
     } catch { /* 打点绝不影响取日志 */ }
     return { version, markdown }
   }
-  async function readStatus(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; env?: PhoneEnvView | null; queue?: VisibleQueue | null }> {
+  async function readStatus(args: Record<string, unknown>): Promise<{
+    snapshot: unknown
+    manual: string | null
+    logContract?: UpdateContractStatus
+    env?: PhoneEnvView | null
+    queue?: VisibleQueue | null
+  }> {
     const reader = await getSharedReader(pluginId, config, {
       ...readerOverrides,
       profileDir: args && args.profileDir ? String(args.profileDir) : readerOverrides.profileDir,
     })
     const out = await snapWithManual(reader, (await reader.status()) as never, config)
+    const logContract = updateContractStatus()
     const env = wantsEnv(args) ? { env: await readEnvForPanel(reader) } : {}
     const { includeQueue, showOthers } = queueArgsOf(args)
-    if (!includeQueue) return { ...out, ...env }
+    if (!includeQueue) return { ...out, logContract, ...env }
     const requestId = args && typeof args.requestId === 'string' ? args.requestId : undefined
-    return { ...out, ...env, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
+    return { ...out, logContract, ...env, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
   }
   async function readCheck(args: Record<string, unknown>): Promise<{ snapshot: unknown; manual: string | null; receipt: unknown; env?: PhoneEnvView | null; queue?: VisibleQueue | null }> {
     const reader = await getSharedReader(pluginId, config, {
@@ -1297,8 +1317,9 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
    *   1. **永不抛**：形状坏成什么样都只回 `{ accepted, dropped }`（面板侧据此计数，不会因为日志把功能搞挂）。
    *   2. **不自我放大**：这个电话**不产生 `host.call` 行**（否则每送一批日志就多一行电话日志），
    *      所以它不经过 `loggedPhone`，直接进表。
-   *   3. **口径分明**：协议层拒收（形状不对 / 级别不认识 / 不是客户端事件 / 字段不合清单 / 超量 / 过期）
-   *      计入 `dropped`；**引擎因调试开关关掉而 skip 的按需行不计 drop**（那是准入，不是丢行）。
+   *   3. **口径分明**：协议层拒收（形状不对 / 级别不认识 / 不是客户端事件 / 整行事件不在清单 / 超量 / 过期）
+   *      计入 `dropped`；**字段不合清单只摘该字段**（#210：整行仍接收，由发射口记字段级降级行），
+   *      引擎因调试开关关掉而 skip 的按需行也不计 drop（那是准入，不是丢行）。
    */
   const LOG_APPEND_MAX_ROWS = 200
   const LOG_APPEND_MAX_FIELD_CHARS = 4096
@@ -1333,7 +1354,6 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
         if (!fields || typeof fields !== 'object' || Array.isArray(fields)) { dropped++; continue }
         if (typeof ts !== 'number' || !Number.isFinite(ts)) { dropped++; continue }
         if (nowMs > 0 && nowMs - ts > LOG_APPEND_STALE_MS) { dropped++; continue }
-        const keys = Object.keys(fields as Record<string, unknown>)
         let size = 0
         try {
           size = JSON.stringify(fields)?.length ?? 0
@@ -1341,7 +1361,14 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
           size = LOG_APPEND_MAX_FIELD_CHARS + 1
         }
         if (size > LOG_APPEND_MAX_FIELD_CHARS) { dropped++; continue }
-        if (table && !checkLogFields(event, keys, table)) { dropped++; continue }
+        // #210：与发射口同一把尺子 —— 未声明/枚举外的字段只丢该字段，整行仍接收；
+        // 只有「整行都不该要」的情况（事件不在清单）才在这里计 dropped。
+        // 原始字段交给发射口：那里负责裁剪并记字段级降级行，这里不重复裁剪，
+        // 否则「丢过字段」这件事在落点就看不见了。
+        if (table && pruneEventFields(table, event, fields as Record<string, unknown>).unknownEvent) {
+          dropped++
+          continue
+        }
         emitUpdateLog(level, event, fields as Record<string, unknown>, { pluginId })
         accepted++
       }

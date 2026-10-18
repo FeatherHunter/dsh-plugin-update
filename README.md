@@ -738,8 +738,9 @@ parseLogRow({ v: 3, ts: 1792009014642, level: 'info', event: 'update.check.done'
 lintEventFields(manifest, row.event, stripReservedLogFields(Object.keys(row.fields)))
 ```
 
-事件清单的每条要写四样：事件名、级别（`error`/`warn`/`info`/`debug`）、允许字段（之外的键一律不记）、脱敏引用（`codes` 是截断或散列代号，`rules` 是具名正则名——都只记引用名，不记原文）。
-`kind` 分三类只为计数服务：`resident` 常驻、`ondemand` 按需、`selfmon` 自监控。空模板见包内的 `event-list.template.json`；**本包自己的事件表见 `event-list.update.json`**（26 个事件：常驻 18、按需 7、自监控 1），第二家可以整份并进自己的清单（`mergeUpdateEvents`，字段取并集，级别与归类仍按你的声明）。
+事件清单的每条要写四样：事件名、级别（`error`/`warn`/`info`/`debug`）、允许字段（之外的键不许记；运行期由发射口摘掉该字段并记一条 `update.log.degraded`，开发期直接抛）、脱敏引用（`codes` 是截断或散列代号，`rules` 是具名正则名——都只记引用名，不记原文）。
+**字段允许值的机器声明（`#210`）写在清单顶层 `fieldEnums`**：事件名 → 字段名 → 允许的稳定码数组。条目形状仍是上句四样——dsh-log 0.3.4 会拒绝条目里的未知键（整份清单不认），所以枚举只放顶层；顶层未知键 dsh-log 收下不用，随包清单因此可以整份交给它建实例。
+`kind` 分三类只为计数服务：`resident` 常驻、`ondemand` 按需、`selfmon` 自监控。空模板见包内的 `event-list.template.json`；**本包自己的事件表见 `event-list.update.json`**（26 个事件：常驻 18、按需 7、自监控 1），第二家可以整份并进自己的清单（`mergeUpdateEvents`，字段与枚举值取并集，级别与归类仍按你的声明）。
 清单要以**对象**传入：字符串或数组会被拦下并给出中文说明，不静默修补。
 `checkEventFields` 与 `checkEventCounts` 是 `0.16.0` 之前的旧名（`0.13.0` 及更早已发布版本里就是这两个名字），保留一版、行为不变，新代码用 `lintEventFields` 与 `computeEventCounts`。
 
@@ -806,7 +807,7 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 **开关：默认关着，改了要重启。**`info` 的准入由 dsh-log 的开关文件决定：`<DSH_HOME>/logs/log-switch-<派生命名空间>.json`，内容就是 `{ "enabled": false }`，默认关。注意它在 `logs/` **根下**、与日志目录平级，不是目录里的文件（`pluginId` 恰为 `wf` 时文件名退化为 `log-switch.json`）。两件事要知道：① 它只管**按需**事件——`warn`/`error` 与常驻事件不受它影响（本包 26 条事件里 19 条恒落、7 条受它管）；② dsh-log 在实例启动时把开关读进内存后**永久缓存**，运行中改这个 JSON 对活着的实例无效，**要重启宿主**才生效。本包不注册 dsh-log 的宿主日志电话（`logGetSwitch`/`logSetSwitch` 等六个都不注册），所以没有「在面板里拧开关」这条路。
 
-**面板侧的日志（`0.16.0` 起）。**面板跑在浏览器闭包里，落盘是宿主的事，中间隔着 `….logAppend` 电话：面板把行攒进一个有界环形缓冲（缺省 200 行，满了挤掉最老的并计数），按批交回宿主（缺省一批 50 行、间隔 1 秒；页面切到后台立即冲刷一次），失败退避重试 2 次后丢弃并计数 —— 整条路**永不外抛**，日志坏了不挡更新。宿主侧这一头是协议面：只收五个客户端事件（`update.panel.mount` / `update.panel.action` / `update.panel.render.fail` / `update.panel.state` / `update.lang.applied`），级别必须是 `debug`/`info`/`warn`/`error`，字段必须过本包事件清单，超量（一次 200 行以上）、过期（10 分钟以上的旧行）、形状不对一律计入回包的 `dropped`，**不产生 `host.call` 行**（不给日志自己制造噪声）。面板默认自建这条通道（电话名从前缀派生）；`mountUpdatePanel` 的 `clientLog` 选项可以换成你自己的通道或明确关掉：`{ channel }` 注入、`{ mount: 'entry' }` 记挂载点、`null` 关闭。入口件与 HTTP 直挂已经替你传好挂载点。
+**面板侧的日志（`0.16.0` 起）。**面板跑在浏览器闭包里，落盘是宿主的事，中间隔着 `….logAppend` 电话：面板把行攒进一个有界环形缓冲（缺省 200 行，满了挤掉最老的并计数），按批交回宿主（缺省一批 50 行、间隔 1 秒；页面切到后台立即冲刷一次），失败退避重试 2 次后丢弃并计数 —— 整条路**永不外抛**，日志坏了不挡更新。宿主侧这一头是协议面：只收五个客户端事件（`update.panel.mount` / `update.panel.action` / `update.panel.render.fail` / `update.panel.state` / `update.lang.applied`），级别必须是 `debug`/`info`/`warn`/`error`；**事件必须在本包事件清单里**（整行不在清单才计入回包的 `dropped`），字段不合清单或枚举值不合法时只摘该字段、整行仍落盘，并记一条 `update.log.degraded`（`#210`：降级行含事件名与字段名，不含原文）；超量（一次 200 行以上）、过期（10 分钟以上的旧行）、形状不对一律计入 `dropped`，**不产生 `host.call` 行**（不给日志自己制造噪声）。面板默认自建这条通道（电话名从前缀派生）；`mountUpdatePanel` 的 `clientLog` 选项可以换成你自己的通道或明确关掉：`{ channel }` 注入、`{ mount: 'entry' }` 记挂载点、`null` 关闭。入口件与 HTTP 直挂已经替你传好挂载点。
 
 **不自动上报。**日志只落本地磁盘，本包不会替你把它发给任何人——什么时候交、交给谁由你决定（下一节给了现成命令）。
 

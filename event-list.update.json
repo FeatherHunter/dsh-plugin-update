@@ -1,6 +1,13 @@
 {
   "version": 1,
   "pluginId": "dsh-plugin-update",
+  "fieldEnums": {
+    "update.wire.ready": { "logSink": ["external", "self", "off"] },
+    "update.install.verify": { "result": ["completed", "restart-required", "failed", "interrupted"] },
+    "update.log.degraded": {
+      "reason": ["no-dsh-log", "lease-conflict", "write-fail", "emit-threw", "unknown-event", "unknown-field", "invalid-enum"]
+    }
+  },
   "events": {
     "host.call": {
       "level": "info",
@@ -153,8 +160,8 @@
     "update.log.degraded": {
       "level": "warn",
       "kind": "selfmon",
-      "fields": ["reason"],
-      "guard": "日志管道自己的故障行，始终落盘；同一原因只记首次"
+      "fields": ["reason", "event", "field"],
+      "guard": "日志管道自己的故障行，落点存在时始终落盘；整行丢弃只记原因，字段级漂移记 (原因, 事件, 字段)，同一组合只记首次"
     }
   }
 }

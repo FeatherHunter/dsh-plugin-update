@@ -8,8 +8,10 @@
  * 四条纪律（每条都有测试钉住）：
  *   1. **脱敏**：字段里所有字符串过 `sanitizeDetail`（ADR-0001 的边界）。路径、带凭证的 URL、
  *      令牌、邮箱一律在边界内被改写；行里绝不出现绝对路径。
- *   2. **字段白名单**：随包清单（`event-list.update.json`）没声明的事件或字段一律不落盘，
- *      计入丢弃并记一条 `update.log.degraded`；开发/测试期可以切成 `mode: 'throw'` 当场炸出来。
+ *   2. **字段白名单**：随包清单（`event-list.update.json`）没声明的事件整行不落；
+ *      没声明或枚举值不合法的**字段只摘该字段、整行其余字段照落**，并记一条 `update.log.degraded`
+ *      （同一 (原因, 事件, 字段) 只记一次）；开发/测试期可以切成 `mode: 'throw'` 当场炸出来。
+ *      没有清单时不做字段修剪，但按行计 `unvalidated`——不能把「没被量过」冒充成「量过没问题」。
  *   3. **准入短路**：落点说 `isEnabled(level)` 是假就直接不发 —— 这是「没开开关」不是「丢行」，
  *      计入 skipped，不触发 degraded。
  *   4. **预算守卫**：清单标了「边沿触发」的事件（或调用方给了状态指纹的行）同一状态指纹只落一条；
@@ -21,17 +23,19 @@ import { sanitizeDetail } from '../redaction.js'
 import { NOOP_SINK, type LogSink } from './sink.js'
 import { currentLogTraceFor } from './trace.js'
 import { updateLogRouter } from './router.js'
-import { checkLogFields, currentUpdateEventTable, isEdgeEvent } from './manifest.js'
+import { currentUpdateEventTable, isEdgeEvent } from './manifest.js'
+import { isEventName, pruneEventFields } from '../gate.js'
 
 /** 丢弃原因（内部计数用的口径，比事件目录的 reason 取值更细）。 */
-export type LogDropReason = 'unknown-field' | 'unknown-event' | 'no-plugin-id' | 'no-sink' | 'emit-threw'
+export type LogDropReason = 'unknown-field' | 'invalid-enum' | 'unknown-event' | 'no-plugin-id' | 'no-sink' | 'emit-threw'
 
 /**
- * 丢弃原因 → `update.log.degraded` 的 reason 取值（事件目录定的六个合法值）。
+ * 丢弃原因 → `update.log.degraded` 的 reason 取值（事件目录定的合法值）。
  * `no-plugin-id` 没有对应行：连插件标识都没有的行没法路由，也就没有落点可以承载这条坏消息。
  */
 const DEGRADE_REASON: Record<LogDropReason, string | null> = {
   'unknown-field': 'unknown-field',
+  'invalid-enum': 'invalid-enum',
   'unknown-event': 'unknown-event',
   'emit-threw': 'emit-threw',
   'no-sink': 'no-dsh-log',
@@ -44,6 +48,12 @@ export interface LogEmitterCounts {
   skipped: number
   dropped: number
   droppedByReason: Record<string, number>
+  // 被字段级裁剪摘掉的字段总数（#210：整行仍落盘，这里记「少了什么」）。
+  prunedFields: number
+  // 字段级裁剪按原因分（unknown-field / invalid-enum）。
+  prunedByReason: Record<string, number>
+  // 清单缺失时仍照发的行数（不能把它们算成「过了白名单」——没有尺子量过就是没量过）。
+  unvalidated: number
 }
 
 export interface LogEmitOptions {
@@ -58,7 +68,7 @@ export interface LogEmitOptions {
 export interface LogEmitter {
   emit: (level: string, event: string, fields: Record<string, unknown>, opts?: LogEmitOptions) => boolean
   counts: () => LogEmitterCounts
-  /** 已记过 degraded 的原因（同一原因全进程只记首次）。 */
+  /** 已记过 degraded 的去重键：整行丢弃是原因本身；字段级漂移是 `原因\\u0000事件\\u0000字段`。 */
   degradedReasons: () => string[]
 }
 
@@ -83,6 +93,18 @@ export function sanitizeLogFields(fields: Record<string, unknown>): Record<strin
     else out[key] = sanitizeDetail(safeStringify(value))
   }
   return out
+}
+
+/** 契约里的代号只留标识符形状；不像代号的一律打码（防止坏键把路径/URL 带进自监控行）。 */
+function safeCodeName(value: unknown, placeholder: string): string {
+  const text = typeof value === 'string' ? value : ''
+  return /^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(text) ? text : placeholder
+}
+
+/** 事件名是契约里的稳定代号（形如 `update.panel.action`），点分小写；不像的一律打码。 */
+function safeEventName(value: unknown): string {
+  const text = typeof value === 'string' ? value : ''
+  return isEventName(text) && text.length <= 64 ? text : '<event>'
 }
 
 function safeStringify(value: unknown): string {
@@ -112,7 +134,16 @@ function writeRow(sink: LogSink, level: string, event: string, fields: Record<st
 }
 
 export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
-  const counts: LogEmitterCounts = { emitted: 0, suppressed: 0, skipped: 0, dropped: 0, droppedByReason: {} }
+  const counts: LogEmitterCounts = {
+    emitted: 0,
+    suppressed: 0,
+    skipped: 0,
+    dropped: 0,
+    droppedByReason: {},
+    prunedFields: 0,
+    prunedByReason: {},
+    unvalidated: 0,
+  }
   const degraded = new Set<string>()
   const seen = new Map<string, string>()
   const mode = deps.mode ?? 'drop'
@@ -130,11 +161,30 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
     degrade(reason, pluginId)
   }
 
-  /** 自监控行：同一个原因只记首次（清单里 `update.log.degraded` 的 guard 就是这么写的）。 */
-  function degrade(reason: LogDropReason, pluginId: string): void {
+  /**
+   * 字段级裁剪：只丢字段、整行照落；按 (原因, 事件, 字段) 去重记降级行。
+   * 字段名只保留标识符形状（`^[A-Za-z][A-Za-z0-9_]{0,31}$`），其余一律换成 `<field>`——
+   * ADR-0006 的负断言对「字段名」同样成立：谁也不能借一个坏键把路径/URL/原话带进日志。
+   */
+  function countPrune(reason: 'unknown-field' | 'invalid-enum', pluginId: string, event: string, field: string): void {
+    counts.prunedFields++
+    counts.prunedByReason[reason] = (counts.prunedByReason[reason] ?? 0) + 1
+    degrade(reason, pluginId, {
+      event: safeEventName(event),
+      field: safeCodeName(field, '<field>'),
+    })
+  }
+
+  /**
+   * 自监控行：同一个原因只记首次（清单里 `update.log.degraded` 的 guard 就是这么写的）。
+   * 字段级漂移按 (原因, 事件, 字段) 去重：不同字段各记一次，同一字段再犯不灌行。
+   */
+  function degrade(reason: LogDropReason, pluginId: string, drift?: { event: string; field: string }): void {
     const code = DEGRADE_REASON[reason]
-    if (!code || degraded.has(code)) return
-    degraded.add(code)
+    if (!code) return
+    const key = drift ? code + '\u0000' + drift.event + '\u0000' + drift.field : code
+    if (degraded.has(key)) return
+    degraded.add(key)
     try {
       const sink = pluginId ? resolveSink(pluginId) : null
       if (!sink || sink === NOOP_SINK) return
@@ -145,7 +195,12 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
           /* 准入判据坏了也照发：selfmon 行的意义就是「别的东西坏了」 */
         }
       }
-      writeRow(sink, 'warn', 'update.log.degraded', { reason: code })
+      const payload: Record<string, unknown> = { reason: code }
+      if (drift) {
+        payload['event'] = drift.event
+        payload['field'] = drift.field
+      }
+      writeRow(sink, 'warn', 'update.log.degraded', payload)
     } catch {
       /* 自监控自己坏掉时保持沉默：任何外抛都比丢一行更坏 */
     }
@@ -169,11 +224,25 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
         return false
       }
       const tableNow = table()
-      if (tableNow && !checkLogFields(event, Object.keys(raw), tableNow)) {
-        const unknownEvent = !tableNow.events?.[event]
-        countDrop(unknownEvent ? 'unknown-event' : 'unknown-field', pluginId)
-        if (mode === 'throw') throw new Error(`日志事件不合清单：${event}`)
-        return false
+      let working: Record<string, unknown> = raw
+      if (tableNow) {
+        const pruned = pruneEventFields(tableNow, event, raw)
+        if (pruned.unknownEvent) {
+          countDrop('unknown-event', pluginId)
+          if (mode === 'throw') throw new Error(`日志事件不合清单：${event}`)
+          return false
+        }
+        if (pruned.prunedFields.length > 0) {
+          for (const item of pruned.prunedFields) countPrune(item.reason, pluginId, event, item.field)
+          if (mode === 'throw') {
+            const first = pruned.prunedFields[0]
+            throw new Error(`event field not in event list: ${event}.${first.field} (${first.reason})`)
+          }
+        }
+        working = pruned.keptFields
+      } else {
+        // 没有尺子就如实说「这行没被校验过」，不冒充过了白名单（#210 契约健康）。
+        counts.unvalidated++
       }
       const sink = resolveSink(pluginId)
       if (!sink || sink === NOOP_SINK) {
@@ -190,7 +259,7 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
           /* 准入判据抛错按「开着」处理：宁可多写一行，也不因为判据坏了静默不写 */
         }
       }
-      const sanitized = sanitizeLogFields(raw)
+      const sanitized = sanitizeLogFields(working)
       const fingerprint = opts?.fingerprint ?? (isEdgeEvent(event, tableNow) ? fieldFingerprint(sanitized) : undefined)
       if (!opts?.always && typeof fingerprint === 'string') {
         const previous = seen.get(event)

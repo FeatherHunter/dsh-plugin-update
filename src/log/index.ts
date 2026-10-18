@@ -34,8 +34,13 @@ export {
   loadUpdateEventTable,
   mergeUpdateEvents,
   primeUpdateEventTable,
+  updateContractStatus,
   UPDATE_EVENT_LIST_FILE,
+  __forceUpdateContractStatusForTests,
+  __loadUpdateEventTableForTests,
   __resetUpdateEventTableForTests,
+  type UpdateContractFailure,
+  type UpdateContractStatus,
 } from './manifest.js'
 // 本包自己的版本号（`0.16.4` 起）：启动头 `host.start` 的 `pluginVersion` 那一格来自它；
 // dsh-log 0.3.4 起启动头幂等，所以它只在建库那一刻有用。

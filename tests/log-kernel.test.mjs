@@ -304,7 +304,7 @@ describe('日志内核：登记表（同进程一个目录一个句柄）', () =
 })
 
 describe('日志内核：唯一发射口的四条纪律', () => {
-  it('字段白名单：清单没声明的事件与字段一律不落盘（开发期可切成当场抛）', async () => {
+  it('字段白名单：未知事件整行不落、未知字段只丢该字段（开发期可切成当场抛）', async () => {
     const table = await loadUpdateEventTable()
     assert.ok(table, '随包清单必须读得到')
     const rows = []
@@ -312,20 +312,28 @@ describe('日志内核：唯一发射口的四条纪律', () => {
     router.bind('p', collectSink(rows))
     const emitter = createLogEmitter({ resolve: (id) => router.resolve(id), table: () => table })
     assert.equal(emitter.emit('info', 'host.call', { method: 'wf.updateStatus', latencyMs: 1, ok: true, kind: 'update-status', pluginId: 'p' }, { pluginId: 'p' }), true)
-    assert.equal(emitter.emit('info', 'host.call', { method: 'x', latencyMs: 1, ok: true, kind: 'k', pluginId: 'p', secret: 'oops' }, { pluginId: 'p' }), false)
+    // 未声明字段只摘该字段，整行仍然落盘（#210：不要因为一枚漂移字段毁掉整条证据）。
+    assert.equal(emitter.emit('info', 'host.call', { method: 'x', latencyMs: 1, ok: true, kind: 'k', pluginId: 'p', secret: 'oops' }, { pluginId: 'p' }), true)
+    // 未声明事件没法校验字段，整行不落。
     assert.equal(emitter.emit('info', 'update.not.declared', { pluginId: 'p' }, { pluginId: 'p' }), false)
     const landed = rows.filter((r) => r.event !== 'update.log.degraded')
-    assert.equal(landed.length, 1, '只有合规那一行落了')
+    assert.equal(landed.length, 2, '两行仍落盘，只是第二行少了未声明的字段')
     assert.equal(landed[0].event, 'host.call')
-    // 两种丢弃原因各留一条自监控行（同一原因只记首次，两个原因是两条）。
+    assert.deepEqual(landed[1].fields, { method: 'x', latencyMs: 1, ok: true, kind: 'k', pluginId: 'p' })
+    // 两种漂移各留一条自监控行：字段被摘（unknown-field）、事件整行被丢（unknown-event）。
     const degradedRows = rows.filter((r) => r.event === 'update.log.degraded')
     assert.deepEqual(degradedRows.map((r) => r.fields.reason).sort(), ['unknown-event', 'unknown-field'])
-    assert.equal(emitter.counts().droppedByReason['unknown-field'], 1)
+    assert.equal(emitter.counts().prunedByReason['unknown-field'], 1)
+    assert.equal(emitter.counts().droppedByReason['unknown-field'], undefined)
     assert.equal(emitter.counts().droppedByReason['unknown-event'], 1)
     const strict = createLogEmitter({ resolve: (id) => router.resolve(id), table: () => table, mode: 'throw' })
     assert.throws(
       () => strict.emit('info', 'update.not.declared', { pluginId: 'p' }, { pluginId: 'p' }),
       /不合清单/
+    )
+    assert.throws(
+      () => strict.emit('info', 'host.call', { method: 'x', latencyMs: 1, ok: true, kind: 'k', pluginId: 'p', secret: 'oops' }, { pluginId: 'p' }),
+      /not in event list/
     )
   })
 
@@ -418,7 +426,7 @@ describe('日志内核：真引擎端到端（dsh-log 0.3.4 真落一份文件�
     assert.ok(got.sink, '真 dsh-log 应该建得起来（拿不到就说明依赖没装）')
     const router = createLogRouter()
     router.bind('kernel.e2e', got.sink)
-    const emitter = createLogEmitter({ resolve: (id) => router.resolve(id), table: await loadUpdateEventTable() })
+    const emitter = createLogEmitter({ resolve: (id) => router.resolve(id), table: () => loadUpdateEventTable() })
     // 常驻事件：即使调试开关关着也必须落盘（这正是清单 kind:'resident' 的意义）。
     assert.equal(
       emitter.emit('info', 'update.wire.ready', { logSink: 'self', logDirHash: 'deadbeef' }, { pluginId: 'kernel.e2e' }),

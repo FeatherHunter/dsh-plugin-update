@@ -39,6 +39,11 @@
 //   3) 落盘行的格式版本是 3（LOG_FORMAT_VERSION），parseLogRow 对它做 v === 3 断言。
 // 旧名 checkEventFields / checkEventCounts 保留一版弃用壳，行为与旧版一致，下个大版本删。
 //
+// #210 的扩展是**顶层** `fieldEnums`（事件名 -> 字段名 -> 允许的稳定码枚举）：条目形状仍是
+// 0.3.1 的六键，随包清单整份交给 dsh-log 时它只认顶层 version/pluginId/events/counts，
+// 顶层多出来的键收下不用；条目里多键才会整份被拒（0.3.4 的 parseEventEntry 白名单）。
+// 所以机器枚举只能放顶层，这样「本包自己的尺子」与「dsh-log 的清单校验」互不打架。
+//
 // 通用检查器只收对象，不读文件：lintEventFields 做字段白名单检查，computeEventCounts 做计数。
 // 检查器是纯函数（不跨进程、不碰磁盘、无定时器、无新电话），不触发日志埋点纪律里的五种变动，
 // 所以不新增日志点；也未新增日志事件，附录第 1 章对照表不用动。
@@ -74,6 +79,16 @@ const CODE_NAME_RE = /^[A-Z][A-Z0-9_]{1,15}$/
 // 自由文本键黑名单（ADR-0006：日志行只承载稳定码，人话在渲染层）——出现即黄。
 const FREE_TEXT_FIELD_NAMES = ['message', 'detail', 'text', 'raw', 'diagnostic', 'command', 'path', 'url']
 
+/** 事件名是否合契约（小写点分）。发射口与门禁共用这一把尺子，别各写一份正则。 */
+export function isEventName(value: unknown): boolean {
+  return typeof value === 'string' && EVENT_NAME_RE.test(value)
+}
+
+/** 散列/截断代号是否合契约（如 H_CWD）。 */
+export function isCodeName(value: unknown): boolean {
+  return typeof value === 'string' && CODE_NAME_RE.test(value)
+}
+
 export interface GateEventEntry {
   // 级别：error、warn、info、debug 四选一。
   level: GateEventLevel
@@ -102,6 +117,12 @@ export interface GateEventList {
   pluginId: string
   // 事件表：键是事件名，值是该事件的级别、归类、允许字段与脱敏引用。
   events: Record<string, GateEventEntry>
+  // 字段允许值（#210）：事件名 -> 字段名 -> 允许的稳定码枚举。
+  // 没声明的字段不限制取值；声明了却写了枚举外的值，运行期只丢该字段（开发期直接抛）。
+  //
+  // 为什么放在清单顶层而不是事件条目里：随包清单会整份交给 dsh-log 建日志实例，
+  // 条目里多一个键会被 0.3.4 的清单校验整份拒掉；顶层未知键它收下不用，所以放这里两不误。
+  fieldEnums?: Record<string, Record<string, string[]>>
   // 旧版清单里的自报计数：0.3.1 起不再要求，收下也不参与判断（条数由 computeEventCounts 现算）。
   counts?: GateEventCounts
 }
@@ -148,6 +169,7 @@ export function parseEventListManifest(value: unknown): GateEventList {
     events[name] = parseEventEntry(name, (eventsRaw as Record<string, unknown>)[name])
   }
   const manifest: GateEventList = { version: 1, pluginId: pluginId, events: events }
+  if (input['fieldEnums'] !== undefined) manifest.fieldEnums = assertFieldEnums(input['fieldEnums'], events)
   const declared = parseDeclaredCounts(input['counts'])
   if (declared) manifest.counts = declared
   return manifest
@@ -197,6 +219,54 @@ function parseEventEntry(name: string, value: unknown): GateEventEntry {
     entry.guard = input['guard'] as string
   }
   return entry
+}
+
+/**
+ * 验清单顶层的字段枚举声明（#210）：事件名必须已在 events 里声明，字段名必须在该事件的 fields 里声明过；
+ * 值必须是非空字符串、不重复、数组非空。坏声明直接抛 —— 枚举是「允许值」的机器事实源，写错了比没写更危险。
+ */
+function assertFieldEnums(
+  value: unknown,
+  events: Record<string, GateEventEntry>
+): Record<string, Record<string, string[]>> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('[dsh-plugin-update] eventList invalid: fieldEnums must be an object of event -> field -> allowed string[]')
+  }
+  const input = value as Record<string, unknown>
+  const out: Record<string, Record<string, string[]>> = {}
+  for (const eventName of Object.keys(input)) {
+    const entry = events[eventName]
+    if (!entry) {
+      throw new Error('[dsh-plugin-update] eventList invalid: fieldEnums references an event not declared in events: ' + eventName)
+    }
+    const declared = input[eventName]
+    if (!declared || typeof declared !== 'object' || Array.isArray(declared)) {
+      throw new Error('[dsh-plugin-update] eventList invalid: event ' + eventName + ' fieldEnums must be an object of field -> allowed string[]')
+    }
+    const fields: Record<string, string[]> = {}
+    for (const field of Object.keys(declared as Record<string, unknown>)) {
+      if (entry.fields.indexOf(field) < 0) {
+        throw new Error('[dsh-plugin-update] eventList invalid: event ' + eventName + ' fieldEnums references a field not declared in fields: ' + field)
+      }
+      const raw = (declared as Record<string, unknown>)[field]
+      if (!Array.isArray(raw) || raw.length === 0) {
+        throw new Error('[dsh-plugin-update] eventList invalid: event ' + eventName + ' fieldEnums.' + field + ' must be a non-empty string array')
+      }
+      const seen: string[] = []
+      for (const item of raw) {
+        if (!isNonEmptyString(item)) {
+          throw new Error('[dsh-plugin-update] eventList invalid: event ' + eventName + ' fieldEnums.' + field + ' has empty or non-string values')
+        }
+        if (seen.indexOf(item) >= 0) {
+          throw new Error('[dsh-plugin-update] eventList invalid: event ' + eventName + ' fieldEnums.' + field + ' has duplicate value: ' + item)
+        }
+        seen.push(item)
+      }
+      fields[field] = seen
+    }
+    out[eventName] = fields
+  }
+  return out
 }
 
 // 计数现算：按归类数实际条数（0.3.1 起清单不写自报计数，尺子自己数）。
@@ -254,6 +324,56 @@ export function lintEventFields(
     return { ok: false, severity: 'warn', unknownEvent: false, unknownFields: unknownFields }
   }
   return { ok: true, severity: 'none', unknownEvent: false, unknownFields: [] }
+}
+
+export interface GatePrunedField {
+  field: string
+  // 字段被摘掉的原因：清单没声明这个键，或值不在声明的枚举里。
+  reason: 'unknown-field' | 'invalid-enum'
+}
+
+export interface GateFieldPruneResult {
+  ok: boolean
+  // 事件名根本不在清单里：整行都不该落（与字段级裁剪是两回事）。
+  unknownEvent: boolean
+  // 通过校验、应当原样保留的字段（顺序与传入一致）。
+  keptFields: Record<string, unknown>
+  // 被摘掉的字段与原因（运行期只丢字段、整行其余字段照落）。
+  prunedFields: GatePrunedField[]
+}
+
+/**
+ * 字段级裁剪（#210）：按清单把不合规的**字段**摘掉，而不是把整行丢掉。
+ *
+ * 为什么是字段级：ADR-0006 的验收口径是「开发期未登记字段抛，运行期丢弃该字段并计数」——
+ * 一个漂移字段不该毁掉整条证据行（故障现场最贵的就是那一行）。
+ * 枚举校验对声明了 `enums[field]` 的字段生效；`null`/`undefined` 视为缺省（不写就是缺省，不参与枚举）。
+ */
+export function pruneEventFields(
+  manifest: GateEventList,
+  eventName: string,
+  fields: Record<string, unknown>
+): GateFieldPruneResult {
+  const entry = manifest.events[eventName]
+  if (!entry) return { ok: false, unknownEvent: true, keptFields: {}, prunedFields: [] }
+  const allowed = new Set(entry.fields)
+  const declaredEnums = manifest.fieldEnums ? manifest.fieldEnums[eventName] : undefined
+  const keptFields: Record<string, unknown> = {}
+  const prunedFields: GatePrunedField[] = []
+  for (const field of Object.keys(fields)) {
+    if (!allowed.has(field)) {
+      prunedFields.push({ field: field, reason: 'unknown-field' })
+      continue
+    }
+    const enums = declaredEnums ? declaredEnums[field] : undefined
+    const value = fields[field]
+    if (enums && value !== null && value !== undefined && (typeof value !== 'string' || enums.indexOf(value) < 0)) {
+      prunedFields.push({ field: field, reason: 'invalid-enum' })
+      continue
+    }
+    keptFields[field] = value
+  }
+  return { ok: prunedFields.length === 0, unknownEvent: false, keptFields: keptFields, prunedFields: prunedFields }
 }
 
 export interface GateListLintResult {
@@ -370,7 +490,7 @@ export function mergeUpdateEvents(manifest: unknown, updateEvents: unknown): Gat
   const base = parseEventListManifest(manifest)
   const incoming = parseEventListManifest(updateEvents)
   const events: Record<string, GateEventEntry> = {}
-  for (const name of Object.keys(base.events)) events[name] = cloneEntry(base.events[name])
+  for (const name of Object.keys(base.events)) events[name] = cloneEventEntry(base.events[name])
   const added: string[] = []
   const merged: string[] = []
   const conflicts: string[] = []
@@ -378,7 +498,7 @@ export function mergeUpdateEvents(manifest: unknown, updateEvents: unknown): Gat
     const mine = incoming.events[name]
     const theirs = events[name]
     if (!theirs) {
-      events[name] = cloneEntry(mine)
+      events[name] = cloneEventEntry(mine)
       added.push(name)
       continue
     }
@@ -400,11 +520,17 @@ export function mergeUpdateEvents(manifest: unknown, updateEvents: unknown): Gat
     }
   }
   const result: GateEventList = { version: 1, pluginId: base.pluginId, events: events }
+  const fieldEnums = unionFieldEnums(base.fieldEnums, incoming.fieldEnums)
+  if (fieldEnums) result.fieldEnums = fieldEnums
   if (base.counts) result.counts = base.counts
   return { manifest: result, added: added, merged: merged, conflicts: conflicts }
 }
 
-function cloneEntry(entry: GateEventEntry): GateEventEntry {
+/**
+ * 深拷贝一条事件条目（含字段/代号/规则数组与枚举声明）。合并与换名发布共用这一处，
+ * 免得两份实现哪天对「哪些键算契约」理解不一。
+ */
+export function cloneEventEntry(entry: GateEventEntry): GateEventEntry {
   const copy: GateEventEntry = { level: entry.level, kind: entry.kind, fields: entry.fields.slice() }
   if (entry.codes) copy.codes = entry.codes.slice()
   if (entry.rules) copy.rules = entry.rules.slice()
@@ -415,6 +541,33 @@ function cloneEntry(entry: GateEventEntry): GateEventEntry {
 function unionList(first?: string[], second?: string[]): string[] {
   const out: string[] = []
   for (const item of [...(first ?? []), ...(second ?? [])]) if (out.indexOf(item) < 0) out.push(item)
+  return out
+}
+
+// 枚举合并口径与字段一致：按事件、按字段取并集，谁都不许因为合并丢掉自己声明的允许值。
+function unionFieldEnums(
+  first?: Record<string, Record<string, string[]>>,
+  second?: Record<string, Record<string, string[]>>
+): Record<string, Record<string, string[]>> | undefined {
+  if (!first && !second) return undefined
+  const out: Record<string, Record<string, string[]>> = {}
+  const events: string[] = []
+  for (const source of [first, second]) {
+    if (!source) continue
+    for (const eventName of Object.keys(source)) if (events.indexOf(eventName) < 0) events.push(eventName)
+  }
+  for (const eventName of events) {
+    const left = first ? first[eventName] : undefined
+    const right = second ? second[eventName] : undefined
+    const fields: string[] = []
+    for (const source of [left, right]) {
+      if (!source) continue
+      for (const field of Object.keys(source)) if (fields.indexOf(field) < 0) fields.push(field)
+    }
+    const merged: Record<string, string[]> = {}
+    for (const field of fields) merged[field] = unionList(left ? left[field] : undefined, right ? right[field] : undefined)
+    out[eventName] = merged
+  }
   return out
 }
 

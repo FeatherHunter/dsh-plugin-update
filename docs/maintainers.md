@@ -141,7 +141,7 @@ node tests/verify-log-fields.js
 node tests/verify-log-count.js
 ```
 
-日志门禁的 55 事件对照仍以消费方的 `research/489-appendix.md` 与 `tests/verify-log-*.js` 为准；本包只给格式与检查器，不复刻那张表，免得两处对照要双写同步。本包自己的事件表是随包的 `event-list.update.json`（0.3.1 形状，**26 事件：常驻 18、按需 7、自监控 1**；`0.16.3` 起，此前 28），新增/删除事件与字段要同步它，`npm test` 里的 `tests/gate.test.mjs` 会拿 `lintEventList` 整份过尺子（有红有黄即红）。**清单是发布出去的契约**：声明一个永不出现的字段名会把第三方聚合器带偏，所以「规格里写了、实现没发」的条目要么补实现、要么从清单删掉（判据与逐条记录见 `docs/research/20261014-log-event-catalog.md` §7）。
+日志门禁的 55 事件对照仍以消费方的 `research/489-appendix.md` 与 `tests/verify-log-*.js` 为准；本包只给格式与检查器，不复刻那张表，免得两处对照要双写同步。本包自己的事件表是随包的 `event-list.update.json`（0.3.1 条目形状 + `#210` 起清单顶层的 `fieldEnums` 枚举声明，**26 事件：常驻 18、按需 7、自监控 1**；`0.16.3` 起，此前 28），新增/删除事件与字段要同步它，`npm test` 里的 `tests/gate.test.mjs` 会拿 `lintEventList` 整份过尺子（有红有黄即红）。条目里**只能有六个键**（`level`/`kind`/`fields`/`codes`/`rules`/`guard`）：dsh-log 0.3.4 对条目未知键整份拒收，枚举因此只放顶层 `fieldEnums`（引擎收下不用）。**清单是发布出去的契约**：声明一个永不出现的字段名会把第三方聚合器带偏，所以「规格里写了、实现没发」的条目要么补实现、要么从清单删掉（判据与逐条记录见 `docs/research/20261014-log-event-catalog.md` §7）。
 
 ## 宿主契约
 

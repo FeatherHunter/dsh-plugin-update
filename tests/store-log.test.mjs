@@ -422,7 +422,7 @@ describe('与真发射口对得上', () => {
       'update.queue.transition',
     ])
     assert.equal(emitter.counts().dropped, 0)
-    // 反向自证：多带一格自由文本，真发射口必须丢掉（说明上面 7 行确实是过了校验才落的）。
+    // 反向自证：多带一格自由文本，真发射口只摘该字段并记降级（dev 模式选择抛而不是静默摘）；上面 7 行是过了校验的。
     assert.throws(
       () =>
         emitter.emit(
@@ -431,11 +431,12 @@ describe('与真发射口对得上', () => {
           { op: 'release-lock', reason: 'eisdir', path: 'C:\\Users\\someone\\secret' },
           { pluginId: 'p-a' }
         ),
-      /不合清单/
+      /not in event list/
     )
-    assert.equal(emitter.counts().droppedByReason['unknown-field'], 1)
+    assert.equal(emitter.counts().prunedByReason['unknown-field'], 1)
+    assert.equal(emitter.counts().droppedByReason['unknown-field'], undefined)
     const landed = rows.filter((row) => row.event !== 'update.log.degraded')
-    assert.equal(landed.length, 7, '被丢掉的那一行不该落到落点')
+    assert.equal(landed.length, 7, 'dev 模式在发射前就抛，落点仍只有先前 7 行')
     assert.ok(!JSON.stringify(landed).includes('someone'), '自由文本一格都不许落')
   })
 })

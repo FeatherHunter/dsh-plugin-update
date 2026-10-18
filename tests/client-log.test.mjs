@@ -329,7 +329,7 @@ describe('宿主侧 logAppend：收客户端行，落进同一条日志管道', 
     )
   })
 
-  it('协议层拒收都计入 dropped：级别/事件/字段形状/过期/超量', async () => {
+  it('协议层拒收都计入 dropped；未知字段只摘该字段、整行仍接收并记降级', async () => {
     const fires = []
     const host = makeHost({ fires })
     const reply = await host.handlers['wf.logAppend']({
@@ -344,8 +344,12 @@ describe('宿主侧 logAppend：收客户端行，落进同一条日志管道', 
         null,
       ],
     })
-    assert.deepEqual(reply, { accepted: 0, dropped: 8 })
-    assert.deepEqual(appended(fires), [], '一行都不许漏进去')
+    assert.deepEqual(reply, { accepted: 1, dropped: 7 })
+    const got = appended(fires)
+    assert.deepEqual(got.filter((f) => f.event === 'update.panel.action').map((f) => f.fields), [{ action: 'check' }])
+    const degraded = got.filter((f) => f.event === 'update.log.degraded')
+    assert.equal(degraded.length, 1, '未声明字段留一条降级记录')
+    assert.deepEqual(degraded[0].fields, { reason: 'unknown-field', event: 'update.panel.action', field: 'bogus' })
   })
 
   it('一次最多收 200 行，多出来的计 dropped', async () => {

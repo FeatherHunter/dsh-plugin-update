@@ -36,7 +36,7 @@
 | `update.panel.mount` | info | `mode`、`theme`、`lang`、`pollMs` | 全是枚举与数字。`mode` 的**可达四值**：`'entry'`（`src/entry.ts:590` 的 `clientLog:{mount:'entry'}`）、`'http'`（`src/http.ts:353` 的默认挂载点名）、以及没给挂载点名时退回的面板 `mode` 选项 `'embedded'\|'dialog'`（`src/panel.ts:41` `UpdatePanelMode`）。**`'batch'` / `'entry-batch'` 不可达**：批量两处挂载点都不传 `clientLog`，报的是面板 `mode`（批量面板传 `'dialog'`） |
 | `update.panel.action` | info | `action`、`bytes?`、`truncated?` | 取值**十一**个，与 `src/panel.ts:199-210` 的 `UpdatePanelActionKind` 一字不差：`'check'`、`'install'`、`'skip'`、`'reset-skip'`、`'copy-manual'`、`'copy-diag'`、`'toggle-queue'`、`'toggle-changelog'`、`'restart-hint'`、`'close-view'`、`'dismiss-failure'`。复制诊断只记体量与是否截断，**绝不记内容**（`bytes`/`truncated` 只跟着 `'copy-diag'` 走） |
 | `update.panel.render.fail` | error | `kind: 'container'\|'plugin-id'\|'call'\|'poll-ms'\|'mode'\|'theme'\|'unknown'` | 挂载校验 `throw` 的六种原因 + 渲染期兜底；无自由文本 |
-| `update.log.degraded` | warn | `reason: 'no-dsh-log'\|'lease-conflict'\|'write-fail'\|'emit-threw'\|'unknown-field'\|'unknown-event'` | selfmon：日志接线自己的坏消息（含字段白名单丢弃计数） |
+| `update.log.degraded` | warn | `reason: 'no-dsh-log'\|'lease-conflict'\|'write-fail'\|'emit-threw'\|'unknown-event'\|'unknown-field'\|'invalid-enum'`、`event?`、`field?` | selfmon：日志接线自己的坏消息。`#210` 起字段级漂移不再整行丢：摘掉该字段、整行照落，并记一条带 `event`/`field` 的降级行（两格只放清单内机器标识，非法形状打成 `<event>`/`<field>`，按「原因+事件+字段」只记首次）；未知事件仍整行不落盘。清单顶层 `fieldEnums` 是枚举值的机器声明 |
 
 ## 2. 按需（ondemand，开关打开才落）
 

@@ -18,6 +18,7 @@ export {
   mergeUpdateEvents,
   parseEventListManifest,
   parseLogRow,
+  pruneEventFields,
   checkEventFields,
   checkEventCounts
 } from './gate.js'
@@ -28,6 +29,8 @@ export type {
   GateEventCounts,
   GateEventList,
   GateFieldCheck,
+  GateFieldPruneResult,
+  GatePrunedField,
   GateLintFieldsResult,
   GateListLintResult,
   GateLogRow,
