@@ -20,6 +20,7 @@ const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 const gate = await import('../dist/gate.js')
 const log = await import('../dist/log/index.js')
+const logManifest = await import('../dist/log/manifest.js')
 const hostMod = await import('../dist/host.js')
 
 const { parseEventListManifest, pruneEventFields, lintEventList, mergeUpdateEvents } = gate
@@ -28,10 +29,10 @@ const {
   createLogEmitter,
   __resetUpdateEventTableForTests,
   loadUpdateEventTable,
-  __loadUpdateEventTableForTests,
   updateContractStatus,
-  __forceUpdateContractStatusForTests,
 } = log
+// 两个测试缝只住在模块里，不从 `./log` 公开出口外放（消费者拿不到，防止有人伪造契约健康）。
+const { __loadUpdateEventTableForTests, __forceUpdateContractStatusForTests } = logManifest
 const { createHostUpdate, __resetSharedUpdateReaderForTests } = hostMod
 
 function sample() {
@@ -146,6 +147,25 @@ describe('#210 字段级裁剪：未知字段与非法枚举只丢该字段', ()
 
     const missing = pruneEventFields(table, 'no.such.event', { a: 1 })
     assert.equal(missing.unknownEvent, true)
+
+    // 声明了枚举的字段不许用 null/undefined 冒充「没写」：缺省应是整格不出现。
+    const nullEnum = pruneEventFields(table, 'update.wire.ready', { logSink: null, logDirHash: 'h' })
+    assert.deepEqual(nullEnum.prunedFields, [{ field: 'logSink', reason: 'invalid-enum' }])
+    assert.deepEqual(nullEnum.keptFields, { logDirHash: 'h' })
+    const undefinedEnum = pruneEventFields(table, 'update.wire.ready', { logSink: undefined })
+    assert.deepEqual(undefinedEnum.prunedFields, [{ field: 'logSink', reason: 'invalid-enum' }])
+  })
+
+  it('lintEventList 也查枚举声明的结构（列级尺子不能只看字段名）', () => {
+    const broken = parseEventListManifest(sample())
+    broken.fieldEnums['update.wire.ready'].logSink = []
+    broken.fieldEnums['update.panel.action'].notDeclared = ['x']
+    broken.fieldEnums['no.such.event'] = { x: ['a'] }
+    const linted = lintEventList(broken)
+    assert.equal(linted.ok, false)
+    assert.ok(linted.red.some((line) => line.includes('fieldEnums') && line.includes('update.wire.ready')))
+    assert.ok(linted.red.some((line) => line.includes('undeclared field notDeclared')))
+    assert.ok(linted.red.some((line) => line.includes('unknown event no.such.event')))
   })
 
   it('运行时：整行仍落盘，降级记录含事件名与字段名且去重', () => {
@@ -182,6 +202,10 @@ describe('#210 字段级裁剪：未知字段与非法枚举只丢该字段', ()
       () => emitter.emit('info', 'update.wire.ready', { logSink: 'self', extra: 'x' }, { pluginId: 'p' }),
       /not in event list/
     )
+    // 抛出的行不记「已裁剪」：否则同一漂移会先记字段级降级、再被 catch 记 emit-threw。
+    assert.equal(emitter.counts().prunedFields, 0)
+    const degraded = rows.filter((row) => row.event === 'update.log.degraded')
+    assert.ok(degraded.every((row) => row.fields.reason === 'emit-threw'), JSON.stringify(degraded))
   })
 
   it('负断言：降级记录只有 reason/event/field，绝无路径或 URL 原文', () => {
@@ -237,6 +261,20 @@ describe('#210 契约健康：读不到清单不静默放行', () => {
     assert.equal(rows[0].fields.extra, 'x', '清单缺失时不裁剪（也不假装校验过）')
   })
 
+  it('unvalidated 只数真正落盘的行：准入跳过 / 无落点的不算', () => {
+    const rows = []
+    const router = createLogRouter()
+    router.bind('p', { fire: (level, event, fields) => rows.push({ level, event, fields }), isEnabled: () => false })
+    const emitter = createLogEmitter({ resolve: (id) => router.resolve(id), table: () => null })
+    assert.equal(emitter.emit('info', 'update.panel.action', { action: 'check' }, { pluginId: 'p' }), false)
+    assert.equal(emitter.counts().unvalidated, 0, '被准入跳过的行没落盘，不能算「未校验落盘」')
+    assert.equal(emitter.counts().skipped, 1)
+    const noSink = createLogEmitter({ resolve: () => null, table: () => null })
+    assert.equal(noSink.emit('info', 'update.panel.action', { action: 'check' }, { pluginId: 'p' }), false)
+    assert.equal(noSink.counts().unvalidated, 0)
+    assert.equal(rows.length, 0)
+  })
+
   it('健康回包（updateStatus）带上契约状态', async () => {
     const fires = []
     const host = createHostUpdate(
@@ -274,6 +312,7 @@ describe('#210 契约健康：读不到清单不静默放行', () => {
     )
     const okReply = await host.handlers['wf.updateStatus']({})
     assert.equal(okReply.logContract.state, 'ok')
+    assert.equal(typeof okReply.logContract.unvalidated, 'number', '健康回包要带「没尺子仍落盘」的行数')
 
     __forceUpdateContractStatusForTests({
       state: 'missing',

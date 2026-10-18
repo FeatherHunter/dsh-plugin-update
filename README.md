@@ -744,6 +744,8 @@ lintEventFields(manifest, row.event, stripReservedLogFields(Object.keys(row.fiel
 清单要以**对象**传入：字符串或数组会被拦下并给出中文说明，不静默修补。
 `checkEventFields` 与 `checkEventCounts` 是 `0.16.0` 之前的旧名（`0.13.0` 及更早已发布版本里就是这两个名字），保留一版、行为不变，新代码用 `lintEventFields` 与 `computeEventCounts`。
 
+**两把尺子别混用（`#210`）**：`lintEventFields` 只量「事件在不在清单、字段名在不在声明里」，**不查字段值的枚举**；真正逐字段裁剪、把枚举外值摘掉并记一条 `update.log.degraded` 的是发射口里的 `pruneEventFields`（清单缺失时它不裁剪、只如实计 `unvalidated`）。想在自己的构建期把契约漂移变成硬失败，用 `createLogEmitter` 的 `mode: 'throw'`：开发期写未声明字段或枚举外值即抛；运行期默认是「摘掉该字段、整行照落、记降级」。
+
 **日志内核**（`dsh-plugin-update/log`，0.16.0 起；宿主侧零件，浏览器闭包别引它 —— 唯一例外是 `createClientLogChannel`，它零 `node:` 依赖，面板侧就是引它，见第 10 节）：
 
 ```js

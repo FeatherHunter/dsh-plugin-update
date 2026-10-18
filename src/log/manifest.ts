@@ -31,6 +31,8 @@ export interface UpdateContractStatus {
   // 已加载事件条数（未加载或失败为 0）。
   events: number
   failure?: UpdateContractFailure
+  // 本进程累计「清单缺失时仍写进落点」的行数（由宿主回包填；manifest 不知道发射口的计数）。
+  unvalidated?: number
 }
 
 let cached: GateEventList | null = null

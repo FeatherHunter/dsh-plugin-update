@@ -433,8 +433,16 @@ describe('与真发射口对得上', () => {
         ),
       /not in event list/
     )
-    assert.equal(emitter.counts().prunedByReason['unknown-field'], 1)
+    // dev 模式在发射前就抛：字段级裁剪不记账（否则同一漂移会被记两遍），
+    // 抛出的行按 emit-threw 记一次丢弃 + 一条降级行。
+    assert.equal(emitter.counts().prunedFields, 0)
+    assert.equal(emitter.counts().prunedByReason['unknown-field'], undefined)
+    assert.equal(emitter.counts().dropped, 1)
+    assert.equal(emitter.counts().droppedByReason['emit-threw'], 1)
     assert.equal(emitter.counts().droppedByReason['unknown-field'], undefined)
+    const degraded = rows.filter((row) => row.event === 'update.log.degraded')
+    assert.equal(degraded.length, 1, '同一进程同一原因只记一条降级')
+    assert.equal(degraded[0].fields.reason, 'emit-threw')
     const landed = rows.filter((row) => row.event !== 'update.log.degraded')
     assert.equal(landed.length, 7, 'dev 模式在发射前就抛，落点仍只有先前 7 行')
     assert.ok(!JSON.stringify(landed).includes('someone'), '自由文本一格都不许落')

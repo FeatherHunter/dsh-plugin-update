@@ -36,8 +36,6 @@ export {
   primeUpdateEventTable,
   updateContractStatus,
   UPDATE_EVENT_LIST_FILE,
-  __forceUpdateContractStatusForTests,
-  __loadUpdateEventTableForTests,
   __resetUpdateEventTableForTests,
   type UpdateContractFailure,
   type UpdateContractStatus,

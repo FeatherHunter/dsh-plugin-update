@@ -52,7 +52,7 @@ export interface LogEmitterCounts {
   prunedFields: number
   // 字段级裁剪按原因分（unknown-field / invalid-enum）。
   prunedByReason: Record<string, number>
-  // 清单缺失时仍照发的行数（不能把它们算成「过了白名单」——没有尺子量过就是没量过）。
+  // 清单缺失时**实际写进落点**的行数（被准入跳过/边沿抑制/丢弃的不算）——没有尺子量过就是没量过。
   unvalidated: number
 }
 
@@ -145,6 +145,7 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
     unvalidated: 0,
   }
   const degraded = new Set<string>()
+  const degradedCodes = new Set<string>()
   const seen = new Map<string, string>()
   const mode = deps.mode ?? 'drop'
   const table = (): ReturnType<typeof currentUpdateEventTable> => {
@@ -185,6 +186,7 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
     const key = drift ? code + '\u0000' + drift.event + '\u0000' + drift.field : code
     if (degraded.has(key)) return
     degraded.add(key)
+    degradedCodes.add(code)
     try {
       const sink = pluginId ? resolveSink(pluginId) : null
       if (!sink || sink === NOOP_SINK) return
@@ -233,16 +235,14 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
           return false
         }
         if (pruned.prunedFields.length > 0) {
-          for (const item of pruned.prunedFields) countPrune(item.reason, pluginId, event, item.field)
+          // dev 模式先抛：抛出的行不该再被记成「已裁剪/已降级」，否则同一漂移会记两遍。
           if (mode === 'throw') {
             const first = pruned.prunedFields[0]
             throw new Error(`event field not in event list: ${event}.${first.field} (${first.reason})`)
           }
+          for (const item of pruned.prunedFields) countPrune(item.reason, pluginId, event, item.field)
         }
         working = pruned.keptFields
-      } else {
-        // 没有尺子就如实说「这行没被校验过」，不冒充过了白名单（#210 契约健康）。
-        counts.unvalidated++
       }
       const sink = resolveSink(pluginId)
       if (!sink || sink === NOOP_SINK) {
@@ -269,6 +269,9 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
         }
         seen.set(event, fingerprint)
       }
+      // 没有尺子就如实说「这行没被校验过」——只有真的写进落点才计数，
+      // 被准入跳过/边沿抑制/丢弃的行不算（#210 契约健康：计数必须对得上落点）。
+      if (!tableNow) counts.unvalidated++
       writeRow(sink, level, event, sanitized)
       counts.emitted++
       return true
@@ -282,7 +285,7 @@ export function createLogEmitter(deps: LogEmitterDeps): LogEmitter {
   return {
     emit,
     counts: () => ({ ...counts, droppedByReason: { ...counts.droppedByReason } }),
-    degradedReasons: () => Array.from(degraded),
+    degradedReasons: () => Array.from(degradedCodes),
   }
 }
 

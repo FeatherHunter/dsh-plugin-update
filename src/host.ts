@@ -29,7 +29,7 @@ import { parseChangelogReport, shouldFetchChangelog } from './changelog.js'
 import { buildDiag, type DiagObject } from './diag.js'
 import { isCoreErrorCode } from './codes.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL } from './log-events.js'
-import { emitUpdateLog } from './log/emit.js'
+import { emitUpdateLog, logEmitterCounts } from './log/emit.js'
 import { pruneEventFields } from './gate.js'
 import { buildUpdateManifest, currentUpdateEventTable, primeUpdateEventTable, updateContractStatus, type UpdateContractStatus } from './log/manifest.js'
 import { deriveLogNamespace } from './log/namespace.js'
@@ -1186,7 +1186,9 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
       profileDir: args && args.profileDir ? String(args.profileDir) : readerOverrides.profileDir,
     })
     const out = await snapWithManual(reader, (await reader.status()) as never, config)
-    const logContract = updateContractStatus()
+    // 契约健康（#210）：除了清单状态，还带「本进程有多少行在没尺子的情况下仍落盘」——
+    // 这就是「字段门禁不被静默绕过」的可核对数字（0 才是真的全都量过）。
+    const logContract: UpdateContractStatus = { ...updateContractStatus(), unvalidated: logEmitterCounts().unvalidated }
     const env = wantsEnv(args) ? { env: await readEnvForPanel(reader) } : {}
     const { includeQueue, showOthers } = queueArgsOf(args)
     if (!includeQueue) return { ...out, logContract, ...env }

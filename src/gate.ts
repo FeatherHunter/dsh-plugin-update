@@ -367,7 +367,8 @@ export function pruneEventFields(
     }
     const enums = declaredEnums ? declaredEnums[field] : undefined
     const value = fields[field]
-    if (enums && value !== null && value !== undefined && (typeof value !== 'string' || enums.indexOf(value) < 0)) {
+    // 声明了枚举的字段：只收声明里的字符串（null/undefined 也算漂移——缺省应该整格不写，不该用 null 冒充）。
+    if (enums && (typeof value !== 'string' || enums.indexOf(value) < 0)) {
       prunedFields.push({ field: field, reason: 'invalid-enum' })
       continue
     }
@@ -414,6 +415,38 @@ export function lintEventList(manifest: GateEventList): GateListLintResult {
     }
     if (entry.guard !== undefined && !entry.guard.length) {
       yellow.push('事件 ' + name + ' 的 guard 是空串：要么写清守卫，要么整条不写')
+    }
+  }
+  // 字段枚举声明（#210）：只查结构；「字段名集合」的尺子仍是 lintEventFields。
+  if (manifest.fieldEnums) {
+    for (const eventName of Object.keys(manifest.fieldEnums)) {
+      const entry = manifest.events[eventName]
+      if (!entry) {
+        red.push('eventList fieldEnums references unknown event ' + eventName)
+        continue
+      }
+      const fields = manifest.fieldEnums[eventName]
+      for (const field of Object.keys(fields)) {
+        if (entry.fields.indexOf(field) < 0) {
+          red.push('eventList fieldEnums for event ' + eventName + ' references undeclared field ' + field)
+        }
+        const values = fields[field]
+        if (!Array.isArray(values) || values.length === 0) {
+          red.push('eventList fieldEnums.' + eventName + '.' + field + ' must be a non-empty array')
+          continue
+        }
+        const seen: string[] = []
+        for (const value of values) {
+          if (typeof value !== 'string' || value.length === 0) {
+            red.push('eventList fieldEnums.' + eventName + '.' + field + ' contains empty or non-string value')
+            continue
+          }
+          if (seen.indexOf(value) >= 0) {
+            red.push('eventList fieldEnums.' + eventName + '.' + field + ' contains duplicate value ' + value)
+          }
+          seen.push(value)
+        }
+      }
     }
   }
   const counts = computeEventCounts(manifest)
