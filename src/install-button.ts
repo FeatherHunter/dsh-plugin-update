@@ -39,6 +39,7 @@ import {
   type UpdateThemeTokens,
 } from './panel.js'
 import { formatUnlockAt } from './install-cause.js'
+import { hash8 } from './hash.js'
 import { lastResortVerdictOf, type ManualSource } from './last-resort.js'
 // #174：last-resort 的类型经既有子路径转出，消费者无需新子路径即可命名（`ManualSource` 已出现在本模块导出签名里）。
 export type { LastResortKind, RescueRouteKey, ManualSource, LastResortVerdict } from './last-resort.js'
@@ -621,61 +622,155 @@ export function mountInstallButton(
       // Logging never blocks install.
     }
   }
-  function logMountFailure(kind: string): void {
-    logClient('error', 'update.panel.render.fail', { kind })
+  // ---------- failure evidence (#214): same shape and dedupe as the panel ----------
+  const RENDER_FAIL_DEDUPE_MS = 60_000
+  const renderFailSeen = new Map<string, number>()
+  function errorTextOf(err: unknown): string {
+    if (err && typeof err === 'object' && typeof (err as { message?: unknown }).message === 'string') {
+      return (err as { message: string }).message
+    }
+    if (typeof err === 'string') return err
+    try {
+      return String(err ?? '')
+    } catch {
+      return ''
+    }
   }
-  if (!container || typeof container.innerHTML !== 'string') {
-    logMountFailure('container')
-    throw new Error('[dsh-plugin-update] install button needs a container with innerHTML')
+  function emitRenderFail(phase: 'mount' | 'paint' | 'poll' | 'global', kind: string, message: string): void {
+    const errorHash = hash8(message)
+    if (phase !== 'mount') {
+      const key = `${phase}|${kind}|${errorHash}`
+      const nowMs = Date.now()
+      const last = renderFailSeen.get(key)
+      if (last !== undefined && nowMs - last < RENDER_FAIL_DEDUPE_MS) return
+      renderFailSeen.set(key, nowMs)
+    }
+    logClient('error', 'update.panel.render.fail', { phase, kind, errorHash })
+  }
+  function failMount(kind: string, message: string): void {
+    emitRenderFail('mount', kind, message)
+    try {
+      void clientLog?.flush()
+    } catch {
+      // Best effort.
+    }
+  }
+  function clientDroppedRows(): number {
+    try {
+      const map = clientLog?.droppedByReason?.() ?? {}
+      let total = 0
+      for (const key of Object.keys(map)) {
+        const n = map[key]
+        if (typeof n === 'number' && Number.isFinite(n) && n > 0) total += n
+      }
+      return total
+    } catch {
+      return 0
+    }
+  }
+  let removeGlobalHandlers: (() => void) | null = null
+  function installGlobalHandlers(): void {
+    const g = globalThis as unknown as {
+      addEventListener?: (type: string, fn: (event: unknown) => void) => void
+      removeEventListener?: (type: string, fn: (event: unknown) => void) => void
+    }
+    if (typeof g.addEventListener !== 'function') return
+    const onError = (event: unknown): void => {
+      const msg = errorTextOf((event as { message?: unknown } | null)?.message ?? event)
+      emitRenderFail('global', 'uncaught', msg || 'uncaught-error')
+    }
+    const onRejection = (event: unknown): void => {
+      const reason = (event as { reason?: unknown } | null)?.reason
+      emitRenderFail('global', 'unhandled', errorTextOf(reason) || 'unhandled-rejection')
+    }
+    let registered = false
+    try {
+      g.addEventListener('error', onError)
+      g.addEventListener('unhandledrejection', onRejection)
+      registered = true
+    } catch {
+      registered = false
+    }
+    if (registered) {
+      removeGlobalHandlers = () => {
+        try {
+          g.removeEventListener?.('error', onError)
+          g.removeEventListener?.('unhandledrejection', onRejection)
+        } catch {
+          // Best effort.
+        }
+      }
+    }
   }
   if (!options || typeof options !== 'object') {
-    logMountFailure('plugin-id')
-    throw new Error('[dsh-plugin-update] install button needs options: pluginId is required')
+    const message = '[dsh-plugin-update] install button needs options: pluginId is required'
+    failMount('plugin-id', message)
+    throw new Error(message)
   }
-  const pluginId = options.pluginId
-  if (typeof pluginId !== 'string' || !pluginId) {
-    logMountFailure('plugin-id')
-    throw new Error(`[dsh-plugin-update] install button needs pluginId: non-empty string (got ${JSON.stringify(pluginId)})`)
-  }
+  // Transport is the one minimal dependency: without call there is nowhere to report (only zero-row mount failure).
   if (typeof options.call !== 'function') {
-    logMountFailure('call')
-    throw new Error('[dsh-plugin-update] install button needs call (the only channel to host phones)')
+    const message = '[dsh-plugin-update] install button needs call (the only channel to host phones)'
+    failMount('call', message)
+    throw new Error(message)
   }
+  // Create the channel before the remaining checks (#214): an illegal prefix falls back to the default route
+  // so the failure row still has somewhere to go; the prefix check below still throws as before.
   const prefix = options.prefix === undefined ? DEFAULT_PREFIX : options.prefix
-  let phoneNames: ReturnType<typeof buildPhoneNames>
+  let channelPrefix = DEFAULT_PREFIX
   try {
-    phoneNames = buildPhoneNames(prefix)
-  } catch (err) {
-    logMountFailure('prefix')
-    throw err
+    buildLogAppendPhoneName(prefix)
+    channelPrefix = String(prefix)
+  } catch {
+    // Illegal prefix: channel uses the default prefix; the prefix check reports it.
   }
   if (!clientLog && !clientLogDisabled) {
     try {
-      clientLog = createClientLogChannel({ call: options.call, phoneName: buildLogAppendPhoneName(prefix) })
+      clientLog = createClientLogChannel({ call: options.call, phoneName: buildLogAppendPhoneName(channelPrefix) })
       clientLogOwned = true
     } catch {
       clientLog = null
     }
   }
+  if (!container || typeof container.innerHTML !== 'string') {
+    const message = '[dsh-plugin-update] install button needs a container with innerHTML'
+    failMount('container', message)
+    throw new Error(message)
+  }
+  const pluginId = options.pluginId
+  if (typeof pluginId !== 'string' || !pluginId) {
+    const message = `[dsh-plugin-update] install button needs pluginId: non-empty string (got ${JSON.stringify(pluginId)})`
+    failMount('plugin-id', message)
+    throw new Error(message)
+  }
+  let phoneNames: ReturnType<typeof buildPhoneNames>
+  try {
+    phoneNames = buildPhoneNames(prefix)
+  } catch (err) {
+    failMount('prefix', errorTextOf(err))
+    throw err
+  }
   const pollMs = options.pollMs === undefined ? DEFAULT_PANEL_POLL_MS : options.pollMs
   if (typeof pollMs !== 'number' || !Number.isFinite(pollMs) || pollMs < MIN_PANEL_POLL_MS) {
-    logMountFailure('poll-ms')
-    throw new Error(`[dsh-plugin-update] install button pollMs must be >= 250ms (got ${JSON.stringify(options.pollMs)})`)
+    const message = `[dsh-plugin-update] install button pollMs must be >= 250ms (got ${JSON.stringify(options.pollMs)})`
+    failMount('poll-ms', message)
+    throw new Error(message)
   }
   const autoCheck = options.autoCheck ?? 'mount'
   if (autoCheck !== 'mount' && autoCheck !== 'never') {
-    logMountFailure('auto-check')
-    throw new Error(`[dsh-plugin-update] install button autoCheck must be mount or never (got ${JSON.stringify(options.autoCheck)})`)
+    const message = `[dsh-plugin-update] install button autoCheck must be mount or never (got ${JSON.stringify(options.autoCheck)})`
+    failMount('auto-check', message)
+    throw new Error(message)
   }
   if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive') {
-    logMountFailure('theme')
-    throw new Error(`[dsh-plugin-update] install button theme must be default or archive (got ${JSON.stringify(options.theme)})`)
+    const message = `[dsh-plugin-update] install button theme must be default or archive (got ${JSON.stringify(options.theme)})`
+    failMount('theme', message)
+    throw new Error(message)
   }
   const theme = options.theme ?? 'default'
   try {
     themeTokensStyleFor(options.themeTokens ?? undefined)
   } catch (err) {
-    logMountFailure('theme-tokens')
+    failMount('theme-tokens', errorTextOf(err))
     throw err
   }
   const localeOpt: LocaleOption = options.locale ?? undefined
@@ -683,12 +778,14 @@ export function mountInstallButton(
     const isStr = typeof localeOpt === 'string'
     const isObj = typeof localeOpt === 'object' && typeof (localeOpt as { getActive?: unknown }).getActive === 'function'
     if (!isStr && !isObj) {
-      logMountFailure('locale')
-      throw new Error('[dsh-plugin-update] invalid locale: expected zh / en / BCP47 or { getActive(), subscribe? }')
+      const message = '[dsh-plugin-update] invalid locale: expected zh / en / BCP47 or { getActive(), subscribe? }'
+      failMount('locale', message)
+      throw new Error(message)
     }
     if (isStr && !(localeOpt as string).trim()) {
-      logMountFailure('locale')
-      throw new Error('[dsh-plugin-update] invalid locale: empty string')
+      const message = '[dsh-plugin-update] invalid locale: empty string'
+      failMount('locale', message)
+      throw new Error(message)
     }
   }
   function currentLang(): AppLang {
@@ -729,6 +826,10 @@ export function mountInstallButton(
   let copyAnchorEl: unknown = null
   let actionBytes = -1
   let actionTruncated = false
+  /** #214：连续传输失败次数（刷新成功即清零）；进 copy-diag 的连接段。 */
+  let transportFailStreak = 0
+  /** #214：这次动作是否因为已有动作在途而被拒（动作行的第四态）。 */
+  let actionSkipped = false
 
   function latchNow(): number | null {
     try {
@@ -1016,8 +1117,9 @@ export function mountInstallButton(
       } catch {
         // Container write failure never blocks install.
       }
-    } catch {
-      logClient('error', 'update.panel.render.fail', { kind: 'unknown' })
+    } catch (err) {
+      // #214: paint failures keep the phase + fingerprint; the same storm logs at most one row per minute.
+      emitRenderFail('paint', 'render', errorTextOf(err) || 'render-failed')
     }
   }
 
@@ -1067,9 +1169,13 @@ export function mountInstallButton(
     try {
       const reply = await call(phoneNames.updateStatus, queueArgs())
       if (!mounted) return
+      transportFailStreak = 0
       applyStatusReply(reply, 'refresh')
     } catch (err) {
       if (!mounted) return
+      // #214: a transport failure now leaves evidence (streak + fingerprint), not just a latch.
+      transportFailStreak++
+      emitRenderFail('poll', 'transport', errorTextOf(err) || 'transport-failed')
       if (!thrownBusy(err)) setLatch(volatileLatch('check'))
     }
     if (!mounted) return
@@ -1078,9 +1184,12 @@ export function mountInstallButton(
       try {
         const reply = await call(phoneNames.updateCheck, queueArgs())
         if (!mounted) return
+        transportFailStreak = 0
         applyStatusReply(reply, 'check')
-      } catch {
+      } catch (err) {
         if (!mounted) return
+        transportFailStreak++
+        emitRenderFail('poll', 'transport', errorTextOf(err) || 'transport-failed')
         setLatch(volatileLatch('check'))
       } finally {
         ensuring = false
@@ -1246,6 +1355,8 @@ export function mountInstallButton(
           diag: latch.diag,
           checkId: latch.checkId,
           logHealth: envLogHealth,
+          transportFailStreak,
+          clientDropped: clientDroppedRows(),
           lang: currentLang(),
         },
         currentLang(),
@@ -1260,14 +1371,40 @@ export function mountInstallButton(
     anchor: unknown = null,
   ): Promise<void> {
     if (!mounted) return
+    const startedAtMs = Date.now()
     copyAnchorEl = anchor
     actionBytes = -1
     actionTruncated = false
+    actionSkipped = false
+    const latchBefore = latch
+    let ok = true
+    let errorKind: string | null = null
+    let errorHash: string | null = null
     try {
       await runAction(kind)
+    } catch (err) {
+      ok = false
+      errorKind = 'thrown'
+      errorHash = hash8(errorTextOf(err))
+      throw err
     } finally {
+      if (ok) {
+        const latchAfter = latch
+        if (latchAfter && latchAfter !== latchBefore) {
+          ok = false
+          errorKind = latchAfter.code
+          errorHash = hash8(`${latchAfter.code}|${latchAfter.detail ?? ''}`)
+        } else if (actionSkipped) {
+          ok = false
+          errorKind = 'busy'
+        }
+      }
       logClient('info', 'update.panel.action', {
         action: kind,
+        ok,
+        errorKind,
+        durationMs: Math.max(0, Date.now() - startedAtMs),
+        ...(errorHash ? { errorHash } : {}),
         ...(actionBytes >= 0 ? { bytes: actionBytes, truncated: actionTruncated } : {}),
       })
     }
@@ -1408,7 +1545,10 @@ export function mountInstallButton(
     copyNotice = null
     switch (kind) {
       case 'check': {
-        if (busyAct) return
+        if (busyAct) {
+          actionSkipped = true
+          return
+        }
         busyAct = 'check'
         copyNotice = copyText('panel.toast.checking', currentLang())
         paint()
@@ -1421,7 +1561,10 @@ export function mountInstallButton(
         return
       }
       case 'install': {
-        if (busyAct) return
+        if (busyAct) {
+          actionSkipped = true
+          return
+        }
         busyAct = 'install'
         copyNotice = copyText('panel.toast.installing', currentLang())
         paint()
@@ -1465,12 +1608,19 @@ export function mountInstallButton(
       }
       case 'install-fallback': {
         // 决议本身不装任何东西：busyAct 守卫内由 doFallbackResolve 自理。
-        if (busyAct) return
+        if (busyAct) {
+          actionSkipped = true
+          return
+        }
         await doFallbackResolve()
         return
       }
       case 'install-fallback-confirm': {
-        if (busyAct || !fallbackOffer) return
+        if (busyAct) {
+          actionSkipped = true
+          return
+        }
+        if (!fallbackOffer) return
         await doFallbackConfirm()
         return
       }
@@ -1509,6 +1659,8 @@ export function mountInstallButton(
   function unmount(): void {
     if (!mounted) return
     mounted = false
+    removeGlobalHandlers?.()
+    removeGlobalHandlers = null
     try {
       unsubLang()
     } catch {
@@ -1550,6 +1702,8 @@ export function mountInstallButton(
   } catch {
     // Containers without event support still render (controller drives actions).
   }
+  // #214 global fallback (progressive): register only where addEventListener exists; unmount removes.
+  installGlobalHandlers()
   const timer = getTimer()
   const handle = timer.set(() => {
     if (!mounted || busyAct || pollCapped) return

@@ -153,8 +153,8 @@ test('单面板 dialog：Esc 停轮询（与关闭按钮同口径）', async () 
     pluginId: 'p',
     prefix: 't',
     mode: 'dialog',
-    call: async () => {
-      calls++
+    call: async (name) => {
+      if (!name.endsWith('.logAppend')) calls++
       return { ok: true, snapshot: null }
     },
     pollMs: 60000,

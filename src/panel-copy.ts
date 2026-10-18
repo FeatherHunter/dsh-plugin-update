@@ -357,6 +357,10 @@ export interface UpdateDiagCopyInput extends PanelDiagnosticInput {
   format?: DiagCopyFormat
   /** 日志健康读数（#212，回包键 logHealth）：选填；老宿主不给即不出现健康句（老输出一字不差）。 */
   logHealth?: UpdateLogHealth | null
+  /** 连续传输失败次数（#214）：面板刷新/动作里 call 抛错的连续计数；0 且无丢弃即不出现连接句。 */
+  transportFailStreak?: number | null
+  /** 客户端通道丢弃行数（#214）：含无法上浮的 no-channel/disposed，只能在这里被看见。 */
+  clientDropped?: number | null
 }
 
 function pickText(value: unknown, fallback: string): string {
@@ -479,6 +483,23 @@ export function logHealthText(health: UpdateLogHealth | null | undefined, lang?:
   }
 }
 
+// ---------- 连接/丢弃计数（#214）：传输失败与客户端丢弃的唯一措辞源 ----------
+//
+// 第一性：HTTP 直挂的传输失败、以及客户端通道物理上无法上浮的丢弃（no-channel/disposed），
+// 都不承诺能落盘 —— 但它们在诊断面上必须可数，否则「没日志」又变回不可判定。
+// 两个计数都靠面板侧记账，纯数字输入；任一为 0 且另一个为 0 → 返回 null，老输出一字不差。
+
+export function connectionText(
+  transportFailStreak: unknown,
+  clientDropped: unknown,
+  lang?: AppLang | string | null,
+): string | null {
+  const fails = typeof transportFailStreak === 'number' && Number.isFinite(transportFailStreak) && transportFailStreak > 0 ? Math.floor(transportFailStreak) : 0
+  const drops = typeof clientDropped === 'number' && Number.isFinite(clientDropped) && clientDropped > 0 ? Math.floor(clientDropped) : 0
+  if (fails === 0 && drops === 0) return null
+  return redactForCopy(copyText('panel.diag.connection', lang ?? 'zh', { fails, drops }))
+}
+
 /**
  * 组出 [update-diag] 复制块（双形态同序；调用方直接拿去粘工单/issue，已脱敏）。
  * 第一性：顺序码→摘要→来源（#18 定），怎么办是面板页脚放最后，不插断三元组；
@@ -545,8 +566,11 @@ export function buildUpdateDiagCopy(input: UpdateDiagCopyInput, langOverride?: A
   // 单行封顶 1500 时，先被截掉的是这句新内容，不是编解码契约。
   const logHealth = logHealthText(input.logHealth ?? null, l)
   const healthTail = logHealth ? ` · ${logHealth}` : ''
+  // #214 连接/丢弃计数：接在日志健康之后；两个计数都没有即不出现（老输出一字不差）。
+  const connection = connectionText(input.transportFailStreak, input.clientDropped, l)
+  const connectionTail = connection ? ` · ${connection}` : ''
   if (format === 'line') {
-    const line = `[update-diag] code=${rawCode} · ${copy.zh} · ${copyText('panel.diag.copy.line.summary', l, { summary: detail })} · ${provLine} · ${copyText('panel.diag.copy.line.remedy', l, { remedy })}${healthTail}`
+    const line = `[update-diag] code=${rawCode} · ${copy.zh} · ${copyText('panel.diag.copy.line.summary', l, { summary: detail })} · ${provLine} · ${copyText('panel.diag.copy.line.remedy', l, { remedy })}${healthTail}${connectionTail}`
     return redactForCopy(line)
   }
   // 块形态保留换行：各段已脱敏，不再整块压平（压平会把三行块变成单行）。
@@ -558,6 +582,7 @@ export function buildUpdateDiagCopy(input: UpdateDiagCopyInput, langOverride?: A
   ]
   // 日志健康单独一行：不动码/摘要/来源/怎么办四行的顺序，解析契约（按标签找行）照旧。
   if (logHealth) blockLines.push(`  ${logHealth}`)
+  if (connection) blockLines.push(`  ${connection}`)
   return blockLines.join('\n')
 }
 
@@ -585,6 +610,10 @@ export interface HealthyDiagCopyInput {
   updater?: UpdaterSelfView | null
   /** 日志健康读数（#212）：选填；老宿主不给即不出现健康句（老输出一字不差）。 */
   logHealth?: UpdateLogHealth | null
+  /** 连续传输失败次数（#214）：0 且无丢弃即不出现连接句。 */
+  transportFailStreak?: number | null
+  /** 客户端通道丢弃行数（#214）：0 且无传输失败即不出现连接句。 */
+  clientDropped?: number | null
   format?: DiagCopyFormat
   lang?: AppLang | string | null
 }
@@ -620,5 +649,8 @@ export function buildHealthyDiagCopy(input: HealthyDiagCopyInput): string {
   // #212 日志健康：接在末尾（与失败复制同口径）；老调用没有读数即一字不差。
   const logHealth = logHealthText(input.logHealth ?? null, l)
   if (logHealth) segs.push(logHealth)
+  // #214 连接/丢弃计数：再往后接；两个计数都没有即不出现（老输出一字不差）。
+  const connection = connectionText(input.transportFailStreak, input.clientDropped, l)
+  if (connection) segs.push(connection)
   return input.format === 'line' ? segs.join(' · ') : segs.join('\n')
 }

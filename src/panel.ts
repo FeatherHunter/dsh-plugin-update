@@ -17,7 +17,8 @@
 // 与错误架构子地图的分工：回包形状由子地图定，本组件只承诺“有、够、已脱敏”——
 // 平时一句话、旁边常驻复制诊断；复制文本经 redactForCopy 收干净后再交出去。
 
-import { buildChangelogPhoneName, buildLogAppendPhoneName, buildPhoneNames, DEFAULT_PANEL_POLL_MS, MIN_PANEL_POLL_MS } from './config.js'
+import { buildChangelogPhoneName, buildLogAppendPhoneName, buildPhoneNames, DEFAULT_PANEL_POLL_MS, DEFAULT_PREFIX, MIN_PANEL_POLL_MS } from './config.js'
+import { hash8 } from './hash.js'
 import { COPY_BUDGET_CHARS, sanitizeForCopy } from './redaction.js'
 import { compareReleaseVersions, validReleaseVersion } from './service.js'
 import {
@@ -2428,38 +2429,142 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       // 报日志永不外抛：日志坏了不挡面板。
     }
   }
-  function logMountFailure(kind: string): void {
-    logClient('error', 'update.panel.render.fail', { kind })
+  // ---------- 失败证据（#214）：挂载校验 / 渲染 / 轮询传输 / 全局兜底共用一套字段与去重 ----------
+  //
+  // 挂载行解决「默认集成下 0 行」：先建通道再校验，五种以上挂载失败各留一行（phase=mount + errorHash）。
+  // 渲染/轮询/全局只留指纹：同 phase+kind+errorHash 60 秒内至多一条，风暴进不了日志。
+  const RENDER_FAIL_DEDUPE_MS = 60_000
+  const renderFailSeen = new Map<string, number>()
+  function errorTextOf(err: unknown): string {
+    if (err && typeof err === 'object' && typeof (err as { message?: unknown }).message === 'string') {
+      return (err as { message: string }).message
+    }
+    if (typeof err === 'string') return err
+    try {
+      return String(err ?? '')
+    } catch {
+      return ''
+    }
   }
-  if (!container || typeof container.innerHTML !== 'string') {
-    logMountFailure('container')
-    throw new Error('[dsh-plugin-update] 挂载面板需要一个有 innerHTML 的容器')
+  function emitRenderFail(phase: 'mount' | 'paint' | 'poll' | 'global', kind: string, message: string): void {
+    const errorHash = hash8(message)
+    if (phase !== 'mount') {
+      const key = `${phase}|${kind}|${errorHash}`
+      const nowMs = Date.now()
+      const last = renderFailSeen.get(key)
+      if (last !== undefined && nowMs - last < RENDER_FAIL_DEDUPE_MS) return
+      renderFailSeen.set(key, nowMs)
+    }
+    logClient('error', 'update.panel.render.fail', { phase, kind, errorHash })
+  }
+  /** 挂载校验失败：先落一行再抛；顺手催一次冲刷（默认集成里这一行往往就是唯一证据）。 */
+  function failMount(kind: string, message: string): void {
+    emitRenderFail('mount', kind, message)
+    try {
+      void clientLog?.flush()
+    } catch {
+      /* 冲刷失败也不影响抛错路径 */
+    }
+  }
+  /** 客户端通道按原因计的丢弃总数（含无法上浮的 no-channel/disposed）：进 copy-diag 计数段。 */
+  function clientDroppedRows(): number {
+    try {
+      const map = clientLog?.droppedByReason?.() ?? {}
+      let total = 0
+      for (const key of Object.keys(map)) {
+        const n = map[key]
+        if (typeof n === 'number' && Number.isFinite(n) && n > 0) total += n
+      }
+      return total
+    } catch {
+      return 0
+    }
+  }
+  // #214 全局兜底：未捕获异常/未处理拒绝只留阶段 + 指纹，绝不把原话搬上面板或日志。
+  let removeGlobalHandlers: (() => void) | null = null
+  function installGlobalHandlers(): void {
+    const g = globalThis as unknown as {
+      addEventListener?: (type: string, fn: (event: unknown) => void) => void
+      removeEventListener?: (type: string, fn: (event: unknown) => void) => void
+    }
+    if (typeof g.addEventListener !== 'function') return
+    const onError = (event: unknown): void => {
+      const msg = errorTextOf((event as { message?: unknown } | null)?.message ?? event)
+      emitRenderFail('global', 'uncaught', msg || 'uncaught-error')
+    }
+    const onRejection = (event: unknown): void => {
+      const reason = (event as { reason?: unknown } | null)?.reason
+      emitRenderFail('global', 'unhandled', errorTextOf(reason) || 'unhandled-rejection')
+    }
+    let registered = false
+    try {
+      g.addEventListener('error', onError)
+      g.addEventListener('unhandledrejection', onRejection)
+      registered = true
+    } catch {
+      registered = false
+    }
+    if (registered) {
+      removeGlobalHandlers = () => {
+        try {
+          g.removeEventListener?.('error', onError)
+          g.removeEventListener?.('unhandledrejection', onRejection)
+        } catch {
+          /* 摘不掉也不挡卸载 */
+        }
+      }
+    }
   }
   if (!options || typeof options !== 'object') {
-    logMountFailure('plugin-id')
-    throw new Error('[dsh-plugin-update] 挂载面板缺少配置：插件标识 pluginId 必填')
+    const message = '[dsh-plugin-update] 挂载面板缺少配置：插件标识 pluginId 必填'
+    failMount('plugin-id', message)
+    throw new Error(message)
   }
-  const pluginId = options.pluginId
-  if (typeof pluginId !== 'string' || !pluginId) {
-    logMountFailure('plugin-id')
-    throw new Error(`[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ${JSON.stringify(pluginId)}）`)
-  }
+  // 传输是唯一的最小依赖：没有 call 就没有任何地方能报错，这是唯一可能「零行」的挂载失败。
   if (typeof options.call !== 'function') {
-    logMountFailure('call')
-    throw new Error('[dsh-plugin-update] 挂载面板需要传输函数 call（面板调宿主电话的唯一接触面）')
+    const message = '[dsh-plugin-update] 挂载面板需要传输函数 call（面板调宿主电话的唯一接触面）'
+    failMount('call', message)
+    throw new Error(message)
   }
-  const prefix = options.prefix === undefined ? 'wf' : options.prefix
-  const phoneNames = buildPhoneNames(prefix)
-  const changelogPhone = buildChangelogPhoneName(prefix)
+  // 先建通道再校验其余项（#214）：prefix 非法时用默认前缀兜底路由，先把证据送出去，随后照常抛。
+  const prefix = options.prefix === undefined ? DEFAULT_PREFIX : options.prefix
+  let channelPrefix = DEFAULT_PREFIX
+  try {
+    buildLogAppendPhoneName(prefix)
+    channelPrefix = String(prefix)
+  } catch {
+    /* prefix 非法：通道先用默认前缀，prefix 校验会如实抛并留一行 */
+  }
   // 自建通道（调用方没给、也没明确关掉时）：电话名只从前缀派生，缺 `<prefix>.logAppend` 的老宿主
   // 会在投递时失败 —— 通道自己退避重试后丢弃计数，一个异常都不往上冒。
   if (!clientLog && !clientLogDisabled) {
     try {
-      clientLog = createClientLogChannel({ call: options.call, phoneName: buildLogAppendPhoneName(prefix) })
+      clientLog = createClientLogChannel({ call: options.call, phoneName: buildLogAppendPhoneName(channelPrefix) })
       clientLogOwned = true
     } catch {
       clientLog = null
     }
+  }
+  if (!container || typeof container.innerHTML !== 'string') {
+    const message = '[dsh-plugin-update] 挂载面板需要一个有 innerHTML 的容器'
+    failMount('container', message)
+    throw new Error(message)
+  }
+  const pluginId = options.pluginId
+  if (typeof pluginId !== 'string' || !pluginId) {
+    const message = `[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ${JSON.stringify(pluginId)}）`
+    failMount('plugin-id', message)
+    throw new Error(message)
+  }
+  // 电话名派生（前缀非法即抛）：这里失败了也要留一行——容器与插件标识都已经过了。
+  let phoneNames: ReturnType<typeof buildPhoneNames>
+  let changelogPhone: string
+  try {
+    phoneNames = buildPhoneNames(prefix)
+    changelogPhone = buildChangelogPhoneName(prefix)
+  } catch (err) {
+    failMount('prefix', errorTextOf(err))
+    throw err
   }
   // 自动日志（#38）：默认开；显式传过 changelogMarkdown 或显式关即退回手动。
   const autoChangelogEnabled = typeof options.changelogMarkdown !== 'string' && options.autoChangelog !== false
@@ -2474,33 +2579,45 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   const pollMs =
     options.pollMs === undefined ? DEFAULT_PANEL_POLL_MS : options.pollMs
   if (typeof pollMs !== 'number' || !Number.isFinite(pollMs) || pollMs < MIN_PANEL_POLL_MS) {
-    logMountFailure('poll-ms')
-    throw new Error(`[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ${JSON.stringify(options.pollMs)}）`)
+    const message = `[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ${JSON.stringify(options.pollMs)}）`
+    failMount('poll-ms', message)
+    throw new Error(message)
   }
   let mode: UpdatePanelMode = options.mode ?? 'embedded'
   if (mode !== 'embedded' && mode !== 'dialog') {
-    logMountFailure('mode')
-    throw new Error(`[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ${JSON.stringify(options.mode)}）`)
+    const message = `[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ${JSON.stringify(options.mode)}）`
+    failMount('mode', message)
+    throw new Error(message)
   }
   if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive') {
-    logMountFailure('theme')
-    throw new Error(`[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ${JSON.stringify(options.theme)}）`)
+    const message = `[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ${JSON.stringify(options.theme)}）`
+    failMount('theme', message)
+    throw new Error(message)
   }
   let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
   // 主题是调用方点名的还是我们兜到默认的：写进 update.panel.state 的 fallback（面板自己不让主题退回，这是唯一口径）。
   const themeExplicit = options.theme !== undefined
   // 主题变量覆盖：挂载时校验（非法即抛，与 theme 同口径）；合法存下，每次 render 拼到根上。
-  themeTokensStyleFor(options.themeTokens ?? undefined)
+  try {
+    themeTokensStyleFor(options.themeTokens ?? undefined)
+  } catch (err) {
+    failMount('theme-tokens', errorTextOf(err))
+    throw err
+  }
   let themeTokens: UpdateThemeTokens | undefined = options.themeTokens
   const localeOpt: LocaleOption = (options as { locale?: LocaleOption }).locale ?? undefined
   if (localeOpt !== undefined && localeOpt !== null) {
     const isStr = typeof localeOpt === 'string'
     const isObj = typeof localeOpt === 'object' && typeof (localeOpt as { getActive?: unknown }).getActive === 'function'
     if (!isStr && !isObj) {
-      throw new Error('[dsh-plugin-update] invalid locale: expected zh / en / BCP47 or { getActive(), subscribe? }')
+      const message = '[dsh-plugin-update] invalid locale: expected zh / en / BCP47 or { getActive(), subscribe? }'
+      failMount('locale', message)
+      throw new Error(message)
     }
     if (isStr && !(localeOpt as string).trim()) {
-      throw new Error('[dsh-plugin-update] invalid locale: empty string')
+      const message = '[dsh-plugin-update] invalid locale: empty string'
+      failMount('locale', message)
+      throw new Error(message)
     }
   }
   function currentLang(): AppLang {
@@ -2519,9 +2636,13 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
    * `fallback` 的口径：调用方没点名主题、面板兜到默认即 true（面板对非法主题是「当场抛」，没有静默退回）。
    */
   let loggedState = ''
+  /** #214 连接计数：连续传输失败次数（刷新成功即清零）；进 copy-diag 的连接段。 */
+  let transportFailStreak = 0
   /** copy-diag 动作行专用的两个数：-1 表示这次动作没复制诊断。 */
   let actionBytes = -1
   let actionTruncated = false
+  /** #214：这次动作是否因为已有动作在途而被拒（动作行的第四态）。 */
+  let actionSkipped = false
   /** UTF-8 字节数（不依赖 TextEncoder：面板侧只许引无 node: 的纯代码）。 */
   function utf8ByteLength(text: string): number {
     let bytes = 0
@@ -3089,8 +3210,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     // 渲染期兜底（#122 清单里的 kind:'unknown'）：渲染坏了如实记一行，别把轮询计时器带崩。
     try {
       paint()
-    } catch {
-      logClient('error', 'update.panel.render.fail', { kind: 'unknown' })
+    } catch (err) {
+      // #214：带阶段 + 指纹；同错风暴 60 秒内只留一条。
+      emitRenderFail('paint', 'render', errorTextOf(err) || 'render-failed')
     }
   }
 
@@ -3463,9 +3585,13 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     try {
       const reply = await call(phoneNames.updateStatus, queueArgs())
       if (!mounted) return
+      transportFailStreak = 0
       applyStatusReply(reply, 'refresh')
-    } catch {
+    } catch (err) {
       if (!mounted) return
+      transportFailStreak++
+      // #214：轮询传输失败不再只锁存不说话；一行指纹让「面板一直读取中」有证据。
+      emitRenderFail('poll', 'transport', errorTextOf(err) || 'transport-failed')
       // 读数传输失败是瞬态：记 volatile 锁存，下一次成功读数即清，不留死结
       setLatch(volatileLatch('check'))
     }
@@ -3475,14 +3601,42 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
 
   async function act(kind: UpdatePanelActionKind, arg?: string): Promise<void> {
     if (!mounted) return
+    const startedAtMs = Date.now()
     // 动作行（常驻）：用户每点一下记一条，含提前 return 的分支；bytes/truncated 只由 copy-diag 那段回填。
+    // #214 补四态：ok=true 成功；ok=false 且 errorKind=锁存码（动作把面板带进失败态）；
+    // errorKind='thrown'（动作直接抛错）；errorKind='busy'（已有动作在途，这次点击被拒）。
     actionBytes = -1
     actionTruncated = false
+    actionSkipped = false
+    const latchBefore = latch
+    let ok = true
+    let errorKind: string | null = null
+    let errorHash: string | null = null
     try {
       await runAction(kind, arg)
+    } catch (err) {
+      ok = false
+      errorKind = 'thrown'
+      errorHash = hash8(errorTextOf(err))
+      throw err
     } finally {
+      if (ok) {
+        const latchAfter = latch
+        if (latchAfter && latchAfter !== latchBefore) {
+          ok = false
+          errorKind = latchAfter.code
+          errorHash = hash8(`${latchAfter.code}|${latchAfter.detail ?? ''}`)
+        } else if (actionSkipped) {
+          ok = false
+          errorKind = 'busy'
+        }
+      }
       logClient('info', 'update.panel.action', {
         action: kind,
+        ok,
+        errorKind,
+        durationMs: Math.max(0, Date.now() - startedAtMs),
+        ...(errorHash ? { errorHash } : {}),
         ...(actionBytes >= 0 ? { bytes: actionBytes, truncated: actionTruncated } : {}),
       })
     }
@@ -3493,7 +3647,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     copyNotice = null
     switch (kind) {
       case 'check': {
-        if (busyAct) return
+        if (busyAct) {
+          actionSkipped = true
+          return
+        }
         busyAct = 'check'
         copyNotice = copyText('panel.toast.checking', currentLang())
         render()
@@ -3521,7 +3678,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         return
       }
       case 'install': {
-        if (busyAct) return
+        if (busyAct) {
+          actionSkipped = true
+          return
+        }
         busyAct = 'install'
         copyNotice = copyText('panel.toast.installing', currentLang())
         render()
@@ -3599,7 +3759,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       case 'install-fallback': {
         // 合规版决议（#156）：点"装合规版"本身不装任何东西——先认证据，再问决议，
         // 有候选才给点名版本的二次确认按钮。决议算不出/宿主没这条电话，一律退回通用提醒。
-        if (busyAct) return
+        if (busyAct) {
+          actionSkipped = true
+          return
+        }
         // 检查页（#156 场景二）：锁存已清时用记住的窗口顶上；锁存还在时锁存优先。
         const cause = fallbackCauseOf() ?? rememberedCause()
         if (!cause) {
@@ -3659,7 +3822,11 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       case 'install-fallback-confirm': {
         // 二次确认（#156）：按钮文案即决议点名的精确版本——用户先看见再点，不存在静默装旧版。
         // 门与 latest 路径同口径：决议凭证过期（期间跑过检查）即退回重决议，不锁存不硬装。
-        if (busyAct || !fallbackOffer) return
+        if (busyAct) {
+          actionSkipped = true
+          return
+        }
+        if (!fallbackOffer) return
         const offer = fallbackOffer
         busyAct = 'install'
         copyNotice = copyText('panel.toast.installing', currentLang())
@@ -3778,6 +3945,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
             updater: envUpdater,
             // #212 日志健康：与面板日志区同一句（单一措辞源）；老宿主没有读数即不出现。
             logHealth: envLogHealth,
+            transportFailStreak,
+            clientDropped: clientDroppedRows(),
             format: diagCopyFormat,
             lang: currentLang(),
           })
@@ -3819,6 +3988,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           updater: envUpdater,
           // #212 日志健康：与面板日志区同一句（单一措辞源）；老宿主没有读数即不出现。
           logHealth: envLogHealth,
+          // #214 连接计数：轮询传输失败与客户端丢弃计数（0 时不追加，老输出逐字不变）。
+          transportFailStreak,
+          clientDropped: clientDroppedRows(),
           format: diagCopyFormat,
           lang: currentLang(),
         })
@@ -3974,6 +4146,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   function unmount(): void {
     if (!mounted) return
     mounted = false
+    removeGlobalHandlers?.()
+    removeGlobalHandlers = null
     try {
       unsubLang()
     } catch {
@@ -4033,6 +4207,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   } catch {
     // 没有键盘事件能力的容器忽略（Esc 关弹窗是渐进增强）。
   }
+  // #214 全局兜底（渐进增强）：有 addEventListener 的环境才注册，unmount 摘掉。
+  installGlobalHandlers()
   const timer = getTimer()
   const handle = timer.set(() => {
     if (busyAct) return

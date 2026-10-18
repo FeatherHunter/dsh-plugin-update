@@ -119,14 +119,16 @@ describe('客户端日志通道：有界缓冲与按批投递', () => {
     ])
   })
 
-  it('destroy 后清缓冲、再报也只计数', async () => {
-    const { ch } = channel()
+  it('destroy 前尽量把攒着的行冲刷出去；之后再报只计数', async () => {
+    const { ch, calls } = channel()
     ch.emit('info', 'update.panel.mount', { mode: 'panel' })
     ch.dispose()
+    await new Promise((r) => setTimeout(r, 5))
+    assert.equal(calls.length, 1, '终止前的最后一冲')
     assert.equal(ch.pending(), 0)
-    assert.equal(ch.dropped(), 1)
+    assert.equal(ch.dropped(), 0)
     ch.emit('info', 'update.panel.mount', { mode: 'panel' })
-    assert.equal(ch.dropped(), 2)
+    assert.equal(ch.dropped(), 1)
     assert.equal(ch.enabled(), false)
   })
 })
@@ -148,7 +150,8 @@ describe('客户端日志通道：没有通道 / 传输失败都不外抛', () =
     assert.equal(calls.length, 3, '首发 + 2 次重试')
     assert.equal(ch.dropped(), 1)
     assert.equal(ch.sent(), 0)
-    assert.equal(ch.pending(), 0)
+    assert.equal(ch.pending(), 1, '丢弃上浮自己又排一条降级行')
+    assert.deepEqual(ch.droppedByReason(), { 'send-failed': 1 })
   })
 
   it('宿主回包说它丢了几行，我们照样计进去（两个丢弃计数不合并）', async () => {
@@ -200,12 +203,19 @@ describe('客户端日志通道：没有通道 / 传输失败都不外抛', () =
 })
 
 describe('客户端事件白名单（协议面）', () => {
-  it('五个客户端事件在内，宿主事实类事件不在内', () => {
-    assert.equal(CLIENT_LOG_EVENTS.length, 5)
-    for (const name of ['update.panel.mount', 'update.panel.action', 'update.panel.render.fail', 'update.panel.state', 'update.lang.applied']) {
+  it('六个客户端事件在内（含自监控降级行），宿主事实类事件不在内', () => {
+    assert.equal(CLIENT_LOG_EVENTS.length, 6)
+    for (const name of [
+      'update.panel.mount',
+      'update.panel.action',
+      'update.panel.render.fail',
+      'update.panel.state',
+      'update.lang.applied',
+      'update.log.degraded',
+    ]) {
       assert.equal(isClientLogEvent(name), true, name)
     }
-    for (const name of ['update.install.exec', 'host.call', 'update.wire.ready', 'update.log.degraded', '']) {
+    for (const name of ['update.install.exec', 'host.call', 'update.wire.ready', '']) {
       assert.equal(isClientLogEvent(name), false, name)
     }
     assert.equal(isClientLogEvent(null), false)
@@ -348,8 +358,17 @@ describe('宿主侧 logAppend：收客户端行，落进同一条日志管道', 
     const got = appended(fires)
     assert.deepEqual(got.filter((f) => f.event === 'update.panel.action').map((f) => f.fields), [{ action: 'check' }])
     const degraded = got.filter((f) => f.event === 'update.log.degraded')
-    assert.equal(degraded.length, 1, '未声明字段留一条降级记录')
-    assert.deepEqual(degraded[0].fields, { reason: 'unknown-field', event: 'update.panel.action', field: 'bogus' })
+    assert.equal(degraded.length, 2, '未声明字段一条 + 宿主拒收上浮一条')
+    assert.ok(
+      degraded.some(
+        (f) => f.fields.reason === 'unknown-field' && f.fields.event === 'update.panel.action' && f.fields.field === 'bogus'
+      ),
+      '字段漂移的降级行照旧'
+    )
+    assert.ok(
+      degraded.some((f) => f.fields.reason === 'client-batch-refused'),
+      '同批有整行被拒时，宿主自己上浮一条'
+    )
   })
 
   it('一次最多收 200 行，多出来的计 dropped', async () => {
@@ -359,7 +378,9 @@ describe('宿主侧 logAppend：收客户端行，落进同一条日志管道', 
     for (let i = 0; i < 205; i++) rows.push(row('update.panel.action', { action: 'check' }))
     const reply = await host.handlers['wf.logAppend']({ rows })
     assert.deepEqual(reply, { accepted: 200, dropped: 5 })
-    assert.equal(appended(fires).length, 200)
+    const got = appended(fires)
+    assert.equal(got.filter((f) => f.event !== 'update.log.degraded').length, 200)
+    assert.equal(got.filter((f) => f.event === 'update.log.degraded').length, 1, '多出来的行只上浮一条拒收降级')
   })
 
   it('形状坏成什么样都不抛：不是数组 / 空参 / 字段超大', async () => {

@@ -154,9 +154,10 @@ describe('弹窗点关闭真能关', () => {
       assert.ok(box.innerHTML.includes('data-mode="dialog"'))
       await panel.act('close-view')
       assert.equal(closed, 1, '落地回调被调一次')
-      const n = log.length
+      const polling = () => log.filter((name) => !name.endsWith('.logAppend'))
+      const n = polling().length
       await sleep(600)
-      assert.equal(log.length, n, '轮询已停，不再打电话')
+      assert.equal(polling().length, n, '轮询已停，不再打电话（卸载前冲刷日志不算轮询）')
     } finally {
       panel.unmount()
     }

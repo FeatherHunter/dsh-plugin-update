@@ -109,13 +109,14 @@ test('挂载即三行：mount + lang.applied + state（都是稳定码，无一�
   assert.ok(['override', 'dom', 'navigator', 'default'].includes(lang.fields.source), String(lang.fields.source))
   const state = rows.find((r) => r.event === 'update.panel.state')
   assert.deepEqual(state.fields, { state: 'ready', theme: 'default', tokensApplied: 0, fallback: true })
-  // 客户端行只许是协议白名单里那五个事件（多一个都算越界）。
+  // 客户端行只许是协议白名单里那六个事件（多一个都算越界）。
   const allowed = new Set([
     'update.panel.mount',
     'update.panel.action',
     'update.panel.render.fail',
     'update.panel.state',
     'update.lang.applied',
+    'update.log.degraded',
   ])
   for (const row of rows) assert.ok(allowed.has(row.event), `越界事件：${row.event}`)
   assert.equal(rows.filter((r) => r.event === 'update.panel.mount').length, 1, '一次挂载只记一条')
@@ -178,7 +179,14 @@ test('每个动作一行；状态没变就不重复记状态行（轮询每秒�
     ['toggle-changelog', 'toggle-changelog']
   )
   for (const action of actions) {
-    assert.deepEqual(Object.keys(action.fields), ['action'], '非复制类动作不带 bytes/truncated')
+    assert.deepEqual(
+      Object.keys(action.fields),
+      ['action', 'ok', 'errorKind', 'durationMs'],
+      '非复制类动作只带成败与耗时，不带 bytes/truncated'
+    )
+    assert.equal(action.fields.ok, true, '点一下就成的动作 ok=true')
+    assert.equal(action.fields.errorKind, null)
+    assert.equal(typeof action.fields.durationMs, 'number')
   }
   assert.equal(
     rows.filter((r) => r.event === 'update.panel.state').length,

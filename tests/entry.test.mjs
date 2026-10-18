@@ -14,6 +14,11 @@ import { entryLabelFor, mountUpdateEntry } from '../dist/entry.js'
 
 const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
+/** #214 起卸载前客户端日志会尽量冲刷一条 <prefix>.logAppend——它不算「轮询还在打电话」。 */
+function pollCalls(log) {
+  return log.filter((e) => !e.name.endsWith('.logAppend'))
+}
+
 function baseSnapshot(overrides = {}) {
   return {
     runningVersion: '1.0.0',
@@ -414,7 +419,9 @@ test('铁律：三种形态整个生命周期里只打只读电话，绝不出�
     await settled()
     const names = [...new Set(log.map((e) => e.name))]
     assert.ok(
-      names.every((n) => n === 'p.updateStatus' || n === 'p.updateCheck' || n === 'p.updateChangelog'),
+      names.every(
+        (n) => n === 'p.updateStatus' || n === 'p.updateCheck' || n === 'p.updateChangelog' || n.endsWith('.logAppend'),
+      ),
       variant + '：只许打只读电话，实际=' + JSON.stringify(names),
     )
     assert.ok(!log.some((e) => e.name.endsWith('.updateInstall')), variant + '：全生命周期不许自动安装')
@@ -430,16 +437,16 @@ test('close() 收起 dialog 并把按钮还原，面板轮询随即停', async (
   await settled()
   entry.open()
   assert.match(box.innerHTML, /data-mode="dialog"/)
-  const beforePoll = log.length
+  const beforePoll = pollCalls(log).length
   await new Promise((r) => setTimeout(r, 400))
-  assert.ok(log.length > beforePoll, '面板开着时按 pollMs 轮询进度')
+  assert.ok(pollCalls(log).length > beforePoll, '面板开着时按 pollMs 轮询进度')
   entry.close()
   assert.ok(!box.innerHTML.includes('data-mode="dialog"'), 'close 即收起浮层')
   assert.match(box.innerHTML, /data-dsh-upd-entry="activate"/, '按钮还原')
   await settled()
-  const after = log.length
+  const after = pollCalls(log).length
   await new Promise((r) => setTimeout(r, 500))
-  assert.equal(log.length, after, '收起来即停轮询')
+  assert.equal(pollCalls(log).length, after, '收起来即停轮询')
   assert.ok(!log.some((e) => e.name.endsWith('.updateInstall')), '关面板绝不调安装')
   entry.unmount()
 })
@@ -457,9 +464,9 @@ test('弹窗里的「关闭」点下去：入口件收起浮层并停轮询（�
   assert.match(box.innerHTML, /dsh-upd-entry-btn/, '按钮回来了')
   assert.equal(box.listenerCount('click'), 1, '面板的监听随卸载拆掉')
   await settled()
-  const after = log.length
+  const after = pollCalls(log).length
   await new Promise((r) => setTimeout(r, 500))
-  assert.equal(log.length, after, '面板轮询停了')
+  assert.equal(pollCalls(log).length, after, '面板轮询停了')
   entry.unmount()
 })
 
@@ -470,15 +477,15 @@ test('unmount() 只停轮询：之后 refresh/点击都不再打电话，监听�
   await settled()
   entry.open()
   await settled()
-  const before = log.length
+  const before = pollCalls(log).length
   entry.unmount()
   assert.equal(box.listenerCount('click'), 0, '监听拆干净')
   await new Promise((r) => setTimeout(r, 500))
-  assert.equal(log.length, before, '卸载后面板轮询即停')
+  assert.equal(pollCalls(log).length, before, '卸载后面板轮询即停')
   await entry.refresh()
   box.click(CLICK_ENTRY)
   await settled()
-  assert.equal(log.length, before, '卸载后 refresh/点击都是空操作')
+  assert.equal(pollCalls(log).length, before, '卸载后 refresh/点击都是空操作')
   assert.ok(!log.some((e) => e.name.endsWith('.updateInstall')), '卸载绝不调安装/取消')
 })
 

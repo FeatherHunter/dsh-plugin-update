@@ -291,6 +291,7 @@ export type BilingualKey =
   | 'panel.diag.copy.block.summary'
   | 'panel.diag.copy.block.source'
   | 'panel.diag.copy.block.remedy'
+  | 'panel.diag.connection'
   | 'batch.action.resume'
   | 'batch.action.resume-title'
   | 'batch.action.discard'
@@ -722,6 +723,9 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.diag.copy.block.summary': { en: 'Summary：{summary}', zh: '摘要：{summary}', draft: true },
   'panel.diag.copy.block.source': { en: 'Source：{source}', zh: '来源：{source}', draft: true },
   'panel.diag.copy.block.remedy': { en: 'Remedy：{remedy}', zh: '怎么办：{remedy}', draft: true },
+  // #214：连接/丢弃计数尾句。只在计数非 0 时出现（老输出一字不差）；两个槽恒给，
+  // 数值为 0 也照实写，避免「只有一半证据」的猜测空间。
+  'panel.diag.connection': { en: 'Connection: transport failures {fails} · client dropped rows {drops}', zh: '连接：传输失败 {fails} 次 · 客户端丢弃 {drops} 行', draft: true },
   'batch.action.resume': { en: 'Continue the unfinished batch ({count} left)', zh: '继续上次未完成的更新（剩余 {count} 个）。', draft: true },
   'batch.action.resume-title': { en: 'Continue from where it stopped; installed ones stay', zh: '从上次中断处继续安装，已完成的不会重复安装。', draft: true },
   'batch.action.discard': { en: 'Discard this unfinished batch (installed ones stay)', zh: '丢弃本批未完成的更新（已完成的将保留）。', draft: true },

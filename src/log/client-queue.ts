@@ -73,11 +73,13 @@ export interface ClientLogChannel {
   pending: () => number
   /** 丢弃行数（缓冲挤掉 + 重试用尽 + 没通道 + 宿主回包说丢了几行）。 */
   dropped: () => number
+  /** 按原因分的丢弃行数快照（#214：诊断面用；原因字符串来自本文件的固定集合）。 */
+  droppedByReason: () => Record<string, number>
   /** 已交出去的行数（宿主回包 accepted 累加，不是「已落盘」）。 */
   sent: () => number
   /** 通道可用否（有 call + 有电话名 + 没销毁）。 */
   enabled: () => boolean
-  /** 停定时、听断可见性、清缓冲（缓冲里的行计入丢弃）。 */
+  /** 停定时、听断可见性；先尽量冲刷缓冲，剩下的行计入丢弃（#214：不再直接清空）。 */
   dispose: () => void
 }
 
@@ -96,6 +98,9 @@ export type LogLevelName = (typeof LOG_LEVELS)[number]
  * 客户端侧允许经 `logAppend` 交回宿主的事件白名单（协议面）。
  * 为什么要白名单：这条路是**客户端**说的话，不给白名单就能伪造 `update.install.exec` 这类宿主事实，
  * 日志的可信度当场归零。清单（`event-list.update.json`）仍管字段形状，这里只管「谁有资格说这件事」。
+ *
+ * #214 扩到 6 个：`update.log.degraded` 只允许本通道用它报告**自己的**丢弃原因（reason 固定枚举），
+ * 仍然说不了宿主事实 —— 它只是把「客户端这一侧丢了行」这条坏消息尽量交回落点。
  */
 export const CLIENT_LOG_EVENTS = [
   'update.panel.mount',
@@ -103,8 +108,16 @@ export const CLIENT_LOG_EVENTS = [
   'update.panel.render.fail',
   'update.panel.state',
   'update.lang.applied',
+  'update.log.degraded',
 ] as const
 export type ClientLogEvent = (typeof CLIENT_LOG_EVENTS)[number]
+
+/**
+ * 可以从客户端通道上浮的丢弃原因（#214）：发生这些丢弃时通道本身是开着的，所以还有地方能说。
+ * `no-channel`（没有传输/电话名）与 `disposed`（通道已关）物理上无处投递 —— 只进 `droppedByReason()`，
+ * 由 copy-diag 的计数段如实展示，绝不假装上浮。
+ */
+const REPORTABLE_DROP_REASONS = ['overflow', 'host-refused', 'send-failed'] as const
 
 /** 判据：这个名字是不是客户端有权交回来的事件。 */
 export function isClientLogEvent(name: unknown): boolean {
@@ -184,14 +197,35 @@ export function createClientLogChannel(options: ClientLogChannelOptions): Client
   let disposed = false
   let scheduled: unknown = null
   let inFlight = false
+  /** 按原因分的丢弃计数（#214）：no-channel/disposed 无法投递，只能从这里被看见。 */
+  const droppedByReason: Record<string, number> = {}
+  /** 已经上浮过的丢弃原因：同一原因整条通道生命周期只上浮一次（防刷）。 */
+  const reportedDropReasons = new Set<string>()
 
   function noteDrop(row: ClientLogRow | null, reason: string): void {
     dropped++
+    const key = typeof reason === 'string' && reason ? reason : 'unknown'
+    droppedByReason[key] = (droppedByReason[key] ?? 0) + 1
     if (!onDrop) return
     try {
       onDrop(row, reason)
     } catch {
       /* 诊断回调自己坏了不能连坐 */
+    }
+  }
+
+  /**
+   * 丢弃上浮（#214）：每个冲刷周期末尾，把「发生了、还没说过、且通道还开着能投递」的丢弃原因
+   * 各发一条 `update.log.degraded`（reason=`client-drop-<原因>`）。同一原因只发一次。
+   * 本函数不 flush，只入队 —— 由调用方随既有调度走，避免递归。
+   */
+  function reportDrops(): void {
+    if (disposed || call === null || phoneName === '') return
+    for (const reason of REPORTABLE_DROP_REASONS) {
+      if (!(droppedByReason[reason] > 0)) continue
+      if (reportedDropReasons.has(reason)) continue
+      reportedDropReasons.add(reason)
+      emit('warn', 'update.log.degraded', { reason: `client-drop-${reason}` })
     }
   }
 
@@ -309,12 +343,9 @@ export function createClientLogChannel(options: ClientLogChannelOptions): Client
     }
   }
 
-  async function flush(): Promise<void> {
-    if (disposed || inFlight || count === 0) return
-    if (!enabled()) {
-      while (count > 0) noteDrop(shift(), 'no-channel')
-      return
-    }
+  /** 把当前缓冲里的一批发出去（flush 与 dispose 前的末次冲刷共用；不做调度、不查 disposed）。 */
+  async function sendBuffered(): Promise<void> {
+    if (inFlight || count === 0) return
     inFlight = true
     const batch: ClientLogRow[] = []
     while (batch.length < batchSize && count > 0) {
@@ -341,9 +372,43 @@ export function createClientLogChannel(options: ClientLogChannelOptions): Client
     } finally {
       inFlight = false
     }
+  }
+
+  async function flush(): Promise<void> {
+    if (disposed || inFlight || count === 0) return
+    if (!enabled()) {
+      while (count > 0) noteDrop(shift(), 'no-channel')
+      return
+    }
+    await sendBuffered()
+    if (disposed) return
+    // #214：这一轮里发生过的可投递丢弃原因，各上浮一条（同一原因只一次）。
+    reportDrops()
     if (disposed) return
     if (count >= batchSize) schedule(0)
     else if (count > 0) schedule(flushMs)
+  }
+
+  /**
+   * 销毁前的末次冲刷（#214）：先把它能说清的丢弃原因塞进缓冲，再尽量把缓冲整批交出去；
+   * 交不出去的行才计 `send-failed`，最后清空并计 `disposed`（这两类已无处投递，只能计数）。
+   * 这是尽力而为：不阻塞 unmount，也不向调用方承诺一定送到。
+   */
+  async function finalFlush(): Promise<void> {
+    if (inFlight) {
+      while (count > 0) noteDrop(shift(), 'disposed')
+      return
+    }
+    if (call !== null && phoneName !== '') {
+      for (const reason of REPORTABLE_DROP_REASONS) {
+        if (!(droppedByReason[reason] > 0)) continue
+        if (reportedDropReasons.has(reason)) continue
+        reportedDropReasons.add(reason)
+        push({ level: 'warn', event: 'update.log.degraded', fields: { reason: `client-drop-${reason}` }, ts: now() })
+      }
+      await sendBuffered()
+    }
+    while (count > 0) noteDrop(shift(), 'disposed')
   }
 
   function onVisibilityChange(): void {
@@ -401,7 +466,6 @@ export function createClientLogChannel(options: ClientLogChannelOptions): Client
       }
     }
     scheduled = null
-    while (count > 0) noteDrop(shift(), 'disposed')
     if (visibility && typeof visibility.removeEventListener === 'function') {
       try {
         visibility.removeEventListener('visibilitychange', onVisibilityChange)
@@ -409,6 +473,8 @@ export function createClientLogChannel(options: ClientLogChannelOptions): Client
         /* 同上 */
       }
     }
+    // #214：不静默丢。先尽力把还能投递的丢弃原因和缓冲交出去，交不掉的才计数。
+    void finalFlush()
   }
 
   return {
@@ -416,6 +482,7 @@ export function createClientLogChannel(options: ClientLogChannelOptions): Client
     flush,
     pending: () => count,
     dropped: () => dropped,
+    droppedByReason: () => ({ ...droppedByReason }),
     sent: () => sent,
     enabled,
     dispose,

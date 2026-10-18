@@ -44,7 +44,21 @@
       "check": ["version", "registered", "env", "none"]
     },
     "update.log.degraded": {
-      "reason": ["no-dsh-log", "lease-conflict", "write-fail", "emit-threw", "unknown-event", "unknown-field", "invalid-enum"]
+      "reason": [
+        "no-dsh-log",
+        "lease-conflict",
+        "write-fail",
+        "emit-threw",
+        "unknown-event",
+        "unknown-field",
+        "invalid-enum",
+        "client-batch-refused",
+        "client-drop-no-channel",
+        "client-drop-overflow",
+        "client-drop-host-refused",
+        "client-drop-send-failed",
+        "client-drop-disposed"
+      ]
     },
     "update.changelog.parse": {
       "status": ["ok", "empty", "missing", "fetch-failed", "parse-degraded", "cache-hit"]
@@ -161,14 +175,14 @@
     "update.panel.action": {
       "level": "info",
       "kind": "resident",
-      "fields": ["action", "bytes", "truncated"],
+      "fields": ["action", "bytes", "truncated", "ok", "errorKind", "durationMs"],
       "guard": "一次点击一条"
     },
     "update.panel.render.fail": {
       "level": "error",
       "kind": "resident",
-      "fields": ["kind"],
-      "guard": "一次失败一条"
+      "fields": ["kind", "phase", "errorHash"],
+      "guard": "同一阶段同类别同指纹 60 秒内至多一条"
     },
     "update.check.start": {
       "level": "info",

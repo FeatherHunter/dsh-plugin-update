@@ -1449,6 +1449,8 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
   const LOG_APPEND_MAX_ROWS = 200
   const LOG_APPEND_MAX_FIELD_CHARS = 4096
   const LOG_APPEND_STALE_MS = 10 * 60_000
+  /** #214：宿主拒收上浮只记一次；这个电话每秒都可能被叫，上浮也必须能防刷。 */
+  let clientBatchRefusedLogged = false
   function logAppendRows(args: Record<string, unknown>): { accepted: number; dropped: number } {
     let accepted = 0
     let dropped = 0
@@ -1499,6 +1501,16 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
       }
     } catch {
       // 电话永不抛：任何意外都只回计数（面板侧的丢弃计数是唯一诚实的说法）。
+    }
+    // #214：拒收不能再沉默。没有这类客户端日志的落点就在这里说一句（只记原因，不记内容）；
+    // 同一实例只上浮一次，防刷由 flag 保证（emit 层不按 reason 去重）。
+    if (dropped > 0 && !clientBatchRefusedLogged) {
+      clientBatchRefusedLogged = true
+      try {
+        emitUpdateLog('warn', 'update.log.degraded', { reason: 'client-batch-refused' }, { pluginId })
+      } catch {
+        /* 上浮失败也不能影响回包 */
+      }
     }
     return { accepted, dropped }
   }

@@ -1237,6 +1237,11 @@
       "zh": "更新队列",
       "draft": true
     },
+    "panel.diag.connection": {
+      "en": "Connection: transport failures {fails} · client dropped rows {drops}",
+      "zh": "连接：传输失败 {fails} 次 · 客户端丢弃 {drops} 行",
+      "draft": true
+    },
     "panel.diag.copy.block.remedy": {
       "en": "Remedy：{remedy}",
       "zh": "怎么办：{remedy}",

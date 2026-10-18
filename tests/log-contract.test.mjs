@@ -419,6 +419,12 @@ describe('#210 随包清单本身带上机器表达', () => {
       'unknown-event',
       'unknown-field',
       'invalid-enum',
+      'client-batch-refused',
+      'client-drop-no-channel',
+      'client-drop-overflow',
+      'client-drop-host-refused',
+      'client-drop-send-failed',
+      'client-drop-disposed',
     ])
   })
 

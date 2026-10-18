@@ -24,6 +24,11 @@ import {
 
 const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
+/** #214 起卸载前客户端日志会尽量冲刷一条 <prefix>.logAppend——它不算「轮询还在打电话」。 */
+function pollCalls(log) {
+  return log.filter((e) => !e.name.endsWith('.logAppend'))
+}
+
 function baseSnapshot(overrides = {}) {
   return {
     runningVersion: '1.0.0',
@@ -394,14 +399,14 @@ test('关闭面板只停轮询：卸载后不再调电话，也绝不调取消',
   const box = fakeContainer()
   const panel = mountUpdatePanel(box, { pluginId: 'p', call, pollMs: 250 })
   await settled()
-  const before = log.length
+  const before = pollCalls(log).length
   assert.ok(before >= 1, '挂载即重查（重开恢复进度）')
   panel.unmount()
   await new Promise((r) => setTimeout(r, 600))
-  assert.equal(log.length, before, '卸载后轮询即停')
+  assert.equal(pollCalls(log).length, before, '卸载后轮询即停')
   await panel.refresh()
   await panel.act('install')
-  assert.equal(log.length, before, '卸载后 refresh/act 都是空操作')
+  assert.equal(pollCalls(log).length, before, '卸载后 refresh/act 都是空操作')
 })
 
 test('安装自动带凭证：mount 自动查已拿凭证时安装直接复用（无 receipt 回退见 panel-auto-check）', async () => {

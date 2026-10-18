@@ -164,9 +164,10 @@ describe('#47 定案 A：footer 关闭与旧按钮同口径', () => {
       box.click({ 'data-action': 'close-view' })
       await settled()
       assert.equal(closed, 1, '落地回调被调一次（先交调用方撤 DOM）')
-      const n = log.length
+      const polling = () => log.filter((name) => !name.endsWith('.logAppend'))
+      const n = polling().length
       await sleep(600)
-      assert.equal(log.length, n, '轮询已停，不再打电话')
+      assert.equal(polling().length, n, '轮询已停，不再打电话（卸载前冲刷日志不算轮询）')
     } finally {
       panel.unmount()
     }
