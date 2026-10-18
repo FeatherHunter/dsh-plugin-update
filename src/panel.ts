@@ -2460,8 +2460,15 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   /** 挂载校验失败：先落一行再抛；顺手催一次冲刷（默认集成里这一行往往就是唯一证据）。 */
   function failMount(kind: string, message: string): void {
     emitRenderFail('mount', kind, message)
+    // 挂载已失败：先催冲刷，冲完把自建通道收掉——不留 visibilitychange 监听，也不留半条通道。
+    const channel = clientLog
+    if (!channel) return
     try {
-      void clientLog?.flush()
+      void Promise.resolve(channel.flush())
+        .catch(() => undefined)
+        .then(() => {
+          if (clientLogOwned) channel.dispose()
+        })
     } catch {
       /* 冲刷失败也不影响抛错路径 */
     }
@@ -2641,8 +2648,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   /** copy-diag 动作行专用的两个数：-1 表示这次动作没复制诊断。 */
   let actionBytes = -1
   let actionTruncated = false
-  /** #214：这次动作是否因为已有动作在途而被拒（动作行的第四态）。 */
-  let actionSkipped = false
+  /** #214：当前这次动作是否因为已有动作在途而被拒（第四态）。每次 act 一份，并发调用不串。 */
+  let currentActionSkips: { skipped: boolean } | null = null
   /** UTF-8 字节数（不依赖 TextEncoder：面板侧只许引无 node: 的纯代码）。 */
   function utf8ByteLength(text: string): number {
     let bytes = 0
@@ -3607,7 +3614,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     // errorKind='thrown'（动作直接抛错）；errorKind='busy'（已有动作在途，这次点击被拒）。
     actionBytes = -1
     actionTruncated = false
-    actionSkipped = false
+    const skipToken = { skipped: false }
+    currentActionSkips = skipToken
     const latchBefore = latch
     let ok = true
     let errorKind: string | null = null
@@ -3626,11 +3634,12 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           ok = false
           errorKind = latchAfter.code
           errorHash = hash8(`${latchAfter.code}|${latchAfter.detail ?? ''}`)
-        } else if (actionSkipped) {
+        } else if (skipToken.skipped) {
           ok = false
           errorKind = 'busy'
         }
       }
+      currentActionSkips = null
       logClient('info', 'update.panel.action', {
         action: kind,
         ok,
@@ -3648,7 +3657,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     switch (kind) {
       case 'check': {
         if (busyAct) {
-          actionSkipped = true
+          if (currentActionSkips) currentActionSkips.skipped = true
           return
         }
         busyAct = 'check'
@@ -3679,7 +3688,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       }
       case 'install': {
         if (busyAct) {
-          actionSkipped = true
+          if (currentActionSkips) currentActionSkips.skipped = true
           return
         }
         busyAct = 'install'
@@ -3760,7 +3769,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         // 合规版决议（#156）：点"装合规版"本身不装任何东西——先认证据，再问决议，
         // 有候选才给点名版本的二次确认按钮。决议算不出/宿主没这条电话，一律退回通用提醒。
         if (busyAct) {
-          actionSkipped = true
+          if (currentActionSkips) currentActionSkips.skipped = true
           return
         }
         // 检查页（#156 场景二）：锁存已清时用记住的窗口顶上；锁存还在时锁存优先。
@@ -3823,7 +3832,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         // 二次确认（#156）：按钮文案即决议点名的精确版本——用户先看见再点，不存在静默装旧版。
         // 门与 latest 路径同口径：决议凭证过期（期间跑过检查）即退回重决议，不锁存不硬装。
         if (busyAct) {
-          actionSkipped = true
+          if (currentActionSkips) currentActionSkips.skipped = true
           return
         }
         if (!fallbackOffer) return
@@ -4148,6 +4157,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     mounted = false
     removeGlobalHandlers?.()
     removeGlobalHandlers = null
+    // 去重窗口只对这面已拆的面板有意义：随它一起清，别把指纹记忆留到下一次挂载。
+    renderFailSeen.clear()
     try {
       unsubLang()
     } catch {

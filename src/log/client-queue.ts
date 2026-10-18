@@ -197,7 +197,7 @@ export function createClientLogChannel(options: ClientLogChannelOptions): Client
   let disposed = false
   let scheduled: unknown = null
   let inFlight = false
-  /** 按原因分的丢弃计数（#214）：no-channel/disposed 无法投递，只能从这里被看见。 */
+  /** 按原因分的丢弃计数（#214）：no-channel 无法投递，只能从这里被看见；disposed 另尽力上浮一条。 */
   const droppedByReason: Record<string, number> = {}
   /** 已经上浮过的丢弃原因：同一原因整条通道生命周期只上浮一次（防刷）。 */
   const reportedDropReasons = new Set<string>()
@@ -214,6 +214,9 @@ export function createClientLogChannel(options: ClientLogChannelOptions): Client
     }
   }
 
+  function makeDropReport(reason: string): ClientLogRow {
+    return { level: 'warn', event: 'update.log.degraded', fields: { reason: `client-drop-${reason}` }, ts: now() }
+  }
   /**
    * 丢弃上浮（#214）：每个冲刷周期末尾，把「发生了、还没说过、且通道还开着能投递」的丢弃原因
    * 各发一条 `update.log.degraded`（reason=`client-drop-<原因>`）。同一原因只发一次。
@@ -221,12 +224,26 @@ export function createClientLogChannel(options: ClientLogChannelOptions): Client
    */
   function reportDrops(): void {
     if (disposed || call === null || phoneName === '') return
+    let queued = false
     for (const reason of REPORTABLE_DROP_REASONS) {
       if (!(droppedByReason[reason] > 0)) continue
       if (reportedDropReasons.has(reason)) continue
       reportedDropReasons.add(reason)
-      emit('warn', 'update.log.degraded', { reason: `client-drop-${reason}` })
+      push(makeDropReport(reason))
+      queued = true
     }
+    if (queued) schedule(0)
+  }
+  /**
+   * 销毁后仍有行到达（`disposed` 原因）：至少把这一条上浮出去。通道已 disposed，调度已停，
+   * 所以这里绕过调度只做一次尽力送；送不出去也只剩计数，不再重试（不在卸载后打无限电话）。
+   */
+  function reportDisposedDrop(): void {
+    if (call === null || phoneName === '') return
+    if (reportedDropReasons.has('disposed')) return
+    reportedDropReasons.add('disposed')
+    push(makeDropReport('disposed'))
+    void sendBuffered()
   }
 
   function push(row: ClientLogRow): void {
@@ -404,7 +421,7 @@ export function createClientLogChannel(options: ClientLogChannelOptions): Client
         if (!(droppedByReason[reason] > 0)) continue
         if (reportedDropReasons.has(reason)) continue
         reportedDropReasons.add(reason)
-        push({ level: 'warn', event: 'update.log.degraded', fields: { reason: `client-drop-${reason}` }, ts: now() })
+        push(makeDropReport(reason))
       }
       await sendBuffered()
     }
@@ -441,6 +458,7 @@ export function createClientLogChannel(options: ClientLogChannelOptions): Client
       }
       if (disposed) {
         noteDrop(row, 'disposed')
+        reportDisposedDrop()
         return
       }
       if (!enabled()) {

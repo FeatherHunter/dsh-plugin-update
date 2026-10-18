@@ -1481,6 +1481,11 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
         if (!fields || typeof fields !== 'object' || Array.isArray(fields)) { dropped++; continue }
         if (typeof ts !== 'number' || !Number.isFinite(ts)) { dropped++; continue }
         if (nowMs > 0 && nowMs - ts > LOG_APPEND_STALE_MS) { dropped++; continue }
+        // #214：客户端只许上报「客户端自己的丢弃原因」，不许替宿主断言 no-dsh-log/write-fail 这类事实。
+        if (event === 'update.log.degraded') {
+          const reason = (fields as Record<string, unknown>)['reason']
+          if (typeof reason !== 'string' || !reason.startsWith('client-')) { dropped++; continue }
+        }
         let size = 0
         try {
           size = JSON.stringify(fields)?.length ?? 0

@@ -649,8 +649,15 @@ export function mountInstallButton(
   }
   function failMount(kind: string, message: string): void {
     emitRenderFail('mount', kind, message)
+    // Mount has failed: push the evidence out, then drop the self-built channel (no leaked listener).
+    const channel = clientLog
+    if (!channel) return
     try {
-      void clientLog?.flush()
+      void Promise.resolve(channel.flush())
+        .catch(() => undefined)
+        .then(() => {
+          if (clientLogOwned) channel.dispose()
+        })
     } catch {
       // Best effort.
     }
@@ -828,8 +835,8 @@ export function mountInstallButton(
   let actionTruncated = false
   /** #214：连续传输失败次数（刷新成功即清零）；进 copy-diag 的连接段。 */
   let transportFailStreak = 0
-  /** #214：这次动作是否因为已有动作在途而被拒（动作行的第四态）。 */
-  let actionSkipped = false
+  /** #214: per-call "rejected while busy" marker, so overlapping controller.act() calls don't share state. */
+  let currentActionSkips: { skipped: boolean } | null = null
 
   function latchNow(): number | null {
     try {
@@ -1336,7 +1343,8 @@ export function mountInstallButton(
   }
 
   function diagText(): string | null {
-    if (!latch || latch.volatile) return null
+    // #214：volatile 锁存（传输失败/瞬态）也要能复制——连接段正是给「点了没反应」留的证据。
+    if (!latch) return null
     try {
       return buildUpdateDiagCopy(
         {
@@ -1375,7 +1383,8 @@ export function mountInstallButton(
     copyAnchorEl = anchor
     actionBytes = -1
     actionTruncated = false
-    actionSkipped = false
+    const skipToken = { skipped: false }
+    currentActionSkips = skipToken
     const latchBefore = latch
     let ok = true
     let errorKind: string | null = null
@@ -1394,11 +1403,12 @@ export function mountInstallButton(
           ok = false
           errorKind = latchAfter.code
           errorHash = hash8(`${latchAfter.code}|${latchAfter.detail ?? ''}`)
-        } else if (actionSkipped) {
+        } else if (skipToken.skipped) {
           ok = false
           errorKind = 'busy'
         }
       }
+      currentActionSkips = null
       logClient('info', 'update.panel.action', {
         action: kind,
         ok,
@@ -1546,7 +1556,7 @@ export function mountInstallButton(
     switch (kind) {
       case 'check': {
         if (busyAct) {
-          actionSkipped = true
+          if (currentActionSkips) currentActionSkips.skipped = true
           return
         }
         busyAct = 'check'
@@ -1562,7 +1572,7 @@ export function mountInstallButton(
       }
       case 'install': {
         if (busyAct) {
-          actionSkipped = true
+          if (currentActionSkips) currentActionSkips.skipped = true
           return
         }
         busyAct = 'install'
@@ -1609,7 +1619,7 @@ export function mountInstallButton(
       case 'install-fallback': {
         // 决议本身不装任何东西：busyAct 守卫内由 doFallbackResolve 自理。
         if (busyAct) {
-          actionSkipped = true
+          if (currentActionSkips) currentActionSkips.skipped = true
           return
         }
         await doFallbackResolve()
@@ -1617,7 +1627,7 @@ export function mountInstallButton(
       }
       case 'install-fallback-confirm': {
         if (busyAct) {
-          actionSkipped = true
+          if (currentActionSkips) currentActionSkips.skipped = true
           return
         }
         if (!fallbackOffer) return
@@ -1661,6 +1671,8 @@ export function mountInstallButton(
     mounted = false
     removeGlobalHandlers?.()
     removeGlobalHandlers = null
+    // The dedupe window only matters for this instance; clear it with the mount.
+    renderFailSeen.clear()
     try {
       unsubLang()
     } catch {

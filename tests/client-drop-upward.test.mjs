@@ -3,7 +3,8 @@
  *
  * 能投递的三种原因（overflow / host-refused / send-failed）在每个通道内各自上浮一条
  * update.log.degraded{reason:'client-drop-<reason>'}，同类终身只一条（防刷）；
- * 物理上无法投递的两种（no-channel / disposed）只能留在 droppedByReason() 里，
+ * disposed 在通道拆掉后发生，仍尽力上浮一条（绕过 disposed 门的最后一次直送）；
+ * 物理上完全无法投递的 no-channel 只能留在 droppedByReason() 里，
  * 由面板的复制诊断「连接」计数段交代。dispose 前先尽量冲刷。
  */
 import { describe, it } from 'node:test'
@@ -95,7 +96,7 @@ describe('#214 客户端丢弃上浮：可投递的三种原因各上浮一条�
   })
 })
 
-describe('#214 客户端丢弃上浮：投不出去的两种原因只留计数', () => {
+describe('#214 客户端丢弃上浮：投不出去的 no-channel 只留计数，disposed 尽力上浮', () => {
   it('no-channel：没有传输时一个字节都发不出去，计数如实留着', async () => {
     const ch = createClientLogChannel({ call: null, phoneName: '', timer: null, visibility: null })
     ch.emit('info', 'update.panel.action', { action: 'check' })
@@ -105,13 +106,19 @@ describe('#214 客户端丢弃上浮：投不出去的两种原因只留计数',
     assert.deepEqual(ch.droppedByReason(), { 'no-channel': 1 })
   })
 
-  it('disposed：终止后再报的行计数留着（没有终点了，不假装能送）', async () => {
-    const { ch } = channel()
+  it('disposed：终止后再报的行计数留着，并尽力上浮一条（真的没有下一次投递了）', async () => {
+    const { ch, calls } = channel()
     ch.dispose()
     await settle()
     ch.emit('info', 'update.panel.action', { action: 'check' })
+    await settle()
     assert.deepEqual(ch.droppedByReason(), { disposed: 1 })
     assert.equal(ch.pending(), 0)
+    assert.equal(degradedRows(calls, 'client-drop-disposed').length, 1, 'disposed 仍尽力上浮一条')
+    // 只报一次：同一条通道再多报几行也不再重复上浮。
+    ch.emit('info', 'update.panel.action', { action: 'check' })
+    await settle()
+    assert.equal(degradedRows(calls, 'client-drop-disposed').length, 1)
   })
 })
 

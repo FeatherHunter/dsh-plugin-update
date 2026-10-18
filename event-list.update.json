@@ -53,11 +53,29 @@
         "unknown-field",
         "invalid-enum",
         "client-batch-refused",
-        "client-drop-no-channel",
         "client-drop-overflow",
         "client-drop-host-refused",
         "client-drop-send-failed",
         "client-drop-disposed"
+      ]
+    },
+    "update.panel.render.fail": {
+      "phase": ["mount", "paint", "poll", "global"],
+      "kind": [
+        "container",
+        "plugin-id",
+        "call",
+        "prefix",
+        "poll-ms",
+        "mode",
+        "auto-check",
+        "theme",
+        "theme-tokens",
+        "locale",
+        "render",
+        "transport",
+        "uncaught",
+        "unhandled"
       ]
     },
     "update.changelog.parse": {
@@ -175,7 +193,7 @@
     "update.panel.action": {
       "level": "info",
       "kind": "resident",
-      "fields": ["action", "bytes", "truncated", "ok", "errorKind", "durationMs"],
+      "fields": ["action", "bytes", "truncated", "ok", "errorKind", "durationMs", "errorHash"],
       "guard": "一次点击一条"
     },
     "update.panel.render.fail": {
