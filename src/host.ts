@@ -1123,20 +1123,23 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
   const readerOverrides = { ...(deps.readerOverrides ?? {}), ctx, ...(deps.pluginManager ? { pluginManager: deps.pluginManager } : {}) } as ReaderOverrides
   const phoneNames = buildPhoneNames(config.prefix)
   // 更新日志按版本记住结果（#41 终裁 + #213）：缓存条目存「文本 + 成因」一整条，成功与取不到都按版本永久记
-  // （宿主进程级，不落盘）；传输失败（抛错）不进缓存，下次重查；轮询退避由面板侧按 shouldFetchChangelog 门控，
-  // 宿主侧总视为手动（有缓存即回，无缓存即取）。
+  // （宿主进程级，不落盘）。**取数失败也进缓存**：今天 fetchReleaseChangelogOutcome 把网络/超时/integrity/JSON
+  // 全吞成 `fetch-failed` 返回、不抛错，所以同一版重查命中缓存正是要区分的「缓存了失败」那一格；真抛错的老路径
+  // （若将来改回去）才不进缓存、下次重查。轮询退避由面板侧按 shouldFetchChangelog 门控，宿主侧总视为手动。
   // 缓存命中也要发一行（status:'cache-hit' + cached:true），但**回包里的 status 仍是那次取数的原始内容态**：
   // 缓存命中不得把「取数失败」冒充成「包里没这个文件」（面板据此分文案，见 #213）。
   const changelogCache = new Map<string, ReleaseChangelogOutcome>()
   const changelogFailedAt = new Map<string, number>()
-  // #213 噪声账：同 (version,status,cached) 每进程至多一行。清单的边沿指纹只压**连续**同形行
-  // （A,B,A,B 交错时回到 A 会再发一行），这里再记一层「这个组合已经说过」，兑现票面
-  // 「每次新版至多一行」与研究文档 §4.5 的噪声承诺。内容态真变了（传输失败不进缓存，
-  // 重查成功 → fetch-failed → ok）就是新组合，照发不误。
+  // #213 噪声账是**两层**：① `emitUpdateLog` 里进程级的边沿指纹（src/log/emit.ts）只压**相邻**同形行——
+  // 行按事件名记「上一条指纹」，所以同 (version,status,cached) 的行中间夹了别的行（别的版本/别的状态）就还能再发；
+  // ② 下面这个 Set 是**本宿主实例**的账，同一组合只发一次（交错回放不再发）。
+  // 合成效果（verify-213 实测）：同 (version,status,cached) 的相邻行每进程至多一行；另一个 createHostUpdate 实例
+  // 查同版本时，它自己的 Set 是空的，但若中间没有别的 changelog 行，②那行会被①压掉——这是边沿机制的正常语义，
+  // 不是缺陷。稳态 0 行；同一版最多两行（取数那一行 + 之后的缓存命中一行），兑现票面噪声承诺。
   const changelogEmitted = new Set<string>()
 
   /**
-   * 落一行更新说明证据（#213）：resident + 边沿，同 (version,status,cached) 每进程至多一行。
+   * 落一行更新说明证据（#213）：resident + 边沿，同 (version,status,cached) 每进程至多一行（见上面两层账）。
    * `status` 记的是**取数方式位**（缓存命中即 `cache-hit`），`degraded` 按缓存里那条**内容态**算——
    * 于是 (cache-hit, degraded:false) 与 (cache-hit, degraded:true) 能分开「缓存了成功」与「缓存了失败」。
    */

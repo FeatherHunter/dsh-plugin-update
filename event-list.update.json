@@ -189,7 +189,7 @@
       "level": "info",
       "kind": "resident",
       "fields": ["version", "entries", "truncated", "degraded", "status", "cached", "source"],
-      "guard": "边沿触发：同 (version,status,cached) 每进程至多一行，不重复发"
+      "guard": "边沿触发：同 (version,status,cached) 的相邻行每进程至多一行（中间夹别的行仍可再发）"
     },
     "update.poll": {
       "level": "info",

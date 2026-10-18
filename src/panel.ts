@@ -1776,9 +1776,10 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   // #213：宿主判定的日志分档（空文件 / 包里没有这个文件 / 取数失败 / 有文无结构）。
   // 认不出的值（老宿主、手搓回包、未来野值）一律当没有——文案与旧版一字不差。
   const rawChangelogStatus = (input as { changelogStatus?: unknown }).changelogStatus
-  const changelogStatusKey = isChangelogStatus(rawChangelogStatus)
-    ? changelogStatusCopyKey(rawChangelogStatus)
-    : null
+  const changelogStatusValue = isChangelogStatus(rawChangelogStatus) ? rawChangelogStatus : null
+  const changelogStatusKey = changelogStatusValue === null
+    ? null
+    : changelogStatusCopyKey(changelogStatusValue)
   const profileName =
     typeof (input as { profileName?: unknown }).profileName === 'string' && (input as { profileName: string }).profileName
       ? (input as { profileName: string }).profileName
@@ -1981,7 +1982,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         // 空文本仍走"未提供"；有解析节但区间外仍走旧中性（区间外是另一回事，不在此改）。
         if (ranged.length === 0 && mdText.trim() && entries.length === 0) {
           // #213：宿主判了 parse-degraded（有内容、没结构）就说「不是没有说明」；其余分档不在这插话。
-          const degradedText = changelogStatusKey === 'panel.changelog.status.parse-degraded' ? statusCopyText : ''
+          const degradedText = changelogStatusValue === 'parse-degraded' ? statusCopyText : ''
           inner = `<div class="dsh-upd-changelog-wrap"><div class="dsh-upd-changelog-neutral">${escapeHtml(degradedText || copyText('panel.changelog.unavailable', l))}</div>${truncationNoteHTML(report.truncation, l)}</div>`
           hasLog = false
         } else if (!mdText.trim() && statusCopyText) {
@@ -3385,9 +3386,13 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           if (typeof md === 'string') {
             changelogMarkdown = md
             render()
-          } else if (statusChanged) {
-            // #213：没有文本时也要重绘一次——空白分支的话术要跟着分档走。
-            render()
+          } else {
+            // #213：宿主对**这一版**给了结论性分档（空文件 / 包里没有 / 取不到）却没有正文——
+            // 上一版的正文不许留在新版标题下：那会让空白区既拿不到分档话术，还可能把旧版说明
+            // 冒充新版（两轴评审都点了这一格）。认不出分档的老宿主不动旧正文，行为与 #213 之前一致。
+            if (statusChanged && changelogMarkdown !== null) changelogMarkdown = null
+            // 没有文本时也要重绘一次——空白分支的话术要跟着分档走。
+            if (statusChanged) render()
           }
         },
         () => {
