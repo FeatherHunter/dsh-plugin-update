@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE · #172 最后手段主按钮（四档形态 × 三处落点 × 双主题）</title>
+<!--
+  PROTOTYPE — throwaway, 不是产品代码，别 fold 到主线。
+  问题：#172 失败块的「最后手段」态长什么样才算醒目？
+  一个页面里摆四档结构（底部悬浮条 / ← → 键切换、?variant= 可分享），
+  同一失败块分别放进三处落点（单插件面板 / 批量面板 / 槽位安装按钮），
+  双主题（default / archive）× 浅/深可切，#171/#177 的判定状态可直接改，实时外显。
+  跑法：双击本文件（或 `start src/prototypes/172-last-resort.html`）。
+-->
+<style>
+  /* ── 页面外壳（模拟宿主，不参与评估） ─────────────────────────────── */
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font: 14px/1.6 system-ui, "Microsoft YaHei", sans-serif;
+    background: var(--host-bg, #eef1f5);
+    color: var(--host-fg, #1f2937);
+    padding: 18px 14px 120px;
+  }
+  body[data-mode="dark"] { color-scheme: dark; --host-bg: #0b1220; --host-fg: #e5e7eb; }
+  .page { max-width: 680px; margin: 0 auto; }
+  .hostbar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px; margin-bottom: 14px;
+    background: var(--host-card, #ffffff); border: 1px solid var(--host-border, #d8dee7);
+    border-radius: 10px; font-size: 12.5px; color: var(--host-fg);
+  }
+  body[data-mode="dark"] .hostbar { --host-card: #111827; --host-border: #273244; }
+  .hostbar .dot { width: 8px; height: 8px; border-radius: 50%; background: #2563eb; flex: none; }
+  .hostbar .who { margin-left: auto; opacity: .6; font-size: 11.5px; }
+
+  /* ── 原型控制台 ─────────────────────────────────────────────── */
+  .console {
+    background: var(--host-card, #ffffff); border: 1px dashed #94a3b8; border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 16px; font-size: 12.5px;
+  }
+  body[data-mode="dark"] .console { --host-card: #111827; border-color: #475569; }
+  .console h2 { margin: 0 0 8px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; opacity: .65; font-weight: 600; }
+  .ctrl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 6px 0; }
+  .ctrl-row > label { display: inline-flex; align-items: center; gap: 6px; }
+  .seg { display: inline-flex; border: 1px solid var(--host-border, #d8dee7); border-radius: 6px; overflow: hidden; }
+  body[data-mode="dark"] .seg { --host-border: #273244; }
+  .seg button {
+    font: inherit; font-size: 12px; padding: 4px 10px; border: 0; cursor: pointer;
+    background: transparent; color: inherit; opacity: .65;
+  }
+  .seg button[aria-pressed="true"] { background: #2563eb; color: #fff; opacity: 1; }
+  select, .console button { font: inherit; font-size: 12px; padding: 3px 8px; border-radius: 6px;
+    border: 1px solid var(--host-border, #d8dee7); background: var(--host-card, #fff); color: inherit; cursor: pointer; }
+  body[data-mode="dark"] select, body[data-mode="dark"] .console button { --host-border: #273244; --host-card: #111827; }
+
+  /* ── 产品面板主题令牌（复刻 src/panel.ts 的 --dsh-update-* 口径） ── */
+  .dsh-upd {
+    --dsh-update-bg: #ffffff;
+    --dsh-update-bg-soft: #f3f4f6;
+    --dsh-update-text: #1f2937;
+    --dsh-update-text-muted: #4b5563;
+    --dsh-update-border: #e5e7eb;
+    --dsh-update-border-strong: #d1d5db;
+    --dsh-update-button-bg: #f9fafb;
+    --dsh-update-primary: #2563eb;
+    --dsh-update-primary-deep: #1d4ed8;
+    --dsh-update-focus: #2563eb;
+    --dsh-update-ok-bg: #ecfdf5; --dsh-update-ok-border: #059669; --dsh-update-ok-text: #047857;
+    --dsh-update-warn-bg: #fffbeb; --dsh-update-warn-border: #d97706; --dsh-update-warn-text: #92400e;
+    --dsh-update-bad-bg: #fef2f2; --dsh-update-bad-border: #dc2626; --dsh-update-bad-text: #b91c1c;
+    --dsh-update-busy-bg: #eff6ff; --dsh-update-busy-border: #2563eb; --dsh-update-busy-text: #1d4ed8;
+    --dsh-update-font-sans: system-ui, "Microsoft YaHei", sans-serif;
+    --dsh-update-font-serif: "Noto Serif SC", "Songti SC", Georiga, serif;
+    --dsh-update-font-mono: Consolas, Menlo, monospace;
+    --dsh-update-radius-panel: 8px;
+    --dsh-update-radius-button: 6px;
+    --dsh-update-radius-badge: 3px;
+    --dsh-update-panel-font-size: 14px;
+    --dsh-update-panel-small-font-size: 12px;
+    --dsh-update-panel-log-font-size: 12.5px;
+    --dsh-update-panel-chapter-font-size: 15px;
+    --dsh-update-shadow: 0 1px 2px rgba(15, 23, 42, .06);
+
+    font: var(--dsh-update-panel-font-size)/1.75 var(--dsh-update-font-sans);
+    color: var(--dsh-update-text);
+    background: var(--dsh-update-bg);
+    border: 1px solid var(--dsh-update-border);
+    border-radius: var(--dsh-update-radius-panel);
+    padding: 12px 14px;
+    box-shadow: var(--dsh-update-shadow);
+    max-width: 560px;
+    margin: 0 auto;
+  }
+  .dsh-upd[data-mode="dark"] {
+    --dsh-update-text: #e5e7eb;
+    --dsh-update-bg: #111827;
+    --dsh-update-bg-soft: #1f2937;
+    --dsh-update-text-muted: #9ca3af;
+    --dsh-update-border: #374151;
+    --dsh-update-border-strong: #4b5563;
+    --dsh-update-button-bg: #1f2937;
+    --dsh-update-primary: #3b82f6;
+    --dsh-update-primary-deep: #60a5fa;
+    --dsh-update-focus: #93c5fd;
+    --dsh-update-ok-bg: #052e21; --dsh-update-ok-border: #10b981; --dsh-update-ok-text: #6ee7b7;
+    --dsh-update-warn-bg: #2a1e08; --dsh-update-warn-border: #f59e0b; --dsh-update-warn-text: #fcd34d;
+    --dsh-update-bad-bg: #2a0f0f; --dsh-update-bad-border: #f87171; --dsh-update-bad-text: #fca5a5;
+  }
+  .dsh-upd[data-theme="archive"] {
+    --dsh-update-bg: #fffdf6;
+    --dsh-update-bg-soft: #f7f3ea;
+    --dsh-update-text: #1a1a1a;
+    --dsh-update-text-muted: #6f675a;
+    --dsh-update-border: #e3d9c4;
+    --dsh-update-border-strong: #c4b896;
+    --dsh-update-primary: #c8402a;
+    --dsh-update-primary-deep: #9c2e1d;
+    --dsh-update-focus: #c8402a;
+    --dsh-update-radius-panel: 4px;
+    --dsh-update-radius-button: 3px;
+    padding: 16px 20px 14px;
+  }
+  .dsh-upd[data-theme="archive"][data-mode="dark"] {
+    --dsh-update-bg: #1e1a15;
+    --dsh-update-bg-soft: #141210;
+    --dsh-update-text: #ece5d3;
+    --dsh-update-text-muted: #a89c83;
+    --dsh-update-border: #3a3226;
+    --dsh-update-border-strong: #5c4e3b;
+    --dsh-update-primary: #e0684e;
+    --dsh-update-primary-deep: #f0866b;
+    --dsh-update-focus: #f0866b;
+  }
+
+  /* ── 面板内部结构（照生产 DOM 简化：head / strip / banner / actions / chapter） ── */
+  .dsh-upd h1 { margin: 0 0 2px; font-size: 17px; line-height: 1.35; }
+  .dsh-upd[data-theme="archive"] h1 { font-family: var(--dsh-update-font-serif); font-size: 22px; font-weight: 700; }
+  .dsh-upd[data-theme="archive"] .chap-title { font-family: var(--dsh-update-font-serif); letter-spacing: .08em; }
+  .dsh-upd .meta { font-size: var(--dsh-update-panel-small-font-size); color: var(--dsh-update-text-muted); margin-bottom: 8px; }
+  .dsh-upd .strip { display: flex; flex-wrap: wrap; margin: 8px 0; border: 1px solid var(--dsh-update-border); border-radius: 4px; overflow: hidden; font-size: var(--dsh-update-panel-small-font-size); }
+  .dsh-upd .strip > div { flex: 1 1 110px; padding: 6px 10px; border-left: 1px solid var(--dsh-update-border); }
+  .dsh-upd .strip > div:first-child { border-left: 0; }
+  .dsh-upd .strip-k { display: block; font-size: 10.5px; letter-spacing: .08em; color: var(--dsh-update-text-muted); }
+  .dsh-upd .strip-v { font-family: var(--dsh-update-font-mono); font-size: 12px; }
+  .dsh-upd .banner { border-left: 4px solid var(--dsh-update-bad-border); background: var(--dsh-update-bad-bg); padding: 6px 10px; margin: 0 0 8px; }
+  .dsh-upd[data-theme="archive"] .banner { border: 2px solid var(--dsh-update-bad-border); border-radius: 4px; background: var(--dsh-update-bad-bg); padding: 10px 12px; }
+  .dsh-upd .banner strong { display: block; font-size: 1em; line-height: 1.5; }
+  .dsh-upd[data-theme="archive"] .banner strong { font-family: var(--dsh-update-font-serif); font-size: 20px; }
+  .dsh-upd .banner-sub { color: var(--dsh-update-text-muted); font-size: var(--dsh-update-panel-small-font-size); margin: 2px 0 0; }
+  .dsh-upd .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 4px; }
+  .dsh-upd button {
+    font: inherit; font-size: 13px; line-height: 1.45; padding: 5px 12px; cursor: pointer;
+    border: 1px solid var(--dsh-update-border-strong); border-radius: var(--dsh-update-radius-button);
+    background: var(--dsh-update-button-bg); color: var(--dsh-update-text);
+  }
+  .dsh-upd button:focus-visible { outline: 2px solid var(--dsh-update-focus); outline-offset: 1px; }
+  .dsh-upd button.primary { background: var(--dsh-update-primary); border-color: var(--dsh-update-primary); color: #fff; }
+  .dsh-upd button.primary:hover { filter: brightness(.93); }
+  .dsh-upd .chapter { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--dsh-update-border); }
+  .dsh-upd .chap-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 4px; }
+  .dsh-upd .chap-no { font-family: var(--dsh-update-font-mono); font-size: 11px; color: var(--dsh-update-text-muted); }
+  .dsh-upd .chap-title { margin: 0; font-size: var(--dsh-update-panel-chapter-font-size); }
+  .dsh-upd code { font-family: var(--dsh-update-font-mono); font-size: var(--dsh-update-panel-log-font-size); word-break: break-all; }
+  .dsh-upd .cmd {
+    display: block; margin: 6px 0 4px; padding: 6px 8px; background: var(--dsh-update-bg-soft);
+    border: 1px solid var(--dsh-update-border); border-radius: 4px; color: var(--dsh-update-text);
+  }
+  .dsh-upd[data-theme="archive"] .cmd { background: var(--dsh-update-text); color: var(--dsh-update-bg-soft); }
+  .dsh-upd .note { font-size: var(--dsh-update-panel-small-font-size); color: var(--dsh-update-text-muted); }
+  .dsh-upd .dim { opacity: .75; }
+  .dsh-upd details > summary { cursor: pointer; font-size: 12.5px; }
+  .dsh-upd .kindline { font-size: 12.5px; color: var(--dsh-update-text-muted); margin: 0 0 6px; }
+
+  /* ── 四档「最后手段」形态（被评估的对象；结构不同，不只是换色） ── */
+  .lr-label {
+    display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .1em;
+    padding: 0 6px; border-radius: var(--dsh-update-radius-badge);
+    border: 1px solid currentColor; vertical-align: 1px;
+  }
+  .lr-icon { font-size: 15px; line-height: 1; }
+
+  /* A：告警条内联主按钮（失败横幅第一行） */
+  .lr-A { border: 2px solid var(--dsh-update-bad-border); border-radius: 6px; background: var(--dsh-update-bad-bg); padding: 9px 11px; margin: 0 0 8px; }
+  .dsh-upd[data-theme="archive"] .lr-A { border-radius: 3px; }
+  .lr-A .row1 { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .lr-A .row1 strong { font-size: 15px; }
+  .lr-A .row2 { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 7px; }
+  .lr-A .reason { flex: 1 1 200px; font-size: 12.5px; color: var(--dsh-update-text-muted); }
+  .lr-A .cmd { margin-top: 8px; }
+  .lr-A button.cta { font-weight: 700; box-shadow: 0 1px 0 rgba(0,0,0,.15); }
+
+  /* B：独立救援卡（居中大按钮） */
+  .lr-B { border: 2px dashed var(--dsh-update-bad-border); border-radius: 8px; background: var(--dsh-update-bad-bg); padding: 12px; margin: 0 0 8px; text-align: center; }
+  .lr-B .card-icon { font-size: 26px; line-height: 1; }
+  .lr-B .card-title { margin: 6px 0 2px; font-size: 16px; font-weight: 700; }
+  .lr-B .card-sub { margin: 0 0 8px; font-size: 12.5px; color: var(--dsh-update-text-muted); }
+  .lr-B .cmd { text-align: left; }
+  .lr-B button.cta { display: block; width: 100%; margin-top: 8px; padding: 9px 12px; font-size: 14px; font-weight: 700; }
+  .lr-B .hintline { margin-top: 6px; font-size: 11.5px; color: var(--dsh-update-text-muted); }
+
+  /* C：动作行前置主按钮（结构不动，只把按钮拉到第一颗并升主按钮） */
+  .lr-C .promote { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 12.5px; color: var(--dsh-update-bad-text); }
+  .lr-C .actions button.cta { font-weight: 700; }
+  .lr-C .actions button.cta::after { content: " →"; }
+
+  /* D：加码档——失败块顶部通栏警示条 + 大号入口 */
+  .lr-D .stripbar {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+    background: var(--dsh-update-bad-text, #b91c1c); color: #fff; border-radius: 6px;
+    padding: 10px 12px; margin: 0 0 8px;
+  }
+  .dsh-upd[data-mode="dark"] .lr-D .stripbar { background: #b91c1c; }
+  .lr-D .stripbar strong { font-size: 15px; letter-spacing: .02em; }
+  .lr-D .stripbar .spacer { flex: 1 1 20px; }
+  .lr-D button.cta {
+    font-weight: 700; font-size: 14px; padding: 8px 14px;
+    background: #fff; color: var(--dsh-update-bad-text); border-color: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  }
+  .lr-D button.cta:hover { filter: brightness(.96); }
+  .lr-D .label-ondark { color: #fff; border-color: currentColor; }
+  .lr-D .cmd { margin-top: 0; }
+
+  /* ── 批量面板 / 槽位按钮的容器（模拟） ── */
+  .batch { max-width: 560px; margin: 0 auto; }
+  .batch .row { display: flex; align-items: center; gap: 10px; border: 1px solid var(--dsh-update-border); border-radius: 4px; padding: 7px 10px; margin: 0 0 6px; background: var(--dsh-update-bg); }
+  .batch .row .rname { flex: 1 1 auto; font-size: 13px; }
+  .batch .row .rstate { font-size: 12px; color: var(--dsh-update-text-muted); }
+  .batch .row .rstate b { color: var(--dsh-update-bad-text); }
+  .batch .detail { border: 1px solid var(--dsh-update-border); border-left: 3px solid var(--dsh-update-bad-border); border-radius: 4px; padding: 9px 11px; background: var(--dsh-update-bg-soft); margin: 8px 0 0; }
+  .batch .rowbutton { font-size: 12px; }
+  .slot { max-width: 560px; margin: 0 auto; background: var(--dsh-update-bg); border: 1px solid var(--dsh-update-border); border-radius: 8px; padding: 12px 14px; }
+  .slot h1 { font-size: 15px; margin: 0 0 2px; }
+  .slot .detail { margin-top: 10px; border-top: 1px solid var(--dsh-update-border); padding-top: 8px; }
+
+  /* ── 判定状态外显 ─────────────────────────────────────────────── */
+  .debug { max-width: 680px; margin: 18px auto 0; background: var(--host-card, #fff); border: 1px solid var(--host-border, #d8dee7); border-radius: 8px; padding: 10px 14px; font-size: 12.5px; }
+  body[data-mode="dark"] .debug { --host-card: #111827; --host-border: #273244; }
+  .debug h2 { margin: 0 0 6px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; opacity: .6; }
+  .debug pre { margin: 6px 0 0; padding: 8px 10px; background: var(--host-bg); border-radius: 6px; overflow: auto; font: 11.5px/1.6 Consolas, Menlo, monospace; }
+  .verdict-line { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
+  .badge { display: inline-block; font-weight: 700; font-size: 11px; letter-spacing: .06em; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; }
+  .badge.kind-last-resort { color: #b91c1c; }
+  .badge.kind-salvageable { color: #047857; }
+  .badge.kind-dead-end { color: #6b7280; }
+  .badge.kind-unknown { color: #92400e; }
+
+  /* ── 底部悬浮切换条（原型工具，不属于设计） ───────────────────── */
+  .switcher {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 2px; z-index: 99;
+    background: #0f172a; color: #f8fafc; border-radius: 999px;
+    padding: 5px; box-shadow: 0 8px 24px rgba(15, 23, 42, .35);
+    font: 13px/1.4 system-ui, sans-serif;
+  }
+  .switcher button { font: inherit; border: 0; background: transparent; color: inherit; padding: 6px 12px; cursor: pointer; border-radius: 999px; }
+  .switcher button:hover { background: #1e293b; }
+  .switcher .label { padding: 0 10px; white-space: nowrap; }
+  .switcher .label b { color: #fbbf24; }
+  .prototype-flag {
+    position: fixed; top: 8px; right: 10px; z-index: 99;
+    font: 10.5px/1.3 Consolas, monospace; letter-spacing: .04em;
+    color: #fff; background: #dc2626; padding: 2px 8px; border-radius: 3px; opacity: .9;
+  }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+  @media (forced-colors: active) {
+    .dsh-upd button, .dsh-upd .banner, .lr-A, .lr-B, .lr-D .stripbar { border: 1px solid ButtonText; }
+  }
+</style>
+</head>
+<body data-mode="light">
+<div class="prototype-flag">PROTOTYPE · #172 · throwaway</div>
+
+<div class="page">
+  <div class="hostbar">
+    <span class="dot"></span>
+    <span>DSH · 更新中心（宿主壳，模拟）</span>
+    <span class="who">演示插件 · web profile</span>
+  </div>
+
+  <section class="console" aria-label="原型控制台">
+    <h2>Prototype controls · 原型控制台（非设计）</h2>
+    <div class="ctrl-row">
+      <label>落点
+        <span class="seg" data-ctrl="location">
+          <button type="button" data-value="single">单插件面板</button>
+          <button type="button" data-value="batch">批量面板</button>
+          <button type="button" data-value="slot">槽位安装按钮</button>
+        </span>
+      </label>
+      <label>主题
+        <span class="seg" data-ctrl="theme">
+          <button type="button" data-value="default">默认</button>
+          <button type="button" data-value="archive">档案卷</button>
+        </span>
+      </label>
+      <label>明暗
+        <span class="seg" data-ctrl="mode">
+          <button type="button" data-value="light">浅</button>
+          <button type="button" data-value="dark">深</button>
+        </span>
+      </label>
+    </div>
+    <div class="ctrl-row">
+      <label>命令状态（#177 口径）
+        <select data-ctrl="manualSource">
+          <option value="frame">当帧命令 frame → 可高亮</option>
+          <option value="carried-over">遗留命令 carried-over → unknown</option>
+          <option value="none">当帧确认无命令 → dead-end（#92 原因）</option>
+        </select>
+      </label>
+      <label><input type="checkbox" data-ctrl="fallback" id="fallback"> 有合规版救援路径（#156）→ salvageable</label>
+      <span class="note" style="opacity:.6">← → 切形态；也可改 URL 的 ?variant=；面板内只呈现产品形态，判定状态见页面底部调试区。</span>
+    </div>
+  </section>
+
+  <main id="stage" aria-live="polite"></main>
+
+  <section class="debug" id="debug" aria-label="判定状态">
+    <h2>判定状态（#171 / #177 口径，实时）</h2>
+    <div class="verdict-line" id="verdict-line"></div>
+    <pre id="verdict-json"></pre>
+  </section>
+</div>
+
+<div class="switcher" role="group" aria-label="原型形态切换">
+  <button type="button" id="prev" aria-label="上一档（←）">←</button>
+  <span class="label"><b id="variant-key">A</b> · <span id="variant-name">告警条内联主按钮</span></span>
+  <button type="button" id="next" aria-label="下一档（→）">→</button>
+</div>
+
+<script>
+'use strict';
+
+/* ───────────────────────── 原型数据（全部假数据，无持久化） ───────────────────────── */
+const CMD = 'dsh plugin --profile web add --save-exact demo-plugin@1.7.46 --registry=https://registry.npmjs.org';
+const VARIANTS = [
+  { key: 'A', name: '告警条内联主按钮', desc: '失败横幅第一行：图标 + 「最后手段」标签 + 归因句 + 实心主按钮；命令在横幅内展开。' },
+  { key: 'B', name: '独立救援卡', desc: '横幅下方第一块是独立救援卡：居中图标 + 归因 + 命令 + 全宽主按钮，作为唯一空间焦点。' },
+  { key: 'C', name: '动作行前置主按钮', desc: '结构不动：只在失败块顶加一行促成提示，动作行第一颗升为主按钮（高对比描边），其余动作靠后。' },
+  { key: 'D', name: '加码档：通栏警示带', desc: '失败块最顶部通栏红带 + 白底大号主按钮，命令紧贴；注意力最强，也是最重的一档。' }
+];
+const LOCATIONS = { single: '单插件面板', batch: '批量面板', slot: '槽位安装按钮' };
+const THEMES = { default: '默认主题', archive: 'D5 档案卷' };
+
+/* ───────────────────────── 状态与 URL ───────────────────────── */
+const params = new URLSearchParams(location.search);
+const state = {
+  variant: ['A', 'B', 'C', 'D'].includes(params.get('variant')) ? params.get('variant') : 'A',
+  location: LOCATIONS[params.get('location')] ? params.get('location') : 'single',
+  theme: THEMES[params.get('theme')] ? params.get('theme') : 'default',
+  mode: params.get('mode') === 'dark' ? 'dark' : 'light',
+  manualSource: ['frame', 'carried-over', 'none'].includes(params.get('manualSource')) ? params.get('manualSource') : 'frame',
+  fallback: params.get('fallback') === '1'
+};
+
+function syncUrl() {
+  const p = new URLSearchParams();
+  p.set('variant', state.variant);
+  p.set('location', state.location);
+  p.set('theme', state.theme);
+  p.set('mode', state.mode);
+  p.set('manualSource', state.manualSource);
+  if (state.fallback) p.set('fallback', '1');
+  history.replaceState(null, '', '?' + p.toString());
+}
+
+/* ───────────────────────── 判定（照 #171 D4 / #177 D4 口径，演示用） ───────────────────────── */
+function verdictOf() {
+  const subject = 'install-failed';
+  if (state.fallback) {
+    return { kind: 'salvageable', subject, routes: ['fallback-compliant', 'wait-until'] };
+  }
+  if (state.manualSource === 'carried-over') {
+    return { kind: 'unknown', subject, routes: [] };
+  }
+  if (state.manualSource === 'none') {
+    return { kind: 'dead-end', subject, routes: [] };
+  }
+  return { kind: 'last-resort', subject, routes: [] };
+}
+const KIND_TEXT = {
+  'last-resort': '最后手段：无救援路径且当帧命令可得 → 高亮',
+  salvageable: '有救援路径 → 不判定、不高亮',
+  'dead-end': '无救援路径且无命令 → 不高亮，走 #92 原因文案',
+  unknown: '判不出（命令不是当帧读数）→ 不高亮，引导重新查询'
+};
+
+/* ───────────────────────── 公共片段 ───────────────────────── */
+function banner() {
+  return '' +
+    '<div class="banner" data-kind="failed">' +
+      '<strong>更新失败 — 安装时进程退出（install-failed）</strong>' +
+      '<p class="banner-sub">详情：pnpm 安装超时后退出；原文摘录仅显示到这里。</p>' +
+    '</div>';
+}
+function subActions() {
+  return '<button type="button">重新查询</button>' +
+    '<button type="button">已知晓</button>' +
+    '<button type="button">复制诊断</button>';
+}
+function commandLine() { return '<code class="cmd">' + CMD + '</code>'; }
+function kindLine() {
+  return '<p class="kindline">判定：<span class="badge kind-' + verdictOf().kind + '">' + verdictOf().kind +
+    '</span> · ' + KIND_TEXT[verdictOf().kind] + '</p>';
+}
+
+/* 非最后手段三态：不高亮，但仍要把「为什么」说清（#92 / #177） */
+function nonLastResortBlock() {
+  const v = verdictOf();
+  if (v.kind === 'salvageable') {
+    return banner() + '<div class="actions"><button class="primary" type="button">安装合规版</button>' +
+      '<button type="button">等待新版</button>' + subActions() + '</div>' +
+      '<p class="note">有可用的自动救援路径（#156 合规版），不把手工命令当主角。</p>';
+  }
+  if (v.kind === 'unknown') {
+    return banner() + '<p class="kindline"><b>手工命令可能已过期</b>：失败回包没有带当帧命令，先重新查询，命令回来后再展示。</p>' +
+      '<div class="actions"><button type="button">重新查询</button><button type="button">复制诊断</button></div>';
+  }
+  return banner() + '<p class="kindline"><b>没有可安全执行的目标版本或参数</b>：候选都低于运行版、不在当前通道，或范围名无法安全拼进命令。请等新版发布后再查，或先按第 5.2 节的受阻原因修好环境。</p>' +
+    '<div class="actions"><button type="button">重新查询</button><button type="button">复制诊断</button></div>';
+}
+
+/* ───────────────────────── 四档形态 ───────────────────────── */
+function blockA() {
+  return '' +
+    '<div class="lr-A" data-last-resort="1">' +
+      '<div class="row1"><span class="lr-icon">⛔</span><strong>最后手段</strong>' +
+        '<span class="lr-label">自动恢复不可用</span></div>' +
+      '<div class="row2"><span class="reason">没有可用的自动救援路径；复制这条命令是唯一出路。</span>' +
+        '<button type="button" class="primary cta">📋 复制手工命令</button></div>' +
+      commandLine() +
+    '</div>' + banner() +
+    '<div class="actions">' + subActions(true) + '</div>' +
+    '<div class="chapter"><div class="chap-head"><span class="chap-no">05</span><h3 class="chap-title">手工备用命令</h3></div>' +
+      '<p class="note">最后手段：上方的命令入口已前置到失败块第一行。</p></div>';
+}
+function blockB() {
+  return '' +
+    banner() +
+    '<div class="lr-B" data-last-resort="1">' +
+      '<div class="card-icon">🛟</div>' +
+      '<div class="card-title">最后手段</div>' +
+      '<p class="card-sub">自动恢复不可用：没有替代执行路径；复制下面的命令到桌面 CLI 执行。</p>' +
+      commandLine() +
+      '<button type="button" class="primary cta">复制手工命令</button>' +
+      '<div class="hintline">最后手段 · 复制后在桌面 CLI 粘贴执行</div>' +
+    '</div>' +
+    '<div class="actions">' + subActions(true) + '</div>';
+}
+function blockC() {
+  return '' +
+    '<div class="lr-C" data-last-resort="1">' +
+      '<div class="promote"><span class="lr-icon">⛔</span><b>自动恢复不可用</b>：这次失败只能复制手工命令执行</div>' +
+      banner() +
+      '<div class="actions">' +
+        '<button type="button" class="primary cta">📋 复制手工命令</button>' + subActions(false) +
+      '</div>' +
+      '<details open class="chapter"><summary>05 · 手工备用命令</summary>' + commandLine() +
+        '<p class="note">按钮已前置到动作行第一颗；不再混在次要按钮里。</p></details>' +
+    '</div>';
+}
+function blockD() {
+  return '' +
+    '<div class="lr-D" data-last-resort="1">' +
+      '<div class="stripbar">' +
+        '<span class="lr-icon">⛔</span>' +
+        '<strong>最后手段</strong>' +
+        '<span class="lr-label label-ondark">自动恢复不可用</span>' +
+        '<span class="spacer"></span>' +
+        '<button type="button" class="cta">📋 复制手工命令</button>' +
+      '</div>' +
+      banner() + commandLine() +
+      '<div class="actions">' + subActions(true) + '</div>' +
+      '<p class="note">加码档：通栏警示带 + 白底大按钮；代价是视觉重量最高、可能压过失败原因本身。</p>' +
+    '</div>';
+}
+function lastResortBlock() {
+  if (state.variant === 'B') return blockB();
+  if (state.variant === 'C') return blockC();
+  if (state.variant === 'D') return blockD();
+  return blockA();
+}
+function failureBlock() {
+  const v = verdictOf();
+  return v.kind === 'last-resort' ? lastResortBlock() : nonLastResortBlock();
+}
+
+/* ───────────────────────── 三处落点 ───────────────────────── */
+function panelAttrs(extraClass) {
+  return 'class="dsh-upd' + (extraClass ? ' ' + extraClass : '') + '"' +
+    (state.theme === 'archive' ? ' data-theme="archive"' : '') +
+    (state.mode === 'dark' ? ' data-mode="dark"' : '');
+}
+function renderSingle() {
+  return '<div ' + panelAttrs() + '>' +
+      '<h1>演示插件</h1>' +
+      '<div class="meta">dsh-mattpocock-skills-deck · web 使用范围</div>' +
+      '<div class="strip">' +
+        '<div><span class="strip-k">运行版</span><span class="strip-v">1.7.45</span></div>' +
+        '<div><span class="strip-k">磁盘</span><span class="strip-v">1.7.45</span></div>' +
+        '<div><span class="strip-k">远端</span><span class="strip-v">1.7.46</span></div>' +
+      '</div>' +
+      failureBlock() +
+    '</div>';
+}
+function renderBatch() {
+  return '<div ' + panelAttrs('batch') + '>' +
+      '<h1>批量更新（3 个插件）</h1>' +
+      '<div class="meta">完成 1 · 失败 2</div>' +
+      '<div class="row"><span class="rname">demo-plugin-a</span><span class="rstate">已是最新</span><span class="rowbutton">详情</span></div>' +
+      '<div class="row"><span class="rname">demo-plugin-b</span><span class="rstate"><b>失败 · 待处理</b></span><span class="rowbutton">详情</span></div>' +
+      '<div class="row"><span class="rname">demo-plugin-c</span><span class="rstate"><b>失败 · 待处理</b></span><span class="rowbutton">详情</span></div>' +
+      '<div class="detail"><b>demo-plugin-b · 失败详情</b>' + failureBlock() + '</div>' +
+    '</div>';
+}
+function renderSlot() {
+  return '<div ' + panelAttrs('slot') + '>' +
+      '<h1>演示插件</h1>' +
+      '<div class="meta">槽位安装按钮（悬浮卡）</div>' +
+      '<div class="actions"><button type="button" class="primary">安装更新</button></div>' +
+      '<div class="detail"><details open><summary>手工命令（折叠区）</summary>' + kindLine() + failureBlock() + '</details></div>' +
+    '</div>';
+}
+function render() {
+  document.body.dataset.mode = state.mode;
+  const stage = document.getElementById('stage');
+  stage.innerHTML = state.location === 'batch' ? renderBatch() : state.location === 'slot' ? renderSlot() : renderSingle();
+  document.getElementById('variant-key').textContent = state.variant;
+  document.getElementById('variant-name').textContent = VARIANTS.find(v => v.key === state.variant).name;
+  // 判定外显
+  const v = verdictOf();
+  document.getElementById('verdict-line').innerHTML =
+    '<span class="badge kind-' + v.kind + '">' + v.kind + '</span>' +
+    '<span>subject=<code>' + v.subject + '</code></span>' +
+    '<span>routes=' + (v.routes.length ? v.routes.join(', ') : '(none)') + '</span>' +
+    '<span>manualSource=<code>' + (state.manualSource === 'none' ? 'null' : state.manualSource) + '</code></span>' +
+    '<span>fallbackAvailable=<code>' + state.fallback + '</code></span>';
+  document.getElementById('verdict-json').textContent = JSON.stringify({
+    kind: v.kind, subject: v.subject, routes: v.routes,
+    input: {
+      snapshot: { installState: { installed: true }, runningVersion: '1.7.45', registered: true },
+      manual: state.manualSource === 'none' ? null : CMD,
+      manualSource: state.manualSource === 'none' ? null : state.manualSource,
+      code: 'install-failed',
+      fallbackAvailable: state.fallback
+    }
+  }, null, 2);
+  syncUrl();
+}
+
+/* ───────────────────────── 控制台与切换条 ───────────────────────── */
+function setState(patch, rerender) {
+  Object.assign(state, patch);
+  document.querySelectorAll('[data-ctrl]').forEach(el => {
+    const name = el.dataset.ctrl;
+    if (el.classList.contains('seg')) {
+      el.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(state[name] === b.dataset.value)));
+    } else if (el.tagName === 'SELECT') {
+      el.value = state[name];
+    } else if (el.type === 'checkbox') {
+      el.checked = Boolean(state[name]);
+    }
+  });
+  if (rerender !== false) render();
+}
+document.querySelectorAll('.seg[data-ctrl]').forEach(seg => {
+  seg.addEventListener('click', ev => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    setState({ [seg.dataset.ctrl]: b.dataset.value });
+  });
+});
+document.querySelector('select[data-ctrl="manualSource"]').addEventListener('change', ev => {
+  setState({ manualSource: ev.target.value });
+});
+document.getElementById('fallback').addEventListener('change', ev => {
+  setState({ fallback: ev.target.checked });
+});
+function cycle(delta) {
+  const i = VARIANTS.findIndex(v => v.key === state.variant);
+  const next = VARIANTS[(i + delta + VARIANTS.length) % VARIANTS.length];
+  setState({ variant: next.key });
+}
+document.getElementById('prev').addEventListener('click', () => cycle(-1));
+document.getElementById('next').addEventListener('click', () => cycle(1));
+document.addEventListener('keydown', ev => {
+  const t = ev.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  if (ev.key === 'ArrowLeft') { ev.preventDefault(); cycle(-1); }
+  if (ev.key === 'ArrowRight') { ev.preventDefault(); cycle(1); }
+});
+
+/* 初始 */
+setState({});
+</script>
+</body>
+</html>
