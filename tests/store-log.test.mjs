@@ -2,17 +2,22 @@
  * tests/store-log.test.mjs —— 落盘 / 锁 / 队列的日志接线（#124 Node 侧）。
  *
  * 只测外部行为：用假 deps 注入发射口收行，断言「真边沿才发、发什么字段、值脱敏到什么程度」，
- * 以及不传端口时零行为差异（不抛、返回值一字不差）。钉住的四件事：
- *   1. 陈旧锁/拥有者被回收 → `update.lock.anomaly{kind:'stale-owner', ageMs}`；
+ * 以及不传端口时零行为差异（不抛、返回值一字不差）。钉住的五件事（#209 扩到持有者指纹/清理相位/
+ * 等待可见性与目录指纹）：
+ *   1. 陈旧锁/拥有者被回收 → `update.lock.anomaly{kind:'stale-owner', ageMs, ownerHash}`；
+ *      「别人正持有」现在发 `{kind:'busy-owner', ageMs, ownerHash}`（同一把锁连续只记一次）；
  *   2. 放锁/抢锁/队列写盘失败 → `update.lock.anomaly{kind:'release-failed'}` 与
- *      `update.store.fail{op, reason}`，reason 只许稳定短码，行里绝不出现路径原文；
+ *      `update.store.fail{op, reason, dirHash}`，reason 只许稳定短码、dirHash 只许 8 位十六进制，
+ *      行里绝不出现路径原文；
  *   3. 队列真跃迁才发 `update.queue.transition`，同状态连发多少次都只落一行（边沿触发）；
- *   4. 不传端口（或端口自己抛错）时，行为、返回值、抛错与今天一字不差。
+ *      跃迁行带持有者指纹，待办被摘牌按「过期清理 pruned / 主动放弃 abandoned」区分；
+ *   4. 不传端口（或端口自己抛错）时，行为、返回值、抛错与今天一字不差；
+ *   5. 三种事件的全部字段组合都对得上真清单（最后一节 mode:'throw'）。
  * 落盘走真实临时目录（前缀隔离），不碰生产路径；网络、子进程一律不用。
- * 最后一节把本文件真正会发的七种字段组合喂给真发射口（真清单 + mode:'throw'），证明白名单对得上。
  */
 import { describe, it, after, before } from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -27,14 +32,21 @@ import {
   emptyQueueState,
   enqueueInQueue,
   promoteHeadToOwner,
+  pruneExpiredIntents,
   releaseOwnerInQueue,
 } from '../dist/queue.js'
+import { hash8 } from '../dist/hash.js'
 
 /** 三个事件的字段白名单（逐字抄 event-list.update.json，多一格整行会被发射口丢掉）。 */
 const WHITELIST = {
-  'update.lock.anomaly': ['kind', 'ageMs'],
-  'update.store.fail': ['op', 'reason'],
-  'update.queue.transition': ['phase', 'waitedMs', 'position'],
+  'update.lock.anomaly': ['kind', 'ageMs', 'ownerHash'],
+  'update.store.fail': ['op', 'reason', 'dirHash'],
+  'update.queue.transition': ['phase', 'waitedMs', 'position', 'holderHash'],
+}
+
+/** 目录指纹口径（#209）：与 logDirHash 同族——sha256 前 8 位十六进制，不可逆。 */
+function dirHashOf(dir) {
+  return createHash('sha256').update(String(dir)).digest('hex').slice(0, 8)
 }
 
 const cleanups = []
@@ -107,12 +119,13 @@ describe('落盘层：陈旧锁回收与失败记账', () => {
     const anomalies = rec.rows.filter((row) => row.event === 'update.lock.anomaly')
     assert.equal(anomalies.length, 1)
     assert.equal(anomalies[0].level, 'warn')
-    assert.deepEqual(Object.keys(anomalies[0].fields).sort(), ['ageMs', 'kind'])
+    assert.deepEqual(Object.keys(anomalies[0].fields).sort(), ['ageMs', 'kind', 'ownerHash'])
     assert.equal(anomalies[0].fields.kind, 'stale-owner')
     assert.ok(
       anomalies[0].fields.ageMs >= 4000 && anomalies[0].fields.ageMs <= 20000,
       `ageMs 应是算出来的年龄，实得 ${anomalies[0].fields.ageMs}`
     )
+    assert.match(anomalies[0].fields.ownerHash, /^[0-9a-f]{8}$/, '持有者指纹是 8 位十六进制')
     assertRowsSane(rec.rows)
     assertNoPathText(rec.rows, [homeDir, profileDir, ports.paths.lock])
 
@@ -133,7 +146,7 @@ describe('落盘层：陈旧锁回收与失败记账', () => {
     const fails = rec.rows.filter((row) => row.event === 'update.store.fail')
     assert.equal(fails.length, 1)
     assert.equal(fails[0].level, 'warn')
-    assert.deepEqual(fails[0].fields, { op: 'release-lock', reason: 'eisdir' })
+    assert.deepEqual(fails[0].fields, { op: 'release-lock', reason: 'eisdir', dirHash: dirHashOf(ports.paths.directory) })
     const anomalies = rec.rows.filter((row) => row.event === 'update.lock.anomaly')
     assert.equal(anomalies.length, 1)
     assert.deepEqual(anomalies[0].fields, { kind: 'release-failed' })
@@ -155,16 +168,44 @@ describe('落盘层：陈旧锁回收与失败记账', () => {
     // 平台差异：Windows 把「锁位是目录」当 EEXIST 才轮到回收，POSIX 当场回 EISDIR。
     assert.ok(['acquire-lock', 'reclaim-stale-owner'].includes(fails[0].fields.op), fails[0].fields.op)
     assert.match(fails[0].fields.reason, /^[a-z][a-z0-9]*$/, 'reason 必须是稳定短码')
+    assert.equal(fails[0].fields.dirHash, dirHashOf(ports.paths.directory), '失败行带目录指纹')
+    assertRowsSane(rec.rows)
+    assertNoPathText(rec.rows, [homeDir, profileDir, ports.paths.lock])
+  })
+
+  it('安装锁被新鲜持有者占着：busy-owner 带年龄与持有者指纹，同一把锁连续只记一次', async () => {
+    const { homeDir, profileDir } = freshDirs('busy')
+    const rec = recorder()
+    const ports = createUpdateDiskPorts(homeDir, 'plugin-d', profileDir, { log: rec.log })
+    assert.ok(ports.paths)
+    mkdirSync(ports.paths.directory, { recursive: true })
+    const heldStartedAt = Date.now() - 250
+    writeFileSync(ports.paths.lock, JSON.stringify({ id: 'job-holder', pid: 4242, startedAt: heldStartedAt }))
+
+    assert.equal(await ports.tryAcquireLock('job-me'), false)
+    assert.equal(await ports.tryAcquireLock('job-me'), false)
+    const busyOf = () =>
+      rec.rows.filter((row) => row.event === 'update.lock.anomaly' && row.fields.kind === 'busy-owner')
+    assert.equal(busyOf().length, 1, '同一持有者连续两次：只记第一眼')
+    assert.ok(busyOf()[0].fields.ageMs >= 200, 'ageMs 是持有者已经拿了多久')
+    assert.match(busyOf()[0].fields.ownerHash, /^[0-9a-f]{8}$/)
+
+    // 换了一代持有者：指纹变了，值得再记一条（否则「谁在占」还是看不出来）。
+    writeFileSync(ports.paths.lock, JSON.stringify({ id: 'job-other', pid: 5151, startedAt: Date.now() }))
+    assert.equal(await ports.tryAcquireLock('job-me'), false)
+    assert.equal(busyOf().length, 2, '换持有者算新异常')
+    assert.notEqual(busyOf()[0].fields.ownerHash, busyOf()[1].fields.ownerHash)
     assertRowsSane(rec.rows)
     assertNoPathText(rec.rows, [homeDir, profileDir, ports.paths.lock])
   })
 })
 
 describe('队列层：真跃迁才发，同状态连发只落一行', () => {
-  it('入队 → 占位 → 摘牌各发一次，摘待办不算跃迁', async () => {
+  it('入队 → 占位 → 摘牌各发一次，摘待办记「放弃」相位并带持有者指纹', async () => {
     const { homeDir, profileDir } = freshDirs('edge')
     const rec = recorder()
-    const ports = createUpdateQueuePorts(homeDir, profileDir, { logFor: rec.logFor })
+    // 注入时钟让「取消待办」被判成主动放弃（abandoned）而不是过期清理（pruned）。
+    const ports = createUpdateQueuePorts(homeDir, profileDir, { logFor: rec.logFor, nowImpl: () => 6000 })
 
     const queued = enqueueInQueue(emptyQueueState(), { pluginId: 'p-a', requestId: 'r1', enqueuedAt: 1000 })
     await ports.writeQueue(queued.state)
@@ -185,18 +226,75 @@ describe('队列层：真跃迁才发，同状态连发只落一行', () => {
     await ports.writeQueue(parked.state)
     const cancelled = cancelEnqueuedInQueue(parked.state, 'p-b', 'r2')
     assert.equal(cancelled.removed, true)
-    await ports.writeQueue(cancelled.state) // 摘待办不是相位跃迁：不发
+    await ports.writeQueue(cancelled.state) // 摘待办是真事件（主动放弃）
 
     const transitions = rec.rows.filter((row) => row.event === 'update.queue.transition')
     assert.deepEqual(
       transitions.map((row) => `${row.pluginId}:${row.fields.phase}`),
-      ['p-a:queued', 'p-a:running', 'p-a:done', 'p-b:queued']
+      ['p-a:queued', 'p-a:running', 'p-a:done', 'p-b:queued', 'p-b:abandoned']
     )
     assert.ok(transitions.every((row) => row.level === 'info'))
     assert.equal(transitions[0].fields.position, 1, 'position 只有真知道位次时才给')
     assert.equal(transitions[0].fields.waitedMs, undefined, '还没开始装就没有等待时长')
     assert.equal(transitions[1].fields.waitedMs, 2000, 'waitedMs 是从占位到开始装真量到的时长')
     assert.equal(transitions[2].fields.position, undefined)
+    // #209：跃迁行带「此刻谁持有队列」的指纹；没主人可指时整格不给（不猜）。
+    // 字段叫 holderHash（队列持有者插件标识），与 lock.anomaly 的 ownerHash（锁内容指纹）刻意不同名。
+    assert.equal(transitions[0].fields.holderHash, undefined, '空队列没有持有者')
+    assert.equal(transitions[1].fields.holderHash, hash8('p-a'), '开装时持有者是自己')
+    assert.equal(transitions[2].fields.holderHash, hash8('p-a'), '摘牌行说明谁刚装完')
+    assert.equal(transitions[3].fields.holderHash, undefined)
+    assert.equal(transitions[4].fields.holderHash, undefined)
+    assert.equal(transitions[4].fields.phase, 'abandoned', '主动取消算放弃，不是过期清理')
+    assertRowsSane(rec.rows)
+    assertNoPathText(rec.rows, [homeDir, profileDir])
+  })
+
+  it('队列里过期意向被清理：发 pruned 相位，带上当前持有者指纹', async () => {
+    const { homeDir, profileDir } = freshDirs('prune')
+    const rec = recorder()
+    const ports = createUpdateQueuePorts(homeDir, profileDir, { logFor: rec.logFor, nowImpl: () => 50_000, ttlMs: 1000 })
+
+    // 持有者 p-a 在装；p-b 的意向已经很旧（2000ms > 1000ms 额度），prune 会把它清掉。
+    let state = enqueueInQueue(emptyQueueState(), { pluginId: 'p-a', requestId: 'r1', enqueuedAt: 48_500 }).state
+    state = promoteHeadToOwner(state, { jobId: 'job-a', startedAt: 49_000 }).state
+    state = enqueueInQueue(state, { pluginId: 'p-b', requestId: 'r2', enqueuedAt: 48_000 }).state
+    await ports.writeQueue(state)
+    const pruned = pruneExpiredIntents(state, 50_000, 1000)
+    assert.equal(pruned !== state, true, '夹具过期意向必须真被清掉')
+    await ports.writeQueue(pruned)
+
+    const transitions = rec.rows.filter((row) => row.event === 'update.queue.transition')
+    assert.deepEqual(
+      transitions.map((row) => `${row.pluginId}:${row.fields.phase}`),
+      ['p-a:running', 'p-b:pruned']
+    )
+    const cleanup = transitions[1]
+    assert.equal(cleanup.fields.holderHash, hash8('p-a'), '清理行说明当时谁持有队列')
+    assert.equal(cleanup.fields.position, undefined)
+    assertRowsSane(rec.rows)
+    assertNoPathText(rec.rows, [homeDir, profileDir])
+  })
+
+  it('一次写盘摘掉同一家的两条待办：两条各留一行（逐条主体各自成边沿）', async () => {
+    const { homeDir, profileDir } = freshDirs('prune-two')
+    const rec = recorder()
+    const ports = createUpdateQueuePorts(homeDir, profileDir, { logFor: rec.logFor, nowImpl: () => 50_000, ttlMs: 1000 })
+
+    let state = enqueueInQueue(emptyQueueState(), { pluginId: 'p-a', requestId: 'r1', enqueuedAt: 48_500 }).state
+    state = promoteHeadToOwner(state, { jobId: 'job-a', startedAt: 49_000 }).state
+    state = enqueueInQueue(state, { pluginId: 'p-c', requestId: 'r3', enqueuedAt: 48_000 }).state
+    state = enqueueInQueue(state, { pluginId: 'p-c', requestId: 'r4', enqueuedAt: 48_100 }).state
+    await ports.writeQueue(state)
+    const pruned = pruneExpiredIntents(state, 50_000, 1000)
+    assert.equal(pruned.waiting.length, 0, '两条同意向都被清掉')
+    await ports.writeQueue(pruned)
+
+    const cleaned = rec.rows.filter(
+      (row) => row.event === 'update.queue.transition' && row.fields.phase === 'pruned' && row.pluginId === 'p-c'
+    )
+    assert.equal(cleaned.length, 2, '同一相位、同一动作方，两条待办各有一行（否则第二条被指纹吞掉）')
+    assert.deepEqual(cleaned.map((row) => row.fields.holderHash), [hash8('p-a'), hash8('p-a')])
     assertRowsSane(rec.rows)
     assertNoPathText(rec.rows, [homeDir, profileDir])
   })
@@ -210,18 +308,25 @@ describe('队列层：真跃迁才发，同状态连发只落一行', () => {
     assert.equal(await ports.tryAcquireGlobalLock('job-a', 'p-a', { timeoutMs: 1000 }), true)
     now += 500
     assert.equal(await ports.tryAcquireGlobalLock('job-b', 'p-b', { timeoutMs: 1000 }), false)
-    assert.equal(rec.rows.length, 0, '不陈旧就别发任何行')
+    // #209：锁被别人新鲜持有也要能说出「被谁持有、持有多久」——按持有者指纹连续只记一次。
+    const busy = rec.rows.filter((row) => row.event === 'update.lock.anomaly' && row.fields.kind === 'busy-owner')
+    assert.equal(busy.length, 1, '新鲜锁占着：发一条 busy-owner')
+    assert.equal(busy[0].fields.ageMs, 500, '持有者已经拿了多久')
+    assert.match(busy[0].fields.ownerHash, /^[0-9a-f]{8}$/)
+    assert.equal(busy[0].pluginId, 'p-b', '动作方是来抢锁的那家')
     now += 600
     assert.equal(await ports.tryAcquireGlobalLock('job-b', 'p-b', { timeoutMs: 1000 }), true)
 
     const anomalies = rec.rows.filter((row) => row.event === 'update.lock.anomaly')
-    assert.equal(anomalies.length, 1)
-    assert.equal(anomalies[0].fields.kind, 'stale-owner')
-    assert.equal(anomalies[0].fields.ageMs, 1100)
-    assert.equal(anomalies[0].pluginId, 'p-b', '动作方是来抢锁的那家')
+    assert.equal(anomalies.length, 2, '先 busy-owner 后 stale-owner，各一条')
+    assert.equal(anomalies[1].fields.kind, 'stale-owner')
+    assert.equal(anomalies[1].fields.ageMs, 1100)
+    assert.equal(anomalies[1].fields.ownerHash, busy[0].fields.ownerHash, '两行说的是同一个被摘掉的持有者')
+    assert.equal(anomalies[1].pluginId, 'p-b', '动作方是来抢锁的那家')
     const transitions = rec.rows.filter((row) => row.event === 'update.queue.transition')
     assert.deepEqual(transitions.map((row) => row.fields.phase), ['reclaimed'])
     assert.equal(transitions[0].pluginId, 'p-b')
+    assert.equal(transitions[0].fields.holderHash, hash8('p-b'), '回收后锁到了动作方手里')
     assertRowsSane(rec.rows)
     assertNoPathText(rec.rows, [homeDir, profileDir, ports.paths.lock])
 
@@ -251,7 +356,11 @@ describe('队列层：真跃迁才发，同状态连发只落一行', () => {
     )
     const fails = rec.rows.filter((row) => row.event === 'update.store.fail')
     assert.equal(fails.length, 1)
-    assert.deepEqual(fails[0].fields, { op: 'write-queue', reason: 'eexist' })
+    assert.deepEqual(fails[0].fields, {
+      op: 'write-queue',
+      reason: 'eexist',
+      dirHash: dirHashOf(queuePaths.directory),
+    })
     assert.equal(fails[0].pluginId, 'p-b', '按跃迁那家的标识路由')
     assert.equal(rec.rows.filter((row) => row.event === 'update.queue.transition').length, 0, '没写成就不发跃迁')
     assertRowsSane(rec.rows)
@@ -394,35 +503,54 @@ describe('与真发射口对得上', () => {
     router.bind('p-a', { fire: (level, event, fields) => rows.push({ level, event, fields }) })
     const emitter = createLogEmitter({ resolve: (id) => router.resolve(id), table: () => table, mode: 'throw' })
 
-    // 逐字照抄 src/store.ts 里真正会发的那几种字段组合。
-    assert.equal(emitter.emit('warn', 'update.store.fail', { op: 'release-lock', reason: 'eisdir' }, { pluginId: 'p-a' }), true)
-    assert.equal(emitter.emit('warn', 'update.store.fail', { op: 'write-queue', reason: 'eexist' }, { pluginId: 'p-a' }), true)
-    assert.equal(emitter.emit('warn', 'update.lock.anomaly', { kind: 'stale-owner', ageMs: 1100 }, { pluginId: 'p-a' }), true)
+    // 逐字照抄 src/store.ts 里真正会发的那几种字段组合（#209 起带目录/持有者指纹与清理相位）。
+    const dirHash = dirHashOf('some-directory')
+    const ownerHash = hash8('p-a')
+    assert.equal(
+      emitter.emit('warn', 'update.store.fail', { op: 'release-lock', reason: 'eisdir', dirHash }, { pluginId: 'p-a' }),
+      true
+    )
+    assert.equal(
+      emitter.emit('warn', 'update.store.fail', { op: 'write-queue', reason: 'eexist', dirHash }, { pluginId: 'p-a' }),
+      true
+    )
+    assert.equal(
+      emitter.emit('warn', 'update.lock.anomaly', { kind: 'stale-owner', ageMs: 1100, ownerHash }, { pluginId: 'p-a' }),
+      true
+    )
+    assert.equal(
+      emitter.emit('warn', 'update.lock.anomaly', { kind: 'busy-owner', ageMs: 500, ownerHash }, { pluginId: 'p-a' }),
+      true
+    )
     assert.equal(emitter.emit('warn', 'update.lock.anomaly', { kind: 'release-failed' }, { pluginId: 'p-a' }), true)
-    assert.equal(
-      emitter.emit('info', 'update.queue.transition', { phase: 'queued', position: 1 }, { pluginId: 'p-a', fingerprint: 'p-a\u0000queued' }),
-      true
-    )
-    assert.equal(
-      emitter.emit('info', 'update.queue.transition', { phase: 'running', waitedMs: 2000 }, { pluginId: 'p-a', fingerprint: 'p-a\u0000running' }),
-      true
-    )
-    assert.equal(
-      emitter.emit('info', 'update.queue.transition', { phase: 'done' }, { pluginId: 'p-a', fingerprint: 'p-a\u0000done' }),
-      true
-    )
-    assert.equal(rows.length, 7, '白名单对不上的行会被丢掉，行数少了就是字段名写错了')
+    const info = (phase, salt = '') => ({ pluginId: 'p-a', fingerprint: `p-a\u0000${phase}\u0000${salt}` })
+    const holderHash = hash8('p-a')
+    for (const fields of [
+      { phase: 'queued', position: 1, holderHash },
+      { phase: 'running', waitedMs: 2000, holderHash },
+      { phase: 'done', holderHash },
+      { phase: 'reclaimed', holderHash: hash8('p-b') },
+      { phase: 'pruned', holderHash },
+      { phase: 'abandoned' },
+    ]) {
+      assert.equal(emitter.emit('info', 'update.queue.transition', fields, info(fields.phase)), true)
+    }
+    assert.equal(rows.length, 11, '白名单对不上的行会被丢掉，行数少了就是字段名写错了')
     assert.deepEqual(rows.map((row) => row.event), [
       'update.store.fail',
       'update.store.fail',
       'update.lock.anomaly',
       'update.lock.anomaly',
+      'update.lock.anomaly',
+      'update.queue.transition',
+      'update.queue.transition',
+      'update.queue.transition',
       'update.queue.transition',
       'update.queue.transition',
       'update.queue.transition',
     ])
     assert.equal(emitter.counts().dropped, 0)
-    // 反向自证：多带一格自由文本，真发射口只摘该字段并记降级（dev 模式选择抛而不是静默摘）；上面 7 行是过了校验的。
+    // 反向自证：多带一格自由文本，真发射口只摘该字段并记降级（dev 模式选择抛而不是静默摘）；上面这些行是过了校验的。
     assert.throws(
       () =>
         emitter.emit(
@@ -444,7 +572,7 @@ describe('与真发射口对得上', () => {
     assert.equal(degraded.length, 1, '同一进程同一原因只记一条降级')
     assert.equal(degraded[0].fields.reason, 'emit-threw')
     const landed = rows.filter((row) => row.event !== 'update.log.degraded')
-    assert.equal(landed.length, 7, 'dev 模式在发射前就抛，落点仍只有先前 7 行')
+    assert.equal(landed.length, 11, 'dev 模式在发射前就抛，落点仍只有先前通过校验的行')
     assert.ok(!JSON.stringify(landed).includes('someone'), '自由文本一格都不许落')
   })
 })

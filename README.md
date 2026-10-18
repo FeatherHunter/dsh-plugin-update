@@ -381,9 +381,9 @@ mountUpdateBatchPanelHttp(document.querySelector('#batch'), {
 **批次日志与落点（一批出问题时先看这里）**：批量更新比单插件多一层「一批」的概念。日志里用三条常驻行回答三个问题——这批什么时候起的（`update.batch.entry.request`）、哪一家卡在哪一步（`update.batch.entry.fail`）、这批为什么停（`update.batch.summary`）。
 
 - 同一批的三条行靠 `sessionHash` 串起来：它是批次编号的 8 位指纹，三条行都带，只说明「同一批」，不带插件名清单——行可以落在不同插件目录，聚合认这一格，不认目录。
-- 失败行带 `stage` 与 `index`。`stage` 是失败阶段：`check`（查询，含装前重查）、`install`（提交安装）、`timeout`（等安装终态超时）、`settle`（收尾，装到终态才失败）；`index` 是该目标在**整批**里的 0 基序号（只推进选中的几行时仍按整批序号算；算不出时这一格不出现，不拿 0 冒充第一家）。`exitCode` 只在真拿到退出码时出现。
-- 总账行带 `stoppedBecause` 说明这批为什么停：`finished`（全部跑完——**不代表没失败**，失败数看 `failed`）、`stopped-after-failure`（遇错按策略停）、`max-steps`（本轮步数预算用完，等下一轮接着推）、`empty`（没有可推进的目标）、`queued`（目标进了队列还没轮到，不是失败）。值来自最近一次推进的读数，没推进过按 `finished`。
-- 七个批量电话（`<前缀>.batchStatus` 等）各自失败时也留一行 `host.call.fail`：`method` 是全名（如 `life.batchCheck`）、`kind` 是短名；同一通电话连续同一种错只记首次（成功即清记忆），所以 `batchStatus` 每 1.5 秒轮询失败也不会灌爆目录。
+- 失败行带 `stage` 与 `index`。`stage` 是失败阶段：`check`（查询，含装前重查——**预查就失败的目标也落这一行**）、`install`（提交安装）、`timeout`（等安装终态超时）、`settle`（收尾，装到终态才失败）；`index` 是该目标在**整批**里的 0 基序号（只推进选中的几行时仍按整批序号算；算不出时这一格不出现，不拿 0 冒充第一家）。`exitCode` 只在真拿到退出码时出现。预查抛异常、拿不到稳定码时 `errorKind` 记 `'unknown'`（异常原话可能带路径/URL，不进日志）。
+- 总账行带 `stoppedBecause` 说明这批为什么停：`finished`（全部跑完——**不代表没失败**，失败数看 `failed`）、`stopped-after-failure`（遇错按策略停）、`max-steps`（本轮步数预算用完，等下一轮接着推）、`empty`（没有可推进的目标）、`queued`（目标进了队列还没轮到，不是失败）、`user-cancel`（用户取消整批）、`error`（驱动抛异常，含后台续跑）。值来自最近一次推进的读数，没推进过按 `finished`。**这批没跑完就停下时**（`queued` / `stopped-after-failure` / `user-cancel` / `error`）在停下那一刻另记一条同字段行，同一会话同一原因只记一次——所以「为什么停」不会只留在内存里。
+- 七个批量电话（`<前缀>.batchStatus` 等）各自失败时也留一行 `host.call.fail`：`method` 是全名（如 `life.batchCheck`）、`kind` 是短名；同一通电话连续同一种错只记首次（成功即清记忆）。状态轮询失败另有时间预算：按 (pluginId, method) 首次一条、持续失败每 5 分钟一条心跳（窗口内错误码变化不额外落行，下次心跳带当时原因）、下一次成功清记忆（600 次轮询失败 ≤ 12 行/小时），所以 `batchStatus` 每 1.5 秒轮询失败也不会灌爆目录。
 
 落点（认目录就知道这行说的是谁的事）：
 
@@ -623,6 +623,7 @@ dsh plugin --profile my-web add --save-exact my-notes-plugin@1.2.3 --registry=ht
 - 同一使用范围的全部插件共用一个队列（目录与按插件隔离的落盘树平级，任何插件标识都撞不上），一次只装一个；不同使用范围各用各的、可并行。
 - 公平先进先出：非队首直接 `update-busy`（沿用旧码），忙时去查状态补看位置；取消只能撤自己的排队占位，装上了只能等收尾。
 - 三个电话另收四个可选参数（不传即老样子）：`includeQueue: true` 顺带回队列视图，`showOthers: true` 才看他人明细（默认只看自己的，他人仅露“正忙”占位）；装更新另有 `enqueueOnly: true`（只取号不装）与 `cancelQueued: true`（撤自己的号），配 `requestId` 用。
+- **卡住时先看日志**（第 10 节那套，`warn` 恒落盘）：`update.lock.anomaly{kind:'busy-owner'}` 说明锁被新鲜持有者占着——`ageMs` 是它已持有多久（量不出时省略）、`ownerHash` 是锁内容（持有者身份/进程/时间）的指纹；`update.queue.transition` 的 `phase` 除取号/开始/摘牌外还有 `reclaimed`（陈旧锁回收成功）、`pruned`（意向过期被清理）与 `abandoned`（主动放弃），行里 `holderHash` 是当时持有队列那家的指纹；`update.store.fail{op,reason,dirHash}` 说明落盘失败在哪一步、哪个目录（目录只给 8 位指纹，不给路径）。
 
 ### 5.8 更新说明
 
@@ -828,9 +829,9 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 **启动头自述（`0.16.4` 起）。**建库时 dsh-log 会在目录里写一行 `host.start`（`0.3.4` 起幂等：同一个实例只写一行），本包在那一行填 `pluginVersion` —— 本包自己的版本号（`ownPackageVersion()` 读随包 `package.json`，可用 `acquireOwnLog({ pluginVersion })` 覆盖成你那一版），`os` 由引擎记。交日志时对方先看这一行，就知道「这堆行出自哪一版」。
 
-**事件：三个旧事件形状冻结，`update.*` 按环节铺开。**`host.call`、`host.call.fail`、`update.install.exec` 的名字一字不动；字段只有一次破冰加格——`host.call.fail` 自 #150 起多一格 `error`（与回包同一稳定码，旧读数忽略未知格，余下两事件字段仍冻结）。`#207` 起新增常驻 `warn` 事件 `update.install.fail`：一次安装失败**恰好一行**（同一请求重试或再次点击就是再次失败，各自一行；要串起来用 `intentHash`），字段回答三件事——失败在哪个阶段（`stage`：`gate` 闸门拒绝 / `exec` 宿主执行 / `verify` 装后校验）、原因属于哪一类（`reason` 十二值枚举：宿主拒绝、超时、崩溃、非零退出、起进程失败、终止失败、版本不符、未在册、环境阻拦、空更新、闸门拒绝、未知）、走过哪些校验（`check`）、本包错误码（`code`，与回包同一稳定码集，`none` 表示没有码）与宿主侧稳定码的短指纹（`hostCodeHash`，宿主原话/原码不进日志）、退出码与观察到的版本（只有合法版本号才写，否则省略），以及 `intentHash`（`hash8(requestId)`，把这次点击的请求行、失败行与诊断回包聚成一组；老请求没有请求编号时退用任务号）。`update.install.request` 同步多一格可选 `intentHash`；`update.install.exec` 与 `update.install.verify` 的形状一字不动，失败原因只在新事件里出现一次，不在两处重复。新增事件按 19 个环节（检查、源查询、通道、安装、校验、重试、队列、批量、重启、面板…）命名，全表与字段白名单在包内 `event-list.update.json`，是实现的唯一事实源。日志行**只承载稳定码与参数**，人话留给面板与诊断渲染（ADR-0006）——所以日志里不会出现「安装失败：……」这类句子。
+**事件：三个旧事件形状冻结，`update.*` 按环节铺开。**`host.call`、`host.call.fail`、`update.install.exec` 的名字一字不动；字段只有一次破冰加格——`host.call.fail` 自 #150 起多一格 `error`（与回包同一稳定码，旧读数忽略未知格，余下两事件字段仍冻结）。`#207` 起新增常驻 `warn` 事件 `update.install.fail`：一次安装失败**恰好一行**（同一请求重试或再次点击就是再次失败，各自一行；要串起来用 `intentHash`），字段回答三件事——失败在哪个阶段（`stage`：`gate` 闸门拒绝 / `exec` 宿主执行 / `verify` 装后校验）、原因属于哪一类（`reason` 十二值枚举：宿主拒绝、超时、崩溃、非零退出、起进程失败、终止失败、版本不符、未在册、环境阻拦、空更新、闸门拒绝、未知）、走过哪些校验（`check`）、本包错误码（`code`，与回包同一稳定码集，`none` 表示没有码）与宿主侧稳定码的短指纹（`hostCodeHash`，宿主原话/原码不进日志）、退出码与观察到的版本（只有合法版本号才写，否则省略），以及 `intentHash`（`hash8(requestId)`，把这次点击的请求行、失败行与诊断回包聚成一组；老请求没有请求编号时退用任务号）。`update.install.request` 同步多一格可选 `intentHash`；`update.install.exec` 与 `update.install.verify` 的形状一字不动，失败原因只在新事件里出现一次，不在两处重复。既有常驻行也按现场补细节：`update.queue.transition` 增 `holderHash`（当时持有队列那家的指纹；`lock.anomaly` 的 `ownerHash` 是锁内容指纹，两者刻意不同名）与 `pruned` / `abandoned` 两个「待办被摘」相位（过期清理 / 主动放弃，行落被摘那家）；`update.lock.anomaly` 实发 `ownerHash` 并扩 `busy-owner`（锁被新鲜持有者占着，`ageMs` 是它已持有多久，量不出时省略）；`update.store.fail` 实发 `dirHash`（失败目录的 8 位指纹，绝不给路径原文）；`update.batch.summary` 的 `stoppedBecause` 扩 `user-cancel` / `error`，批量没跑完就停下时另记一条同字段行（2.6 节）。事件总数与档位不变。新增事件按 19 个环节（检查、源查询、通道、安装、校验、重试、队列、批量、重启、面板…）命名，全表与字段白名单在包内 `event-list.update.json`，是实现的唯一事实源。日志行**只承载稳定码与参数**，人话留给面板与诊断渲染（ADR-0006）——所以日志里不会出现「安装失败：……」这类句子。
 
-**噪声预算。**轮询看状态**一条常驻行都不落**——第一次也不算事件（它的第一次观测没有可比的上次），状态真变了才留一条 `update.status.changed` 供追溯；稳态一天不超过 50 行，一个操作日不超过 500 行。`info` 只在调试开关打开或事件是常驻时落盘；`warn`、`error` 始终落盘。检查电话与安装电话另各收一个**只进日志**的可选参数（`trigger`、`from`），不传即老样子。
+**噪声预算。**轮询看状态**一条常驻行都不落**——第一次也不算事件（它的第一次观测没有可比的上次），状态真变了才留一条 `update.status.changed` 供追溯；稳态一天不超过 50 行，一个操作日不超过 500 行。状态轮询**失败**也有预算：按 (pluginId, method) 首次一条 `host.call.fail`、持续失败每 **5 分钟**一条心跳（窗口内错误码变化不额外落行）、下一次成功清记忆（600 次轮询失败 ≤ 12 行/小时；实测 600 次 → 2 行）；非轮询电话失败一行一通，不设时间窗。`info` 只在调试开关打开或事件是常驻时落盘；`warn`、`error` 始终落盘。检查电话与安装电话另各收一个**只进日志**的可选参数（`trigger`、`from`），不传即老样子。
 
 **开关：默认关着，改了要重启。**`info` 的准入由 dsh-log 的开关文件决定：`<DSH_HOME>/logs/log-switch-<派生命名空间>.json`，内容就是 `{ "enabled": false }`，默认关。注意它在 `logs/` **根下**、与日志目录平级，不是目录里的文件（`pluginId` 恰为 `wf` 时文件名退化为 `log-switch.json`）。三件事要知道：① 它只管**按需**事件——`warn`/`error` 与常驻事件不受它影响（本包 27 条事件里 20 条恒落、7 条受它管）；② dsh-log 在实例启动时把开关读进内存后**永久缓存**，运行中改这个 JSON 对活着的实例无效，**要重启宿主**才生效。本包不注册 dsh-log 的宿主日志电话（`logGetSwitch`/`logSetSwitch` 等六个都不注册），所以没有「在面板里拧开关」这条路；③ 按需事件里有两行是取数证据——通道回退与更新说明 tarball 取数的 `update.registry.fetch`（`0.19.0` 起接上）：默认开关关着时它们不落盘，但**常驻**的检查成功行 `update.check.done` 会带 `fallback` / `dataSource`，照样回答「这次走没走回退」。
 

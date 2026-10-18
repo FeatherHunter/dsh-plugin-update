@@ -72,7 +72,14 @@ function eligibleEnv(installedVersion) {
 }
 
 /** 装好之后磁盘上就是新版（运行版仍是旧的 → 需要重启）。 */
-function makeHost({ pluginId = TARGET, installed = '1.0.0', fetchImpl = fakeFetch(), runningVersion = '1.0.0' } = {}) {
+function makeHost({
+  pluginId = TARGET,
+  installed = '1.0.0',
+  fetchImpl = fakeFetch(),
+  runningVersion = '1.0.0',
+  clock = () => 1_000_000,
+  readInstalled,
+} = {}) {
   const fires = []
   let onDisk = installed
   const host = createHostUpdate(
@@ -84,14 +91,14 @@ function makeHost({ pluginId = TARGET, installed = '1.0.0', fetchImpl = fakeFetc
         profileName: 'web',
         homeDir: 'C:\\fake\\home',
         fetchImpl,
-        now: () => 1_000_000,
+        now: clock,
         randomId: (() => {
           let n = 0
           return () => `id-${(n += 1)}`
         })(),
         nodeVersion: '22.0.0',
         environmentKind: 'cli',
-        readInstalled: async () => eligibleEnv(onDisk),
+        readInstalled: readInstalled ?? (async () => eligibleEnv(onDisk)),
         ...memoryStore(),
         runInstall: async () => {
           onDisk = RELEASE_VERSION
@@ -250,6 +257,103 @@ describe('#124 轮询噪声治理：status.changed 与 host.call 抑制', () => 
     assert.equal(pollRows().length, 1)
     await host.handlers['wf.updateStatus']({})
     assert.equal(pollRows().length, 1)
+  })
+})
+
+describe('#209 常驻 warn 限速：轮询失败按心跳落行，恢复清记忆', () => {
+  const FAIL_KEYS = ['error', 'errorHash', 'kind', 'method', 'pluginId']
+
+  it('一小时 600 次轮询失败：首条立即 + 每 5 分钟一条心跳，≤12 行', async () => {
+    let nowMs = 1_000_000
+    const mode = { failing: false }
+    const { host, fires } = makeHost({
+      clock: () => nowMs,
+      readInstalled: async () => {
+        if (mode.failing) throw new Error('network down')
+        return eligibleEnv('1.0.0')
+      },
+    })
+
+    mode.failing = true
+    for (let i = 0; i < 600; i += 1) {
+      nowMs = 1_000_000 + i * 1_000
+      const out = await host.handlers['wf.updateStatus']({})
+      assert.equal(out.ok, false)
+    }
+    const fails = rows(fires, 'host.call.fail')
+    // 600 次落在 10 分钟内：首条立即，之后每 5 分钟一条心跳 → 2 条；一小时上限是 12 条。
+    assert.equal(fails.length, 2, '同码持续失败不刷屏：首条 + 5 分钟心跳')
+    assert.ok(fails.length <= 12, '验收口径：600 次轮询失败 ≤12 行/小时')
+    for (const row of fails) {
+      assert.equal(row.level, 'warn')
+      assert.deepEqual(keysOf(row.fields), FAIL_KEYS)
+      assert.equal(row.fields.method, 'wf.updateStatus')
+      assert.equal(typeof row.fields.kind, 'string')
+      assert.match(row.fields.errorHash, /^[0-9a-f]{8}$/)
+    }
+
+    // 恢复清记忆：成功一次后下一分钟再失败 → 重新立即落一条，不等心跳。
+    mode.failing = false
+    nowMs += 30_000
+    await host.handlers['wf.updateStatus']({})
+    mode.failing = true
+    nowMs += 30_000
+    await host.handlers['wf.updateStatus']({})
+    assert.equal(rows(fires, 'host.call.fail').length, 3, '恢复后清记忆，再次失败重新记一条')
+  })
+
+  it('心跳未到同码不重复，满 5 分钟再一条；非轮询电话保持每次一条', async () => {
+    let nowMs = 1_000_000
+    const mode = { failing: false }
+    const { host, fires } = makeHost({
+      clock: () => nowMs,
+      fetchImpl: fakeFetch({ failing: true }),
+      readInstalled: async () => {
+        if (mode.failing) throw new Error('network down')
+        return eligibleEnv('1.0.0')
+      },
+    })
+    mode.failing = true
+    for (let i = 0; i < 10; i += 1) await host.handlers['wf.updateStatus']({})
+    const pollFails = () => fires.filter((f) => f.event === 'host.call.fail' && f.fields.method === 'wf.updateStatus')
+    assert.equal(pollFails().length, 1, '同一失败阶段只落首条')
+
+    nowMs += 4 * 60_000
+    await host.handlers['wf.updateStatus']({})
+    assert.equal(pollFails().length, 1, '未到心跳窗口不重复')
+
+    nowMs += 60_000
+    await host.handlers['wf.updateStatus']({})
+    assert.equal(pollFails().length, 2, '满 5 分钟落一条心跳')
+
+    // 非轮询电话不受轮询限速影响：连续失败各落一条（#124 既有口径不变）。
+    await host.handlers['wf.updateCheck']({})
+    await host.handlers['wf.updateCheck']({})
+    const checkFails = fires.filter((f) => f.event === 'host.call.fail' && f.fields.method === 'wf.updateCheck')
+    assert.equal(checkFails.length, 2)
+  })
+
+  it('错误码中途换掉也绕不开时间窗：限速只按 (pluginId, method) 的时钟', async () => {
+    let nowMs = 1_000_000
+    let attempt = 0
+    const { host, fires } = makeHost({
+      clock: () => nowMs,
+      readInstalled: async () => {
+        attempt += 1
+        // 两个合法的核心码前后交替：按「同码」限速会在换码时多落行，按时间窗限速不会。
+        throw Object.assign(new Error('poll failed'), { code: attempt > 300 ? 'install-failed' : 'update-busy' })
+      },
+    })
+
+    for (let i = 0; i < 600; i += 1) {
+      nowMs = 1_000_000 + i * 1_000
+      const out = await host.handlers['wf.updateStatus']({})
+      assert.equal(out.ok, false)
+    }
+    const fails = rows(fires, 'host.call.fail')
+    assert.equal(fails.length, 2, '换错误码不外落行：首条 + 5 分钟心跳')
+    assert.ok(fails.length <= 12, '验收口径：600 次轮询失败 ≤12 行/小时')
+    assert.notEqual(fails[0].fields.error, fails[1].fields.error, '心跳行带的是当时的原因，不是首条那份')
   })
 })
 

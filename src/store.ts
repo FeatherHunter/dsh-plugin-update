@@ -24,7 +24,8 @@ import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { installRecipe, normalizeApprovedBuilds, shellSafeArg } from './commands.js'
 import { BACKUP_FILE, DEFAULT_INSTALL_TIMEOUT_MS, LEGACY_PLUGIN_ID, LOCK_FILE, SKIPPED_FILE, STATE_FILE } from './config.js'
 import { emptyBatchSession, normalizeBatchSession, type BatchSession } from './batch.js'
-import { normalizeQueueState, type QueueOwner, type UpdateQueueState } from './queue.js'
+import { QUEUE_INTENT_TTL_MS, normalizeQueueState, type QueueOwner, type UpdateQueueState } from './queue.js'
+import { hash8 } from './hash.js'
 import { validReleaseVersion } from './service.js'
 import { DETAIL_MAX_CHARS, MASKED_CREDENTIAL_NOTE, sanitizeDetail } from './redaction.js'
 import { LOG_EVENT_INSTALL_EXEC } from './log-events.js'
@@ -51,17 +52,36 @@ function shortHash(text: string): string {
   }
 }
 
+/** 目录短指纹（#209）：与 `logDirHash` 同族（sha256 前 8 位十六进制），只做同一性聚合，不可逆。 */
+function shortHash8(text: string): string {
+  return shortHash(text).slice(0, 8)
+}
+
+/** 持有者指纹（#209）：从锁文件里记得下的稳定量算 8 位短哈希，绝不入原文（ADR-0006）。 */
+function lockOwnerHash(owner: Record<string, unknown> | null | undefined): string | undefined {
+  if (!owner) return undefined
+  const parts: string[] = []
+  for (const key of ['pluginId', 'id', 'pid', 'startedAt']) {
+    const value = owner[key]
+    if (typeof value === 'string' && value) parts.push(`${key}:${value}`)
+    else if (typeof value === 'number' && Number.isFinite(value)) parts.push(`${key}:${value}`)
+  }
+  return parts.length > 0 ? hash8(parts.join('|')) : undefined
+}
+
 // ---- #124 日志接线：本文件负责的三个事件的落点辅助 ----
 // 事件名单源本该是 src/log-events.ts，但那一行不在本票的写域内；这里按随包清单
 // event-list.update.json 的名字逐字引用（字段白名单在唯一发射口校验，多一格整行会被丢掉）。
 const LOG_EVENT_LOCK_ANOMALY = 'update.lock.anomaly'
 const LOG_EVENT_STORE_FAIL = 'update.store.fail'
 const LOG_EVENT_QUEUE_TRANSITION = 'update.queue.transition'
-/** 锁异常 kind（清单口径逐字）：陈旧拥有者被回收 / 放锁失败。
+/** 锁异常 kind（清单口径逐字）：陈旧拥有者被回收 / 放锁失败 / 锁被新鲜持有者占着。
  *  `busy-timeout` 不在这里出现是有意的：本文件两条抢锁路径都是「看一眼，不陈旧就当场认输」，
  *  没有「等待/重试到超时才放弃」的路径，不为了凑齐词汇造一条。 */
 const LOCK_ANOMALY_STALE_OWNER = 'stale-owner'
 const LOCK_ANOMALY_RELEASE_FAILED = 'release-failed'
+/** #209：被新鲜持有者挡住的试抢也发一条——不然调用方只看到 `update-busy`，不知道是谁、拿了多久。 */
+const LOCK_ANOMALY_BUSY_OWNER = 'busy-owner'
 
 /**
  * 失败原因白名单（ADR-0006）：行里只许出现稳定短码，所以 `error.code` 先过白名单再入行，
@@ -201,6 +221,17 @@ function lockAgeOf(probe: LockProbe, nowMs: number): number | undefined {
   return (probe.owner ? lockAgeMs(probe.owner, nowMs) : undefined) ?? (probe.mtimeMs === undefined ? undefined : nowMs - probe.mtimeMs)
 }
 
+/**
+ * 全局锁的年龄（#209 修）：锁里写了 `startedAt` 就按本端逻辑钟比（注入时钟的测试/宿主能走通）；
+ * 缺格、不可解析就退回 mtime，而 mtime 是文件系统的**真墙钟**——必须用 `Date.now()` 比。
+ * 否则宿主注入的假时钟会把「一小时前」看成未来时间，陈旧锁永远回收不了（#181 的回归点）。
+ */
+function queueLockAge(probe: LockProbe, nowMs: number): number | undefined {
+  const fromStamp = probe.owner ? lockAgeMs(probe.owner, nowMs) : undefined
+  if (fromStamp !== undefined) return fromStamp
+  return probe.mtimeMs === undefined ? undefined : Date.now() - probe.mtimeMs
+}
+
 /** 锁位还是不是刚才那一代（回收动手前的二次核对，缩小「判陈旧 → 删锁」之间被别人重建的竞态窗口）。 */
 function sameLockGeneration(before: LockProbe, after: LockProbe): boolean {
   return (
@@ -213,6 +244,9 @@ function sameLockGeneration(before: LockProbe, after: LockProbe): boolean {
   )
 }
 
+/** 队列跃迁相位（#209）：与字段清单 `update.queue.transition.phase` 的枚举逐字一致。 */
+type QueueTransitionPhase = 'queued' | 'running' | 'done' | 'reclaimed' | 'pruned' | 'abandoned'
+
 interface StoreLogPorts {
   /** 有没有可用发射口：没有就一行额外读盘都不做（行为、返回值、时序与今天一字不差）。 */
   enabled(): boolean
@@ -220,23 +254,32 @@ interface StoreLogPorts {
   portFor(pluginId?: string | null): UpdateLogPort | null
   /** `update.store.fail`：清单 guard 是「同一操作连续失败只记首次」，按 (动作方, op, 原因) 去重。 */
   fail(op: string, error: unknown, pluginId?: string | null): void
-  /** `update.lock.anomaly`：kind 只用上面两个常量，ageMs 量不到就省略。 */
-  anomaly(kind: string, pluginId?: string | null, ageMs?: number): void
+  /** `update.lock.anomaly`：ownerHash 是持有者指纹（#209），量不到就省略；busy-owner 同一持有者连续只记一次。 */
+  anomaly(kind: string, pluginId?: string | null, ageMs?: number, ownerHash?: string): void
   /** `update.queue.transition`：边沿由调用点判（真写了盘且相位真的变了）。 */
-  transition(phase: string, pluginId: string, extra?: { waitedMs?: number; position?: number }): void
+  transition(
+    phase: QueueTransitionPhase,
+    pluginId: string,
+    extra?: { waitedMs?: number; position?: number; holderHash?: string },
+    /** 边沿主体：同一相位下逐条待办（如同时被摘的多条意向）靠它各留一条，不给则按「动作方 + 相位」边沿去重。 */
+    fingerprintSalt?: string
+  ): void
 }
 
 /**
  * 建本文件三个事件的记法：全部 best-effort —— 发射口抛错一律吞掉，记日志绝不能改变控制流、
  * 返回值或抛错。磁盘侧传已绑好插件标识的 `log`；队列侧是跨插件共享的，传 `logFor` 按当次
- * 动作方取口，取不到标识就不发（不许猜）。
+ * 动作方取口，取不到标识就不发（不许猜）。`dirHash` 是本次操作的目录短指纹（#209）：清单里
+ * `update.store.fail.dirHash` 声明了就必须实发，且只许 8 位十六进制（绝不入路径原文）。
  */
 function createStoreLog(
   log: UpdateLogPort | null,
   logFor: ((pluginId: string) => UpdateLogPort | null) | null,
-  fixedPluginId: string | null
+  fixedPluginId: string | null,
+  dirHash?: string
 ): StoreLogPorts {
   const lastFailReason = new Map<string, string>()
+  const lastBusyOwner = new Map<string, string>()
   const routable = log !== null || logFor !== null
   function portFor(pluginId?: string | null): UpdateLogPort | null {
     if (log) return log
@@ -256,6 +299,12 @@ function createStoreLog(
       /* 发射口自己坏掉时保持沉默：任何外抛都比丢一行更坏 */
     }
   }
+  function ownerHashField(fields: Record<string, unknown>, ownerHash?: string): void {
+    if (typeof ownerHash === 'string' && /^[0-9a-f]{8}$/.test(ownerHash)) fields['ownerHash'] = ownerHash
+  }
+  function holderHashField(fields: Record<string, unknown>, holderHash?: string): void {
+    if (typeof holderHash === 'string' && /^[0-9a-f]{8}$/.test(holderHash)) fields['holderHash'] = holderHash
+  }
   return {
     enabled: () => routable,
     portFor,
@@ -267,19 +316,29 @@ function createStoreLog(
         const key = `${pluginId ?? fixedPluginId ?? ''}\u0000${op}`
         if (lastFailReason.get(key) === reason) return
         lastFailReason.set(key, reason)
-        fire(port, 'warn', LOG_EVENT_STORE_FAIL, { op, reason })
+        const fields: Record<string, unknown> = { op, reason }
+        if (dirHash) fields['dirHash'] = dirHash
+        fire(port, 'warn', LOG_EVENT_STORE_FAIL, fields)
       } catch {}
     },
-    anomaly(kind, pluginId, ageMs) {
+    anomaly(kind, pluginId, ageMs, ownerHash) {
       try {
         const port = portFor(pluginId)
         if (!port) return
+        // busy-owner 的边沿是「换没换持有者」：同一把锁被同一个持有者连续挡住只记第一眼，
+        // 否则一次安装被点十下就十行，真信号反被淹没。
+        if (kind === LOCK_ANOMALY_BUSY_OWNER) {
+          const key = `${pluginId ?? fixedPluginId ?? ''}`
+          if (ownerHash && lastBusyOwner.get(key) === ownerHash) return
+          if (ownerHash) lastBusyOwner.set(key, ownerHash)
+        }
         const fields: Record<string, unknown> = { kind }
         if (typeof ageMs === 'number' && Number.isFinite(ageMs) && ageMs >= 0) fields['ageMs'] = ageMs
+        ownerHashField(fields, ownerHash)
         fire(port, 'warn', LOG_EVENT_LOCK_ANOMALY, fields)
       } catch {}
     },
-    transition(phase, pluginId, extra) {
+    transition(phase, pluginId, extra, fingerprintSalt) {
       try {
         if (typeof pluginId !== 'string' || !pluginId) return
         const port = portFor(pluginId)
@@ -291,8 +350,10 @@ function createStoreLog(
         if (extra && typeof extra.position === 'number' && Number.isInteger(extra.position) && extra.position >= 0) {
           fields['position'] = extra.position
         }
-        // 指纹带上动作方：队列跨插件共享，同一进程里两家的同相位行不能互相吃掉（相位边沿仍由指纹守住）。
-        fire(port, 'info', LOG_EVENT_QUEUE_TRANSITION, fields, `${pluginId}\u0000${phase}`)
+        holderHashField(fields, extra?.holderHash)
+        // 指纹带上动作方与相位：队列跨插件共享，同一进程里两家的同相位行不能互相吃掉（相位边沿仍由指纹守住）；
+        // 逐条待办的边沿另带主体盐（intentKey），同一相位下不同待办各记一条。
+        fire(port, 'info', LOG_EVENT_QUEUE_TRANSITION, fields, `${pluginId}\u0000${phase}\u0000${fingerprintSalt ?? ''}`)
       } catch {}
     },
   }
@@ -384,7 +445,13 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
   const readText = deps.readFileImpl ?? ((filename: string, encoding: string) => readFile(filename, encoding))
   const statFile = deps.statImpl ?? ((filename: string) => stat(filename))
   // 日志接线（#124）：不传 log 时下面每一条记账都是空转，行为与今天一字不差。
-  const storeLog = createStoreLog(typeof deps.log === 'function' ? deps.log : null, null, pluginId)
+  // #209：store.fail 的行必须带目录短指纹（清单声明了 dirHash，声明了就实发）。
+  const storeLog = createStoreLog(
+    typeof deps.log === 'function' ? deps.log : null,
+    null,
+    pluginId,
+    paths ? shortHash8(paths.directory) : undefined
+  )
   async function readAt(p: UpdatePaths | null): Promise<Record<string, unknown> | null> {
     if (!p) return null
     try {
@@ -478,7 +545,12 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
       if (!held.present) return createInstallLock(lockId)
       // 可解析看锁里记的 startedAt；不可解析/缺格退回 mtime；判不了年龄就按「别人正持有」拒（保守）。
       const age = lockAgeOf(held, Date.now())
-      if (age === undefined || age <= staleMs) return false
+      if (age === undefined || age <= staleMs) {
+        // #209：原来这里一声不响回 false，调用方只看到 update-busy。现在说出被谁持有、持有多久
+        // （同一把锁按持有者指纹连续只记一次，见 createStoreLog.anomaly）。
+        storeLog.anomaly(LOCK_ANOMALY_BUSY_OWNER, null, age, lockOwnerHash(held.owner))
+        return false
+      }
       // 二次核对：年龄仍超、且锁没被换过才动手——别人可能在「判陈旧 → 删锁」之间已经重建。
       // 残余窗口（B 的删锁落在 A 的重建之后）在直接集成 createUpdateDiskPorts 时仍存在；宿主路径先拿
       // 跨插件全局锁（src/host.ts:355-370），到不了这里。记在 #181 票面，不在本批扩大。
@@ -497,8 +569,9 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
       }
       // 回收与建锁之间被别人抢先：认输（不递归重试，避免两个进程互摘）。
       if (!(await createInstallLock(lockId))) return false
-      // 回收成功＝锁的主人早该收尾却没放（孤儿/陈旧）而这次真被摘掉：真边沿，年龄记判据来路。
-      storeLog.anomaly(LOCK_ANOMALY_STALE_OWNER, null, ageAgain)
+      // 回收成功＝锁的主人早该收尾却没放（孤儿/陈旧）而这次真被摘掉：真边沿，年龄记判据来路，
+      // 持有者指纹说明被摘掉的是哪一把（#209）。
+      storeLog.anomaly(LOCK_ANOMALY_STALE_OWNER, null, ageAgain, lockOwnerHash(again.owner))
       return true
     } catch (error) {
       // 非「占着」的真故障原来静默回 false（对调用方看起来就是「被别人占着」）：留一条痕。
@@ -515,7 +588,8 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
           // 删不掉＝这把锁没放掉（原来静默吞）；锁已经不在了则目的已达，不算失败。
           if (isMissingFileError(error)) return
           storeLog.fail('release-lock', error)
-          storeLog.anomaly(LOCK_ANOMALY_RELEASE_FAILED)
+          // 锁内容读到了就带上持有者指纹：放不掉的是「谁的锁」要说得清（#209）。
+          storeLog.anomaly(LOCK_ANOMALY_RELEASE_FAILED, null, undefined, lockOwnerHash(current))
         })
       }
     } catch (error) {
@@ -589,6 +663,8 @@ export interface QueuePortsDeps {
   readFileImpl?: (filename: string, encoding: string) => Promise<string>
   statImpl?: (filename: string) => Promise<{ size: number; mtimeMs?: number }>
   nowImpl?: () => number
+  /** 意向有效期（#209）：判定「摘掉的待办是过期清理 pruned 还是主动放弃 abandoned」，默认 10 分钟。 */
+  ttlMs?: number
   /**
    * 按当次动作方插件标识取发射口（#124，可选）：队列是跨插件共享的，所以这里不能要一个固定
    * pluginId 的发射口；取不到标识的调用段（如 readQueue／不看主人的放锁）就不发——不许猜。
@@ -602,11 +678,13 @@ function queueFail(): Error & { code: string } {
   return Object.assign(new Error('queue-unavailable'), { code: 'queue-unavailable' })
 }
 
-/** 一次队列真实跃迁：谁跨了相位、新相位、以及真量到的等待/位次（量不到就不给格）。 */
+/** 一次队列真实跃迁：谁跨了相位、新相位、以及真量到的等待/位次/当时谁持有队列（#209）。 */
 interface QueueEdge {
   pluginId: string
-  phase: string
-  extra: { waitedMs?: number; position?: number }
+  phase: QueueTransitionPhase
+  extra: { waitedMs?: number; position?: number; holderHash?: string }
+  /** 逐条待办的边沿主体（被摘意向的 intentKey）：同一相位下的不同待办各留一行。 */
+  fingerprintSalt?: string
 }
 
 function intentKey(entry: { pluginId: string; requestId: string | null }): string {
@@ -621,24 +699,65 @@ function waitMsOf(previous: UpdateQueueState, owner: QueueOwner): number | undef
   return Number.isFinite(waited) && waited >= 0 ? waited : undefined
 }
 
+/** 给跃迁行挂上「此刻谁持有队列」的指纹：没有持有者可指时整格不给（不猜）。 */
+function withHolderHash<T extends { waitedMs?: number; position?: number; holderHash?: string }>(
+  extra: T,
+  holderHash: string | undefined
+): T {
+  if (!holderHash) return extra
+  return { ...extra, holderHash }
+}
+
 /**
- * 从「写盘前 / 写盘后」两份队列算出真跃迁——边沿只在这里判：两份同一相位就是没跃迁（回 null）。
+ * 从「写盘前 / 写盘后」两份队列算出真跃迁——边沿只在这里判：两份同一相位就是没跃迁（回空数组）。
  * 相位：`'queued'`（新占位）→ `'running'`（拿到锁开始装）→ `'done'`（终态摘牌）；
- * 陈旧回收成功在 tryAcquireGlobalLock 里另记 `'reclaimed'`（那件事真写的是 global.lock，不是 queue.json），
- * 待办摘牌（取消/过期）不改相位，不算跃迁。
+ * 陈旧回收成功在 tryAcquireGlobalLock 里另记 `'reclaimed'`（那件事真写的是 global.lock，不是 queue.json）。
+ * #209 起待办被摘牌也记（原来静默）：按意向年龄分「过期清理 pruned」与「主动放弃 abandoned」，
+ * 并带上当时谁持有队列的指纹——卡住时才能回答「被谁、多久」。
  */
-function queueEdgeOf(previous: UpdateQueueState, next: UpdateQueueState): QueueEdge | null {
+function queueEdgesOf(
+  previous: UpdateQueueState,
+  next: UpdateQueueState,
+  context: { now: number; ttlMs: number }
+): QueueEdge[] {
+  const edges: QueueEdge[] = []
   const before = previous.owner
   const after = next.owner
-  if (before && !after) return { pluginId: before.pluginId, phase: 'done', extra: {} }
-  if (after && (!before || before.pluginId !== after.pluginId)) {
+  const hashOf = (owner: QueueOwner | null): string | undefined => (owner ? hash8(owner.pluginId) : undefined)
+  if (before && !after) {
+    edges.push({ pluginId: before.pluginId, phase: 'done', extra: withHolderHash({}, hashOf(before)) })
+  } else if (after && (!before || before.pluginId !== after.pluginId)) {
     const waitedMs = waitMsOf(previous, after)
-    return { pluginId: after.pluginId, phase: 'running', extra: waitedMs === undefined ? {} : { waitedMs } }
+    edges.push({
+      pluginId: after.pluginId,
+      phase: 'running',
+      extra: withHolderHash(waitedMs === undefined ? {} : { waitedMs }, hashOf(after)),
+    })
+  } else {
+    const known = new Set(previous.waiting.map(intentKey))
+    const at = next.waiting.findIndex((entry) => !known.has(intentKey(entry)))
+    if (at >= 0) {
+      edges.push({ pluginId: next.waiting[at].pluginId, phase: 'queued', extra: withHolderHash({ position: at + 1 }, hashOf(after)) })
+    }
   }
-  const known = new Set(previous.waiting.map(intentKey))
-  const at = next.waiting.findIndex((entry) => !known.has(intentKey(entry)))
-  if (at >= 0) return { pluginId: next.waiting[at].pluginId, phase: 'queued', extra: { position: at + 1 } }
-  return null
+  // 摘掉的待办：刚升成 owner 的那条已经记过 running，别重复记成放弃。
+  const remained = new Set(next.waiting.map(intentKey))
+  const promoted = after ? intentKey(after) : null
+  for (const entry of previous.waiting) {
+    if (remained.has(intentKey(entry))) continue
+    if (promoted && intentKey(entry) === promoted) continue
+    const age = context.now - entry.enqueuedAt
+    // 量不到年龄（脏值）当主动放弃：过期清理必须真的过得了期，不能拿「算不出来」冒充。
+    const expired = Number.isFinite(entry.enqueuedAt) && Number.isFinite(age) && age >= context.ttlMs
+    edges.push({
+      pluginId: entry.pluginId,
+      phase: expired ? 'pruned' : 'abandoned',
+      extra: withHolderHash({}, hashOf(after)),
+      // 同一份队列里同一条待办被摘是独立边沿：盐用 intentKey，多条同时被摘时逐条发（不去重吃掉）。
+      fingerprintSalt: intentKey(entry),
+    })
+  }
+  return edges
 }
 
 /**
@@ -660,8 +779,16 @@ export function createUpdateQueuePorts(
   const readText = deps.readFileImpl ?? ((filename: string, encoding: string) => readFile(filename, encoding))
   const statFile = deps.statImpl ?? ((filename: string) => stat(filename))
   const now = deps.nowImpl ?? Date.now
+  const ttlMs =
+    typeof deps.ttlMs === 'number' && Number.isFinite(deps.ttlMs) && deps.ttlMs > 0 ? deps.ttlMs : QUEUE_INTENT_TTL_MS
   // 日志接线（#124）：不传 logFor 时下面每一条记账都是空转，行为、返回值、时序与今天一字不差。
-  const storeLog = createStoreLog(null, typeof deps.logFor === 'function' ? deps.logFor : null, null)
+  // #209：store.fail 带队列目录短指纹，跃迁判据用同一套 ttl/now（与宿主 pruneExpiredIntents 同口径）。
+  const storeLog = createStoreLog(
+    null,
+    typeof deps.logFor === 'function' ? deps.logFor : null,
+    null,
+    paths ? shortHash8(paths.directory) : undefined
+  )
   /** 判跃迁要「写盘前」那一份：只有接了发射口才多读这一次，读不到就判不了（宁可不发，不猜）。 */
   async function readQueueForEdge(): Promise<UpdateQueueState | null> {
     try {
@@ -687,7 +814,7 @@ export function createUpdateQueuePorts(
     if (!paths) throw queueFail()
     const next = normalizeQueueState(state)
     const previous = storeLog.enabled() ? await readQueueForEdge() : null
-    const edge = previous ? queueEdgeOf(previous, next) : null
+    const edges = previous ? queueEdgesOf(previous, next, { now: now(), ttlMs }) : []
     // 最原始的那个失败留给 store.fail 取稳定码（里面那层原来把它换成了 queueFail）。
     let failure: unknown = null
     try {
@@ -705,11 +832,11 @@ export function createUpdateQueuePorts(
     } catch (error) {
       const code = error && (error as { code?: string }).code
       const original = failure ?? error ?? queueFail()
-      if (edge) storeLog.fail('write-queue', original, edge.pluginId)
+      if (edges.length > 0) storeLog.fail('write-queue', original, edges[0].pluginId)
       throw code ? error : queueFail()
     }
-    // 真的写完盘才记（边沿＝真写了盘且相位真的变了）。
-    if (edge) storeLog.transition(edge.phase, edge.pluginId, edge.extra)
+    // 真的写完盘才记（边沿＝真写了盘且相位真的变了）；一次写盘可能同时有「进」和「出」两条边。
+    for (const edge of edges) storeLog.transition(edge.phase, edge.pluginId, edge.extra, edge.fingerprintSalt)
   }
   /**
    * 读全局锁。读不到只是「看不见锁」，不是异常——但抢锁侧要保守认输、放锁侧这把锁就放不掉，
@@ -754,12 +881,16 @@ export function createUpdateQueuePorts(
       // 锁刚被放掉（两次读之间消失）：直接再抢一次，不算回收。
       if (!held.present) return createGlobalLock(lockId, pluginId)
       // 与安装锁同一判据：可解析看 startedAt，不可解析/缺格退回 mtime，判不了年龄就保守拒。
-      const age = lockAgeOf(held, now())
-      if (age === undefined || age <= timeoutMs) return false
+      const age = queueLockAge(held, now())
+      if (age === undefined || age <= timeoutMs) {
+        // #209：新鲜持有者占着要说得出「谁、多久」；同一代持有者连续只记一次（createStoreLog 去重）。
+        storeLog.anomaly(LOCK_ANOMALY_BUSY_OWNER, pluginId, age, lockOwnerHash(held.owner))
+        return false
+      }
       // 二次核对：别人可能在「判陈旧 → 删锁」之间已经重建（同安装锁的残余窗口，见 tryAcquireLock 注）。
       const again = await probeGlobalLock(pluginId)
       if (!again.present) return createGlobalLock(lockId, pluginId)
-      const ageAgain = lockAgeOf(again, now())
+      const ageAgain = queueLockAge(again, now())
       if (ageAgain === undefined || ageAgain <= timeoutMs || !sameLockGeneration(held, again)) return false
       try {
         await unlink(paths.lock)
@@ -772,8 +903,8 @@ export function createUpdateQueuePorts(
       // 回收与建锁之间被别人抢先：认输（不递归重试，避免两个进程互摘）。
       if (!(await createGlobalLock(lockId, pluginId))) return false
       // 回收成功是真跃迁：陈旧主人被摘掉（lock.anomaly）＋锁到了我手里（queue.transition 的 reclaimed）。
-      storeLog.anomaly(LOCK_ANOMALY_STALE_OWNER, pluginId, ageAgain)
-      storeLog.transition('reclaimed', pluginId)
+      storeLog.anomaly(LOCK_ANOMALY_STALE_OWNER, pluginId, ageAgain, lockOwnerHash(again.owner))
+      storeLog.transition('reclaimed', pluginId, { holderHash: hash8(pluginId) })
       return true
     } catch (error) {
       // 非「占着」的真故障原来静默回 false（对调用方看起来就是「有人在装」）：留一条痕。
@@ -792,7 +923,7 @@ export function createUpdateQueuePorts(
           // 删不掉＝这把锁没放掉（原来静默吞）；锁已经不在了则目的已达，不算失败。
           if (isMissingFileError(error)) return
           storeLog.fail('release-global-lock', error, owner)
-          if (owner) storeLog.anomaly(LOCK_ANOMALY_RELEASE_FAILED, owner)
+          if (owner) storeLog.anomaly(LOCK_ANOMALY_RELEASE_FAILED, owner, undefined, lockOwnerHash(current))
         })
       }
     } catch {}

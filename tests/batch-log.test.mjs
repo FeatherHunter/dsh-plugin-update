@@ -608,7 +608,12 @@ describe('#208 批量会话串联字段', () => {
       [['a', 'failed'], ['b', 'ready'], ['self', 'current']],
       '停在失败那家；后面几家不推进',
     )
-    assert.equal(rowsOf(owner, 'update.batch.summary').length, 0, '没收尾不发总账（账本还有 pending 面）')
+    // #209：没收尾也要有一行——记的是「为什么停」，不是「跑完了」。
+    const stopped = rowsOf(owner, 'update.batch.summary')
+    assert.equal(stopped.length, 1, '未收尾就停下：另记一条异常停止')
+    assert.equal(stopped[0].fields.stoppedBecause, 'stopped-after-failure', '按策略遇错停：如实写原因')
+    assert.equal(stopped[0].fields.failed, 1)
+    assert.equal(stopped[0].fields.sessionHash, hash8(first.session.id))
 
     // 行内「重试」= batchInstall { keys }：把失败行复位再推（failed 对 batchResume 是终态，
     // 断点续跑不会重装失败那家，重试入口是带 keys 的安装）。
@@ -616,13 +621,13 @@ describe('#208 批量会话串联字段', () => {
     const second = await host.handlers['life.batchInstall']({ keys: ['a', 'b', 'self'] })
     assert.equal(second.ok, true)
     const summary = rowsOf(owner, 'update.batch.summary')
-    assert.equal(summary.length, 1, '整批收尾才发一条总账')
-    assert.equal(summary[0].fields.stoppedBecause, 'finished', '重试推完了：stoppedBecause=finished')
-    assert.equal(summary[0].fields.stoppedBecause, host.lastRun.stoppedBecause, '总账与 lastRun 同口径')
-    assert.equal(summary[0].fields.total, 3)
-    assert.equal(summary[0].fields.ok, 3)
-    assert.equal(summary[0].fields.failed, 0)
-    assert.equal(summary[0].fields.sessionHash, rowsOf(owner, 'update.batch.entry.request')[0].fields.sessionHash, '同一批：总账沿用入场行的 sessionHash')
+    assert.equal(summary.length, 2, '停止行 + 收尾总账各一条')
+    assert.equal(summary[1].fields.stoppedBecause, 'finished', '重试推完了：stoppedBecause=finished')
+    assert.equal(summary[1].fields.stoppedBecause, host.lastRun.stoppedBecause, '总账与 lastRun 同口径')
+    assert.equal(summary[1].fields.total, 3)
+    assert.equal(summary[1].fields.ok, 3)
+    assert.equal(summary[1].fields.failed, 0)
+    assert.equal(summary[1].fields.sessionHash, rowsOf(owner, 'update.batch.entry.request')[0].fields.sessionHash, '同一批：总账沿用入场行的 sessionHash')
     host.dispose()
   })
 
@@ -650,7 +655,11 @@ describe('#208 批量会话串联字段', () => {
     assert.equal(reply.ok, true)
     assert.equal(host.lastRun.stoppedBecause, 'queued', '排队即停，不把别家误标 failed')
     assert.equal(phaseOf(reply.session, 'a'), 'ready', '排上队：相位退回 ready')
-    assert.equal(rowsOf(owner, 'update.batch.summary').length, 0, '没收尾不发总账')
+    // #209：排队即停也有一行「为什么停」——「排上队但没轮到」不能让面板看起来像卡死。
+    const queuedStop = rowsOf(owner, 'update.batch.summary')
+    assert.equal(queuedStop.length, 1, '未收尾就停下：另记一条异常停止')
+    assert.equal(queuedStop[0].fields.stoppedBecause, 'queued')
+    assert.equal(queuedStop[0].fields.failed, 0, '排队不是失败，failed 计数不动')
 
     const queueRows = rowsOf(a, 'update.queue.transition')
     assert.ok(queueRows.length >= 1, '排队边沿要留队列行（#208 队列端口接线修复）')
@@ -764,6 +773,102 @@ describe('#208 批量会话串联字段', () => {
     host.dispose()
   })
 
+  // ---------- #209：预查失败 / 驱动异常 / 用户取消 也各有 1 行 ----------
+
+  it('预查失败：失败那家落一条 entry.fail（stage check），不再静默', async () => {
+    const { scope } = await mkScope()
+    const script = {
+      a: { check: { kind: 'failed', error: 'check-failed' } },
+      self: { check: { kind: 'current' } },
+    }
+    const host = createMultiHostUpdate(
+      { scope, transport: fakeTransport(script) },
+      { prefix: 'life', targets: [mkTarget('a'), mkTarget('self')], selfKey: 'self' },
+    )
+    const owner = collector()
+    const a = collector()
+    bind('plugin-self', owner.sink)
+    bind('plugin-a', a.sink)
+
+    const reply = await host.handlers['life.batchInstall']({})
+    assert.equal(reply.ok, true, '预查失败如实收敛进账本，不再整批回错')
+    assert.equal(phaseOf(reply.session, 'a'), 'failed')
+    const failRows = rowsOf(a, 'update.batch.entry.fail')
+    assert.equal(failRows.length, 1, '一个预查失败目标一条')
+    assert.deepEqual(Object.keys(failRows[0].fields).sort(), ['errorKind', 'index', 'sessionHash', 'stage', 'targetHash'])
+    assert.equal(failRows[0].fields.stage, 'check', '预查失败记 check 阶段（与驱动失败同一张表）')
+    assert.equal(failRows[0].fields.errorKind, 'check-failed')
+    assert.equal(failRows[0].fields.index, 0, 'index 是整批 order 里的序号')
+    assert.equal(failRows[0].fields.sessionHash, hash8(reply.session.id))
+    host.dispose()
+  })
+
+  it('驱动异常：预查抛错 → 那家一条 entry.fail + 整批一条 stoppedBecause=error，不再被吞', async () => {
+    const { scope } = await mkScope()
+    const transport = {
+      check: async (key) => {
+        if (key === 'a') throw new Error('check crashed')
+        return { kind: 'current' }
+      },
+      install: async () => ({ kind: 'done', restartRequired: false }),
+    }
+    const host = createMultiHostUpdate(
+      { scope, transport },
+      { prefix: 'life', targets: [mkTarget('a'), mkTarget('self')], selfKey: 'self' },
+    )
+    const owner = collector()
+    const a = collector()
+    bind('plugin-self', owner.sink)
+    bind('plugin-a', a.sink)
+
+    const reply = await host.handlers['life.batchInstall']({})
+    assert.equal(reply.ok, false, '传输崩溃沿旧口径回 ok:false')
+    const failRows = rowsOf(a, 'update.batch.entry.fail')
+    assert.equal(failRows.length, 1, '抛错那家也要说「哪家没查成」')
+    assert.equal(failRows[0].fields.stage, 'check')
+    assert.equal(failRows[0].fields.errorKind, 'unknown', '异常 message 可能有路径/URL：折成稳定码 unknown')
+    const stopRows = rowsOf(owner, 'update.batch.summary')
+    assert.equal(stopRows.length, 1, '驱动异常也是一次「停止」')
+    assert.equal(stopRows[0].fields.stoppedBecause, 'error')
+    assert.equal(stopRows[0].fields.sessionHash, failRows[0].fields.sessionHash, '停止行与失败行同一份账本')
+    host.dispose()
+  })
+
+  it('用户取消：清账本前记一条 stoppedBecause=user-cancel，同一份账本只记一次', async () => {
+    const { dir, scope } = await mkScope()
+    await seedQueue(dir, [
+      { pluginId: 'other-plugin', requestId: 'req-other', targetVersion: null, enqueuedAt: Date.now() },
+    ])
+    const host = createMultiHostUpdate(
+      {
+        scope,
+        installPollMs: 5,
+        readerOverrides: installOverrides(dir, 'pkg-a', async () => {}),
+      },
+      { prefix: 'life', targets: [mkTarget('a'), mkTarget('self')], selfKey: 'self' },
+    )
+    const owner = collector()
+    bind('plugin-self', owner.sink)
+
+    const queued = await host.handlers['life.batchInstall']({})
+    assert.equal(host.lastRun.stoppedBecause, 'queued')
+    assert.equal(queued.ok, true)
+    const before = rowsOf(owner, 'update.batch.summary')
+    assert.equal(before.length, 1, '排队停止已有 1 行')
+
+    const cancelled = await host.handlers['life.batchCancel']({})
+    assert.equal(cancelled.ok, true)
+    const after = rowsOf(owner, 'update.batch.summary')
+    assert.equal(after.length, 2, '用户取消也是一次停止，记一行')
+    assert.equal(after[1].fields.stoppedBecause, 'user-cancel')
+    assert.equal(after[1].fields.sessionHash, before[0].fields.sessionHash, '同一份账本：sessionHash 相同')
+
+    // 再取消一次：账本已空，不再记（同一会话同一原因只一条）。
+    await host.handlers['life.batchCancel']({})
+    assert.equal(rowsOf(owner, 'update.batch.summary').length, 2)
+    host.dispose()
+  })
+
   // ADR-0006 的「改三处」：新增枚举除了清单与发射点，还要有负断言——表外值被摘成字段级降级，
   // 整行其余字段照落（不是整行丢）。这里直接对真清单跑裁剪器，钉住 stage / stoppedBecause 的逐值登记。
   it('负断言：stage 与 stoppedBecause 只收清单登记过的值（表外值摘字段，整行不丢）', () => {
@@ -801,7 +906,7 @@ describe('#208 批量会话串联字段', () => {
     }
     const summaryPruned = pruneEventFields(table, 'update.batch.summary', summaryFields)
     assert.deepEqual(summaryPruned.prunedFields, [{ field: 'stoppedBecause', reason: 'invalid-enum' }])
-    for (const value of ['finished', 'stopped-after-failure', 'max-steps', 'empty', 'queued']) {
+    for (const value of ['finished', 'stopped-after-failure', 'max-steps', 'empty', 'queued', 'user-cancel', 'error']) {
       const ok = pruneEventFields(table, 'update.batch.summary', { ...summaryFields, stoppedBecause: value })
       assert.equal(ok.ok, true, value + ' 是登记值，不该被摘')
     }

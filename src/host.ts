@@ -413,13 +413,19 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
     typeof overrides.queueTtlMs === 'number' && Number.isFinite(overrides.queueTtlMs) && overrides.queueTtlMs > 0
       ? overrides.queueTtlMs
       : QUEUE_INTENT_TTL_MS
+  // #209：队列跃迁判据（pruned/abandoned）必须与宿主的 prune 同口径——同一份 ttl、同一个时钟；
+  // 否则同一份队列，宿主说「过期清理」而落盘层说「主动放弃」。
+  const queueNow = overrides.now ?? Date.now
   const queueDisk =
     overrides.readQueue && overrides.writeQueue
       ? null
       : disk
-        ? createUpdateQueuePorts(homeDirInput, profileDirInput, { logFor: logPortFor })
+        ? createUpdateQueuePorts(homeDirInput, profileDirInput, {
+            logFor: logPortFor,
+            ttlMs: queueTtlMs,
+            nowImpl: queueNow,
+          })
         : null
-  const queueNow = overrides.now ?? Date.now
   async function readQueueBestEffort(): Promise<UpdateQueueState> {
     try {
       if (overrides.readQueue) return normalizeQueueState(await overrides.readQueue())
@@ -963,6 +969,56 @@ function queueArgsOf(args: Record<string, unknown>): { includeQueue: boolean; sh
 type StatusPollMemory = Map<string, string>
 
 /**
+ * 轮询失败限速记忆（#209）：与成功侧的 `StatusPollMemory` 分开——那边管「同状态不发」，
+ * 这边管「持续失败不刷屏」。键是 (插件标识, 电话方法)，值是该键上一次落行的时刻。
+ * 同样是**每个宿主接线实例一份**；轮询一恢复（下一次成功）就清记忆，于是「恢复」本身成为信号。
+ */
+type PollFailureMemory = Map<string, number>
+
+/**
+ * 轮询失败心跳（#209）：同一 `(pluginId, method)` 的持续失败，首条立即、之后每 5 分钟一条。
+ * 只按时间窗限速（不看错误码变没变）：600 次轮询失败落在 10 分钟内只 2 行、一小时最多 12 行；
+ * 窗口内错误码变了不额外落行，下一次心跳行会带当时的原因——限速不能因为错误码轮换就失效。
+ */
+const POLL_FAIL_HEARTBEAT_MS = 5 * 60_000
+
+/** #209：限速记忆的键——同一插件 + 同一电话方法；发送判断与成功清记忆共用这一个构造。 */
+function pollFailureKey(pluginId: string, method: string): string {
+  return `${pluginId}\u0000${method}`
+}
+
+/** #209：轮询失败限速的时钟——优先用注入的 `now`（与宿主其余口径同一个钟），否则 Date.now。 */
+function pollFailureClock(diagCtx: { readerOverrides?: ReaderOverrides } | undefined): number {
+  try {
+    const injected = diagCtx?.readerOverrides?.now
+    if (typeof injected === 'function') {
+      const value = injected()
+      if (typeof value === 'number' && Number.isFinite(value)) return value
+    }
+  } catch {
+    /* 注入时钟坏了不回退成「不发」：用 Date.now 兜底，宁可多发也不吞失败 */
+  }
+  return Date.now()
+}
+
+/**
+ * #209：轮询失败的发射裁决。true = 该发，并记下这次落行时刻；false = 同一 (插件标识, 电话方法)
+ * 的持续失败且还在心跳窗口内（时钟倒退也按窗口内处理，宁少发不刷屏）。
+ */
+function shouldEmitPollFailure(
+  memory: PollFailureMemory,
+  pluginId: string,
+  method: string,
+  nowMs: number,
+): boolean {
+  const key = pollFailureKey(pluginId, method)
+  const lastAt = memory.get(key)
+  if (lastAt !== undefined && nowMs - lastAt < POLL_FAIL_HEARTBEAT_MS) return false
+  memory.set(key, nowMs)
+  return true
+}
+
+/**
  * 快照指纹（#124）：**只做进程内比较用，绝不入日志行**（脱敏面不因此扩大）。
  * 序列化不了（循环引用）就返回 null，等于「算不出，别抑制」——宁可多发一行，也不误吞一次状态变化。
  */
@@ -1007,7 +1063,8 @@ function loggedPhone(
   },
   /** 轮询抑制记忆（#124）：只有 `updateStatus` 用得上；不传即完全不抑制（默认等于现状）。 */
   pollMemory?: StatusPollMemory,
-): (args: Record<string, unknown>) => Promise<Record<string, unknown>> {
+  /** 轮询失败限速记忆（#209）：只有 `updateStatus` 用得上；不传即完全不限速（默认等于现状）。 */
+  failMemory?: PollFailureMemory,): (args: Record<string, unknown>) => Promise<Record<string, unknown>> {
   /**
    * 一次电话 = 一条链（`0.16.4` 起，需 dsh-log 0.3.3 的 `store.trace()`）。
    * 链挂在**路由表给这个插件的落点**上：发射口只认与落点同源的链，所以 A 插件的链
@@ -1039,6 +1096,8 @@ function loggedPhone(
       // 「N≥100 次轮询零常驻行」）；真状态事实走 `update.status.changed` 的边沿行与按需档 `update.poll`。
       // 只有「上次算得出指纹、这次算得出、且与上次不同」才留一行，供真发生变化时追溯。
       const isStatusPoll = method.endsWith('.updateStatus')
+      // #209：轮询一恢复就清失败记忆——「恢复」本身就是信号，下次失败重新立即记一条。
+      if (isStatusPoll && failMemory) failMemory.delete(pollFailureKey(pluginId, method))
       const fingerprint = isStatusPoll ? statusFingerprint(snapshot) : null
       const pollNoise = isStatusPoll && pollMemory !== undefined
       const previous = pollNoise ? (pollMemory.get(pluginId) ?? null) : null
@@ -1069,8 +1128,17 @@ function loggedPhone(
       }
     } catch (error) {
       const payload = toUpdateErrorPayload(error)
-      // 失败事件 4 键基线（规格 #591 第 8 条）：旧 3 键加必填插件标识。
-      emit('warn', LOG_EVENT_CALL_FAIL, { method, kind, error: payload.error, errorHash: hash8(String((error as Error)?.message || payload.error)), pluginId })
+      // #209：常驻 warn 限速——状态轮询失败不能再每秒一行（断网时一天上万行，把真信号埋掉）。
+      // 同一 (pluginId, method) 首条立即、持续失败每 5 分钟一条心跳；恢复（下一次成功）清记忆。
+      // 非轮询电话完全不受影响（#124 的「一次失败电话一条」口径不变）。
+      const pollFailureThrottled =
+        method.endsWith('.updateStatus') &&
+        failMemory !== undefined &&
+        !shouldEmitPollFailure(failMemory, pluginId, method, pollFailureClock(diagCtx))
+      if (!pollFailureThrottled) {
+        // 失败事件 4 键基线（规格 #591 第 8 条）：旧 3 键加必填插件标识。
+        emit('warn', LOG_EVENT_CALL_FAIL, { method, kind, error: payload.error, errorHash: hash8(String((error as Error)?.message || payload.error)), pluginId })
+      }
       // 失败证据闭包（#21，#18 契约实现）：失败回包加可选 diag，只增不改。
       // best-effort：组装失败即按无 diag 的旧形状返回（新面板×旧载荷仍为正常缺省）。
       let diag: Record<string, unknown> | undefined
@@ -1598,11 +1666,18 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
 
   // 轮询抑制记忆（#124）：实例级，不跨实例、不跨插件（同一个 updateStatus 电话每 1s 一次）。
   const statusPollMemory: StatusPollMemory = new Map()
+  // 轮询失败限速记忆（#209）：实例级；只喂给 updateStatus，成功即清（恢复信号）。
+  const statusFailMemory: PollFailureMemory = new Map()
   const handlers: Record<string, (args: Record<string, unknown>) => Promise<Record<string, unknown>>> = {
-    [phoneNames.updateStatus]: loggedPhone(phoneNames.updateStatus, 'update-status', pluginId, readStatus, {
-      config,
-      readerOverrides,
-    }, statusPollMemory),
+    [phoneNames.updateStatus]: loggedPhone(
+      phoneNames.updateStatus,
+      'update-status',
+      pluginId,
+      readStatus,
+      { config, readerOverrides },
+      statusPollMemory,
+      statusFailMemory,
+    ),
     [phoneNames.updateCheck]: loggedPhone(phoneNames.updateCheck, 'update-check', pluginId, readCheck, {
       config,
       readerOverrides,

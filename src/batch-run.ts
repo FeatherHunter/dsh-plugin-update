@@ -85,10 +85,18 @@ export interface BatchRunStep {
 }
 
 /**
- * 一批停下来的原因（#208）：做完了／按策略遇错停／步数用完／没活可干／**排上队但还没轮到**。
+ * 一批停下来的原因（#208；#209 扩两值）：做完了／按策略遇错停／步数用完／没活可干／**排上队但还没轮到**，
+ * 以及宿主侧才看得见的两种停止：**用户取消**与**驱动自己抛异常**。
  * 宿主侧 `update.batch.summary` 的 `stoppedBecause` 与 `MultiHostUpdate.lastRun` 共用这一个词汇。
  */
-export type BatchStoppedByBecause = 'finished' | 'stopped-after-failure' | 'max-steps' | 'empty' | 'queued'
+export type BatchStoppedByBecause =
+  | 'finished'
+  | 'stopped-after-failure'
+  | 'max-steps'
+  | 'empty'
+  | 'queued'
+  | 'user-cancel'
+  | 'error'
 
 export interface BatchRunResult {
   session: BatchSession
@@ -118,6 +126,41 @@ interface EntryFailure {
   stage?: BatchFailStage
 }
 
+/** 一家失败行需要的批内上下文（#209）：会话/目标/动作/序号成组传，别让六个位置参数各自漂移。 */
+interface EntryFailureContext {
+  sessionId: string
+  key: string
+  action: 'check' | 'install'
+  index: number
+}
+
+/**
+ * 一家失败记一条（#124 / #208；#209 起对外开放给批量宿主的预查路径复用）。
+ * 宿主预查失败与驱动失败必须同一行形状、同一个发射口——否则同一件事在日志里有两个说法。
+ * errorKind 只收稳定短码，不像的一律折成 unknown（error.message 里可能有路径/URL）。
+ */
+export function noteBatchEntryFailure(
+  logFor: ((key: string) => UpdateLogPort | null) | undefined,
+  context: EntryFailureContext,
+  failure: EntryFailure,
+): void {
+  const fields: Record<string, unknown> = {
+    targetHash: hash8(context.key),
+    sessionHash: hash8(context.sessionId),
+    errorKind: STABLE_ERROR_CODE.test(failure.error) ? failure.error : 'unknown',
+    stage: failure.stage ?? (context.action === 'check' ? 'check' : 'install'),
+  }
+  if (Number.isInteger(context.index) && context.index >= 0) fields['index'] = context.index
+  if (typeof failure.exitCode === 'number' && Number.isFinite(failure.exitCode)) {
+    fields['exitCode'] = Math.trunc(failure.exitCode)
+  }
+  try {
+    logFor?.(context.key)?.('warn', 'update.batch.entry.fail', fields)
+  } catch {
+    // 记日志是旁路：端口抛错也不许改变推进、返回值与抛错（与「没有端口」一字不差）
+  }
+}
+
 /** 一家失败记一条：targetHash/sessionHash 只指纹，exitCode 只有真拿到才进字段（多一个键整行会被白名单丢掉）。 */
 function noteEntryFail(
   deps: BatchRunDeps,
@@ -127,21 +170,7 @@ function noteEntryFail(
   failure: EntryFailure,
 ): void {
   const index = deps.indexOf?.(key) ?? session.entries.findIndex((e) => e.key === key)
-  const fields: Record<string, unknown> = {
-    targetHash: hash8(key),
-    sessionHash: hash8(session.id),
-    errorKind: STABLE_ERROR_CODE.test(failure.error) ? failure.error : 'unknown',
-    stage: failure.stage ?? (action === 'check' ? 'check' : 'install'),
-  }
-  if (Number.isInteger(index) && index >= 0) fields['index'] = index
-  if (typeof failure.exitCode === 'number' && Number.isFinite(failure.exitCode)) {
-    fields['exitCode'] = Math.trunc(failure.exitCode)
-  }
-  try {
-    deps.logFor?.(key)?.('warn', 'update.batch.entry.fail', fields)
-  } catch {
-    // 记日志是旁路：端口抛错也不许改变推进、返回值与抛错（与「没有端口」一字不差）
-  }
+  noteBatchEntryFailure(deps.logFor, { sessionId: session.id, key, action, index }, failure)
 }
 
 /**

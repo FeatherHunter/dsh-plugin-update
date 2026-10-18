@@ -131,7 +131,21 @@
       "stage": ["check", "install", "timeout", "settle"]
     },
     "update.batch.summary": {
-      "stoppedBecause": ["finished", "stopped-after-failure", "max-steps", "empty", "queued"]
+      "stoppedBecause": [
+        "finished",
+        "stopped-after-failure",
+        "max-steps",
+        "empty",
+        "queued",
+        "user-cancel",
+        "error"
+      ]
+    },
+    "update.queue.transition": {
+      "phase": ["queued", "running", "done", "reclaimed", "pruned", "abandoned"]
+    },
+    "update.lock.anomaly": {
+      "kind": ["stale-owner", "release-failed", "busy-owner"]
     }
   },
   "events": {
@@ -146,7 +160,7 @@
       "kind": "resident",
       "fields": ["method", "kind", "error", "errorHash", "pluginId"],
       "codes": ["H_ERR"],
-      "guard": "一次失败电话一条；批量电话失败按 method 连续同码只记首次（成功即清记忆），无属主时不发"
+      "guard": "一次失败电话一条；批量电话失败按 method 连续同码只记首次（成功即清记忆），无属主时不发；状态轮询失败按 (pluginId, method) 只按时间窗限速：首次一条、持续失败每 5 分钟一条心跳（窗口内错误码变化不额外落行，下次心跳行带当时原因）、下一次成功清记忆"
     },
     "update.install.exec": {
       "level": "info",
@@ -214,27 +228,28 @@
       "level": "info",
       "kind": "resident",
       "fields": ["total", "ok", "failed", "skipped", "durationMs", "sessionHash", "stoppedBecause"],
-      "guard": "一批一条；stoppedBecause 说明这一批为什么停（finished 是全部跑完，不是没有失败）"
+      "guard": "收尾一批一条；stoppedBecause 说明这一批为什么停（finished 是全部跑完，不是没有失败）；未收尾就停下时另记一条异常停止（queued/stopped-after-failure/user-cancel/error），同一会话同一原因只记一次"
     },
     "update.queue.transition": {
       "level": "info",
       "kind": "resident",
-      "fields": ["phase", "waitedMs", "position"],
-      "guard": "相位边沿触发：相位没变不发"
+      "fields": ["phase", "waitedMs", "position", "holderHash"],
+      "codes": ["H_OWNER"],
+      "guard": "相位边沿触发：相位没变不发；被摘掉的待办按意向年龄记 pruned（过期清理）或 abandoned（主动放弃），holderHash 是当时持有队列那家的指纹（队列空则省略）；同一份状态一次写盘可发多条，逐条待办各自成边沿"
     },
     "update.lock.anomaly": {
       "level": "warn",
       "kind": "resident",
       "fields": ["kind", "ageMs", "ownerHash"],
       "codes": ["H_OWNER"],
-      "guard": "一次异常一条"
+      "guard": "一次异常一条；busy-owner 说明锁被新鲜持有者占着（ageMs 是它已持有时间，量不出时省略；ownerHash 是持有者指纹），同一持有者连续只记首次"
     },
     "update.store.fail": {
       "level": "warn",
       "kind": "resident",
       "fields": ["op", "reason", "dirHash"],
       "codes": ["H_DIR"],
-      "guard": "同一操作连续失败只记首次"
+      "guard": "同一操作连续失败只记首次；dirHash 是失败所在目录的短指纹（绝不入路径原文）"
     },
     "update.panel.mount": {
       "level": "info",

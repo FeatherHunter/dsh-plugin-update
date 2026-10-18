@@ -63,6 +63,7 @@ import {
   type BatchSession,
 } from './batch.js'
 import {
+  noteBatchEntryFailure,
   runBatch,
   type BatchCheckOutcome,
   type BatchInstallOutcome,
@@ -716,7 +717,17 @@ export function createMultiHostUpdate(
   }
   const queue =
     batchScope && batchScope.profileDir
-      ? createUpdateQueuePorts(batchScope.homeDir, batchScope.profileDir, { logFor: logPortForPlugin })
+      ? createUpdateQueuePorts(batchScope.homeDir, batchScope.profileDir, {
+          logFor: logPortForPlugin,
+          // #209：跃迁判据（pruned/abandoned）必须与宿主 prune 用同一个 TTL 与时钟，否则同一份队列
+          // 一边说「过期清理」一边说「主动放弃」。TTL 跟宿主覆盖同源，没覆盖就用端口默认。
+          ...(typeof input.readerOverrides?.queueTtlMs === 'number' &&
+          Number.isFinite(input.readerOverrides.queueTtlMs) &&
+          input.readerOverrides.queueTtlMs > 0
+            ? { ttlMs: input.readerOverrides.queueTtlMs }
+            : {}),
+          nowImpl: () => now(),
+        })
       : null
   const baseOverrides: ReaderOverrides = { ...(input.readerOverrides ?? {}) }
   if (queue && !(baseOverrides.readQueue && baseOverrides.writeQueue)) {
@@ -872,6 +883,11 @@ export function createMultiHostUpdate(
    * 日志不能在前一条 summary 里一直写着 failed:1 而账本早已装成（审计口径的假话比多一行贵）。
    */
   const finishedBatchIds = new Set<string>()
+  /**
+   * 记过「为什么停」行的「会话编号 + 原因」（#209）。drain 每轮都会看见同一个 queued，
+   * 不能每轮刷一行；同一份会话同一原因只记一次。
+   */
+  const stoppedBatchKeys = new Set<string>()
 
   /**
    * 单项失败的发射口按「目标键 → 那家自己的插件标识」路由（#124）：一家失败记在那个插件自己的
@@ -904,6 +920,25 @@ export function createMultiHostUpdate(
     })
   }
 
+  /** 总账一行的公共形状（#209）：收尾行与异常停止行同字段，只有 stoppedBecause 不同。 */
+  function emitBatchSummaryRow(
+    owner: TargetRuntime,
+    session: BatchSession,
+    stoppedBecause: BatchStoppedByBecause,
+  ): void {
+    const progress = batchProgress(session)
+    const elapsed = now() - session.createdAt
+    emitBatchLog(owner.pluginId, 'info', 'update.batch.summary', {
+      total: progress.total,
+      ok: progress.done,
+      failed: progress.failed,
+      skipped: progress.skipped,
+      durationMs: Number.isFinite(elapsed) && elapsed > 0 ? Math.floor(elapsed) : 0,
+      sessionHash: hash8(session.id),
+      stoppedBecause,
+    })
+  }
+
   /**
    * 总账按**收尾边沿**记：这次看是收尾、上次看不是，就记一条；两次都是收尾（例如对已经装成的行
    * 再点一次「装这家」）不重复记。所以调用方要在推进前后各看一次——重试把失败行退回 pending 时
@@ -917,21 +952,40 @@ export function createMultiHostUpdate(
     if (!owner) return
     const finished = isBatchFinished(session)
     const wasFinished = finishedBatchIds.has(session.id)
-    if (finished) finishedBatchIds.add(session.id)
-    else finishedBatchIds.delete(session.id)
+    if (finished) {
+      finishedBatchIds.add(session.id)
+      // 收尾后不再需要「为什么停」的去重键（#209）：清掉本会话的，别让进程内集合随会话数无界增长。
+      for (const key of stoppedBatchKeys) {
+        if (key.startsWith(`${session.id}\u0000`)) stoppedBatchKeys.delete(key)
+      }
+    } else {
+      finishedBatchIds.delete(session.id)
+    }
     if (!finished || wasFinished) return
-    const progress = batchProgress(session)
-    const elapsed = now() - session.createdAt
-    const stoppedBecause: BatchStoppedByBecause = lastRun?.stoppedBecause ?? 'finished'
-    emitBatchLog(owner.pluginId, 'info', 'update.batch.summary', {
-      total: progress.total,
-      ok: progress.done,
-      failed: progress.failed,
-      skipped: progress.skipped,
-      durationMs: Number.isFinite(elapsed) && elapsed > 0 ? Math.floor(elapsed) : 0,
-      sessionHash: hash8(session.id),
-      stoppedBecause,
-    })
+    emitBatchSummaryRow(owner, session, lastRun?.stoppedBecause ?? 'finished')
+  }
+
+  /**
+   * 没跑完就停下也要有一行（#209）：收尾边沿只管 finished；「为什么停」由这里记——
+   * queued（排上队还没轮到）/ stopped-after-failure（按策略遇错停）/ user-cancel（用户清账本）/
+   * error（驱动自己抛异常）。同一份会话同一原因只记一次（drain 每轮都会看见同一个 queued）。
+   */
+  function noteBatchStopped(session: BatchSession, stoppedBecause: BatchStoppedByBecause): void {
+    const owner = selfRuntime
+    if (!owner || session.entries.length === 0) return
+    if (isBatchFinished(session)) return
+    const key = `${session.id}\u0000${stoppedBecause}`
+    if (stoppedBatchKeys.has(key)) return
+    stoppedBatchKeys.add(key)
+    emitBatchSummaryRow(owner, session, stoppedBecause)
+  }
+
+  /** 一次推进结束后的读数收尾：收尾边沿的总账 + 未收尾时「为什么停」的一行（#209）。 */
+  function noteRunOutcome(session: BatchSession): void {
+    noteBatchSummary(session)
+    if (isBatchFinished(session)) return
+    const reason = lastRun?.stoppedBecause
+    if (reason === 'queued' || reason === 'stopped-after-failure') noteBatchStopped(session, reason)
   }
 
   /**
@@ -1402,6 +1456,8 @@ export function createMultiHostUpdate(
     }
     const entries: BatchInventory['entries'] = { ...prev.entries }
     const outcomes = new Map<string, BatchCheckOutcome>()
+    // #209：传输抛错的那几家也各记一条失败行（旧口径是留在 checking、只上抛 firstError，日志里静默）。
+    const thrown = new Map<string, unknown>()
     let firstError: unknown = null
     let hasError = false
     await runWithConcurrency(pendingKeys, BATCH_CHECK_CONCURRENCY, async (key) => {
@@ -1411,6 +1467,7 @@ export function createMultiHostUpdate(
         outcomes.set(key, outcome)
         applyCheckToInventory(entries, rt, outcome, at)
       } catch (error) {
+        thrown.set(key, error)
         if (!hasError) {
           hasError = true
           firstError = error
@@ -1444,6 +1501,23 @@ export function createMultiHostUpdate(
           await persistPrecheck()
         }
       }
+      // #209：预查失败不再静默——与驱动失败同一行形状、同一个发射口（stage=check，index=整批序号）。
+      if (outcome.kind === 'failed') {
+        noteBatchEntryFailure(
+          logPortFor,
+          { sessionId: current.id, key, action: 'check', index: current.order.indexOf(key) },
+          { error: outcome.error, stage: 'check' },
+        )
+      }
+    }
+    // 传输抛错的那几家：错误码一律折成 unknown（异常 message 里可能有路径/URL），但「哪家没查成」要说出来。
+    for (const key of pendingKeys) {
+      if (!thrown.has(key)) continue
+      noteBatchEntryFailure(
+        logPortFor,
+        { sessionId: current.id, key, action: 'check', index: current.order.indexOf(key) },
+        { error: 'unknown', stage: 'check' },
+      )
     }
     if (hasError) throw firstError
     return current
@@ -1459,8 +1533,9 @@ export function createMultiHostUpdate(
     if (selected && selected.size === 0) return await table(await readSession())
     driveActive = true
     let driven: BatchSession
+    let session: BatchSession | null = null
     try {
-      let session = await readSession()
+      session = await readSession()
       // 盘上没会话、或上一轮已收尾（且这次是「全部提交」）：按全清单开新会话
       // （新编号 ⇒ 重新查一遍；已是最新的自然进 current，不重装）。
       // 行内只推几家（keys）时即使上一轮已收尾也复用同一份账本：别家的 done/failed 是事实，不能抹掉。
@@ -1488,9 +1563,13 @@ export function createMultiHostUpdate(
       // 两段式（#70）：先把选中 keys 全查成 ready 进会话，再串行装（装阶段复用 ready，不重查）。
       session = await precheckSelectedToReady(session, selected)
       driven = await driveLocked(session, selected, Number.POSITIVE_INFINITY)
-      // 收尾总账：推进结束（不论有没有失败）且账本已全部终态才记一条，面板只渲染不重发。
-      noteBatchSummary(driven)
+      // 收尾总账（#209 起同时记「没跑完就停」的那一行）：面板只渲染不重发。
+      noteRunOutcome(driven)
     } catch (error) {
+      // #209：驱动自己抛异常也是一次「停止」——先把为什么停记下来（有账本才记），再按原形状回包。
+      try {
+        if (session) noteBatchStopped(session, 'error')
+      } catch {}
       return { ok: false, ...errorPayloadOf(error) }
     } finally {
       driveActive = false
@@ -1510,10 +1589,15 @@ export function createMultiHostUpdate(
     if (resumed !== disk) await saveSession(resumed)
     try {
       const driven = await drive(resumed, null, Number.POSITIVE_INFINITY)
-      // 跨重启续跑收尾：这一轮是「接着推」，但收尾仍在宿主侧汇总（面板不重发）。
-      noteBatchSummary(driven)
+      // 跨重启续跑收尾：这一轮是「接着推」，但收尾仍在宿主侧汇总（面板不重发）；
+      // 没跑完就停也记一行（#209）。
+      noteRunOutcome(driven)
       return { ...(await table(driven)), resumed: true }
     } catch (error) {
+      // #209：续跑时驱动抛异常同样是「停止」——记一行原因（会话还没收尾）。
+      try {
+        noteBatchStopped(resumed, 'error')
+      } catch {}
       return { ok: false, ...errorPayloadOf(error) }
     }
   }
@@ -1523,6 +1607,15 @@ export function createMultiHostUpdate(
     if (refuse) return refuse
     // 推进中不许清账本：清了会让下一轮换新编号重复装，宁可回忙。
     if (driveActive) return { ok: false, error: 'update-busy', errorKind: 'update-busy' }
+    // #209：用户取消也是一次「驱动停止」——在清账本之前把原因记一行（只记真没收尾、真有活儿的那份）。
+    try {
+      const current = await readSession()
+      if (current.entries.length > 0 && !isBatchFinished(current)) {
+        noteBatchStopped(current, 'user-cancel')
+      }
+    } catch {
+      // 读不到账本不挡取消：取消本身仍按原口径清空。
+    }
     await clearSession()
     return await table(emptyBatchSession())
   }
@@ -1540,9 +1633,15 @@ export function createMultiHostUpdate(
     const disk = await readSession()
     if (disk.entries.length === 0 || isBatchFinished(disk)) return
     try {
-      // drain 一轮只推一步：推完可能正好收尾（最后一家做完），总账就在这一轮记。
-      noteBatchSummary(await drive(disk, null, 1))
-    } catch {}
+      // drain 一轮只推一步：推完可能正好收尾（最后一家做完），总账就在这一轮记；
+      // 排上队/按策略停下也各有一行（#209）。
+      noteRunOutcome(await drive(disk, null, 1))
+    } catch {
+      // #209：驱动自己抛异常不再静默——记一行「为什么停」（同一原因只记一次），再照旧吞掉（后台节拍）。
+      try {
+        noteBatchStopped(disk, 'error')
+      } catch {}
+    }
   }
 
   async function tickDrain(): Promise<void> {

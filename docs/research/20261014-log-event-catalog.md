@@ -1,6 +1,6 @@
 # 日志事件目录：19 环节 → 事件码 / 级别 / 档位 / 字段 / 脱敏
 
-- 日期：2026-10-14（**2026-10-15 契约回填**：本文件的「事件名 / 字段 / 取值」三处与随包清单、实现对齐；见文末 §7。**2026-10-19 二次回填（`#211`）**：五个事件的字段与枚举按随包清单一字回填，错误类别细化见 §8。**2026-10-19 三次回填（`#208`）**：批量三事件补 `sessionHash` / `stage` / `index` / `stoppedBecause`，`host.call.fail` 与批量面板客户端日志接上批量现场；事件名与档位归属不变、字段 +6，见 §9）
+- 日期：2026-10-14（**2026-10-15 契约回填**：本文件的「事件名 / 字段 / 取值」三处与随包清单、实现对齐；见文末 §7。**2026-10-19 二次回填（`#211`）**：五个事件的字段与枚举按随包清单一字回填，错误类别细化见 §8。**2026-10-19 三次回填（`#208`）**：批量三事件补 `sessionHash` / `stage` / `index` / `stoppedBecause`，`host.call.fail` 与批量面板客户端日志接上批量现场；事件名与档位归属不变、字段 +6，见 §9。**2026-10-19 四次回填（`#209`）**：队列 / 锁 / 存储三行补持有者指纹与清理相位、批量异常停止行、轮询失败心跳；事件名与档位归属不变、字段 +3，见 §10）
 - 本票：[规格定稿](https://github.com/FeatherHunter/dsh-plugin-update/issues/119)（地图 [本包全面集成 dsh-log 0.3.1](https://github.com/FeatherHunter/dsh-plugin-update/issues/117)）
 - 上游事实源：`docs/research/20261014-update-logging-inventory.md`（19 环节清单与逐条 `文件:行号`）、`docs/research/20261014-dsh-log-031-api.md`、`docs/research/20261014-dsh-host-logging-surface.md`
 - 立规的两份 ADR：[ADR-0005 运行期依赖与落盘归属](https://github.com/FeatherHunter/dsh-plugin-update/blob/main/docs/adr/0005-dsh-log-as-first-runtime-dependency.md)、[ADR-0006 行只承载稳定码](https://github.com/FeatherHunter/dsh-plugin-update/blob/main/docs/adr/0006-log-rows-carry-codes-not-prose.md)
@@ -29,10 +29,10 @@
 | `update.install.verify` | info | `result: 'completed'\|'restart-required'\|'failed'\|'interrupted'`、`installedVersion`、`pendingRestart: boolean` | 枚举 + 版本号 |
 | `update.batch.entry.request` | info | `total`、`ownCount`、`foreignCount`、`sessionHash` | 只给数量，不给插件标识清单。`sessionHash`（`#208`）是**批次编号的 hash8**：同一批的入队 / 失败 / 总账三条行靠它串起来（三条行可能落在不同目录，见 §9.1）。落属主（`selfKey` 那家）目录；无属主一行不发 |
 | `update.batch.entry.fail` | warn | `targetHash`、`sessionHash`、`errorKind`、`stage`、`index`、`exitCode?` | 目标标识一律 hash8（绝不给包名/路径原文）。`stage` 四值：`check`（查询 / 装前重查失败）、`install`（提交安装失败）、`timeout`（等安装终态超时）、`settle`（收尾：装到终态才失败）；`index` 是该目标在**整批**里的 0 基序号（视图只推进选中行时仍按整批顺序；算不出就整格不出，不拿 0 冒充第一家）；`exitCode` 只在真拿到退出码时出现。**落失败那家自己的插件目录**——与属主无关，无属主也照落（见 §9.1） |
-| `update.batch.summary` | info | `total`、`ok`、`failed`、`skipped`、`durationMs`、`sessionHash`、`stoppedBecause` | 总账的机器可读版；面板渲染文本不进日志。`stoppedBecause` 五值（`#208`）：`finished`（全部跑完，**不代表没失败**）/ `stopped-after-failure`（遇错按策略停）/ `max-steps`（步数预算用完，等下一轮）/ `empty`（没有可推进的目标）/ `queued`（进了队列还没轮到，不是失败）；值来自最近一次推进的读数（没推进过按 `finished`）。落属主目录；无属主一行不发 |
-| `update.queue.transition` | info | `phase: 'queued'\|'running'\|'done'\|'reclaimed'`、`waitedMs?`、`position?` | 相位边沿，禁止每次轮询都发。相位是**队列自己的**三相位（取号 / 安装中 / 摘牌）加全局锁陈旧回收成功这一个真跃迁；`checking`/`installing`/`settling`/`idle` 是面板任务词，队列里没有这些相位（#124 落地时按实现收紧，见 §3.1） |
-| `update.lock.anomaly` | warn | `kind: 'stale-owner'\|'release-failed'`、`ageMs?` | 拥有者标识只记 hash8，不记原文。`busy-timeout` **不做**：本包两条抢锁路径都是「看一眼，不陈旧就当场认输」（`tryAcquireLock` 不等待；`tryAcquireGlobalLock` 的 `timeoutMs` 是**陈旧阈值**不是等待超时），没有「等到超时」这条路径，不为了凑齐词汇造一条（见 §3.1） |
-| `update.store.fail` | warn | `op: 'read-job'\|'write-job'\|'acquire-lock'\|'reclaim-stale-owner'\|'release-lock'\|'read-snapshot'\|'write-backup'\|'write-queue'\|'read-global-lock'\|'acquire-global-lock'\|'release-global-lock'`、`reason` | 现在 `catch {}` 静默吞的点。`op` 是**真正失败的那个动作**（比「state-read/state-write」粗归类更能定位）；`reason` 是 `error.code` 过白名单后的小写稳定码（`enoent`/`eacces`/`eexist`/… 共 25 个），拿不到码退 `'throw'`、连错误对象都不是退 `'unknown'`，绝不放 `message`/路径。同一操作**同一原因**连续失败只记首次（原因变了再记一条，成功即清）。`dirHash`/`ownerHash` 是清单里的可选格、**当前不发**：日志本来就按插件分目录（目录即定位），hash8 反向不可用，发了只是噪声 |
+| `update.batch.summary` | info | `total`、`ok`、`failed`、`skipped`、`durationMs`、`sessionHash`、`stoppedBecause` | 总账的机器可读版；面板渲染文本不进日志。`stoppedBecause` 七值（`#208` 五值 + `#209` 补 `user-cancel` / `error`）：`finished`（全部跑完，**不代表没失败**）/ `stopped-after-failure`（遇错按策略停）/ `max-steps`（步数预算用完，等下一轮）/ `empty`（没有可推进的目标）/ `queued`（进了队列还没轮到，不是失败）/ `user-cancel`（用户取消整批，会话被清掉前记一条）/ `error`（驱动抛异常，含后台 drain）；值来自最近一次推进的读数（没推进过按 `finished`）。`#209` 起**未跑完就停下**时（`queued` / `stopped-after-failure` / `user-cancel` / `error`）在停下那一刻另记一条同字段行（同一会话同一原因只记一次，见 §10.4），收尾行语义不变。落属主目录；无属主一行不发 |
+| `update.queue.transition` | info | `phase: 'queued'\|'running'\|'done'\|'reclaimed'\|'pruned'\|'abandoned'`、`waitedMs?`、`position?`、`holderHash?` | 相位边沿，禁止每次轮询都发。相位是**队列自己的**三相位（取号 / 安装中 / 摘牌）加全局锁陈旧回收成功这一个真跃迁；`#209` 再补两个「待办被摘」相位（`pruned` 意向过期被清理 / `abandoned` 主动放弃，判据见 §10.1），`checking`/`installing`/`settling`/`idle` 是面板任务词，队列里没有这些相位（#124 落地时按实现收紧，见 §3.1）。`holderHash`（`#209`）是行落那一刻**持有队列那家**的 `hash8(pluginId)`（队列空时省略一格格）；同一份队列状态一次写盘可能发多条（多条待办同时被摘时逐条发），每条按「动作方 + 相位 + 逐条待办主体（intentKey）」做指纹去重，所以同相位下不同待办各留一条 |
+| `update.lock.anomaly` | warn | `kind: 'stale-owner'\|'release-failed'\|'busy-owner'`、`ageMs?`、`ownerHash?` | 拥有者标识只记 hash8，不记原文。`ownerHash`（`#209` 实发）是锁持有者的 `hash8`（锁内容里 `pluginId`/`id`/`pid`/`startedAt` 有哪格拼哪格，`key:value` 用 `|` 连接后再哈希，取法见 §10.2；缺哪格就少拼哪格，绝不放路径/原文）；`busy-owner`（`#209`）说明锁被**新鲜**持有者占着、本次抢锁当场认输：`ageMs` 是它已持有多久（读得出 `startedAt` 用逻辑钟算，读不出回退文件 mtime 且必须用墙钟——`queueLockAge()`，见 §10.2），同一持有者连续只记首次（换持有者才再记）。`stale-owner` / `release-failed` 一并补 `ownerHash`（读不出锁内容时省略）。`busy-timeout` **仍不做**：本包两条抢锁路径都是「看一眼，不陈旧就当场认输」（`tryAcquireLock` 不等待；`tryAcquireGlobalLock` 的 `timeoutMs` 是**陈旧阈值**不是等待超时），没有「等到超时」这条路径，不为了凑齐词汇造一条（见 §3.1） |
+| `update.store.fail` | warn | `op: 'read-job'\|'write-job'\|'acquire-lock'\|'reclaim-stale-owner'\|'release-lock'\|'read-snapshot'\|'write-backup'\|'write-queue'\|'read-global-lock'\|'acquire-global-lock'\|'release-global-lock'`、`reason`、`dirHash` | 现在 `catch {}` 静默吞的点。`op` 是**真正失败的那个动作**（比「state-read/state-write」粗归类更能定位）；`reason` 是 `error.code` 过白名单后的小写稳定码（`enoent`/`eacces`/`eexist`/… 共 25 个），拿不到码退 `'throw'`、连错误对象都不是退 `'unknown'`，绝不放 `message`/路径。同一操作**同一原因**连续失败只记首次（原因变了再记一条，成功即清）。`dirHash`（`#209` 实发）是失败所在目录的 sha256 前 8 位短指纹（磁盘端口取 `updates/<pluginId>/<profileHash>` 目录、队列端口取 `update-queue/<profileHash>` 目录，与 `logDirHash` 同族口径），**绝不入路径原文**；`ownerHash` 归 `update.lock.anomaly`，本事件不声明 |
 | `update.panel.mount` | info | `mode`、`theme`、`lang`、`pollMs`、`autoCheck` | 全是枚举与数字。`mode` 的**可达五值**：`'entry'`（`src/entry.ts:590` 的 `clientLog:{mount:'entry'}`）、`'http'`（`src/http.ts:353` 的默认挂载点名）、`'batch'`（批量面板与批量入口件，`#208` 起都传 `clientLog` 报 `'batch'`，见 §9.3）、以及没给挂载点名时退回的面板 `mode` 选项 `'embedded'\|'dialog'`（`src/panel.ts:41` `UpdatePanelMode`）。**`'entry-batch'` 仍不可达**：批量两处挂载点都报 `'batch'`。`autoCheck` 记这面面板/按钮会话挂载后**自动检查有没有跑**：`'started'`（自动查已发起）/ `'recent'`（首刷快照显示 job 在 installing/verifying 或已有动作在飞，再查只会得到同一结论，跳过）/ `'disabled'`（调用方显式关掉自动检查）/ `'failed'`（首刷失败、没拿到状态，自动检查没跑成）；面板行在首次刷新完成或失败之后才发，保证记的是事实而不是预告；安装按钮同口径——`autoCheck:'mount'` 时挂载行等首刷（含首刷触发的自动查）落定后按事实写 `'started'` / `'recent'` / `'failed'`（语义同面板行），`autoCheck:'never'` 时写 `'disabled'` 且不刷新、零请求 |
 | `update.panel.action` | info | `action`、`bytes?`、`truncated?`、`ok`、`errorKind?`、`durationMs`、`errorHash?` | `action` 取值**十一**个，与 `src/panel.ts:199-210` 的 `UpdatePanelActionKind` 一字不差：`'check'`、`'install'`、`'skip'`、`'reset-skip'`、`'copy-manual'`、`'copy-diag'`、`'toggle-queue'`、`'toggle-changelog'`、`'restart-hint'`、`'close-view'`、`'dismiss-failure'`。`#208` 起批量面板复用同一事件：`action` 取 `src/panel-batch.ts:166-188` 的 22 个批量动作（`check`/`install`/`resume`/`cancel`/`row-install`/`row-check`/`row-skip`/`row-resume-skip`/`row-cancel-queue`/`row-copy-manual`/`row-copy-diag`/`copy-all-diag`/`copy-all-manual`/`row-fallback`/`row-fallback-confirm`/`batch-fallback-scan`/`batch-fallback-confirm`/`toggle-details`/`detail-close`/`restart`/`close`/`toggle-check-on-open`），`ok` / `errorKind` / `durationMs` 同口径（清单里 `action` 仍是自由字符串，不锁枚举）。复制诊断只记体量与是否截断，**绝不记内容**（`bytes`/`truncated` 只跟着 `'copy-diag'` 走）。`ok`：这次点击的结局（成功 `true`；失败 `false`）；`errorKind`：失败类别——锁存稳定码、动作直接抛错记 `'thrown'`、已有动作在途被拒记 `'busy'`，成功时省略；`durationMs`：从点击到动作落定（含提前 return 的分支）；`errorHash`：失败原文的 8 位指纹，**不落原话** |
 | `update.panel.render.fail` | error | `kind: 'container'\|'plugin-id'\|'call'\|'prefix'\|'poll-ms'\|'mode'\|'auto-check'\|'theme'\|'theme-tokens'\|'locale'\|'render'\|'transport'\|'uncaught'\|'unhandled'`、`phase: 'mount'\|'paint'\|'poll'\|'global'`、`errorHash` | 挂载校验、绘制、轮询与全局兜底的四相位失败；无自由文本，`errorHash` 是原话的 8 位指纹（不落原文）。同一 `phase\|kind\|errorHash` 60 秒内至多一行 |
@@ -221,7 +221,7 @@
 | `update.batch.summary` | 属主插件目录 | **一行不发** |
 
 - 三条行都带 `sessionHash` = `hash8(批次编号)`：同一批的行可能分散在属主与各失败目标目录里，聚合认这一格，不认目录（`noteEntryRequest()` / `noteEntryFail()` / `noteBatchSummary()` 同一取法）。
-- `stoppedBecause` 只在收尾边沿落行时写：`noteBatchSummary()` 取 `lastRun?.stoppedBecause ?? 'finished'`；`finished` 是「全部跑完」，`failed` 仍可能非零。
+- `stoppedBecause` 收尾边沿落行时取 `lastRun?.stoppedBecause ?? 'finished'`；`finished` 是「全部跑完」，`failed` 仍可能非零。`#209` 起未跑完就停下另记一条异常停止行（见 §10.4），§9 的收尾口径不变。
 - `entry.fail` 的 `stage` 由 check、install 两条路径与 `settleInstall()` 给出（`check` / `install` / `timeout` / `settle`），`index` 由宿主注入的 `indexOf` 取**整批**序号（`full.order.indexOf(key)`，不是视图序号），`exitCode` 只在真拿到时出现。
 
 ### 9.2 `host.call.fail` 的批量语义（字段不变，只改发不发）
@@ -252,3 +252,41 @@
 ### 9.4 队列行归属（`#208` 修复）
 
 批量宿主创建共享队列端口时漏传 `logFor`，批量路径上的 `update.queue.transition` / `update.store.fail` 落不到正确目录。现与单插件同形注入按动作方取口的 `logFor`（`createUpdateQueuePorts(..., { logFor })`），队列行落**当次动作方**（被装 / 抢锁那家）自己的目录。
+
+## 10. 四次回填（2026-10-19）：`#209` 的队列 / 锁 / 存储颗粒度与常驻 warn 限速
+
+本次**不新增事件、不改档位归属**：条目总数仍 27（常驻 20 / 按需 6 / 自监控 1），字段白名单合计 **+3**（`update.queue.transition` +1 `holderHash`、`update.lock.anomaly` 的 `ownerHash` 由「声明未发」转实发、`update.store.fail` 的 `dirHash` 由「声明未发」转实发）；枚举扩三处（新增 `update.queue.transition.phase` 与 `update.lock.anomaly.kind` 两个 `fieldEnums`，`update.batch.summary.stoppedBecause` 五值 → 七值），`host.call.fail` 只扩 guard（轮询失败限速）、字段与形状不动。
+### 10.1 队列跃迁：清理/放弃相位与持有者指纹
+
+- 相位判据在发射侧 `src/store.ts` 的 `queueEdgesOf(previous, next, { now, ttlMs })`：写盘前读到的旧队列与写盘后的新队列逐项比对，**一份状态可以产出多条边**（多条待办同时被摘时逐条发）。
+- `done` / `running`：owner 被摘 / 新建或换家（真跃迁），`holderHash` 是该行描述的持有者 `hash8(pluginId)`；`running` 另带 `waitedMs`（从 waiting 占位算起）。
+- `queued`：owner 没换、新出现 waiting 意向 → `position` = 该意向在新队列 `waiting` 里的 1 基位置。
+- `pruned` / `abandoned`：旧 waiting 里被摘掉、又不是「刚被提升为 owner」的那一格（`#209` 起不再静默）→ 按意向年龄判：`age = now - enqueuedAt` 有限且 `age >= ttlMs` 记 **`pruned`**（过期清理），否则记 **`abandoned`**（取消 / 主动放弃）；行落**被摘那家**自己的目录（动作方），`holderHash` 是摘的那一刻队列持有者（队列空则省略）。逐条待办的边沿带自己的主体验证盐（`intentKey`），所以一次写盘摘掉两条不会互相吃掉。
+- `ttlMs` 与 `now` 由调用方注入，默认 `QUEUE_INTENT_TTL_MS` / `Date.now()`；`src/host.ts` 的队列端口接 `{ ttlMs: queueTtlMs, nowImpl: queueNow }`——与 `loadQueuePruned()` 同一读数，prune 与相位判定不会各看各的钟；批量宿主共享队列端口接 `nowImpl: () => now()`，并在宿主覆盖了 `queueTtlMs` 时一并接 `ttlMs`。
+- 写盘失败时 `update.store.fail{op:'write-queue'}` 的路由用第一条边的动作方；写盘成功才逐条发 transition。发射侧按「动作方 + 相位 + 逐条待办主体」指纹去重，所以同一份状态重复写不会重发同一相位、同相位下不同待办各留一条。
+
+### 10.2 锁异常：持有者指纹与 `busy-owner`
+
+- 抢锁有两条失败路：①**新鲜持有者占着**（`age === undefined || age <= staleMs`）→ `busy-owner`，`ageMs` 是持有者已持有时间（量不出时省略）、`ownerHash` 是持有者指纹；②读锁 / 回收抛错 → `store.fail{op:'acquire-lock'|'reclaim-stale-owner'}`。回收成功 → `stale-owner`（带被回收者 `ownerHash`），全局锁再补一条 `queue.transition{phase:'reclaimed'}`；放锁 unlink 失败 → `release-failed` + `store.fail{op:'release-lock'}`。
+- `acquire-failed` / `busy-wait` **不做**：读锁 / 抢锁异常已经有 `store.fail{op:'acquire-lock'}`（带稳定 reason 与 dirHash），再补一条 lock.anomaly 只是把同一件事写两遍；本包也没有「等待重试到超时」的路径（见 §3.1）。`#209` 的「扩类别」落实为新增 `busy-owner`——它回答的是「谁在占着、多久」。`ownerHash` 与 `queue.transition.holderHash` 同名不同源是**刻意分开**的：前者是锁内容指纹（`hash8(pluginId|id|pid|startedAt)`），后者是队列持有者插件标识指纹（`hash8(pluginId)`），两个事件各用各的名，聚合器不会把两种口径混在一起比。
+- `ownerHash` 取法 `lockOwnerHash()`：锁内容里 `pluginId` / `id` / `pid` / `startedAt` 有哪格拼哪格（`key:value` 用 `|` 连接），非空则 `hash8`；读不出锁内容时这一格省略。
+- `busy-owner` 去重是**按持有者**：同一动作方连续被同一个持有者挡住只记首次，持有者换了才再记。
+- 锁年龄读数（`#209` 修 `#181` 回归）：全局锁年龄统一走 `queueLockAge(probe, nowMs)`——锁里读得出 `startedAt` 就用调用方传入的逻辑钟算（测试可注入假钟）；读不出（空锁 / 坏锁）回退文件 `mtime`，而 mtime 是文件系统**墙钟**，回退分支必须 `Date.now() - mtime`，不能用注入的逻辑钟（否则假钟减真 mtime 得负值，陈旧锁被当成新鲜锁拒绝回收，`tests/issue-181-lock-ttl.test.mjs` 锁死这条）。
+
+### 10.3 存储失败行的目录指纹
+
+- `update.store.fail` 的 `dirHash` 由 `shortHash8()`（sha256 hex 前 8 位）算失败所在目录：磁盘端口 = `paths.directory`（`updates/<pluginId>/<profileHash>`）、队列端口 = `queuePathsForUpdate(...)` 的目录（`update-queue/<profileHash>`）。
+- 与 `update.wire.ready.logDirHash` 同属 `H_DIR` 口径（8 位十六进制短指纹），三个事件在契约里共用 `H_DIR` 码；行里**绝不出路径原文**。
+
+### 10.4 批量异常停止行与预查失败行
+
+- 停止行复用 `update.batch.summary`（同字段、同落点属主目录、无属主一行不发）：收尾边沿发 `finished`（现行为）；**未跑完就停下**时在停下那一刻另发一条，`stoppedBecause` ∈ `queued` / `stopped-after-failure` / `user-cancel` / `error`：`queued` 是驱动停在队首阻塞（drain 下一轮还会看见同一个，故按「会话 + 原因」去重只记一次）；`stopped-after-failure` 是 `stopOnFailure` 提前收手；`user-cancel` 是 `cancelPhone` 清会话前记；`error` 是 `installPhone` / `resumePhone` / 后台 `drainOnce` 的驱动抛异常（`catch` 里记，异常原文不进日志）。`max-steps`（队列推进的正常节拍）与 `empty`（没目标）**不发**停止行。
+- 预查失败也落 `update.batch.entry.fail`：`precheckSelectedToReady` 里 check 结论 `kind:'failed'` 的目标由宿主直接调驱动侧同一个发射口 `noteBatchEntryFailure()`（`src/batch-run.ts` 导出，宿主与驱动同一行形状），`stage:'check'`、`errorKind` 走稳定码白名单；check 过程抛异常（消息可能含路径 / URL）记 `errorKind:'unknown'`，`index` 仍取整批序号。
+- 落点：预查失败行落**失败那家自己**的目录（`logPortFor(key)`），停止行落属主目录（§9.1 判据不变）。
+
+### 10.5 常驻 warn 限速：轮询失败心跳
+
+- `host.call.fail` 对**状态轮询失败**（`method` 以 `.updateStatus` 结尾）限速：同一 (pluginId, method) 的持续失败首次立即记一条；之后每 **5 分钟**至多一条心跳；下一次成功清记忆（再失败重新立即记）。只按时间窗限速——窗口内错误码变化不额外落行，下一次心跳行带当时原因（否则错误码轮换就能绕开限速）。600 次轮询失败 ≤ 12 行/小时（实测 600 次 → 2 行）。
+- 非轮询电话（check / install / changelog / logAppend…）口径不变：一次失败电话一条，不做时间窗限速（它们的调用频率由用户动作决定）。
+- 时钟取 `readerOverrides.now`（可注入），拿不到或坏了回退 `Date.now()`——宁可多发也不吞失败。
+- 字段与形状不变（仍是 `method` / `kind` / `error` / `errorHash` / `pluginId` 五格），只改「发不发」；`host.call` 成功行的轮询抑制（`#124`）不受影响，恢复成功本身**不补行**（成功行本来就抑制）。
