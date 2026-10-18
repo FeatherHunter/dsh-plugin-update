@@ -126,6 +126,12 @@
     },
     "update.panel.mount": {
       "autoCheck": ["started", "recent", "disabled", "failed"]
+    },
+    "update.batch.entry.fail": {
+      "stage": ["check", "install", "timeout", "settle"]
+    },
+    "update.batch.summary": {
+      "stoppedBecause": ["finished", "stopped-after-failure", "max-steps", "empty", "queued"]
     }
   },
   "events": {
@@ -140,7 +146,7 @@
       "kind": "resident",
       "fields": ["method", "kind", "error", "errorHash", "pluginId"],
       "codes": ["H_ERR"],
-      "guard": "一次失败电话一条"
+      "guard": "一次失败电话一条；批量电话失败按 method 连续同码只记首次（成功即清记忆），无属主时不发"
     },
     "update.install.exec": {
       "level": "info",
@@ -194,21 +200,21 @@
     "update.batch.entry.request": {
       "level": "info",
       "kind": "resident",
-      "fields": ["total", "ownCount", "foreignCount"],
-      "guard": "一批一条"
+      "fields": ["total", "ownCount", "foreignCount", "sessionHash"],
+      "guard": "一批一条；sessionHash 用批次 id 的指纹把同一批的三条行串起来"
     },
     "update.batch.entry.fail": {
       "level": "warn",
       "kind": "resident",
-      "fields": ["targetHash", "errorKind", "exitCode"],
+      "fields": ["targetHash", "sessionHash", "errorKind", "stage", "index", "exitCode"],
       "codes": ["H_TARGET"],
-      "guard": "一个目标失败一条"
+      "guard": "一个目标失败一条；stage 是失败阶段（check/install/timeout/settle），index 是该目标在本批内的序号"
     },
     "update.batch.summary": {
       "level": "info",
       "kind": "resident",
-      "fields": ["total", "ok", "failed", "skipped", "durationMs"],
-      "guard": "一批一条"
+      "fields": ["total", "ok", "failed", "skipped", "durationMs", "sessionHash", "stoppedBecause"],
+      "guard": "一批一条；stoppedBecause 说明这一批为什么停（finished 是全部跑完，不是没有失败）"
     },
     "update.queue.transition": {
       "level": "info",

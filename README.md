@@ -378,6 +378,24 @@ mountUpdateBatchPanelHttp(document.querySelector('#batch'), {
 **跨使用范围如实拒绝**：`web` 与 `desktop` 各自排队（装的是不同落点），混在一起的目标会回
 `cross-scope`，本包不会替你跨范围抢锁。
 
+**批次日志与落点（一批出问题时先看这里）**：批量更新比单插件多一层「一批」的概念。日志里用三条常驻行回答三个问题——这批什么时候起的（`update.batch.entry.request`）、哪一家卡在哪一步（`update.batch.entry.fail`）、这批为什么停（`update.batch.summary`）。
+
+- 同一批的三条行靠 `sessionHash` 串起来：它是批次编号的 8 位指纹，三条行都带，只说明「同一批」，不带插件名清单——行可以落在不同插件目录，聚合认这一格，不认目录。
+- 失败行带 `stage` 与 `index`。`stage` 是失败阶段：`check`（查询，含装前重查）、`install`（提交安装）、`timeout`（等安装终态超时）、`settle`（收尾，装到终态才失败）；`index` 是该目标在**整批**里的 0 基序号（只推进选中的几行时仍按整批序号算；算不出时这一格不出现，不拿 0 冒充第一家）。`exitCode` 只在真拿到退出码时出现。
+- 总账行带 `stoppedBecause` 说明这批为什么停：`finished`（全部跑完——**不代表没失败**，失败数看 `failed`）、`stopped-after-failure`（遇错按策略停）、`max-steps`（本轮步数预算用完，等下一轮接着推）、`empty`（没有可推进的目标）、`queued`（目标进了队列还没轮到，不是失败）。值来自最近一次推进的读数，没推进过按 `finished`。
+- 七个批量电话（`<前缀>.batchStatus` 等）各自失败时也留一行 `host.call.fail`：`method` 是全名（如 `life.batchCheck`）、`kind` 是短名；同一通电话连续同一种错只记首次（成功即清记忆），所以 `batchStatus` 每 1.5 秒轮询失败也不会灌爆目录。
+
+落点（认目录就知道这行说的是谁的事）：
+
+| 行 | 落点 |
+| --- | --- |
+| 批量级行：入队 `update.batch.entry.request`、总账 `update.batch.summary`、七个批量电话失败行 `host.call.fail` | 批量属主（`selfKey` 那家）的插件日志目录 |
+| 失败行 `update.batch.entry.fail` | 失败那家**自己**的插件日志目录（与属主是谁无关） |
+| 队列行 `update.queue.transition`、`update.store.fail` | 当次动作方（被装的那家 / 抢锁的那家）自己的目录 |
+| 批量面板的客户端行（挂载行 `mode:'batch'`、动作、渲染失败、全局兜底） | 属主插件的日志落点：批量面板默认自建通道，打 `<批量前缀>.logAppend`，由批量宿主转发给属主的 `logAppend` |
+
+**没指定 `selfKey`（无属主）时**：批量接口不传 `selfKey` 也能跑，但日志按「不知道落点就不猜」如实退化——① 批量级行（入队行与总账行）**一行不发**，没有属主就没有落点；② 失败行**照落**失败那家自己的目录（它按目标取口，不依赖属主）；③ 七个批量电话的失败行**一行不发**；④ 批量面板的客户端行**落不下来**：宿主没登记 `<批量前缀>.logAppend`（没有属主、或属主那家没接 `logAppend`），面板侧的日志投递失败，只在客户端队列的内存计数里留着（不落行、不挡批量主流程）；⑤ 队列行照旧落当次动作方的目录。要完整的批次证据，就把 `selfKey` 传上。
+
 ### 第 2.7 节：更新日志自动展示（告诉用户更新了什么）
 
 任何插件的升级能力都是两件事：**① 给一套面板**（上面第 4 步 / 2.5 / 2.6，挂载一行即跑）；**② 告诉用户这次更新了什么**（本节，写 md 即显示，零新增代码）。
@@ -816,7 +834,7 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 **开关：默认关着，改了要重启。**`info` 的准入由 dsh-log 的开关文件决定：`<DSH_HOME>/logs/log-switch-<派生命名空间>.json`，内容就是 `{ "enabled": false }`，默认关。注意它在 `logs/` **根下**、与日志目录平级，不是目录里的文件（`pluginId` 恰为 `wf` 时文件名退化为 `log-switch.json`）。三件事要知道：① 它只管**按需**事件——`warn`/`error` 与常驻事件不受它影响（本包 27 条事件里 20 条恒落、7 条受它管）；② dsh-log 在实例启动时把开关读进内存后**永久缓存**，运行中改这个 JSON 对活着的实例无效，**要重启宿主**才生效。本包不注册 dsh-log 的宿主日志电话（`logGetSwitch`/`logSetSwitch` 等六个都不注册），所以没有「在面板里拧开关」这条路；③ 按需事件里有两行是取数证据——通道回退与更新说明 tarball 取数的 `update.registry.fetch`（`0.19.0` 起接上）：默认开关关着时它们不落盘，但**常驻**的检查成功行 `update.check.done` 会带 `fallback` / `dataSource`，照样回答「这次走没走回退」。
 
-**面板侧的日志（`0.16.0` 起）。**面板跑在浏览器闭包里，落盘是宿主的事，中间隔着 `….logAppend` 电话：面板把行攒进一个有界环形缓冲（缺省 200 行，满了挤掉最老的并计数），按批交回宿主（缺省一批 50 行、间隔 1 秒；页面切到后台立即冲刷一次），失败退避重试 2 次后丢弃并计数 —— 整条路**永不外抛**，日志坏了不挡更新。丢弃按原因计数：`overflow`/`host-refused`/`send-failed` 第一次出现时各上浮一条 `update.log.degraded{reason:'client-drop-*'}` 降级行（`#214`；没有投递面的 `no-channel` 只进计数，随「复制诊断」的「连接」段露出；`disposed` 在通道拆掉后尽力上浮一条），卸载前尽量把缓冲冲刷出去。宿主侧这一头是协议面：只收六个客户端事件（`update.panel.mount` / `update.panel.action` / `update.panel.render.fail` / `update.panel.state` / `update.lang.applied`，以及客户端上报自己丢弃原因的 `update.log.degraded`），级别必须是 `debug`/`info`/`warn`/`error`；**事件必须在本包事件清单里**（整行不在清单才计入回包的 `dropped`），字段不合清单或枚举值不合法时只摘该字段、整行仍落盘，并记一条 `update.log.degraded`（`#210`：降级行含事件名与字段名，不含原文）；超量（一次 200 行以上）、过期（10 分钟以上的旧行）、形状不对一律计入 `dropped`，**不产生 `host.call` 行**（不给日志自己制造噪声）；宿主整批拒收时另上浮一条 `update.log.degraded{reason:'client-batch-refused'}`（每个宿主实例只记一次）。面板默认自建这条通道（电话名从前缀派生）；`mountUpdatePanel` 的 `clientLog` 选项可以换成你自己的通道或明确关掉：`{ channel }` 注入、`{ mount: 'entry' }` 记挂载点、`null` 关闭。入口件与 HTTP 直挂已经替你传好挂载点。
+**面板侧的日志（`0.16.0` 起）。**面板跑在浏览器闭包里，落盘是宿主的事，中间隔着 `….logAppend` 电话：面板把行攒进一个有界环形缓冲（缺省 200 行，满了挤掉最老的并计数），按批交回宿主（缺省一批 50 行、间隔 1 秒；页面切到后台立即冲刷一次），失败退避重试 2 次后丢弃并计数 —— 整条路**永不外抛**，日志坏了不挡更新。丢弃按原因计数：`overflow`/`host-refused`/`send-failed` 第一次出现时各上浮一条 `update.log.degraded{reason:'client-drop-*'}` 降级行（`#214`；没有投递面的 `no-channel` 只进计数，随「复制诊断」的「连接」段露出；`disposed` 在通道拆掉后尽力上浮一条），卸载前尽量把缓冲冲刷出去。宿主侧这一头是协议面：只收六个客户端事件（`update.panel.mount` / `update.panel.action` / `update.panel.render.fail` / `update.panel.state` / `update.lang.applied`，以及客户端上报自己丢弃原因的 `update.log.degraded`），级别必须是 `debug`/`info`/`warn`/`error`；**事件必须在本包事件清单里**（整行不在清单才计入回包的 `dropped`），字段不合清单或枚举值不合法时只摘该字段、整行仍落盘，并记一条 `update.log.degraded`（`#210`：降级行含事件名与字段名，不含原文）；超量（一次 200 行以上）、过期（10 分钟以上的旧行）、形状不对一律计入 `dropped`，**不产生 `host.call` 行**（不给日志自己制造噪声）；宿主整批拒收时另上浮一条 `update.log.degraded{reason:'client-batch-refused'}`（每个宿主实例只记一次）。面板默认自建这条通道（电话名从前缀派生）；`mountUpdatePanel` 的 `clientLog` 选项可以换成你自己的通道或明确关掉：`{ channel }` 注入、`{ mount: 'entry' }` 记挂载点、`null` 关闭。入口件与 HTTP 直挂已经替你传好挂载点。批量面板与批量入口件也走同一条通道（挂载行报 `mode:'batch'`；电话名是 `<批量前缀>.logAppend`，由批量宿主转发给属主的 `logAppend`——属主存在且那家接了日志才登记），落点与无属主时的行为见 2.6 节「批次日志与落点」。
 
 **不自动上报。**日志只落本地磁盘，本包不会替你把它发给任何人——什么时候交、交给谁由你决定（下一节给了现成命令）。
 

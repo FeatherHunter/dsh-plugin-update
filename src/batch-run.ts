@@ -20,6 +20,9 @@ import {
 import type { UpdateLogPort } from './ports.js'
 import { hash8 } from './hash.js'
 
+/** 失败发生在哪个阶段（#208）：查版本／提交安装／等安装收尾超时／读终态。 */
+export type BatchFailStage = 'check' | 'install' | 'timeout' | 'settle'
+
 /** 查一家的结果。 */
 export type BatchCheckOutcome =
   /** 有新版可装。 */
@@ -28,8 +31,8 @@ export type BatchCheckOutcome =
   | { kind: 'current' }
   /** 这一版被用户跳过（不装，但也不算失败）。 */
   | { kind: 'skipped'; version: string | null }
-  /** 查失败（稳定码）。 */
-  | { kind: 'failed'; error: string }
+  /** 查失败（稳定码）；stage 只在失败阶段不是「查」时才显式给（缺省按查算）。 */
+  | { kind: 'failed'; error: string; stage?: BatchFailStage }
 
 /** 装一家的结果。 */
 export type BatchInstallOutcome =
@@ -38,8 +41,9 @@ export type BatchInstallOutcome =
   /**
    * 装失败（稳定码）。exitCode 只在**真拿到退出码**时才给（安装子进程真跑过并退出）；
    * 失败发生在执行之前（网络、锁、纯 JS 抛错）时它缺席——不拿 0 / -1 冒充「跑过」。
+   * stage 标明失败阶段（提交安装／等收尾超时／收尾失败），缺省按「提交安装」算。
    */
-  | { kind: 'failed'; error: string; exitCode?: number }
+  | { kind: 'failed'; error: string; exitCode?: number; stage?: BatchFailStage }
   /**
    * 已入队：全局锁被别家占着（宿主的 update-busy），本家排上了但还没轮到。
    * **不是失败**——这一行的相位回到 ready（远端版本留着），本轮推动到此为止，
@@ -62,6 +66,12 @@ export interface BatchRunDeps {
    * 返回 null（或干脆不注入）即「这一家没有已知落点」，一行不发——驱动器不认识插件标识，不猜。
    */
   logFor?: (key: string) => UpdateLogPort | null
+  /**
+   * 目标在**整批**里的序号（#208，可选）。调用方可能只推进被选中的几行（视图过滤），
+   * 此时 `session.entries.findIndex` 给的是视图序号；不注入就退回会话账本序号。
+   * 返回负数表示算不出，失败行里 index 字段整格不出（不拿 0 冒充第一家）。
+   */
+  indexOf?: (key: string) => number
 }
 
 /** 驱动器读数：给日志、面板与门禁用。 */
@@ -74,11 +84,17 @@ export interface BatchRunStep {
   error: string | null
 }
 
+/**
+ * 一批停下来的原因（#208）：做完了／按策略遇错停／步数用完／没活可干／**排上队但还没轮到**。
+ * 宿主侧 `update.batch.summary` 的 `stoppedBecause` 与 `MultiHostUpdate.lastRun` 共用这一个词汇。
+ */
+export type BatchStoppedByBecause = 'finished' | 'stopped-after-failure' | 'max-steps' | 'empty' | 'queued'
+
 export interface BatchRunResult {
   session: BatchSession
   steps: BatchRunStep[]
-  /** 停下来的原因：做完了／按策略遇错停／步数用完／没活可干／**排上队但还没轮到**。 */
-  stoppedBecause: 'finished' | 'stopped-after-failure' | 'max-steps' | 'empty' | 'queued'
+  /** 见 BatchStoppedByBecause。 */
+  stoppedBecause: BatchStoppedByBecause
 }
 
 /** 驱动器选项：`maxSteps` 给 1 就是「只推进一步」，便于宿主按自己的节奏推进（drain）。 */
@@ -86,21 +102,41 @@ export interface BatchRunOptions {
   maxSteps?: number
 }
 
-// ---------- 单项失败的日志接线（#124） ----------
+// ---------- 单项失败的日志接线（#124 / #208） ----------
 //
-// 只记「稳定短码 + 目标指纹」：目标键（可能是包名、路径或标识）与错误原话一个字都不入行（ADR-0006）。
+// 只记「稳定短码 + 指纹」：目标键（可能是包名、路径或标识）与错误原话一个字都不入行（ADR-0006）。
 // 行里只有枚举白名单值与导出量，所以这些函数只做两件事：算 hash8、把错误折成稳定码。
+// #208 起多三样：sessionHash（同一批的三条行靠它串起来）、stage（失败阶段）、index（批内序号）。
 
 /** 稳定错误码的形状（小写字母开头、短、无空白）：不像的一律折成 unknown——error.message 里可能有路径/URL。 */
 const STABLE_ERROR_CODE = /^[a-z][a-z0-9-]{0,31}$/
 
-/** 一家失败记一条：targetHash 只指纹目标，exitCode 只有真拿到才进字段（多一个键整行会被白名单丢掉）。 */
-function noteEntryFail(deps: BatchRunDeps, key: string, error: string, exitCode?: number): void {
+/** 一次失败的传输结果里驱动器要用的三格（outcome 已收窄到 failed 分支）。 */
+interface EntryFailure {
+  error: string
+  exitCode?: number
+  stage?: BatchFailStage
+}
+
+/** 一家失败记一条：targetHash/sessionHash 只指纹，exitCode 只有真拿到才进字段（多一个键整行会被白名单丢掉）。 */
+function noteEntryFail(
+  deps: BatchRunDeps,
+  session: BatchSession,
+  key: string,
+  action: 'check' | 'install',
+  failure: EntryFailure,
+): void {
+  const index = deps.indexOf?.(key) ?? session.entries.findIndex((e) => e.key === key)
   const fields: Record<string, unknown> = {
     targetHash: hash8(key),
-    errorKind: STABLE_ERROR_CODE.test(error) ? error : 'unknown',
+    sessionHash: hash8(session.id),
+    errorKind: STABLE_ERROR_CODE.test(failure.error) ? failure.error : 'unknown',
+    stage: failure.stage ?? (action === 'check' ? 'check' : 'install'),
   }
-  if (typeof exitCode === 'number' && Number.isFinite(exitCode)) fields['exitCode'] = Math.trunc(exitCode)
+  if (Number.isInteger(index) && index >= 0) fields['index'] = index
+  if (typeof failure.exitCode === 'number' && Number.isFinite(failure.exitCode)) {
+    fields['exitCode'] = Math.trunc(failure.exitCode)
+  }
   try {
     deps.logFor?.(key)?.('warn', 'update.batch.entry.fail', fields)
   } catch {
@@ -155,7 +191,7 @@ export async function runBatch(
       if (checked.kind === 'failed') {
         await persist(markBatchEntry(current, key, { phase: 'failed', error: checked.error }, deps.now()).session)
         steps.push({ key, action: 'check', phase: 'failed', error: checked.error })
-        noteEntryFail(deps, key, checked.error)
+        noteEntryFail(deps, current, key, 'check', checked)
         if (current.stopOnFailure) return { session: current, steps, stoppedBecause: 'stopped-after-failure' }
         continue
       }
@@ -193,7 +229,7 @@ export async function runBatch(
     if (installed.kind === 'failed') {
       await persist(markBatchEntry(current, key, { phase: 'failed', error: installed.error }, deps.now()).session)
       steps.push({ key, action: 'install', phase: 'failed', error: installed.error })
-      noteEntryFail(deps, key, installed.error, installed.exitCode)
+      noteEntryFail(deps, current, key, 'install', installed)
       if (current.stopOnFailure) return { session: current, steps, stoppedBecause: 'stopped-after-failure' }
       continue
     }
@@ -206,7 +242,7 @@ export async function runBatch(
   return { session: current, steps, stoppedBecause: 'max-steps' }
 }
 
-function stoppedBecause(session: BatchSession): 'finished' | 'empty' | 'stopped-after-failure' {
+function stoppedBecause(session: BatchSession): BatchStoppedByBecause {
   if (session.entries.length === 0) return 'empty'
   if (session.entries.every((e) => isTerminalPhase(e.phase))) return 'finished'
   return 'stopped-after-failure'

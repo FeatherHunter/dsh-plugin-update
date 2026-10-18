@@ -1,6 +1,6 @@
 # 日志事件目录：19 环节 → 事件码 / 级别 / 档位 / 字段 / 脱敏
 
-- 日期：2026-10-14（**2026-10-15 契约回填**：本文件的「事件名 / 字段 / 取值」三处与随包清单、实现对齐；见文末 §7。**2026-10-19 二次回填（`#211`）**：五个事件的字段与枚举按随包清单一字回填，错误类别细化见 §8）
+- 日期：2026-10-14（**2026-10-15 契约回填**：本文件的「事件名 / 字段 / 取值」三处与随包清单、实现对齐；见文末 §7。**2026-10-19 二次回填（`#211`）**：五个事件的字段与枚举按随包清单一字回填，错误类别细化见 §8。**2026-10-19 三次回填（`#208`）**：批量三事件补 `sessionHash` / `stage` / `index` / `stoppedBecause`，`host.call.fail` 与批量面板客户端日志接上批量现场；事件名与档位归属不变、字段 +6，见 §9）
 - 本票：[规格定稿](https://github.com/FeatherHunter/dsh-plugin-update/issues/119)（地图 [本包全面集成 dsh-log 0.3.1](https://github.com/FeatherHunter/dsh-plugin-update/issues/117)）
 - 上游事实源：`docs/research/20261014-update-logging-inventory.md`（19 环节清单与逐条 `文件:行号`）、`docs/research/20261014-dsh-log-031-api.md`、`docs/research/20261014-dsh-host-logging-surface.md`
 - 立规的两份 ADR：[ADR-0005 运行期依赖与落盘归属](https://github.com/FeatherHunter/dsh-plugin-update/blob/main/docs/adr/0005-dsh-log-as-first-runtime-dependency.md)、[ADR-0006 行只承载稳定码](https://github.com/FeatherHunter/dsh-plugin-update/blob/main/docs/adr/0006-log-rows-carry-codes-not-prose.md)
@@ -15,7 +15,7 @@
   - **selfmon**——本包日志接线自身的降级，永不外抛。`update.log.degraded` 是 `warn`，按 dsh-log 的紧急级规则恒放行，不受 `kind` 影响。
 - 级别：`error` 用于「本包坏了/渲染失败」；`warn` 用于「这次操作没成，但系统还活着」；`info` 用于「做成了、走到哪一步了」。
 - 侧：**Node** = 只许在 `import 'node:'` 的五个文件里发射；**中立** = 不依赖 DOM 也不依赖 node（可两边跑）；**客户端** = 面板/入口件里，只能经本包自己的 `logAppend` 电话（#122）。
-- 既有三个事件名（`host.call`、`host.call.fail`、`update.install.exec`）**形状冻结**，被 `tests/phones.test.mjs:222/232`、`tests/routes.test.mjs:106` 逐字锁死：本次只改「发不发」，不改字段。
+- 既有三个事件名（`host.call`、`host.call.fail`、`update.install.exec`）**形状冻结**，被 `tests/phones.test.mjs:222/232`、`tests/routes.test.mjs:106` 逐字锁死：本次只改「发不发」，不改字段。批量电话（`#208`）复用 `host.call.fail`：字段仍是五格，只改「发不发」与去重口径（见 §9.2）。
 
 ## 1. 常驻（resident）
 
@@ -27,14 +27,14 @@
 | `update.status.changed` | info | `kind: 'update-available'\|'up-to-date'\|'unknown'`、`latest`、`runningVersion`、`installedVersion`、`registered`、`identity: 'update'\|'first-install'\|'up-to-date'\|'unknown'`、`blockedReason`、`unknownCause?` | 轮询的**边沿**：状态没变就不发（见 §4）；边沿键是整条真值元组（本行八格）的指纹，**任一分量变化发一条**。版本三格（`latest`/`runningVersion`/`installedVersion`）未知时**显式写 null**，不省成假值、不伪装版本号；`registered` 是在册事实（`boolean`，读不到显式 null）；`blockedReason` 固定给值（没挡写 `'none'`）；`identity` 固定给值（判定不了写 `'unknown'`）；`kind: 'unknown'` 时**必须**带 `unknownCause`（`'no-latest'` 没拿到最新版 / `'running-version-unknown'` 运行版未知 / `'compare-failed'` 比较失败），kind 已知时省略 `unknownCause` |
 | `update.install.request` | info | `from: 'panel'\|'entry'\|'batch'`、`current?`、`latest`、`checkAgeMs` | 不含凭证；`checkId`/`requestId` 不进日志（关联靠 `traceId`）。`current` 可选：运行版本未知时省略（不伪造版号） |
 | `update.install.verify` | info | `result: 'completed'\|'restart-required'\|'failed'\|'interrupted'`、`installedVersion`、`pendingRestart: boolean` | 枚举 + 版本号 |
-| `update.batch.entry.request` | info | `total`、`ownCount`、`foreignCount` | 只给数量，不给插件标识清单 |
-| `update.batch.entry.fail` | warn | `targetHash`、`errorKind`、`exitCode?` | 目标标识一律 hash8（绝不给包名/路径原文） |
-| `update.batch.summary` | info | `total`、`ok`、`failed`、`skipped`、`durationMs` | 总账的机器可读版；面板渲染文本不进日志 |
+| `update.batch.entry.request` | info | `total`、`ownCount`、`foreignCount`、`sessionHash` | 只给数量，不给插件标识清单。`sessionHash`（`#208`）是**批次编号的 hash8**：同一批的入队 / 失败 / 总账三条行靠它串起来（三条行可能落在不同目录，见 §9.1）。落属主（`selfKey` 那家）目录；无属主一行不发 |
+| `update.batch.entry.fail` | warn | `targetHash`、`sessionHash`、`errorKind`、`stage`、`index`、`exitCode?` | 目标标识一律 hash8（绝不给包名/路径原文）。`stage` 四值：`check`（查询 / 装前重查失败）、`install`（提交安装失败）、`timeout`（等安装终态超时）、`settle`（收尾：装到终态才失败）；`index` 是该目标在**整批**里的 0 基序号（视图只推进选中行时仍按整批顺序；算不出就整格不出，不拿 0 冒充第一家）；`exitCode` 只在真拿到退出码时出现。**落失败那家自己的插件目录**——与属主无关，无属主也照落（见 §9.1） |
+| `update.batch.summary` | info | `total`、`ok`、`failed`、`skipped`、`durationMs`、`sessionHash`、`stoppedBecause` | 总账的机器可读版；面板渲染文本不进日志。`stoppedBecause` 五值（`#208`）：`finished`（全部跑完，**不代表没失败**）/ `stopped-after-failure`（遇错按策略停）/ `max-steps`（步数预算用完，等下一轮）/ `empty`（没有可推进的目标）/ `queued`（进了队列还没轮到，不是失败）；值来自最近一次推进的读数（没推进过按 `finished`）。落属主目录；无属主一行不发 |
 | `update.queue.transition` | info | `phase: 'queued'\|'running'\|'done'\|'reclaimed'`、`waitedMs?`、`position?` | 相位边沿，禁止每次轮询都发。相位是**队列自己的**三相位（取号 / 安装中 / 摘牌）加全局锁陈旧回收成功这一个真跃迁；`checking`/`installing`/`settling`/`idle` 是面板任务词，队列里没有这些相位（#124 落地时按实现收紧，见 §3.1） |
 | `update.lock.anomaly` | warn | `kind: 'stale-owner'\|'release-failed'`、`ageMs?` | 拥有者标识只记 hash8，不记原文。`busy-timeout` **不做**：本包两条抢锁路径都是「看一眼，不陈旧就当场认输」（`tryAcquireLock` 不等待；`tryAcquireGlobalLock` 的 `timeoutMs` 是**陈旧阈值**不是等待超时），没有「等到超时」这条路径，不为了凑齐词汇造一条（见 §3.1） |
 | `update.store.fail` | warn | `op: 'read-job'\|'write-job'\|'acquire-lock'\|'reclaim-stale-owner'\|'release-lock'\|'read-snapshot'\|'write-backup'\|'write-queue'\|'read-global-lock'\|'acquire-global-lock'\|'release-global-lock'`、`reason` | 现在 `catch {}` 静默吞的点。`op` 是**真正失败的那个动作**（比「state-read/state-write」粗归类更能定位）；`reason` 是 `error.code` 过白名单后的小写稳定码（`enoent`/`eacces`/`eexist`/… 共 25 个），拿不到码退 `'throw'`、连错误对象都不是退 `'unknown'`，绝不放 `message`/路径。同一操作**同一原因**连续失败只记首次（原因变了再记一条，成功即清）。`dirHash`/`ownerHash` 是清单里的可选格、**当前不发**：日志本来就按插件分目录（目录即定位），hash8 反向不可用，发了只是噪声 |
-| `update.panel.mount` | info | `mode`、`theme`、`lang`、`pollMs`、`autoCheck` | 全是枚举与数字。`mode` 的**可达四值**：`'entry'`（`src/entry.ts:590` 的 `clientLog:{mount:'entry'}`）、`'http'`（`src/http.ts:353` 的默认挂载点名）、以及没给挂载点名时退回的面板 `mode` 选项 `'embedded'\|'dialog'`（`src/panel.ts:41` `UpdatePanelMode`）。**`'batch'` / `'entry-batch'` 不可达**：批量两处挂载点都不传 `clientLog`，报的是面板 `mode`（批量面板传 `'dialog'`）。`autoCheck` 记这面面板/按钮会话挂载后**自动检查有没有跑**：`'started'`（自动查已发起）/ `'recent'`（首刷快照显示 job 在 installing/verifying 或已有动作在飞，再查只会得到同一结论，跳过）/ `'disabled'`（调用方显式关掉自动检查）/ `'failed'`（首刷失败、没拿到状态，自动检查没跑成）；面板行在首次刷新完成或失败之后才发，保证记的是事实而不是预告；安装按钮同口径——`autoCheck:'mount'` 时挂载行等首刷（含首刷触发的自动查）落定后按事实写 `'started'` / `'recent'` / `'failed'`（语义同面板行），`autoCheck:'never'` 时写 `'disabled'` 且不刷新、零请求 |
-| `update.panel.action` | info | `action`、`bytes?`、`truncated?`、`ok`、`errorKind?`、`durationMs`、`errorHash?` | `action` 取值**十一**个，与 `src/panel.ts:199-210` 的 `UpdatePanelActionKind` 一字不差：`'check'`、`'install'`、`'skip'`、`'reset-skip'`、`'copy-manual'`、`'copy-diag'`、`'toggle-queue'`、`'toggle-changelog'`、`'restart-hint'`、`'close-view'`、`'dismiss-failure'`。复制诊断只记体量与是否截断，**绝不记内容**（`bytes`/`truncated` 只跟着 `'copy-diag'` 走）。`ok`：这次点击的结局（成功 `true`；失败 `false`）；`errorKind`：失败类别——锁存稳定码、动作直接抛错记 `'thrown'`、已有动作在途被拒记 `'busy'`，成功时省略；`durationMs`：从点击到动作落定（含提前 return 的分支）；`errorHash`：失败原文的 8 位指纹，**不落原话** |
+| `update.panel.mount` | info | `mode`、`theme`、`lang`、`pollMs`、`autoCheck` | 全是枚举与数字。`mode` 的**可达五值**：`'entry'`（`src/entry.ts:590` 的 `clientLog:{mount:'entry'}`）、`'http'`（`src/http.ts:353` 的默认挂载点名）、`'batch'`（批量面板与批量入口件，`#208` 起都传 `clientLog` 报 `'batch'`，见 §9.3）、以及没给挂载点名时退回的面板 `mode` 选项 `'embedded'\|'dialog'`（`src/panel.ts:41` `UpdatePanelMode`）。**`'entry-batch'` 仍不可达**：批量两处挂载点都报 `'batch'`。`autoCheck` 记这面面板/按钮会话挂载后**自动检查有没有跑**：`'started'`（自动查已发起）/ `'recent'`（首刷快照显示 job 在 installing/verifying 或已有动作在飞，再查只会得到同一结论，跳过）/ `'disabled'`（调用方显式关掉自动检查）/ `'failed'`（首刷失败、没拿到状态，自动检查没跑成）；面板行在首次刷新完成或失败之后才发，保证记的是事实而不是预告；安装按钮同口径——`autoCheck:'mount'` 时挂载行等首刷（含首刷触发的自动查）落定后按事实写 `'started'` / `'recent'` / `'failed'`（语义同面板行），`autoCheck:'never'` 时写 `'disabled'` 且不刷新、零请求 |
+| `update.panel.action` | info | `action`、`bytes?`、`truncated?`、`ok`、`errorKind?`、`durationMs`、`errorHash?` | `action` 取值**十一**个，与 `src/panel.ts:199-210` 的 `UpdatePanelActionKind` 一字不差：`'check'`、`'install'`、`'skip'`、`'reset-skip'`、`'copy-manual'`、`'copy-diag'`、`'toggle-queue'`、`'toggle-changelog'`、`'restart-hint'`、`'close-view'`、`'dismiss-failure'`。`#208` 起批量面板复用同一事件：`action` 取 `src/panel-batch.ts:166-188` 的 22 个批量动作（`check`/`install`/`resume`/`cancel`/`row-install`/`row-check`/`row-skip`/`row-resume-skip`/`row-cancel-queue`/`row-copy-manual`/`row-copy-diag`/`copy-all-diag`/`copy-all-manual`/`row-fallback`/`row-fallback-confirm`/`batch-fallback-scan`/`batch-fallback-confirm`/`toggle-details`/`detail-close`/`restart`/`close`/`toggle-check-on-open`），`ok` / `errorKind` / `durationMs` 同口径（清单里 `action` 仍是自由字符串，不锁枚举）。复制诊断只记体量与是否截断，**绝不记内容**（`bytes`/`truncated` 只跟着 `'copy-diag'` 走）。`ok`：这次点击的结局（成功 `true`；失败 `false`）；`errorKind`：失败类别——锁存稳定码、动作直接抛错记 `'thrown'`、已有动作在途被拒记 `'busy'`，成功时省略；`durationMs`：从点击到动作落定（含提前 return 的分支）；`errorHash`：失败原文的 8 位指纹，**不落原话** |
 | `update.panel.render.fail` | error | `kind: 'container'\|'plugin-id'\|'call'\|'prefix'\|'poll-ms'\|'mode'\|'auto-check'\|'theme'\|'theme-tokens'\|'locale'\|'render'\|'transport'\|'uncaught'\|'unhandled'`、`phase: 'mount'\|'paint'\|'poll'\|'global'`、`errorHash` | 挂载校验、绘制、轮询与全局兜底的四相位失败；无自由文本，`errorHash` 是原话的 8 位指纹（不落原文）。同一 `phase\|kind\|errorHash` 60 秒内至多一行 |
 | `update.log.degraded` | warn | `reason: 'no-dsh-log'\|'lease-conflict'\|'write-fail'\|'emit-threw'\|'unknown-event'\|'unknown-field'\|'invalid-enum'\|'client-batch-refused'\|'client-drop-overflow'\|'client-drop-host-refused'\|'client-drop-send-failed'\|'client-drop-disposed'`、`event?`、`field?` | selfmon：日志接线自己的坏消息。`#210` 起字段级漂移不再整行丢：摘掉该字段、整行照落，并记一条带 `event`/`field` 的降级行（两格只放清单内机器标识，非法形状打成 `<event>`/`<field>`，按「原因+事件+字段」只记首次）；未知事件仍整行不落盘。`#214` 起再加客户端丢弃与宿主拒收五类（`client-*`：每因终身至多一条；`client-drop-no-channel` 物理上无投递面，只进内部分计数、不上浮）。清单顶层 `fieldEnums` 是枚举值的机器声明 |
 
@@ -64,10 +64,10 @@
 | ⑧ | 安装执行（`src/store.ts:1180`，三条路由） | Node | 既有 `update.install.exec`（5 键，形状不动） | info | resident | 已存在；**#124** 只改「发不发」与行列归属 |
 | ⑨ | 安装后校验（`src/service.ts:475`、`src/reader.ts:342`） | Node | `update.install.verify` | info | resident | **#124** |
 | ⑩ | 失败重试（单插件 `src/panel.ts` 的重试按钮；批量 `src/panel-batch.ts:920` `data-act="row-install"`） | 客户端 | `update.panel.action`（`action:'install'` —— 重试就是再发一次安装；批量侧同一动作）。**没有 `update.install.retry` 这个事件**：本包**没有自动重试**，`attempt`/`of` 那套「第 N 次重试」不存在 | info | resident | **#122** |
-| ⑪ | 批量面板入队（`src/host-batch.ts:579`） | Node | `update.batch.entry.request`；挂载点并入 `update.panel.mount` | info | resident | **#124** + **#122** |
+| ⑪ | 批量面板入队（`src/host-batch.ts:579`） | Node | `update.batch.entry.request`；挂载点并入 `update.panel.mount` | info | resident | **#124** + **#122**；**#208** 补 `sessionHash` |
 | ⑫ | 队列两阶段/全局锁（`src/queue.ts`、`src/store.ts:287/349`） | Node | `update.queue.transition`、`update.lock.anomaly` | info / warn | resident | **#124** |
-| ⑬ | 单项失败（批量）（`src/batch-run.ts:122`、`:159`） | 中立 | `update.batch.entry.fail` | warn | resident | **#124** |
-| ⑭ | 总账（`src/panel-batch.ts:242`、`:283`） | 客户端渲染 | `update.batch.summary`（宿主侧汇总后发） | info | resident | **#124**；面板只渲染、**不重复发** |
+| ⑬ | 单项失败（批量）（`src/batch-run.ts:122`、`:159`） | 中立 | `update.batch.entry.fail` | warn | resident | **#124**；**#208** 补 `stage` / `index` / `sessionHash` |
+| ⑭ | 总账（`src/panel-batch.ts:242`、`:283`） | 客户端渲染 | `update.batch.summary`（宿主侧汇总后发） | info | resident | **#124**；面板只渲染、**不重复发**；**#208** 补 `sessionHash` / `stoppedBecause` |
 | ⑮ | 重启宿主（单插件 `src/panel.ts` `case 'restart-hint'`；批量 `src/panel-batch.ts:926` `data-act="restart"`） | 客户端触发 | `update.panel.action`（`action:'restart-hint'`）。**没有 `update.restart.outcome` 这个事件**：宿主没有重启自己的电话（代码原话），本包只做入口、**观测不到重启结果** | info | resident | **#122** |
 | ⑯ | 语言选择（`src/lang.ts:80`） | 客户端 | `update.lang.applied` | info | ondemand | **#122** |
 | ⑰ | 主题渲染（`src/panel.ts:51`、`:154`、`:1847`） | 客户端 | `update.panel.state`（`theme`/`tokensApplied`/`fallback`）；非法值并入 `update.panel.render.fail` | info / error | ondemand + resident | **#122** |
@@ -93,10 +93,10 @@
 | ⑧ | `update.install.exec` | 既有 `src/store.ts` 执行器的 `emitInstall()`（形状不动） | 已存在 |
 | ⑨ | `update.install.verify` | `src/service.ts` 核心 `runBackground()` 的终态跃迁 + `healedJob()` 的掉线换算（只在真跃迁时发） | ✅ |
 | ⑩ | `update.panel.action{action:'install'}` | 客户端按钮动作 → #122 的 `logAppend` 通道落盘（重试按钮就是再发一次安装；**本包没有自动重试**，所以没有「第 N 次」） | 归 #122（宿主不重复发） |
-| ⑪ | `update.batch.entry.request` | `src/host-batch.ts` `noteEntryRequest()`（会话建起/复用时一条，按会话编号去重） | ✅ |
+| ⑪ | `update.batch.entry.request` | `src/host-batch.ts` `noteEntryRequest()`（会话建起/复用时一条，按会话编号去重；`#208` 带 `sessionHash` = 批次编号 hash8，落属主目录、无属主不发） | ✅ |
 | ⑫ | `update.queue.transition` / `update.lock.anomaly` | `src/store.ts` `writeQueue()`、`tryAcquireLock()`、`tryAcquireGlobalLock()`、`releaseLock()`、`releaseGlobalLock()`（只在乎「真写盘且相位真变」「真删掉旧锁且真抢到手」） | ✅ |
-| ⑬ | `update.batch.entry.fail` | `src/batch-run.ts` `noteEntryFail()`（中立文件，落点由 `BatchRunDeps.logFor` 注入） | ✅ |
-| ⑭ | `update.batch.summary` | `src/host-batch.ts` `noteBatchSummary()`（**收尾边沿**：每次从「没收尾」变成「收尾」记一条；用户重试装成后再收尾会再记一条。面板只渲染） | ✅ |
+| ⑬ | `update.batch.entry.fail` | `src/batch-run.ts` `noteEntryFail()`（中立文件，落点由 `BatchRunDeps.logFor` 注入；`#208` 带 `sessionHash`，`stage` 由 check、install 两条路径与 `settleInstall()` 给出（四值），`index` 由宿主注入的 `indexOf` 取**整批**序号；落失败那家自己的目录） | ✅ |
+| ⑭ | `update.batch.summary` | `src/host-batch.ts` `noteBatchSummary()`（**收尾边沿**：每次从「没收尾」变成「收尾」记一条；用户重试装成后再收尾会再记一条。面板只渲染；`#208` 带 `sessionHash` 与 `stoppedBecause` = `lastRun?.stoppedBecause ?? 'finished'`，落属主目录、无属主不发） | ✅ |
 | ⑮ | `update.panel.action{action:'restart-hint'}` | 客户端 → #122 的 `logAppend` 通道落盘（**宿主没有重启自己的电话**，本包只做入口，观测不到重启结果） | 归 #122 |
 | ⑯⑰⑲① | `update.lang.applied` / `update.panel.state` / `update.panel.action` / `update.panel.mount` | 客户端 → #122 的 `logAppend` 通道落盘 | 归 #122 |
 | ⑱ | `update.store.fail` | `src/store.ts` `createStoreLog().fail()` 的 **16 个落点**（`:303`–`:641`，原 `catch {}` 或「换成归类码」的位置） | ✅ |
@@ -106,7 +106,7 @@
 1. **轮询的第一次观测不算事件**：`updateStatus` 的成功行在发射侧一律不发（`src/host.ts` 的电话包装）。判据是「上次算得出指纹、这次算得出、且与上次不同」才留一行；第一次没有可比的上次，所以也不留——这就是 §6「N ≥ 100 次零常驻行」的字面口径（实测 600 次 → 0 行）。指纹算不出来时宁多发一行，不吞变化；失败行 `host.call.fail` 不受影响；名字与五键形状一字不动。
 2. `update.registry.fetch.cacheHit` **不存在**：本包的缓存命中发生在取数之前（命中就根本不取数），到了取数点就一定是未命中——恒为 `false` 的格子只是噪声。**2026-10-15 契约回填：已从随包清单 `event-list.update.json` 删除该字段名**（清单是发布的契约，声明一个永不出现的格子会把第三方聚合器带偏）。
 3. **只进日志的可选入参**（不改老调用形状、不参与任何决策）：检查电话多认 `trigger`（没自报就不发 `update.check.start`）、安装电话多认 `from`（没自报按 `'panel'`，批量宿主传 `'batch'`）。
-4. **缝都在宿主侧接**：中立文件（`service.ts`/`changelog.ts`/`queue.ts`/`batch-run.ts`）不 import node、也不认识插件标识，发射口一律由宿主侧**绑好标识**后注入（`src/host.ts` 的 `logPortFor()`；队列与全局锁按当次动作方取口，行落动作方自己的目录）。
+4. **缝都在宿主侧接**：中立文件（`service.ts`/`changelog.ts`/`queue.ts`/`batch-run.ts`）不 import node、也不认识插件标识，发射口一律由宿主侧**绑好标识**后注入（`src/host.ts` 的 `logPortFor()`；队列与全局锁按当次动作方取口，行落动作方自己的目录）。批量侧同形：`#208` 修掉 `createUpdateQueuePorts(..., { logFor })` 的漏传，批量队列行同样落动作方目录；批量面板的客户端行走 `<批量前缀>.logAppend`，由批量宿主转发给属主的 `logAppend`（属主存在且接了日志才登记，见 §9.3）。
 
 **实测证据（2026-10-14）**
 
@@ -133,13 +133,13 @@
 | `src/panel.ts:450` `buildDiagnosticText`、`:592` `buildUpdateDiagCopy` | ⑲ | #122：`update.panel.action{action:'copy-diag', bytes, truncated}`；**内容不进日志**（取值是 `'copy-diag'`，不是 `'copy-diagnostics'`） |
 | `src/panel.ts:1533` `renderUpdatePanelKernel`、`:1847` `renderUpdatePanelHTML` | ⑰ | #122：`update.panel.state`（主题枚举 + token 数） |
 | `src/entry.ts:351` `mountUpdateEntry` | ① | #122：`update.panel.mount{mode:'entry'}`（`src/entry.ts:590` 传 `clientLog:{mount:'entry'}`） |
-| `src/entry-batch.ts:308` `mountUpdateBatchEntry` | ① | #122：**不传 `clientLog`**，所以报的是面板 `mode`（`'dialog'` 或 `'embedded'`），**不是 `'entry-batch'`** |
-| `src/panel-batch.ts:1553` `mountUpdateBatchPanel` | ①⑪ | #122：**不传 `clientLog`**，报面板 `mode`（`'dialog'` 或 `'embedded'`），**不是 `'batch'`**；入队事实由 #124 在宿主侧发 `update.batch.entry.request` |
+| `src/entry-batch.ts:308` `mountUpdateBatchEntry` | ① | #122 + **#208**：传 `clientLog:{mount:'batch'}`，行报 `mode:'batch'`（不再是面板 `mode`），挂载 / 动作 / 渲染失败 / 全局兜底四类行经批量宿主的 `<批量前缀>.logAppend` 转发落属主目录 |
+| `src/panel-batch.ts:1553` `mountUpdateBatchPanel` | ①⑪ | #122 + **#208**：批量面板自建通道打 `<批量前缀>.logAppend`（宿主转发给属主 `logAppend`），挂载行报 `mode:'batch'`；22 种批量动作行走 `update.panel.action`（`ok` / `errorKind` / `durationMs` 同单面板口径），渲染失败走 `update.panel.render.fail`；入队事实仍由 #124 在宿主侧发 `update.batch.entry.request` |
 | `src/panel-batch.ts:242/283` `batchLedgerCounts`/`batchLedgerText` | ⑭ | 客户端**不发**：账本由宿主侧汇总成 `update.batch.summary`（#124）；面板只渲染，避免同一事实两处发 |
 | `src/lang.ts:80` `resolveLang` | ⑯ | #122：`update.lang.applied` |
 | `src/http.ts:230` `createHttpCall` | ④ | HTTP 变体在客户端闭包里跑：经 #122 的通道发 `update.registry.fetch`；Node 侧同一发射口（#124）不发第二条 |
 
-**为什么必须有自己的通道**：面板侧没有 `ctx`、没有文件系统，dsh-log 的 `./client` 入口也不落盘（它只做内存队列 + 经宿主转发）。所以 #122 新增本包自己的 `<prefix>.logAppend` 电话（批量行、永不抛、回执 `{accepted, dropped}`），宿主半区接到**同一个** log handle——单写者不变。
+**为什么必须有自己的通道**：面板侧没有 `ctx`、没有文件系统，dsh-log 的 `./client` 入口也不落盘（它只做内存队列 + 经宿主转发）。所以 #122 新增本包自己的 `<prefix>.logAppend` 电话（批量行、永不抛、回执 `{accepted, dropped}`），宿主半区接到**同一个** log handle——单写者不变。批量面板同一条通道（`#208`）：电话名是 `<批量前缀>.logAppend`，宿主只在属主存在且属主接了 `logAppend` 时登记转发；没登记时面板行投递失败、客户端只累加 `send-failed` 计数（不猜落点）。宿主 `logAppend` 整批拒收时，属主侧另留一条 `update.log.degraded{reason:'client-batch-refused'}`（按实例只记一次）。
 
 ## 6. 预算与验收口径
 
@@ -205,3 +205,50 @@
 - `update.status.changed`：八格真值元组即边沿键；版本三格未知显式 null；`blockedReason` 缺省 `'none'`、`identity` 缺省 `'unknown'`；`kind:'unknown'` 必带 `unknownCause`（三值），kind 已知时省略 `unknownCause`。
 - `update.panel.mount`：新增 `autoCheck`（`'started'` / `'recent'` / `'disabled'` / `'failed'`）；面板行挪到首次刷新完成/失败之后发，保证「这面面板到底跑没跑自动检查」是事实而不是预告。安装按钮侧同口径：`autoCheck: 'mount'` 时挂载行也等首刷（含首刷触发的自动查）落定后按事实记四态，`autoCheck: 'never'` 记 `'disabled'` 且不刷新、零请求。
 - `update.registry.fetch`（按需）：`#211` 起两个原先没留行的取数场景接上发射口——通道回退取数与更新说明 tarball 取数（`src/changelog-io.ts`），两处都只记 `httpStatus` / `latencyMs` / 白名单 `registryHost`，失败也发。它是**按需**事件：默认开关关着时不落盘；常驻的 `check.done.fallback` / `dataSource` 仍能回答「这次走没走回退」（版本回退的取数证据在默认现场不消失）。
+
+## 9. 三次回填（2026-10-19）：`#208` 的批量现场证据
+
+本次**不新增事件、不改档位归属**：条目总数仍 27（常驻 20 / 按需 6 / 自监控 1），字段白名单合计 **+6**（`update.batch.entry.request` +1、`update.batch.entry.fail` +3、`update.batch.summary` +2）。§1 三行、§3 / §3.1 接线列与 §5 客户端落点已同步回填；完整清单以 `event-list.update.json` 为准。
+
+### 9.1 三条批量常驻行的落点与无属主边界
+
+批量行由宿主侧绑好标识后发射，落点判据与全局同一条：**不知道去哪就不猜**（`src/host-batch.ts` 文件头注释：没属主、键不在清单里、没有日志接线，一行不发）。
+
+| 事件 | 落点 | 没指定 `selfKey`（无属主） |
+| --- | --- | --- |
+| `update.batch.entry.request` | 属主（`selfKey` 那家）插件目录 | **一行不发**（没有已知落点） |
+| `update.batch.entry.fail` | **失败那家自己的**插件目录（`logPortFor()` 按目标键取口，与属主无关） | **照落**失败那家目录 |
+| `update.batch.summary` | 属主插件目录 | **一行不发** |
+
+- 三条行都带 `sessionHash` = `hash8(批次编号)`：同一批的行可能分散在属主与各失败目标目录里，聚合认这一格，不认目录（`noteEntryRequest()` / `noteEntryFail()` / `noteBatchSummary()` 同一取法）。
+- `stoppedBecause` 只在收尾边沿落行时写：`noteBatchSummary()` 取 `lastRun?.stoppedBecause ?? 'finished'`；`finished` 是「全部跑完」，`failed` 仍可能非零。
+- `entry.fail` 的 `stage` 由 check、install 两条路径与 `settleInstall()` 给出（`check` / `install` / `timeout` / `settle`），`index` 由宿主注入的 `indexOf` 取**整批**序号（`full.order.indexOf(key)`，不是视图序号），`exitCode` 只在真拿到时出现。
+
+### 9.2 `host.call.fail` 的批量语义（字段不变，只改发不发）
+
+七个批量电话失败复用既有 `host.call.fail`（**不新增事件**；五格字段形状冻结，见 §0）。`notePhoneFail()` 在批量宿主里包住七个电话：
+
+| `method`（全名 = `<批量前缀>` + 后缀） | `kind` | 落点 |
+| --- | --- | --- |
+| `.batchStatus` | `batch-status` | 属主目录 |
+| `.batchCheck` | `batch-check` | 属主目录 |
+| `.batchInstall` | `batch-install` | 属主目录 |
+| `.batchResume` | `batch-resume` | 属主目录 |
+| `.batchCancel` | `batch-cancel` | 属主目录 |
+| `.batchPrefs` | `batch-prefs` | 属主目录 |
+| `.batchPrefsSave` | `batch-prefs-save` | 属主目录 |
+
+- `error` 只认稳定码（`src/codes.ts` 的 `BATCH_REPLY_CODES` 白名单），认不出折 `unknown`；`errorHash` = `hash8(method + '|' + error)`；`pluginId` 是属主标识。
+- **去重**：同一 `method` 连续同码只记首次，成功即清记忆（`batchStatus` 每 1.5 秒轮询一次，失败不能灌爆目录）；单插件电话口径不变（一次失败电话一条）。
+- **无属主一行不发**（没有落点）。
+
+### 9.3 批量面板的客户端行（`#208` 接上）
+
+- 批量面板与批量入口件都传 `clientLog`，报 `update.panel.mount{mode:'batch'}`；动作行走 `update.panel.action`，`action` 取 `src/panel-batch.ts:166-188` 的 22 个批量动作（见 §1 `update.panel.action` 行）；渲染失败行走 `update.panel.render.fail`（`phase: mount|paint|poll|global`），全局 `onerror` / `unhandledrejection` 兜底与单面板同口径。
+- 通道名是 `<批量前缀>.logAppend`：批量宿主**只在属主存在且属主那家接了 `logAppend` 时才登记转发**（`handlers[batchLogAppendName]`，放在逐目标并入之后）。没登记时面板行投递失败，客户端侧只累加 `send-failed` 计数（客户端队列的内存读数，不落行），**宿主侧不产生任何行**。
+- 宿主 `logAppend` 整批拒收时，属主侧另留一条 `update.log.degraded{reason:'client-batch-refused'}`（按实例只记一次）。
+- 客户端白名单仍是 6 个事件，批量面板不新增可上报事件。
+
+### 9.4 队列行归属（`#208` 修复）
+
+批量宿主创建共享队列端口时漏传 `logFor`，批量路径上的 `update.queue.transition` / `update.store.fail` 落不到正确目录。现与单插件同形注入按动作方取口的 `logFor`（`createUpdateQueuePorts(..., { logFor })`），队列行落**当次动作方**（被装 / 抢锁那家）自己的目录。

@@ -214,8 +214,10 @@ test('批量 dialog：Esc 可关（监听已挂上）', async () => {
     pluginId: 'batch',
     prefix: 'b',
     mode: 'dialog',
-    call: async () => {
-      calls++
+    call: async (name) => {
+      // #208：批量面板默认自建客户端日志通道，卸载时 finalFlush 会多一通 <prefix>.logAppend；
+      // 日志电话不计入「Esc 后无新 call」（与上面单面板同口径）。
+      if (!String(name).endsWith('.logAppend')) calls++
       return { ok: true, session: { id: 's1' }, rows: [] }
     },
     pollMs: 60000,

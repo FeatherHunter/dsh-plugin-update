@@ -94,9 +94,11 @@ describe('注册与命名', () => {
       cancel: 'life.batchCancel',
       prefs: 'life.batchPrefs',
       prefsSave: 'life.batchPrefsSave',
+      // #208：有属主时登记客户端日志电话（转发给属主的 logAppend）。
+      logAppend: 'life.logAppend',
     })
     const names = Object.keys(host.handlers)
-    assert.equal(names.length, 7 + keys.length * 6)
+    assert.equal(names.length, 8 + keys.length * 6)
     for (const name of Object.values(host.phoneNames)) assert.ok(names.includes(name), name)
     const prefixes = new Set()
     for (const one of targets) {

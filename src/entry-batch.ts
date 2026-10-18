@@ -547,6 +547,9 @@ export function mountUpdateBatchEntry(
       // 面板点「关闭」即走入口件的完整关闭（收 dialog + 还原按钮 + 重查一次），不再是面板自己停轮询。
       onCloseRequested: () => close(),
       call: panelCall,
+      // #208：批量面板复用 #214 客户端日志通道（挂载行 mode 记为 'batch'）。
+      // 自建通道的电话名是 <批量 prefix>.logAppend：批量宿主在有属主时登记该电话。
+      clientLog: { mount: 'batch' },
     } as Parameters<typeof mountUpdateBatchPanel>[1])
     panelMode = mode
   }

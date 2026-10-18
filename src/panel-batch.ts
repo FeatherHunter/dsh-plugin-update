@@ -33,7 +33,9 @@
 // 本文件零 Node 专属能力（不读盘、不起进程、不拼 shell）：Node 宿主与浏览器闭包两边都跑得动；
 // DOM 只在 mountUpdateBatchPanel 被调用时经容器与 globalThis 现取，模块顶层不碰。
 
-import { assertPrefix, MIN_PANEL_POLL_MS } from './config.js'
+import { assertPrefix, buildLogAppendPhoneName, DEFAULT_PREFIX, MIN_PANEL_POLL_MS } from './config.js'
+import { hash8 } from './hash.js'
+import { createClientLogChannel, type ClientLogChannel, type ClientLogEvent } from './log/client-queue.js'
 import { copyText as bilingualText, type BilingualKey } from './bilingual.js'
 import {
   manualAbsentReasonOf,
@@ -160,6 +162,13 @@ export interface BatchPanelOptions {
    * 自动继续未终态轮次（#59 Q3：与显式按钮并存，常开）。false 可关（测试与特殊集成用）。
    */
   autoResume?: boolean
+  /**
+   * 客户端日志通道（#208，复用 #214 单面板同一接触面）：批量面板把挂载/动作/渲染失败/全局兜底
+   * 四类行交给这里。传 channel 即用调用方通道、不自建不销毁；传 { channel: null } 完全关闭；
+   * 不传则自建 owned 通道（电话名 <prefix>.logAppend，卸载时销毁）。
+   * mount 只覆盖 update.panel.mount 行里的 mode 名（入口件传 'batch'），不改面板摆放形态。
+   */
+  clientLog?: { channel?: ClientLogChannel | null; mount?: string } | null
 }
 
 /** 面板可点的动作（HTML 上 data-act 一一对应；测试走同一条路）。 */
@@ -205,7 +214,13 @@ export interface BatchPanelController {
   unmount(): void
 }
 
-/** 批量七个电话名（与宿主侧 MultiHostUpdate.phoneNames 同一形状）。 */
+/**
+ * 面板侧实际打的七个批量电话名。
+ *
+ * 宿主侧 `./batch` 的 `MultiHostUpdate.phoneNames`（`BatchHostPhoneNames`）**多登记一个可选 `logAppend`**：
+ * 只有宿主知道属主插件的日志口，面板自建日志通道要打那个电话名。两份类型故意不同名
+ * （同名导出会经不同子路径发布，消费者同时 import 会撞名）。
+ */
 export interface BatchPhoneNames {
   status: string
   check: string
@@ -2158,32 +2173,191 @@ export function mountUpdateBatchPanel(
   container: BatchPanelContainer,
   options: BatchPanelOptions,
 ): BatchPanelController {
-  if (!container || typeof container.innerHTML !== 'string') {
-    throw new Error('[dsh-plugin-update] 挂载批量面板需要一个有 innerHTML 的容器')
+  // #208：批量面板复用 #214 单面板的客户端日志通道（mode:'batch'），语义逐条对齐：
+  // 传 channel 用调用方的、不自建不销毁；传 { channel: null } 完全关闭；不传则自建 owned 通道。
+  const logOptionRead = options && typeof options === 'object' ? options.clientLog : undefined
+  const clientLogDisabled = logOptionRead === null
+  const clientLogMountName =
+    logOptionRead && typeof logOptionRead === 'object' && typeof logOptionRead.mount === 'string' && logOptionRead.mount
+      ? logOptionRead.mount
+      : ''
+  let clientLog: ClientLogChannel | null =
+    logOptionRead && typeof logOptionRead === 'object' && logOptionRead.channel ? logOptionRead.channel : null
+  let clientLogOwned = false
+
+  function logClient(level: 'debug' | 'info' | 'warn' | 'error', event: ClientLogEvent, fields: Record<string, unknown>): void {
+    const channel = clientLog
+    if (!channel) return
+    try {
+      channel.emit(level, event, fields)
+    } catch {
+      // 日志失败不挡面板。
+    }
   }
+
+  // 失败证据（#214 同一口径）：同一阶段同类别同指纹 60 秒内至多一条；挂载失败必定落（一次挂载只有一次）。
+  const RENDER_FAIL_DEDUPE_MS = 60_000
+  const renderFailSeen = new Map<string, number>()
+
+  function errorTextOf(err: unknown): string {
+    try {
+      if (err && typeof err === 'object' && typeof (err as { message?: unknown }).message === 'string') {
+        return (err as { message: string }).message
+      }
+      if (typeof err === 'string') return err
+      return String(err ?? '')
+    } catch {
+      return ''
+    }
+  }
+
+  function emitRenderFail(phase: 'mount' | 'paint' | 'poll' | 'global', kind: string, message: string): void {
+    const errorHash = hash8(message)
+    if (phase !== 'mount') {
+      const key = `${phase}|${kind}|${errorHash}`
+      const atMs = Date.now()
+      const last = renderFailSeen.get(key)
+      if (last !== undefined && atMs - last < RENDER_FAIL_DEDUPE_MS) return
+      renderFailSeen.set(key, atMs)
+    }
+    logClient('error', 'update.panel.render.fail', { phase, kind, errorHash })
+  }
+
+  /** 挂载校验失败：先记一行，再（仅自建通道）尽力冲刷后销毁；注入通道不销毁。 */
+  function failMount(kind: string, message: string): void {
+    emitRenderFail('mount', kind, message)
+    const channel = clientLog
+    if (!channel) return
+    try {
+      void Promise.resolve(channel.flush())
+        .catch(() => undefined)
+        .then(() => {
+          if (clientLogOwned) channel.dispose()
+        })
+    } catch {
+      // 记不上日志也不能挡住拒绝挂载。
+    }
+  }
+
+  /** 全局兜底（#214 同一口径）：mount 时装、unmount 时摘；只落指纹不落原文。 */
+  let removeGlobalHandlers: (() => void) | null = null
+  function installGlobalHandlers(): void {
+    const g = globalThis as unknown as {
+      addEventListener?: (type: string, handler: (event: unknown) => void) => void
+      removeEventListener?: (type: string, handler: (event: unknown) => void) => void
+    }
+    if (typeof g.addEventListener !== 'function' || typeof g.removeEventListener !== 'function') return
+    const onError = (event: unknown): void => {
+      const message =
+        event && typeof event === 'object' && typeof (event as { message?: unknown }).message === 'string'
+          ? (event as { message: string }).message
+          : errorTextOf(event)
+      emitRenderFail('global', 'uncaught', message || 'uncaught-error')
+    }
+    const onRejection = (event: unknown): void => {
+      const reason = event && typeof event === 'object' ? (event as { reason?: unknown }).reason : undefined
+      emitRenderFail('global', 'unhandled', errorTextOf(reason) || 'unhandled-rejection')
+    }
+    let registered = false
+    try {
+      g.addEventListener('error', onError)
+      g.addEventListener('unhandledrejection', onRejection)
+      registered = true
+    } catch {
+      registered = false
+    }
+    if (!registered) return
+    removeGlobalHandlers = () => {
+      try {
+        g.removeEventListener?.('error', onError)
+      } catch {
+        // 摘不掉也无妨。
+      }
+      try {
+        g.removeEventListener?.('unhandledrejection', onRejection)
+      } catch {
+        // 摘不掉也无妨。
+      }
+    }
+  }
+
   if (!options || typeof options !== 'object') {
-    throw new Error('[dsh-plugin-update] 挂载批量面板缺少配置：批量电话前缀 prefix 必填')
+    const message = '[dsh-plugin-update] 挂载批量面板缺少配置：批量电话前缀 prefix 必填'
+    failMount('prefix', message)
+    throw new Error(message)
   }
-  const phones = buildBatchPhoneNames(options.prefix)
   if (typeof options.call !== 'function') {
-    throw new Error('[dsh-plugin-update] 挂载批量面板需要传输函数 call（面板调宿主电话的唯一接触面）')
+    const message = '[dsh-plugin-update] 挂载批量面板需要传输函数 call（面板调宿主电话的唯一接触面）'
+    failMount('call', message)
+    throw new Error(message)
+  }
+  // 自建通道要 options.call；电话名按前缀拼，前缀非法时退回缺省前缀（真正的拒绝在下面的 prefix 校验）。
+  if (!clientLog && !clientLogDisabled) {
+    let channelPrefix = DEFAULT_PREFIX
+    try {
+      if (typeof options.prefix === 'string') {
+        buildLogAppendPhoneName(options.prefix)
+        channelPrefix = options.prefix
+      }
+    } catch {
+      channelPrefix = DEFAULT_PREFIX
+    }
+    try {
+      const transport = options.call
+      clientLog = createClientLogChannel({
+        // 日志电话只需要合法回执；传输失败/回包非对象按空对象交回，由 client-queue 记降级。
+        call: async (name, args) => {
+          const reply = await transport(name, args)
+          return reply && typeof reply === 'object' ? (reply as Record<string, unknown>) : {}
+        },
+        phoneName: buildLogAppendPhoneName(channelPrefix),
+      })
+      clientLogOwned = true
+    } catch {
+      clientLog = null
+    }
+  }
+  // 先建通道再校验容器（#214 同序）：容器不合法时也要先把失败证据送出去。
+  if (!container || typeof container.innerHTML !== 'string') {
+    const message = '[dsh-plugin-update] 挂载批量面板需要一个有 innerHTML 的容器'
+    failMount('container', message)
+    throw new Error(message)
+  }
+  let phones: BatchPhoneNames
+  try {
+    phones = buildBatchPhoneNames(options.prefix)
+  } catch (err) {
+    failMount('prefix', errorTextOf(err))
+    throw err
   }
   const pollMs = options.pollMs === undefined ? BATCH_PANEL_POLL.defaultMs : options.pollMs
   if (typeof pollMs !== 'number' || !Number.isFinite(pollMs) || pollMs < BATCH_PANEL_POLL.minMs) {
-    throw new Error(
-      '[dsh-plugin-update] 批量面板轮询间隔非法：不得小于 250 毫秒（收到 ' + JSON.stringify(options.pollMs) + '）',
-    )
+    const message =
+      '[dsh-plugin-update] 批量面板轮询间隔非法：不得小于 250 毫秒（收到 ' + JSON.stringify(options.pollMs) + '）'
+    failMount('poll-ms', message)
+    throw new Error(message)
   }
   let mode: BatchPanelMode = options.mode === undefined ? 'embedded' : options.mode
   if (mode !== 'embedded' && mode !== 'dialog') {
-    throw new Error('[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ' + JSON.stringify(options.mode) + '）')
+    const message =
+      '[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ' + JSON.stringify(options.mode) + '）'
+    failMount('mode', message)
+    throw new Error(message)
   }
   if (options.theme !== undefined && options.theme !== 'default' && options.theme !== 'archive') {
-    throw new Error('[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ' + JSON.stringify(options.theme) + '）')
+    const message =
+      '[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ' + JSON.stringify(options.theme) + '）'
+    failMount('theme', message)
+    throw new Error(message)
   }
   let theme: UpdatePanelTheme = normalizePanelTheme(options.theme ?? 'default')
   // 主题变量覆盖：挂载时校验（非法即抛），合法存下，每次 render 拼到根上（详情行经继承生效）。
-  themeTokensStyleFor(options.themeTokens ?? undefined)
+  try {
+    themeTokensStyleFor(options.themeTokens ?? undefined)
+  } catch (err) {
+    failMount('theme-tokens', errorTextOf(err))
+    throw err
+  }
   let themeTokens: UpdateThemeTokens | undefined = options.themeTokens
   const call = options.call
   const titles: Record<string, string> =
@@ -2209,6 +2383,19 @@ export function mountUpdateBatchPanel(
   let rows: BatchRowView[] = []
   let expandedKey: string | null = null
   let lastError: string | null = null
+  // 失败闩（#208）：`lastError` 是字符串，同一错误码连续失败两次看不出「变过」；
+  // 动作壳按对象身份判断「这次动作期间有没有新失败」（与单面板 panel.ts 的 latch 同口径）。
+  let failureLatch: { code: string } | null = null
+  /** 记一次失败：字符串给面板红条，闩给动作行判断（每次都是新对象，重复同码也算新失败）。 */
+  function noteFailure(code: string): void {
+    lastError = code
+    failureLatch = { code: code }
+  }
+  /** 回包成功：红条与闩一起清（面板显示与动作行判断必须同一口径）。 */
+  function clearFailure(): void {
+    lastError = null
+    failureLatch = null
+  }
   let notice: string | null = null
   let noticeKey: string | null = null
   let inFlight = false
@@ -2224,6 +2411,8 @@ export function mountUpdateBatchPanel(
   function currentLang(): AppLang {
     return langOf(localeOpt)
   }
+  /** update.panel.mount 的固定字段（挂载时冻结；mode 名取调用方 mount 覆盖值，#208）。 */
+  const mountRowFields = { mode: clientLogMountName || mode, theme, lang: currentLang(), pollMs }
   const checkOnOpenOption = (options as unknown as Record<string, unknown>)['checkOnOpen'] !== false
   const autoResumeOption = (options as unknown as Record<string, unknown>)['autoResume'] !== false
   let lastSession: unknown = null
@@ -2232,6 +2421,12 @@ export function mountUpdateBatchPanel(
   let lastCheckedAt = 0
   let autoCheckDone = false
   let autoResumeDone = false
+  // #208 失败证据：挂载行只发一次；首次 refresh 与自动检查的结局决定 autoCheck 档位。
+  let mountRowLogged = false
+  let firstRefreshFailed = false
+  let autoCheckOutcome: 'started' | 'recent' | 'disabled' | 'failed' | null = null
+  /** 当前动作是否被忙守卫拒掉（由 phone() 置位，动作壳在 finally 里读）。 */
+  let currentActionSkips: { busy: boolean } | null = null
   /** 各行已决议出的候选（#156）：行 key -> {candidate, checkId, targetVersion}；行刷新/新失败即 prune，不许旧决议指新失败。 */
   const rowFallbackOffers = new Map<string, { candidate: string; checkId: string; targetVersion: string }>()
   /** 正在决议中的那一行（键；在途短暂置灰，防连点）。 */
@@ -2370,6 +2565,15 @@ export function mountUpdateBatchPanel(
   let lastHTML = ''
   function render(): void {
     if (!mounted) return
+    // #208：渲染也带兜底——画挂了落一条 paint/render，面板不能把轮询/动作链路一起带崩。
+    try {
+      paint()
+    } catch (err) {
+      emitRenderFail('paint', 'render', errorTextOf(err) || 'render-failed')
+    }
+  }
+
+  function paint(): void {
     const offers: Record<string, { candidate: string; targetVersion: string } | null> = {}
     for (const [k, v] of rowFallbackOffers) offers[k] = { candidate: v.candidate, targetVersion: v.targetVersion }
     // 批量级确认清单只认还在的决议（行不再失败/换了目标即 prune，此处再过滤一次兜底）。
@@ -2642,7 +2846,7 @@ export function mountUpdateBatchPanel(
   /** 把一次回包吃进状态：ok 认账本与行，不 ok 只记稳定码（表照旧留着，别让人丢视图）。 */
   function applyReply(reply: unknown): void {
     if (!isObject(reply)) {
-      lastError = 'internal'
+      noteFailure('internal')
       return
     }
     if (reply['ok'] === true) {
@@ -2673,14 +2877,14 @@ export function mountUpdateBatchPanel(
       }
       if (isObject(reply['prefs'])) lastPrefs = reply['prefs']
       loaded = true
-      lastError = null
+      clearFailure()
       if (expandedKey !== null && !rows.some((row) => row.key === expandedKey)) expandedKey = null
       pruneFallbackOffers()
       return
     }
     const err = typeof reply['error'] === 'string' ? reply['error'].trim() : ''
     const kind = typeof reply['errorKind'] === 'string' ? reply['errorKind'].trim() : ''
-    lastError = kind || err || 'internal'
+    noteFailure(kind || err || 'internal')
   }
 
   async function refresh(): Promise<void> {
@@ -2690,9 +2894,12 @@ export function mountUpdateBatchPanel(
       const reply = await call(phones.status, {})
       if (!mounted) return
       applyReply(reply)
-    } catch {
+    } catch (err) {
       if (!mounted) return
-      lastError = 'check-failed'
+      noteFailure('check-failed')
+      // #208：轮询/刷新传输失败落一条 poll/transport；首次刷新失败决定挂载行 autoCheck='failed'。
+      if (!mountRowLogged) firstRefreshFailed = true
+      emitRenderFail('poll', 'transport', errorTextOf(err) || 'transport-failed')
     } finally {
       refreshing = false
     }
@@ -2707,7 +2914,11 @@ export function mountUpdateBatchPanel(
    * 回包原样返回（调用方按 resumed 等事实决定回执，杜绝空话成功）。
    */
   async function phone(name: string, args: Record<string, unknown>, busyRowKey: string | null = null): Promise<Record<string, unknown> | null> {
-    if (!mounted || inFlight) return null
+    if (!mounted || inFlight) {
+      // 忙守卫拒掉的这次点击也要在动作行里如实记 busy（动作壳读 currentActionSkips）。
+      if (currentActionSkips) currentActionSkips.busy = true
+      return null
+    }
     inFlight = true
     inFlightIsCheck = name === phones.check
     clearNotice()
@@ -2718,6 +2929,7 @@ export function mountUpdateBatchPanel(
       if (!mounted) return null
       if (busyRowKey !== null && isBusyReply(reply)) {
         // 老宿主还没接住这次入队：如实说「没排上，等它装完再点」，不画失败横幅、不把行记成失败。
+        if (currentActionSkips) currentActionSkips.busy = true
         say(batchText('batch.toast.queue-missed', currentLang()), busyRowKey)
         return null
       }
@@ -2727,7 +2939,7 @@ export function mountUpdateBatchPanel(
       out = isObject(reply) ? (reply as Record<string, unknown>) : null
     } catch {
       if (!mounted) return null
-      lastError = 'check-failed'
+      noteFailure('check-failed')
       out = null
     } finally {
       inFlight = false
@@ -2752,6 +2964,15 @@ export function mountUpdateBatchPanel(
     return checkOnOpenOption
   }
 
+  /** 挂载行只发一次（#208）：首次 refresh 与自动检查落定后才知道 autoCheck 该写哪一档。 */
+  function logMountRowOnce(): void {
+    if (mountRowLogged || !mounted) return
+    mountRowLogged = true
+    const autoCheck =
+      autoCheckOutcome ?? (firstRefreshFailed ? 'failed' : checkOnOpenEffective() ? 'recent' : 'disabled')
+    logClient('info', 'update.panel.mount', { ...mountRowFields, autoCheck })
+  }
+
   function nowMs(): number {
     try {
       return Date.now()
@@ -2760,6 +2981,13 @@ export function mountUpdateBatchPanel(
     }
   }
 
+  /**
+   * 动作壳（#208，与单面板同形）：一次点击一条 update.panel.action。
+   *
+   * 成功/失败口径与 panel.ts 的 act 对齐：抛错记 `thrown`；动作期间**闩上新失败**（回包 ok:false、
+   * 传输抛错、刷新失败）记失败稳定码；忙守卫拒掉的点击记 `busy`。`errorHash` 是失败稳定码的指纹。
+   * 批量面板没有 bytes/truncated 语义，行里不塞。
+   */
   async function act(kind: BatchPanelActionKind, key?: string): Promise<void> {
     if (!mounted) return
     // 点别的按钮，上膛的取消确认自动撤销（当即重绘，不等人）。
@@ -2767,6 +2995,43 @@ export function mountUpdateBatchPanel(
       confirmCancelArmed = false
       render()
     }
+    const startedAtMs = Date.now()
+    const skipToken: { busy: boolean } = { busy: false }
+    currentActionSkips = skipToken
+    const latchBefore = failureLatch
+    let ok = true
+    let errorKind: string | null = null
+    let errorHash: string | null = null
+    try {
+      await runAct(kind, key)
+    } catch (err) {
+      ok = false
+      errorKind = 'thrown'
+      errorHash = hash8(errorTextOf(err))
+      throw err
+    } finally {
+      if (ok && failureLatch !== latchBefore) {
+        // 动作期间有新失败：面板已画红条，动作行必须说失败（否则 ok:true 与界面自相矛盾）。
+        ok = false
+        errorKind = failureLatch?.code ?? lastError ?? 'internal'
+        errorHash = hash8(errorKind)
+      } else if (ok && skipToken.busy) {
+        ok = false
+        errorKind = 'busy'
+      }
+      currentActionSkips = null
+      logClient('info', 'update.panel.action', {
+        action: kind,
+        ok,
+        errorKind,
+        durationMs: Math.max(0, Date.now() - startedAtMs),
+        ...(errorHash ? { errorHash } : {}),
+      })
+    }
+  }
+
+  async function runAct(kind: BatchPanelActionKind, key?: string): Promise<void> {
+    if (!mounted) return
     switch (kind) {
       case 'check':
         await phone(phones.check, {})
@@ -3311,11 +3576,23 @@ export function mountUpdateBatchPanel(
 
   /** 打开即查/续（#59 D3/Q3）：每挂载最多各一次；自动失败不弹红条，只留行上标记。 */
   async function autoOnce(): Promise<void> {
+    try {
+      await runAutoOnce()
+    } catch {
+      // 自动查/续出错不挡挂载：失败痕迹留给行上标记与轮询。
+      if (autoCheckOutcome === null) autoCheckOutcome = 'failed'
+    } finally {
+      logMountRowOnce()
+    }
+  }
+
+  async function runAutoOnce(): Promise<void> {
     if (!mounted) return
     if (autoResumeOption && !autoResumeDone) {
       autoResumeDone = true
       if (hasUnfinishedRows(rows, lastSession ?? undefined) && !inFlight && !refreshing) {
         const before = lastError
+        const latchBefore = failureLatch
         try {
           const reply = await call(phones.resume, {})
           if (!mounted) return
@@ -3326,11 +3603,14 @@ export function mountUpdateBatchPanel(
               say(batchText('batch.notice.auto-resumed', currentLang(), { count: String(remainingCount()) }))
               rowFailedAt.clear()
             }
+            // 续完没走查：对挂载行而言等价于「最近查过/还没到再查的时候」。
+            autoCheckOutcome = 'recent'
             render()
             maybeAutoRowChangelog(expandedKey)
             return
           }
           lastError = before
+          failureLatch = latchBefore
           render()
         } catch {
           if (mounted) render()
@@ -3339,24 +3619,38 @@ export function mountUpdateBatchPanel(
     }
     if (!autoCheckDone) {
       autoCheckDone = true
-      if (!checkOnOpenEffective()) return
-      if (hasUnfinishedRows(rows, lastSession ?? undefined)) return
+      if (!checkOnOpenEffective()) {
+        autoCheckOutcome = 'disabled'
+        return
+      }
+      if (hasUnfinishedRows(rows, lastSession ?? undefined)) {
+        autoCheckOutcome = 'recent'
+        return
+      }
       const stale = lastCheckedAt <= 0 || nowMs() - lastCheckedAt >= 60000
-      if (!stale || inFlight || refreshing) return
+      if (!stale || inFlight || refreshing) {
+        autoCheckOutcome = 'recent'
+        return
+      }
       const before = lastError
+      const latchBefore = failureLatch
       try {
         const reply = await call(phones.check, {})
         if (!mounted) return
         if (isObject(reply) && reply['ok'] === true) {
           applyReply(reply)
           rowFailedAt.clear()
+          autoCheckOutcome = 'started'
           render()
           maybeAutoRowChangelog(expandedKey)
           return
         }
         lastError = before
+        failureLatch = latchBefore
+        autoCheckOutcome = 'failed'
         render()
       } catch {
+        autoCheckOutcome = 'failed'
         if (mounted) render()
       }
     }
@@ -3365,6 +3659,14 @@ export function mountUpdateBatchPanel(
   function unmount(): void {
     if (!mounted) return
     mounted = false
+    // #208：先摘全局兜底与去重表；自建日志通道最后销毁（注入通道归调用方，不动）。
+    try {
+      removeGlobalHandlers?.()
+    } catch {
+      // 摘不掉也无妨。
+    }
+    removeGlobalHandlers = null
+    renderFailSeen.clear()
     try {
       unsubLang()
     } catch {
@@ -3388,6 +3690,14 @@ export function mountUpdateBatchPanel(
     } catch {
       // 拆不掉也不挡。
     }
+    if (clientLogOwned && clientLog) {
+      try {
+        clientLog.dispose()
+      } catch {
+        // 销毁不掉也不挡。
+      }
+      clientLog = null
+    }
     // 卸载只停轮询：绝不调安装/取消电话，批量推进在宿主进程内继续跑。
   }
 
@@ -3407,6 +3717,8 @@ export function mountUpdateBatchPanel(
   } catch {
     // 没有键盘事件能力的容器忽略（Esc 关弹窗是渐进增强）。
   }
+  // #208：全局兜底（error/unhandledrejection）挂载时装上，unmount 时摘掉。
+  installGlobalHandlers()
   const timer = getTimer()
   const handle = timer.set(() => {
     // 查类在途轮询让路（#87 防抖：读-读不插帧，回包自带那一帧）；装类在途照刷

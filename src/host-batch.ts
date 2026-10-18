@@ -32,12 +32,17 @@
 //   7. 忙时入队（#25 排队语义）：batchInstall 在驱动进行中不再回 update-busy，而是把 keys 并进
 //      当前会话（幂等）并回 ok:true，单飞不另起驱动；单插件装电话回 update-busy（已占位、等轮到你）
 //      时映射成驱动器的 { kind:'queued', position }（相位退回 ready，不是 failed），行上带出队列位置。
-//   8. 批量侧常驻事件三条（#124），全部 best-effort、只走唯一发射口（脱敏/白名单/预算都在里面）：
-//      建会话时一条 update.batch.entry.request（只给 total/own/foreign 三个计数，不给插件名清单）、
-//      一家失败一条 update.batch.entry.fail（在 batch-run.ts 里按目标发射，落点是那家自己的插件标识）、
-//      收尾一条 update.batch.summary（宿主侧汇总，面板只渲染）。总账的判据是**收尾边沿**：同一份会话
-//      每次「没收尾 → 收尾」都记一条（行内重试装成后再收尾会再记），所以日志不会一直写着过期的
-//      failed 计数。落点未知（没 selfKey、键不在清单里、没有日志接线）时一行不发：不知道去哪就不猜。
+//   8. 批量侧常驻事件三条（#124 / #208），全部 best-effort、只走唯一发射口（脱敏/白名单/预算都在里面）：
+//      建会话时一条 update.batch.entry.request（只给 total/own/foreign 三个计数 + sessionHash，不给插件名清单）、
+//      一家失败一条 update.batch.entry.fail（在 batch-run.ts 里按目标发射，落点是那家自己的插件标识；
+//      #208 起带 sessionHash、失败阶段 stage 与批内序号 index）、
+//      收尾一条 update.batch.summary（宿主侧汇总，面板只渲染；带 sessionHash 与 stoppedBecause）。
+//      总账的判据是**收尾边沿**：同一份会话每次「没收尾 → 收尾」都记一条（行内重试装成后再收尾会再记），
+//      所以日志不会一直写着过期的 failed 计数。落点未知（没 selfKey、键不在清单里、没有日志接线）时
+//      一行不发：不知道去哪就不猜。
+//   9. 七个批量电话每通失败留一行（#208）：复用 host.call.fail 落属主目录（无属主不发），
+//      同一 method 连续同码只记首次、成功清记忆（batchStatus 轮询失败不灌爆目录）；
+//      有属主时登记 `<批量前缀>.logAppend` 转发给属主的 logAppend，批量面板的客户端日志行才落得下来。
 
 import { homedir } from 'node:os'
 import { hash8 } from './hash.js'
@@ -62,8 +67,9 @@ import {
   type BatchCheckOutcome,
   type BatchInstallOutcome,
   type BatchRunStep,
+  type BatchStoppedByBecause,
 } from './batch-run.js'
-import { assertPluginId, assertPrefix, resolveUpdateConfig, type UpdateConfigInput } from './config.js'
+import { assertPluginId, assertPrefix, buildLogAppendPhoneName, resolveUpdateConfig, type UpdateConfigInput } from './config.js'
 import { CROSS_SCOPE_CODE, isBatchReplyCode, isCoreErrorCode } from './codes.js'
 import { createHostUpdate, type HostUpdate, type ReaderOverrides } from './host.js'
 import { emitUpdateLog } from './log/emit.js'
@@ -161,16 +167,38 @@ export interface MultiHostDeps {
   installPollMs?: number
 }
 
+/**
+ * 批量宿主侧电话名（供接入方登记用，不写字面量）。
+ *
+ * 与面板侧 `./panel-batch` 的 `BatchPhoneNames` **不同名**（两份同名导出会经不同子路径发布，
+ * 消费者同时 import 会撞名）：面板那份只描述它实际打的七个电话；这份多登记一个 `logAppend`，
+ * 因为宿主是唯一知道「属主插件日志口」的一侧。
+ */
+export interface BatchHostPhoneNames {
+  status: string
+  check: string
+  install: string
+  resume: string
+  cancel: string
+  prefs: string
+  prefsSave: string
+  /**
+   * 客户端日志电话（#208）：属主存在时登记、转发给属主插件的 logAppend，
+   * 批量面板自建的日志通道打这个名。没有属主时**不登记**——面板行宁可投递失败，也不猜落点。
+   */
+  logAppend?: string
+}
+
 /** 批量宿主入口的返回面。 */
 export interface MultiHostUpdate {
-  /** 电话表：批量电话 + 每个目标的单插件三电话，键即电话名。 */
+  /** 电话表：批量电话 + 每个目标的单插件电话，键即电话名。 */
   handlers: Record<string, (args?: Record<string, unknown>) => Promise<unknown>>
   /** 批量电话名（供接入方登记用，不写字面量）。 */
-  phoneNames: { status: string; check: string; install: string; resume: string; cancel: string }
+  phoneNames: BatchHostPhoneNames
   /** 目标清单（顺序与会话一致）。 */
   targets: readonly MultiTargetSpec[]
   /** 最近一次推进的读数（驱动器停下来的原因 + 步骤）：给日志与门禁用；没推过为 null。 */
-  lastRun: { stoppedBecause: string; steps: BatchRunStep[] } | null
+  lastRun: { stoppedBecause: BatchStoppedByBecause; steps: BatchRunStep[] } | null
   /** 停掉 drain（接入方卸载时调）。 */
   dispose(): void
 }
@@ -516,11 +544,11 @@ async function callPhone(rt: TargetRuntime, name: string, args: Record<string, u
 /** 真查一家：打 updateCheck 电话，把快照翻成驱动器读数（有新版才 update；用户跳过的版本不装）。 */
 async function defaultCheck(rt: TargetRuntime): Promise<BatchCheckOutcome> {
   const reply = await callPhone(rt, rt.host.phoneNames.updateCheck, { includeEnv: true, includeQueue: true })
-  if (reply['ok'] !== true) return { kind: 'failed', error: codeOfReply(reply) }
+  if (reply['ok'] !== true) return { kind: 'failed', error: codeOfReply(reply), stage: 'check' }
   const snapshot = snapshotOf(reply)
   const latest = firstText(snapshot['latestVersion'])
   // 未知永不判 current（#90 R2）：回包成功却无版本信息是失败，不是「已是最新」。
-  if (!latest) return { kind: 'failed', error: 'check-failed' }
+  if (!latest) return { kind: 'failed', error: 'check-failed', stage: 'check' }
   if (isVersionSkipped(await skippedVersionsOf(rt), latest)) return { kind: 'skipped', version: latest }
   // 缺席不断「已是最新」（#134/US16）：没有已装版本可比，注入的运行版号不可采信，直接看可安装性。
   const base = snapshot['installed'] === false ? null : firstText(snapshot['installedVersion'], snapshot['runningVersion'])
@@ -535,10 +563,10 @@ async function defaultCheck(rt: TargetRuntime): Promise<BatchCheckOutcome> {
   }
   if (snapshot['canInstall'] !== true) {
     const blocked = firstText(snapshot['blockedReason'])
-    return { kind: 'failed', error: blocked && isBatchReplyCode(blocked) ? blocked : 'check-failed' }
+    return { kind: 'failed', error: blocked && isBatchReplyCode(blocked) ? blocked : 'check-failed', stage: 'check' }
   }
   const checkId = firstText(asRecord(reply['receipt'])['checkId'])
-  if (!checkId) return { kind: 'failed', error: 'check-failed' }
+  if (!checkId) return { kind: 'failed', error: 'check-failed', stage: 'check' }
   rt.receipt = { checkId, version: latest }
   return { kind: 'update', version: latest }
 }
@@ -548,7 +576,8 @@ function installOutcomeOf(job: Record<string, unknown> | null): BatchInstallOutc
   const state = job && typeof job['state'] === 'string' ? (job['state'] as string) : ''
   if (state === 'restart-required') return { kind: 'done', restartRequired: true }
   if (state === 'completed') return { kind: 'done', restartRequired: false }
-  if (state === 'failed' || state === 'interrupted') return { kind: 'failed', error: jobFailureCode(job) }
+  // 装到终态才失败的，失败阶段是「收尾」（#208）：区别于提交安装本身失败。
+  if (state === 'failed' || state === 'interrupted') return { kind: 'failed', error: jobFailureCode(job), stage: 'settle' }
   return null
 }
 
@@ -558,10 +587,11 @@ async function settleInstall(rt: TargetRuntime, firstReply: Record<string, unkno
   if (early) return early
   const deadline = rt.now() + rt.resolved.installTimeoutMs
   while (true) {
-    if (rt.now() >= deadline) return { kind: 'failed', error: 'install-failed' }
+    // 等过安装时限：不是「提交失败」，是「收尾没等到」——阶段如实记 timeout（#208）。
+    if (rt.now() >= deadline) return { kind: 'failed', error: 'install-failed', stage: 'timeout' }
     await sleep(rt.pollMs)
     const status = await callPhone(rt, rt.host.phoneNames.updateStatus, {})
-    if (status['ok'] !== true) return { kind: 'failed', error: codeOfReply(status) }
+    if (status['ok'] !== true) return { kind: 'failed', error: codeOfReply(status), stage: 'settle' }
     const outcome = installOutcomeOf(jobOf(snapshotOf(status)))
     if (outcome) return outcome
   }
@@ -586,9 +616,11 @@ async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetS
   let receipt = rt.receipt
   if (!receipt) {
     const again = await rt.check(key, spec)
-    if (again.kind !== 'update') return { kind: 'failed', error: again.kind === 'failed' ? again.error : 'check-expired' }
+    if (again.kind !== 'update') {
+      return { kind: 'failed', error: again.kind === 'failed' ? again.error : 'check-expired', stage: 'check' }
+    }
     receipt = rt.receipt
-    if (!receipt) return { kind: 'failed', error: 'check-expired' }
+    if (!receipt) return { kind: 'failed', error: 'check-expired', stage: 'check' }
   }
   const phoneRequestId = phoneRequestIdOf(requestId)
   // 意图来源（#124）：批量的装由驱动器发起、不是用户点面板，如实自报——只进日志行
@@ -608,9 +640,13 @@ async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetS
     // 槽里只剩最后一家——驱动串行装、每取下一家 reader（含第一家）凭证都已过期，
     // 所以 ≥2 家的批每家首次提交都会走这里当场重查一次；第二次仍过期才记 failed。不碰单例纪律。
     const again = await rt.check(key, spec)
-    if (again.kind !== 'update') return { kind: 'failed', error: again.kind === 'failed' ? again.error : 'check-expired' }
+    if (again.kind !== 'update') {
+      return { kind: 'failed', error: again.kind === 'failed' ? again.error : 'check-expired', stage: 'check' }
+    }
     const fresh = (rt as unknown as Record<string, unknown>)['receipt'] as { checkId: string; version: string } | null
-    if (!fresh || typeof fresh.checkId !== 'string' || !fresh.checkId) return { kind: 'failed', error: 'check-expired' }
+    if (!fresh || typeof fresh.checkId !== 'string' || !fresh.checkId) {
+      return { kind: 'failed', error: 'check-expired', stage: 'check' }
+    }
     reply = await submitOnce(fresh.checkId)
     rt.receipt = null
     if (reply['ok'] === true) return await settleInstall(rt, reply)
@@ -622,7 +658,9 @@ async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetS
     return { kind: 'queued', position: await queuePositionFor(rt, phoneRequestId) }
   }
   const exit = exitCodeOf(reply)
-  return exit === null ? { kind: 'failed', error: code } : { kind: 'failed', error: code, exitCode: exit }
+  return exit === null
+    ? { kind: 'failed', error: code, stage: 'install' }
+    : { kind: 'failed', error: code, exitCode: exit, stage: 'install' }
 }
 
 /**
@@ -671,8 +709,15 @@ export function createMultiHostUpdate(
   const batchScope = scopeError ? null : (scopes.get(specs[0].key) as TargetScope)
 
   // 共享队列端口（#15 的同一份）：七个目标共用一套读写口与一把全局锁，不各建一套。
+  // #208 一行修复（C-F02③）：队列端口必须带上按动作方取口的 logFor，否则 update.queue.transition /
+  // update.store.fail 落不到正确目录（与 host.ts:399-421 的接线同形状）。
+  const logPortForPlugin = (pluginId: string): UpdateLogPort => (level, event, fields, opts) => {
+    emitUpdateLog(level, event, fields, { ...opts, pluginId })
+  }
   const queue =
-    batchScope && batchScope.profileDir ? createUpdateQueuePorts(batchScope.homeDir, batchScope.profileDir) : null
+    batchScope && batchScope.profileDir
+      ? createUpdateQueuePorts(batchScope.homeDir, batchScope.profileDir, { logFor: logPortForPlugin })
+      : null
   const baseOverrides: ReaderOverrides = { ...(input.readerOverrides ?? {}) }
   if (queue && !(baseOverrides.readQueue && baseOverrides.writeQueue)) {
     baseOverrides.readQueue = () => queue.readQueue()
@@ -756,7 +801,7 @@ export function createMultiHostUpdate(
   /** 正在被驱动的那份会话（内存里的唯一真相）：忙时入队并进来的行靠它传给正在跑的驱动。 */
   let liveSession: BatchSession | null = null
   /** 最近一次推进的读数（lastRun 用；推进抛错时不更新）。 */
-  let lastRun: { stoppedBecause: string; steps: BatchRunStep[] } | null = null
+  let lastRun: { stoppedBecause: BatchStoppedByBecause; steps: BatchRunStep[] } | null = null
   let drainTimer: unknown = null
   let disposed = false
 
@@ -842,7 +887,8 @@ export function createMultiHostUpdate(
 
   /**
    * 一批只记一条入队行：own = 目标里属于批量属主自己那家（键 === selfKey 的那家），其余算 foreign。
-   * 只给三个计数、不给插件名清单——入队行不该泄露「我在更新谁」。
+   * 只给三个计数 + 批次指纹、不给插件名清单——入队行不该泄露「我在更新谁」。
+   * #208 起带 sessionHash（hash8(会话 id)）：同一批的入队/失败/总账三条行靠它串起来。
    */
   function noteEntryRequest(session: BatchSession): void {
     const owner = selfRuntime
@@ -854,6 +900,7 @@ export function createMultiHostUpdate(
       total,
       ownCount,
       foreignCount: total - ownCount,
+      sessionHash: hash8(session.id),
     })
   }
 
@@ -862,6 +909,8 @@ export function createMultiHostUpdate(
    * 再点一次「装这家」）不重复记。所以调用方要在推进前后各看一次——重试把失败行退回 pending 时
    * 先清标记，装成后再收尾才记第二条。ok 用「没出事」的口径（装完 + 已是最新），
    * ok + failed + skipped === total 恒成立；durationMs 是「建会话 → 这次收尾」的真测量。
+   * #208 起带 sessionHash 与 stoppedBecause：一批行能串起来，收尾能说明为什么停
+   * （finished = 全部跑完，不代表没失败；别的原因都来自最近一次推进的读数）。
    */
   function noteBatchSummary(session: BatchSession): void {
     const owner = selfRuntime
@@ -873,12 +922,15 @@ export function createMultiHostUpdate(
     if (!finished || wasFinished) return
     const progress = batchProgress(session)
     const elapsed = now() - session.createdAt
+    const stoppedBecause: BatchStoppedByBecause = lastRun?.stoppedBecause ?? 'finished'
     emitBatchLog(owner.pluginId, 'info', 'update.batch.summary', {
       total: progress.total,
       ok: progress.done,
       failed: progress.failed,
       skipped: progress.skipped,
       durationMs: Number.isFinite(elapsed) && elapsed > 0 ? Math.floor(elapsed) : 0,
+      sessionHash: hash8(session.id),
+      stoppedBecause,
     })
   }
 
@@ -1103,6 +1155,8 @@ export function createMultiHostUpdate(
             },
             now: () => now(),
             logFor: logPortFor,
+            // 失败行的序号取**整批**顺序（视图可能只含选中的几行，findIndex 会给视图序号）。
+            indexOf: (key: string) => full.order.indexOf(key),
           },
           { maxSteps: 1 },
         )
@@ -1527,7 +1581,7 @@ export function createMultiHostUpdate(
     return { ok: true, prefs: next }
   }
 
-  const phoneNames = {
+  const phoneNames: BatchHostPhoneNames = {
     status: prefix + '.batchStatus',
     check: prefix + '.batchCheck',
     install: prefix + '.batchInstall',
@@ -1536,30 +1590,78 @@ export function createMultiHostUpdate(
     prefs: prefix + '.batchPrefs',
     prefsSave: prefix + '.batchPrefsSave',
   }
+
+  /**
+   * 七个批量电话每通失败留一行（#208）：落**属主**目录（没有属主就没有已知落点，一行不发）。
+   * 复用 host.call.fail（不新增事件）；method 用全名、kind 用短名；error 只认稳定码，认不出折 unknown；
+   * 同一 method 连续同码只记首次、成功清除记忆——batchStatus 每 1.5s 轮询一次失败时不能灌爆目录。
+   */
+  const phoneFailSeen = new Map<string, string>()
+  function notePhoneFail(name: string, kind: string, reply: Record<string, unknown>): void {
+    const owner = selfRuntime
+    if (!owner) return
+    if (reply['ok'] === true) {
+      phoneFailSeen.delete(name)
+      return
+    }
+    const raw = typeof reply['error'] === 'string' ? reply['error'] : ''
+    const error = isBatchReplyCode(raw) ? raw : 'unknown'
+    if (phoneFailSeen.get(name) === error) return
+    phoneFailSeen.set(name, error)
+    emitBatchLog(owner.pluginId, 'warn', 'host.call.fail', {
+      method: name,
+      kind,
+      error,
+      errorHash: hash8(name + '|' + error),
+      pluginId: owner.pluginId,
+    })
+  }
+
   function phone(
+    name: string,
+    kind: string,
     fn: (args: Record<string, unknown>) => Promise<Record<string, unknown>>,
   ): (args?: Record<string, unknown>) => Promise<unknown> {
     return async (args?: Record<string, unknown>): Promise<Record<string, unknown>> => {
+      let reply: Record<string, unknown>
       try {
-        return await fn(asRecord(args))
+        reply = await fn(asRecord(args))
       } catch (error) {
-        return { ok: false, ...errorPayloadOf(error) }
+        reply = { ok: false, ...errorPayloadOf(error) }
       }
+      try {
+        notePhoneFail(name, kind, reply)
+      } catch {
+        // 记日志是旁路：永不改变回包
+      }
+      return reply
     }
   }
   const handlers: Record<string, (args?: Record<string, unknown>) => Promise<unknown>> = {}
-  handlers[phoneNames.status] = phone(() => statusPhone())
-  handlers[phoneNames.check] = phone(() => checkPhone())
-  handlers[phoneNames.install] = phone((args) => installPhone(args))
-  handlers[phoneNames.resume] = phone(() => resumePhone())
-  handlers[phoneNames.cancel] = phone(() => cancelPhone())
-  handlers[phoneNames.prefs] = phone(() => prefsPhone())
-  handlers[phoneNames.prefsSave] = phone((args) => prefsSavePhone(args))
+  handlers[phoneNames.status] = phone(phoneNames.status, 'batch-status', () => statusPhone())
+  handlers[phoneNames.check] = phone(phoneNames.check, 'batch-check', () => checkPhone())
+  handlers[phoneNames.install] = phone(phoneNames.install, 'batch-install', (args) => installPhone(args))
+  handlers[phoneNames.resume] = phone(phoneNames.resume, 'batch-resume', () => resumePhone())
+  handlers[phoneNames.cancel] = phone(phoneNames.cancel, 'batch-cancel', () => cancelPhone())
+  handlers[phoneNames.prefs] = phone(phoneNames.prefs, 'batch-prefs', () => prefsPhone())
+  handlers[phoneNames.prefsSave] = phone(phoneNames.prefsSave, 'batch-prefs-save', (args) => prefsSavePhone(args))
   // 每个目标的单插件三电话照旧各自前缀暴露：批量电话与它们同处一张表，接入方一次登记。
   for (const rt of runtimes) {
     for (const name of Object.keys(rt.host.handlers)) {
       const handler = rt.host.handlers[name]
       handlers[name] = (args?: Record<string, unknown>) => handler(asRecord(args))
+    }
+  }
+  // 批量面板自建的客户端日志通道打的是 `buildLogAppendPhoneName(批量前缀)`（#208）：登记为属主 logAppend
+  // 的转发，面板行就落进属主日志目录。没有属主（或属主没接日志）不登记——面板行宁可投递失败，也不猜落点。
+  // 放在逐目标并入之后：万一某个目标前缀与批量前缀相同，以「转发给属主」这一份为准。
+  if (selfRuntime) {
+    const ownerLogAppendName = selfRuntime.host.phoneNames.logAppend
+    const ownerLogAppend = selfRuntime.host.handlers[ownerLogAppendName]
+    if (typeof ownerLogAppend === 'function') {
+      const batchLogAppendName = buildLogAppendPhoneName(prefix)
+      phoneNames.logAppend = batchLogAppendName
+      handlers[batchLogAppendName] = (args?: Record<string, unknown>) => ownerLogAppend(asRecord(args))
     }
   }
 
@@ -1569,7 +1671,7 @@ export function createMultiHostUpdate(
     handlers,
     phoneNames,
     targets: orderedSpecs,
-    get lastRun(): { stoppedBecause: string; steps: BatchRunStep[] } | null {
+    get lastRun(): { stoppedBecause: BatchStoppedByBecause; steps: BatchRunStep[] } | null {
       return lastRun
     },
     dispose(): void {

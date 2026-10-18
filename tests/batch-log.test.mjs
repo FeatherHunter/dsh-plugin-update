@@ -1,28 +1,35 @@
 /**
  * tests/batch-log.test.mjs —— issue #124 批量侧的常驻事件接线：一批一条、一家失败一条、收尾一条。
  *
+ * #208 起三事件都带 sessionHash（hash8(批次 id)）把同一批串起来；失败行再带 stage（失败阶段）
+ * 与 index（整批 0 起序号）；总账带 stoppedBecause（为什么停）；七个批量电话失败各落一条
+ * host.call.fail（属主目录，连续同码去重）。
+ *
  * 只测外部行为：假传输推进批量，在注入的落点上**按插件标识分行**收集，然后断言
- *   (a) 一批只落 1 条 update.batch.entry.request，三个计数与构造出的计划一致；
+ *   (a) 一批只落 1 条 update.batch.entry.request，四个字段（三计数 + sessionHash）与计划一致；
  *   (b) 一个目标失败落 1 条 update.batch.entry.fail，targetHash 是指纹，路径原文一个字不入行，
- *       退出码只有真拿到才带；
+ *       退出码只有真拿到才带，stage/index 按失败方式给；
  *   (c) 收尾落 1 条 update.batch.summary，ok + failed + skipped === total，时长按真时钟量；
  *       总账走「收尾边沿」：行内重试装成后再收尾会再记一条，计数跟着账本变（日志不写假话）；
  *   (d) 不注入端口时驱动器读数一字不差；没有落点（没 selfKey）时批量级一行不发。
  * 事件清单先 prime 进进程：字段白名单是活的，多一个字段整行会被发射口丢掉 ——
- * 所以「恰好一条 + 字段 deepEqual」本身就是白名单断言，不必再抄一遍清单。
+ * 所以「恰好一条 + 字段集合相等」本身就是白名单断言，不必再抄一遍清单。
  * 网络、落盘、子进程全用假件，不碰真机。
  */
 import { describe, it, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { createBatchSession } from '../dist/batch.js'
 import { runBatch } from '../dist/batch-run.js'
+import { hash8 } from '../dist/hash.js'
 import { createMultiHostUpdate } from '../dist/host-batch.js'
+import { pruneEventFields } from '../dist/gate.js'
 import { __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import { primeUpdateEventTable } from '../dist/log/manifest.js'
+import { currentUpdateEventTable, primeUpdateEventTable } from '../dist/log/manifest.js'
 import { updateLogRouter } from '../dist/log/router.js'
+import { queuePathsForUpdate } from '../dist/store.js'
 
 /** 构造期用的静默落点：真正要断言的落点在构造之后再按插件标识绑上。 */
 const SILENT = { fire: () => {} }
@@ -74,6 +81,72 @@ function phaseOf(session, key) {
   return session.entries.find((entry) => entry.key === key)?.phase ?? null
 }
 
+/**
+ * 真路径假读侧：让一家真走到装（真查、真提交、真等收尾）。
+ * `runInstall` 决定「装」的结局：挂起 = 等收尾超时；抛错 = 装到终态才失败。
+ */
+function installOverrides(dir, targetName, runInstall) {
+  const registry = 'https://registry.npmjs.org/'
+  let installed = '1.0.0'
+  let job = null
+  let clock = 1000000
+  return {
+    runningVersion: '1.0.0',
+    profileDir: dir,
+    homeDir: dir,
+    profileName: 'web',
+    environmentKind: 'cli',
+    nodeVersion: '22.0.0',
+    targetPackageName: targetName,
+    fetchImpl: async () => ({
+      ok: true,
+      headers: { get: () => null },
+      text: async () =>
+        JSON.stringify({
+          name: targetName,
+          version: '2.0.0',
+          engines: { node: '>=22' },
+          dist: {
+            tarball: registry + targetName + '/-/' + targetName + '-2.0.0.tgz',
+            integrity: 'sha512-' + 'A'.repeat(86) + '==',
+          },
+        }),
+    }),
+    now: () => (clock += 10),
+    randomId: (() => {
+      let n = 0
+      return () => 'id-' + (n += 1)
+    })(),
+    readInstalled: async () => ({
+      profileName: 'web',
+      environmentKind: 'cli',
+      homeDir: dir,
+      profileDir: dir,
+      installedVersion: installed,
+      packageValid: true,
+      sourceInstall: false,
+      blockedReason: null,
+      installationKey: 'key-1',
+      eligible: true,
+    }),
+    readJob: async () => job,
+    writeJob: async (value) => {
+      job = value
+    },
+    tryAcquireLock: async () => true,
+    releaseLock: async () => {},
+    backupJob: async () => {},
+    runInstall,
+  }
+}
+
+/** 往真队列目录里手写一份排队状态（别家占着队首）：不注入 readQueue/writeQueue 才会走批量共享端口。 */
+async function seedQueue(dir, waiting) {
+  const paths = queuePathsForUpdate(dir, dir)
+  await mkdir(dirname(paths.file), { recursive: true })
+  await writeFile(paths.file, JSON.stringify({ version: 1, owner: null, waiting }), 'utf8')
+}
+
 beforeEach(() => {
   __resetSharedUpdateReaderForTests()
   // 白名单是活的：字段集合写错一个，整行会被丢掉，下面的条数断言立刻红。
@@ -103,14 +176,24 @@ describe('#124 批量侧常驻事件', () => {
     const asked = rowsOf(owner, 'update.batch.entry.request')
     assert.equal(asked.length, 1, '一批只落一条入场行')
     assert.equal(asked[0].level, 'info')
-    assert.deepEqual(asked[0].fields, { total: 3, ownCount: 1, foreignCount: 2 }, '三键口径：自己 1 家、别人 2 家')
+    assert.deepEqual(
+      Object.keys(asked[0].fields).sort(),
+      ['foreignCount', 'ownCount', 'sessionHash', 'total'],
+      '四个字段恰好：三计数 + #208 的 sessionHash',
+    )
+    assert.equal(asked[0].fields.total, 3)
+    assert.equal(asked[0].fields.ownCount, 1, '自己 1 家')
+    assert.equal(asked[0].fields.foreignCount, 2, '别人 2 家')
+    assert.match(asked[0].fields.sessionHash, /^[0-9a-f]{8}$/, 'sessionHash 是 8 位十六进制指纹')
+    assert.equal(asked[0].fields.sessionHash, hash8(reply.session.id), 'sessionHash = hash8(批次 id)')
     assert.equal(rowsOf(a, 'update.batch.entry.request').length, 0, '入场行落属主，不散给目标')
     assert.equal(rowsOf(b, 'update.batch.entry.request').length, 0)
 
-    // 同一份已收尾的会话再续一次：没有新会话，就不该有新行。
+    // 同一份已收尾的会话再续一次：没有新会话，就不该有新行，也不换 sessionHash。
     const resumed = await host.handlers['life.batchResume']({})
     assert.equal(resumed.resumed, false)
     assert.equal(rowsOf(owner, 'update.batch.entry.request').length, 1, '同一批不重复记')
+    assert.equal(rowsOf(owner, 'update.batch.entry.request')[0].fields.sessionHash, asked[0].fields.sessionHash)
 
     // 再点一次「全部提交」= 新一批（新编号）：新的一批自有它的一条。
     await host.handlers['life.batchInstall']({})
@@ -153,9 +236,17 @@ describe('#124 批量侧常驻事件', () => {
     const failed = rowsOf(a, 'update.batch.entry.fail')
     assert.equal(failed.length, 1, '一个目标失败一条')
     assert.equal(failed[0].level, 'warn')
-    assert.deepEqual(Object.keys(failed[0].fields).sort(), ['errorKind', 'exitCode', 'targetHash'], '字段恰好三个')
+    assert.deepEqual(
+      Object.keys(failed[0].fields).sort(),
+      ['errorKind', 'exitCode', 'index', 'sessionHash', 'stage', 'targetHash'],
+      '字段恰好六个（#208 加 sessionHash / stage / index）',
+    )
     assert.match(failed[0].fields.targetHash, /^[0-9a-f]{8}$/, 'targetHash 是 8 位十六进制指纹')
+    assert.match(failed[0].fields.sessionHash, /^[0-9a-f]{8}$/, 'sessionHash 是 8 位十六进制指纹')
+    assert.equal(failed[0].fields.sessionHash, hash8(reply.session.id), 'sessionHash = hash8(批次 id)')
     assert.equal(failed[0].fields.errorKind, 'install-failed')
+    assert.equal(failed[0].fields.stage, 'install', '装失败记 install 阶段')
+    assert.equal(failed[0].fields.index, 0, '批内序号：目标键在会话顺序里的位置（这家排第一）')
     assert.equal(failed[0].fields.exitCode, 7, '真拿到退出码就给')
     const text = JSON.stringify(failed)
     assert.ok(!text.includes('C:') && !text.includes('\\') && !text.includes('/'), '行里不许出现路径原文')
@@ -163,7 +254,10 @@ describe('#124 批量侧常驻事件', () => {
 
     const bFailed = rowsOf(b, 'update.batch.entry.fail')
     assert.equal(bFailed.length, 1)
+    assert.deepEqual(Object.keys(bFailed[0].fields).sort(), ['errorKind', 'index', 'sessionHash', 'stage', 'targetHash'])
     assert.equal(bFailed[0].fields.errorKind, 'unknown', '不像稳定码的错误折成 unknown')
+    assert.equal(bFailed[0].fields.index, 1)
+    assert.equal(bFailed[0].fields.stage, 'install')
     assert.equal('exitCode' in bFailed[0].fields, false, '没拿到退出码就不给这个字段')
     assert.equal(rowsOf(owner, 'update.batch.entry.fail').length, 0, '失败行落失败那家，不发给属主')
 
@@ -211,12 +305,20 @@ describe('#124 批量侧常驻事件', () => {
     const summary = rowsOf(owner, 'update.batch.summary')
     assert.equal(summary.length, 1, '一次收尾一条总账')
     assert.equal(summary[0].level, 'info')
-    assert.deepEqual(
-      summary[0].fields,
-      { total: 5, ok: 3, failed: 1, skipped: 1, durationMs: 60 },
-      'a 已最新 + b 装完 + self 已最新 = ok 3；d 查失败 1；c 跳过 1；共 6 次传输调用 ×10ms',
-    )
     const fields = summary[0].fields
+    assert.deepEqual(
+      Object.keys(fields).sort(),
+      ['durationMs', 'failed', 'ok', 'sessionHash', 'skipped', 'stoppedBecause', 'total'],
+      '七个字段恰好（#208 加 sessionHash / stoppedBecause）',
+    )
+    assert.equal(fields.total, 5)
+    assert.equal(fields.ok, 3, 'a 已最新 + b 装完 + self 已最新 = ok 3')
+    assert.equal(fields.failed, 1, 'd 查失败 1')
+    assert.equal(fields.skipped, 1, 'c 跳过 1')
+    assert.equal(fields.durationMs, 60, '共 6 次传输调用 ×10ms')
+    assert.match(fields.sessionHash, /^[0-9a-f]{8}$/)
+    assert.equal(fields.sessionHash, hash8(reply.session.id))
+    assert.equal(fields.stoppedBecause, 'finished', '全部跑完（有失败也算收尾）')
     assert.equal(fields.ok + fields.failed + fields.skipped, fields.total, '三个计数必须把 total 分完')
     host.dispose()
   })
@@ -243,6 +345,7 @@ describe('#124 批量侧常驻事件', () => {
     assert.equal(first[0].fields.ok, 1, 'self 已最新')
     assert.equal(first[0].fields.failed, 1, 'a 装失败')
     assert.equal(first[0].fields.skipped, 0)
+    assert.equal(first[0].fields.stoppedBecause, 'finished')
     assert.equal(sum(first[0].fields), first[0].fields.total)
 
     // 用户点行内「重试」：这一家真装成（同一份会话，账本从失败变好）。
@@ -254,6 +357,8 @@ describe('#124 批量侧常驻事件', () => {
     assert.equal(both[1].fields.ok, 2, 'ok 跟着账本从 1 变 2')
     assert.equal(both[1].fields.failed, 0, 'failed 跟着账本从 1 变 0')
     assert.equal(both[1].fields.skipped, 0)
+    assert.equal(both[1].fields.stoppedBecause, 'finished')
+    assert.equal(both[1].fields.sessionHash, both[0].fields.sessionHash, '同一批：重发总账也沿用同一个 sessionHash')
     assert.equal(sum(both[1].fields), both[1].fields.total)
     assert.ok(both[1].fields.durationMs >= both[0].fields.durationMs, '时长是同一会话的累计真测量')
 
@@ -303,6 +408,9 @@ describe('#124 批量侧常驻事件', () => {
     assert.equal(rows[0].event, 'update.batch.entry.fail')
     assert.equal(rows[0].fields.errorKind, 'install-failed')
     assert.equal(rows[0].fields.exitCode, 3)
+    assert.equal(rows[0].fields.stage, 'install', '装提交失败缺省记 install 阶段')
+    assert.equal(rows[0].fields.index, 0, '批内序号：唯一那家就是 0')
+    assert.equal(rows[0].fields.sessionHash, hash8('batch-log-d'), 'sessionHash = hash8(会话 id)')
     assert.deepEqual(withPort.result.session, without.result.session, '有端口 / 没端口：会话读数一字不差')
     assert.deepEqual(withPort.result.steps, without.result.steps, '步骤一字不差')
     assert.equal(withPort.result.stoppedBecause, without.result.stoppedBecause)
@@ -314,5 +422,388 @@ describe('#124 批量侧常驻事件', () => {
     })
     assert.deepEqual(boom.result.session, without.result.session, '端口抛错与没有端口一字不差')
     assert.equal(boom.result.stoppedBecause, without.result.stoppedBecause)
+  })
+})
+
+describe('#208 批量会话串联字段', () => {
+  it('同一批的三条行共用一个 sessionHash：入队、失败、总账彼此相等，续跑不换号', async () => {
+    const { scope } = await mkScope()
+    const host = createMultiHostUpdate(
+      {
+        scope,
+        transport: fakeTransport({
+          a: { check: { kind: 'update', version: '2.0.0' }, install: { kind: 'failed', error: 'install-failed' } },
+        }),
+      },
+      { prefix: 'life', targets: [mkTarget('a'), mkTarget('b'), mkTarget('self')], selfKey: 'self' },
+    )
+    const owner = collector()
+    const a = collector()
+    bind('plugin-self', owner.sink)
+    bind('plugin-a', a.sink)
+
+    const reply = await host.handlers['life.batchInstall']({})
+    assert.equal(reply.ok, true)
+    const request = rowsOf(owner, 'update.batch.entry.request')
+    const failed = rowsOf(a, 'update.batch.entry.fail')
+    const summary = rowsOf(owner, 'update.batch.summary')
+    assert.equal(request.length, 1)
+    assert.equal(failed.length, 1)
+    assert.equal(summary.length, 1)
+
+    const expected = hash8(reply.session.id)
+    const hashes = [request[0], failed[0], summary[0]].map((row) => row.fields.sessionHash)
+    for (const hash of hashes) assert.match(hash, /^[0-9a-f]{8}$/)
+    assert.equal(new Set(hashes).size, 1, '同一批的三条行必须是同一个 sessionHash')
+    assert.equal(hashes[0], expected, 'sessionHash = hash8(批次 id)')
+
+    // 已收尾的一批再「接着上次」：没有新会话，就不该换号、也不该补新行。
+    const resumed = await host.handlers['life.batchResume']({})
+    assert.equal(resumed.resumed, false)
+    const after = [
+      ...rowsOf(owner, 'update.batch.entry.request'),
+      ...rowsOf(a, 'update.batch.entry.fail'),
+      ...rowsOf(owner, 'update.batch.summary'),
+    ]
+    assert.equal(after.length, 3, '同一批不重复记')
+    assert.equal(new Set(after.map((row) => row.fields.sessionHash)).size, 1, '同一批只有一个 sessionHash')
+    host.dispose()
+  })
+
+  it('失败行的 index 是整批 order 里的序号（self 排最后也按位）', async () => {
+    const { scope } = await mkScope()
+    // selfKey=c 时 order 仍是 [a,b,c]（c 本来就在最后）；b、c 都装失败 → index 1 / 2。
+    const host = createMultiHostUpdate(
+      {
+        scope,
+        transport: fakeTransport({
+          a: { check: { kind: 'current' } },
+          b: { check: { kind: 'update', version: '2.0.0' }, install: { kind: 'failed', error: 'install-failed' } },
+          c: { check: { kind: 'update', version: '2.0.0' }, install: { kind: 'failed', error: 'install-failed' } },
+        }),
+      },
+      { prefix: 'life', targets: [mkTarget('a'), mkTarget('b'), mkTarget('c')], selfKey: 'c' },
+    )
+    const owner = collector()
+    const b = collector()
+    bind('plugin-c', owner.sink)
+    bind('plugin-b', b.sink)
+
+    const reply = await host.handlers['life.batchInstall']({})
+    assert.equal(reply.ok, true)
+    assert.deepEqual(reply.session.order, ['a', 'b', 'c'], '账本顺序：全清单，自己最后')
+
+    const bFailed = rowsOf(b, 'update.batch.entry.fail')
+    const cFailed = rowsOf(owner, 'update.batch.entry.fail')
+    assert.equal(bFailed.length, 1)
+    assert.equal(cFailed.length, 1)
+    assert.equal(bFailed[0].fields.index, 1, 'b 在整批里排第 1（0 起）')
+    assert.equal(cFailed[0].fields.index, 2, 'self（c）排最后，序号照位给')
+    assert.equal(bFailed[0].fields.sessionHash, cFailed[0].fields.sessionHash, '同一批两条失败行共用一个 sessionHash')
+    assert.equal(cFailed[0].fields.stage, 'install')
+    host.dispose()
+  })
+
+  it('失败阶段 stage：驱动直驱时查失败记 check、装失败记 install', async () => {
+    const run = async (id, checkOutcome, installOutcome) => {
+      const rows = []
+      const session = createBatchSession({ id, keys: ['t0', 't1'], selfKey: null, now: 1000 })
+      const result = await runBatch(session, {
+        check: async (key) => (key === 't0' ? checkOutcome : { kind: 'current' }),
+        install: async () => installOutcome,
+        save: async () => {},
+        now: () => 2000,
+        indexOf: (key) => session.order.indexOf(key),
+        logFor: () => (level, event, fields) => rows.push({ level, event, fields }),
+      })
+      return { result, rows }
+    }
+
+    const checked = await run('batch-log-stage-check', { kind: 'failed', error: 'check-failed' }, { kind: 'done', restartRequired: false })
+    assert.equal(checked.rows.length, 1)
+    const checkFields = checked.rows[0].fields
+    assert.equal(checked.rows[0].event, 'update.batch.entry.fail')
+    assert.equal(checkFields.stage, 'check', '查失败记 check 阶段')
+    assert.equal(checkFields.index, 0)
+    assert.equal(checkFields.errorKind, 'check-failed')
+    assert.equal(checkFields.sessionHash, hash8('batch-log-stage-check'))
+    assert.equal(checkFields.targetHash, hash8('t0'))
+
+    const installed = await run('batch-log-stage-install', { kind: 'update', version: '2.0.0' }, { kind: 'failed', error: 'install-failed' })
+    assert.equal(installed.rows.length, 1)
+    const installFields = installed.rows[0].fields
+    assert.equal(installFields.stage, 'install', '提交安装失败记 install 阶段')
+    assert.equal(installFields.index, 0)
+    assert.equal(installFields.sessionHash, hash8('batch-log-stage-install'))
+  })
+
+  it('失败阶段 stage：等收尾超时记 timeout，收尾终态失败记 settle（真装路径）', async () => {
+    // 超时：装电话返回后任务一直非终态，安装时限一到驱动器按 timeout 收。
+    const timingOut = await mkScope()
+    const timeoutHost = createMultiHostUpdate(
+      {
+        scope: timingOut.scope,
+        installPollMs: 2,
+        config: { installTimeoutMs: 60 },
+        // 装永不返回：后台任务一直是 installing，等收尾只能等到时限。
+        readerOverrides: installOverrides(timingOut.dir, 'pkg-a', () => new Promise(() => {})),
+      },
+      { prefix: 'life', targets: [mkTarget('a')], selfKey: 'a' },
+    )
+    const timed = collector()
+    bind('plugin-a', timed.sink)
+    const first = await timeoutHost.handlers['life.batchInstall']({})
+    assert.equal(first.ok, true)
+    const timeoutRows = rowsOf(timed, 'update.batch.entry.fail')
+    assert.equal(timeoutRows.length, 1)
+    assert.equal(timeoutRows[0].fields.stage, 'timeout', '等收尾超时不是提交失败，如实记 timeout')
+    assert.equal(timeoutRows[0].fields.errorKind, 'install-failed')
+    assert.equal(timeoutRows[0].fields.index, 0)
+    assert.equal(timeoutRows[0].fields.sessionHash, hash8(first.session.id))
+    timeoutHost.dispose()
+
+    // 收尾失败：装到终态才失败（后台任务 failed），阶段记 settle。
+    const settling = await mkScope()
+    const settleHost = createMultiHostUpdate(
+      {
+        scope: settling.scope,
+        installPollMs: 2,
+        config: { installTimeoutMs: 5000 },
+        readerOverrides: installOverrides(settling.dir, 'pkg-b', async () => {
+          throw new Error('exec crashed')
+        }),
+      },
+      { prefix: 'life', targets: [mkTarget('b')], selfKey: 'b' },
+    )
+    const settled = collector()
+    bind('plugin-b', settled.sink)
+    const second = await settleHost.handlers['life.batchInstall']({})
+    assert.equal(second.ok, true)
+    const settleRows = rowsOf(settled, 'update.batch.entry.fail')
+    assert.equal(settleRows.length, 1)
+    assert.equal(settleRows[0].fields.stage, 'settle', '装到终态才失败记 settle 阶段')
+    assert.equal(settleRows[0].fields.errorKind, 'install-failed')
+    settleHost.dispose()
+  })
+
+  it('stopOnFailure：首家失败就停、不收尾不发总账；重试推完才收尾 stoppedBecause=finished', async () => {
+    const { scope } = await mkScope()
+    const script = {
+      a: { check: { kind: 'update', version: '2.0.0' }, install: { kind: 'failed', error: 'install-failed' } },
+      b: { check: { kind: 'update', version: '2.0.0' }, install: { kind: 'done', restartRequired: false } },
+      self: { check: { kind: 'current' } },
+    }
+    const host = createMultiHostUpdate(
+      { scope, transport: fakeTransport(script) },
+      { prefix: 'life', targets: [mkTarget('a'), mkTarget('b'), mkTarget('self')], selfKey: 'self', stopOnFailure: true },
+    )
+    const owner = collector()
+    bind('plugin-self', owner.sink)
+
+    const first = await host.handlers['life.batchInstall']({})
+    assert.equal(first.ok, true)
+    assert.equal(host.lastRun.stoppedBecause, 'stopped-after-failure', '首家失败即停')
+    assert.deepEqual(
+      first.session.entries.map((entry) => [entry.key, entry.phase]),
+      [['a', 'failed'], ['b', 'ready'], ['self', 'current']],
+      '停在失败那家；后面几家不推进',
+    )
+    assert.equal(rowsOf(owner, 'update.batch.summary').length, 0, '没收尾不发总账（账本还有 pending 面）')
+
+    // 行内「重试」= batchInstall { keys }：把失败行复位再推（failed 对 batchResume 是终态，
+    // 断点续跑不会重装失败那家，重试入口是带 keys 的安装）。
+    script.a.install = { kind: 'done', restartRequired: false }
+    const second = await host.handlers['life.batchInstall']({ keys: ['a', 'b', 'self'] })
+    assert.equal(second.ok, true)
+    const summary = rowsOf(owner, 'update.batch.summary')
+    assert.equal(summary.length, 1, '整批收尾才发一条总账')
+    assert.equal(summary[0].fields.stoppedBecause, 'finished', '重试推完了：stoppedBecause=finished')
+    assert.equal(summary[0].fields.stoppedBecause, host.lastRun.stoppedBecause, '总账与 lastRun 同口径')
+    assert.equal(summary[0].fields.total, 3)
+    assert.equal(summary[0].fields.ok, 3)
+    assert.equal(summary[0].fields.failed, 0)
+    assert.equal(summary[0].fields.sessionHash, rowsOf(owner, 'update.batch.entry.request')[0].fields.sessionHash, '同一批：总账沿用入场行的 sessionHash')
+    host.dispose()
+  })
+
+  it('排队行归属：update-busy 排队的队列行落目标插件目录，不落属主', async () => {
+    const { dir, scope } = await mkScope()
+    // 队首是别家：本批第一家提交安装只会被公平门拦下（update-busy），驱动器按 queued 停。
+    await seedQueue(dir, [
+      { pluginId: 'other-plugin', requestId: 'req-other', targetVersion: null, enqueuedAt: Date.now() },
+    ])
+    const host = createMultiHostUpdate(
+      {
+        scope,
+        installPollMs: 5,
+        // 真路径假读侧；不注入 readQueue/writeQueue，队列读写走批量共享端口（#208 的 logFor 修复点）。
+        readerOverrides: installOverrides(dir, 'pkg-a', async () => {}),
+      },
+      { prefix: 'life', targets: [mkTarget('a'), mkTarget('self')], selfKey: 'self' },
+    )
+    const owner = collector()
+    const a = collector()
+    bind('plugin-self', owner.sink)
+    bind('plugin-a', a.sink)
+
+    const reply = await host.handlers['life.batchInstall']({})
+    assert.equal(reply.ok, true)
+    assert.equal(host.lastRun.stoppedBecause, 'queued', '排队即停，不把别家误标 failed')
+    assert.equal(phaseOf(reply.session, 'a'), 'ready', '排上队：相位退回 ready')
+    assert.equal(rowsOf(owner, 'update.batch.summary').length, 0, '没收尾不发总账')
+
+    const queueRows = rowsOf(a, 'update.queue.transition')
+    assert.ok(queueRows.length >= 1, '排队边沿要留队列行（#208 队列端口接线修复）')
+    assert.equal(queueRows[0].fields.phase, 'queued')
+    assert.equal(rowsOf(owner, 'update.queue.transition').length, 0, '队列行跟动作方（目标）走，不落属主')
+    host.dispose()
+  })
+
+  it('七个批量电话各失败一次：各落一条 host.call.fail 到属主目录', async () => {
+    const one = await mkScope()
+    const other = await mkScope()
+    const targets = [mkTarget('a'), { ...mkTarget('b'), profileDir: other.dir }, mkTarget('self')]
+    const host = createMultiHostUpdate({ scope: one.scope }, { prefix: 'life', targets, selfKey: 'self' })
+    const owner = collector()
+    const a = collector()
+    const b = collector()
+    bind('plugin-self', owner.sink)
+    bind('plugin-a', a.sink)
+    bind('plugin-b', b.sink)
+
+    const phones = [
+      ['status', 'batch-status'],
+      ['check', 'batch-check'],
+      ['install', 'batch-install'],
+      ['resume', 'batch-resume'],
+      ['cancel', 'batch-cancel'],
+      ['prefs', 'batch-prefs'],
+      ['prefsSave', 'batch-prefs-save'],
+    ]
+    for (const [short] of phones) {
+      const reply = await host.handlers[host.phoneNames[short]]({})
+      assert.equal(reply.ok, false, short)
+      assert.equal(reply.error, 'cross-scope', short)
+    }
+
+    const rows = rowsOf(owner, 'host.call.fail')
+    assert.equal(rows.length, 7, '七个批量电话各失败一次 → 各一条，不多不少')
+    const byMethod = new Map(rows.map((row) => [row.fields.method, row.fields]))
+    for (const [short, kind] of phones) {
+      const method = host.phoneNames[short]
+      const fields = byMethod.get(method)
+      assert.ok(fields, method + ' 要有一条失败行')
+      assert.deepEqual(Object.keys(fields).sort(), ['error', 'errorHash', 'kind', 'method', 'pluginId'])
+      assert.equal(fields.method, method, 'method 用全名')
+      assert.equal(fields.kind, kind, 'kind 用短名')
+      assert.equal(fields.error, 'cross-scope', 'error 是稳定码')
+      assert.equal(fields.errorHash, hash8(method + '|cross-scope'), 'errorHash = hash8(method|error)')
+      assert.equal(fields.pluginId, 'plugin-self', '落属主 pluginId')
+    }
+    // 批量电话的失败行与单插件目标的 host.call.fail 要能分清：目标目录里一条都没有（这批没单插件电话）。
+    assert.equal(rowsOf(a, 'host.call.fail').length, 0)
+    assert.equal(rowsOf(b, 'host.call.fail').length, 0)
+    assert.ok(rows.every((row) => row.fields.method.startsWith('life.batch')), '批量电话行只认批量全名')
+    // 有属主时批量面板的 logAppend 转发到属主。
+    assert.equal(host.phoneNames.logAppend, 'life.logAppend')
+    assert.equal(typeof host.handlers['life.logAppend'], 'function')
+    host.dispose()
+  })
+
+  it('没有属主：七个电话各失败一次也一条不发；批量级事件同样全无', async () => {
+    const one = await mkScope()
+    const other = await mkScope()
+    const targets = [mkTarget('a'), { ...mkTarget('b'), profileDir: other.dir }, mkTarget('self')]
+    const host = createMultiHostUpdate({ scope: one.scope }, { prefix: 'life', targets })
+    const a = collector()
+    const b = collector()
+    const selfTarget = collector()
+    bind('plugin-a', a.sink)
+    bind('plugin-b', b.sink)
+    bind('plugin-self', selfTarget.sink)
+
+    for (const short of ['status', 'check', 'install', 'resume', 'cancel', 'prefs', 'prefsSave']) {
+      const reply = await host.handlers[host.phoneNames[short]]({})
+      assert.equal(reply.ok, false, short)
+    }
+    const all = [...a.rows, ...b.rows, ...selfTarget.rows]
+    assert.equal(all.filter((row) => row.event === 'host.call.fail').length, 0, '没有属主：批量电话失败行一条不发')
+    assert.equal(all.filter((row) => row.event.startsWith('update.batch.')).length, 0, '批量级三事件同样一行不发')
+    // 没有属主就没有批量面板日志落点：不登记转发。
+    assert.equal('logAppend' in host.phoneNames, false)
+    assert.equal('life.logAppend' in host.handlers, false)
+    host.dispose()
+  })
+
+  it('批量失败行的去重：同一电话连续同码一条，成功一次清掉记忆后再记一条', async () => {
+    const { scope } = await mkScope()
+    const host = createMultiHostUpdate(
+      { scope, transport: fakeTransport({}) },
+      { prefix: 'life', targets: [mkTarget('self')], selfKey: 'self' },
+    )
+    const owner = collector()
+    bind('plugin-self', owner.sink)
+
+    const bad = await host.handlers['life.batchPrefsSave']({ checkOnOpen: 'nope' })
+    const badAgain = await host.handlers['life.batchPrefsSave']({ checkOnOpen: 'nope' })
+    assert.equal(bad.ok, false)
+    assert.equal(badAgain.ok, false)
+    let rows = rowsOf(owner, 'host.call.fail')
+    assert.equal(rows.length, 1, '同一 method 连续同 error 只记首次')
+
+    // 成功一次 = 清记忆：下一次失败重新算一条新边沿。
+    const ok = await host.handlers['life.batchPrefsSave']({ checkOnOpen: true })
+    assert.equal(ok.ok, true)
+    rows = rowsOf(owner, 'host.call.fail')
+    assert.equal(rows.length, 1, '成功本身不发失败行')
+    const badAfterOk = await host.handlers['life.batchPrefsSave']({ checkOnOpen: 'nope' })
+    assert.equal(badAfterOk.ok, false)
+    rows = rowsOf(owner, 'host.call.fail')
+    assert.equal(rows.length, 2, '成功清除记忆后，再失败重新记一条')
+    assert.equal(rows[0].fields.errorHash, rows[1].fields.errorHash, '同一 method 同一 error：errorHash 相同（指纹可聚合）')
+    host.dispose()
+  })
+
+  // ADR-0006 的「改三处」：新增枚举除了清单与发射点，还要有负断言——表外值被摘成字段级降级，
+  // 整行其余字段照落（不是整行丢）。这里直接对真清单跑裁剪器，钉住 stage / stoppedBecause 的逐值登记。
+  it('负断言：stage 与 stoppedBecause 只收清单登记过的值（表外值摘字段，整行不丢）', () => {
+    const table = currentUpdateEventTable()
+    assert.ok(table, '事件清单已 prime（beforeEach 装进来的）')
+
+    const failFields = {
+      targetHash: 'deadbeef',
+      sessionHash: 'cafebabe',
+      errorKind: 'check-failed',
+      stage: 'bogus-stage',
+      index: 2,
+    }
+    const pruned = pruneEventFields(table, 'update.batch.entry.fail', failFields)
+    assert.deepEqual(pruned.prunedFields, [{ field: 'stage', reason: 'invalid-enum' }])
+    assert.deepEqual(pruned.keptFields, {
+      targetHash: 'deadbeef',
+      sessionHash: 'cafebabe',
+      errorKind: 'check-failed',
+      index: 2,
+    }, '摘掉的只是表外 stage，整行其余字段照落')
+    for (const stage of ['check', 'install', 'timeout', 'settle']) {
+      const ok = pruneEventFields(table, 'update.batch.entry.fail', { ...failFields, stage })
+      assert.equal(ok.ok, true, stage + ' 是登记值，不该被摘')
+    }
+
+    const summaryFields = {
+      total: 3,
+      ok: 1,
+      failed: 1,
+      skipped: 1,
+      durationMs: 10,
+      sessionHash: 'cafebabe',
+      stoppedBecause: 'bogus',
+    }
+    const summaryPruned = pruneEventFields(table, 'update.batch.summary', summaryFields)
+    assert.deepEqual(summaryPruned.prunedFields, [{ field: 'stoppedBecause', reason: 'invalid-enum' }])
+    for (const value of ['finished', 'stopped-after-failure', 'max-steps', 'empty', 'queued']) {
+      const ok = pruneEventFields(table, 'update.batch.summary', { ...summaryFields, stoppedBecause: value })
+      assert.equal(ok.ok, true, value + ' 是登记值，不该被摘')
+    }
   })
 })

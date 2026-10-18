@@ -116,7 +116,8 @@ function fakeCall(rows, reply) {
 
 function mountPanel(box, rows, options = {}) {
   const { call, log } = fakeCall(rows, options.reply)
-  const panel = mountUpdateBatchPanel(box, { prefix: 'life', call, pollMs: 60000, autoResume: false, checkOnOpen: false, ...options })
+  // #208：这里只盯批量电话顺序；客户端日志通道另有 tests/panel-batch-log.test.mjs 专测。
+  const panel = mountUpdateBatchPanel(box, { prefix: 'life', call, pollMs: 60000, autoResume: false, checkOnOpen: false, clientLog: null, ...options })
   return { panel, log }
 }
 
@@ -157,11 +158,11 @@ describe('挂载与轮询', () => {
   it('pollMs 越界抛错（下限 250）；缺 call / prefix / 容器也当场拒绝', () => {
     assert.equal(BATCH_PANEL_POLL.defaultMs, 1500)
     assert.equal(BATCH_PANEL_POLL.minMs, 250)
-    const ok = { prefix: 'life', call: async () => ({}) }
+    const ok = { prefix: 'life', call: async () => ({}), clientLog: null }
     assert.throws(() => mountUpdateBatchPanel(fakeContainer(), { ...ok, pollMs: 100 }), /250/)
     assert.throws(() => mountUpdateBatchPanel(fakeContainer(), { ...ok, pollMs: Number.NaN }), /250/)
-    assert.throws(() => mountUpdateBatchPanel(fakeContainer(), { prefix: 'life', pollMs: 1000 }), /call/)
-    assert.throws(() => mountUpdateBatchPanel(fakeContainer(), { call: async () => ({}) }), /prefix/)
+    assert.throws(() => mountUpdateBatchPanel(fakeContainer(), { prefix: 'life', pollMs: 1000, clientLog: null }), /call/)
+    assert.throws(() => mountUpdateBatchPanel(fakeContainer(), { call: async () => ({}), clientLog: null }), /prefix/)
     assert.throws(() => mountUpdateBatchPanel({}, ok), /innerHTML/)
   })
 })
@@ -360,6 +361,7 @@ describe('失败与待重启：常驻横幅 + 行内入口', () => {
       prefix: 'life',
       call,
       pollMs: 60000,
+      clientLog: null,
       onRestartRequested: () => {
         called += 1
       },
@@ -378,6 +380,7 @@ describe('失败与待重启：常驻横幅 + 行内入口', () => {
       prefix: 'life',
       call,
       pollMs: 60000,
+      clientLog: null,
       onRestartRequested: () => {
         throw new Error('restart-boom')
       },
@@ -607,6 +610,7 @@ describe('详情动作行：与行内同一通道', () => {
       prefix: 'life',
       call,
       pollMs: 60000,
+      clientLog: null,
       copyText: (text) => {
         copied.push(text)
       },
@@ -678,6 +682,7 @@ describe('后台失败：诊断降级路径（真 diag 优先，不许编造）'
       prefix: 'life',
       call,
       pollMs: 60000,
+      clientLog: null,
       copyText: (text) => {
         copied.push(text)
       },
@@ -887,7 +892,7 @@ describe('排队语义：忙时也能加入队列（入队不算失败）', () =
       if (name.endsWith('.batchInstall')) return { ok: true, session: sessionOf(after), rows: after, progress: {} }
       return { ok: true, session: sessionOf(before), rows: before, progress: {} }
     })
-    const panel = mountUpdateBatchPanel(box, { prefix: 'life', call, pollMs: 60000 })
+    const panel = mountUpdateBatchPanel(box, { prefix: 'life', call, pollMs: 60000, clientLog: null })
     await settled()
     log.length = 0
     clickAct(box, 'row-install', 'b')
@@ -939,7 +944,7 @@ describe('排队语义：忙时也能加入队列（入队不算失败）', () =
       if (name.endsWith('.batchInstall')) return { ok: false, error: 'update-busy', errorKind: 'update-busy' }
       return { ok: true, session: sessionOf(rows), rows, progress: {} }
     })
-    const panel = mountUpdateBatchPanel(box, { prefix: 'life', call, pollMs: 60000 })
+    const panel = mountUpdateBatchPanel(box, { prefix: 'life', call, pollMs: 60000, clientLog: null })
     await settled()
     await panel.act('row-install', 'b')
     const html = box.innerHTML
@@ -1061,7 +1066,7 @@ describe('回包宽容读', () => {
       if (failNext) return { ok: false, error: 'busy', errorKind: 'update-busy' }
       return { ok: true, session: sessionOf(rows), rows, progress: {} }
     })
-    const panel = mountUpdateBatchPanel(box, { prefix: 'life', call, pollMs: 60000 })
+    const panel = mountUpdateBatchPanel(box, { prefix: 'life', call, pollMs: 60000, clientLog: null })
     await settled()
     assert.ok(box.innerHTML.includes('甲插件'))
     failNext = true

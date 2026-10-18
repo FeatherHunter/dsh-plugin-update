@@ -73,6 +73,8 @@ function fakeCall(script = {}) {
     if (name.endsWith('.batchStatus')) return pick(script.status, statusReply([]))
     if (name.endsWith('.batchCheck')) return pick(script.check, checkReply([]))
     if (name.endsWith('.batchInstall')) return pick(script.install, statusReply([]))
+    // #208：批量面板自建客户端日志通道后，冲刷/卸载会走 <prefix>.logAppend（只读日志电话）。
+    if (name.endsWith('.logAppend')) return { accepted: Array.isArray(args?.rows) ? args.rows.length : 0, dropped: 0 }
     throw new Error('unknown-phone:' + name)
   }
   return { call, log }
@@ -381,8 +383,8 @@ test('铁律：三种形态整个生命周期里只打只读批量电话，绝�
     await settled()
     const names = [...new Set(log.map((e) => e.name))]
     assert.ok(
-      names.every((n) => n === 'life.batchStatus' || n === 'life.batchCheck'),
-      variant + '：只许打只读批量电话，实际=' + JSON.stringify(names),
+      names.every((n) => n === 'life.batchStatus' || n === 'life.batchCheck' || n === 'life.logAppend'),
+      variant + '：只许打只读批量电话（含只读日志电话），实际=' + JSON.stringify(names),
     )
     assert.ok(!log.some((e) => e.name.endsWith('.batchInstall')), variant + '：全生命周期不许自动安装')
   }
@@ -403,4 +405,31 @@ test('close() 收起 dialog 并把按钮还原（聚合文案回来）', async (
   assert.ok(!box.innerHTML.includes('dsh-upd-batch'), 'close 即收起面板')
   assert.match(box.innerHTML, /data-dsh-upd-entry="activate"/, '按钮还原')
   entry.unmount()
+})
+
+// ---------- #208：批量面板复用 #214 客户端日志通道 ----------
+
+test('#208：批量面板挂载行 mode=batch，经 <prefix>.logAppend 回传', async () => {
+  const rows = sevenRows()
+  const { call, log } = fakeCall({ status: statusReply(rows) })
+  const box = fakeContainer()
+  const entry = mountUpdateBatchEntry(box, {
+    prefix: 'life',
+    call,
+    variant: 'inline',
+    pollMs: 60000,
+    checkOnOpen: false,
+    autoResume: false,
+  })
+  await new Promise((r) => setTimeout(r, 40))
+  entry.unmount()
+  await new Promise((r) => setTimeout(r, 40))
+
+  const appended = log
+    .filter((entryLog) => entryLog.name === 'life.logAppend')
+    .flatMap((entryLog) => (Array.isArray(entryLog.args?.rows) ? entryLog.args.rows : []))
+  const mount = appended.filter((row) => row.event === 'update.panel.mount')
+  assert.equal(mount.length, 1, '卸载时 dispose 冲刷出挂载行')
+  assert.equal(mount[0].fields.mode, 'batch', 'entry-batch 传给面板的 mount 名')
+  assert.equal(mount[0].fields.autoCheck, 'disabled')
 })
