@@ -22,11 +22,13 @@ import { COPY_BUDGET_CHARS, sanitizeForCopy } from './redaction.js'
 import { compareReleaseVersions, validReleaseVersion } from './service.js'
 import {
   changelogForUpdate,
+  isChangelogStatus,
   parseChangelogReport,
   renderChangelogHTML,
   shouldFetchChangelog,
   truncationNoteHTML,
   yankedBannerHTML,
+  type ChangelogStatus,
 } from './changelog.js'
 import { visibleQueueFor, type UpdateQueueState, type VisibleQueue } from './queue.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } from './log-events.js'
@@ -589,6 +591,12 @@ export interface PanelViewInput {
    * 缺省/空串即中性提示；快照字段与 blockedReason 一字不动。
    */
   changelogMarkdown?: string | null
+  /**
+   * 更新日志分档（#213）：宿主判定的「为什么没有说明」（empty/missing/fetch-failed/parse-degraded）。
+   * 只在日志节画不出内容时决定那句中性话术；有内容一律照旧（分档永不覆盖内容）。
+   * 缺省/null/认不出的值/`ok`/`cache-hit` 即旧文案一字不差。
+   */
+  changelogStatus?: ChangelogStatus | null
 }
 
 export function panelViewModel(input: PanelViewInput, lang?: AppLang | string | null): PanelView {
@@ -1742,12 +1750,35 @@ export function copyBubbleHTML(bubble: { text: string; left: number; top: number
   )
 }
 
+/**
+ * #213：宿主判定的「为什么没有说明」→ 空白分支的话术。只认这四档（各自说清「不是什么」）；
+ * `ok` 与 `cache-hit` 不入表：前者本就有内容要渲染，后者只是取数方式位，文案保持既有。
+ */
+const CHANGELOG_STATUS_KEYS: Partial<Record<ChangelogStatus, BilingualKey>> = {
+  empty: 'panel.changelog.status.empty',
+  missing: 'panel.changelog.status.missing',
+  'fetch-failed': 'panel.changelog.status.fetch-failed',
+  'parse-degraded': 'panel.changelog.status.parse-degraded',
+}
+
+/** 分档话术键（认不出/`ok`/`cache-hit` → null，即保持既有文案一字不动）。 */
+function changelogStatusCopyKey(status: ChangelogStatus | null | undefined): BilingualKey | null {
+  if (!status) return null
+  return CHANGELOG_STATUS_KEYS[status] ?? null
+}
+
 /** 内核 HTML（双形态行为等价的根：同一视图产出同一内核，只换外层；#62 按 lang 单语，缺省 zh 零回归）。 */
 export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView, lang?: AppLang | string | null): string {
   const { snapshot, manual, queue, mode, showOthers, pluginId, copyNotice } = input
   const l = normalizeLangTag(lang ?? (input as { lang?: unknown }).lang ?? 'zh')
   const changelogMarkdown =
     (input as { changelogMarkdown?: unknown }).changelogMarkdown ?? null
+  // #213：宿主判定的日志分档（空文件 / 包里没有这个文件 / 取数失败 / 有文无结构）。
+  // 认不出的值（老宿主、手搓回包、未来野值）一律当没有——文案与旧版一字不差。
+  const rawChangelogStatus = (input as { changelogStatus?: unknown }).changelogStatus
+  const changelogStatusKey = isChangelogStatus(rawChangelogStatus)
+    ? changelogStatusCopyKey(rawChangelogStatus)
+    : null
   const profileName =
     typeof (input as { profileName?: unknown }).profileName === 'string' && (input as { profileName: string }).profileName
       ? (input as { profileName: string }).profileName
@@ -1933,6 +1964,8 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   {
     let inner = ''
     let hasLog = false
+    // #213：分档话术只在「本来就没有内容可渲染」时才顶替旧中性句（见下面两条分支与兜底）。
+    const statusCopyText = changelogStatusKey === null ? '' : copyText(changelogStatusKey, l)
     if (snapshot && snapshot.latestVersion) {
       try {
         const mdText = typeof changelogMarkdown === 'string' ? changelogMarkdown : ''
@@ -1947,7 +1980,14 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         // 有文本但一个版本节都读不出：诚实说读不出来，不说"未提供"。
         // 空文本仍走"未提供"；有解析节但区间外仍走旧中性（区间外是另一回事，不在此改）。
         if (ranged.length === 0 && mdText.trim() && entries.length === 0) {
-          inner = `<div class="dsh-upd-changelog-wrap"><div class="dsh-upd-changelog-neutral">${escapeHtml(copyText('panel.changelog.unavailable', l))}</div>${truncationNoteHTML(report.truncation, l)}</div>`
+          // #213：宿主判了 parse-degraded（有内容、没结构）就说「不是没有说明」；其余分档不在这插话。
+          const degradedText = changelogStatusKey === 'panel.changelog.status.parse-degraded' ? statusCopyText : ''
+          inner = `<div class="dsh-upd-changelog-wrap"><div class="dsh-upd-changelog-neutral">${escapeHtml(degradedText || copyText('panel.changelog.unavailable', l))}</div>${truncationNoteHTML(report.truncation, l)}</div>`
+          hasLog = false
+        } else if (!mdText.trim() && statusCopyText) {
+          // #213：文本为空但成因不同（空文件 / 包里没有 / 没取到）——空白分支改说实话，
+          // 不再一律「未提供」；没有分档（老宿主/手搓回包）仍走下面的老分支，输出一字不差。
+          inner = `<div class="dsh-upd-changelog-wrap"><div class="dsh-upd-changelog-neutral">${escapeHtml(statusCopyText)}</div></div>`
           hasLog = false
         } else {
           const changelogHTML = renderChangelogHTML(ranged, { lang: l, truncated: report.truncation })
@@ -1975,9 +2015,12 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
       }
     }
     if (!inner) {
-      inner = `<div class="dsh-upd-changelog-wrap"><div class="dsh-upd-changelog-neutral">${escapeHtml(
-        snapshot && snapshot.latestVersion ? copyText('panel.changelog.unavailable', l) : copyText('panel.changelog.unavailable-empty', l),
-      )}</div></div>`
+      // #213：这一档本该说「更新日志无法读取」——有分档就说清是哪一档；无新版仍走旧句。
+      const blankText =
+        snapshot && snapshot.latestVersion
+          ? statusCopyText || copyText('panel.changelog.unavailable', l)
+          : copyText('panel.changelog.unavailable-empty', l)
+      inner = `<div class="dsh-upd-changelog-wrap"><div class="dsh-upd-changelog-neutral">${escapeHtml(blankText)}</div></div>`
     }
     const logCollapsed = (input as { changelogCollapsed?: unknown }).changelogCollapsed === true
     const logNote = showActions && hasLog
@@ -2516,6 +2559,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   const diagCopyFormat: DiagCopyFormat = options.diagCopyFormat === 'line' ? 'line' : 'block'
   let changelogMarkdown: string | null =
     typeof options.changelogMarkdown === 'string' ? options.changelogMarkdown : null
+  // #213：宿主判定的日志分档，只属于取它的那一版（changelogStatusFor）。显式给文本即作废；
+  // 换版本也作废（见 syncChangelogStatusVersion / setChangelogMarkdown）——旧话术不许落到新版上。
+  let changelogStatus: ChangelogStatus | null = null
+  let changelogStatusFor: string | null = null
 
   let snapshot: UpdateSnapshot | null = null
   let manual: string | null = null
@@ -3033,6 +3080,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       copyNotice = null
       noticeExpiresAt = 0
     }
+    // #213：日志分档只跟随当前新版——换版本（或无新版）即作废，上一版的话术绝不许落到新版上。
+    syncChangelogStatusVersion()
     const latest = snapshot?.latestVersion ?? null
     const skippedLatest = !!latest && validReleaseVersion(latest) && skipStore.has(latest)
     // 渲染只在变化时落盘（闪烁根治）：轮询每秒重算，但输出逐字相同时不碰 DOM，
@@ -3098,6 +3147,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       })(),
       showLogHint: showLogHintOption,
       changelogMarkdown,
+      // #213：宿主判定的空白分档（只影响画不出内容时的那句话）。
+      changelogStatus,
       mode,
       showOthers,
       changelogCollapsed,
@@ -3259,6 +3310,36 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     })()
   }
 
+  /** #213：当前新版（无快照/无新版 → null）；宿主判定的分档话术只属于这一版。 */
+  function changelogStatusVersionNow(): string | null {
+    const v = snapshot?.latestVersion
+    return typeof v === 'string' && v ? v : null
+  }
+
+  /** #213：换版本（或无新版）即作废已记的分档——上一版的话术绝不许落到新版上。 */
+  function syncChangelogStatusVersion(): void {
+    const now = changelogStatusVersionNow()
+    if (now === changelogStatusFor) return
+    changelogStatusFor = now
+    changelogStatus = null
+  }
+
+  /**
+   * #213：把自动取数回包里的分档记到这一版上，返回分档是否变了（变了才需要重绘空白分支）。
+   * 回包里的 `status` 恒为原始内容态（裁决：命中缓存那帧也是原样，另有 `cached:true` 只说明
+   * 这次回的是宿主缓存——面板侧不消费它）；字段缺失或认不出（老宿主/野值/万一的 `cache-hit`）
+   * 一律保持本版已记下的分档：一个字的文案都不改。
+   */
+  function applyChangelogStatusReply(reply: Record<string, unknown>, version: string): boolean {
+    const raw = reply['status']
+    const known = isChangelogStatus(raw) && raw !== 'cache-hit' ? raw : null
+    if (known === null) return false
+    const changed = known !== changelogStatus
+    changelogStatus = known
+    changelogStatusFor = version
+    return changed
+  }
+
   /** 自动取日志的触发条件（#41 终裁）：仅有新版可装、未跳过该版时按退避问一次。 */
   function pendingAutoChangelogVersion(): string | null {
     if (!autoChangelogEnabled || manualChangelogOverride || !mounted) return null
@@ -3291,14 +3372,21 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         (reply) => {
           changelogInflight.delete(v)
           if (!mounted || seq !== autoSeq) return
-          if (!reply || typeof reply !== 'object' || (reply as Record<string, unknown>)['ok'] !== true) {
+          const box = (reply && typeof reply === 'object' ? reply : {}) as Record<string, unknown>
+          if (!reply || typeof reply !== 'object' || box['ok'] !== true) {
             try { changelogFailedAt.set(v, Date.now()); } catch { try { changelogFailedAt.set(v, 0); } catch {} }
+            // 电话本身没成（老路径，照旧退避重试）；回包若如实带了分档，空白分支照样说实话。
+            if (applyChangelogStatusReply(box, v)) render()
             return
           }
-          const md = (reply as Record<string, unknown>)['markdown']
+          const md = box['markdown']
           changelogCache.set(v, typeof md === 'string' ? md : null)
+          const statusChanged = applyChangelogStatusReply(box, v)
           if (typeof md === 'string') {
             changelogMarkdown = md
+            render()
+          } else if (statusChanged) {
+            // #213：没有文本时也要重绘一次——空白分支的话术要跟着分档走。
             render()
           }
         },
@@ -3808,6 +3896,9 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
 
   function setChangelogMarkdown(markdown: string | null): void {
     changelogMarkdown = typeof markdown === 'string' ? markdown : null
+    // #213：显式给文本即接管——宿主判定的分档随之作废，绝不在显式内容旁边再插一句判定。
+    changelogStatus = null
+    changelogStatusFor = changelogStatusVersionNow()
     // 显式 wins（#38）：手动给过文本后自动链路不再覆盖（同版本只问一次，本来也不会再问）。
     if (typeof markdown === 'string') manualChangelogOverride = true
     render()

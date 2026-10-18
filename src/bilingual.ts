@@ -180,6 +180,10 @@ export type BilingualKey =
   | 'panel.changelog.heading-range'
   | 'panel.changelog.unavailable'
   | 'panel.changelog.unavailable-empty'
+  | 'panel.changelog.status.empty'
+  | 'panel.changelog.status.missing'
+  | 'panel.changelog.status.fetch-failed'
+  | 'panel.changelog.status.parse-degraded'
   | 'panel.changelog.toggle-title'
   | 'panel.changelog.expand'
   | 'panel.changelog.collapse'
@@ -584,6 +588,12 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.changelog.heading-range': { en: 'Changelog ({from} \u2192 {to}):', zh: '更新说明（{from} → {to}）：', draft: true },
   'panel.changelog.unavailable': { en: 'Could not read logs; install is unaffected.', zh: '更新日志无法读取，安装不受影响。', draft: true },
   'panel.changelog.unavailable-empty': { en: 'No release found yet; logs will show after a check.', zh: '尚未查询到新版本；查询到后将显示更新日志。', draft: true },
+  // #213：空文件 / 包内无更新说明 / 取数失败 / 有文无结构 —— 四档各自说清「不是什么」，面板按宿主判定选键。
+  'panel.changelog.status.empty': { en: 'This release\'s changelog is an empty file - not a fetch failure.', zh: '该版本的更新说明是空文件，不是取数失败。', draft: true },
+  'panel.changelog.status.missing': { en: 'This release\'s package contains no changelog file - not a fetch failure.', zh: '该版本包里没有更新说明文件，不是取数失败。', draft: true },
+  // #213 裁决：取数失败不许承诺「可以重试」（宿主按版本永久记，重问只会回同一结论）——只说成因。
+  'panel.changelog.status.fetch-failed': { en: 'The changelog could not be fetched (network or integrity check failed).', zh: '更新说明没取到（网络或完整性校验失败）。', draft: true },
+  'panel.changelog.status.parse-degraded': { en: 'The changelog has content, but no structure could be parsed out of it - it is not missing.', zh: '更新说明有内容，但没解析出结构，不是没有说明。', draft: true },
   'panel.changelog.toggle-title': { en: 'Expand or collapse changelog', zh: '展开或收起更新日志', draft: true },
   'panel.changelog.expand': { en: 'Expand changelog', zh: '展开更新日志', draft: true },
   'panel.changelog.collapse': { en: 'Collapse changelog', zh: '收起更新日志', draft: true },
