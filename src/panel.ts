@@ -2573,6 +2573,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   const diagCopyFormat: DiagCopyFormat = options.diagCopyFormat === 'line' ? 'line' : 'block'
   let changelogMarkdown: string | null =
     typeof options.changelogMarkdown === 'string' ? options.changelogMarkdown : null
+  // #213：屏上这段正文是**哪一版**的（自动取数写入时记；显式文本或认不出即 null = 不参与版本判断）。
+  // 用途：结论性空白要不要清正文，比的是「屏上正文所属版本 vs 当前新版」，而不是回包版本——
+  // 回包可能是中间某一版的迟到答案（verify-213 G1：连跳 2.4.0→2.5.0→2.6.0 时 2.5.0 的空白会被误挡）。
+  let changelogMarkdownFor: string | null = null
   // #213：宿主判定的日志分档，只属于取它的那一版（changelogStatusFor）。显式给文本即作废；
   // 换版本也作废（见 syncChangelogStatusVersion / setChangelogMarkdown）——旧话术不许落到新版上。
   let changelogStatus: ChangelogStatus | null = null
@@ -3420,14 +3424,25 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
           const statusChanged = applyChangelogStatusReply(box, v)
           if (typeof md === 'string') {
             changelogMarkdown = md
+            changelogMarkdownFor = v
             render()
           } else {
             // #213：宿主对**这一版**给了结论性分档（空文件 / 包里没有 / 取不到）却没有正文——
             // 上一版的正文不许留在新版标题下：那会让空白区既拿不到分档话术，还可能把旧版说明
             // 冒充新版（两轴评审都点了这一格）。认不出分档的老宿主不动旧正文，行为与 #213 之前一致。
-            // 闸门（verify-213 D3-5 反例）：回包可能是**上一版**的迟到答案——取数按版本在飞，升版会
-            // 另发一通电话，慢的那通后到；只有回的正是屏上这一版才清，否则会把新版刚上屏的正文擦掉。
-            if (statusChanged && v === changelogStatusVersionNow() && changelogMarkdown !== null) changelogMarkdown = null
+            // 闸门比的是「屏上正文所属版本 vs 当前新版」，不是回包版本（verify-213 D3-5 + G1）：
+            //  · 回包是**屏上这一版**的迟到答案 → 正文本来就对，不许清（D3-5：升版时慢的那通后到）；
+            //  · 屏上正文是**更旧一版**的、当前新版已换 → 该清（G1：连跳时中间那版的空白也要清掉旧正文）；
+            //  · 屏上正文版本未知（显式文本 / 认不出）→ 不动，显式内容永远赢。
+            if (
+              statusChanged &&
+              changelogMarkdown !== null &&
+              changelogMarkdownFor !== null &&
+              changelogMarkdownFor !== changelogStatusVersionNow()
+            ) {
+              changelogMarkdown = null
+              changelogMarkdownFor = null
+            }
             // 没有文本时也要重绘一次——空白分支的话术要跟着分档走。
             if (statusChanged) render()
           }
@@ -3942,6 +3957,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
 
   function setChangelogMarkdown(markdown: string | null): void {
     changelogMarkdown = typeof markdown === 'string' ? markdown : null
+    // 显式文本不绑版本：所属版本置空，空白分支的清理闸门就不认它（显式内容永远赢）。
+    changelogMarkdownFor = null
     // #213：显式给文本即接管——宿主判定的分档随之作废，绝不在显式内容旁边再插一句判定。
     changelogStatus = null
     changelogStatusFor = changelogStatusVersionNow()

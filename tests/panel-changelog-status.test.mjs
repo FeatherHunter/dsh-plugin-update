@@ -45,6 +45,18 @@ const STATUS_COPY = [
   { status: 'parse-degraded', markdown: '这是一份有内容但读不出结构的说明', text: '更新说明有内容，但没解析出结构，不是没有说明。' },
 ]
 
+/** 2.4.0 的正文（G1 用例用；与 SAMPLE 的标记区分开）。 */
+const BODY_240 = [
+  '# Changelog',
+  '',
+  '## [2.4.0] - 2026-10-01',
+  '',
+  '### Added',
+  '',
+  '- 二四零正文',
+  '',
+].join('\n')
+
 function baseSnapshot(overrides = {}) {
   return {
     runningVersion: '1.0.0',
@@ -214,6 +226,50 @@ describe('#213 面板更新说明分档', () => {
       await settled()
       assert.ok(slot.innerHTML.includes('自动取日志'), '上一版的迟到空白不许擦掉新版正文')
       assert.ok(!slot.innerHTML.includes('该版本包里没有更新说明文件'), '也不许把上一版的分档贴到新版上')
+    } finally {
+      panel.unmount()
+    }
+  })
+
+  it('连跳两版时，中间那版的结论性空白也要清掉更旧的正文（verify-213 G1 反例）', async () => {
+    let status = baseSnapshot({ latestVersion: '2.4.0' })
+    const pending = {}
+    const hold = (v) =>
+      new Promise((resolve) => {
+        pending[v] = () => resolve({ ok: true, version: v, markdown: null, status: 'missing', cached: false })
+      })
+    const { call } = panelCall({
+      getStatus: () => status,
+      getChangelog: (args) => {
+        const v = args && args.version
+        if (v === '2.4.0') return { ok: true, version: '2.4.0', markdown: BODY_240, status: 'ok', cached: false }
+        return hold(v)
+      },
+    })
+    const slot = fakeContainer()
+    const panel = mountUpdatePanel(slot, { pluginId: 'p', prefix: 't', call })
+    try {
+      await panel.refresh()
+      await settled()
+      await settled()
+      assert.ok(slot.innerHTML.includes('二四零正文'), '2.4.0 的正文先上屏')
+      status = baseSnapshot({ latestVersion: '2.5.0' })
+      await panel.refresh()
+      await settled()
+      status = baseSnapshot({ latestVersion: '2.6.0' })
+      await panel.refresh()
+      await settled()
+      assert.ok(slot.innerHTML.includes('二四零正文'), '2.6.0 的正文还没回来，屏上仍是旧的那段')
+      // 2.5.0 的结论性空白迟到：屏上正文（2.4.0）比它更旧，必须清掉——
+      // 闸门比「屏上正文所属版本 vs 当前新版」，不是「回包版本 vs 当前新版」。
+      pending['2.5.0']()
+      await settled()
+      await settled()
+      assert.ok(!slot.innerHTML.includes('二四零正文'), '更旧一版的正文不许留在新版标题下')
+      assert.ok(
+        !slot.innerHTML.includes('该版本包里没有更新说明文件'),
+        '2.5.0 的分档也不许贴到 2.6.0 上（屏上只留中性的「作者未提供」）',
+      )
     } finally {
       panel.unmount()
     }
