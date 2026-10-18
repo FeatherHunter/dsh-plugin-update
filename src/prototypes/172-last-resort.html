@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PROTOTYPE · #172 最后手段主按钮（四档形态 × 三处落点 × 双主题）</title>
+<title>PROTOTYPE · #172 最后手段主按钮（五档形态 × 三处落点 × 双主题）</title>
 <!--
   PROTOTYPE — throwaway, 不是产品代码，别 fold 到主线。
   问题：#172 失败块的「最后手段」态长什么样才算醒目？
-  一个页面里摆四档结构（底部悬浮条 / ← → 键切换、?variant= 可分享），
+  一个页面里摆五档结构（底部悬浮条 / ← → 键切换、?variant= 可分享），
   同一失败块分别放进三处落点（单插件面板 / 批量面板 / 槽位安装按钮），
   双主题（default / archive）× 浅/深可切，#171/#177 的判定状态可直接改，实时外显。
   跑法：双击本文件（或 `start src/prototypes/172-last-resort.html`）。
@@ -191,6 +191,20 @@
   .lr-A .cmd { margin-top: 8px; }
   .lr-A button.cta { font-weight: 700; box-shadow: 0 1px 0 rgba(0,0,0,.15); }
 
+  /* A′：首行克制主按钮（A 的位置/要素 + C 的密度与克制） */
+  .lr-A2 {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 7px;
+    margin: 0 0 8px; padding: 7px 10px; background: var(--dsh-update-bg-soft);
+    border: 1px solid var(--dsh-update-border); border-left: 4px solid var(--dsh-update-bad-border);
+    border-radius: 4px;
+  }
+  .dsh-upd[data-theme="archive"] .lr-A2 { border-radius: 2px; border-left-width: 3px; }
+  .lr-A2 .lr-icon { color: var(--dsh-update-bad-text); }
+  .lr-A2 strong { font-size: 13.5px; }
+  .lr-A2 .lr-label { color: var(--dsh-update-bad-text); }
+  .lr-A2 .reason { flex: 1 1 220px; min-width: 0; font-size: 12.5px; color: var(--dsh-update-text-muted); }
+  .lr-A2 button.cta { font-weight: 700; white-space: nowrap; }
+
   /* B：独立救援卡（居中大按钮） */
   .lr-B { border: 2px dashed var(--dsh-update-bad-border); border-radius: 8px; background: var(--dsh-update-bad-bg); padding: 12px; margin: 0 0 8px; text-align: center; }
   .lr-B .card-icon { font-size: 26px; line-height: 1; }
@@ -339,6 +353,7 @@
 const CMD = 'dsh plugin --profile web add --save-exact demo-plugin@1.7.46 --registry=https://registry.npmjs.org';
 const VARIANTS = [
   { key: 'A', name: '告警条内联主按钮', desc: '失败横幅第一行：图标 + 「最后手段」标签 + 归因句 + 实心主按钮；命令在横幅内展开。' },
+  { key: 'A2', name: 'A′ 首行克制主按钮', desc: '失败块第一行：一根克制的主按钮行（左红轨 + 图标 + 标签 + 归因 + 主按钮），命令收在 05 章；A 的位置 + C 的密度。' },
   { key: 'B', name: '独立救援卡', desc: '横幅下方第一块是独立救援卡：居中图标 + 归因 + 命令 + 全宽主按钮，作为唯一空间焦点。' },
   { key: 'C', name: '动作行前置主按钮', desc: '结构不动：只在失败块顶加一行促成提示，动作行第一颗升为主按钮（高对比描边），其余动作靠后。' },
   { key: 'D', name: '加码档：通栏警示带', desc: '失败块最顶部通栏红带 + 白底大号主按钮，命令紧贴；注意力最强，也是最重的一档。' }
@@ -349,7 +364,7 @@ const THEMES = { default: '默认主题', archive: 'D5 档案卷' };
 /* ───────────────────────── 状态与 URL ───────────────────────── */
 const params = new URLSearchParams(location.search);
 const state = {
-  variant: ['A', 'B', 'C', 'D'].includes(params.get('variant')) ? params.get('variant') : 'A',
+  variant: ['A', 'A2', 'B', 'C', 'D'].includes(params.get('variant')) ? params.get('variant') : 'A',
   location: LOCATIONS[params.get('location')] ? params.get('location') : 'single',
   theme: THEMES[params.get('theme')] ? params.get('theme') : 'default',
   mode: params.get('mode') === 'dark' ? 'dark' : 'light',
@@ -438,6 +453,20 @@ function blockA() {
     '<div class="chapter"><div class="chap-head"><span class="chap-no">05</span><h3 class="chap-title">手工备用命令</h3></div>' +
       '<p class="note">最后手段：上方的命令入口已前置到失败块第一行。</p></div>';
 }
+function blockA2() {
+  return '' +
+    '<div class="lr-A2" data-last-resort="1">' +
+      '<span class="lr-icon">⛔</span><strong>最后手段</strong>' +
+      '<span class="lr-label">自动恢复不可用</span>' +
+      '<span class="reason">没有可用的自动救援路径；复制这条命令是唯一出路。</span>' +
+      '<button type="button" class="primary cta">📋 复制手工命令</button>' +
+    '</div>' + banner() +
+    '<div class="actions">' + subActions() + '</div>' +
+    '<div class="chapter"><div class="chap-head"><span class="chap-no">05</span><h3 class="chap-title">手工备用命令</h3></div>' +
+      commandLine() +
+      '<p class="note">首行只放一枚克制主按钮；命令仍在 05 章，需要时再展开。</p></div>';
+}
+
 function blockB() {
   return '' +
     banner() +
@@ -479,6 +508,7 @@ function blockD() {
     '</div>';
 }
 function lastResortBlock() {
+  if (state.variant === 'A2') return blockA2();
   if (state.variant === 'B') return blockB();
   if (state.variant === 'C') return blockC();
   if (state.variant === 'D') return blockD();
