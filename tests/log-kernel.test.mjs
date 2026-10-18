@@ -371,13 +371,13 @@ describe('日志内核：唯一发射口的四条纪律', () => {
     router.bind('p', collectSink(rows))
     const emitter = createLogEmitter({ resolve: (id) => router.resolve(id), table: () => table })
     for (let i = 0; i < 100; i++) {
-      emitter.emit('info', 'update.status.changed', { kind: 'idle', latest: '1.2.3' }, { pluginId: 'p' })
+      emitter.emit('info', 'update.status.changed', { kind: 'up-to-date', latest: '1.2.3' }, { pluginId: 'p' })
     }
     assert.equal(rows.length, 1, '100 次同一状态只落一条')
     assert.equal(emitter.counts().suppressed, 99)
-    emitter.emit('info', 'update.status.changed', { kind: 'can-install', latest: '1.2.3' }, { pluginId: 'p' })
+    emitter.emit('info', 'update.status.changed', { kind: 'update-available', latest: '1.2.3' }, { pluginId: 'p' })
     assert.equal(rows.length, 2, '状态真变了必须落')
-    emitter.emit('info', 'update.status.changed', { kind: 'idle', latest: '1.2.3' }, { pluginId: 'p', always: true })
+    emitter.emit('info', 'update.status.changed', { kind: 'up-to-date', latest: '1.2.3' }, { pluginId: 'p', always: true })
     assert.equal(rows.length, 3, 'always 跳过预算守卫')
   })
 

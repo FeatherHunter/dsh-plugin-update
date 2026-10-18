@@ -37,6 +37,14 @@ import { buildUpdateManifest, currentUpdateEventTable, primeUpdateEventTable, up
 import { deriveLogNamespace } from './log/namespace.js'
 import { isClientLogEvent, LOG_LEVELS } from './log/client-queue.js'
 import { acquireOwnLog, logDirHash } from './log/registry.js'
+// 主入口再导出（#211 AC-4）：把「有界冲刷自建日志」交给宿主/集成方在 beforeExit 或短命 CLI 退出前挂。
+export {
+  DEFAULT_FLUSH_UPDATE_LOG_TIMEOUT_MS,
+  flushUpdateLog,
+  type FlushUpdateLogOptions,
+  type FlushUpdateLogResult,
+} from './log/registry.js'
+import { ownPackageVersion, packageRoot } from './log/own-version.js'
 import { updateLogRouter } from './log/router.js'
 import { createPendingSink, sinkFromLogCtx, type LogSink } from './log/sink.js'
 import { withLogTrace } from './log/trace.js'
@@ -49,7 +57,7 @@ export type {
   UpdateLogHealth,
 } from './log/health.js'
 import { fetchNpmVersionRelease, isVersionAllowedInChannel, updateError, validReleaseVersion, validRequestId } from './service.js'
-import { selfCopyInfo, type SelfCopyInfo, type SelfCopyLevel } from './self.js'
+import { selfCopyInfo, selfCopyLevelOf, type SelfCopyInfo, type SelfCopyLevel } from './self.js'
 import { createUpdateDiskPorts, createUpdateExecutor, createUpdateQueuePorts } from './store.js'
 import { createUpdateReader, defaultHomeDir, resolveProfileName, resolveTargetPackage } from './reader.js'
 import { resolveRegistryHost } from './redaction.js'
@@ -812,6 +820,52 @@ function probeExternalGate(sink: LogSink): LogHealthExternalGate {
 }
 
 /**
+ * 接线身份（#211 AC-2）：`update.wire.ready` 除 `logSink` / `logDirHash` 之外的三格自述。
+ * 值域已冻结在 `event-list.update.json`：`copyLevel` / `hostKind` 有枚举，`updaterVersion` 没有（null 照写）。
+ */
+interface UpdateLogIdentity {
+  /** 本包自己的版本；读不到时显式 null（不省格，免得看日志的人分不清「旧版没这格」与「不知道」）。 */
+  updaterVersion: string | null
+  /** 本包这份代码的安装形态（profile / nested / repo / unknown）。 */
+  copyLevel: SelfCopyLevel
+  /** 宿主种类（desktop / desktop-manager / cli）。 */
+  hostKind: EnvironmentKind
+}
+
+/**
+ * 接线身份里的宿主种类（#211 AC-2）。
+ *
+ * 取读取器同一个探测函数（`detectEnvironmentKind`）与同一身份优先级（显式覆盖 → 显式 profileDir
+ * → ctx 权威 → env 注入），并且和读取器一样先用 `resolveProfileName` 归一名字（显式名字 > 目录
+ * 最后一段）——只给 `profileDir` 的集成方不许被误判成 `cli`。仍只用**接线时同步可见**的信息：
+ * 接线先于读取器创建（建读取器要异步反推 profile 目录），不为了一句自述把同步接线契约变成异步；
+ * 反推那一支同步侧拿不到目录，就不猜名字（`detectEnvironmentKind` 的第 2 条自然不触发）。
+ */
+function wireHostKind(overrides: ReaderOverrides, ctx: unknown): EnvironmentKind {
+  if (overrides.environmentKind) return overrides.environmentKind
+  const explicitName = nonEmptyText(overrides.profileName)
+  const contextIdentity = profileIdentityFromContext({ ...overrides, ctx })
+  const envIdentity = profileIdentityFromEnv(overrides)
+  // 与 getSharedReader 的 profileDirInput / profileNameInput 同一取法（host.ts:368-389）。
+  let profileDir = ''
+  let profileNameInput: string | undefined
+  if (overrides.profileDir) {
+    profileDir = String(overrides.profileDir)
+    profileNameInput = explicitName || undefined
+  } else if (contextIdentity) {
+    profileDir = contextIdentity.dir
+    profileNameInput = explicitName || contextIdentity.name || undefined
+  } else if (envIdentity) {
+    profileDir = envIdentity.dir
+    profileNameInput = explicitName || envIdentity.name || undefined
+  } else {
+    profileNameInput = explicitName || undefined
+  }
+  const profileName = profileDir || profileNameInput ? resolveProfileName(profileNameInput, profileDir) : undefined
+  return detectEnvironmentKind(ctx, profileName)
+}
+
+/**
  * 接线日志：把落点挂进路由表，并如实记一条 `update.wire.ready`。
  *
  * 归属规则（ADR-0005 决策 2）：集成方给了 `logCtx` 就用它的实例，本包绝不再开第二个写者；
@@ -830,7 +884,8 @@ function wireUpdateLog(
   pluginId: string,
   namespace: string,
   integratorLogCtx: unknown,
-  integratorEventList: unknown
+  integratorEventList: unknown,
+  identity: UpdateLogIdentity
 ): UpdateLogWiring {
   const logsRoot = updateLogRootDir(homeDir)
   const namespaceDirHash = logDirHash(`${logsRoot}${sep}${namespace}`)
@@ -851,9 +906,12 @@ function wireUpdateLog(
     // 对方写到哪本包不猜：external 不给目录指纹（连自己的预期目录也不给，免得被读成「它在写这儿」）。
     wiring.dirHash = null
     wiring.external = probeExternalGate(external)
+    // AC-2 准入语义：只有探针**验证通过**（open）才许自称 external；closed/unknown/抛错 一律 external-unverified。
+    // closed 的落点会自己拒收这一行（发射口按 isEnabled 跳过），所以那一格在落点上本来就看不见——如实说没验证。
+    const logSink = wiring.external === 'open' ? 'external' : 'external-unverified'
     // 这一行的 logDirHash 是**本包算出的预期目录指纹**，不是对方实例实际写的目录：
     // 回包 logHealth.dirHash 在 external 支恒为 null，两者不要互相对照（README 第 11 节明说）。
-    emitUpdateLog('info', 'update.wire.ready', { logSink: 'external', logDirHash: namespaceDirHash }, { pluginId })
+    emitUpdateLog('info', 'update.wire.ready', { logSink, logDirHash: namespaceDirHash, ...identity }, { pluginId })
     return wiring
   }
   const pending = createPendingSink()
@@ -876,7 +934,7 @@ function wireUpdateLog(
       wiring.sink = 'self'
       wiring.dirHash = logDirHash(got.dir)
       wiring.handle = got.handle
-      emitUpdateLog('info', 'update.wire.ready', { logSink: 'self', logDirHash: logDirHash(got.dir) }, { pluginId })
+      emitUpdateLog('info', 'update.wire.ready', { logSink: 'self', logDirHash: logDirHash(got.dir), ...identity }, { pluginId })
       return
     }
     pending.attach(null)
@@ -885,7 +943,7 @@ function wireUpdateLog(
     // 降级也要报「本来该写哪」的指纹：没有它，对方连去哪个目录确认「确实没日志」都不知道。
     wiring.dirHash = namespaceDirHash
     wiring.reason = got.reason ?? 'write-fail'
-    emitUpdateLog('info', 'update.wire.ready', { logSink: 'off', logDirHash: namespaceDirHash }, { pluginId })
+    emitUpdateLog('info', 'update.wire.ready', { logSink: 'off', logDirHash: namespaceDirHash, ...identity }, { pluginId })
   })()
   return wiring
 }
@@ -1172,10 +1230,16 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
   const logHomeDir =
     logOverrides.homeDir ?? config.homeDir ?? defaultHomeDir(logOverrides.env ?? process.env, logOverrides.osHome ?? homedir())
   primeUpdateEventTable()
-  // 接线状态是活的（#212）：`updateStatus` 每次回包都从它现算 logHealth，不缓存读数。
-  const logWiring = wireUpdateLog(logHomeDir, config.prefix, pluginId, deriveLogNamespace(pluginId), deps.logCtx, deps.logEventList)
   // 宿主上下文：探测宿主种类（桌面 / 普通 DSH）并接上执行零件（子进程口子、桌面服务）。
+  // #211：接线身份里的 hostKind 要在接线**之前**算好——external 支的 wire.ready 是同步发的。
   const ctx = deps.ctx ?? null
+  const logIdentity: UpdateLogIdentity = {
+    updaterVersion: ownPackageVersion(),
+    copyLevel: selfCopyLevelOf(packageRoot()),
+    hostKind: wireHostKind(logOverrides, ctx),
+  }
+  // 接线状态是活的（#212）：`updateStatus` 每次回包都从它现算 logHealth，不缓存读数。
+  const logWiring = wireUpdateLog(logHomeDir, config.prefix, pluginId, deriveLogNamespace(pluginId), deps.logCtx, deps.logEventList, logIdentity)
   if (deps.desktopPnpm) sharedDesktopPnpm = deps.desktopPnpm
   else watchDesktopPnpm(ctx)
   const readerOverrides = { ...(deps.readerOverrides ?? {}), ctx, ...(deps.pluginManager ? { pluginManager: deps.pluginManager } : {}) } as ReaderOverrides
@@ -1242,18 +1306,30 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
       void shouldFetchChangelog({ hasCache: false, failedAt: failedAt, now: nowMs, isManual: true })
     } catch { }
     const fetchImpl = (readerOverrides as { fetchImpl?: unknown }).fetchImpl ?? (globalThis as unknown as { fetch?: unknown }).fetch
+    // #211：更新说明取数也留 `update.registry.fetch` 行（ondemand 档）——与查新共用同一台打点器口径，
+    // 行里只有 httpStatus / latencyMs / registryHost，绝不带 tarball 地址或正文；发射口抛错由取数层吞掉。
+    const logPort: UpdateLogPort = (level, event, fields, opts) => emitUpdateLog(level, event, fields, { ...opts, pluginId })
+    const registryHost = resolveRegistryHost(config.registryUrl)
     const release = await fetchNpmVersionRelease(fetchImpl as never, config.checkTimeoutMs, {
       targetPackageName: config.targetPackageName,
       registryUrl: config.registryUrl,
       releaseChannel: config.releaseChannel,
       version,
+      emitLog: logPort,
+      registryHost,
     })
     let outcome: ReleaseChangelogOutcome
     try {
       outcome = await fetchReleaseChangelogOutcome(
         fetchImpl,
         { tarball: release.tarball, integrity: release.integrity, version },
-        { targetPackageName: config.targetPackageName, registryUrl: config.registryUrl, timeoutMs: config.checkTimeoutMs },
+        {
+          targetPackageName: config.targetPackageName,
+          registryUrl: config.registryUrl,
+          timeoutMs: config.checkTimeoutMs,
+          emitLog: logPort,
+          registryHost,
+        },
       )
     } catch (err) {
       try { changelogFailedAt.set(version, Date.now()); } catch { try { changelogFailedAt.set(version, 0); } catch {} }

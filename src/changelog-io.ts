@@ -25,6 +25,9 @@ import { createHash } from 'node:crypto'
 import { gunzipSync } from 'node:zlib'
 import { CHANGELOG_FILENAME, CHANGELOG_MAX_CHARS, classifyChangelog, type ChangelogContentStatus } from './changelog.js'
 import { INTEGRITY_PATTERN } from './service.js'
+// #211：tarball 取数也要留行——复用 registry-fetch 的同一台打点器（同一行语义，不另立一套）。
+import { makeFetchNoter } from './registry-fetch.js'
+import type { UpdateLogPort } from './ports.js'
 
 /** tarball 下载上限（字节，压缩态）：超限直接回落中性提示，不解包、不OOM。 */
 export const CHANGELOG_TARBALL_MAX_BYTES = 8 * 1024 * 1024
@@ -64,6 +67,12 @@ function timeoutSignal(ms: number): unknown {
     // 无超时能力即直接请求，外层仍可收敛为 null。
   }
   return undefined
+}
+
+/** 响应上的 HTTP 状态码（#211）：只有真带回来才写，不猜；无状态码的假件即省略。 */
+function statusCodeOfResponse(response: unknown): number | null {
+  const status = (response as { status?: unknown } | null)?.status
+  return typeof status === 'number' && Number.isInteger(status) && status >= 100 && status <= 599 ? status : null
 }
 
 /**
@@ -278,6 +287,17 @@ export interface ReleaseChangelogFetchOpts {
   timeoutMs?: number
   maxTarballBytes?: number
   maxChangelogBytes?: number
+  /**
+   * 日志发射口（#211，可选）：tarball 取数这一次的事实经它落 `update.registry.fetch`
+   * （httpStatus/latencyMs/registryHost 三格）——成功、失败、非 2xx 都发，因为「取过数」
+   * 本身就是事实，失败正是最需要看到的那一种。不传即不记（默认等于现状）。
+   */
+  emitLog?: UpdateLogPort
+  /**
+   * 白名单源主机名（#211，可选）：Node 侧解析后注入；不在白名单即省略该格
+   * （ADR-0006：行里不许出现完整 URL，省略本身即信息）。
+   */
+  registryHost?: string | null
 }
 
 /**
@@ -344,7 +364,10 @@ export async function fetchReleaseChangelogOutcome(
       opts && typeof opts.maxChangelogBytes === 'number' && Number.isFinite(opts.maxChangelogBytes) && opts.maxChangelogBytes > 0
         ? Math.floor(opts.maxChangelogBytes)
         : CHANGELOG_FETCH_MAX_BYTES
+    // 取数打点（#211）：预检全过、真要联网了才建打点器——没联网就没有取数事实，不发空行。
+    const noteFetch = makeFetchNoter(opts?.emitLog, opts?.registryHost)
     let response: unknown = null
+    const startedAt = Date.now()
     try {
       response = await (fetchImpl as (url: string, init?: Record<string, unknown>) => Promise<unknown>)(tarballUrl.href, {
         headers: { accept: 'application/octet-stream' },
@@ -352,8 +375,11 @@ export async function fetchReleaseChangelogOutcome(
         signal: timeoutSignal(timeoutMs),
       })
     } catch {
+      // 连不上/超时也是取数事实：留行（httpStatus 省略），再按老契约回 failed。
+      noteFetch(null, startedAt)
       return failed
     }
+    noteFetch(statusCodeOfResponse(response), startedAt)
     const ok = (response as { ok?: unknown })?.ok
     if (ok !== true) return failed
     try {

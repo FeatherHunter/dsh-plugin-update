@@ -72,14 +72,14 @@ function eligibleEnv(installedVersion) {
 }
 
 /** 装好之后磁盘上就是新版（运行版仍是旧的 → 需要重启）。 */
-function makeHost({ pluginId = TARGET, installed = '1.0.0', fetchImpl = fakeFetch() } = {}) {
+function makeHost({ pluginId = TARGET, installed = '1.0.0', fetchImpl = fakeFetch(), runningVersion = '1.0.0' } = {}) {
   const fires = []
   let onDisk = installed
   const host = createHostUpdate(
     {
       logCtx: { fire: (level, event, fields) => fires.push({ level, event, fields }) },
       readerOverrides: {
-        runningVersion: '1.0.0',
+        runningVersion,
         profileDir: 'C:\\fake\\profile',
         profileName: 'web',
         homeDir: 'C:\\fake\\home',
@@ -136,11 +136,25 @@ describe('#124 检查环节：registry.fetch / channel.decide / check.start / ch
 
     const done = rows(fires, 'update.check.done')
     assert.equal(done.length, 1)
-    assert.deepEqual(keysOf(done[0].fields), ['channel', 'current', 'latencyMs', 'latest', 'ok', 'source'])
+    assert.deepEqual(keysOf(done[0].fields), [
+      'blockedReason',
+      'channel',
+      'current',
+      'dataSource',
+      'fallback',
+      'latencyMs',
+      'latest',
+      'ok',
+      'source',
+    ])
     assert.equal(done[0].fields.ok, true)
     assert.equal(done[0].fields.current, '1.0.0')
     assert.equal(done[0].fields.latest, RELEASE_VERSION)
     assert.equal(done[0].fields.source, 'registry.npmjs.org')
+    // #211：检查结论自带阻挡原因与取数事实（数据源/是否回退）。
+    assert.equal(done[0].fields.blockedReason, 'none')
+    assert.equal(done[0].fields.fallback, false)
+    assert.equal(done[0].fields.dataSource, 'npm-version')
   })
 
   it('失败检查落 check.fail（stage/errorKind），既有 host.call.fail 一条不吞', async () => {
@@ -150,7 +164,12 @@ describe('#124 检查环节：registry.fetch / channel.decide / check.start / ch
     assert.equal(out.ok, false)
     const fail = rows(fires, 'update.check.fail')
     assert.equal(fail.length, 1)
-    assert.deepEqual(fail[0].fields, { stage: 'fetch', errorKind: 'check-failed' })
+    // #211：errorKind 细分类（网络断掉 → network），并带延迟与数据源；stage 仍是四值。
+    assert.deepEqual(keysOf(fail[0].fields), ['errorKind', 'latencyMs', 'source', 'stage'])
+    assert.equal(fail[0].fields.stage, 'fetch')
+    assert.equal(fail[0].fields.errorKind, 'network')
+    assert.equal(fail[0].fields.source, 'registry.npmjs.org')
+    assert.equal(typeof fail[0].fields.latencyMs, 'number')
     assert.equal(fail[0].level, 'warn')
     assert.equal(rows(fires, 'host.call.fail').length, 1)
     assert.equal(rows(fires, 'update.check.done').length, 0)
@@ -178,9 +197,27 @@ describe('#124 轮询噪声治理：status.changed 与 host.call 抑制', () => 
     // 轮询的第一次观测不算事件（没有可比的上次），连续同状态一律不发：N 次轮询零常驻行。
     assert.equal(rows(fires, 'host.call').length, 0)
     assert.equal(rows(fires, 'update.status.changed').length, 1)
-    assert.deepEqual(rows(fires, 'update.status.changed')[0].fields, { kind: 'unknown' })
+    // #211：边沿取自整条真值元组；未知一律显式 null（不省略、不伪造），未知成因显式记录。
+    assert.deepEqual(rows(fires, 'update.status.changed')[0].fields, {
+      kind: 'unknown',
+      latest: null,
+      runningVersion: '1.0.0',
+      installedVersion: '1.0.0',
+      registered: null,
+      identity: 'unknown',
+      blockedReason: 'none',
+      unknownCause: 'no-latest',
+    })
     // 按需档的轮询全量行不受抑制（开关没开时发射口自己丢，不占预算）。
     assert.equal(rows(fires, 'update.poll').length, 5)
+  })
+
+  it('运行版不是 semver（现场注入的脏字符串）时显式 null——不把脏串当版本号写进契约', async () => {
+    const { host, fires } = makeHost({ runningVersion: 'dev' })
+    await host.handlers['wf.updateStatus']({})
+    const row = rows(fires, 'update.status.changed')[0]
+    assert.equal(row.fields.runningVersion, null, '脏串不许冒充 semver')
+    assert.equal(row.fields.installedVersion, '1.0.0', '磁盘版仍是真的')
   })
 
   it('状态真的变了才再落一条：检查出新版即 update-available，轮询行也只放行一次', async () => {
@@ -193,7 +230,16 @@ describe('#124 轮询噪声治理：status.changed 与 host.call 抑制', () => 
     await host.handlers['wf.updateCheck']({})
     const changed = rows(fires, 'update.status.changed')
     assert.equal(changed.length, 2)
-    assert.deepEqual(changed[1].fields, { kind: 'update-available', latest: RELEASE_VERSION })
+    // #211：状态变化行区分运行版、磁盘版、在册、身份与阻挡原因。
+    assert.deepEqual(changed[1].fields, {
+      kind: 'update-available',
+      latest: RELEASE_VERSION,
+      runningVersion: '1.0.0',
+      installedVersion: '1.0.0',
+      registered: null,
+      identity: 'update',
+      blockedReason: 'none',
+    })
 
     await host.handlers['wf.updateStatus']({})
     assert.equal(rows(fires, 'update.status.changed').length, 2)

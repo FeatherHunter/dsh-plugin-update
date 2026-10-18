@@ -31,6 +31,43 @@ export function httpStatusOfError(error: unknown): number | null {
   return typeof status === 'number' && Number.isInteger(status) ? status : null
 }
 
+/**
+ * 检查失败的细类别（#211，审查 S2-3）：**日志专用**枚举，只写进 `update.check.fail.errorKind`，
+ * 绝不改变公开稳定码（`stableCodeOf` 那条路仍回 check-failed / invalid-release 等旧码，
+ * 面板回执与诊断副本一字不动）。老错误没有标签即 `unknown`——未知如实记录，不猜。
+ */
+export const CHECK_ERROR_KINDS = [
+  'timeout',
+  'network',
+  'dns',
+  'tls',
+  'http',
+  'bad-json',
+  'too-large',
+  'shape',
+  'channel',
+  'unknown',
+] as const
+export type CheckErrorKind = (typeof CHECK_ERROR_KINDS)[number]
+
+/**
+ * 抛错上的内部成因键（#211）：registry-fetch 在各 throw 处贴（不可枚举属性，
+ * 不改变错误码/消息/既有 detail 形状），本文件只读它做映射。
+ */
+export const CHECK_FAIL_CAUSE_KEY = 'checkFailCause'
+
+/** 细类别映射（#211）：认不出标签/没有标签一律 `unknown`，永不外抛。 */
+export function checkErrorKindOf(error: unknown): CheckErrorKind {
+  try {
+    const cause = (error as Record<string, unknown> | null | undefined)?.[CHECK_FAIL_CAUSE_KEY]
+    return typeof cause === 'string' && (CHECK_ERROR_KINDS as readonly string[]).includes(cause)
+      ? (cause as CheckErrorKind)
+      : 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
 /** 安装意图来源（#124）：认不出或没报都按 `panel`（电话的既有调用方是面板）。 */
 export function installSourceOf(value: unknown): InstallSource {
   return value === 'entry' || value === 'batch' ? value : 'panel'

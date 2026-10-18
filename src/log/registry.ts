@@ -36,7 +36,14 @@ export interface OwnLogStore {
    */
   getSwitchState?: () => boolean | { enabled?: unknown }
   getLastPersistFail?: () => { op?: string; reason?: string; dirHash?: string; at?: number } | null
+  /**
+   * 把已排队行推落到磁盘（dsh-log 0.3.4 起的 HostLog 有；老实现可能没有）。
+   * `synced()` 只保证「已经落到磁盘」，`flushNow()` 是主动催一次——flushUpdateLog 优先用它。
+   */
+  flushNow?: () => Promise<void>
   synced?: () => Promise<void>
+  /** 仍未落盘的行数（尽力估计；取不到就是不知道，按 0 计）。 */
+  getPendingCount?: () => number
   release?: () => void
 }
 
@@ -371,6 +378,100 @@ export function releaseOwnLog(namespace: string, logsRoot = ''): boolean {
   } catch {
     return false
   }
+}
+
+/** `flushUpdateLog` 的缺省有界等待上限（毫秒）：为 `beforeExit` 场景选的小值，宁可漏一行也不卡退出。 */
+export const DEFAULT_FLUSH_UPDATE_LOG_TIMEOUT_MS = 1000
+
+/** `flushUpdateLog` 的选项（issue #211 AC-3）。 */
+export interface FlushUpdateLogOptions {
+  /** 有界等待上限（毫秒）；缺省 1000。非正数 / 非有限值回落到缺省。 */
+  timeoutMs?: number
+}
+
+/**
+ * `flushUpdateLog` 的回执：只描述「这一次有界冲刷看得到的结果」。
+ * 外部落点（`logSink=external` / `external-unverified`）不归这里管，不计进 `stores`。
+ */
+export interface FlushUpdateLogResult {
+  /** 全部自建 store 的冲刷都已完成、都成功、且剩余待落盘行数为 0 时才为 true。 */
+  flushed: boolean
+  /** 是否因超时提前返回；true 时 `flushed` 必为 false（剩下的行交给引擎自己的退出冲刷）。 */
+  timedOut: boolean
+  /** 尽力估计的仍未落盘行数：各 store `getPendingCount()` 之和（取不到 / 抛错的按 0）。 */
+  pending: number
+  /** 本次参与冲刷的自建 store 数（= own-log 登记表里被接线的目录数）。 */
+  stores: number
+}
+
+/**
+ * 冲刷自建日志（issue #211 AC-3）：把 own-log 登记表里每个 store 的已排队行推落到磁盘，**有界等待**。
+ *
+ * 语义边界（README 照此写）：
+ *   - 只冲刷 `logSink=self` 的自建落点；外部落点归集成方自己管，**不承诺**在这里也能冲。
+ *   - 缺省最多等 1000ms（`options.timeoutMs` 可调）；到点即返回，绝不卡 `beforeExit`。
+ *   - **永不抛错、不 reject**：没登记、引擎自己炸、超时，都折成回执。
+ *   - 优先引擎的 `flushNow()`，没有退到 `synced()`，两者都没有的 store 视为「没有异步队列」直接完成。
+ *   - 只读登记表快照：不动引用计数、不释放引擎实例（释放仍归 `releaseOwnLog` / 登记表重置）。
+ *
+ * @param options.timeoutMs 有界等待上限，毫秒；缺省 1000，非正数/非有限值回落缺省。
+ */
+export async function flushUpdateLog(options: FlushUpdateLogOptions = {}): Promise<FlushUpdateLogResult> {
+  let stores = 0
+  let pending = 0
+  try {
+    const rawTimeout = Number((options as FlushUpdateLogOptions | null | undefined)?.timeoutMs)
+    const timeoutMs = Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : DEFAULT_FLUSH_UPDATE_LOG_TIMEOUT_MS
+    const handles = Array.from(registryState().handles.values())
+    stores = handles.length
+    if (stores === 0) return { flushed: true, timedOut: false, pending: 0, stores: 0 }
+    // 逐格冲刷：一格失败/挂住不许挡别的格（每格自己消化异常，只回「完成没完成」）。
+    const flushing = handles.map(async (handle): Promise<boolean> => {
+      try {
+        const store = handle?.store
+        const flush =
+          typeof store?.flushNow === 'function' ? store.flushNow : typeof store?.synced === 'function' ? store.synced : null
+        if (flush) await flush.call(store)
+        return true
+      } catch {
+        return false
+      }
+    })
+    let timedOut = false
+    let allOk = true
+    let timer: unknown = null
+    try {
+      const outcome = await Promise.race([
+        Promise.all(flushing),
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), timeoutMs)
+        }),
+      ])
+      if (outcome === null) timedOut = true
+      else allOk = outcome.every((ok) => ok === true)
+    } finally {
+      if (timer !== null) clearTimeout(timer)
+    }
+    pending = countPendingRows(handles)
+    return { flushed: !timedOut && allOk && pending === 0, timedOut, pending, stores }
+  } catch {
+    // 兜底：连登记表都读坏了也不外抛（回执里 pending 保持 0，flushed=false 表示没冲干净）。
+    return { flushed: false, timedOut: false, pending, stores }
+  }
+}
+
+/** 尽力估计未落盘行数：每格单独 try，坏引擎不能把整次冲刷变成异常。 */
+function countPendingRows(handles: OwnLogHandle[]): number {
+  let pending = 0
+  for (const handle of handles) {
+    try {
+      const count = Number(handle?.store?.getPendingCount?.() ?? 0)
+      if (Number.isFinite(count) && count > 0) pending += count
+    } catch {
+      /* 拿不到按 0：不知道不等于有 */
+    }
+  }
+  return pending
 }
 
 /** 测试用：清空登记表、冷却与降级记录（不动文件系统）。 */

@@ -36,6 +36,12 @@ export const CONFIRMATION_TTL_MS = 10 * 60_000
 export const RECHECK_WINDOW_MS = 2_000
 
 /**
+ * 主状态 `unknown` 的三种成因（#211，审查 S3-2）：日志行显式记录到底为什么不知道，
+ * 不把「还没查/不知道在跑哪版/比较失败」糊成一个 `unknown`（冻结枚举三值）。
+ */
+type StatusUnknownCause = 'no-latest' | 'running-version-unknown' | 'compare-failed'
+
+/**
  * 请求编号是否合法（#19 收紧：非空、去空格后 1 到 128 个字符，且为不透明编号形状）。
  *
  * 收紧内容：只收 `[A-Za-z0-9._~-]`（UUID 与 `req-1` 形都在内），拒绝路径 / 令牌 / 邮箱 /
@@ -81,7 +87,7 @@ export {
 export type { ReleaseChannel } from './version-judgment.js'
 // 检查结论编排已搬家（#163 故事 3 收尾）：实体见 ./check-conclusion.js，本文件只留内部引用。
 // 纯函数零值依赖；从未进包导出表，无垫片需要（#159 冻结）。
-import { httpStatusOfError, installSourceOf, stableCodeOf, stageOfError, triggerOf } from './check-conclusion.js'
+import { checkErrorKindOf, httpStatusOfError, installSourceOf, stableCodeOf, stageOfError, triggerOf } from './check-conclusion.js'
 // 安装失败原因链（#207）：现场事实分类与行字段收敛放在中立文件，本文件只负责「何时记一行」。
 import { attachInstallFail, installFailRowFields, normalizeCode, readInstallFail } from './install-fail.js'
 import type { InstallFailFacts } from './install-fail.js'
@@ -175,6 +181,10 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
   const logPort: UpdateLogPort | null = typeof ports.emitLog === 'function' ? ports.emitLog : null
   // 白名单源主机名（#124）：同样由 Node 侧解析后注入，不在白名单即省略该格（省略本身即信息）。
   const registryHost = typeof ports.registryHost === 'string' && ports.registryHost ? ports.registryHost : null
+  // #211 AC-3：非白名单源不等于「没有数据源」——自定义 registryUrl 的检查行也得能回答「查的是哪」
+  // （自建镜像/企业源现场排查就靠这一格）。主机名不可写时落 'custom' 哨兵：不泄露地址，只说明
+  // 是非默认源。默认 npm 源沿用 #124 的省略口径（既不重复也不产生伪值）。
+  const registrySource: string = registryHost ?? (registryUrl === NPM_REGISTRY ? '' : 'custom')
   /** 行只从唯一发射口出；发射口坏了也绝不挡检查与安装（注入方可能是第三方实现）。 */
   function emit(level: string, event: string, fields: Record<string, unknown>, opts?: { always?: boolean }): void {
     if (!logPort) return
@@ -227,23 +237,37 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     })
   }
   /**
+   * 有效远端版的取数结果（#211）：release 之外补两格取数事实——「有没有回退」与「数据源」，
+   * 由取数层如实交出，检查行不再靠猜。`dataSource` 与 `update.check.done.dataSource` 同枚举。
+   */
+  interface EffectiveRelease {
+    release: ReleaseInfo
+    /** true = `/latest` 指向本通道外，退回全量包文档挑本通道最高发行版。 */
+    fallback: boolean
+    dataSource: 'npm-version' | 'npm-channel'
+  }
+  /**
    * 查「有效远端版」的单一入口（#183 剩余子项）：先按旧纪律问 `/latest`；
    * 若唯一的问题是「latest 不在本通道」（`invalid-release(stage=channel)`），
    * 退回全量包文档，在本通道允许的版本里挑最高发行版。别的情况（网络坏、文档坏、
    * 名字不对）照旧如实抛——回退只解决「latest 指向预发布」这一种事实。
+   *
+   * #211：回退与否、从哪个口取到，随结果一起交出去（`EffectiveRelease`），
+   * 供 `update.check.done` 的 fallback / dataSource 两格如实落盘。
    */
-  async function fetchEffectiveRelease(tolerateOutOfChannel = false): Promise<ReleaseInfo> {
+  async function fetchEffectiveRelease(tolerateOutOfChannel = false): Promise<EffectiveRelease> {
     try {
-      return await fetchRelease(tolerateOutOfChannel)
+      return { release: await fetchRelease(tolerateOutOfChannel), fallback: false, dataSource: 'npm-version' }
     } catch (error) {
       if (stableCodeOf(error) !== 'invalid-release' || stageOfError(error) !== 'channel') throw error
-      return fetchNpmChannelRelease(ports.fetchImpl, checkTimeoutMs, {
+      const release = await fetchNpmChannelRelease(ports.fetchImpl, checkTimeoutMs, {
         targetPackageName,
         registryUrl,
         releaseChannel,
         emitLog: logPort ?? undefined,
         registryHost,
       })
+      return { release, fallback: true, dataSource: 'npm-channel' }
     }
   }
   /**
@@ -479,39 +503,71 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     return snapshot
   }
 
-  /** 主状态三值（#124）：与快照「有没有新版」同一判据，不许出现第二套口径。 */
+  /** 主状态三值（#124）：判据只有 statusVerdictOf 一处，本函数只是取 kind。 */
   function statusKindOf(snapshot: UpdateSnapshot): 'update-available' | 'up-to-date' | 'unknown' {
-    if (!snapshot.latestVersion) return 'unknown'
+    return statusVerdictOf(snapshot).kind
+  }
+  /**
+   * 主状态三值 + `unknown` 的成因（#211，审查 S3-2）：一次判据同时算出结论与成因，
+   * 两个落点（poll 的 state、changed 行的 kind/unknownCause）共用，避免两套口径漂移。
+   * 三分支一一对应「不知道」的三种真原因：还没有最新的远端 / 不知道在跑哪版 / 比大小失败。
+   */
+  function statusVerdictOf(
+    snapshot: UpdateSnapshot,
+  ): { kind: 'update-available' | 'up-to-date' | 'unknown'; unknownCause: StatusUnknownCause | null } {
+    if (!snapshot.latestVersion) return { kind: 'unknown', unknownCause: 'no-latest' }
     // 缺席时不拿远端版与注入的运行版号比大小（#134/US16）：有远端可装即 update-available，
     // 否则绝不谎称 up-to-date。
-    if (snapshot.installed === false) return 'update-available'
+    if (snapshot.installed === false) return { kind: 'update-available', unknownCause: null }
     // #182：运行版本未知 → 主状态就是「不知道」；不拿假版号比出 update-available/up-to-date。
-    if (snapshot.runningVersion === null) return 'unknown'
+    if (snapshot.runningVersion === null) return { kind: 'unknown', unknownCause: 'running-version-unknown' }
     try {
       const newer =
         isVersionAllowedInChannel(snapshot.runningVersion, releaseChannel) &&
         isVersionAllowedInChannel(snapshot.latestVersion, releaseChannel) &&
         compareReleaseVersions(snapshot.latestVersion, snapshot.runningVersion) === 1
-      return newer ? 'update-available' : 'up-to-date'
+      return { kind: newer ? 'update-available' : 'up-to-date', unknownCause: null }
     } catch {
-      return 'unknown'
+      return { kind: 'unknown', unknownCause: 'compare-failed' }
     }
   }
-  let lastStatusKind: string | null = null
   /**
-   * `update.status.changed` 的唯一落点（#124）：常驻行的铁律是边沿触发，所以状态没变就一条不发；
-   * 变了就强制落（`always`）——发射口的去重记忆按事件名走，多插件同进程会互相压，本处自己把关。
+   * 真值元组与它的边沿指纹（#211）：不只比 kind——远端版 / 运行版 / 磁盘版 / 在册 / 身份 /
+   * 阻挡原因任何一格变了，都是新的状态真相，各落一行；同元组重复（每秒轮询）一条不发。
+   */
+  function statusTruthOf(snapshot: UpdateSnapshot): { fields: Record<string, unknown>; fingerprint: string } {
+    const verdict = statusVerdictOf(snapshot)
+    const fields: Record<string, unknown> = {
+      kind: verdict.kind,
+      // 未知一律显式 null（审查 X6）：省略会让人分不清「没这一格」和「不知道」。
+      latest: snapshot.latestVersion,
+      // ADR-0006 §1：版本格只进中央校验器认得的发行版——调用方显式注入的怪串按「未知」记，
+      // 不许把没校验过的版本号写进常驻行（快照那层仍原样透传，只收窄日志面）。
+      runningVersion: validReleaseVersion(snapshot.runningVersion) ? snapshot.runningVersion : null,
+      installedVersion: validReleaseVersion(snapshot.installedVersion) ? snapshot.installedVersion : null,
+      registered: snapshot.registered ?? null,
+      // identity 未知→unknown（冻结枚举只有四值，不新造第五值）。
+      identity: snapshot.identity ?? 'unknown',
+      // blockedReason 没有阻挡→none：枚举里 none 就是「没有」，不让空值冒充信息。
+      blockedReason: snapshot.blockedReason ?? 'none',
+      ...(verdict.unknownCause === null ? {} : { unknownCause: verdict.unknownCause }),
+    }
+    // 指纹直接取整条真值元组的稳定序列化（#211 评审）：新增一格时不会只改对象、
+    // 漏改手写数组导致边沿门静默失效。
+    const fingerprint = JSON.stringify(fields)
+    return { fields, fingerprint }
+  }
+  let lastStatusFingerprint: string | null = null
+  /**
+   * `update.status.changed` 的唯一落点（#124/#211）：常驻行的铁律是边沿触发，所以真值元组
+   * 没变就一条不发；变了就强制落（`always`）——发射口的去重记忆按事件名走，多插件同进程会
+   * 互相压，本处自己把关。
    */
   function noteStatusChanged(snapshot: UpdateSnapshot): void {
-    const kind = statusKindOf(snapshot)
-    if (kind === lastStatusKind) return
-    lastStatusKind = kind
-    emit(
-      'info',
-      'update.status.changed',
-      { kind, ...(snapshot.latestVersion ? { latest: snapshot.latestVersion } : {}) },
-      { always: true },
-    )
+    const truth = statusTruthOf(snapshot)
+    if (truth.fingerprint === lastStatusFingerprint) return
+    lastStatusFingerprint = truth.fingerprint
+    emit('info', 'update.status.changed', truth.fields, { always: true })
   }
 
   /**
@@ -584,7 +640,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     if (askedBy) {
       emit('info', 'update.check.start', {
         trigger: askedBy,
-        ...(registryHost ? { source: registryHost } : {}),
+        ...(registrySource ? { source: registrySource } : {}),
       })
     }
     checking = (async () => {
@@ -596,7 +652,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
         // 诚实呈现本通道已是最新；全量包文档取不到则照旧大声失败，不悄悄画成已是最新。
         const installedOutOfChannel =
           env.installed === false || !isVersionAllowedInChannel(env.installedVersion ?? '', releaseChannel)
-        const release = await fetchEffectiveRelease(installedOutOfChannel)
+        const effective = await fetchEffectiveRelease(installedOutOfChannel)
+        const release = effective.release
         // #195：Node 要求与 DSH 要求分开判——DSH 拿不到当前版本时不猜（satisfiesDshRange 直接放行）。
         const dshOk = satisfiesDshRange(readDshVersionOf(), release.dshRange)
         checked = {
@@ -624,7 +681,15 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
           ...(snapshot.runningVersion === null ? {} : { current: snapshot.runningVersion }),
           latest: release.version,
           channel: releaseChannel,
-          ...(registryHost ? { source: registryHost } : {}),
+          ...(registrySource ? { source: registrySource } : {}),
+          // #211：这次检查的结论到底能不能装、为什么不能装——单列一格，不让读的人自己拼。
+          // 取值优先级（Lead 裁决，2026-10-19）：引擎/DSH 兼容口径优先于快照口径——先报本次检查
+          // 看到的第一手阻挡（Node/DSH 范围不满足），再用快照里的通道/环境/状态阻挡兜底；
+          // 都没有即 none（枚举里的 none 就是「没有阻挡」）。
+          blockedReason: checked.blockedReason ?? snapshot.blockedReason ?? 'none',
+          // #211：回退与数据源是取数层交回的如实事实（审查 S2-4），不在这里猜。
+          fallback: effective.fallback,
+          dataSource: effective.dataSource,
           latencyMs: Math.max(0, Date.now() - startedAt),
         })
         return { snapshot, receipt: snapshot.canInstall ? toReceipt() : null }
@@ -633,8 +698,11 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
         const httpStatus = httpStatusOfError(error)
         emit('warn', 'update.check.fail', {
           stage: stageOfError(error),
-          errorKind: stableCodeOf(error),
+          // #211：细类别只进日志，公开稳定码一字不动（面板回执/诊断仍按 error.code）。
+          errorKind: checkErrorKindOf(error),
           ...(httpStatus === null ? {} : { httpStatus }),
+          latencyMs: Math.max(0, Date.now() - startedAt),
+          ...(registrySource ? { source: registrySource } : {}),
         })
         throw error
       } finally {
@@ -1004,8 +1072,9 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
     if (!(await acquire(job.id))) throw updateError('update-busy')
     try {
       // 装前复核与检查路径同口径（#183）：检查时若走通道回退，这里也要走同一入口，
-      // 否则会把「本通道最新发行版」误判成远端变了（check-expired）。
-      const current = await fetchEffectiveRelease()
+      // 否则会把「本通道最新发行版」误判成远端变了（check-expired）。#211 起入口多回两格
+      // 取数事实（fallback/dataSource），复核只比 release 本身。
+      const current = (await fetchEffectiveRelease()).release
       if (JSON.stringify(current) !== JSON.stringify(checked.release)) throw updateError('check-expired')
       env = await ports.readInstalled()
       // 锁后重读的环境再判一次空更新（#202）：锁前判过，但等锁期间磁盘版本可能被别处换成了

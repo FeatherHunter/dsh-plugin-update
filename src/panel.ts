@@ -254,6 +254,13 @@ export interface UpdatePanelOptions {
   showLogHint?: boolean
   /** 轮询间隔毫秒：默认 1000，不得小于 250。 */
   pollMs?: number
+  /**
+   * 自动检查（#211 AC-2）：默认开。挂载后先做一次只读状态刷新，再决定要不要自动查一次新版：
+   * 首刷失败（拿不到状态）即记 failed 并放弃；状态本身新鲜（安装在跑/校验中，或已有动作在途）即记
+   * recent 不重复查；只有真的需要才发起（记 started）。显式传 false 即调用方点名关掉（记 disabled）。
+   * 只收布尔值；挂载行的 autoCheck 字段如实记这四种结局（一次挂载一条）。
+   */
+  autoCheck?: boolean
   /** 与宿主通话的函数（面板侧唯一的宿主接触面）。 */
   call: UpdatePanelCall
   copyText?: UpdatePanelCopyText
@@ -2590,6 +2597,14 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     failMount('poll-ms', message)
     throw new Error(message)
   }
+  // 自动检查开关（#211 AC-2）：默认开，只收布尔值；非法即当场抛（与 mode/theme 同口径）。
+  const autoCheckOption: unknown = options.autoCheck === undefined ? true : options.autoCheck
+  if (typeof autoCheckOption !== 'boolean') {
+    const message = `[dsh-plugin-update] 自动检查开关非法：只收布尔值（收到 ${JSON.stringify(options.autoCheck)}）`
+    failMount('auto-check', message)
+    throw new Error(message)
+  }
+  const autoCheckEnabled = autoCheckOption
   let mode: UpdatePanelMode = options.mode ?? 'embedded'
   if (mode !== 'embedded' && mode !== 'dialog') {
     const message = `[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ${JSON.stringify(options.mode)}）`
@@ -2677,8 +2692,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     loggedState = key
     logClient('info', 'update.panel.state', { state, theme, tokensApplied, fallback: !themeExplicit })
   }
-  // 挂载行（常驻）：一次挂载一条；挂载点名字由入口件 / HTTP 直挂 / 批量面板传进来，缺省即摆放形态。
-  logClient('info', 'update.panel.mount', { mode: clientLogMountName || mode, theme, lang: currentLang(), pollMs })
+  // 挂载行（常驻，#211 AC-2）：一次挂载一条；挂载点名字由入口件 / HTTP 直挂 / 批量面板传进来，缺省即摆放形态。
+  // 字段在挂载这一刻定格（之后 setMode/setTheme 不追改），但行本身要等首刷回来才发——
+  // autoCheck 记的是「这面面板挂载后有没有自动跑检查」，首刷前判不出来；行在首刷串行段统一落。
+  const mountRowFields = { mode: clientLogMountName || mode, theme, lang: currentLang(), pollMs }
   logLangApplied()
   let showOthers = options.showOthers === true
   // 更新日志折叠（视图态：只影响 02 章展示，不调电话；换肤/轮询不丢）。
@@ -4232,13 +4249,33 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   } catch {
     // 无 unref 的环境（浏览器）忽略。
   }
-  // mount 串行：首绘 loading → await refresh（只读本地）→ 条件自动查一次；轮询永不查新版。
+  // mount 串行（#211 AC-2）：首绘 loading → await refresh（只读本地）→ 判定自动检查四态 → 落挂载行 →
+  // 只有确实要查（started）才复用手动查同一通路；轮询永不查新版。
+  // 挂载行必须等首刷回来才发：autoCheck 记的是「这面面板挂载后有没有自动跑检查」，四态里
+  // disabled（调用方关掉）/ failed（首刷拿不到状态）/ recent（状态本身新鲜、已有动作在途）/ started，
+  // 只有首刷回来才判得准；任何走到这里的路径恰好发一条（参数/挂载校验失败在更早处已抛，到不了这里）。
   void (async () => {
-    await refresh()
+    let firstRefreshFailed = false
     try {
-      if (pendingAutoCheck(snapshot, busyAct)) void act('check')
+      await refresh()
     } catch {
-      // 自动查失败已在 act 内渲染为既有失败文案，这里不另行处理。
+      // refresh 自身吞传输错误（从不 reject）；这里只兜意外抛出，仍按「拿不到状态」记 failed。
+      firstRefreshFailed = true
+    }
+    const autoCheck: 'started' | 'recent' | 'disabled' | 'failed' = !autoCheckEnabled
+      ? 'disabled'
+      : firstRefreshFailed || snapshot === null
+        ? 'failed'
+        : !pendingAutoCheck(snapshot, busyAct)
+          ? 'recent'
+          : 'started'
+    logClient('info', 'update.panel.mount', { ...mountRowFields, autoCheck })
+    if (autoCheck === 'started') {
+      try {
+        void act('check')
+      } catch {
+        // 自动查失败已在 act 内渲染为既有失败文案，这里不另行处理。
+      }
     }
   })()
 

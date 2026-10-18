@@ -806,6 +806,10 @@ export function mountInstallButton(
 
   let mounted = true
   let snapshot: UpdateSnapshot | null = null
+  // #211 AC-2：挂载行的 autoCheck 记**事实**（挂载后自动检查到底跑没跑），所以这行
+  // 要等首刷（以及随之的自动查）落定才发；这里记首刷给出的判定，挂载代码在 refresh
+  // 的 Promise 落定后取它落行。null = 首刷还没落定（或挂载已拆，不补发）。
+  let mountAutoCheckState: 'started' | 'recent' | 'failed' | 'disabled' | null = null
   let manual: string | null = null
   // #177：命令可信来源（frame / carried-over）；失败回包沿用旧值即不可信。
   let manualSource: ManualSource | null = null
@@ -1173,6 +1177,7 @@ export function mountInstallButton(
 
   async function refresh(): Promise<void> {
     if (!mounted) return
+    let refreshFailed = false
     try {
       const reply = await call(phoneNames.updateStatus, queueArgs())
       if (!mounted) return
@@ -1180,13 +1185,19 @@ export function mountInstallButton(
       applyStatusReply(reply, 'refresh')
     } catch (err) {
       if (!mounted) return
+      refreshFailed = true
       // #214: a transport failure now leaves evidence (streak + fingerprint), not just a latch.
       transportFailStreak++
       emitRenderFail('poll', 'transport', errorTextOf(err) || 'transport-failed')
       if (!thrownBusy(err)) setLatch(volatileLatch('check'))
     }
     if (!mounted) return
-    if (autoCheck !== 'never' && !busyAct && !ensuring && snapshot && !snapshot.latestVersion) {
+    // #211 AC-2：首刷同时给出「这次挂载的自动检查到底跑没跑」的事实（install-button 的
+    // 自动查只在首刷拿不到 latest 时才补发，所以四态都能出现，不许挂载时预先写 started）。
+    let autoCheckOutcome: 'started' | 'recent' | 'failed'
+    if (refreshFailed || !snapshot) autoCheckOutcome = 'failed'
+    else if (autoCheck !== 'never' && !busyAct && !ensuring && !snapshot.latestVersion) {
+      autoCheckOutcome = 'started'
       ensuring = true
       try {
         const reply = await call(phoneNames.updateCheck, queueArgs())
@@ -1201,7 +1212,11 @@ export function mountInstallButton(
       } finally {
         ensuring = false
       }
+    } else {
+      autoCheckOutcome = 'recent'
     }
+    // 只记首刷那次判定：后续刷新不覆盖挂载行的事实。
+    if (mountAutoCheckState === null) mountAutoCheckState = autoCheckOutcome
     paint()
   }
 
@@ -1733,9 +1748,6 @@ export function mountInstallButton(
     pollCount += 1
     void refresh()
   }, pollMs)
-  if (autoCheck === 'mount') {
-    void refresh()
-  }
 
   function state(): ReturnType<InstallButtonController['state']> {
     const jobState = snapshot?.job?.state ?? null
@@ -1748,12 +1760,26 @@ export function mountInstallButton(
     }
   }
 
-  logClient('info', 'update.panel.mount', {
-    mode: clientLogMountName || 'install-button',
-    theme,
-    lang: currentLang(),
-    pollMs,
-  })
+  function emitMountRow(autoCheck: 'started' | 'recent' | 'failed' | 'disabled'): void {
+    logClient('info', 'update.panel.mount', {
+      mode: clientLogMountName || 'install-button',
+      theme,
+      lang: currentLang(),
+      pollMs,
+      // #211 AC-2：挂载行带自动检查状态——四态都是**事实**，不是预告。
+      autoCheck,
+    })
+  }
+
+  if (autoCheck === 'mount') {
+    // 挂载行等首刷（以及首刷触发的自动查）落定再发：autoCheck 记的是「跑没跑」，不是「打不打算跑」。
+    void refresh().then(() => {
+      if (!mounted || mountAutoCheckState === null) return
+      emitMountRow(mountAutoCheckState)
+    })
+  } else {
+    emitMountRow('disabled')
+  }
 
   return { state, refresh, unmount }
 }

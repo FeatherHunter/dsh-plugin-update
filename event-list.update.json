@@ -2,7 +2,11 @@
   "version": 1,
   "pluginId": "dsh-plugin-update",
   "fieldEnums": {
-    "update.wire.ready": { "logSink": ["external", "self", "off"] },
+    "update.wire.ready": {
+      "logSink": ["external", "external-unverified", "self", "off"],
+      "copyLevel": ["profile", "nested", "repo", "unknown"],
+      "hostKind": ["desktop", "desktop-manager", "cli"]
+    },
     "update.install.verify": { "result": ["completed", "restart-required", "failed", "interrupted"] },
     "update.install.fail": {
       "stage": ["gate", "exec", "verify"],
@@ -80,6 +84,48 @@
     },
     "update.changelog.parse": {
       "status": ["ok", "empty", "missing", "fetch-failed", "parse-degraded", "cache-hit"]
+    },
+    "update.check.done": {
+      "blockedReason": [
+        "none",
+        "unknown-profile",
+        "channel-mismatch",
+        "source-install",
+        "invalid-installation",
+        "installation-changed",
+        "pending-restart",
+        "registry-conflict",
+        "incompatible-node",
+        "incompatible-dsh",
+        "recovery-required",
+        "dev-source"
+      ],
+      "dataSource": ["npm-version", "npm-channel"]
+    },
+    "update.check.fail": {
+      "errorKind": ["timeout", "network", "dns", "tls", "http", "bad-json", "too-large", "shape", "channel", "unknown"]
+    },
+    "update.status.changed": {
+      "kind": ["update-available", "up-to-date", "unknown"],
+      "identity": ["update", "first-install", "up-to-date", "unknown"],
+      "blockedReason": [
+        "none",
+        "unknown-profile",
+        "channel-mismatch",
+        "source-install",
+        "invalid-installation",
+        "installation-changed",
+        "pending-restart",
+        "registry-conflict",
+        "incompatible-node",
+        "incompatible-dsh",
+        "recovery-required",
+        "dev-source"
+      ],
+      "unknownCause": ["no-latest", "running-version-unknown", "compare-failed"]
+    },
+    "update.panel.mount": {
+      "autoCheck": ["started", "recent", "disabled", "failed"]
     }
   },
   "events": {
@@ -105,27 +151,27 @@
     "update.wire.ready": {
       "level": "info",
       "kind": "resident",
-      "fields": ["logSink", "logDirHash"],
+      "fields": ["logSink", "logDirHash", "updaterVersion", "copyLevel", "hostKind"],
       "codes": ["H_DIR"],
-      "guard": "接线一次一条"
+      "guard": "接线一次一条；外部落点没验证通过时 logSink=external-unverified"
     },
     "update.check.done": {
       "level": "info",
       "kind": "resident",
-      "fields": ["ok", "current", "latest", "channel", "source", "latencyMs"],
-      "guard": "一次 check 一条"
+      "fields": ["ok", "current", "latest", "channel", "source", "latencyMs", "blockedReason", "fallback", "dataSource"],
+      "guard": "一次 check 一条；取数走了通道回退时 fallback=true、dataSource=npm-channel"
     },
     "update.check.fail": {
       "level": "warn",
       "kind": "resident",
-      "fields": ["stage", "errorKind", "httpStatus"],
-      "guard": "一次 check 一条"
+      "fields": ["stage", "errorKind", "httpStatus", "latencyMs", "source"],
+      "guard": "一次 check 一条；errorKind 是失败类别（不是稳定码），认不出写 unknown"
     },
     "update.status.changed": {
       "level": "info",
       "kind": "resident",
-      "fields": ["kind", "latest"],
-      "guard": "边沿触发：状态未变不发"
+      "fields": ["kind", "latest", "runningVersion", "installedVersion", "registered", "identity", "blockedReason", "unknownCause"],
+      "guard": "边沿触发：真值元组（kind/latest/runningVersion/installedVersion/registered/identity/blockedReason/unknownCause）未变不发；未知用显式 null，不猜假值"
     },
     "update.install.request": {
       "level": "info",
@@ -187,8 +233,8 @@
     "update.panel.mount": {
       "level": "info",
       "kind": "resident",
-      "fields": ["mode", "theme", "lang", "pollMs"],
-      "guard": "一次挂载一条"
+      "fields": ["mode", "theme", "lang", "pollMs", "autoCheck"],
+      "guard": "一次挂载一条；autoCheck 记这面面板挂载后有没有自动跑检查"
     },
     "update.panel.action": {
       "level": "info",

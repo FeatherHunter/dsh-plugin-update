@@ -274,7 +274,18 @@ describe('门禁模板：事件表合并与落盘行断言', () => {
     const entry = merged.manifest.events['update.check.done']
     assert.equal(entry.level, 'debug', '级别按对方')
     assert.equal(entry.kind, 'ondemand', '归类按对方')
-    assert.deepEqual(entry.fields, ['ok', 'extra', 'current', 'latest', 'channel', 'source', 'latencyMs'])
+    assert.deepEqual(entry.fields, [
+      'ok',
+      'extra',
+      'current',
+      'latest',
+      'channel',
+      'source',
+      'latencyMs',
+      'blockedReason',
+      'fallback',
+      'dataSource',
+    ])
     assert.equal(merged.conflicts.length, 1)
     assert.match(merged.conflicts[0], /update\.check\.done/)
   })

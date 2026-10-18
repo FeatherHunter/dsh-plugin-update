@@ -583,6 +583,9 @@ export function mountUpdateEntry(container: UpdatePanelContainer, options: Updat
       theme,
       themeTokens,
       pollMs,
+      // #211 AC-2：面板的自动检查跟随入口件的 autoCheck 时机（'mount' 才自动查；'never' 由用户点击触发），
+      // 挂载行据此如实记 started / disabled（面板首刷失败/状态新鲜时再由面板记 failed / recent）。
+      autoCheck: autoCheck === 'mount',
       profileName,
       logDir: options.logDir,
       autoChangelog: options.autoChangelog,

@@ -151,6 +151,8 @@ const panel = mountUpdatePanel(document.getElementById('update-slot'), {
 // 弹窗版想让「关闭」按钮真把弹窗撤掉：传 onCloseRequested（面板点关闭/Esc 时先调它撤 DOM，再停轮询；入口件打开的 dialog 已内置）。
 ```
 
+**自动检查（`autoCheck`，默认 `true`）。**挂载后先只读一次本地状态（首刷），拿到快照后若判定需要就自动查一次新版（只读，不安装）：面板还装着/验着、或已有动作在飞时不查（再查也只会得到同一结论）；传 `autoCheck: false` 则挂载不自动查，只在用户点「检查更新」或你调 `panel.refresh()` 时动——关的只是自动检查，面板的只读轮询与用户手动检查照常（**自查同样是只读，任何路径都不自动安装**）。入口件与安装按钮的同名选项取值不同（`'mount'` / `'never'`），语义同向，见第 2.5、2.8 节。挂载日志行 `update.panel.mount` 的 `autoCheck` 一格记录这一面面板到底跑没跑：`started`（自动查已发起）/ `recent`（首刷已显示在忙——装着/验着或动作在飞，跳过）/ `disabled`（调用方关了自动检查）/ `failed`（首刷失败、没拿到状态，没跑成）——排查「面板为什么没有自己查」时看它；安装按钮那个选项只会落成 `started` / `disabled`。
+
 组件内部消化的事（调用者不再写）：按 `panelPollMs` 轮询查状态（下限 250 毫秒）；安装按钮状态跟随快照的 `canInstall`，不另写门控规则；装不了的原因按第 5.2 节展示中文一句话；`pending-restart` 单独横幅加重启指引，不再给安装按钮；手工命令展示与复制；排队位置展示与 `showOthers` 开关；跳过按版本记（“已跳过 X.Y.Z · 恢复”在同一行，不藏进设置页）；失败时旁边的“复制诊断”一键给出脱敏后的自包含文本（稳定码、版本、宿主、队列位置），深挖仍看日志（组件里留着第 6 节第 11 条的过滤口径）。失败若归因指向本插件、且最新版被 24 小时年龄门挡住，旁边另给「装合规版」与「等新版」两个按钮（`0.18.6` 起；先决议、点名版本确认后才装，名词与整套流程见第 2.6 节）。失败横幅常驻：查/装失败后保留到下一次用户主动查/装的新结论、任务态或版本变化，只读轮询不再洗掉；复制诊断锁定致命那次回包的证据（码、摘要、版本、宿主、编号冻结在失败时刻）；失败旁有「知道了」可显式确认回到可装页（只清面板提示，不调电话）。无失败时复制诊断给当前状态快照（版本、宿主、范围、队列），不伪造失败码。04 章平时是路牌（中性行＋日志过滤口径，可用 `showLogHint: false` 隐藏）；失败时变为卷宗：真实稳定码、本次查询键（请求／检查编号＋失败时刻）、证据冻结声明、凭编号对日志的现成查询。日志事件名（`host.call`／`host.call.fail`／`update.install.exec`）由宿主与面板共用单源，改名即全改。
 
 待重启横幅上有个「重启宿主」入口。宿主没有“重启自己”的电话，所以默认点击只如实提示「请手动重启宿主」；想把重启流程接进来就传 `onRestartRequested`（面板调它，成败都回执）：
@@ -417,7 +419,7 @@ const button = mountInstallButton(document.getElementById('bill-install-slot'), 
 
 行为与面板里那颗安装按钮同一口径（同一份快照、同一句话）：未装显示「未安装 → 目标版本」，按钮是「安装版本 X.Y.Z」；点下后先查后装（一次点击内自动衔接，仍是明确的写意图，绝不自动装）；装中置忙，撞上别的安装显示排队位；失败给重试 + 复制诊断；失败若归因指向这张卡片这家、且最新版被 24 小时年龄门挡住，另出「装合规版」（决议出候选后变成「确认装 X.Y.Z」）与「等新版」两个按钮，点确认的前一刻会重新核对候选版本（`0.18.7` 起，与批量面板同一套决议电话与确认流程）；待重启只给重启指引；实在装不了才交出手工命令（`manual` 为空时该段隐藏）。还没查到远端版本时按钮退回「检查更新」。轮询只在装中进行且有界（约 5 分钟封顶转重查态），平时不 polling。
 
-`theme` / `themeTokens` / `locale` / `showOthers` / `profileName` / `pollMs` / `autoCheck` 与面板同口径；`button.state()` 可读当前快照，`button.refresh()` 手动重查一次。自己渲染时：视图的 `busyAct` 多一档 `'fallback'`（决议与等待确认中），另带 `fallbackStage`（`'offer'` / `'confirm'`）、`fallbackCandidate`、`fallbackBusy`（`0.18.7` 起）。
+`theme` / `themeTokens` / `locale` / `showOthers` / `profileName` / `pollMs` 与面板同口径；`autoCheck` 收 `'mount'`（默认，挂载即静默查一次状态，只读，绝不自动安装）或 `'never'`（不自查，等用户点或你调 `button.refresh()`）；`button.state()` 可读当前快照，`button.refresh()` 手动重查一次。自己渲染时：视图的 `busyAct` 多一档 `'fallback'`（决议与等待确认中），另带 `fallbackStage`（`'offer'` / `'confirm'`）、`fallbackCandidate`、`fallbackBusy`（`0.18.7` 起）。
 
 ### 升级本包（已经接入过的项目）
 
@@ -751,13 +753,14 @@ lintEventFields(manifest, row.event, stripReservedLogFields(Object.keys(row.fiel
 **日志内核**（`dsh-plugin-update/log`，0.16.0 起；宿主侧零件，浏览器闭包别引它 —— 唯一例外是 `createClientLogChannel`，它零 `node:` 依赖，面板侧就是引它，见第 10 节）：
 
 ```js
-import { deriveLogNamespace, acquireOwnLog, releaseOwnLog, emitUpdateLog, loadUpdateEventTable } from 'dsh-plugin-update/log'
+import { deriveLogNamespace, acquireOwnLog, releaseOwnLog, emitUpdateLog, loadUpdateEventTable, flushUpdateLog } from 'dsh-plugin-update/log'
 
 deriveLogNamespace('My.Plugin')   // 'my-plugin-<hash6>'：有损派生必带 24 位指纹（同前缀下概率性区分）；合法标识原样通过
 const got = await acquireOwnLog({ logsRoot, namespace, prefix: 'wf', eventList })
 //   同目录复用同一个句柄（引用计数）；建不起来就降级：{ sink: null, reason: 'no-dsh-log' | 'lease-conflict' | 'write-fail' }
 emitUpdateLog('info', 'host.call', fields, { pluginId })   // 唯一发射口：脱敏 + 字段白名单 + 准入短路 + 预算守卫
 releaseOwnLog(namespace, logsRoot)   // 引用计数归零才真的释放引擎实例
+await flushUpdateLog()               // 短命进程退出前：有界冲刷本插件自建落点，返回读数、永不抛（第 11 节「短命进程」）
 ```
 
 集成方一般**不需要**直接用它：宿主侧 `createHostUpdate` 已经接好（传了 `logCtx` 就用你的实例，没传就用内核自建的那份）。只有自建宿主零件、或想把本包事件并进自己的日志实例时才用（`buildUpdateManifest(pluginId, 你的清单)` + `mergeUpdateEvents`）。
@@ -789,7 +792,7 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 这些形状稳定，可以放心依赖：六个电话名与入参回参（老三电话一字不动，`updateChangelog`、`logAppend`、`updateCheckFallback` 是后来加的；`updateInstall` 的 `version` 是可选参数）、快照七个核心字段 + `identity`（`#197` 起加：`update` / `first-install` / `up-to-date` / `null`，判定不了为 null；老调用方不读也能用）+ `registered`（`#190` 起加：在册事实，`false` 表示磁盘换版也不等于重启后会加载，未知为 null；老调用方不读也能用）、任务公开形状、配置只经函数入参注入、安装配方五键、日志事件字段基线（三个旧事件各带必填 `pluginId`）、历史落盘路径。形状扩展按版本列清楚：`0.18.7` 起，快照里带着失败任务时成功回包可带可选 `diag`；`0.18.10` 起，任务形状多一格可选 `previousVersion`；`0.18.12` 起，环境视图可带可选 `registered`（装后按「在册」核实；`0.18.18` 起语义收窄为「登记不许倒退」：新装必须登记，装前就未登记的包更新成功后不因仍未登记判失败，登记倒退仍失败——形状不变），`0.18.13` 起 `includeEnv` 带回的使用范围视图也带出同一格 `registered`（面板据此识别「被摘掉但没重装」）；`0.18.16` 起，`includeEnv` 视图再多两格可选自检事实 `updaterVersion` / `updaterCopyLevel`——**此刻在说话的是哪一份本包副本**：`profile` 使用范围级、`nested` 消费方 `node_modules` 里的嵌套副本、`repo` 开发仓库、`unknown`；面板页脚与「复制诊断」都显示同一事实，嵌套副本时 05 章直接给载体 CLI 升级命令；`0.18.23` 起，`updateInstall` 电话接受可选 `approvedBuilds`（构建脚本需要批准的包：批准后把宿主给过的精确包名原样带回重试，宿主先批准再跑 pnpm；不传即现状），响应形状与其余电话逐字不变；`0.18.25` 起，面板渲染入口新增可选 `manualSource` / `fallbackAvailable` / `runningVersionKnown` / `copyBubble`，槽位按钮入口新增可选 `manualSource` / `failureCode` / `fallbackAvailable`，批量行视图新增可选 `manualSource`；`0.18.26` 起，`updateChangelog` 成功回包多两格可选 `status` / `cached`（说清这一版**为什么**有或没有说明；老调用方只读 `markdown` 不受影响，认不出的值按老样子显示）；`0.18.26` 起，`updateStatus` 成功回包可带可选 `logHealth`，面板渲染入口新增可选 `logHealth`，槽位按钮的「复制诊断」同样渲染这份读数，`./panel` 新增具名转出 `logHealthText`，`UpdateLogHealth` / `LogHealthSink` / `LogHealthExternalGate` / `LogHealthOffReason` / `LogHealthContractState` 等类型经主入口与 `./log` 子路径转出；`LastResortKind` / `RescueRouteKey` / `ManualSource` / `LastResortVerdict` 等类型经既有 `./panel` / `./install-button` 子路径转出，消费者可以直接命名（全部加法扩展，不传即旧行为）。
 
-向后兼容的扩展：新增可选配置键、新增可选面板选项（如 `autoCompliant`）、新增可选面板渲染选项（`updater`）、新增可选回包键（成功回包里的 `diag`；`0.18.26` 起 `updateStatus` 成功回包可带可选 `logHealth`，日志健康读数见第 11 节）、新增可选任务字段（`job.previousVersion`）、新增可选环境字段（`env.registered`、`env.updaterVersion` / `env.updaterCopyLevel`）、新增可选快照字段（`snapshot.registered`，`#190` 起：在册事实，未知为 null）、新增可选 `readerOverrides`（如 `targetPackageDir`、`dshVersion`）、新增 `blockedReason` 取值（如 `incompatible-dsh`）、`snapshot.runningVersion` 增加 `null`（未知）语义、新增可选面板渲染入参（`manualSource` / `fallbackAvailable` / `runningVersionKnown` / `copyBubble`，`0.18.25` 起）、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。
+向后兼容的扩展：新增可选配置键、新增可选面板选项（如 `autoCompliant`、`autoCheck`）、新增日志内核能力（`flushUpdateLog`，短命进程退出前冲刷本插件自建落点，返回 `{ flushed, timedOut, pending, stores }` 读数、永不抛，第 8 / 11 节）、新增可选面板渲染选项（`updater`）、新增可选回包键（成功回包里的 `diag`；`0.18.26` 起 `updateStatus` 成功回包可带可选 `logHealth`，日志健康读数见第 11 节）、新增可选任务字段（`job.previousVersion`）、新增可选环境字段（`env.registered`、`env.updaterVersion` / `env.updaterCopyLevel`）、新增可选快照字段（`snapshot.registered`，`#190` 起：在册事实，未知为 null）、新增可选 `readerOverrides`（如 `targetPackageDir`、`dshVersion`）、新增 `blockedReason` 取值（如 `incompatible-dsh`）、`snapshot.runningVersion` 增加 `null`（未知）语义、新增可选面板渲染入参（`manualSource` / `fallbackAvailable` / `runningVersionKnown` / `copyBubble`，`0.18.25` 起）、新增宿主种类与路由取值。调用方不认新取值时按普通宿主处理即可，不会因此报错。
 
 **给消费方插件的依赖声明建议（`0.18.16` 起）**：把本包声明成 `^0.18.0`（或更新 minor）——0.x 的 caret 只锁 minor，`^0.13.0` 这类旧范围会把你钉死在 0.13.x，我们之后发多少修复都不会加载进你的嵌套副本。面板上的「更新器=版本（层级）」就是此刻在说话的那份副本；`nested` 意味着升级路径在声明它的插件那边（先更新它，或按 05 章的载体 CLI 命令操作）。
 
@@ -798,6 +801,8 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 `0.16.0` 起本包把 [`dsh-log`](https://www.npmjs.com/package/dsh-log) 作为**第一个运行期依赖**，`0.16.4` 起下限是 `^0.3.4`（决策与理由见 `docs/adr/0005-dsh-log-as-first-runtime-dependency.md`）。下限为什么跟着抬：链上下文（下一段）要 `0.3.3` 起才有，`0.3.1`/`0.3.2` 上本包只会**静默没有链**；`0.3.4` 另修了启动头幂等与目录摘要的诚实性。
 
 **归属：谁建的实例谁说话。**集成方传了日志出口（宿主侧 `createHostUpdate({ logCtx })`），本包就用它的实例落盘，绝不另建第二个；没传，本包自建一份。两种情况下事件名、字段、级别完全一样。
+
+**外部落点（你自己带 dsh-log 实例）两条自检。**①实例要能回答门径：有 `isEnabled(level, event)`（dsh-log 0.2.x 起的实例都有，老客户端可能没有）——门径算通过只认它返回真布尔 `true`；给不出、抛错或返回 `false` 都不算通过；②把本包的事件清单并进你的清单（`mergeUpdateEvents`，第 8 节）——不并，你的实例会把本包事件当未知事件整行丢掉。**接线时本包只查得动第①条**：门径不是 `open` 就记 `logSink: 'external-unverified'`（而不是 `'external'`）；第②条本包看不见，得你自己保证。门径明确返回 `false` 时连那条 `update.wire.ready` 都会被你实例的准入跳过（它拒收的正是同一道门），现场只能以回包 `logHealth.external` 为准——所以别把「我有日志」当事实；排查动作见第 11 节第 2 支。
 
 **同进程同目录只有一个句柄。**本包在同进程内用一张挂在 `globalThis` 上的登记表按目录复用实例（引用计数到零才释放）：一个进程里出现两份本包副本（顶层一份、别的插件嵌套一份）时，第二份拿到的是**同一个**实例，不会出现谁把谁的日志吃掉。拿不到 `dsh-log`（没装、版本不对）或目录已被占用时**降级成「没有落点」**：事件照发、主流程零影响，并记一条 `update.log.degraded`（`reason` 是 `no-dsh-log` / `lease-conflict` / `write-fail`）。两个进程共用同一目录不在承诺内（dsh-log 只能事后诊断 `foreign-write`）。
 
@@ -809,7 +814,7 @@ queuePositionOf(queueState, 'my-plugin', requestId)  // 0 = 正在安装，1..n 
 
 **噪声预算。**轮询看状态**一条常驻行都不落**——第一次也不算事件（它的第一次观测没有可比的上次），状态真变了才留一条 `update.status.changed` 供追溯；稳态一天不超过 50 行，一个操作日不超过 500 行。`info` 只在调试开关打开或事件是常驻时落盘；`warn`、`error` 始终落盘。检查电话与安装电话另各收一个**只进日志**的可选参数（`trigger`、`from`），不传即老样子。
 
-**开关：默认关着，改了要重启。**`info` 的准入由 dsh-log 的开关文件决定：`<DSH_HOME>/logs/log-switch-<派生命名空间>.json`，内容就是 `{ "enabled": false }`，默认关。注意它在 `logs/` **根下**、与日志目录平级，不是目录里的文件（`pluginId` 恰为 `wf` 时文件名退化为 `log-switch.json`）。两件事要知道：① 它只管**按需**事件——`warn`/`error` 与常驻事件不受它影响（本包 27 条事件里 20 条恒落、7 条受它管）；② dsh-log 在实例启动时把开关读进内存后**永久缓存**，运行中改这个 JSON 对活着的实例无效，**要重启宿主**才生效。本包不注册 dsh-log 的宿主日志电话（`logGetSwitch`/`logSetSwitch` 等六个都不注册），所以没有「在面板里拧开关」这条路。
+**开关：默认关着，改了要重启。**`info` 的准入由 dsh-log 的开关文件决定：`<DSH_HOME>/logs/log-switch-<派生命名空间>.json`，内容就是 `{ "enabled": false }`，默认关。注意它在 `logs/` **根下**、与日志目录平级，不是目录里的文件（`pluginId` 恰为 `wf` 时文件名退化为 `log-switch.json`）。三件事要知道：① 它只管**按需**事件——`warn`/`error` 与常驻事件不受它影响（本包 27 条事件里 20 条恒落、7 条受它管）；② dsh-log 在实例启动时把开关读进内存后**永久缓存**，运行中改这个 JSON 对活着的实例无效，**要重启宿主**才生效。本包不注册 dsh-log 的宿主日志电话（`logGetSwitch`/`logSetSwitch` 等六个都不注册），所以没有「在面板里拧开关」这条路；③ 按需事件里有两行是取数证据——通道回退与更新说明 tarball 取数的 `update.registry.fetch`（`0.19.0` 起接上）：默认开关关着时它们不落盘，但**常驻**的检查成功行 `update.check.done` 会带 `fallback` / `dataSource`，照样回答「这次走没走回退」。
 
 **面板侧的日志（`0.16.0` 起）。**面板跑在浏览器闭包里，落盘是宿主的事，中间隔着 `….logAppend` 电话：面板把行攒进一个有界环形缓冲（缺省 200 行，满了挤掉最老的并计数），按批交回宿主（缺省一批 50 行、间隔 1 秒；页面切到后台立即冲刷一次），失败退避重试 2 次后丢弃并计数 —— 整条路**永不外抛**，日志坏了不挡更新。丢弃按原因计数：`overflow`/`host-refused`/`send-failed` 第一次出现时各上浮一条 `update.log.degraded{reason:'client-drop-*'}` 降级行（`#214`；没有投递面的 `no-channel` 只进计数，随「复制诊断」的「连接」段露出；`disposed` 在通道拆掉后尽力上浮一条），卸载前尽量把缓冲冲刷出去。宿主侧这一头是协议面：只收六个客户端事件（`update.panel.mount` / `update.panel.action` / `update.panel.render.fail` / `update.panel.state` / `update.lang.applied`，以及客户端上报自己丢弃原因的 `update.log.degraded`），级别必须是 `debug`/`info`/`warn`/`error`；**事件必须在本包事件清单里**（整行不在清单才计入回包的 `dropped`），字段不合清单或枚举值不合法时只摘该字段、整行仍落盘，并记一条 `update.log.degraded`（`#210`：降级行含事件名与字段名，不含原文）；超量（一次 200 行以上）、过期（10 分钟以上的旧行）、形状不对一律计入 `dropped`，**不产生 `host.call` 行**（不给日志自己制造噪声）；宿主整批拒收时另上浮一条 `update.log.degraded{reason:'client-batch-refused'}`（每个宿主实例只记一次）。面板默认自建这条通道（电话名从前缀派生）；`mountUpdatePanel` 的 `clientLog` 选项可以换成你自己的通道或明确关掉：`{ channel }` 注入、`{ mount: 'entry' }` 记挂载点、`null` 关闭。入口件与 HTTP 直挂已经替你传好挂载点。
 
@@ -835,13 +840,26 @@ npx dsh-log <dir> --json > update.log                   # 导出原始 JSON 行�
 **日志是空的、甚至没有目录？四步决策树（`0.18.26` 起）。**`updateStatus` 成功回包多一个可选 `logHealth`（老宿主不回它就按本节老路子查），面板日志区与「复制诊断」渲染同一份读数。先看 `logHealth.sink`，四支各走各的：
 
 1. `self` —— 落盘归本包自建实例。看 `switchEnabled`（`false` 只挡按需 `info`；`warn`/`error` 与常驻事件照落）、`droppedSinceStart`（>0 = 有**整行**在到落点前被丢：没有落点、待接缓冲溢出、事件名不在契约里、发射抛错，或引擎侧排队溢出/写盘失败；字段/枚举没通过**不丢行**——只裁掉那个字段，整行照落，见第 10 节；被开关挡掉的按需行也不算丢，它根本没发出去，见 `switchEnabled`）、`lastEventAt`（`null` = 启动以来一行都没到过落点）。`dirHash` 是 8 位目录指纹，应与日志行里的 `logDirHash` 对得上。
-2. `external` —— 落盘归集成方实例，本包看不见对方的目录。`external:"open"` 表示对方引擎确认本包事件常驻放行，这时才值得等行；`"closed"` 表示对方明确没放行（常见于合并清单没带本包的 `event-list.update.json`）；`"unknown"` 是**未验证**——对方没给判据，不能据此下「有日志」的结论，要证据只能找集成方要它的日志实例/合并清单。这一支的 `dirHash` 恒为 `null`：`update.wire.ready` 日志行里的 `logDirHash` 只是本包算出的预期目录指纹，不是对方实际目录，别拿它对照对方磁盘。对方引擎丢弃了什么是本包的盲区。
+2. `external` —— 落盘归集成方实例，本包看不见对方的目录。`external:"open"` 表示对方引擎确认本包事件常驻放行，这时才值得等行；`"closed"` 表示对方明确没放行（常见于合并清单没带本包的 `event-list.update.json`）；`"unknown"` 是**未验证**——对方没给判据，不能据此下「有日志」的结论，要证据只能找集成方要它的日志实例/合并清单。接线行 `update.wire.ready` 的 `logSink` 只在门径**不是 `open`** 时记 `external-unverified`（门径 = 对方实例 `isEnabled()` 返回真布尔 `true`，给不出、抛错或返回 `false` 都算没通过）；注意 `closed` 时连这条接线行都会被对方准入跳过（它拒收的正是同一道门），所以**「看不到接线行」本身也是线索，别读成「没接过线」**——以 `logHealth.external` 为准；看到 `external-unverified` 先按第 10 节的两条自检核对对方的实例（第②条 merge 清单本包接线时查不了，得找集成方确认）。这一支的 `dirHash` 恒为 `null`：`update.wire.ready` 日志行里的 `logDirHash` 只是本包算出的预期目录指纹，不是对方实际目录，别拿它对照对方磁盘。对方引擎丢弃了什么是本包的盲区。
 3. `off` —— 日志没接上，看 `reason`：`no-dsh-log`（没装/版本不对/加载失败，含嵌套副本问题）、`lease-conflict`（同目录已有别的句柄且没拿到复用）、`write-fail`（建库或写盘失败）。这一支**本包不会再往日志目录写行，别再找本包的文件**（`lease-conflict` 时目录里可能有别的写者的行，但不会有本包的）；先修 `reason`，再谈证据（回包、面板、复制诊断）。`dirHash` 是本来该写的 8 位目录指纹（目录可能根本不存在）。
 4. `pending` —— 自建实例还在异步建库（瞬时），一两秒后重查即落定为 `self` 或 `off`。
 
 再核对 `contract`：`missing` / `invalid` 表示这轮事件清单没读到或形状不对（字段门禁没有尺子，`unvalidated` 只统计清单缺失时实际写下的行）。仍找不到行时按老路子核：dsh-log 版本与嵌套副本、开关文件 `<DSH_HOME>/logs/log-switch-<派生命名空间>.json` 是否存在且为 `true`（改了要重启宿主）、面板日志通道是否被明确关掉（`clientLog: null`）。
 
 **诚实边界。**完全没有落点时，本包写不出「没有落点」这条日志行——行得先有落点才能存在，这是结构性限制（ADR-0005）。所以「日志目录里什么都没有」不是本包自证的证据；这种现场只认三样带外证据：`logHealth` 回包、面板日志区的健康读数、复制诊断文本。「连日志目录都没有」本身就是可报告的故障（`off` + `reason`）。
+
+**多进程 / 多副本边界（诚实边界之二）。**本包的落盘纪律只有一句：**同一日志目录同时只许一个写者**。能保证的只有同进程——同进程里出现多份本包副本时，登记表让它们复用同一个实例（第 10 节）；**两个进程共用同一目录不在承诺内**：本包不设跨进程锁、不做写者协调，冲突只有 dsh-log 引擎事后记的 `log.persist.fail`（`reason: 'foreign-write'`，`warn`，能看见，但改不了既成事实）可诊断。同一台机器上多代更新器副本并存是常态（使用范围级一份、消费方 `node_modules` 里嵌套一份、开发仓库一份）：看接线行 `update.wire.ready` 的 `updaterVersion`（此刻在说话的本包版本，读不到显式 null）与 `copyLevel`（`profile` / `nested` / `repo` / `unknown`）就能把写者定位到那一代，`hostKind` 说明是哪类宿主；这两格与 `includeEnv` 视图里的 `env.updaterVersion` / `env.updaterCopyLevel`（面板页脚、复制诊断里的「更新器=版本（层级）」）是同一组事实。真要把两个进程的行分清，别在同一目录里猜——给两边各自的 `DSH_HOME`。
+
+**短命进程：退出前冲刷（`flushUpdateLog`）。**常驻事件的 `info` 行由 dsh-log 异步批量写盘（约 1 秒的去抖窗口），`warn` / `error` 直通不缓冲。所以「加载本插件后很快退出」的一次性 CLI / 脚本（例如跑一次检查就退的维护脚本）**可能丢掉最后几行 `info`**——这是已知边界，不假装没有；关键时刻的 `warn` / `error` 行不受影响。要把 `info` 行留给现场，就在退出前等一次冲刷（从包根或 `dsh-plugin-update/log` 都能引）：
+
+```js
+import { flushUpdateLog } from 'dsh-plugin-update'
+
+await flushUpdateLog({ timeoutMs: 500 })      // 缺省超时 1000ms：有界等待，不会卡死进程
+// 也可以放在 process.on('beforeExit') 里等它
+```
+
+它返回一份可观测读数 `{ flushed: boolean, timedOut: boolean, pending: number, stores: number }`：`flushed` 表示待写行是否都冲下去了、`timedOut` 是否等到超时、`pending` 是超时时刻估计还没落盘的行数、`stores` 是本次涉及的日志实例数。它冲的是**本插件自建落点的全部在册实例**（同进程登记表里按目录复用的那些自建句柄：顶层副本与嵌套副本共用同一个实例，所以 `stores` 通常小于副本数，别读成「有几份插件」）：外部落点（集成方自己的 dsh-log 实例）归集成方管，本函数不碰——没有自建落点时返回 `{ flushed: true, timedOut: false, pending: 0, stores: 0 }`，含义是「没有本插件自建落点要冲」，不是「冲完了」；`external` 支的短命进程仍要靠集成方自己冲它的实例。它**永不抛 / 永不 reject**——没有接线、没有落点、超时都只是读数；`timedOut: true` 表示没冲完，剩余行仍可能丢。所以它是「把救得回来的行救回来」，不是落盘承诺：`await flushUpdateLog()` 之后正常退出即可，别指望它保证 100% 落盘。
 
 日志在写入前就脱敏（绝对路径、URL 里的账密、令牌、凭据、邮箱五类换成占位符，规则见 `src/redaction.ts`），可以放心贴；贴之前扫一眼仍是好习惯。
 

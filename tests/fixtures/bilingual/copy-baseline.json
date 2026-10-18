@@ -198,6 +198,7 @@
       "[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ）",
       "[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ）",
       "[dsh-plugin-update] 跳过版本号非法：须为发行版本号（收到 ）",
+      "[dsh-plugin-update] 自动检查开关非法：只收布尔值（收到 ）",
       "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ）"
     ],
     "src/reader.ts": [

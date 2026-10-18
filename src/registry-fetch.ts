@@ -13,6 +13,7 @@ import type {
   UpdateErrorCode,
   UpdateLogPort,
 } from './ports.js'
+import { CHECK_FAIL_CAUSE_KEY, type CheckErrorKind } from './check-conclusion.js'
 import {
   compareReleaseVersions,
   isVersionAllowedInChannel,
@@ -90,7 +91,25 @@ function checkFailedWithStatus(response: MinimalResponse | null): Error & { code
   if (status !== null) err.httpStatus = status
   // 阶段钉在错误上（#124）：`update.check.fail.stage` 只许四值，取数阶段就是 fetch。
   err.stage = 'fetch'
-  return err
+  // 细类别（#211）：拿到了 HTTP 应答但不可用，统一按 http（没状态码的假件也算 HTTP 层拒绝）。
+  return withKind(err, 'http')
+}
+
+/** 通道门拒绝（#124 stage=channel + #211 errorKind=channel）：公开码仍是 invalid-release。 */
+function channelReject(): Error & { code: UpdateErrorCode } {
+  return withKind(withStage(updateError('invalid-release'), 'channel'), 'channel')
+}
+
+/**
+ * 读正文 JSON（#211）：解析失败打 bad-json 标签，公开码仍是 invalid-release（行为一字不动）。
+ * 已连上但正文不是 JSON，是「远端给的东西坏了」这一类事实，与网络断掉分开记。
+ */
+function parseJsonBody(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    throw withKind(updateError('invalid-release'), 'bad-json')
+  }
 }
 
 /** 给错误贴阶段（#124，贴不上不改行为）。 */
@@ -102,14 +121,60 @@ function withStage<T extends Error>(error: T, stage: FetchStage): T {
   }
   return error
 }
+
+/**
+ * 给错误贴「失败细类别」（#211，审查 S2-3）：不可枚举属性——错误码、消息与既有 detail
+ * 形状一字不动，细分类只进 `update.check.fail.errorKind`（公开回执仍按稳定码走）。
+ */
+function withKind<T extends Error>(error: T, kind: CheckErrorKind): T {
+  try {
+    Object.defineProperty(error, CHECK_FAIL_CAUSE_KEY, {
+      value: kind,
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    })
+  } catch {
+    /* 冻结对象等怪情况：贴不上就按 unknown 兜底，绝不改取数行为 */
+  }
+  return error
+}
+
+/**
+ * 联网失败细分类（#211）：只落现场能证实的事实（超时名 / 系统错误码 / 错误链首因），
+ * 原始错误文本绝不进日志。走到这里的都是 fetch 本身抛错，认不出至少是 network。
+ */
+function fetchFailureKind(error: unknown): CheckErrorKind {
+  let current: unknown = error
+  for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth += 1) {
+    const node = current as { name?: unknown; code?: unknown; message?: unknown; cause?: unknown }
+    const name = typeof node.name === 'string' ? node.name : ''
+    // AbortSignal.timeout 的中断在 Node 里可能以 TimeoutError 或 AbortError 两种名字出现。
+    if (name === 'TimeoutError' || name === 'AbortError') return 'timeout'
+    const code = typeof node.code === 'string' ? node.code : ''
+    if (code) {
+      if (code === 'ETIMEDOUT' || code === 'ESOCKETTIMEDOUT') return 'timeout'
+      if (code === 'ENOTFOUND' || code === 'EAI_AGAIN' || code.startsWith('EAI_')) return 'dns'
+      if (/^(?:CERT_|ERR_TLS_|ERR_SSL_|UNABLE_TO_|DEPTH_ZERO_|SELF_SIGNED_)/.test(code)) return 'tls'
+    }
+    const message = typeof node.message === 'string' ? node.message : ''
+    if (/getaddrinfo|ENOTFOUND|EAI_AGAIN/.test(message)) return 'dns'
+    if (/certificate|CERT_|TLS|SSL/i.test(message)) return 'tls'
+    current = node.cause
+  }
+  return 'network'
+}
+
 /**
  * 取数打点器（#124）：`update.registry.fetch` 的唯一落点。只记状态码、耗时与白名单主机名，
  * 不带 URL、不带账号（ADR-0001 规则 3）；没给发射口就什么也不做（默认等于现状）。
  *
  * `cacheHit` 这一格不发：本包的缓存命中发生在取数之前（命中就根本不取数，也就不发这行），
  * 到了取数点就是未命中——发一个恒为 false 的格子只是噪声（接线结论记在事件目录里）。
+ *
+ * #211：changelog-io 取 tarball 也复用这一台打点器（同一行语义），所以导出。
  */
-function makeFetchNoter(
+export function makeFetchNoter(
   emitLog: UpdateLogPort | undefined,
   registryHost: string | null | undefined,
 ): (httpStatus: number | null, startedAt: number) => void {
@@ -169,45 +234,51 @@ export async function fetchNpmRelease(
       redirect: 'error',
       signal: timeoutSignal(timeoutMs),
     })
-  } catch {
+  } catch (error) {
     noteFetch(null, startedAt)
-    throw updateError('check-failed')
+    throw withKind(updateError('check-failed'), fetchFailureKind(error))
   }
   noteFetch(httpStatusOf(response), startedAt)
   try {
     if (!response.ok) throw checkFailedWithStatus(response)
     const declared = Number(response.headers.get('content-length'))
-    if (Number.isFinite(declared) && declared > MAX_METADATA_BYTES) throw updateError('invalid-release')
-    const text = await response.text()
-    if (byteLength(text) > MAX_METADATA_BYTES) throw updateError('invalid-release')
-    const value = JSON.parse(text) as {
+    if (Number.isFinite(declared) && declared > MAX_METADATA_BYTES) throw withKind(updateError('invalid-release'), 'too-large')
+    let text: string
+    try {
+      text = await response.text()
+    } catch {
+      // 已连上但读正文断了（#211）：按网络层事实记，公开码仍是 invalid-release。
+      throw withKind(updateError('invalid-release'), 'network')
+    }
+    if (byteLength(text) > MAX_METADATA_BYTES) throw withKind(updateError('invalid-release'), 'too-large')
+    const value = parseJsonBody(text) as {
       name?: unknown
       version?: unknown
       engines?: { node?: unknown; dsh?: unknown }
       dist?: { tarball?: unknown; integrity?: unknown }
     }
-    if (value.name !== targetName) throw updateError('invalid-release')
+    if (value.name !== targetName) throw withKind(updateError('invalid-release'), 'shape')
     // 通道门单独贴 stage（#124）：远端版本不被本通道接受，是「通道判定」不是「版本信息坏掉」。
     // #183：只有检查路径在「已装版本也不在本通道」时会要求容忍——把版本原样交回，
     // 让通道结论由读取器/快照层如实说出；其余形状校验照旧（容忍不等于放宽信任）。
     if (!isVersionAllowedInChannel(value.version, channel)) {
-      if (opts?.tolerateOutOfChannel !== true) throw withStage(updateError('invalid-release'), 'channel')
-      if (!validReleaseVersion(value.version)) throw updateError('invalid-release')
+      if (opts?.tolerateOutOfChannel !== true) throw channelReject()
+      if (!validReleaseVersion(value.version)) throw withKind(updateError('invalid-release'), 'shape')
     }
     const version = value.version
     const nodeRange = value.engines?.node
-    if (nodeRange !== undefined && typeof nodeRange !== 'string') throw updateError('invalid-release')
+    if (nodeRange !== undefined && typeof nodeRange !== 'string') throw withKind(updateError('invalid-release'), 'shape')
     // #195：远端包的 DSH 运行时要求（engines.dsh）。只取声明，不在这里判定——
     // 判定需要「当前 DSH 版本」，那由检查层在拿得到时做；拿不到就不猜。
     const dshRange = value.engines?.dsh
-    if (dshRange !== undefined && typeof dshRange !== 'string') throw updateError('invalid-release')
+    if (dshRange !== undefined && typeof dshRange !== 'string') throw withKind(updateError('invalid-release'), 'shape')
     const tarballText = value.dist?.tarball
     const integrity = value.dist?.integrity
     let tarball: URL
     try {
       tarball = new URL(String(tarballText))
     } catch {
-      throw updateError('invalid-release')
+      throw withKind(updateError('invalid-release'), 'shape')
     }
     const registryOrigin = new URL(registry).origin
     const shapeOk =
@@ -219,7 +290,7 @@ export async function fetchNpmRelease(
       tarball.pathname.endsWith(tarballPathnameOf(targetName, version)) &&
       typeof integrity === 'string' &&
       new RegExp(INTEGRITY_PATTERN).test(integrity)
-    if (!shapeOk) throw updateError('invalid-release')
+    if (!shapeOk) throw withKind(updateError('invalid-release'), 'shape')
     return {
       version,
       nodeRange: typeof nodeRange === 'string' ? nodeRange : '*',
@@ -265,7 +336,7 @@ export async function fetchNpmVersionRelease(
   const version = opts?.version
   const noteFetch = makeFetchNoter(opts?.emitLog, opts?.registryHost)
   if (typeof version !== 'string' || !validReleaseVersion(version) || !isVersionAllowedInChannel(version, channel)) {
-    throw withStage(updateError('invalid-release'), 'channel')
+    throw channelReject()
   }
   let response: MinimalResponse | null = null
   const startedAt = Date.now()
@@ -275,40 +346,46 @@ export async function fetchNpmVersionRelease(
       redirect: 'error',
       signal: timeoutSignal(timeoutMs),
     })
-  } catch {
+  } catch (error) {
     noteFetch(null, startedAt)
-    throw updateError('check-failed')
+    throw withKind(updateError('check-failed'), fetchFailureKind(error))
   }
   noteFetch(httpStatusOf(response), startedAt)
   try {
     if (!response.ok) throw checkFailedWithStatus(response)
     const declared = Number(response.headers.get('content-length'))
-    if (Number.isFinite(declared) && declared > MAX_METADATA_BYTES) throw updateError('invalid-release')
-    const text = await response.text()
-    if (byteLength(text) > MAX_METADATA_BYTES) throw updateError('invalid-release')
-    const value = JSON.parse(text) as {
+    if (Number.isFinite(declared) && declared > MAX_METADATA_BYTES) throw withKind(updateError('invalid-release'), 'too-large')
+    let text: string
+    try {
+      text = await response.text()
+    } catch {
+      // 已连上但读正文断了（#211）：按网络层事实记，公开码仍是 invalid-release。
+      throw withKind(updateError('invalid-release'), 'network')
+    }
+    if (byteLength(text) > MAX_METADATA_BYTES) throw withKind(updateError('invalid-release'), 'too-large')
+    const value = parseJsonBody(text) as {
       name?: unknown
       version?: unknown
       engines?: { node?: unknown; dsh?: unknown }
       dist?: { tarball?: unknown; integrity?: unknown }
     }
-    if (value.name !== targetName || value.version !== version) throw updateError('invalid-release')
-    // 通道门单独贴 stage（#124）：与 fetchNpmRelease 同一口径。
+    if (value.name !== targetName || value.version !== version) throw withKind(updateError('invalid-release'), 'shape')
+    // 通道门单独贴 stage（#124）与细类别（#211）：与 fetchNpmRelease 同一口径。
     if (!isVersionAllowedInChannel(value.version, channel)) {
-      throw withStage(updateError('invalid-release'), 'channel')
+      throw channelReject()
     }
     const nodeRange = value.engines?.node
-    if (nodeRange !== undefined && typeof nodeRange !== 'string') throw updateError('invalid-release')
+    if (nodeRange !== undefined && typeof nodeRange !== 'string') throw withKind(updateError('invalid-release'), 'shape')
     // #195：同 fetchNpmRelease——只取声明（engines.dsh），判定留给检查层。
     const dshRange = value.engines?.dsh
-    if (dshRange !== undefined && typeof dshRange !== 'string') throw updateError('invalid-release')
+    if (dshRange !== undefined && typeof dshRange !== 'string') throw withKind(updateError('invalid-release'), 'shape')
     const tarballText = value.dist?.tarball
     const integrity = value.dist?.integrity
     let tarball: URL
     try {
       tarball = new URL(String(tarballText))
     } catch {
-      throw updateError('invalid-release')
+      throw withKind(updateError('invalid-release'), 'shape')
     }
     const registryOrigin = new URL(registry).origin
     const shapeOk =
@@ -320,7 +397,7 @@ export async function fetchNpmVersionRelease(
       tarball.pathname.endsWith(tarballPathnameOf(targetName, version)) &&
       typeof integrity === 'string' &&
       new RegExp(INTEGRITY_PATTERN).test(integrity)
-    if (!shapeOk) throw updateError('invalid-release')
+    if (!shapeOk) throw withKind(updateError('invalid-release'), 'shape')
     return {
       version,
       nodeRange: typeof nodeRange === 'string' ? nodeRange : '*',
@@ -365,25 +442,31 @@ export async function fetchPackumentTimes(
       redirect: 'error',
       signal: timeoutSignal(timeoutMs),
     })
-  } catch {
+  } catch (error) {
     noteFetch(null, startedAt)
-    throw updateError('check-failed')
+    throw withKind(updateError('check-failed'), fetchFailureKind(error))
   }
   noteFetch(httpStatusOf(response), startedAt)
   try {
     if (!response.ok) throw checkFailedWithStatus(response)
     const declared = Number(response.headers.get('content-length'))
-    if (Number.isFinite(declared) && declared > MAX_PACKUMENT_BYTES) throw updateError('invalid-release')
-    const text = await response.text()
-    if (byteLength(text) > MAX_PACKUMENT_BYTES) throw updateError('invalid-release')
-    const value = JSON.parse(text) as {
+    if (Number.isFinite(declared) && declared > MAX_PACKUMENT_BYTES) throw withKind(updateError('invalid-release'), 'too-large')
+    let text: string
+    try {
+      text = await response.text()
+    } catch {
+      // 已连上但读正文断了（#211）：按网络层事实记，公开码仍是 invalid-release。
+      throw withKind(updateError('invalid-release'), 'network')
+    }
+    if (byteLength(text) > MAX_PACKUMENT_BYTES) throw withKind(updateError('invalid-release'), 'too-large')
+    const value = parseJsonBody(text) as {
       name?: unknown
       'dist-tags'?: { latest?: unknown }
       time?: unknown
     }
-    if (value.name !== targetName) throw updateError('invalid-release')
+    if (value.name !== targetName) throw withKind(updateError('invalid-release'), 'shape')
     const latest = value['dist-tags']?.latest
-    if (!validReleaseVersion(latest)) throw updateError('invalid-release')
+    if (!validReleaseVersion(latest)) throw withKind(updateError('invalid-release'), 'shape')
     const times: Record<string, number> = {}
     if (value.time && typeof value.time === 'object') {
       for (const [version, stamp] of Object.entries(value.time as Record<string, unknown>)) {
@@ -444,21 +527,27 @@ export async function fetchNpmChannelRelease(
       redirect: 'error',
       signal: timeoutSignal(timeoutMs),
     })
-  } catch {
+  } catch (error) {
     noteFetch(null, startedAt)
-    throw updateError('check-failed')
+    throw withKind(updateError('check-failed'), fetchFailureKind(error))
   }
   noteFetch(httpStatusOf(response), startedAt)
   try {
     if (!response.ok) throw checkFailedWithStatus(response)
     const declared = Number(response.headers.get('content-length'))
-    if (Number.isFinite(declared) && declared > MAX_PACKUMENT_BYTES) throw updateError('invalid-release')
-    const text = await response.text()
-    if (byteLength(text) > MAX_PACKUMENT_BYTES) throw updateError('invalid-release')
-    const value = JSON.parse(text) as { name?: unknown; versions?: unknown }
-    if (value.name !== targetName) throw updateError('invalid-release')
+    if (Number.isFinite(declared) && declared > MAX_PACKUMENT_BYTES) throw withKind(updateError('invalid-release'), 'too-large')
+    let text: string
+    try {
+      text = await response.text()
+    } catch {
+      // 已连上但读正文断了（#211）：按网络层事实记，公开码仍是 invalid-release。
+      throw withKind(updateError('invalid-release'), 'network')
+    }
+    if (byteLength(text) > MAX_PACKUMENT_BYTES) throw withKind(updateError('invalid-release'), 'too-large')
+    const value = parseJsonBody(text) as { name?: unknown; versions?: unknown }
+    if (value.name !== targetName) throw withKind(updateError('invalid-release'), 'shape')
     const versions = value.versions
-    if (!versions || typeof versions !== 'object') throw updateError('invalid-release')
+    if (!versions || typeof versions !== 'object') throw withKind(updateError('invalid-release'), 'shape')
     const registryOrigin = new URL(registry).origin
     let best: ReleaseInfo | null = null
     for (const [version, raw] of Object.entries(versions as Record<string, unknown>)) {
@@ -509,7 +598,7 @@ export async function fetchNpmChannelRelease(
         /* 版本形状已校验过；比较异常即放弃这条，保住已选中的 */
       }
     }
-    if (!best) throw withStage(updateError('invalid-release'), 'channel')
+    if (!best) throw channelReject()
     return best
   } catch (error) {
     if ((error as { code?: unknown })?.code === 'check-failed') throw error

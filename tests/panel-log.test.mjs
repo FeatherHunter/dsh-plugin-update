@@ -90,7 +90,7 @@ async function settled() {
   await new Promise((r) => setTimeout(r, 20))
 }
 
-test('挂载即三行：mount + lang.applied + state（都是稳定码，无一句人话）', async () => {
+test('挂载三行：lang.applied + state 先落，mount 等首刷后补（autoCheck=started）', async () => {
   const { ch, batches } = logChannel()
   const { call } = fakeCall()
   const panel = mountUpdatePanel(fakeContainer(), {
@@ -99,10 +99,18 @@ test('挂载即三行：mount + lang.applied + state（都是稳定码，无一�
     pollMs: 60000,
     clientLog: { channel: ch, mount: 'entry' },
   })
+  // #211 AC-2：挂载行要等首刷回来才判定 autoCheck，所以先等异步刷新落地再冲刷。
+  await settled()
   await ch.flush()
   const rows = rowsOf(batches)
   const mount = rows.find((r) => r.event === 'update.panel.mount')
-  assert.deepEqual(mount.fields, { mode: 'entry', theme: 'default', lang: 'zh', pollMs: 60000 })
+  assert.deepEqual(mount.fields, {
+    mode: 'entry',
+    theme: 'default',
+    lang: 'zh',
+    pollMs: 60000,
+    autoCheck: 'started',
+  })
   assert.equal(mount.level, 'info')
   const lang = rows.find((r) => r.event === 'update.lang.applied')
   assert.equal(lang.fields.lang, mount.fields.lang, '两条行说的是同一次语言判定')
@@ -142,6 +150,8 @@ test('调用方点名主题语言：mount/state 如实记，fallback=false', asy
     locale: 'en',
     clientLog: { channel: ch },
   })
+  // #211 AC-2：挂载行要等首刷回来才判定 autoCheck。
+  await settled()
   await ch.flush()
   const rows = rowsOf(batches)
   assert.deepEqual(rows.find((r) => r.event === 'update.panel.mount').fields, {
@@ -149,6 +159,7 @@ test('调用方点名主题语言：mount/state 如实记，fallback=false', asy
     theme: 'archive',
     lang: 'en',
     pollMs: 60000,
+    autoCheck: 'started',
   })
   assert.deepEqual(rows.find((r) => r.event === 'update.lang.applied').fields, { lang: 'en', source: 'override' })
   assert.deepEqual(rows.find((r) => r.event === 'update.panel.state').fields, {

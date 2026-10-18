@@ -1,6 +1,6 @@
 # 日志事件目录：19 环节 → 事件码 / 级别 / 档位 / 字段 / 脱敏
 
-- 日期：2026-10-14（**2026-10-15 契约回填**：本文件的「事件名 / 字段 / 取值」三处与随包清单、实现对齐；见文末 §7）
+- 日期：2026-10-14（**2026-10-15 契约回填**：本文件的「事件名 / 字段 / 取值」三处与随包清单、实现对齐；见文末 §7。**2026-10-19 二次回填（`#211`）**：五个事件的字段与枚举按随包清单一字回填，错误类别细化见 §8）
 - 本票：[规格定稿](https://github.com/FeatherHunter/dsh-plugin-update/issues/119)（地图 [本包全面集成 dsh-log 0.3.1](https://github.com/FeatherHunter/dsh-plugin-update/issues/117)）
 - 上游事实源：`docs/research/20261014-update-logging-inventory.md`（19 环节清单与逐条 `文件:行号`）、`docs/research/20261014-dsh-log-031-api.md`、`docs/research/20261014-dsh-host-logging-surface.md`
 - 立规的两份 ADR：[ADR-0005 运行期依赖与落盘归属](https://github.com/FeatherHunter/dsh-plugin-update/blob/main/docs/adr/0005-dsh-log-as-first-runtime-dependency.md)、[ADR-0006 行只承载稳定码](https://github.com/FeatherHunter/dsh-plugin-update/blob/main/docs/adr/0006-log-rows-carry-codes-not-prose.md)
@@ -21,10 +21,10 @@
 
 | 事件码 | 级别 | 字段白名单 | 说明与脱敏 |
 | --- | --- | --- | --- |
-| `update.wire.ready` | info | `logSink: 'external'\|'self'\|'off'`、`logDirHash` | 接线自陈（外部实例/自建/关）。目录只给 hash8，不给路径 |
-| `update.check.done` | info | `ok: true`、`current?`、`latest`、`channel`、`source`、`latencyMs` | 版本号经中央校验器规范化；`source` 只给白名单主机名（复用 `resolveRegistryHost`）、**不带路径与账号**。`current` 可选：运行版本未知时省略（不伪造版号） |
-| `update.check.fail` | warn | `stage: 'fetch'\|'compare'\|'channel'\|'verify'`、`errorKind`、`httpStatus?` | 稳定码，无自由文本。四个值都是**合法值**，但**实际可达三个**：`fetch`（取数失败，`src/service.ts:308`）、`channel`（通道判定不认，`:400/:463/:493` 的 `withStage(..., 'channel')`）、`verify`（`stageOfError()` 的兜底：非 `check-failed` 又没贴阶段）。`compare` 在白名单里但**没有生产者** |
-| `update.status.changed` | info | `kind: 'update-available'\|'up-to-date'\|'unknown'`、`latest?` | 轮询的**边沿**：状态没变就不发（见 §4） |
+| `update.wire.ready` | info | `logSink: 'external'\|'external-unverified'\|'self'\|'off'`、`logDirHash`、`updaterVersion`、`copyLevel`、`hostKind` | 接线自陈（外部实例 / 外部未验证 / 自建 / 关）。目录只给 hash8，不给路径。`updaterVersion`：此刻在说话的本包版本（读不到显式 null）；`copyLevel` 四值 `'profile'`（使用范围级）/`'nested'`（消费方嵌套副本）/`'repo'`（开发仓库）/`'unknown'`；`hostKind` 三值 `'desktop'`/`'desktop-manager'`/`'cli'`。外部落点门径非 `open` 时记 `external-unverified`，不冒充 `external`（门径 = 对方实例 `isEnabled(level, event)` 返回真布尔 `true`；给不出 `isEnabled`、调用抛错或返回 `false` 都算非 open）。注意 `false`（closed）时这一行会被对方准入当场跳过（它拒收的正是同一道门），现场可能**看不到任何接线行**——那时以回包 `logHealth.external` 为准。本包接线时只探门径，**不代查**对方有没有把本包事件清单 merge 进去（README 第 10 节第 ② 条自检） |
+| `update.check.done` | info | `ok: true`、`current?`、`latest`、`channel`、`source`、`latencyMs`、`blockedReason`、`fallback`、`dataSource` | 版本号经中央校验器规范化；`source` 只给白名单主机名（复用 `resolveRegistryHost`）、**不带路径与账号**；非默认 registry 且主机名不可写时落 `'custom'` 哨兵（只说明「不是默认源」，不泄露地址）。`current` 可选：运行版本未知时省略（不伪造版号，也不写 null）。`blockedReason`：检查完成后仍挡着安装的原因（`'none'` 或 11 个阻挡码之一）；`fallback: boolean`：这次取数是否走了通道回退；`dataSource: 'npm-version'\|'npm-channel'`：版本号来自正常取数还是通道回退（与 `fallback` 同源） |
+| `update.check.fail` | warn | `stage: 'fetch'\|'compare'\|'channel'\|'verify'`、`errorKind`、`httpStatus?`、`latencyMs`、`source` | 无自由文本。**`errorKind` 是失败类别**（十值：`timeout`/`network`/`dns`/`tls`/`http`/`bad-json`/`too-large`/`shape`/`channel`/`unknown`），**不是公开稳定码**——面板与诊断仍用 `code`，判定源见 §8.1。`latencyMs`：从发起取数到失败；`source`：出问题的 registry 主机名（白名单口径同 done 行；非默认源不可写时落 `'custom'`，拿不到时省略）。`stage` 四个值都是**合法值**，但**实际可达三个**：`fetch`（取数失败，`src/service.ts:308`）、`channel`（通道判定不认，`:400/:463/:493` 的 `withStage(..., 'channel')`）、`verify`（`stageOfError()` 的兜底：非 `check-failed` 又没贴阶段）。`compare` 在白名单里但**没有生产者** |
+| `update.status.changed` | info | `kind: 'update-available'\|'up-to-date'\|'unknown'`、`latest`、`runningVersion`、`installedVersion`、`registered`、`identity: 'update'\|'first-install'\|'up-to-date'\|'unknown'`、`blockedReason`、`unknownCause?` | 轮询的**边沿**：状态没变就不发（见 §4）；边沿键是整条真值元组（本行八格）的指纹，**任一分量变化发一条**。版本三格（`latest`/`runningVersion`/`installedVersion`）未知时**显式写 null**，不省成假值、不伪装版本号；`registered` 是在册事实（`boolean`，读不到显式 null）；`blockedReason` 固定给值（没挡写 `'none'`）；`identity` 固定给值（判定不了写 `'unknown'`）；`kind: 'unknown'` 时**必须**带 `unknownCause`（`'no-latest'` 没拿到最新版 / `'running-version-unknown'` 运行版未知 / `'compare-failed'` 比较失败），kind 已知时省略 `unknownCause` |
 | `update.install.request` | info | `from: 'panel'\|'entry'\|'batch'`、`current?`、`latest`、`checkAgeMs` | 不含凭证；`checkId`/`requestId` 不进日志（关联靠 `traceId`）。`current` 可选：运行版本未知时省略（不伪造版号） |
 | `update.install.verify` | info | `result: 'completed'\|'restart-required'\|'failed'\|'interrupted'`、`installedVersion`、`pendingRestart: boolean` | 枚举 + 版本号 |
 | `update.batch.entry.request` | info | `total`、`ownCount`、`foreignCount` | 只给数量，不给插件标识清单 |
@@ -33,10 +33,10 @@
 | `update.queue.transition` | info | `phase: 'queued'\|'running'\|'done'\|'reclaimed'`、`waitedMs?`、`position?` | 相位边沿，禁止每次轮询都发。相位是**队列自己的**三相位（取号 / 安装中 / 摘牌）加全局锁陈旧回收成功这一个真跃迁；`checking`/`installing`/`settling`/`idle` 是面板任务词，队列里没有这些相位（#124 落地时按实现收紧，见 §3.1） |
 | `update.lock.anomaly` | warn | `kind: 'stale-owner'\|'release-failed'`、`ageMs?` | 拥有者标识只记 hash8，不记原文。`busy-timeout` **不做**：本包两条抢锁路径都是「看一眼，不陈旧就当场认输」（`tryAcquireLock` 不等待；`tryAcquireGlobalLock` 的 `timeoutMs` 是**陈旧阈值**不是等待超时），没有「等到超时」这条路径，不为了凑齐词汇造一条（见 §3.1） |
 | `update.store.fail` | warn | `op: 'read-job'\|'write-job'\|'acquire-lock'\|'reclaim-stale-owner'\|'release-lock'\|'read-snapshot'\|'write-backup'\|'write-queue'\|'read-global-lock'\|'acquire-global-lock'\|'release-global-lock'`、`reason` | 现在 `catch {}` 静默吞的点。`op` 是**真正失败的那个动作**（比「state-read/state-write」粗归类更能定位）；`reason` 是 `error.code` 过白名单后的小写稳定码（`enoent`/`eacces`/`eexist`/… 共 25 个），拿不到码退 `'throw'`、连错误对象都不是退 `'unknown'`，绝不放 `message`/路径。同一操作**同一原因**连续失败只记首次（原因变了再记一条，成功即清）。`dirHash`/`ownerHash` 是清单里的可选格、**当前不发**：日志本来就按插件分目录（目录即定位），hash8 反向不可用，发了只是噪声 |
-| `update.panel.mount` | info | `mode`、`theme`、`lang`、`pollMs` | 全是枚举与数字。`mode` 的**可达四值**：`'entry'`（`src/entry.ts:590` 的 `clientLog:{mount:'entry'}`）、`'http'`（`src/http.ts:353` 的默认挂载点名）、以及没给挂载点名时退回的面板 `mode` 选项 `'embedded'\|'dialog'`（`src/panel.ts:41` `UpdatePanelMode`）。**`'batch'` / `'entry-batch'` 不可达**：批量两处挂载点都不传 `clientLog`，报的是面板 `mode`（批量面板传 `'dialog'`） |
-| `update.panel.action` | info | `action`、`bytes?`、`truncated?` | 取值**十一**个，与 `src/panel.ts:199-210` 的 `UpdatePanelActionKind` 一字不差：`'check'`、`'install'`、`'skip'`、`'reset-skip'`、`'copy-manual'`、`'copy-diag'`、`'toggle-queue'`、`'toggle-changelog'`、`'restart-hint'`、`'close-view'`、`'dismiss-failure'`。复制诊断只记体量与是否截断，**绝不记内容**（`bytes`/`truncated` 只跟着 `'copy-diag'` 走） |
-| `update.panel.render.fail` | error | `kind: 'container'\|'plugin-id'\|'call'\|'poll-ms'\|'mode'\|'theme'\|'unknown'` | 挂载校验 `throw` 的六种原因 + 渲染期兜底；无自由文本 |
-| `update.log.degraded` | warn | `reason: 'no-dsh-log'\|'lease-conflict'\|'write-fail'\|'emit-threw'\|'unknown-event'\|'unknown-field'\|'invalid-enum'`、`event?`、`field?` | selfmon：日志接线自己的坏消息。`#210` 起字段级漂移不再整行丢：摘掉该字段、整行照落，并记一条带 `event`/`field` 的降级行（两格只放清单内机器标识，非法形状打成 `<event>`/`<field>`，按「原因+事件+字段」只记首次）；未知事件仍整行不落盘。清单顶层 `fieldEnums` 是枚举值的机器声明 |
+| `update.panel.mount` | info | `mode`、`theme`、`lang`、`pollMs`、`autoCheck` | 全是枚举与数字。`mode` 的**可达四值**：`'entry'`（`src/entry.ts:590` 的 `clientLog:{mount:'entry'}`）、`'http'`（`src/http.ts:353` 的默认挂载点名）、以及没给挂载点名时退回的面板 `mode` 选项 `'embedded'\|'dialog'`（`src/panel.ts:41` `UpdatePanelMode`）。**`'batch'` / `'entry-batch'` 不可达**：批量两处挂载点都不传 `clientLog`，报的是面板 `mode`（批量面板传 `'dialog'`）。`autoCheck` 记这面面板/按钮会话挂载后**自动检查有没有跑**：`'started'`（自动查已发起）/ `'recent'`（首刷快照显示 job 在 installing/verifying 或已有动作在飞，再查只会得到同一结论，跳过）/ `'disabled'`（调用方显式关掉自动检查）/ `'failed'`（首刷失败、没拿到状态，自动检查没跑成）；面板行在首次刷新完成或失败之后才发，保证记的是事实而不是预告；安装按钮同口径——`autoCheck:'mount'` 时挂载行等首刷（含首刷触发的自动查）落定后按事实写 `'started'` / `'recent'` / `'failed'`（语义同面板行），`autoCheck:'never'` 时写 `'disabled'` 且不刷新、零请求 |
+| `update.panel.action` | info | `action`、`bytes?`、`truncated?`、`ok`、`errorKind?`、`durationMs`、`errorHash?` | `action` 取值**十一**个，与 `src/panel.ts:199-210` 的 `UpdatePanelActionKind` 一字不差：`'check'`、`'install'`、`'skip'`、`'reset-skip'`、`'copy-manual'`、`'copy-diag'`、`'toggle-queue'`、`'toggle-changelog'`、`'restart-hint'`、`'close-view'`、`'dismiss-failure'`。复制诊断只记体量与是否截断，**绝不记内容**（`bytes`/`truncated` 只跟着 `'copy-diag'` 走）。`ok`：这次点击的结局（成功 `true`；失败 `false`）；`errorKind`：失败类别——锁存稳定码、动作直接抛错记 `'thrown'`、已有动作在途被拒记 `'busy'`，成功时省略；`durationMs`：从点击到动作落定（含提前 return 的分支）；`errorHash`：失败原文的 8 位指纹，**不落原话** |
+| `update.panel.render.fail` | error | `kind: 'container'\|'plugin-id'\|'call'\|'prefix'\|'poll-ms'\|'mode'\|'auto-check'\|'theme'\|'theme-tokens'\|'locale'\|'render'\|'transport'\|'uncaught'\|'unhandled'`、`phase: 'mount'\|'paint'\|'poll'\|'global'`、`errorHash` | 挂载校验、绘制、轮询与全局兜底的四相位失败；无自由文本，`errorHash` 是原话的 8 位指纹（不落原文）。同一 `phase\|kind\|errorHash` 60 秒内至多一行 |
+| `update.log.degraded` | warn | `reason: 'no-dsh-log'\|'lease-conflict'\|'write-fail'\|'emit-threw'\|'unknown-event'\|'unknown-field'\|'invalid-enum'\|'client-batch-refused'\|'client-drop-overflow'\|'client-drop-host-refused'\|'client-drop-send-failed'\|'client-drop-disposed'`、`event?`、`field?` | selfmon：日志接线自己的坏消息。`#210` 起字段级漂移不再整行丢：摘掉该字段、整行照落，并记一条带 `event`/`field` 的降级行（两格只放清单内机器标识，非法形状打成 `<event>`/`<field>`，按「原因+事件+字段」只记首次）；未知事件仍整行不落盘。`#214` 起再加客户端丢弃与宿主拒收五类（`client-*`：每因终身至多一条；`client-drop-no-channel` 物理上无投递面，只进内部分计数、不上浮）。清单顶层 `fieldEnums` 是枚举值的机器声明 |
 
 ## 2. 按需（ondemand，开关打开才落）
 
@@ -85,8 +85,8 @@
 | 环节 | 事件 | 唯一落点（函数） | 状态 |
 | --- | --- | --- | --- |
 | ② | `update.check.start` | `src/host.ts` 检查电话包装（调用方报了 `trigger` 才发；面板/入口的「自动」由 #122 在客户端自报） | ✅ 宿主侧可选入参 |
-| ③ | `update.check.done` / `update.check.fail` | `src/service.ts` 核心 `check()`（`stage` 四个合法值 `fetch`/`compare`/`channel`/`verify`，取数阶段钉在错误对象上；`httpStatus` 只有真拿到状态码才有）。**可达三值**：`fetch`（`:308`）、`channel`（`:400/:463/:493`）、`verify`（`stageOfError()` 兜底）；`compare` 无生产者 | ✅ |
-| ④ | `update.registry.fetch` | `src/service.ts` `makeFetchNoter()`（两个取数函数共用；`/http` 变体走 #122，Node 侧不重复发） | ✅（`cacheHit` 已从清单删除，见下） |
+| ③ | `update.check.done` / `update.check.fail` | `src/service.ts` 核心 `check()`（`stage` 四个合法值 `fetch`/`compare`/`channel`/`verify`，取数阶段钉在错误对象上；`httpStatus` 只有真拿到状态码才有）。**可达三值**：`fetch`（`:308`）、`channel`（`:400/:463/:493`）、`verify`（`stageOfError()` 兜底）；`compare` 无生产者。`#211` 起 `check.done` 另带 `blockedReason`/`fallback`/`dataSource`，`check.fail` 另带 `latencyMs`/`source` 且 `errorKind` 改失败类别（见 §8） | ✅ |
+| ④ | `update.registry.fetch` | `src/service.ts` 的取数路径（正常取数 + 通道回退，共用 `makeFetchNoter()`）与 `src/changelog-io.ts` 的更新说明 tarball 取数（`#211` 接入：成功 / 失败 / 非 2xx 都发，宿主 `readChangelog` 注入 `emitLog`；`/http` 变体走 #122，Node 侧不重复发） | ✅（`cacheHit` 已从清单删除，见下） |
 | ⑤ | `update.channel.decide` | `src/service.ts` 核心 `noteChannelDecision()`（一次成功检查一条；`reason` 四值 `stable`/`prerelease`/`mismatch`/`invalid`） | ✅ |
 | ⑥ | `update.changelog.parse` | `src/host.ts` 变更日志电话包装（**`source` 恒 `'npm'`**，`src/host.ts:1071` 写死；`entries`/`truncated`/`degraded` 来自 `parseChangelogReport()`） | ✅ |
 | ⑦ | `update.install.request` | `src/service.ts` 核心 `install()`（过闸门之后、开工之前一条） | ✅ |
@@ -174,3 +174,34 @@
 - **跨进程租约**：实测两个进程各写 1200 行 × ~3 KB 到同一目录，**2400 条一条不少**；引擎发 `log.persist.fail{reason:'foreign-write'}`（`warn`，恒放行）可事后诊断，重试缓冲不丢行。这是引擎**有意**的设计（「跨进程可观测」），不是缺陷。
 - **清单合并上游化**（`mergeUpdateEvents` 交给 dsh-log 做）：本包已有纯函数实现，属策略问题不是能力缺口。
 - **开关热更新**：dsh-log 的开关是**实例级闩锁**（`switch-file.js:25-28` `if (switchLoaded) return getSwitchState()`），改 JSON 是重启级旋钮；且上游口径是「对账以宿主为准」。本包 ADR-0005 已把自己定为**只当客人**，不自建开关通道。
+
+## 8. 二次回填（2026-10-19）：`#211` 的五个事件取值
+
+本文件 §1 的五行为准的字段白名单已按随包清单改写：**只扩字段与取值，不改事件名与档位归属**（条目总数与常驻/按需/自监控分布不变）。完整清单逐条现状以 `event-list.update.json` 为准。
+
+### 8.1 `errorKind`：失败类别，不是公开稳定码
+
+`update.check.fail.errorKind` 从「稳定码」改为**失败类别**（十值），判定分两层：`src/registry-fetch.ts` 在抛错处贴内部成因标记，`src/check-conclusion.ts` 的纯函数做映射，认不出写 `unknown`。
+
+| 类别 | 含义 |
+| --- | --- |
+| `timeout` | 取数超时（宿主侧时限） |
+| `network` | 连接失败 / 连接断开（非 DNS、非 TLS） |
+| `dns` | 域名解析失败 |
+| `tls` | 证书 / TLS 握手失败 |
+| `http` | 拿到了非成功状态码（状态码另见 `httpStatus`） |
+| `bad-json` | 响应体不是合法 JSON |
+| `too-large` | 响应体超过大小上限 |
+| `shape` | JSON 合法但形状不对（缺字段 / 类型不对） |
+| `channel` | 通道判定不认（预发布 / 通道不匹配等） |
+| `unknown` | 认不出来的兜底 |
+
+**它不是公开稳定码**：错误码（`code`）仍是面板回包、诊断文本与对外文案的判据；`errorKind` 只回答「哪一类失败」，不承诺与 `code` 同级的长期稳定性，面板/诊断分支一律继续用 `code`。
+
+### 8.2 其余四个事件的取值口径
+
+- `update.wire.ready`：`logSink` 扩 `'external-unverified'`（外部落点门径非 `open` 时记它，不冒充 `'external'`；门径 = 对方实例 `isEnabled(level, event)` 返回真布尔 `true`，给不出 `isEnabled`、调用抛错或返回 `false` 都算非 open——与 README 第 10 节的两条自检同口径）。`closed` 时这一行会被对方准入跳过，现场只能靠回包 `logHealth.external` 分辨「明确没放行」；本包接线时**不代查** merge 事件清单。新增 `updaterVersion`（`ownPackageVersion()`，读不到显式 null）、`copyLevel`（`selfCopyLevelOf(packageRoot())`，四值）、`hostKind`（与读取器同一取法：`profileDir` 最后一段归一出使用范围名 → `detectEnvironmentKind()`，三值）。`self` / `off` 两支同样带这三格；每次接线仍只有一条。
+- `update.check.done`：新增 `blockedReason`（`'none'` 或阻挡码）、`fallback: boolean`、`dataSource`（`'npm-version'` / `'npm-channel'`）；`current` 维持「运行版本未知则省略」口径（不写 null）；`source` 非默认 registry 且主机名不可写时落 `'custom'`（`check.fail.source` 同口径）。
+- `update.status.changed`：八格真值元组即边沿键；版本三格未知显式 null；`blockedReason` 缺省 `'none'`、`identity` 缺省 `'unknown'`；`kind:'unknown'` 必带 `unknownCause`（三值），kind 已知时省略 `unknownCause`。
+- `update.panel.mount`：新增 `autoCheck`（`'started'` / `'recent'` / `'disabled'` / `'failed'`）；面板行挪到首次刷新完成/失败之后发，保证「这面面板到底跑没跑自动检查」是事实而不是预告。安装按钮侧同口径：`autoCheck: 'mount'` 时挂载行也等首刷（含首刷触发的自动查）落定后按事实记四态，`autoCheck: 'never'` 记 `'disabled'` 且不刷新、零请求。
+- `update.registry.fetch`（按需）：`#211` 起两个原先没留行的取数场景接上发射口——通道回退取数与更新说明 tarball 取数（`src/changelog-io.ts`），两处都只记 `httpStatus` / `latencyMs` / 白名单 `registryHost`，失败也发。它是**按需**事件：默认开关关着时不落盘；常驻的 `check.done.fallback` / `dataSource` 仍能回答「这次走没走回退」（版本回退的取数证据在默认现场不消失）。

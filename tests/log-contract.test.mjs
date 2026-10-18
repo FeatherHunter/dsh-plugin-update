@@ -22,6 +22,7 @@ const gate = await import('../dist/gate.js')
 const log = await import('../dist/log/index.js')
 const logManifest = await import('../dist/log/manifest.js')
 const hostMod = await import('../dist/host.js')
+const codes = await import('../dist/codes.js')
 
 const { parseEventListManifest, pruneEventFields, lintEventList, mergeUpdateEvents } = gate
 const {
@@ -397,7 +398,12 @@ describe('#210 随包清单本身带上机器表达', () => {
 
   it('至少三类高频字段的枚举随清单发布（可被第二家与门禁读到）', () => {
     const raw = JSON.parse(readFileSync(join(PKG_DIR, 'event-list.update.json'), 'utf8'))
-    assert.deepEqual(raw.fieldEnums['update.wire.ready'].logSink, ['external', 'self', 'off'])
+    assert.deepEqual(raw.fieldEnums['update.wire.ready'].logSink, [
+      'external',
+      'external-unverified',
+      'self',
+      'off',
+    ])
     assert.deepEqual(raw.fieldEnums['update.install.verify'].result, [
       'completed',
       'restart-required',
@@ -410,21 +416,17 @@ describe('#210 随包清单本身带上机器表达', () => {
     const built = await log.buildUpdateManifest('third-party-plugin')
     assert.ok(built.manifest)
     assert.equal(built.manifest.pluginId, 'third-party-plugin')
-    assert.deepEqual(built.manifest.fieldEnums['update.wire.ready'].logSink, ['external', 'self', 'off'])
-    assert.deepEqual(built.manifest.fieldEnums['update.log.degraded'].reason, [
-      'no-dsh-log',
-      'lease-conflict',
-      'write-fail',
-      'emit-threw',
-      'unknown-event',
-      'unknown-field',
-      'invalid-enum',
-      'client-batch-refused',
-      'client-drop-overflow',
-      'client-drop-host-refused',
-      'client-drop-send-failed',
-      'client-drop-disposed',
+    assert.deepEqual(built.manifest.fieldEnums['update.wire.ready'].logSink, [
+      'external',
+      'external-unverified',
+      'self',
+      'off',
     ])
+    // 原因枚举的权威在随包清单本身：这里只验「发布出来的那一跳没丢值」，
+    // 不硬编码清单内容（#214 增删原因时不必回来改本断言）。
+    const rawReasons = JSON.parse(readFileSync(join(PKG_DIR, 'event-list.update.json'), 'utf8'))
+      .fieldEnums['update.log.degraded'].reason
+    assert.deepEqual(built.manifest.fieldEnums['update.log.degraded'].reason, rawReasons)
   })
 
   it('交给 dsh-log 的清单（条目形状）不被顶层扩展键破坏', async () => {
@@ -436,5 +438,108 @@ describe('#210 随包清单本身带上机器表达', () => {
     const accepted = dshConfig.parseEventListManifest(built.manifest)
     assert.equal(accepted.pluginId, 'third-party-plugin')
     assert.equal(Object.keys(accepted.events).length, Object.keys(built.manifest.events).length)
+  })
+})
+
+describe('#211 多源真相字段一次补齐（状态/检查/接线/挂载）', () => {
+  const raw = JSON.parse(readFileSync(join(PKG_DIR, 'event-list.update.json'), 'utf8'))
+  const enums = (event) => raw.fieldEnums[event] ?? {}
+
+  it('status.changed 八格真值：运行版/磁盘版/在册/身份/阻挡原因/未知原因', () => {
+    assert.deepEqual(raw.events['update.status.changed'].fields, [
+      'kind',
+      'latest',
+      'runningVersion',
+      'installedVersion',
+      'registered',
+      'identity',
+      'blockedReason',
+      'unknownCause',
+    ])
+    assert.deepEqual(enums('update.status.changed').kind, ['update-available', 'up-to-date', 'unknown'])
+    assert.deepEqual(enums('update.status.changed').identity, [
+      'update',
+      'first-install',
+      'up-to-date',
+      'unknown',
+    ])
+    assert.deepEqual(enums('update.status.changed').blockedReason, ['none', ...codes.BLOCKED_REASONS])
+    assert.deepEqual(enums('update.status.changed').unknownCause, [
+      'no-latest',
+      'running-version-unknown',
+      'compare-failed',
+    ])
+  })
+
+  it('check.done 带阻挡与回退、数据源枚举；check.fail 带延迟与数据源、错误类别细化', () => {
+    assert.deepEqual(raw.events['update.check.done'].fields, [
+      'ok',
+      'current',
+      'latest',
+      'channel',
+      'source',
+      'latencyMs',
+      'blockedReason',
+      'fallback',
+      'dataSource',
+    ])
+    assert.deepEqual(enums('update.check.done').blockedReason, ['none', ...codes.BLOCKED_REASONS])
+    assert.deepEqual(enums('update.check.done').dataSource, ['npm-version', 'npm-channel'])
+    assert.deepEqual(raw.events['update.check.fail'].fields, [
+      'stage',
+      'errorKind',
+      'httpStatus',
+      'latencyMs',
+      'source',
+    ])
+    // 日志专用失败类别：不得混入公开稳定码（面板/诊断仍按 code 分支，ADR-0006）。
+    assert.deepEqual(enums('update.check.fail').errorKind, [
+      'timeout',
+      'network',
+      'dns',
+      'tls',
+      'http',
+      'bad-json',
+      'too-large',
+      'shape',
+      'channel',
+      'unknown',
+    ])
+    const stable = new Set([...codes.STABLE_CODES, ...codes.CORE_ERROR_CODES])
+    for (const kind of enums('update.check.fail').errorKind) {
+      assert.ok(!stable.has(kind), `errorKind ${kind} 不得是公开稳定码`)
+    }
+  })
+
+  it('wire.ready 带更新器版本/副本层级/宿主形态；logSink 能记外部落点未验证', () => {
+    assert.deepEqual(raw.events['update.wire.ready'].fields, [
+      'logSink',
+      'logDirHash',
+      'updaterVersion',
+      'copyLevel',
+      'hostKind',
+    ])
+    assert.deepEqual(enums('update.wire.ready').logSink, ['external', 'external-unverified', 'self', 'off'])
+    assert.deepEqual(enums('update.wire.ready').copyLevel, ['profile', 'nested', 'repo', 'unknown'])
+    assert.deepEqual(enums('update.wire.ready').hostKind, ['desktop', 'desktop-manager', 'cli'])
+  })
+
+  it('panel.mount 带自动检查状态（四值）', () => {
+    assert.deepEqual(raw.events['update.panel.mount'].fields, ['mode', 'theme', 'lang', 'pollMs', 'autoCheck'])
+    assert.deepEqual(enums('update.panel.mount').autoCheck, ['started', 'recent', 'disabled', 'failed'])
+  })
+
+  it('新枚举不改变事件档位与总数（27 = 20 常驻 / 6 按需 / 1 自监控）', () => {
+    assert.equal(raw.events['update.status.changed'].kind, 'resident')
+    assert.equal(raw.events['update.status.changed'].level, 'info')
+    assert.equal(raw.events['update.check.done'].kind, 'resident')
+    assert.equal(raw.events['update.check.fail'].kind, 'resident')
+    assert.equal(raw.events['update.check.fail'].level, 'warn')
+    assert.equal(raw.events['update.wire.ready'].kind, 'resident')
+    assert.equal(raw.events['update.panel.mount'].kind, 'resident')
+    const counts = gate.computeEventCounts(raw)
+    assert.deepEqual(counts, { resident: 20, ondemand: 6, selfmon: 1 })
+    assert.equal(counts.resident + counts.ondemand + counts.selfmon, 27)
+    assert.deepEqual(lintEventList(parseEventListManifest(raw)).red, [])
   })
 })
