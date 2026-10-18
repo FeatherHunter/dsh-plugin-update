@@ -469,11 +469,16 @@ describe('日志内核：面板侧只许引用无 node: 依赖的纯类型与客
     }
   })
 
-  it('客户端通道自己不带 node: 依赖，面板真的接了它（#122）', () => {
+  it('客户端日志壳自己不带 node: 依赖，两面面板都经它报日志（#122/#208）', () => {
     const channel = readFileSync(join(PKG_DIR, 'src', 'log', 'client-queue.ts'), 'utf8')
     assert.ok(!/from\s+['"]node:/.test(channel), '客户端通道必须浏览器安全：不许碰 node: 内建')
-    const panel = readFileSync(join(PKG_DIR, 'src', 'panel.ts'), 'utf8')
-    assert.match(panel, /from\s+['"]\.\/log\/client-queue\.js['"]/, '面板要经客户端通道报日志')
+    const shell = readFileSync(join(PKG_DIR, 'src', 'log', 'panel-client.ts'), 'utf8')
+    assert.ok(!/from\s+['"]node:/.test(shell), '客户端日志壳必须浏览器安全：不许碰 node: 内建')
+    assert.match(shell, /from\s+['"]\.\/client-queue\.js['"]/, '壳要经客户端通道报日志')
+    for (const name of ['panel.ts', 'panel-batch.ts']) {
+      const panel = readFileSync(join(PKG_DIR, 'src', name), 'utf8')
+      assert.match(panel, /from\s+['"]\.\/log\/panel-client\.js['"]/, `${name} 要经共享日志壳报日志`)
+    }
   })
 
   it('内核里只有登记表一处动态 import dsh-log/node（运行期唯一外部依赖）', () => {

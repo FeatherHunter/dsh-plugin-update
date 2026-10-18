@@ -89,6 +89,11 @@
     "prepack": "npm run build",
     "pretest": "npm run build",
     "test": "node --test tests/*.test.mjs",
+    "test:batch": "node --test \"tests/batch-*.test.mjs\" \"tests/panel-batch*.test.mjs\" \"tests/entry-batch.test.mjs\"",
+    "smoke:log": "npm run build && node scripts/log-smoke.mjs",
+    "docs:log": "node scripts/gen-log-catalog.mjs",
+    "docs:log:check": "node scripts/gen-log-catalog.mjs --check",
+    "check": "npm run typecheck && npm run build && node --test tests/*.test.mjs && npm run gate:bilingual",
     "gate:bilingual": "node scripts/bilingual-gate.mjs",
     "gate:bilingual:release": "node scripts/bilingual-gate.mjs --release"
   },

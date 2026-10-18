@@ -18,9 +18,6 @@
  */
 import { describe, it, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
 import { createBatchSession } from '../dist/batch.js'
 import { runBatch } from '../dist/batch-run.js'
 import { hash8 } from '../dist/hash.js'
@@ -28,124 +25,19 @@ import { createMultiHostUpdate } from '../dist/host-batch.js'
 import { pruneEventFields } from '../dist/gate.js'
 import { __resetSharedUpdateReaderForTests } from '../dist/host.js'
 import { currentUpdateEventTable, primeUpdateEventTable } from '../dist/log/manifest.js'
-import { updateLogRouter } from '../dist/log/router.js'
-import { queuePathsForUpdate } from '../dist/store.js'
-
-/** 构造期用的静默落点：真正要断言的落点在构造之后再按插件标识绑上。 */
-const SILENT = { fire: () => {} }
-
-/** 本文件绑过的插件标识，收尾逐个解绑（路由表是进程级的，别漏给同进程的其它文件）。 */
-const bound = []
-
-function bind(pluginId, sink) {
-  updateLogRouter.bind(pluginId, sink)
-  bound.push(pluginId)
-}
-
-/** 一份行收集器：写下来的就是发射口真发出去、路由真送到的那些行。 */
-function collector() {
-  const rows = []
-  return { rows, sink: { fire: (level, event, fields) => rows.push({ level, event, fields }) } }
-}
-
-function rowsOf(store, event) {
-  return store.rows.filter((row) => row.event === event)
-}
-
-/** 假传输：按目标键给读数，顺带把每次调用报给 onCall（假时钟靠它走）。 */
-function fakeTransport(script, onCall) {
-  return {
-    check: async (key) => {
-      onCall?.()
-      return script[key]?.check ?? { kind: 'current' }
-    },
-    install: async (key) => {
-      onCall?.()
-      return script[key]?.install ?? { kind: 'done', restartRequired: false }
-    },
-  }
-}
-
-/** 一个批量目标：键是会话内稳定键，tag 只用来拼包名/前缀/插件标识（键可能是路径，不能当标识）。 */
-function mkTarget(key, tag = key) {
-  return { key, title: key, packageName: 'pkg-' + tag, prefix: 'p-' + tag, pluginId: 'plugin-' + tag }
-}
-
-/** 真临时目录当使用范围：会话账本落这儿，不碰真机家目录。 */
-async function mkScope() {
-  const dir = await mkdtemp(join(tmpdir(), 'batch-log-'))
-  return { dir, scope: { homeDir: dir, profileDir: dir } }
-}
-
-function phaseOf(session, key) {
-  return session.entries.find((entry) => entry.key === key)?.phase ?? null
-}
-
-/**
- * 真路径假读侧：让一家真走到装（真查、真提交、真等收尾）。
- * `runInstall` 决定「装」的结局：挂起 = 等收尾超时；抛错 = 装到终态才失败。
- */
-function installOverrides(dir, targetName, runInstall) {
-  const registry = 'https://registry.npmjs.org/'
-  let installed = '1.0.0'
-  let job = null
-  let clock = 1000000
-  return {
-    runningVersion: '1.0.0',
-    profileDir: dir,
-    homeDir: dir,
-    profileName: 'web',
-    environmentKind: 'cli',
-    nodeVersion: '22.0.0',
-    targetPackageName: targetName,
-    fetchImpl: async () => ({
-      ok: true,
-      headers: { get: () => null },
-      text: async () =>
-        JSON.stringify({
-          name: targetName,
-          version: '2.0.0',
-          engines: { node: '>=22' },
-          dist: {
-            tarball: registry + targetName + '/-/' + targetName + '-2.0.0.tgz',
-            integrity: 'sha512-' + 'A'.repeat(86) + '==',
-          },
-        }),
-    }),
-    now: () => (clock += 10),
-    randomId: (() => {
-      let n = 0
-      return () => 'id-' + (n += 1)
-    })(),
-    readInstalled: async () => ({
-      profileName: 'web',
-      environmentKind: 'cli',
-      homeDir: dir,
-      profileDir: dir,
-      installedVersion: installed,
-      packageValid: true,
-      sourceInstall: false,
-      blockedReason: null,
-      installationKey: 'key-1',
-      eligible: true,
-    }),
-    readJob: async () => job,
-    writeJob: async (value) => {
-      job = value
-    },
-    tryAcquireLock: async () => true,
-    releaseLock: async () => {},
-    backupJob: async () => {},
-    runInstall,
-  }
-}
-
-/** 往真队列目录里手写一份排队状态（别家占着队首）：不注入 readQueue/writeQueue 才会走批量共享端口。 */
-async function seedQueue(dir, waiting) {
-  const paths = queuePathsForUpdate(dir, dir)
-  await mkdir(dirname(paths.file), { recursive: true })
-  await writeFile(paths.file, JSON.stringify({ version: 1, owner: null, waiting }), 'utf8')
-}
+import {
+  SILENT,
+  bind,
+  collector,
+  fakeTransport,
+  installOverrides,
+  mkScope,
+  mkTarget,
+  phaseOf,
+  rowsOf,
+  seedQueue,
+  unbindAll,
+} from './helpers/batch-log-harness.mjs'
 
 beforeEach(() => {
   __resetSharedUpdateReaderForTests()
@@ -154,7 +46,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  while (bound.length > 0) updateLogRouter.unbind(bound.pop())
+  unbindAll()
 })
 
 describe('#124 批量侧常驻事件', () => {

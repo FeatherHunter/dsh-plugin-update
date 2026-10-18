@@ -13,59 +13,24 @@
  */
 import { describe, it, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { createBatchSession } from '../dist/batch.js'
 import { hash8 } from '../dist/hash.js'
 import { createMultiHostUpdate } from '../dist/host-batch.js'
 import { __resetSharedUpdateReaderForTests } from '../dist/host.js'
 import { primeUpdateEventTable } from '../dist/log/manifest.js'
-import { updateLogRouter } from '../dist/log/router.js'
 import { batchPathsForOwner } from '../dist/store.js'
-
-/** 构造期用的静默落点：真正要断言的落点在构造之后再按插件标识绑上。 */
-const SILENT = { fire: () => {} }
-
-/** 本文件绑过的插件标识，收尾逐个解绑（路由表是进程级的）。 */
-const bound = []
-
-function bind(pluginId, sink) {
-  updateLogRouter.bind(pluginId, sink)
-  bound.push(pluginId)
-}
-
-function collector() {
-  const rows = []
-  return { rows, sink: { fire: (level, event, fields) => rows.push({ level, event, fields }) } }
-}
-
-function rowsOf(store, event) {
-  return store.rows.filter((row) => row.event === event)
-}
-
-/** 假传输：按目标键给读数，顺带把每次调用报给 onCall（假时钟靠它走）。 */
-function fakeTransport(script, onCall) {
-  return {
-    check: async (key) => {
-      onCall?.()
-      return script[key]?.check ?? { kind: 'current' }
-    },
-    install: async (key) => {
-      onCall?.()
-      return script[key]?.install ?? { kind: 'done', restartRequired: false }
-    },
-  }
-}
-
-function mkTarget(key, tag = key) {
-  return { key, title: key, packageName: 'pkg-' + tag, prefix: 'p-' + tag, pluginId: 'plugin-' + tag }
-}
-
-async function mkScope() {
-  const dir = await mkdtemp(join(tmpdir(), 'batch-session-'))
-  return { dir, scope: { homeDir: dir, profileDir: dir } }
-}
+import {
+  SILENT,
+  bind,
+  collector,
+  fakeTransport,
+  mkScope,
+  mkTarget,
+  rowsOf,
+  unbindAll,
+} from './helpers/batch-log-harness.mjs'
 
 /** 从盘上读回属主的批量账本（「跨重启还能不能串起来」看的就是这份）。 */
 async function readDiskSession(dir, owner = 'life') {
@@ -85,12 +50,12 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  while (bound.length > 0) updateLogRouter.unbind(bound.pop())
+  unbindAll()
 })
 
 describe('#208 同一批的会话串联', () => {
   it('入队 / 失败 / 总账三个落点共用一个 sessionHash，总账与 lastRun 同口径', async () => {
-    const { scope } = await mkScope()
+    const { scope } = await mkScope('batch-session-')
     // 顺序 [a,b,self]：a 装成、b 装失败、self 已最新 → ok 2 / failed 1 / total 3。
     const host = createMultiHostUpdate(
       {
@@ -144,7 +109,7 @@ describe('#208 同一批的会话串联', () => {
   })
 
   it('重启后续跑：盘上会话号不变，查失败 / 装失败各落一条且 stage、index 对位', async () => {
-    const { dir, scope } = await mkScope()
+    const { dir, scope } = await mkScope('batch-session-')
     // 模拟「上一进程被打断」：盘上留着一批 pending 的账本，id 就是重连后要认出的那个号。
     const disk = createBatchSession({
       id: 'session-208',
@@ -213,7 +178,7 @@ describe('#208 同一批的会话串联', () => {
   })
 
   it('没有属主：批量级一行不发，但会话照样推进、账本照样落盘', async () => {
-    const { dir, scope } = await mkScope()
+    const { dir, scope } = await mkScope('batch-session-')
     const host = createMultiHostUpdate(
       { scope, logCtx: SILENT, transport: fakeTransport({}) },
       { prefix: 'life', targets: [mkTarget('a'), mkTarget('b')] },
@@ -247,7 +212,7 @@ describe('#208 同一批的会话串联', () => {
   })
 
   it('落点自身抛错不影响驱动结果（日志是旁路）', async () => {
-    const { scope } = await mkScope()
+    const { scope } = await mkScope('batch-session-')
     const host = createMultiHostUpdate(
       {
         scope,

@@ -94,7 +94,7 @@ npm publish
 `package.json` 的 `files` 共 7 项：`dist`、`derive-client-values.mjs`、`event-list.template.json`、`event-list.update.json`、`README.md`、`CHANGELOG.md`、`LICENSE`（另加隐含的 `package.json`；`dist` 是目录，**src 下每个 TS 都会带上对应 JS 与 `.d.ts`**——加模块不必改白名单，但要跑一次 `npm publish --dry-run` 核对文件数）。
 
 包出口共 11 个子路径：`.`（宿主侧）、`./log`（日志内核：派生命名空间 / 登记表 / 路由 / 唯一发射口 / 随包事件表 / 客户端通道）、`./panel`、`./client`、`./batch`（多目标批量宿主入口）、`./panel-batch`（批量面板）、`./entry`（更新入口件）、`./entry-batch`（批量感知入口件：一颗按钮看 N 家聚合，点开即批量面板）、`./install-button`（安装按钮控件：一颗按钮原地装好一家，判定文案与面板同一口径）、`./http`（HTTP 万能插头：createHttpCall 单五电话 + 批量五电话同一内核 + 面板/入口/批量面板直挂）、`./package.json`。新增能力一律**新开子路径**，不改既有入口的形状。
-其中浏览器安全面只有 `src/log/client-queue.ts`（零 `node:` 依赖）与 `src/log/{sink,router}.ts`：`panel.ts` 只许运行期引 `./log/client-queue.js`，其余 `src/log/**` 只许 `import type`（`tests/log-kernel.test.mjs` 会红）。
+其中浏览器安全面只有 `src/log/client-queue.ts`、`src/log/panel-client.ts`（单面板与批量面板共用的客户端日志壳；零 `node:` 依赖）与 `src/log/{sink,router}.ts`：`panel.ts` / `panel-batch.ts` 只许运行期引 `./log/panel-client.js`（壳内部再引 client-queue），其余 `src/log/**` 只许 `import type`（`tests/log-kernel.test.mjs` 会红）。
 加新文件进包时同步改 `files`，并重跑 `npm publish --dry-run` 确认文件数。
 
 ## 本包门禁
@@ -104,6 +104,23 @@ npm publish
 ```sh
 node --test tests/*.test.mjs
 ```
+
+### 开发工具（减少重复劳动，#208 复盘）
+
+改日志/批量相关代码前先读 `docs/agents/architecture.md`（链路图、地标表、改一个事件的三处配方）；它由 `AGENTS.md` 指到。常用快捷命令（`package.json` 已接线）：
+
+```sh
+npm run typecheck        # tsc，最快
+npm run test:batch       # 批量/面板定向（batch-*.test.mjs + panel-batch* + entry-batch）
+npm run smoke:log        # 真 dist 六场景端到端日志冒烟（scripts/log-smoke.mjs）
+npm run docs:log         # 从 event-list.update.json 生成事件目录 §1/§2 表机器列
+npm run docs:log:check   # 只查漂移（漂移则退出码 1）
+npm run check            # typecheck + build + 全量测试 + 双语门禁，提交前跑
+```
+
+- **事件目录生成范围**：`scripts/gen-log-catalog.mjs` 按表头精确识别 §1 常驻表与 §2 按需表（两张表头逐字相同），只重写事件/级别/字段三列，「说明与脱敏」列逐字保留；清单里有、目录里缺的事件只警告（走 stderr、不失败，缺行属 #206 回填范围）。改了语义列或表结构后先跑 `--check` 看漂移面，再决定是否手工补行。
+- **测试夹具**：批量日志测试共用 `tests/helpers/batch-log-harness.mjs`（`bind`/`collector`/`rowsOf`/`fakeTransport`/`mkTarget`/`mkScope`），新写批量/队列日志用例先看它，不要再抄一套 collector。
+- **端到端冒烟**：`scripts/log-smoke.mjs` 只打真 `dist/`，覆盖测试不易构造的现场（属主 `logAppend` 转发、无属主退化、真实队列归属、阶段注入）；改批量日志落点后跑一次，别只跑单测。
 
 ### 双语门禁（#56）
 

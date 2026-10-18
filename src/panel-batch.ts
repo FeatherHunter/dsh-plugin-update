@@ -35,7 +35,7 @@
 
 import { assertPrefix, buildLogAppendPhoneName, DEFAULT_PREFIX, MIN_PANEL_POLL_MS } from './config.js'
 import { hash8 } from './hash.js'
-import { createClientLogChannel, type ClientLogChannel, type ClientLogEvent } from './log/client-queue.js'
+import { createPanelClientLogShell, type PanelClientLogOptions } from './log/panel-client.js'
 import { copyText as bilingualText, type BilingualKey } from './bilingual.js'
 import {
   manualAbsentReasonOf,
@@ -168,7 +168,7 @@ export interface BatchPanelOptions {
    * 不传则自建 owned 通道（电话名 <prefix>.logAppend，卸载时销毁）。
    * mount 只覆盖 update.panel.mount 行里的 mode 名（入口件传 'batch'），不改面板摆放形态。
    */
-  clientLog?: { channel?: ClientLogChannel | null; mount?: string } | null
+  clientLog?: PanelClientLogOptions | null
 }
 
 /** 面板可点的动作（HTML 上 data-act 一一对应；测试走同一条路）。 */
@@ -2173,113 +2173,34 @@ export function mountUpdateBatchPanel(
   container: BatchPanelContainer,
   options: BatchPanelOptions,
 ): BatchPanelController {
-  // #208：批量面板复用 #214 单面板的客户端日志通道（mode:'batch'），语义逐条对齐：
-  // 传 channel 用调用方的、不自建不销毁；传 { channel: null } 完全关闭；不传则自建 owned 通道。
-  const logOptionRead = options && typeof options === 'object' ? options.clientLog : undefined
-  const clientLogDisabled = logOptionRead === null
-  const clientLogMountName =
-    logOptionRead && typeof logOptionRead === 'object' && typeof logOptionRead.mount === 'string' && logOptionRead.mount
-      ? logOptionRead.mount
-      : ''
-  let clientLog: ClientLogChannel | null =
-    logOptionRead && typeof logOptionRead === 'object' && logOptionRead.channel ? logOptionRead.channel : null
-  let clientLogOwned = false
-
-  function logClient(level: 'debug' | 'info' | 'warn' | 'error', event: ClientLogEvent, fields: Record<string, unknown>): void {
-    const channel = clientLog
-    if (!channel) return
+  // #208：批量面板复用单面板同一份客户端日志壳（src/log/panel-client.ts），mode:'batch' 由调用方经 mount 传入。
+  const channelPrefix = ((): string => {
+    if (!options || typeof options !== 'object') return DEFAULT_PREFIX
+    const rawPrefix = (options as { prefix?: unknown }).prefix
+    if (typeof rawPrefix !== 'string') return DEFAULT_PREFIX
     try {
-      channel.emit(level, event, fields)
+      buildLogAppendPhoneName(rawPrefix)
+      return rawPrefix
     } catch {
-      // 日志失败不挡面板。
+      /* prefix 非法：通道先用默认前缀，prefix 校验会如实抛并留一行 */
+      return DEFAULT_PREFIX
     }
-  }
-
-  // 失败证据（#214 同一口径）：同一阶段同类别同指纹 60 秒内至多一条；挂载失败必定落（一次挂载只有一次）。
-  const RENDER_FAIL_DEDUPE_MS = 60_000
-  const renderFailSeen = new Map<string, number>()
-
-  function errorTextOf(err: unknown): string {
-    try {
-      if (err && typeof err === 'object' && typeof (err as { message?: unknown }).message === 'string') {
-        return (err as { message: string }).message
-      }
-      if (typeof err === 'string') return err
-      return String(err ?? '')
-    } catch {
-      return ''
-    }
-  }
-
-  function emitRenderFail(phase: 'mount' | 'paint' | 'poll' | 'global', kind: string, message: string): void {
-    const errorHash = hash8(message)
-    if (phase !== 'mount') {
-      const key = `${phase}|${kind}|${errorHash}`
-      const atMs = Date.now()
-      const last = renderFailSeen.get(key)
-      if (last !== undefined && atMs - last < RENDER_FAIL_DEDUPE_MS) return
-      renderFailSeen.set(key, atMs)
-    }
-    logClient('error', 'update.panel.render.fail', { phase, kind, errorHash })
-  }
-
-  /** 挂载校验失败：先记一行，再（仅自建通道）尽力冲刷后销毁；注入通道不销毁。 */
-  function failMount(kind: string, message: string): void {
-    emitRenderFail('mount', kind, message)
-    const channel = clientLog
-    if (!channel) return
-    try {
-      void Promise.resolve(channel.flush())
-        .catch(() => undefined)
-        .then(() => {
-          if (clientLogOwned) channel.dispose()
-        })
-    } catch {
-      // 记不上日志也不能挡住拒绝挂载。
-    }
-  }
-
-  /** 全局兜底（#214 同一口径）：mount 时装、unmount 时摘；只落指纹不落原文。 */
-  let removeGlobalHandlers: (() => void) | null = null
-  function installGlobalHandlers(): void {
-    const g = globalThis as unknown as {
-      addEventListener?: (type: string, handler: (event: unknown) => void) => void
-      removeEventListener?: (type: string, handler: (event: unknown) => void) => void
-    }
-    if (typeof g.addEventListener !== 'function' || typeof g.removeEventListener !== 'function') return
-    const onError = (event: unknown): void => {
-      const message =
-        event && typeof event === 'object' && typeof (event as { message?: unknown }).message === 'string'
-          ? (event as { message: string }).message
-          : errorTextOf(event)
-      emitRenderFail('global', 'uncaught', message || 'uncaught-error')
-    }
-    const onRejection = (event: unknown): void => {
-      const reason = event && typeof event === 'object' ? (event as { reason?: unknown }).reason : undefined
-      emitRenderFail('global', 'unhandled', errorTextOf(reason) || 'unhandled-rejection')
-    }
-    let registered = false
-    try {
-      g.addEventListener('error', onError)
-      g.addEventListener('unhandledrejection', onRejection)
-      registered = true
-    } catch {
-      registered = false
-    }
-    if (!registered) return
-    removeGlobalHandlers = () => {
-      try {
-        g.removeEventListener?.('error', onError)
-      } catch {
-        // 摘不掉也无妨。
-      }
-      try {
-        g.removeEventListener?.('unhandledrejection', onRejection)
-      } catch {
-        // 摘不掉也无妨。
-      }
-    }
-  }
+  })()
+  const logShell = createPanelClientLogShell({
+    clientLog: options && typeof options === 'object' ? options.clientLog : undefined,
+    call:
+      options && typeof options === 'object' && typeof (options as { call?: unknown }).call === 'function'
+        ? (options as { call: (phoneName: string, args: Record<string, unknown>) => Promise<unknown> }).call
+        : null,
+    logAppendPhone: buildLogAppendPhoneName(channelPrefix),
+    coerceReply: true,
+  })
+  const logClient = logShell.log
+  const emitRenderFail = logShell.emitRenderFail
+  const failMount = logShell.failMount
+  const errorTextOf = logShell.errorTextOf
+  const installGlobalHandlers = logShell.installGlobalHandlers
+  const clientLogMountName = logShell.mountName
 
   if (!options || typeof options !== 'object') {
     const message = '[dsh-plugin-update] 挂载批量面板缺少配置：批量电话前缀 prefix 必填'
@@ -2290,32 +2211,6 @@ export function mountUpdateBatchPanel(
     const message = '[dsh-plugin-update] 挂载批量面板需要传输函数 call（面板调宿主电话的唯一接触面）'
     failMount('call', message)
     throw new Error(message)
-  }
-  // 自建通道要 options.call；电话名按前缀拼，前缀非法时退回缺省前缀（真正的拒绝在下面的 prefix 校验）。
-  if (!clientLog && !clientLogDisabled) {
-    let channelPrefix = DEFAULT_PREFIX
-    try {
-      if (typeof options.prefix === 'string') {
-        buildLogAppendPhoneName(options.prefix)
-        channelPrefix = options.prefix
-      }
-    } catch {
-      channelPrefix = DEFAULT_PREFIX
-    }
-    try {
-      const transport = options.call
-      clientLog = createClientLogChannel({
-        // 日志电话只需要合法回执；传输失败/回包非对象按空对象交回，由 client-queue 记降级。
-        call: async (name, args) => {
-          const reply = await transport(name, args)
-          return reply && typeof reply === 'object' ? (reply as Record<string, unknown>) : {}
-        },
-        phoneName: buildLogAppendPhoneName(channelPrefix),
-      })
-      clientLogOwned = true
-    } catch {
-      clientLog = null
-    }
   }
   // 先建通道再校验容器（#214 同序）：容器不合法时也要先把失败证据送出去。
   if (!container || typeof container.innerHTML !== 'string') {
@@ -3659,14 +3554,7 @@ export function mountUpdateBatchPanel(
   function unmount(): void {
     if (!mounted) return
     mounted = false
-    // #208：先摘全局兜底与去重表；自建日志通道最后销毁（注入通道归调用方，不动）。
-    try {
-      removeGlobalHandlers?.()
-    } catch {
-      // 摘不掉也无妨。
-    }
-    removeGlobalHandlers = null
-    renderFailSeen.clear()
+    // #208：全局兜底、去重表与自建日志通道都归壳管（注入通道不动）。
     try {
       unsubLang()
     } catch {
@@ -3690,14 +3578,7 @@ export function mountUpdateBatchPanel(
     } catch {
       // 拆不掉也不挡。
     }
-    if (clientLogOwned && clientLog) {
-      try {
-        clientLog.dispose()
-      } catch {
-        // 销毁不掉也不挡。
-      }
-      clientLog = null
-    }
+    logShell.dispose()
     // 卸载只停轮询：绝不调安装/取消电话，批量推进在宿主进程内继续跑。
   }
 

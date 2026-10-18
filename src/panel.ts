@@ -33,7 +33,7 @@ import {
 } from './changelog.js'
 import { visibleQueueFor, type UpdateQueueState, type VisibleQueue } from './queue.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } from './log-events.js'
-import { createClientLogChannel, type ClientLogChannel, type ClientLogEvent } from './log/client-queue.js'
+import { createPanelClientLogShell, type PanelClientLogOptions } from './log/panel-client.js'
 // #212：只要类型（import type 在编译期擦除，浏览器闭包里不会多出 log/ 内部模块的运行时依赖）。
 import type { UpdateLogHealth } from './log/health.js'
 import type { BlockedReason, UpdateSnapshot } from './ports.js'
@@ -232,10 +232,7 @@ export type UpdatePanelActionKind =
  *   `{ channel: null }` 即彻底关掉客户端日志（一行都不发）。
  * - `mount`：挂载点名字，写进 `update.panel.mount` 的 `mode` 字段（入口件 / HTTP 直挂 / 批量面板各报各的）。
  */
-export interface UpdatePanelClientLogOptions {
-  channel?: ClientLogChannel | null
-  mount?: string
-}
+export interface UpdatePanelClientLogOptions extends PanelClientLogOptions {}
 
 export interface UpdatePanelOptions {
   /** 插件标识：必填，与宿主侧 createHostUpdate 传的 pluginId 一致。 */
@@ -2414,121 +2411,38 @@ export function pendingAutoCheck(
  * ```
  */
 export function mountUpdatePanel(container: UpdatePanelContainer, options: UpdatePanelOptions): UpdatePanelController {
-  // 客户端日志（#122）：先把调用方给的通道读出来 —— 这样「挂载校验失败」也能如实记一行
-  // （自建通道要等 call 校验过才建得起来：没有传输就没有地方可报）。
-  const logOptionRead =
-    options && typeof options === 'object' ? (options as { clientLog?: UpdatePanelClientLogOptions | null }).clientLog : undefined
-  const clientLogDisabled = logOptionRead === null
-  const clientLogMountName =
-    logOptionRead && typeof logOptionRead === 'object' && typeof logOptionRead.mount === 'string' && logOptionRead.mount
-      ? logOptionRead.mount
-      : ''
-  let clientLog: ClientLogChannel | null =
-    logOptionRead && typeof logOptionRead === 'object' && logOptionRead.channel ? logOptionRead.channel : null
-  let clientLogOwned = false
-  /** 客户端行出口：没有通道就什么都不做（每一处调用点都不必自己判空）。 */
-  function logClient(level: string, event: ClientLogEvent, fields: Record<string, unknown>): void {
-    const channel = clientLog
-    if (!channel) return
+  // 客户端日志（#122/#214）：壳在 src/log/panel-client.ts，单面板与批量面板共用同一口径。
+  // 先读调用方选项、能建通道就先建——这样「挂载校验失败」也能如实记一行。
+  const channelPrefix = ((): string => {
+    if (!options || typeof options !== 'object') return DEFAULT_PREFIX
+    const rawPrefix = (options as { prefix?: unknown }).prefix
+    if (typeof rawPrefix !== 'string') return DEFAULT_PREFIX
     try {
-      channel.emit(level, event, fields)
+      buildLogAppendPhoneName(rawPrefix)
+      return rawPrefix
     } catch {
-      // 报日志永不外抛：日志坏了不挡面板。
+      /* prefix 非法：通道先用默认前缀，prefix 校验会如实抛并留一行 */
+      return DEFAULT_PREFIX
     }
-  }
-  // ---------- 失败证据（#214）：挂载校验 / 渲染 / 轮询传输 / 全局兜底共用一套字段与去重 ----------
-  //
-  // 挂载行解决「默认集成下 0 行」：先建通道再校验，五种以上挂载失败各留一行（phase=mount + errorHash）。
-  // 渲染/轮询/全局只留指纹：同 phase+kind+errorHash 60 秒内至多一条，风暴进不了日志。
-  const RENDER_FAIL_DEDUPE_MS = 60_000
-  const renderFailSeen = new Map<string, number>()
-  function errorTextOf(err: unknown): string {
-    if (err && typeof err === 'object' && typeof (err as { message?: unknown }).message === 'string') {
-      return (err as { message: string }).message
-    }
-    if (typeof err === 'string') return err
-    try {
-      return String(err ?? '')
-    } catch {
-      return ''
-    }
-  }
-  function emitRenderFail(phase: 'mount' | 'paint' | 'poll' | 'global', kind: string, message: string): void {
-    const errorHash = hash8(message)
-    if (phase !== 'mount') {
-      const key = `${phase}|${kind}|${errorHash}`
-      const nowMs = Date.now()
-      const last = renderFailSeen.get(key)
-      if (last !== undefined && nowMs - last < RENDER_FAIL_DEDUPE_MS) return
-      renderFailSeen.set(key, nowMs)
-    }
-    logClient('error', 'update.panel.render.fail', { phase, kind, errorHash })
-  }
-  /** 挂载校验失败：先落一行再抛；顺手催一次冲刷（默认集成里这一行往往就是唯一证据）。 */
-  function failMount(kind: string, message: string): void {
-    emitRenderFail('mount', kind, message)
-    // 挂载已失败：先催冲刷，冲完把自建通道收掉——不留 visibilitychange 监听，也不留半条通道。
-    const channel = clientLog
-    if (!channel) return
-    try {
-      void Promise.resolve(channel.flush())
-        .catch(() => undefined)
-        .then(() => {
-          if (clientLogOwned) channel.dispose()
-        })
-    } catch {
-      /* 冲刷失败也不影响抛错路径 */
-    }
-  }
-  /** 客户端通道按原因计的丢弃总数（含无法上浮的 no-channel/disposed）：进 copy-diag 计数段。 */
-  function clientDroppedRows(): number {
-    try {
-      const map = clientLog?.droppedByReason?.() ?? {}
-      let total = 0
-      for (const key of Object.keys(map)) {
-        const n = map[key]
-        if (typeof n === 'number' && Number.isFinite(n) && n > 0) total += n
-      }
-      return total
-    } catch {
-      return 0
-    }
-  }
-  // #214 全局兜底：未捕获异常/未处理拒绝只留阶段 + 指纹，绝不把原话搬上面板或日志。
-  let removeGlobalHandlers: (() => void) | null = null
-  function installGlobalHandlers(): void {
-    const g = globalThis as unknown as {
-      addEventListener?: (type: string, fn: (event: unknown) => void) => void
-      removeEventListener?: (type: string, fn: (event: unknown) => void) => void
-    }
-    if (typeof g.addEventListener !== 'function') return
-    const onError = (event: unknown): void => {
-      const msg = errorTextOf((event as { message?: unknown } | null)?.message ?? event)
-      emitRenderFail('global', 'uncaught', msg || 'uncaught-error')
-    }
-    const onRejection = (event: unknown): void => {
-      const reason = (event as { reason?: unknown } | null)?.reason
-      emitRenderFail('global', 'unhandled', errorTextOf(reason) || 'unhandled-rejection')
-    }
-    let registered = false
-    try {
-      g.addEventListener('error', onError)
-      g.addEventListener('unhandledrejection', onRejection)
-      registered = true
-    } catch {
-      registered = false
-    }
-    if (registered) {
-      removeGlobalHandlers = () => {
-        try {
-          g.removeEventListener?.('error', onError)
-          g.removeEventListener?.('unhandledrejection', onRejection)
-        } catch {
-          /* 摘不掉也不挡卸载 */
-        }
-      }
-    }
-  }
+  })()
+  const logShell = createPanelClientLogShell({
+    clientLog:
+      options && typeof options === 'object'
+        ? (options as { clientLog?: UpdatePanelClientLogOptions | null }).clientLog
+        : undefined,
+    call:
+      options && typeof options === 'object' && typeof (options as { call?: unknown }).call === 'function'
+        ? (options as { call: (phoneName: string, args: Record<string, unknown>) => Promise<unknown> }).call
+        : null,
+    logAppendPhone: buildLogAppendPhoneName(channelPrefix),
+  })
+  const logClient = logShell.log
+  const emitRenderFail = logShell.emitRenderFail
+  const failMount = logShell.failMount
+  const errorTextOf = logShell.errorTextOf
+  const clientDroppedRows = logShell.droppedRows
+  const installGlobalHandlers = logShell.installGlobalHandlers
+  const clientLogMountName = logShell.mountName
   if (!options || typeof options !== 'object') {
     const message = '[dsh-plugin-update] 挂载面板缺少配置：插件标识 pluginId 必填'
     failMount('plugin-id', message)
@@ -2540,25 +2454,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     failMount('call', message)
     throw new Error(message)
   }
-  // 先建通道再校验其余项（#214）：prefix 非法时用默认前缀兜底路由，先把证据送出去，随后照常抛。
   const prefix = options.prefix === undefined ? DEFAULT_PREFIX : options.prefix
-  let channelPrefix = DEFAULT_PREFIX
-  try {
-    buildLogAppendPhoneName(prefix)
-    channelPrefix = String(prefix)
-  } catch {
-    /* prefix 非法：通道先用默认前缀，prefix 校验会如实抛并留一行 */
-  }
-  // 自建通道（调用方没给、也没明确关掉时）：电话名只从前缀派生，缺 `<prefix>.logAppend` 的老宿主
-  // 会在投递时失败 —— 通道自己退避重试后丢弃计数，一个异常都不往上冒。
-  if (!clientLog && !clientLogDisabled) {
-    try {
-      clientLog = createClientLogChannel({ call: options.call, phoneName: buildLogAppendPhoneName(channelPrefix) })
-      clientLogOwned = true
-    } catch {
-      clientLog = null
-    }
-  }
   if (!container || typeof container.innerHTML !== 'string') {
     const message = '[dsh-plugin-update] 挂载面板需要一个有 innerHTML 的容器'
     failMount('container', message)
@@ -4172,10 +4068,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   function unmount(): void {
     if (!mounted) return
     mounted = false
-    removeGlobalHandlers?.()
-    removeGlobalHandlers = null
-    // 去重窗口只对这面已拆的面板有意义：随它一起清，别把指纹记忆留到下一次挂载。
-    renderFailSeen.clear()
+    logShell.removeGlobalHandlers()
     try {
       unsubLang()
     } catch {
@@ -4205,13 +4098,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
       // 拆不掉也不挡。
     }
     // 自建通道（含它没发完的队列）随面板一起停；调用方注入的通道归调用方管，我们只停手。
-    if (clientLogOwned && clientLog) {
-      try {
-        clientLog.dispose()
-      } catch {
-        // 停不掉也不挡。
-      }
-    }
+    logShell.dispose()
     // 卸载只停轮询：绝不调安装/取消电话，安装在宿主进程内继续跑。
   }
 
