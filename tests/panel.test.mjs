@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -489,8 +489,20 @@ test('面板轮询口径与宿主侧同一套：下限 250 毫秒', () => {
 test('唯一运行期依赖是 dsh-log：面板不拖 Node 专属能力', () => {
   const manifest = JSON.parse(readFileSync(join(PKG_DIR, 'package.json'), 'utf8'))
   assert.deepEqual(Object.keys(manifest.dependencies || {}), ['dsh-log'], '唯一运行期依赖应是 dsh-log（ADR-0005）')
-  const source = readFileSync(join(PKG_DIR, 'src', 'panel.ts'), 'utf8')
-  assert.ok(!/from 'node:/.test(source), '面板源码不得出现 node: 导入（浏览器闭包进不去）')
+  // #226：面板实现拆进 src/panel/，入口壳与全部拆出文件都要能进浏览器闭包（零 node: 导入）。
+  const panelSources = [join(PKG_DIR, 'src', 'panel.ts')]
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) walk(full)
+      else if (entry.name.endsWith('.ts')) panelSources.push(full)
+    }
+  }
+  walk(join(PKG_DIR, 'src', 'panel'))
+  for (const file of panelSources) {
+    const source = readFileSync(file, 'utf8')
+    assert.ok(!/from 'node:/.test(source), file + ' 不得出现 node: 导入（浏览器闭包进不去）')
+  }
 })
 
 test('类型定义随包分发：公开入口有 .d.ts，不要求调用方自编译', () => {

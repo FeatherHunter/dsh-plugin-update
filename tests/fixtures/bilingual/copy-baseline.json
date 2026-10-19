@@ -4,9 +4,6 @@
     "src/core/i18n/dictionary.ts"
   ],
   "files": {
-    "src/client.ts": [
-      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到"
-    ],
     "src/core/changelog/parse.ts": [
       "不兼容",
       "作者未提供更新说明",
@@ -129,39 +126,19 @@
       "装完校验没过：环境报告",
       "装完校验没过：磁盘上是 ，目标是"
     ],
-    "src/entry-batch.ts": [
-      "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到",
-      "[dsh-plugin-update] 入口件形态非法：只收 button / badge / inline（收到",
-      "[dsh-plugin-update] 挂批量入口件缺少配置：批量电话前缀 prefix 必填",
-      "[dsh-plugin-update] 挂批量入口件需要一个有 innerHTML 的容器",
-      "[dsh-plugin-update] 挂批量入口件需要传输函数 call（入口件调宿主电话的唯一接触面）",
-      "[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual / direct（收到",
-      "[dsh-plugin-update] 自动检查时机非法：只收 mount 或 never（收到",
-      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到"
+    "src/host/batch/fan-out.ts": [
+      "批量电话前缀 prefix"
     ],
-    "src/entry.ts": [
-      "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ）",
-      "[dsh-plugin-update] 入口件尺寸参数 sizing 非法：只收 fontSize / padding / borderRadius（非空 CSS 值）与 scale（大于 0 的有限数）（收到 )",
-      "[dsh-plugin-update] 入口件形态非法：只收 button / badge / inline（收到 ）",
-      "[dsh-plugin-update] 挂更新入口件缺少配置：插件标识 pluginId 必填",
-      "[dsh-plugin-update] 挂更新入口件需要一个有 innerHTML 的容器",
-      "[dsh-plugin-update] 挂更新入口件需要传输函数 call（入口件调宿主电话的唯一接触面）",
-      "[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ）",
-      "[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual / direct（收到 ）",
-      "[dsh-plugin-update] 自动检查时机非法：只收 mount 或 never（收到 ）",
-      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ）"
-    ],
-    "src/host-batch.ts": [
+    "src/host/batch/phones.ts": [
       "[dsh-plugin-update] 批量目标清单 targets 必填：至少一个目标",
       "[dsh-plugin-update] 批量目标电话前缀重复：",
       "[dsh-plugin-update] 批量目标缺少目标包名 packageName：",
       "[dsh-plugin-update] 批量目标缺少稳定键 key",
       "[dsh-plugin-update] 批量目标键重复：",
-      "批量电话前缀 prefix",
       "的单插件电话前缀 prefix",
       "目标"
     ],
-    "src/http.ts": [
+    "src/host/http.ts": [
       "JSON 非法",
       "[dsh-plugin-update] HTTP 传输缺少抓取函数：请传 fetch 或在有 globalThis.fetch 的环境运行",
       "[dsh-plugin-update] routes 值非法：",
@@ -223,9 +200,35 @@
       "运行版本未知，无法判断是否有新版可装。",
       "队列="
     ],
-    "src/panel.ts": [
-      "/* Archive 档案卷可选主题：只换颜色/字体/间距；内核 DOM 顺序一字不动，不断复制诊断。 */",
-      "[dsh-plugin-update] 主题参数 themeTokens 非法：只收已知 token 键（颜色用 hex 或英文名，字体/圆角/阴影/尺寸为安全 CSS 值，entryScale 为大于 0 的有限数）（收到 )",
+    "src/panel/archive-theme.ts": [
+      "/* Archive 档案卷可选主题：只换颜色/字体/间距；内核 DOM 顺序一字不动，不断复制诊断。 */"
+    ],
+    "src/panel/batch/entry-batch.ts": [
+      "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到",
+      "[dsh-plugin-update] 入口件形态非法：只收 button / badge / inline（收到",
+      "[dsh-plugin-update] 挂批量入口件缺少配置：批量电话前缀 prefix 必填",
+      "[dsh-plugin-update] 挂批量入口件需要一个有 innerHTML 的容器",
+      "[dsh-plugin-update] 挂批量入口件需要传输函数 call（入口件调宿主电话的唯一接触面）",
+      "[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual / direct（收到",
+      "[dsh-plugin-update] 自动检查时机非法：只收 mount 或 never（收到",
+      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到"
+    ],
+    "src/panel/client.ts": [
+      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到"
+    ],
+    "src/panel/entry.ts": [
+      "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ）",
+      "[dsh-plugin-update] 入口件尺寸参数 sizing 非法：只收 fontSize / padding / borderRadius（非空 CSS 值）与 scale（大于 0 的有限数）（收到 )",
+      "[dsh-plugin-update] 入口件形态非法：只收 button / badge / inline（收到 ）",
+      "[dsh-plugin-update] 挂更新入口件缺少配置：插件标识 pluginId 必填",
+      "[dsh-plugin-update] 挂更新入口件需要一个有 innerHTML 的容器",
+      "[dsh-plugin-update] 挂更新入口件需要传输函数 call（入口件调宿主电话的唯一接触面）",
+      "[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ）",
+      "[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual / direct（收到 ）",
+      "[dsh-plugin-update] 自动检查时机非法：只收 mount 或 never（收到 ）",
+      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ）"
+    ],
+    "src/panel/mount.ts": [
       "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ）",
       "[dsh-plugin-update] 挂载面板缺少配置：插件标识 pluginId 必填",
       "[dsh-plugin-update] 挂载面板需要一个有 innerHTML 的容器",
@@ -233,8 +236,13 @@
       "[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ）",
       "[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ）",
       "[dsh-plugin-update] 自动检查开关非法：只收布尔值（收到 ）",
-      "[dsh-plugin-update] 跳过版本号非法：须为发行版本号（收到 ）",
       "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ）"
+    ],
+    "src/panel/skip-store.ts": [
+      "[dsh-plugin-update] 跳过版本号非法：须为发行版本号（收到 ）"
+    ],
+    "src/panel/theme.ts": [
+      "[dsh-plugin-update] 主题参数 themeTokens 非法：只收已知 token 键（颜色用 hex 或英文名，字体/圆角/阴影/尺寸为安全 CSS 值，entryScale 为大于 0 的有限数）（收到 )"
     ],
     "src/shared/config.ts": [
       "[dsh-plugin-update] 官方源 registryUrl 非法：须为非空字符串",

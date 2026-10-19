@@ -83,10 +83,10 @@ function loadEsbuild() {
 
 // ---------- 打包客户端入口 ----------
 const esbuild = loadEsbuild()
-const entry = join(PKG_DIR, 'src', 'client.ts')
+const entry = join(PKG_DIR, 'src', 'panel', 'client.ts')
 const sourceOfTruth = existsSync(entry) ? entry : join(PKG_DIR, 'dist', 'client.js')
 if (!existsSync(sourceOfTruth)) {
-  console.error('错误：包里既没有 src/client.ts 也没有 dist/client.js，包可能不完整（重装一次试试）。')
+  console.error('错误：包里既没有 src/panel/client.ts 也没有 dist/client.js，包可能不完整（重装一次试试）。')
   process.exit(1)
 }
 
@@ -145,7 +145,7 @@ const header =
   '// 生成命令：node ' + PKG_MANIFEST.name + '/derive-client-values.mjs --prefix ' + prefix + ' --out <本文件路径>\n' +
   '// 生成对象：' + who + '。改了前缀或想升级本包，重新跑一次这条命令即可。\n'
 
-const aliasExports = aliases.map(([local, name]) => 'export const ' + name + ' = ' + local + '\n').join('')
+const aliasExports = aliases.map(([, local, name]) => 'export const ' + name + ' = ' + local + '\n').join('')
 
 const tail =
   '\n// ---- 取值：从更新包的客户端入口算出本插件要用的电话名与轮询间隔 ----\n' +

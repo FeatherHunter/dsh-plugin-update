@@ -7,7 +7,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -112,9 +112,19 @@ describe('单源：面板只转调纯核，无镜像', () => {
     assert.equal(COPY_BUDGET_CHARS, 1500)
   })
   it('零 Node 导入：redaction 与 panel 源码无 node: 导入', () => {
-    for (const name of ['shared/redaction.ts', 'panel.ts']) {
-      const source = readFileSync(join(PKG_DIR, 'src', name), 'utf8')
-      assert.ok(!/from 'node:/.test(source), `${name} 不得出现 node: 导入（浏览器闭包进不去）`)
+    // #226：面板实现拆进 src/panel/，入口壳 + 全部拆出文件一起查（浏览器闭包进不去 node:）。
+    const panelSources = [join(PKG_DIR, 'src', 'panel.ts')]
+    const walk = (dir) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name)
+        if (entry.isDirectory()) walk(full)
+        else if (entry.name.endsWith('.ts')) panelSources.push(full)
+      }
+    }
+    walk(join(PKG_DIR, 'src', 'panel'))
+    for (const file of [join(PKG_DIR, 'src', 'shared', 'redaction.ts'), ...panelSources]) {
+      const source = readFileSync(file, 'utf8')
+      assert.ok(!/from 'node:/.test(source), `${file} 不得出现 node: 导入（浏览器闭包进不去）`)
     }
   })
   it('包根转出口可达：第二家经 host 拿到单源与墙', () => {
