@@ -319,20 +319,36 @@ describe('#216 日志：一批有开始行、总账分开活跃时长与会话�
 describe('#216 日志：批量里 check-expired 当场重查重提留一行', () => {
   it('两家以上批量首批提交凭证过期 → update.install.retry 如实记录，随后正常装完', async () => {
     const { dir, scope } = await mkScope()
-    const sideOf = (spec) => realSide(dir, spec.packageName)
+    const sideOf = (spec) => {
+      const side = realSide(dir, spec.packageName)
+      if (spec.key !== 'self') return side
+      // 测试确定性：读取器单槽「最后建的那家留下凭证」是既有行为，但两家检查谁先完成受机器负载影响。
+      // 让 self 的检查拖后完成 → 安装 a 时其凭证必然已被挤掉，check-expired 重查重提是必然而不是撞时序。
+      return {
+        ...side,
+        fetchImpl: async (...args) => {
+          await new Promise((resolve) => setTimeout(resolve, 30))
+          return side.fetchImpl(...args)
+        },
+      }
+    }
     const host = createMultiHostUpdate(
       { scope, installPollMs: 5, readerOverridesFor: sideOf },
       { prefix: 'life', targets: [mkTarget('a'), mkTarget('self')], selfKey: 'self' },
     )
     const a = collector()
+    const self = collector()
     bind('plugin-a', a.sink)
+    bind('plugin-self', self.sink)
 
     const reply = await host.handlers['life.batchInstall']({})
     assert.equal(reply.ok, true)
     assert.equal(phaseOf(reply.session, 'a'), 'done', '重提之后正常装完')
     assert.equal(phaseOf(reply.session, 'self'), 'done')
 
-    const retried = rowsOf(a, 'update.install.retry')
+    // 读取器单槽最后停在哪一家受并发调度影响（哪家最后创建谁留下凭证），但「至少一家的凭证会被挤掉」
+    // 是确定的：装完第一家后读取器换成第二家，第二家的旧凭证必然过期。两家的行都收，避免撞时序。
+    const retried = [...rowsOf(a, 'update.install.retry'), ...rowsOf(self, 'update.install.retry')]
     assert.ok(retried.length >= 1, '凭证过期后自动重查重提要留一行（不是静默）')
     const fields = retried[0].fields
     assert.deepEqual(Object.keys(fields).sort(), ['attempt', 'reason', 'requestHash'])
@@ -340,7 +356,7 @@ describe('#216 日志：批量里 check-expired 当场重查重提留一行', ()
     assert.equal(fields.attempt, 2, '第二次提交')
     assert.match(fields.requestHash, /^[0-9a-f]{8}$/, '请求编号只落指纹')
     // 设计内动作不是故障：真正的失败行不该有。
-    assert.equal(rowsOf(a, 'update.batch.entry.fail').length, 0)
+    assert.equal(rowsOf(a, 'update.batch.entry.fail').length + rowsOf(self, 'update.batch.entry.fail').length, 0)
     host.dispose()
   })
 })
