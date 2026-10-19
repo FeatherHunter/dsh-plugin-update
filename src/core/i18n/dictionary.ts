@@ -1,25 +1,23 @@
-// src/bilingual.ts —— 集中文案底座与单语语义块渲染（#54 底座，#60 起改为单语出口）。
+// src/core/i18n/dictionary.ts —— 集中文案字典（原 src/bilingual.ts 的数据层；#54 底座）。
 //
-// 历史名说明（#60 执行约定命名收敛二选一之二）：文件名 src/bilingual.ts、导出名 BILINGUAL_*、
-// 类名 dsh-upd-bi 均为历史名，v2 起为单语出口（一次只渲染一种语言），保留旧名以免门禁白名单与测试大改。
+// 历史名说明（#60 执行约定命名收敛二选一之二）：导出名 BILINGUAL_*、类名 dsh-upd-bi 均为历史名，
+// v2 起为单语出口（一次只渲染一种语言），保留旧名以免门禁白名单与测试大改。
 // 地位：唯一新接缝（#57 Testing Decisions 主接缝），最高处，一处覆盖全部消费方。
 // 数据层永不拼串：调用方只传 key + 具名值（{version}/{count} 等运行时值），表现层按语义块拼装。
 // 分支只认稳定码：本模块不做任何分支，调用方（entry/panel）只用快照 + 稳定码选 key，永不读文案做判断。
 //
 // 契约（#57 语言契约 v2，取代同显）：
-// - 一次只渲染一种语言，语义块仍带 lang 属性（lang="en" 或 lang="zh"，只出现一个）。
+// - 一次只渲染一种语言，语义块仍带 lang 属性（lang="en" 或 lang="zh"，只出现一个）；渲染实现见 text.ts。
 // - 核心渲染吃显式 lang 入参、纯函数：copyHTML(key, lang, values) / copyText(key, lang, values)。
 // - 变量与自由文本不译：{version}/{count} 等占位原样透传，冻结词元两语言逐字相同。
 // - 占位为具名槽：英文语序可与中文不同（format 按名替换，不按位置拼）。
 // - draft 诚实态（#53 Q3）：无母语评审即标 draft；底座钉住字典版本开发（BILINGUAL_DICT_VERSION），
-//   draft 不卡 #54，转正只换文案不换 key；零 draft 放行由 #56 门禁执行，本模块只提供 draftKeys() 供门禁读。
+//   draft 不卡 #54，转正只换文案不换 key；零 draft 放行由 #56 门禁执行，text.ts 只提供 draftKeys() 供门禁读。
 //
 // 范围（#60 两条入口链 + #61 panel 状态与动作 + #62 panel 内核 HTML §3.7 + #63 诊断复制 §3.3/3.4 + #64 panel-batch 聚合总账 §4.1/4.3/4.4/4.5 + #65 panel-batch 行详情回执 §4.2/4.6/4.7 + #66 changelog 运行时 §6.1/ diag 兜底 §7.1）：entry 7 键（#52 §1）+ batch-entry 6 键 + panel 75 键
 // （#52 §3.1 16 + §3.2 14 + §3.5 16 + §3.6 18 + §3.8 11）+ diag 35 键（#52 §3.3 13 + §3.4 22（含 3 复用））+ batch-ledger 33 + batch-row 42 + changelog 9 + diag-fallback 16（§7.1 19 行含 3 复用电话表，逐条见 research/52-inventory.md）。
 // panel-batch 剩余与验收矩阵由后续票展开，本文件不预占它们的 key（避免双源）。
 // CHANGELOG 六类标题唯一源仍是 changelog.ts CATEGORY_ZH，本模块不另起第二套映射（#66 中文「新增（Added）」/英文「Added」由渲染层按 CATEGORY_ZH 现场组装，不进字典）。
-
-import { normalizeLangTag, resolveLang, type AppLang } from './lang.js'
 
 /** 字典版本钉（#53 Q3 解耦）：key 冻即解阻塞 #54，文案按词标 draft/locked；开发钉此版本，转正只换文案不换 key。 */
 export const BILINGUAL_DICT_VERSION = '2026-10-06-pin53'
@@ -875,84 +873,3 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'diag.cause.age.other.untimed': { en: 'The installer reports: another package in the same environment, {package}, was rejected by a supply-chain age policy — not a problem with this plugin itself (see the summary). Retry later, or ask the host to relax the policy.', zh: '安装器报告：同环境另一包 {package} 因供应链年龄策略被拒，不是本插件的直接问题（见摘要）。请稍后重试，或找宿主放宽策略。', draft: true },
   'install-button.action.installed': { en: 'Installed', zh: '已安装', draft: true },
 }
-
-function escapeHtml(value: unknown): string {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-/** 具名槽填充：{name} 按名替换（中英各自独立替换，语序可不同）；缺值填空串，永不把 {name} 漏到 UI。 */
-function formatTemplate(template: string, values: Record<string, unknown> | null | undefined): string {
-  const vals = values ?? {}
-  return String(template).replace(/\{([A-Za-z0-9_]+)\}/g, (_: string, name: string) => {
-    const v = (vals as Record<string, unknown>)[name]
-    if (v === null || v === undefined) return ''
-    return String(v).trim()
-  })
-}
-
-/** 取一条双语原文（类型锁死：未知 key 在 tsc 即拦；运行时未知亦抛，不静默回退）。 */
-export function bilingualEntry(key: BilingualKey): BilingualEntry {
-  const hit = (BILINGUAL_STRINGS as Record<string, BilingualEntry>)[key]
-  if (!hit) throw new Error('[dsh-plugin-update] 未知文案 key：' + String(key))
-  return hit
-}
-
-/**
- * 单语纯文本（v2 主出口，纯函数）：只渲染 lang 那一种语言，不读全局信号。
- * lang 显式入参（'zh'/'en'/BCP47，缺省 zh）；返回原文（未转义），调用方按上下文转义后再拼入属性。
- */
-export function copyText(key: BilingualKey, lang?: AppLang | string | null, values?: Record<string, unknown>): string {
-  const l = normalizeLangTag(lang ?? 'zh')
-  const e = bilingualEntry(key)
-  return formatTemplate(l === 'en' ? e.en : e.zh, values)
-}
-
-/**
- * 单语语义块 HTML（v2 主出口，纯函数）：一次只出现一种语言，语义块仍带 lang 属性。
- * lang 显式入参（缺省 zh）；返回已转义可直接拼入 innerHTML 的片段；调用方不得再对整体转义，不得拆 span 重组。
- */
-export function copyHTML(key: BilingualKey, lang?: AppLang | string | null, values?: Record<string, unknown>): string {
-  const l = normalizeLangTag(lang ?? 'zh')
-  const e = bilingualEntry(key)
-  const text = escapeHtml(formatTemplate(l === 'en' ? e.en : e.zh, values))
-  return '<span class="dsh-upd-bi"><span lang="' + l + '">' + text + '</span></span>'
-}
-
-/**
- * 历史名包装（v2 前叫双语，v2 起为单语，保留旧名见文件头说明）：
- * 无显式 lang 时按当前语言单语渲染（读全局信号），有覆盖需求请直接用 copyHTML/copyText。
- */
-export function bilingualText(key: BilingualKey, values?: Record<string, unknown>): string {
-  return copyText(key, resolveLang(), values)
-}
-
-/**
- * 历史名包装（见上）：无显式 lang 时按当前语言单语渲染；返回单语块（只含当前语言一个 span）。
- */
-export function bilingualHTML(key: BilingualKey, values?: Record<string, unknown>): string {
-  return copyHTML(key, resolveLang(), values)
-}
-
-/** 是否 draft（供 #56 门禁读零 draft 放行条件；#54 自身不断言零 draft）。 */
-export function isDraft(key: BilingualKey): boolean {
-  return bilingualEntry(key).draft
-}
-
-/** 全表 draft key 一览（#56 门禁：空数组才放行合入主分支）。 */
-export function draftKeys(): BilingualKey[] {
-  return (Object.keys(BILINGUAL_STRINGS) as BilingualKey[]).filter((k) => BILINGUAL_STRINGS[k].draft)
-}
-
-/**
- * 单语块最小样式（与 UPDATE_ENTRY_CSS 同缝注入）：
- * v2 起窄处竖排退场（一次只一种语言，不断行压力消失，#55 横排/竖排结论作废，排版改由 #67 仲裁）；
- * 只保留 overflow-wrap，不断行不溢出；不管字重字号。
- */
-export const BILINGUAL_CSS = [
-  '.dsh-upd-bi{display:inline;overflow-wrap:anywhere}',
-  '.dsh-upd-bi [lang]{overflow-wrap:anywhere}',
-].join('\n')

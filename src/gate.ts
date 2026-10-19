@@ -25,7 +25,7 @@
 //
 // 每条事件四样东西：事件名（events 的键）、级别（level）、允许字段（fields，之外不记）、
 // 脱敏引用（codes 是截断或散列代号、rules 是具名正则名，都是引用名，命中只记规则名不记原文）。
-// rules 栏引用 src/redaction.ts 的 REDACTION_RULE_NAMES（R_ABSOLUTE_PATH 等五条，顺序固定），
+// rules 栏引用 src/shared/redaction.ts 的 REDACTION_RULE_NAMES（R_ABSOLUTE_PATH 等五条，顺序固定），
 // 不必复述匹配形态；codes/rules 两栏是声明格式，rules 引用名由 lintEventList 逐条核对。
 // kind 说明这条归哪类计数：resident 常驻（始终落盘的轻量轨迹）、ondemand 按需（只在调试开关
 // 打开时记）、selfmon 自监控（日志管道自己的故障行，错误与告警级、始终落盘）。
@@ -58,8 +58,8 @@
 // lintEventFields 是纯函数（不抛错、不记日志、不被任何生产代码调用），
 // 真正在守日志字段基线的是 tests/phones.test.mjs 与 tests/routes.test.mjs 里的逐字键集断言。
 
-import { assertPluginId } from './config.js'
-import { REDACTION_RULE_NAMES } from './redaction.js'
+import { assertPluginId } from './shared/config.js'
+import { REDACTION_RULE_NAMES } from './shared/redaction.js'
 
 // 事件级别（沿用附录定版：错误与告警始终落盘，信息中常驻落盘，其余只在调试开关打开时落盘）。
 export const EVENT_LEVELS = ['error', 'warn', 'info', 'debug'] as const
@@ -98,7 +98,7 @@ export interface GateEventEntry {
   fields: string[]
   // 脱敏引用：截断或散列代号（如 H_CWD、T120），无则不写或空数组。
   codes?: string[]
-  // 脱敏引用：具名正则名（取 src/redaction.ts 的 REDACTION_RULE_NAMES，如 R_ABSOLUTE_PATH），该事件无自由文本则不写或空数组。声明格式，引用名由 lintEventList 核对。
+  // 脱敏引用：具名正则名（取 src/shared/redaction.ts 的 REDACTION_RULE_NAMES，如 R_ABSOLUTE_PATH），该事件无自由文本则不写或空数组。声明格式，引用名由 lintEventList 核对。
   rules?: string[]
   // 守卫说明：一句话写清采样或节流，无特殊守卫不写。
   guard?: string

@@ -22,7 +22,7 @@ const gate = await import('../dist/gate.js')
 const log = await import('../dist/log/index.js')
 const logManifest = await import('../dist/log/manifest.js')
 const hostMod = await import('../dist/host.js')
-const codes = await import('../dist/codes.js')
+const codes = await import('../dist/shared/codes.js')
 
 const { parseEventListManifest, pruneEventFields, lintEventList, mergeUpdateEvents } = gate
 const {

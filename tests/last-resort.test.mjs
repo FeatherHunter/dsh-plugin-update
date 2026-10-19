@@ -4,7 +4,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 const { lastResortSubjectOf, rescueRoutesOf, lastResortVerdictOf } = await import('../dist/last-resort.js')
-const { BLOCKED_REASONS, PHONE_FAILURE_CODES, CHECK_SIDE_FAILURE_CODES } = await import('../dist/codes.js')
+const { BLOCKED_REASONS, PHONE_FAILURE_CODES, CHECK_SIDE_FAILURE_CODES } = await import('../dist/shared/codes.js')
 
 const kinds = new Set(['last-resort', 'salvageable', 'dead-end', 'unknown'])
 

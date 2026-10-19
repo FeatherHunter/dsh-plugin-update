@@ -29,8 +29,9 @@ import {
   runGate,
   writeCopyBaseline,
 } from '../scripts/bilingual-gate.mjs'
-import * as bilingual from '../dist/bilingual.js'
-import * as codebook from '../dist/codes.js'
+import { BILINGUAL_DICT_VERSION, BILINGUAL_STRINGS } from '../dist/core/i18n/dictionary.js'
+import { copyHTML, copyText, draftKeys } from '../dist/core/i18n/text.js'
+import * as codebook from '../dist/shared/codes.js'
 import * as panel from '../dist/panel.js'
 
 const PKG_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -56,14 +57,14 @@ function makeRoot(files) {
 function realDeps() {
   return {
     dictionary: {
-      version: bilingual.BILINGUAL_DICT_VERSION,
-      strings: bilingual.BILINGUAL_STRINGS,
-      draftKeys: bilingual.draftKeys,
+      version: BILINGUAL_DICT_VERSION,
+      strings: BILINGUAL_STRINGS,
+      draftKeys: draftKeys,
     },
-    copyHtml: bilingual.copyHTML,
-    copyText: bilingual.copyText,
-    renderHtml: bilingual.copyHTML,
-    renderText: bilingual.copyText,
+    copyHtml: copyHTML,
+    copyText: copyText,
+    renderHtml: copyHTML,
+    renderText: copyText,
     codes: {
       failureCopy: panel.failureCopy,
       blockedCopy: panel.blockedCopy,
@@ -76,7 +77,7 @@ function realDeps() {
 }
 
 /**
- * 码表真源（dist/codes.js，源在 src/codes.ts）：门禁与测试同读一份。
+ * 码表真源（dist/shared/codes.js，源在 src/shared/codes.ts）：门禁与测试同读一份。
  * 这里绝不另抄一遍码——抄一遍就等于又造了一个会漂移的真源。
  */
 function truthOf() {
@@ -90,7 +91,7 @@ function truthOf() {
 
 /** 跑码表契约那一段的入参（函数 + 真源 + 字典，缺一不可）。 */
 function codesOpts(overrides = {}) {
-  return { codes: realDeps().codes, truth: truthOf(), dictionary: bilingual.BILINGUAL_STRINGS, ...overrides }
+  return { codes: realDeps().codes, truth: truthOf(), dictionary: BILINGUAL_STRINGS, ...overrides }
 }
 
 function fakeIo() {
@@ -199,7 +200,7 @@ test('#56 扫描器：\\uXXXX 转义解出真实字符（写成转义的文案�
 // ---------- 文案源 grep 门禁：中文只许存文案源 ----------
 
 const TREE_WITH_SCATTER = {
-  'src/bilingual.ts': "export const D = '文案源里的中文'\n",
+  [COPY_SOURCE_FILES[0]]: "export const D = '文案源里的中文'\n",
   'src/thing.ts': "// 注释中文放过\nconst label = '新加的散落文案'\nexport const ok = 'fine'\n",
 }
 
@@ -221,7 +222,7 @@ test('#56 文案源门禁：文案源文件放行，注释不算文案，d.ts �
   })
   const got = checkCopySource({ root, baseline: { files: { 'src/thing.ts': ['新加的散落文案'] } } })
   assert.equal(got.ok, true, reasonsOf(got))
-  assert.ok(got.scanned.includes('src/bilingual.ts'))
+  assert.ok(got.scanned.includes(COPY_SOURCE_FILES[0]))
   assert.ok(!got.scanned.includes('src/thing.d.ts'))
 })
 
@@ -258,12 +259,12 @@ test('#56 文案源门禁：基线记录的文案源清单与门禁常量漂移�
 test('#56 基线生成器：现算的基线喂回门禁即绿（去重、排序、跳过文案源）', () => {
   const root = makeRoot({
     'src/panel.ts': "const a = '甲'\nconst b = '甲'\nconst c = '乙'\n",
-    'src/bilingual.ts': "const d = '文案源'\n",
+    [COPY_SOURCE_FILES[0]]: "const d = '文案源'\n",
   })
   const out = writeCopyBaseline({ root, baselinePath: path.join(root, 'baseline.json') })
   const payload = JSON.parse(readFileSync(out.file, 'utf8'))
   assert.deepEqual(payload.files['src/panel.ts'].slice().sort(), ['乙', '甲'])
-  assert.ok(!('src/bilingual.ts' in payload.files), '文案源不进基线')
+  assert.ok(!(COPY_SOURCE_FILES[0] in payload.files), '文案源不进基线')
   const got = checkCopySource({ root, baselinePath: out.file })
   assert.equal(got.ok, true, reasonsOf(got))
   assert.equal(got.stale.length, 0)
@@ -364,11 +365,11 @@ test('#56 字典门禁：同一对措辞被两个 key 复用只提示不拦（�
 
 test('#56 真字典快照：文件与真字典逐键一致，且每键中英非空', () => {
   const snap = JSON.parse(readFileSync(path.join(FIXTURE_DIR, 'strings.snapshot.json'), 'utf8'))
-  assert.equal(snap.dictVersion, bilingual.BILINGUAL_DICT_VERSION)
-  const keys = Object.keys(bilingual.BILINGUAL_STRINGS).sort()
+  assert.equal(snap.dictVersion, BILINGUAL_DICT_VERSION)
+  const keys = Object.keys(BILINGUAL_STRINGS).sort()
   assert.deepEqual(Object.keys(snap.keys).sort(), keys)
   for (const key of keys) {
-    const entry = bilingual.BILINGUAL_STRINGS[key]
+    const entry = BILINGUAL_STRINGS[key]
     assert.equal(snap.keys[key].en, entry.en, key + ' 快照英文一致')
     assert.equal(snap.keys[key].zh, entry.zh, key + ' 快照中文一致')
     assert.equal(snap.keys[key].draft, entry.draft, key + ' 快照 draft 一致')
@@ -386,7 +387,7 @@ test('#56 真基线文件：现仓 src/ 逐条对上（新散落中文必须显�
   assert.ok(got.scanned.length >= 20)
 })
 
-// ---------- 错误码分支契约（真源在 src/codes.ts：门禁只读，不另抄一份） ----------
+// ---------- 错误码分支契约（真源在 src/shared/codes.ts：门禁只读，不另抄一份） ----------
 
 test('#56 错误码契约：真源自洽（阻塞 + 电话 + internal），真件逐码有文案有分支', () => {
   assert.ok(codebook.BLOCKED_REASONS.length > 0, '阻塞码面不许为空')
@@ -414,7 +415,7 @@ test('#56 错误码契约：入口缺函数直接报缺件，不静默通过', (
 })
 
 test('#56 错误码契约：没读到真源即红，不许「空跑也算过」', () => {
-  const got = checkStableCodes({ codes: realDeps().codes, dictionary: bilingual.BILINGUAL_STRINGS })
+  const got = checkStableCodes({ codes: realDeps().codes, dictionary: BILINGUAL_STRINGS })
   assert.equal(got.ok, false)
   assert.ok(got.violations.some((v) => /真源/.test(v.reason)), reasonsOf(got))
 })
@@ -509,7 +510,7 @@ test('#56 真仓真件：三道硬门禁全绿（文案源 + 快照 + 稳定码 
 
 test('#56 零 draft 放行：还有 draft 就红并逐 key 报出（现在如实红，母语评审未到）', async () => {
   const result = await runGate({ root: PKG_DIR, deps: realDeps(), release: true })
-  const drafts = [...bilingual.draftKeys()].sort()
+  const drafts = [...draftKeys()].sort()
   assert.equal(result.ok, drafts.length === 0)
   assert.deepEqual(result.drafts, drafts)
   const zero = result.sections.find((s) => s.id === 'zero-draft')
@@ -524,7 +525,7 @@ test('#56 零 draft 放行：还有 draft 就红并逐 key 报出（现在如实
 test('#56 零 draft 放行：字典转正后即绿（放行条件真能被满足）', async () => {
   // 拿真字典全量「转正」（draft:false）：既过稳定码的码族反查（真源那批码的文案键都在），又零 draft。
   const strings = Object.fromEntries(
-    Object.entries(bilingual.BILINGUAL_STRINGS).map(([key, entry]) => [key, { ...entry, draft: false }]),
+    Object.entries(BILINGUAL_STRINGS).map(([key, entry]) => [key, { ...entry, draft: false }]),
   )
   const keys = Object.fromEntries(Object.entries(strings).map(([key, entry]) => [key, { en: entry.en, zh: entry.zh, draft: false }]))
   const result = await runGate({

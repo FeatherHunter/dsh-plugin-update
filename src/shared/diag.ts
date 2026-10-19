@@ -1,5 +1,5 @@
 /**
- * src/diag.ts —— 电话侧失败证据 diag 落地（#21，承接 #18 契约）。
+ * src/shared/diag.ts —— 电话侧失败证据 diag 落地（#21，承接 #18 契约）。
  *
  * 失败回包加可选内联小证据对象 `diag`：平时面板仍只按稳定码分支与文案映射，
  * 复制诊断按钮用 `diag` 组出一段自包含、可粘贴、已脱敏的文本；日志通道保留用于深挖。
@@ -35,10 +35,11 @@
  */
 
 import { DIAG_INLINE_BUDGET_BYTES, diagByteLength, enforceDiagBudget, resolveRegistryHost, sanitizeDetail } from './redaction.js'
-import { causeInterpreter } from './install-cause.js'
-import { validReleaseVersion, validRequestId } from './service.js'
-import { hash8 } from './shared/hash.js'
-import { copyText, type BilingualKey } from './bilingual.js'
+import { causeInterpreter } from '../install-cause.js'
+import { validReleaseVersion, validRequestId } from '../service.js'
+import { hash8 } from './hash.js'
+import { copyText } from '../core/i18n/text.js'
+import type { BilingualKey } from '../core/i18n/dictionary.js'
 import { normalizeLangTag, type AppLang } from './lang.js'
 
 /** diag 对象版本：只管大门，新增可选键不 bump，面板永不分支于版本。 */

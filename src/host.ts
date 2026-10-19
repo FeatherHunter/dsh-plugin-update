@@ -22,14 +22,14 @@ import {
   resolveUpdateConfig,
   type PhoneNames,
   type UpdateConfigInput,
-} from './config.js'
+} from './shared/config.js'
 import { manualCommand, normalizeApprovedBuilds } from './commands.js'
 import { fetchReleaseChangelogOutcome, type ReleaseChangelogOutcome } from './changelog-io.js'
 import { isChangelogDegraded, isChangelogTruncated, parseChangelogReport, shouldFetchChangelog, type ChangelogContentStatus } from './changelog.js'
-import { buildDiag, type DiagObject } from './diag.js'
+import { buildDiag, type DiagObject } from './shared/diag.js'
 import { hash8 } from './shared/hash.js'
-import { isCoreErrorCode } from './codes.js'
-import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL } from './log-events.js'
+import { isCoreErrorCode } from './shared/codes.js'
+import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL } from './shared/log-events.js'
 import { emitUpdateLog, logEmitterCounts } from './log/emit.js'
 import { pruneEventFields } from './gate.js'
 import { buildUpdateLogHealth, type LogHealthExternalGate, type UpdateLogHealth, type UpdateLogWiring } from './log/health.js'
@@ -57,11 +57,11 @@ export type {
   UpdateLogHealth,
 } from './log/health.js'
 import { fetchNpmVersionRelease, isVersionAllowedInChannel, updateError, validReleaseVersion, validRequestId } from './service.js'
-import { selfCopyInfo, selfCopyLevelOf, type SelfCopyInfo, type SelfCopyLevel } from './self.js'
+import { selfCopyInfo, selfCopyLevelOf, type SelfCopyInfo, type SelfCopyLevel } from './shared/self.js'
 import { createUpdateDiskPorts, createUpdateExecutor, createUpdateQueuePorts } from './store.js'
 import { createUpdateReader, defaultHomeDir, resolveProfileName, resolveTargetPackage } from './reader.js'
-import { resolveRegistryHost } from './redaction.js'
-import type { CheckTrigger, EnvironmentKind, InstallSource, ReleaseChannel, UpdateLogPort } from './ports.js'
+import { resolveRegistryHost } from './shared/redaction.js'
+import type { CheckTrigger, EnvironmentKind, InstallSource, ReleaseChannel, UpdateLogPort } from './shared/ports.js'
 import {
   QUEUE_INTENT_TTL_MS,
   cancelEnqueuedInQueue,
@@ -301,12 +301,12 @@ export interface ReaderOverrides {
    */
   tryAcquireGlobalLock?: (lockId: string, pluginId: string, opts?: { timeoutMs?: number }) => boolean | Promise<boolean>
   releaseGlobalLock?: (lockId: string) => void | Promise<void>
-  readInstalled?: () => Promise<import('./ports.js').EnvironmentView>
-  readJob?: () => Promise<import('./ports.js').UpdateJob | null>
-  writeJob?: (job: import('./ports.js').UpdateJob | null) => Promise<void>
+  readInstalled?: () => Promise<import('./shared/ports.js').EnvironmentView>
+  readJob?: () => Promise<import('./shared/ports.js').UpdateJob | null>
+  writeJob?: (job: import('./shared/ports.js').UpdateJob | null) => Promise<void>
   tryAcquireLock?: (lockId: string) => boolean | Promise<boolean>
   releaseLock?: (lockId: string) => void | Promise<void>
-  backupJob?: (job: import('./ports.js').UpdateJob) => void | Promise<void>
+  backupJob?: (job: import('./shared/ports.js').UpdateJob) => void | Promise<void>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   runInstall?: (args: {
     version: string
@@ -500,9 +500,9 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   // 磁盘写失败不挡安装：内存镜像仍是本次真值，store 侧已记 store.fail；落盘的失败语义由装后校验兜底。
   // 落盘只在「两侧都没注入」时启用：只注一侧时不混两套真相（写走注入、读走镜像）。
   const jobDisk = overrides.readJob || overrides.writeJob ? null : disk
-  let memJobFallback: import('./ports.js').UpdateJob | null = null
+  let memJobFallback: import('./shared/ports.js').UpdateJob | null = null
   let jobStoreSeeded = false
-  async function mirroredWriteJob(job: import('./ports.js').UpdateJob | null): Promise<void> {
+  async function mirroredWriteJob(job: import('./shared/ports.js').UpdateJob | null): Promise<void> {
     if (overrides.writeJob) {
       memJobFallback = job
       await overrides.writeJob(job)
@@ -554,7 +554,7 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
       }
     } catch {}
   }
-  async function mirroredReadJob(): Promise<import('./ports.js').UpdateJob | null> {
+  async function mirroredReadJob(): Promise<import('./shared/ports.js').UpdateJob | null> {
     if (overrides.readJob) return (await overrides.readJob()) ?? null
     // 冷启动首次读盘取初值；读失败不写死空——下一次读还会再试，免得一次瞬时失败把本进程画成「无任务」。
     // 坏形状的收敛在 store.readJob 里（corrupt → interrupted / recovery-required），这里不另立判据。
@@ -629,7 +629,7 @@ async function getSharedReader(pluginId: string, config: ReturnType<typeof resol
   return sharedReader
 }
 
-/** 核心错误码原样返回，外面世界的脏错误收敛为检查失败（码面真源在 src/codes.ts，#141）。 */
+/** 核心错误码原样返回，外面世界的脏错误收敛为检查失败（码面真源在 src/shared/codes.ts，#141）。 */
 function toUpdateErrorPayload(error: unknown): { error: string; errorKind: string } {
   const code = error && typeof (error as { code?: unknown }).code === 'string' ? String((error as { code: string }).code) : ''
   if (isCoreErrorCode(code)) return { error: code, errorKind: code }

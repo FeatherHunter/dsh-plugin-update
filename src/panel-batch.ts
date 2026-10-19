@@ -33,17 +33,18 @@
 // 本文件零 Node 专属能力（不读盘、不起进程、不拼 shell）：Node 宿主与浏览器闭包两边都跑得动；
 // DOM 只在 mountUpdateBatchPanel 被调用时经容器与 globalThis 现取，模块顶层不碰。
 
-import { assertPrefix, buildLogAppendPhoneName, DEFAULT_PREFIX, MIN_PANEL_POLL_MS } from './config.js'
+import { assertPrefix, buildLogAppendPhoneName, DEFAULT_PREFIX, MIN_PANEL_POLL_MS } from './shared/config.js'
 import { hash8 } from './shared/hash.js'
 import { createPanelClientLogShell, type PanelClientLogOptions } from './log/panel-client.js'
-import { copyText as bilingualText, type BilingualKey } from './bilingual.js'
+import { copyText as bilingualText } from './core/i18n/text.js'
+import type { BilingualKey } from './core/i18n/dictionary.js'
 import {
   manualAbsentReasonOf,
   manualAbsentReasonTextOf,
   manualAbsentTextOf,
   type ManualAbsentReason,
 } from './manual-absent.js'
-import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
+import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './shared/lang.js'
 import { compareReleaseVersions, validReleaseVersion } from './service.js'
 import { shouldFetchChangelog } from './changelog.js'
 import {
@@ -73,7 +74,7 @@ import {
 } from './panel.js'
 import { formatUnlockAt } from './install-cause.js'
 import { lastResortVerdictOf, type LastResortVerdict, type ManualSource } from './last-resort.js'
-import type { UpdateSnapshot } from './ports.js'
+import type { UpdateSnapshot } from './shared/ports.js'
 import type { VisibleQueue } from './queue.js'
 
 // ---------- 公开类型 ----------

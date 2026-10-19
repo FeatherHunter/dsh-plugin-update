@@ -16,7 +16,7 @@
 import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import { DEFAULT_CONFIRMATION_TTL_MS } from '../dist/config.js'
+import { DEFAULT_CONFIRMATION_TTL_MS } from '../dist/shared/config.js'
 
 const TARGET = 'pkg-expiry'
 const REGISTRY = 'https://registry.npmjs.org/'

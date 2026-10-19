@@ -22,8 +22,8 @@
  */
 
 import { compareReleaseVersions, validReleaseVersion } from './service.js'
-import { copyText } from './bilingual.js'
-import { normalizeLangTag, type AppLang } from './lang.js'
+import { copyText } from './core/i18n/text.js'
+import { normalizeLangTag, type AppLang } from './shared/lang.js'
 
 /** 包内日志文件名（包根，与 tarball 内同名文件同一名字）。 */
 export const CHANGELOG_FILENAME = 'CHANGELOG.md'

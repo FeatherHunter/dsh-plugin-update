@@ -22,7 +22,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHostUpdate } from '../dist/host.js'
 import { renderUpdatePanelHTML } from '../dist/panel.js'
 import { buildHealthyDiagCopy, buildUpdateDiagCopy } from '../dist/panel-copy.js'
-import { selfCopyInfo, selfCopyLevelOf } from '../dist/self.js'
+import { selfCopyInfo, selfCopyLevelOf } from '../dist/shared/self.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const PKG_DIR = join(HERE, '..')

@@ -27,7 +27,7 @@ import { CHANGELOG_FILENAME, CHANGELOG_MAX_CHARS, classifyChangelog, type Change
 import { INTEGRITY_PATTERN } from './service.js'
 // #211：tarball 取数也要留行——复用 registry-fetch 的同一台打点器（同一行语义，不另立一套）。
 import { makeFetchNoter } from './registry-fetch.js'
-import type { UpdateLogPort } from './ports.js'
+import type { UpdateLogPort } from './shared/ports.js'
 
 /** tarball 下载上限（字节，压缩态）：超限直接回落中性提示，不解包、不OOM。 */
 export const CHANGELOG_TARBALL_MAX_BYTES = 8 * 1024 * 1024

@@ -18,11 +18,11 @@
 //
 // 未新增日志事件：本文件不发日志，三个旧事件的标识字段由宿主入口发出。
 
-import { buildPhoneNames, CHECK_FALLBACK_PHONE_ACTION, DEFAULT_PANEL_POLL_MS, MIN_PANEL_POLL_MS, type ChangelogPhoneAction, type CheckFallbackPhoneAction, type PhoneAction } from './config.js'
+import { buildPhoneNames, CHECK_FALLBACK_PHONE_ACTION, DEFAULT_PANEL_POLL_MS, MIN_PANEL_POLL_MS, type ChangelogPhoneAction, type CheckFallbackPhoneAction, type PhoneAction } from './shared/config.js'
 import { manualCommand } from './commands.js'
 
-export { buildChangelogPhoneName, buildPhoneName, buildPhoneNames, CHECK_FALLBACK_PHONE_ACTION } from './config.js'
-export type { ChangelogPhoneAction, CheckFallbackPhoneAction, PhoneAction } from './config.js'
+export { buildChangelogPhoneName, buildPhoneName, buildPhoneNames, CHECK_FALLBACK_PHONE_ACTION } from './shared/config.js'
+export type { ChangelogPhoneAction, CheckFallbackPhoneAction, PhoneAction } from './shared/config.js'
 export { manualCommand } from './commands.js'
 // 跨插件队列的面板侧形状（#15）：纯函数，无 Node 专属能力，可进浏览器闭包。
 // 面板凭电话可选参数（includeQueue/showOthers）拿队列视图，用这里的同名函数再做展示裁剪。

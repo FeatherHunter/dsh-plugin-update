@@ -21,7 +21,7 @@ const ROOT = resolve(HERE, '..')
 const entry = `
 export { mountUpdatePanel, buildDiagnosticText, renderUpdatePanelHTML } from ${JSON.stringify(resolve(ROOT, 'src/panel.ts'))}
 export { visibleQueueFor } from ${JSON.stringify(resolve(ROOT, 'src/queue.ts'))}
-export { buildPhoneNames } from ${JSON.stringify(resolve(ROOT, 'src/config.ts'))}
+export { buildPhoneNames } from ${JSON.stringify(resolve(ROOT, 'src/shared/config.ts'))}
 `
 
 const built = await esbuild.build({

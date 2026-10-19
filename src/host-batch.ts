@@ -70,8 +70,8 @@ import {
   type BatchRunStep,
   type BatchStoppedByBecause,
 } from './batch-run.js'
-import { assertPluginId, assertPrefix, buildLogAppendPhoneName, resolveUpdateConfig, type UpdateConfigInput } from './config.js'
-import { CROSS_SCOPE_CODE, isBatchReplyCode, isCoreErrorCode } from './codes.js'
+import { assertPluginId, assertPrefix, buildLogAppendPhoneName, resolveUpdateConfig, type UpdateConfigInput } from './shared/config.js'
+import { CROSS_SCOPE_CODE, isBatchReplyCode, isCoreErrorCode } from './shared/codes.js'
 import { createBatchLogSeams, pluginLogPort } from './host-batch-log.js'
 import { createHostUpdate, type HostUpdate, type ReaderOverrides } from './host.js'
 import type { ManualSource } from './last-resort.js'
@@ -211,7 +211,7 @@ const DEFAULT_INSTALL_POLL_MS = 500
 const REQUEST_ID_MAX_CHARS = 128
 
 /**
- * 本入口的认码一律走 src/codes.ts 的归属判断（真源那两张表在这里不再抄第二份）：
+ * 本入口的认码一律走 src/shared/codes.ts 的归属判断（真源那两张表在这里不再抄第二份）：
  * 电话/队列认 `isBatchReplyCode`（核心码面 + 本入口的 cross-scope），
  * 任务说明前缀认 `isCoreErrorCode`（核心码面）。
  */

@@ -17,9 +17,10 @@ import {
   DEFAULT_PANEL_POLL_MS,
   DEFAULT_PREFIX,
   MIN_PANEL_POLL_MS,
-} from './config.js'
-import { copyText, type BilingualKey } from './bilingual.js'
-import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
+} from './shared/config.js'
+import { copyText } from './core/i18n/text.js'
+import type { BilingualKey } from './core/i18n/dictionary.js'
+import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './shared/lang.js'
 import {
   buildUpdateDiagCopy,
   failureCodeOf,
@@ -46,7 +47,7 @@ export type { LastResortKind, RescueRouteKey, ManualSource, LastResortVerdict } 
 import { createClientLogChannel, type ClientLogChannel } from './log/client-queue.js'
 // #212：只借类型（浏览器侧不许运行时引 ./log 的 Node 模块；类型导入编译即抹掉）。
 import type { UpdateLogHealth } from './log/health.js'
-import type { InstallSource, UpdateSnapshot } from './ports.js'
+import type { InstallSource, UpdateSnapshot } from './shared/ports.js'
 import type { VisibleQueue } from './queue.js'
 
 // ---------- 对外类型 ----------

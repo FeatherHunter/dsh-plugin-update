@@ -6,8 +6,8 @@
 // 测试深引用（../dist/host.js）与包导出表零碰（#159 冻结决议的直接派生）。
 // 判定核/渲染等后续拆分照抄本模式：函数搬新文件，老地方留垫片。
 
-export { buildChangelogPhoneName, buildPhoneName, buildPhoneNames, resolveUpdateConfig } from './config.js'
-export type { ChangelogPhoneAction, PhoneAction, UpdateConfigInput } from './config.js'
+export { buildChangelogPhoneName, buildPhoneName, buildPhoneNames, resolveUpdateConfig } from './shared/config.js'
+export type { ChangelogPhoneAction, PhoneAction, UpdateConfigInput } from './shared/config.js'
 // 门禁模板检查器（#584 落地；#120 起形状对齐日志包 0.3.1：清单不写自报计数、字段检查分两档、
 // 落盘行断言 v === 3。对象形式，更新包不读盘；经包根转出口，第二家可达）。
 export {
@@ -57,8 +57,8 @@ export {
   sanitizeDetail,
   sanitizeForCopy,
   truncateToWordBoundary,
-} from './redaction.js';
-export type { DiagDropKey, RedactionRuleName } from './redaction.js';
+} from './shared/redaction.js';
+export type { DiagDropKey, RedactionRuleName } from './shared/redaction.js';
 // 电话侧失败证据 diag（#21，承接 #18 契约：19 键目录 + 阶段六值 + 路由/方法正交 +
 // 包内动作推导 + 缺省省略 + 1024 字节墙；queuePos 留空到队列转正，经包根转出口）。
 export {
@@ -73,8 +73,8 @@ export {
   deriveRouteMethod,
   deriveStage,
   enforceBudget as enforceDiagBudgetForPhone,
-} from './diag.js';
-export type { DiagAction, DiagInput, DiagObject, DiagStage } from './diag.js';
+} from './shared/diag.js';
+export type { DiagAction, DiagInput, DiagObject, DiagStage } from './shared/diag.js';
 // 安装失败翻译官（#155：已知签名识别 + 诚实归因；纯函数 + 计数解释器，经包根转出口）。
 export {
   blameCausePackage,
@@ -135,7 +135,7 @@ export {
 export type { ReleaseChangelogRef } from './changelog-io.js';
 export { createUpdateDiskPorts, createUpdateExecutor, pathsForUpdate, resolveCliEntry } from './store.js'
 // 跳过与版本通道（#16：按插件 + 版本持久化跳过、stable 默认 / prerelease 开关、精确版锁定）。
-export { SKIPPED_FILE } from './config.js'
+export { SKIPPED_FILE } from './shared/config.js'
 export {
   addSkipped,
   clearSkipped,
@@ -154,9 +154,9 @@ export {
   validVersion,
   compareVersions,
 } from './service.js'
-export type { ReleaseChannel } from './ports.js'
-export type { CheckFallbackPhoneAction } from './config.js'
-export type { FallbackCheckInput, FallbackCheckResult } from './ports.js'
+export type { ReleaseChannel } from './shared/ports.js'
+export type { CheckFallbackPhoneAction } from './shared/config.js'
+export type { FallbackCheckInput, FallbackCheckResult } from './shared/ports.js'
 // 跨插件单队列（#15）：纯决策经包根转出口，落盘与全局锁同上；面板展示过滤见 client.ts 同名转出口。
 export {
   createUpdateQueuePorts,

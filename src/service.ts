@@ -29,7 +29,7 @@ import type {
   UpdateLogPort,
   UpdatePorts,
   UpdateSnapshot,
-} from './ports.js'
+} from './shared/ports.js'
 
 export const CONFIRMATION_TTL_MS = 10 * 60_000
 /** 2 秒内重复点击复用上次结果，不重新联网。 */
@@ -91,7 +91,7 @@ import { checkErrorKindOf, httpStatusOfError, installSourceOf, stableCodeOf, sta
 // 安装失败原因链（#207）：现场事实分类与行字段收敛放在中立文件，本文件只负责「何时记一行」。
 import { attachInstallFail, installFailRowFields, normalizeCode, readInstallFail } from './install-fail.js'
 import type { InstallFailFacts } from './install-fail.js'
-import { BLOCKED_REASONS } from './codes.js'
+import { BLOCKED_REASONS } from './shared/codes.js'
 import { hash8 } from './shared/hash.js'
 // ---------- 取数垫片（#163：实现搬 registry-fetch，老位置 re-export，行为零变化） ----------
 import {
@@ -790,7 +790,7 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
           // 批准构建名单（#194）：只在这次安装带过批准时出现；老调用形状一字不动。
           ...(approvedBuilds && approvedBuilds.length > 0 ? { approvedBuilds } : {}),
         })
-      // 字面量不另存一份真源：`satisfies UpdateErrorCode` 把它钉在 src/codes.ts 的类型上，
+      // 字面量不另存一份真源：`satisfies UpdateErrorCode` 把它钉在 src/shared/codes.ts 的类型上，
       // 真源删/改这个码这里立刻 typecheck 报错；而本文件「零（运行时）导入」的契约不受影响。
       else throw updateError('unsupported' satisfies UpdateErrorCode)
       const doing: UpdateJob = { ...job, state: 'verifying', message: null }

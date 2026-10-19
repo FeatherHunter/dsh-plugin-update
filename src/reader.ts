@@ -14,10 +14,10 @@ import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { assertPluginId } from './config.js'
+import { assertPluginId } from './shared/config.js'
 import { resolveCompliantVersion } from './compliant-version.js'
 import { createUpdateCore, isVersionAllowedInChannel, validReleaseVersion } from './service.js'
-import type { EnvironmentKind, EnvironmentView, FetchImpl, ReleaseChannel, UpdateCore, UpdateJob, UpdateLogPort } from './ports.js'
+import type { EnvironmentKind, EnvironmentView, FetchImpl, ReleaseChannel, UpdateCore, UpdateJob, UpdateLogPort } from './shared/ports.js'
 
 const LOCK_FILES = ['pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package-lock.json']
 

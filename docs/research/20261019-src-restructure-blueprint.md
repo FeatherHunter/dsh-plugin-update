@@ -100,6 +100,8 @@ src/
     ├── hash.ts              # 旧 hash.ts 整搬（单函数）
     ├── lang.ts              # 旧 lang.ts 整搬
     ├── log-events.ts        # 旧 log-events.ts 整搬
+    ├── node-ambient.d.ts    # 旧 node-ambient.d.ts（ambient 声明，只进类型检查，不产 dist）
+    ├── runtime.d.ts         # 旧 runtime.d.ts（同上）
     ├── copy.ts              # 旧 panel-copy.ts 整搬
     ├── compliant.ts         # 旧 compliant-version.ts 整搬
     ├── commands.ts          # 旧 commands.ts 整搬
@@ -152,6 +154,8 @@ src/
 | service.ts | core/service.ts | 整搬不再拆（§2 见由） |
 | version-judgment.ts | core/judgment.ts | 已有垫片 |
 | log/*（多文件） | log/* 原位不动 | 已是目标形状 |
+
+> ambient 声明 `runtime.d.ts` 与 `node-ambient.d.ts` 未在上表单列（#224 成稿时的遗漏），#223 执行时按同一原则一并进 `shared/`：只参与类型检查，不产 dist 产物。
 
 ### 3.2 拆分搬家（9 个神文件 → 33 新文件，见 §4 方法职责表）
 

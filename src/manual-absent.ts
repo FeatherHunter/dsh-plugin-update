@@ -8,10 +8,11 @@
 //   #98 不降级、#153 不覆盖源码安装、#182 运行版未知不猜、#201 命令必须可执行。
 // 所以这里没有「放宽」路径：分类只是把已有的拒绝理由翻译成原因 + 下一步。
 // 判不出时由调用方决定用兜底句（`panel.manual.absent`），绝不硬编一个没验证过的原因。
-import { copyText, type BilingualKey } from './bilingual.js'
+import { copyText } from './core/i18n/text.js'
+import type { BilingualKey } from './core/i18n/dictionary.js'
 import { manualCommandSuppressedBy } from './commands.js'
-import { normalizeLangTag, type AppLang } from './lang.js'
-import type { UpdateSnapshot } from './ports.js'
+import { normalizeLangTag, type AppLang } from './shared/lang.js'
+import type { UpdateSnapshot } from './shared/ports.js'
 
 /** 手工命令为空的五种可解释原因；判不出时由调用方决定用兜底句。 */
 export type ManualAbsentReason =

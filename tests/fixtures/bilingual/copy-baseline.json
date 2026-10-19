@@ -1,7 +1,7 @@
 {
-  "note": "冻结散落文案基线（#56 门禁）：src/ 下不在文案源里的中文字符串字面量快照，只许减不许增。用户可见文案进 src/bilingual.ts；日志/抛错等冻结文案要改，须同步本文件并在评审里看见。--update-baseline 重算。",
+  "note": "冻结散落文案基线（#56 门禁）：src/ 下不在文案源里的中文字符串字面量快照，只许减不许增。用户可见文案进 src/core/i18n/dictionary.ts；日志/抛错等冻结文案要改，须同步本文件并在评审里看见。--update-baseline 重算。",
   "copySources": [
-    "src/bilingual.ts"
+    "src/core/i18n/dictionary.ts"
   ],
   "files": {
     "src/changelog.ts": [
@@ -30,22 +30,8 @@
     "src/client.ts": [
       "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到"
     ],
-    "src/config.ts": [
-      "[dsh-plugin-update] 官方源 registryUrl 非法：须为非空字符串",
-      "[dsh-plugin-update] 建更新能力缺少配置：插件标识 pluginId 必填",
-      "[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到",
-      "[dsh-plugin-update] 插件标识 pluginId 非法：不得含有路径分隔符（收到",
-      "[dsh-plugin-update] 版本通道 releaseChannel 非法：只收 stable 或 prerelease（收到",
-      "[dsh-plugin-update] 目标包名 targetPackageName 非法：须为非空字符串",
-      "[dsh-plugin-update] 面板轮询 panelPollMs 非法：不得小于 250 毫秒（收到",
-      "凭证有效期 confirmationTtlMs",
-      "安装时限 installTimeoutMs",
-      "电话名前缀 prefix",
-      "联网超时 checkTimeoutMs",
-      "非法：不得含有点、路径分隔符或空白（收到",
-      "非法：须为有限大于 0 的数（收到",
-      "非法：须为非空字符串（收到",
-      "面板轮询 panelPollMs"
+    "src/core/i18n/text.ts": [
+      "[dsh-plugin-update] 未知文案 key："
     ],
     "src/entry-batch.ts": [
       "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到",
@@ -197,18 +183,13 @@
       "[dsh-plugin-update] 挂载面板需要传输函数 call（面板调宿主电话的唯一接触面）",
       "[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ）",
       "[dsh-plugin-update] 摆放形态非法：只收 embedded 或 dialog（收到 ）",
-      "[dsh-plugin-update] 跳过版本号非法：须为发行版本号（收到 ）",
       "[dsh-plugin-update] 自动检查开关非法：只收布尔值（收到 ）",
+      "[dsh-plugin-update] 跳过版本号非法：须为发行版本号（收到 ）",
       "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ）"
     ],
     "src/reader.ts": [
       "[dsh-plugin-update] 建读取器必须给绝对路径的使用范围目录 profileDir",
       "[dsh-plugin-update] 建读取器必须给网络实现 fetchImpl（本机没有全局 fetch）"
-    ],
-    "src/redaction.ts": [
-      "<脱敏>",
-      "<路径>",
-      "（原话里的账号密码已隐去；请核对源地址里的凭据后重试）"
     ],
     "src/service.ts": [
       "未知",
@@ -216,6 +197,28 @@
       "装完校验没过：profile 未登记该插件（重启后不会加载）",
       "装完校验没过：环境报告",
       "装完校验没过：磁盘上是 ，目标是"
+    ],
+    "src/shared/config.ts": [
+      "[dsh-plugin-update] 官方源 registryUrl 非法：须为非空字符串",
+      "[dsh-plugin-update] 建更新能力缺少配置：插件标识 pluginId 必填",
+      "[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到",
+      "[dsh-plugin-update] 插件标识 pluginId 非法：不得含有路径分隔符（收到",
+      "[dsh-plugin-update] 版本通道 releaseChannel 非法：只收 stable 或 prerelease（收到",
+      "[dsh-plugin-update] 目标包名 targetPackageName 非法：须为非空字符串",
+      "[dsh-plugin-update] 面板轮询 panelPollMs 非法：不得小于 250 毫秒（收到",
+      "凭证有效期 confirmationTtlMs",
+      "安装时限 installTimeoutMs",
+      "电话名前缀 prefix",
+      "联网超时 checkTimeoutMs",
+      "非法：不得含有点、路径分隔符或空白（收到",
+      "非法：须为有限大于 0 的数（收到",
+      "非法：须为非空字符串（收到",
+      "面板轮询 panelPollMs"
+    ],
+    "src/shared/redaction.ts": [
+      "<脱敏>",
+      "<路径>",
+      "（原话里的账号密码已隐去；请核对源地址里的凭据后重试）"
     ],
     "src/store.ts": [
       "启用已装包超时，未继续安装；请在宿主插件页确认该插件已启用后重试",

@@ -19,7 +19,7 @@
  *
  * 落点抛错、字段里有怪东西、清单没加载 —— 一律不得影响主流程：本文件对外只回布尔与计数，绝不外抛。
  */
-import { sanitizeDetail } from '../redaction.js'
+import { sanitizeDetail } from '../shared/redaction.js'
 import { NOOP_SINK, type LogSink } from './sink.js'
 import { currentLogTraceFor } from './trace.js'
 import { updateLogRouter } from './router.js'

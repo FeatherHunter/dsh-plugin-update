@@ -12,7 +12,7 @@ import type {
   ReleaseInfo,
   UpdateErrorCode,
   UpdateLogPort,
-} from './ports.js'
+} from './shared/ports.js'
 import { CHECK_FAIL_CAUSE_KEY, type CheckErrorKind } from './check-conclusion.js'
 import {
   compareReleaseVersions,

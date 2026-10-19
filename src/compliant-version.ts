@@ -21,15 +21,15 @@
  * - windowSource 原样回传：精确与约的区分是呈现层的事，本层照样决议。
  */
 
-import type { ReleaseChannel } from './ports.js'
+import type { ReleaseChannel } from './shared/ports.js'
 
 /** 本模块认识的 kind（首期仅 minimum-release-age；新增 = 加一行 + 两条测试，管道不动）。 */
 const COMPLIANT_KINDS = ['minimum-release-age'] as const
 
 // 类型已上收 ports（#165 断 ports⇄compliant-version 纯类型环）：本模块只留值实现，
 // 对外脸经垫片不变（tests 深引用 ../dist/compliant-version.js 与包根转出口零碰）。
-import type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './ports.js'
-export type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './ports.js'
+import type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './shared/ports.js'
+export type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './shared/ports.js'
 
 // ---------- 版本号小工具（与 src/service.ts 同口径的内联版，本文件自包含） ----------
 

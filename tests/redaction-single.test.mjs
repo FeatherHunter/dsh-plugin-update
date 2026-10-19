@@ -1,7 +1,7 @@
 /**
  * tests/redaction-single.test.mjs —— #24 脱敏单源收敛 + 1024 字节墙 enforcement。
  *
- * 只断外部行为：经包公开出口（dist/redaction.js、dist/panel.js、dist/host.js），
+ * 只断外部行为：经包公开出口（dist/shared/redaction.js、dist/panel.js、dist/host.js），
  * 不断内部函数名与调用次数。旧正则快照仅用于新旧穷举比对（断“新掩 ⊇ 旧掩”，不断实现）。
  * 不真联网、不真装。
  */
@@ -21,7 +21,7 @@ import {
   enforceDiagBudget,
   sanitizeDetail,
   sanitizeForCopy,
-} from '../dist/redaction.js'
+} from '../dist/shared/redaction.js'
 import { PANEL_DIAG_MAX_CHARS, redactForCopy } from '../dist/panel.js'
 import * as hostRoot from '../dist/host.js'
 
@@ -112,7 +112,7 @@ describe('单源：面板只转调纯核，无镜像', () => {
     assert.equal(COPY_BUDGET_CHARS, 1500)
   })
   it('零 Node 导入：redaction 与 panel 源码无 node: 导入', () => {
-    for (const name of ['redaction.ts', 'panel.ts']) {
+    for (const name of ['shared/redaction.ts', 'panel.ts']) {
       const source = readFileSync(join(PKG_DIR, 'src', name), 'utf8')
       assert.ok(!/from 'node:/.test(source), `${name} 不得出现 node: 导入（浏览器闭包进不去）`)
     }

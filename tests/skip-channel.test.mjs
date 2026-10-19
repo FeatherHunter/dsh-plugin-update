@@ -20,7 +20,7 @@ import {
   validVersion,
 } from '../dist/service.js'
 import { installRecipe, manualCommand } from '../dist/commands.js'
-import { resolveUpdateConfig } from '../dist/config.js'
+import { resolveUpdateConfig } from '../dist/shared/config.js'
 import {
   addSkipped,
   clearSkipped,

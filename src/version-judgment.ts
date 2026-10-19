@@ -6,7 +6,7 @@
  * 老位置（service.ts）留垫片 re-export，测试深引用与包导出表零碰。
  */
 
-import type { ReleaseChannel, UpdateErrorCode } from './ports.js'
+import type { ReleaseChannel, UpdateErrorCode } from './shared/ports.js'
 
 export function updateError(code: UpdateErrorCode): Error & { code: UpdateErrorCode } {
   return Object.assign(new Error(code), { code })

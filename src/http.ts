@@ -1,7 +1,7 @@
 // src/http.ts —— HTTP 万能插头传输（#35，承接 #30 七行冻结：单插件三电话 + 批量五电话统一传输）。
 //
 // 纯加法：新子路径 dsh-plugin-update/http，只加新文件 + 新出口 + 文档/日志，不碰
-// src/config.ts 冻结项（电话名/入参回参/落盘/配方/事件基线/默认路径）与老 7 入口形状。
+// src/shared/config.ts 冻结项（电话名/入参回参/落盘/配方/事件基线/默认路径）与老 7 入口形状。
 // 零 Node 专属能力（不读盘、不起进程）：宿主与浏览器闭包两边都跑得动；fetch 只在
 // createHttpCall 被调用时经参数或 globalThis 现取，模块顶层不碰网络。
 //
@@ -9,10 +9,10 @@
 // POST body = 调用参数原样；queue/env（含开关）/session/rows/progress/diag 全透；
 // diagnostic 原话丢弃；diag 只留 16 键（detail 脱敏 300 字封顶）；传输失败走抛异常通道。
 
-import { DEFAULT_PREFIX, assertPrefix } from './config.js'
+import { DEFAULT_PREFIX, assertPrefix } from './shared/config.js'
 import { assertPollInterval } from './client.js'
-import { DIAG_KEYS } from './diag.js'
-import { sanitizeDetail } from './redaction.js'
+import { DIAG_KEYS } from './shared/diag.js'
+import { sanitizeDetail } from './shared/redaction.js'
 import { mountUpdatePanel, type UpdatePanelContainer, type UpdatePanelController, type UpdatePanelOptions } from './panel.js'
 import { mountUpdateEntry, type UpdateEntryController, type UpdateEntryOptions } from './entry.js'
 import { mountUpdateBatchPanel, type BatchPanelContainer, type BatchPanelController, type BatchPanelOptions } from './panel-batch.js'
@@ -25,7 +25,7 @@ export const DEFAULT_HTTP_CHECK_TIMEOUT_MS = 15_000
 export const DEFAULT_HTTP_INSTALL_TIMEOUT_MS = 16 * 60_000
 export const DEFAULT_HTTP_STATUS_TIMEOUT_MS = 15_000
 
-/** 单插件电话动作名（旧三电话与 src/config.ts PHONE_ACTIONS 同字面，不另起字面；#38 加 updateChangelog；#122 加 logAppend；#156 加 updateCheckFallback）。 */
+/** 单插件电话动作名（旧三电话与 src/shared/config.ts PHONE_ACTIONS 同字面，不另起字面；#38 加 updateChangelog；#122 加 logAppend；#156 加 updateCheckFallback）。 */
 export const HTTP_PHONE_ACTIONS = ['updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'updateCheckFallback', 'logAppend'] as const
 export type HttpPhoneAction = (typeof HTTP_PHONE_ACTIONS)[number]
 

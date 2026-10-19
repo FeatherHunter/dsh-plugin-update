@@ -34,10 +34,12 @@
 // 本文件零 Node 专属能力（不读盘、不起进程、不拼 shell）：Node 宿主与浏览器闭包两边都跑得动；
 // DOM 只在 mountUpdateBatchEntry 被调用时经容器与 globalThis 现取，模块顶层不碰。
 
-import { MIN_PANEL_POLL_MS } from './config.js'
+import { MIN_PANEL_POLL_MS } from './shared/config.js'
 import { UPDATE_ENTRY_CSS } from './entry.js'
-import { BILINGUAL_CSS, copyHTML, copyText, type BilingualKey } from './bilingual.js'
-import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
+import { BILINGUAL_CSS } from './core/i18n/styles.js'
+import { copyHTML, copyText } from './core/i18n/text.js'
+import type { BilingualKey } from './core/i18n/dictionary.js'
+import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './shared/lang.js'
 import {
   BATCH_PANEL_POLL,
   batchLedgerCounts,

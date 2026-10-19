@@ -17,9 +17,9 @@
 // 与错误架构子地图的分工：回包形状由子地图定，本组件只承诺“有、够、已脱敏”——
 // 平时一句话、旁边常驻复制诊断；复制文本经 redactForCopy 收干净后再交出去。
 
-import { buildChangelogPhoneName, buildLogAppendPhoneName, buildPhoneNames, DEFAULT_PANEL_POLL_MS, DEFAULT_PREFIX, MIN_PANEL_POLL_MS } from './config.js'
+import { buildChangelogPhoneName, buildLogAppendPhoneName, buildPhoneNames, DEFAULT_PANEL_POLL_MS, DEFAULT_PREFIX, MIN_PANEL_POLL_MS } from './shared/config.js'
 import { hash8 } from './shared/hash.js'
-import { COPY_BUDGET_CHARS, sanitizeForCopy } from './redaction.js'
+import { COPY_BUDGET_CHARS, sanitizeForCopy } from './shared/redaction.js'
 import { compareReleaseVersions, validReleaseVersion } from './service.js'
 import {
   changelogForUpdate,
@@ -32,20 +32,21 @@ import {
   type ChangelogStatus,
 } from './changelog.js'
 import { visibleQueueFor, type UpdateQueueState, type VisibleQueue } from './queue.js'
-import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } from './log-events.js'
+import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } from './shared/log-events.js'
 import { createPanelClientLogShell, type PanelClientLogOptions } from './log/panel-client.js'
 // #212：只要类型（import type 在编译期擦除，浏览器闭包里不会多出 log/ 内部模块的运行时依赖）。
 import type { UpdateLogHealth } from './log/health.js'
-import type { BlockedReason, UpdateSnapshot } from './ports.js'
-import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './codes.js'
+import type { BlockedReason, UpdateSnapshot } from './shared/ports.js'
+import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './shared/codes.js'
 export { isCheckSideFailureCode } // 查侧判定从单点真源派生（#134/US15；#141 铁律：本文件不另建第二张表）
-import { copyText, type BilingualKey } from './bilingual.js'
+import { copyText } from './core/i18n/text.js'
+import type { BilingualKey } from './core/i18n/dictionary.js'
 import { manualAbsentReasonOf, manualAbsentTextOf, manualAppliesToBanner } from './manual-absent.js'
 import { lastResortVerdictOf, type LastResortVerdict, type ManualSource } from './last-resort.js'
 // #174：last-resort 的类型经既有子路径转出，消费者无需新子路径即可命名（`ManualSource` 已出现在本模块导出签名里）。
 export type { LastResortKind, RescueRouteKey, ManualSource, LastResortSubject, LastResortInput, LastResortVerdict } from './last-resort.js'
 import { blameCausePackage, CAUSE_KINDS, formatUnlockAt, interpretInstallCause } from './install-cause.js'
-import { langSignalSource, normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
+import { langSignalSource, normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './shared/lang.js'
 
 // ---------- 公开类型（完整类型定义：公开入口一律有类型，不做源码级复用） ----------
 
@@ -2164,7 +2165,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
       // ——路牌宁可说「目录长这样、命令长这样」，也不指一个并不存在的值。
       const logDirInput = (input as { logDir?: unknown }).logDir
       const logDirKnown = typeof logDirInput === 'string' && logDirInput.trim() ? logDirInput.trim() : null
-      // 占位符一律 ASCII：中文只许存文案源（src/bilingual.ts），路径与命令里的尖括号不译。
+      // 占位符一律 ASCII：中文只许存文案源（src/core/i18n/dictionary.ts），路径与命令里的尖括号不译。
       const logDirShown = logDirKnown ?? '<DSH_HOME>/logs/<derived>'
       // 命令不带 `tail`：dsh-log 0.3.1 的解析器把非 `-` 开头的词一律当路径，
       // 而它的 USAGE 写着 `tail` —— 带上就会多吐一句「没找到日志目录：tail」。
@@ -4171,10 +4172,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
 
 // ---------- 面板侧电话名与轮询口径（与派生工具同一源，不写字面量） ----------
 
-export { buildPhoneNames as buildPanelPhoneNames } from './config.js'
-export type { PhoneAction as PanelPhoneAction } from './config.js'
-export { buildChangelogPhoneName as buildPanelChangelogPhoneName } from './config.js'
-export type { ChangelogPhoneAction as PanelChangelogPhoneAction } from './config.js'
+export { buildPhoneNames as buildPanelPhoneNames } from './shared/config.js'
+export type { PhoneAction as PanelPhoneAction } from './shared/config.js'
+export { buildChangelogPhoneName as buildPanelChangelogPhoneName } from './shared/config.js'
+export type { ChangelogPhoneAction as PanelChangelogPhoneAction } from './shared/config.js'
 
 /** 面板轮询口径（默认 1 秒、下限 250 毫秒，与宿主侧同一套）。 */
 export const PANEL_POLL = {
@@ -4195,9 +4196,9 @@ export {
 export type { QueuedEntry, QueueOwner, UpdateQueueState, VisibleQueue as PanelVisibleQueue, VisibleQueueOwner } from './queue.js'
 
 // 宿主种类（诊断文本用；取值可增，不认就当普通宿主展示）。
-export type { EnvironmentKind as PanelEnvironmentKind } from './ports.js'
-export type { UpdateSnapshot as PanelSnapshot } from './ports.js'
-export type { BlockedReason as PanelBlockedReason } from './ports.js'
+export type { EnvironmentKind as PanelEnvironmentKind } from './shared/ports.js'
+export type { UpdateSnapshot as PanelSnapshot } from './shared/ports.js'
+export type { BlockedReason as PanelBlockedReason } from './shared/ports.js'
 
 // 更新日志纯函数（#23：面板与浏览器闭包同缝，零依赖；I/O 在 changelog-io Node 侧）。
 export {

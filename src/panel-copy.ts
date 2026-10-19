@@ -6,18 +6,19 @@
  * panel.ts 留垫片 re-export，老位置零变化。
  */
 
-import { copyText, type BilingualKey } from './bilingual.js'
-import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './codes.js'
+import { copyText } from './core/i18n/text.js'
+import type { BilingualKey } from './core/i18n/dictionary.js'
+import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './shared/codes.js'
 import { blameCausePackage, CAUSE_KINDS, formatUnlockAt, interpretInstallCause } from './install-cause.js'
-import { normalizeLangTag, type AppLang } from './lang.js'
-import { COPY_BUDGET_CHARS, sanitizeForCopy } from './redaction.js'
-import type { BlockedReason } from './ports.js'
+import { normalizeLangTag, type AppLang } from './shared/lang.js'
+import { COPY_BUDGET_CHARS, sanitizeForCopy } from './shared/redaction.js'
+import type { BlockedReason } from './shared/ports.js'
 import type { UpdateLogHealth } from './log/health.js'
 
 // ---------- 状态与失败文案（#61 起全部出自集中字典，单语渲染；分支只认稳定码） ----------
 //
 // README §5.2：面板只展示“用户该做什么”，不只展示英文原因。
-// zh 逐字等于旧散落文案（兼容既有测试）；en 待母语评审全 draft（见 src/bilingual.ts）。
+// zh 逐字等于旧散落文案（兼容既有测试）；en 待母语评审全 draft（见 src/core/i18n/dictionary.ts）。
 // 10 阻塞行复用同一组 key（failureCopy 对阻塞码直接复用 blocked 行，不另起措辞）。
 
 export interface BlockedCopy {
@@ -50,7 +51,7 @@ export function blockedCopy(reason: BlockedReason | null, lang?: AppLang | strin
 
 // ---------- 稳定码单语文案（#22 原型 + #61 入字典：阻塞 + 电话 + internal + 未来兜底） ----------
 //
-// 码面真源在 src/codes.ts（#141）：下面两张表按真源的类型穷尽，真源添码而这里缺行 TS 直接报错；
+// 码面真源在 src/shared/codes.ts（#141）：下面两张表按真源的类型穷尽，真源添码而这里缺行 TS 直接报错；
 // 10 行以 README §5.2 为准（手册是源，字典逐字跟手册，不自创措辞）；
 // 5 电话专属 + internal 为原型 panel-tolerated-reader 起草，措辞只给行动，不推导；
 // 未来码走兜底（unknown），面板只渲染不推导（分支只用稳定码，不碰 diag 明细）。
@@ -74,7 +75,7 @@ const UNKNOWN_FAILURE_KEYS: { title: BilingualKey; action: BilingualKey } = {
   action: 'panel.failure.unknown.action',
 }
 
-/** 稳定码全表是否包含该码（阻塞 + 电话 + internal，见 src/codes.ts；未来码不在此列，走兜底）。 */
+/** 稳定码全表是否包含该码（阻塞 + 电话 + internal，见 src/shared/codes.ts；未来码不在此列，走兜底）。 */
 export function isKnownFailureCode(code: unknown): boolean {
   if (typeof code !== 'string' || !code) return false
   const c = code.trim()
@@ -83,7 +84,7 @@ export function isKnownFailureCode(code: unknown): boolean {
 }
 
 /**
- * 稳定码 → 单语一句话（全表覆盖，见 src/codes.ts；未知码回未来兜底，空码回 null；lang 缺省 zh，零回归）。
+ * 稳定码 → 单语一句话（全表覆盖，见 src/shared/codes.ts；未知码回未来兜底，空码回 null；lang 缺省 zh，零回归）。
  * 10 阻塞行复用 blocked 行原文，不另起措辞；面板分支只认返回值，不碰 diag。
  */
 export function failureCopy(code: unknown, lang?: AppLang | string | null): FailureCopy | null {
@@ -101,7 +102,7 @@ export function failureCopy(code: unknown, lang?: AppLang | string | null): Fail
 /**
  * 失败回包取稳定码：只认 errorKind，error 仅作回退（#22 验收：errorKind=internal 时
  * 不许误判为查新版失败；包内已把未知码收敛为 error=check-failed/errorKind=internal，
- * 此时 error 那格不可信）。缺省回 internal（真源常量，见 src/codes.ts），不抛错。
+ * 此时 error 那格不可信）。缺省回 internal（真源常量，见 src/shared/codes.ts），不抛错。
  */
 export function failureCodeOf(
   reply: { error?: unknown; errorKind?: unknown } | null | undefined,
@@ -145,7 +146,7 @@ export function thrownIsCheckExpired(err: unknown): boolean {
   return false
 }
 
-// ---------- 复制前脱敏（#24 单源收敛：规则唯一源是 src/redaction.ts） ----------
+// ---------- 复制前脱敏（#24 单源收敛：规则唯一源是 src/shared/redaction.ts） ----------
 //
 // 面板不再自存一份 PANEL_* 镜像：脱敏五条规则、顺序、占位符、遮蔽语义、落刀语义
 // 全部由 redaction 纯核定义（零 Node 导入，宿主/面板同缝），此处只转调。

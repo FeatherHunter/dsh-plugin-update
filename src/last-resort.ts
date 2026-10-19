@@ -21,7 +21,7 @@ import {
   CHECK_SIDE_FAILURE_CODES,
   INTERNAL_CODE,
   type BlockedReason,
-} from './codes.js'
+} from './shared/codes.js'
 
 /** 判定四态。只有 `last-resort` 允许在渲染层高亮。 */
 export type LastResortKind = 'last-resort' | 'salvageable' | 'dead-end' | 'unknown'

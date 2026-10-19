@@ -37,7 +37,7 @@ const SAME_SHAPE_COPY = '作者未提供更新说明，安装不受影响。'
 /** 画坏/兜底路径的老句（另一条路，别混）。 */
 const BROKEN_COPY = '更新日志无法读取，安装不受影响。'
 
-/** 四档话术（src/bilingual.ts 的 zh 原文；en 另有快照门禁管）。 */
+/** 四档话术（src/core/i18n/dictionary.ts 的 zh 原文；en 另有快照门禁管）。 */
 const STATUS_COPY = [
   { status: 'empty', markdown: null, text: '该版本的更新说明是空文件，不是取数失败。' },
   { status: 'missing', markdown: null, text: '该版本包里没有更新说明文件，不是取数失败。' },

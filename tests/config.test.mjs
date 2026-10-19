@@ -5,7 +5,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildPhoneNames, resolveUpdateConfig } from '../dist/config.js'
+import { buildPhoneNames, resolveUpdateConfig } from '../dist/shared/config.js'
 
 describe('公共入口的配置校验与默认值', () => {
   it('插件标识必填：不给即抛错', () => {

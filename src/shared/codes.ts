@@ -1,9 +1,9 @@
 /**
- * src/codes.ts —— 错误码的唯一定义处（#141；码面契约源自 #22，#138 定案「先立真源再加码」）。
+ * src/shared/codes.ts —— 错误码的唯一定义处（#141；码面契约源自 #22，#138 定案「先立真源再加码」）。
  *
  * 为什么有这个文件：码原先至少散在八处（两个类型、宿主收敛表、批量两张认码表、面板文案表、
  * 双语门禁、字典快照与测试）。加一个码要手工同步八处，漏一处就是「面板不认、门禁不查、测试不知」。
- * 现在只在这里定义一次，其余全部派生：类型从数组取，门禁从 dist/codes.js 读，
+ * 现在只在这里定义一次，其余全部派生：类型从数组取，门禁从 dist/shared/codes.js 读，
  * 文案表按码型穷尽（缺一个码 TS 直接报错）。
  *
  * 用词提醒（CONTEXT.md:55-57）：词表里**错误码**是已定词（失败时回给面板的稳定短码，面板只对它分支）；
@@ -19,7 +19,7 @@
  * 铁律（docs/maintainers.md:140-145 + docs/adr/0001）：
  * - 面板只认码，不认文案；
  * - **取值可增**属向后兼容扩展；改既有取值的语义 / 删值 / 改名要按冻结项走一次破冰讨论；
- * - 这里只有码本身，文案在 src/bilingual.ts（一码一组 title + action，双语门禁盯着）；
+ * - 这里只有码本身，文案在 src/core/i18n/dictionary.ts（一码一组 title + action，双语门禁盯着）；
  * - 「未来码」不进这张表：未知码必须走人话兜底（面板 failureCopy 的 unknown 一族）。
  */
 
@@ -78,7 +78,7 @@ export const STABLE_CODES = [...BLOCKED_REASONS, ...PHONE_FAILURE_CODES, INTERNA
 export const CORE_ERROR_CODES = [...PHONE_FAILURE_CODES, ...BLOCKED_REASONS] as const
 export type CoreErrorCode = (typeof CORE_ERROR_CODES)[number]
 
-/** 公开错误码（src/ports.ts 的 UpdateErrorCode）：核心码面 + 只读半程的诚实失败码。 */
+/** 公开错误码（src/shared/ports.ts 的 UpdateErrorCode）：核心码面 + 只读半程的诚实失败码。 */
 export type UpdateErrorCode = CoreErrorCode | typeof UNSUPPORTED_CODE
 
 /** 批量电话与队列认的码：核心码面 + 本入口自己的跨范围拒绝码。 */

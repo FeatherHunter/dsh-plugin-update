@@ -1,5 +1,5 @@
 /**
- * src/node-ambient.d.ts —— 本包触碰的 Node 内建能力最小形状。
+ * src/shared/node-ambient.d.ts —— 本包触碰的 Node 内建能力最小形状。
  *
  * 为什么不用 @types/node：本包只把 `dsh-log` 当运行期依赖（ADR-0005），不为类型再带一份依赖 ——
  * 加了 @types/node 就等于让每个消费者跟着装它。本文件只声明本包实际用到的几个函数形状，

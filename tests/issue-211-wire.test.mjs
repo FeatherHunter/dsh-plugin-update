@@ -24,7 +24,7 @@ import { join } from 'node:path'
 const log = await import('../dist/log/index.js')
 const logManifest = await import('../dist/log/manifest.js')
 const logRegistryModule = await import('../dist/log/registry.js')
-const selfModule = await import('../dist/self.js')
+const selfModule = await import('../dist/shared/self.js')
 const hostMod = await import('../dist/host.js')
 
 const {

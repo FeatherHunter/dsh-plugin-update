@@ -21,7 +21,7 @@
 //
 // 文案不写状态机：只由 entryLabelFor(快照 + 失败码) 推出来，接入方读 label() 做自定义排版。
 
-import { DEFAULT_PREFIX, MIN_PANEL_POLL_MS, buildPhoneNames } from './config.js'
+import { DEFAULT_PREFIX, MIN_PANEL_POLL_MS, buildPhoneNames } from './shared/config.js'
 import {
   failureCodeOf,
   mountUpdatePanel,
@@ -33,9 +33,11 @@ import {
   type UpdatePanelTheme,
   type UpdateThemeTokens,
 } from './panel.js'
-import type { UpdateSnapshot } from './ports.js'
-import { BILINGUAL_CSS, copyHTML, copyText, type BilingualKey } from './bilingual.js'
-import { resolveLang, subscribeLang, type AppLang, type LocaleOption } from './lang.js'
+import type { UpdateSnapshot } from './shared/ports.js'
+import { BILINGUAL_CSS } from './core/i18n/styles.js'
+import { copyHTML, copyText } from './core/i18n/text.js'
+import type { BilingualKey } from './core/i18n/dictionary.js'
+import { resolveLang, subscribeLang, type AppLang, type LocaleOption } from './shared/lang.js'
 
 // ---------- 公开类型 ----------
 

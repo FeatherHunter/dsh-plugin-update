@@ -11,10 +11,10 @@
 
 import { batchProgress, isBatchFinished, type BatchSession } from './batch.js'
 import type { BatchStoppedByBecause } from './batch-run.js'
-import { isBatchReplyCode } from './codes.js'
+import { isBatchReplyCode } from './shared/codes.js'
 import { hash8 } from './shared/hash.js'
 import { emitUpdateLog } from './log/emit.js'
-import type { UpdateLogPort } from './ports.js'
+import type { UpdateLogPort } from './shared/ports.js'
 
 /** 一次发射的容错口：日志是旁路，任何发射异常都不许改变调用方行为。 */
 export function emitBatchLog(

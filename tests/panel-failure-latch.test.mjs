@@ -529,7 +529,7 @@ test('#58 查锁存诚实：卷宗只有时刻，没有错配的编号', async (
 // ---------- 17. 事件名单源：路牌用常量 ----------
 
 test('#58 事件名单源：路牌三事件名来自共享常量', async () => {
-  const { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } = await import('../dist/log-events.js')
+  const { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } = await import('../dist/shared/log-events.js')
   const { panel, box } = mountFor('latch-17', { status: okStatus, check: okCheck, install: () => ({ ok: true }) })
   await settled()
   await settled()

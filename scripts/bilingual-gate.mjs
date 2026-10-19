@@ -5,7 +5,7 @@
  * 四道检查（默认只跑前三道，第四道用于合入/发布）：
  *
  * 1. 文案源 grep 门禁（中文只许存文案源）：
- *    src/ 下的**中文字符串字面量**只许出现在文案源（COPY_SOURCE_FILES，当前 src/bilingual.ts）；
+ *    src/ 下的**中文字符串字面量**只许出现在文案源（COPY_SOURCE_FILES，当前 src/core/i18n/dictionary.ts）；
  *    其余位置按冻结基线 tests/fixtures/bilingual/copy-baseline.json 逐条放行——只许减，不许增。
  *    注释、正则不入账；日志/抛错等冻结中文若要改，必须同步基线，
  *    让改动在评审 diff 里被看见（#53 立约：注释/日志/抛错不动）。
@@ -16,7 +16,7 @@
  *    改文案必须同步快照（diff 里看得见），**改文案不换 key**。
  *
  * 3. 契约测试（错误码分支 + 诊断解析契约）：
- *    错误码真源在 src/codes.ts（本门禁从 dist/codes.js 读进来，**不另抄一份码表**）：
+ *    错误码真源在 src/shared/codes.ts（本门禁从 dist/shared/codes.js 读进来，**不另抄一份码表**）：
  *    每个码都有文案、都判已知；字典里也不许留下真源没有的码族（真源删一个码即红）；未知码走未来兜底；
  *    注意读的是构建产物：改过 src 要先 npm run build（npm test 的 pretest 已经把这一步兜住了）。
  *    诊断解析契约：宽容读 diag 对象（20 键，未知键忽略、错类型忽略、永不抛）＋
@@ -44,7 +44,12 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 export const PKG_DIR = resolve(SCRIPT_DIR, '..')
 
 /** 文案源（中文只许存这里）：迁移把某个表收进集中字典后，把文件加进这张白名单。 */
-export const COPY_SOURCE_FILES = ['src/bilingual.ts']
+export const COPY_SOURCE_FILES = ['src/core/i18n/dictionary.ts']
+
+/** 诊断标签用的源文件（门禁读的是 dist 产物；标签决定报告里点哪份源）。 */
+const DICT_FILE = 'src/core/i18n/dictionary.ts'
+const TEXT_FILE = 'src/core/i18n/text.ts'
+const CODES_FILE = 'src/shared/codes.ts'
 
 /** 扫描范围：出厂的运行期源码（dist 是 build 产物，不重复扫；开发工具与文档不在扫描面）。 */
 export const SCAN_DIRS = ['src']
@@ -53,8 +58,8 @@ export const DEFAULT_BASELINE_PATH = join(PKG_DIR, 'tests', 'fixtures', 'bilingu
 export const DEFAULT_SNAPSHOT_PATH = join(PKG_DIR, 'tests', 'fixtures', 'bilingual', 'strings.snapshot.json')
 
 /**
- * 错误码真源住在 src/codes.ts，本门禁不在这里抄第二份：
- * 运行期从 dist/codes.js 读（见 loadDistDeps），契约检查只认读进来的那份。
+ * 错误码真源住在 src/shared/codes.ts，本门禁不在这里抄第二份：
+ * 运行期从 dist/shared/codes.js 读（见 loadDistDeps），契约检查只认读进来的那份。
  * 抄一份在这里就等于又造一个会漂移的真源——那正是 #141 要修的病。
  */
 /** 「未来码」兜底那一族文案键：不是码，是未知码的人话兜底，反查时豁免。 */
@@ -395,15 +400,15 @@ export function checkDictionary(options = {}) {
   if (!dict || !dict.strings || typeof dict.strings !== 'object') {
     return {
       ok: false,
-      violations: [{ file: 'src/bilingual.ts', line: 0, text: '', reason: '读不到字典（dist 没 build？）' }],
+      violations: [{ file: DICT_FILE, line: 0, text: '', reason: '读不到字典（dist 没 build？）' }],
       notes,
       keys: [],
     }
   }
   const keys = Object.keys(dict.strings).sort()
-  if (!keys.length) violations.push({ file: 'src/bilingual.ts', line: 0, text: '', reason: '字典为空' })
+  if (!keys.length) violations.push({ file: DICT_FILE, line: 0, text: '', reason: '字典为空' })
   if (!dict.version || typeof dict.version !== 'string') {
-    violations.push({ file: 'src/bilingual.ts', line: 0, text: '', reason: '字典版本钉（BILINGUAL_DICT_VERSION）缺失' })
+    violations.push({ file: DICT_FILE, line: 0, text: '', reason: '字典版本钉（BILINGUAL_DICT_VERSION）缺失' })
   }
   const snapshotKeys = snapshot && snapshot.keys ? Object.keys(snapshot.keys).sort() : []
   if (snapshot && JSON.stringify(keys) !== JSON.stringify(snapshotKeys)) {
@@ -432,7 +437,7 @@ export function checkDictionary(options = {}) {
     const helper = [...options.draftKeys()].sort()
     if (JSON.stringify(helper) !== JSON.stringify(declaredDrafts)) {
       violations.push({
-        file: 'src/bilingual.ts',
+        file: DICT_FILE,
         line: 0,
         text: '',
         reason: 'draftKeys() 与字典里 draft:true 的键对不上：助手=[' + helper.join('、') + '] 数据=[' + declaredDrafts.join('、') + ']',
@@ -448,15 +453,15 @@ export function checkDictionary(options = {}) {
     const en = typeof entry.en === 'string' ? entry.en.trim() : ''
     const zh = typeof entry.zh === 'string' ? entry.zh.trim() : ''
     const here = 'key ' + key
-    if (!KEY_NAME.test(key)) violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: '键名不合约定（area.group.name）' })
-    if (!en) violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 缺英文（en 非空是硬条件）' })
-    if (!zh) violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 缺中文（zh 非空是硬条件）' })
-    if (en && CJK.test(en)) violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 的 en 里有汉字（英文在前说的是真英文）' })
-    if (zh && !CJK.test(zh)) violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 的 zh 里没有汉字（中文在后说的是真中文）' })
-    if (typeof entry.draft !== 'boolean') violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 缺 draft 诚实标记' })
+    if (!KEY_NAME.test(key)) violations.push({ file: DICT_FILE, line: 0, text: key, reason: '键名不合约定（area.group.name）' })
+    if (!en) violations.push({ file: DICT_FILE, line: 0, text: key, reason: here + ' 缺英文（en 非空是硬条件）' })
+    if (!zh) violations.push({ file: DICT_FILE, line: 0, text: key, reason: here + ' 缺中文（zh 非空是硬条件）' })
+    if (en && CJK.test(en)) violations.push({ file: DICT_FILE, line: 0, text: key, reason: here + ' 的 en 里有汉字（英文在前说的是真英文）' })
+    if (zh && !CJK.test(zh)) violations.push({ file: DICT_FILE, line: 0, text: key, reason: here + ' 的 zh 里没有汉字（中文在后说的是真中文）' })
+    if (typeof entry.draft !== 'boolean') violations.push({ file: DICT_FILE, line: 0, text: key, reason: here + ' 缺 draft 诚实标记' })
     if (en && zh && JSON.stringify(slotsOf(en)) !== JSON.stringify(slotsOf(zh))) {
       violations.push({
-        file: 'src/bilingual.ts',
+        file: DICT_FILE,
         line: 0,
         text: key,
         reason: here + ' 中英具名槽不同名同数：en=[' + slotsOf(en).join(',') + '] zh=[' + slotsOf(zh).join(',') + ']（语序可不同，槽位必须一样）',
@@ -470,14 +475,14 @@ export function checkDictionary(options = {}) {
         zhHtml = String(renderHtml(key, 'zh', vals) ?? '')
         enHtml = String(renderHtml(key, 'en', vals) ?? '')
       } catch (e) {
-        violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 单语渲染抛错：' + (e && e.message) })
+        violations.push({ file: TEXT_FILE, line: 0, text: key, reason: here + ' 单语渲染抛错：' + (e && e.message) })
       }
       if (zhHtml || enHtml) {
         if (!zhHtml.includes('lang="zh"') || zhHtml.includes('lang="en"')) {
-          violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' zh 渲染只许出现当前语言（含 lang="zh" 且不含 lang="en"）' })
+          violations.push({ file: TEXT_FILE, line: 0, text: key, reason: here + ' zh 渲染只许出现当前语言（含 lang="zh" 且不含 lang="en"）' })
         }
         if (!enHtml.includes('lang="en"') || enHtml.includes('lang="zh"')) {
-          violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' en 渲染只许出现当前语言（含 lang="en" 且不含 lang="zh"）' })
+          violations.push({ file: TEXT_FILE, line: 0, text: key, reason: here + ' en 渲染只许出现当前语言（含 lang="en" 且不含 lang="zh"）' })
         }
         const strip = (h) => String(h ?? '').replace(/<[^>]*>/g, ' ').replace(/&[^;]+;/g, ' ')
         // 冻结词元（#61 #63 #66）：产品名与任务态及电话侧对象名在 zh 里逐字保留，不算混入英文（Node / installing / verifying / diag / yanked 作者撤回标记 / BREAKING 破坏前缀）；DSH 仅对 DSH_KEYS 四键豁免。
@@ -488,16 +493,16 @@ export function checkDictionary(options = {}) {
         const zhText = stripFrozen(strip(zhHtml).replace(/9\.9\.9/g, '').replace(/7/g, ''), key)
         const enText = strip(enHtml).replace(/9\.9\.9/g, '').replace(/7/g, '')
         if (/[A-Za-z]/.test(zhText)) {
-          violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' zh 渲染混入英文（冻结词元除外）' })
+          violations.push({ file: TEXT_FILE, line: 0, text: key, reason: here + ' zh 渲染混入英文（冻结词元除外）' })
         }
         if (CJK.test(enText)) {
-          violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' en 渲染混入中文（冻结词元除外）' })
+          violations.push({ file: TEXT_FILE, line: 0, text: key, reason: here + ' en 渲染混入中文（冻结词元除外）' })
         }
         if (zhHtml && !CJK.test(strip(zhHtml))) {
-          violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' zh 渲染缺中文' })
+          violations.push({ file: TEXT_FILE, line: 0, text: key, reason: here + ' zh 渲染缺中文' })
         }
         if (enHtml && !/[A-Za-z]/.test(strip(enHtml))) {
-          violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' en 渲染缺英文' })
+          violations.push({ file: TEXT_FILE, line: 0, text: key, reason: here + ' en 渲染缺英文' })
         }
       }
     }
@@ -509,14 +514,14 @@ export function checkDictionary(options = {}) {
         zhT = String(renderText(key, 'zh', vals) ?? '')
         enT = String(renderText(key, 'en', vals) ?? '')
       } catch (e) {
-        violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 单语纯文本抛错：' + (e && e.message) })
+        violations.push({ file: TEXT_FILE, line: 0, text: key, reason: here + ' 单语纯文本抛错：' + (e && e.message) })
       }
       if (zhT || enT) {
         const zhCleanBase = String(zhT).replace(/9\.9\.9/g, '').replace(/7/g, '').replace(/Node/g, '').replace(/installing/g, '').replace(/verifying/g, '').replace(/diag/g, '').replace(/yanked/gi, '').replace(/BREAKING/g, '')
         const zhClean = DSH_KEYS.has(key) ? zhCleanBase.replace(/DSH/g, '') : zhCleanBase
         const enClean = String(enT).replace(/9\.9\.9/g, '').replace(/7/g, '')
-        if (/[A-Za-z]/.test(zhClean)) violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 纯文本 zh 混入英文' })
-        if (CJK.test(enClean)) violations.push({ file: 'src/bilingual.ts', line: 0, text: key, reason: here + ' 纯文本 en 混入中文' })
+        if (/[A-Za-z]/.test(zhClean)) violations.push({ file: TEXT_FILE, line: 0, text: key, reason: here + ' 纯文本 zh 混入英文' })
+        if (CJK.test(enClean)) violations.push({ file: TEXT_FILE, line: 0, text: key, reason: here + ' 纯文本 en 混入中文' })
       }
     }
     if (en && zh) {
@@ -549,7 +554,7 @@ export function checkDictionary(options = {}) {
 }
 
 /**
- * 错误码分支契约（真源 src/codes.ts，从 dist/codes.js 读进来）：
+ * 错误码分支契约（真源 src/shared/codes.ts，从 dist/shared/codes.js 读进来）：
  * 每个码都有文案、都判已知；未知码走兜底；阻塞那几行复用阻塞表原文。
  * 另一路证据是**按码族反查字典**：门禁若只比对「自己抄的一份码表」，
  * 真源里删一个码谁也发现不了；反查文案键族才能证明它真在读真源（删码 ⇒ 字典里那族成孤儿 ⇒ 红）。
@@ -568,7 +573,7 @@ export function checkStableCodes(options = {}) {
     return { ok: false, violations, notes: [], codes: [], blocked: [], phone: [] }
   }
   if (!truth || !Array.isArray(truth.stableCodes) || truth.stableCodes.length === 0) {
-    violations.push({ file: 'src/codes.ts', line: 0, text: '', reason: '读不到码表真源（dist/codes.js：先跑 npm run build）' })
+    violations.push({ file: CODES_FILE, line: 0, text: '', reason: '读不到码表真源（dist/shared/codes.js：先跑 npm run build）' })
     return { ok: false, violations, notes: [], codes: [], blocked: [], phone: [] }
   }
   const stableCodes = truth.stableCodes
@@ -576,10 +581,10 @@ export function checkStableCodes(options = {}) {
   const phoneCodes = truth.phoneFailureCodes ?? []
   const internalCode = truth.internalCode ?? 'internal'
   if (new Set(stableCodes).size !== stableCodes.length) {
-    violations.push({ file: 'src/codes.ts', line: 0, text: '', reason: '码表真源有重复：' + stableCodes.join('、') })
+    violations.push({ file: CODES_FILE, line: 0, text: '', reason: '码表真源有重复：' + stableCodes.join('、') })
   }
   if (JSON.stringify(stableCodes) !== JSON.stringify([...blockedReasons, ...phoneCodes, internalCode])) {
-    violations.push({ file: 'src/codes.ts', line: 0, text: '', reason: '码表真源自相矛盾：STABLE_CODES 必须恰好是 阻塞 + 电话 + internal' })
+    violations.push({ file: CODES_FILE, line: 0, text: '', reason: '码表真源自相矛盾：STABLE_CODES 必须恰好是 阻塞 + 电话 + internal' })
   }
 
   for (const code of stableCodes) {
@@ -608,7 +613,7 @@ export function checkStableCodes(options = {}) {
   }
   const dictKeys = options.dictionary && typeof options.dictionary === 'object' ? Object.keys(options.dictionary) : []
   if (dictKeys.length === 0) {
-    violations.push({ file: 'src/bilingual.ts', line: 0, text: '', reason: '缺字典：码族反查没跑（这一路不许静默跳过）' })
+    violations.push({ file: DICT_FILE, line: 0, text: '', reason: '缺字典：码族反查没跑（这一路不许静默跳过）' })
   } else {
     const blockedFamilies = copyKeyFamilies(dictKeys, 'panel.blocked')
     const failureFamilies = copyKeyFamilies(dictKeys, 'panel.failure')
@@ -618,16 +623,16 @@ export function checkStableCodes(options = {}) {
       const parts = (isBlocked ? blockedFamilies : failureFamilies).get(code)
       if (!parts || !parts.has('title') || !parts.has('action')) {
         const prefix = isBlocked ? 'panel.blocked' : 'panel.failure'
-        violations.push({ file: 'src/bilingual.ts', line: 0, text: code, reason: '稳定码缺文案键：' + prefix + '.' + code + '.title / .action' })
+        violations.push({ file: DICT_FILE, line: 0, text: code, reason: '稳定码缺文案键：' + prefix + '.' + code + '.title / .action' })
       }
     }
     for (const code of blockedFamilies.keys()) {
       if (blockedSet.has(code)) continue
-      violations.push({ file: 'src/bilingual.ts', line: 0, text: 'panel.blocked.' + code + '.title', reason: '文案键对不上真源：panel.blocked.' + code + ' 不在 BLOCKED_REASONS 里（真源删了码？）' })
+      violations.push({ file: DICT_FILE, line: 0, text: 'panel.blocked.' + code + '.title', reason: '文案键对不上真源：panel.blocked.' + code + ' 不在 BLOCKED_REASONS 里（真源删了码？）' })
     }
     for (const code of failureFamilies.keys()) {
       if (code === FUTURE_FAILURE_FAMILY || stableCodes.includes(code)) continue
-      violations.push({ file: 'src/bilingual.ts', line: 0, text: 'panel.failure.' + code + '.title', reason: '文案键对不上真源：panel.failure.' + code + ' 不在稳定码真源里（真源删了码？）' })
+      violations.push({ file: DICT_FILE, line: 0, text: 'panel.failure.' + code + '.title', reason: '文案键对不上真源：panel.failure.' + code + ' 不在稳定码真源里（真源删了码？）' })
     }
   }
 
@@ -684,7 +689,7 @@ export function checkDiagParseContract(options = {}) {
 
   const stableCodes = Array.isArray(options.truth?.stableCodes) ? options.truth.stableCodes : []
   if (stableCodes.length === 0) {
-    violations.push({ file: 'src/codes.ts', line: 0, text: '', reason: '读不到码表真源（dist/codes.js：先跑 npm run build）' })
+    violations.push({ file: CODES_FILE, line: 0, text: '', reason: '读不到码表真源（dist/shared/codes.js：先跑 npm run build）' })
   }
 
   const sample = {
@@ -850,24 +855,26 @@ function parseSourceFields(source) {
 }
 
 async function loadDistDeps(root) {
-  const distBilingual = join(root, 'dist', 'bilingual.js')
+  const distDictionary = join(root, 'dist', 'core', 'i18n', 'dictionary.js')
+  const distText = join(root, 'dist', 'core', 'i18n', 'text.js')
   const distPanel = join(root, 'dist', 'panel.js')
-  const distCodes = join(root, 'dist', 'codes.js')
-  if (!existsSync(distBilingual) || !existsSync(distPanel) || !existsSync(distCodes)) {
-    const err = new Error('读不到 dist（' + distBilingual + '）：先跑 npm run build')
+  const distCodes = join(root, 'dist', 'shared', 'codes.js')
+  if (!existsSync(distDictionary) || !existsSync(distText) || !existsSync(distPanel) || !existsSync(distCodes)) {
+    const err = new Error('读不到 dist（' + distDictionary + '）：先跑 npm run build')
     err.code = 'NO_DIST'
     throw err
   }
   const stamp = '?g=' + Date.now()
-  const bilingual = await import(pathToFileURL(distBilingual).href + stamp)
+  const dictionary = await import(pathToFileURL(distDictionary).href + stamp)
+  const text = await import(pathToFileURL(distText).href + stamp)
   const panel = await import(pathToFileURL(distPanel).href + stamp)
   const codebook = await import(pathToFileURL(distCodes).href + stamp)
   return {
-    dictionary: { version: bilingual.BILINGUAL_DICT_VERSION, strings: bilingual.BILINGUAL_STRINGS, draftKeys: bilingual.draftKeys },
-    copyHtml: bilingual.copyHTML ?? bilingual.bilingualHTML,
-    copyText: bilingual.copyText ?? bilingual.bilingualText,
-    renderHtml: bilingual.copyHTML ?? bilingual.bilingualHTML,
-    renderText: bilingual.copyText ?? bilingual.bilingualText,
+    dictionary: { version: dictionary.BILINGUAL_DICT_VERSION, strings: dictionary.BILINGUAL_STRINGS, draftKeys: text.draftKeys },
+    copyHtml: text.copyHTML ?? text.bilingualHTML,
+    copyText: text.copyText ?? text.bilingualText,
+    renderHtml: text.copyHTML ?? text.bilingualHTML,
+    renderText: text.copyText ?? text.bilingualText,
     codes: {
       failureCopy: panel.failureCopy,
       blockedCopy: panel.blockedCopy,
@@ -941,7 +948,7 @@ export async function runGate(options = {}) {
     ok: codes.ok,
     violations: codes.violations,
     notes: codes.notes,
-    summary: codes.codes.length + ' 个错误码（真源 src/codes.ts）；违规 ' + codes.violations.length + ' 处',
+    summary: codes.codes.length + ' 个错误码（真源 ' + CODES_FILE + '）；违规 ' + codes.violations.length + ' 处',
   })
 
   const diag = checkDiagParseContract({ diag: deps.diag, truth: deps.codes?.truth })
@@ -969,7 +976,7 @@ export async function runGate(options = {}) {
     title: '零 draft 放行（合入/发布条件）',
     ok: drafts.length === 0,
     violations: drafts.map((k) => ({
-      file: 'src/bilingual.ts',
+      file: DICT_FILE,
       line: 0,
       text: k,
       reason: '仍是 draft：无母语 + 域内双签不转正（#53 立约），放行条件未满足',
@@ -1055,7 +1062,7 @@ export function writeCopyBaseline(options = {}) {
   }
   const before = readJsonIfExists(file)
   const payload = {
-    note: '冻结散落文案基线（#56 门禁）：src/ 下不在文案源里的中文字符串字面量快照，只许减不许增。用户可见文案进 src/bilingual.ts；日志/抛错等冻结文案要改，须同步本文件并在评审里看见。--update-baseline 重算。',
+    note: '冻结散落文案基线（#56 门禁）：src/ 下不在文案源里的中文字符串字面量快照，只许减不许增。用户可见文案进 src/core/i18n/dictionary.ts；日志/抛错等冻结文案要改，须同步本文件并在评审里看见。--update-baseline 重算。',
     copySources: options.copySources ?? COPY_SOURCE_FILES,
     files,
   }

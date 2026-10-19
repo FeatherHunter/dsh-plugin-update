@@ -14,7 +14,7 @@
  * 默认值等于现状常量。不传即走现状，老调用零变化。
  */
 
-import type { BlockedReason, EnvironmentKind, InstallRecipe, ReleaseChannel } from './ports.js'
+import type { BlockedReason, EnvironmentKind, InstallRecipe, ReleaseChannel } from './shared/ports.js'
 
 /**
  * #92 单点真源：哪些阻塞原因本身就意味「不该给手工命令」。

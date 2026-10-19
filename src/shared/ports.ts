@@ -1,5 +1,5 @@
 /**
- * src/ports.ts —— 更新模块的插口定义（规格 #591 的字面落实）。
+ * src/shared/ports.ts —— 更新模块的插口定义（规格 #591 的字面落实）。
  *
  * 由 update-core/src/ports.ts 原样拎入：六边形架构不变，核心只管做决定，插口由核心定，
  * 跑腿的活全在外面。检验标准仍是核心不碰硬盘、网络、子进程也能被测透，所以本文件只放类型，
@@ -51,14 +51,14 @@ export type UpdateLogPort = (
  * 装不了的原因（装前不满足条件只给原因不给装，见通用方案复用清单）与
  * 公开错误码（核心定码，适配器只负责把外面世界的脏错误翻译进来）。
  *
- * 取值只在 src/codes.ts 定义一次（#141）：本文件是唯一被外部依赖的公开面，
+ * 取值只在 src/shared/codes.ts 定义一次（#141）：本文件是唯一被外部依赖的公开面，
  * 所以在这里转发这两个名字，调用方的 import 一字不用改；`export type` 会被完全擦除，
  * 本文件「只有类型、没有运行时逻辑」这条不变。
  */
 import type { BlockedReason, UpdateErrorCode } from './codes.js'
-import type { CauseBlame } from './install-cause.js'
+import type { CauseBlame } from '../install-cause.js'
 export type { BlockedReason, UpdateErrorCode } from './codes.js'
-export type { CauseBlame } from './install-cause.js'
+export type { CauseBlame } from '../install-cause.js'
 
 // 合规版决议类型（#165：从 compliant-version 上收进类型底座，断 ports⇄compliant-version
 // 纯类型环；值实现仍在 compliant-version，运行时方向只剩 compliant-version → ports）。
@@ -407,4 +407,4 @@ export interface UpdateCore {
  * 模块标识（运行时唯一内容）：类型在转译时已擦除，
  * 转译出的 JS 只剩这一行；第二家直接吃 TS 源码。
  */
-export const PORTS_SOURCE = 'src/ports.ts'
+export const PORTS_SOURCE = 'src/shared/ports.ts'

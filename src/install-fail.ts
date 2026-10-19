@@ -7,9 +7,9 @@
  *
  * ADR-0006 纪律：行里只放枚举值与派生量。宿主原话不进日志（只在失败详情的既有 message
  * 通道给面板/诊断副本）；宿主管理器给的原始标识（如 already-installed）按仓库既有口径
- * 折成 hash8（hostCodeHash），行里不出现原始码；`code` 只收本包码面（src/codes.ts）里的稳定码。
+ * 折成 hash8（hostCodeHash），行里不出现原始码；`code` 只收本包码面（src/shared/codes.ts）里的稳定码。
  */
-import { CORE_ERROR_CODES, INTERNAL_CODE, UNSUPPORTED_CODE } from './codes.js'
+import { CORE_ERROR_CODES, INTERNAL_CODE, UNSUPPORTED_CODE } from './shared/codes.js'
 import { hash8 } from './shared/hash.js'
 
 /** 一次安装失败发生在哪个阶段：装前闸门 / 执行 / 装后校验。 */
@@ -51,7 +51,7 @@ export type InstallFailCode = (typeof INSTALL_FAIL_CODES)[number]
 export interface InstallFailFacts {
   stage: InstallFailStage
   reason: InstallFailReason
-  /** 本包稳定码（src/codes.ts 的码面）；没有即 `none`。 */
+  /** 本包稳定码（src/shared/codes.ts 的码面）；没有即 `none`。 */
   code: string
   /** 宿主给的原始稳定码（如 already-installed）；落行时折成 hash8，不落原码。 */
   hostCode: string

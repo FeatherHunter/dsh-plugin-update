@@ -22,17 +22,17 @@ import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, link, open, readFile, rename, realpath, stat, unlink, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { installRecipe, normalizeApprovedBuilds, shellSafeArg } from './commands.js'
-import { BACKUP_FILE, DEFAULT_INSTALL_TIMEOUT_MS, LEGACY_PLUGIN_ID, LOCK_FILE, SKIPPED_FILE, STATE_FILE } from './config.js'
+import { BACKUP_FILE, DEFAULT_INSTALL_TIMEOUT_MS, LEGACY_PLUGIN_ID, LOCK_FILE, SKIPPED_FILE, STATE_FILE } from './shared/config.js'
 import { emptyBatchSession, normalizeBatchSession, type BatchSession } from './batch.js'
 import { QUEUE_INTENT_TTL_MS, normalizeQueueState, type QueueOwner, type UpdateQueueState } from './queue.js'
 import { hash8 } from './shared/hash.js'
 import { hashToken } from './log/namespace.js'
 import { validReleaseVersion } from './service.js'
-import { DETAIL_MAX_CHARS, MASKED_CREDENTIAL_NOTE, sanitizeDetail } from './redaction.js'
-import { LOG_EVENT_INSTALL_EXEC } from './log-events.js'
+import { DETAIL_MAX_CHARS, MASKED_CREDENTIAL_NOTE, sanitizeDetail } from './shared/redaction.js'
+import { LOG_EVENT_INSTALL_EXEC } from './shared/log-events.js'
 import { attachInstallFail, normalizeCode, normalizeHostCode, readInstallFail } from './install-fail.js'
 import type { InstallFailFacts } from './install-fail.js'
-import type { EnvironmentKind, InstallRecipe, ReleaseChannel, UpdateJob, UpdateLogPort } from './ports.js'
+import type { EnvironmentKind, InstallRecipe, ReleaseChannel, UpdateJob, UpdateLogPort } from './shared/ports.js'
 
 // 永久冻结的旧字面（规格 #591 第 14 条）：默认旧路径原文加三固定名永久冻结，永不删除。
 // 旧原文：join(家目录, 'updates', 'dsh-mattpocock-skills-deck', 短指纹(使用范围目录))。
@@ -66,7 +66,7 @@ function lockOwnerHash(owner: Record<string, unknown> | null | undefined): strin
 }
 
 // ---- #124 日志接线：本文件负责的三个事件的落点辅助 ----
-// 事件名单源本该是 src/log-events.ts，但那一行不在本票的写域内；这里按随包清单
+// 事件名单源本该是 src/shared/log-events.ts，但那一行不在本票的写域内；这里按随包清单
 // event-list.update.json 的名字逐字引用（字段白名单在唯一发射口校验，多一格整行会被丢掉）。
 const LOG_EVENT_LOCK_ANOMALY = 'update.lock.anomaly'
 const LOG_EVENT_STORE_FAIL = 'update.store.fail'
@@ -1703,7 +1703,7 @@ function withDetail(error: Error & { detail?: string }, detail: string): Error &
 }
 
 /**
- * 脱敏规则表见 src/redaction.ts（#19）：五条具名规则 + 固定顺序 + 两占位符 + 空白边界封顶。
+ * 脱敏规则表见 src/shared/redaction.ts（#19）：五条具名规则 + 固定顺序 + 两占位符 + 空白边界封顶。
  * 本文件只经 `sanitizeDetail` 消费它（唯一自由文本出口），不自建规则、不做运行时事后扫描。
  */
 

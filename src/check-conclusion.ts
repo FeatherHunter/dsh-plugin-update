@@ -6,7 +6,7 @@
  * service.ts 按内部 import 引用，不进包导出表（#159 冻结）。
  */
 
-import type { CheckTrigger, InstallSource } from './ports.js'
+import type { CheckTrigger, InstallSource } from './shared/ports.js'
 import type { FetchStage } from './registry-fetch.js'
 
 /**

@@ -4,23 +4,16 @@
  * 只断言外部行为（#57 Testing Decisions 好测试口径）：
  * 同一份快照按 lang 单语渲染（zh 不见英文/en 不见中文，冻结词元除外），语义块仍带 lang；
  * 同一快照同一句话；按码分支；变量与自由文本不译；词元不动；改文案不换 key。
- * 主接缝：集中字典 + 按 lang 单语渲染 + 语言信号层（src/lang.ts），entry/entry-batch 为打通的两条链。
+ * 主接缝：集中字典 + 按 lang 单语渲染 + 语言信号层（src/shared/lang.ts），entry/entry-batch 为打通的两条链。
  * 语言信号一律用注入的假信号源（对象 locale 或全局桩），不依赖 jsdom。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import {
-  BILINGUAL_CSS,
-  BILINGUAL_DICT_VERSION,
-  BILINGUAL_STRINGS,
-  bilingualHTML,
-  bilingualText,
-  copyHTML,
-  copyText,
-  draftKeys,
-} from '../dist/bilingual.js'
-import { normalizeLangTag, resolveLang, subscribeLang, __resetLangState } from '../dist/lang.js'
+import { BILINGUAL_CSS } from '../dist/core/i18n/styles.js'
+import { BILINGUAL_DICT_VERSION, BILINGUAL_STRINGS } from '../dist/core/i18n/dictionary.js'
+import { bilingualHTML, bilingualText, copyHTML, copyText, draftKeys } from '../dist/core/i18n/text.js'
+import { normalizeLangTag, resolveLang, subscribeLang, __resetLangState } from '../dist/shared/lang.js'
 import { entryBilingualHTMLFor, entryBilingualKeyFor, entryBilingualTextFor, entryLabelFor, entryStateKind, mountUpdateEntry } from '../dist/entry.js'
 import { batchEntryLabelFor, batchEntryStateKind, mountUpdateBatchEntry } from '../dist/entry-batch.js'
 

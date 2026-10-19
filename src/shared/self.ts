@@ -13,7 +13,7 @@
  */
 import { fileURLToPath } from 'node:url'
 
-import { containingPackage } from './reader.js'
+import { containingPackage } from '../reader.js'
 
 const PACKAGE_NAME = 'dsh-plugin-update'
 

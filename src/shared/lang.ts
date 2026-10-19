@@ -1,4 +1,4 @@
-// src/lang.ts —— 语言信号层（#60，承接 #57 语言契约 v2）。
+// src/shared/lang.ts —— 语言信号层（#60，承接 #57 语言契约 v2）。
 //
 // 地位：宿主是唯一语言权威，本包只取信号、不做主张。
 // 信号口径＝显式覆盖（options.locale）> document.documentElement.lang > navigator.languages > 历史行为 zh。

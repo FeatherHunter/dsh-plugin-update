@@ -1,5 +1,5 @@
 /**
- * src/log-events.ts —— 日志事件名（单源）。
+ * src/shared/log-events.ts —— 日志事件名（单源）。
  *
  * 宿主发射（host/store）、面板路牌（panel）、测试断言都从这里取：
  * 改名即全改，不存在“发射侧改了、路牌还是旧名”的静默分叉。

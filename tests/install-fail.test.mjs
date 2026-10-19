@@ -476,7 +476,7 @@ describe('#207 契约与负向断言', () => {
       assert.ok(raw.fieldEnums['update.install.fail'].reason.includes(reason), `reason 枚举缺 ${reason}`)
     }
     assert.deepEqual(raw.fieldEnums['update.install.fail'].check, ['version', 'registered', 'env', 'none'])
-    // code 只收本包码面（src/codes.ts 的 CORE_ERROR_CODES + internal/unsupported + none），逐值声明。
+    // code 只收本包码面（src/shared/codes.ts 的 CORE_ERROR_CODES + internal/unsupported + none），逐值声明。
     assert.deepEqual([...raw.fieldEnums['update.install.fail'].code].sort(), [
       'channel-mismatch',
       'check-expired',

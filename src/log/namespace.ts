@@ -2,7 +2,7 @@
  * src/log/namespace.ts —— 插件标识 → 日志命名空间（目录名与开关文件名的那一半）。
  *
  * 为什么需要派生：dsh-log 只收 `[a-z0-9-]{1,32}` 形状的 pluginId，**收到大写直接抛**；
- * 而本包允许集成方用 `My.Plugin` 这类标识（`src/config.ts` 的 assertPluginId 只管路径分隔符与 NUL）。
+ * 而本包允许集成方用 `My.Plugin` 这类标识（`src/shared/config.ts` 的 assertPluginId 只管路径分隔符与 NUL）。
  * 只做小写化会让 `My.Plugin` 与 `my-plugin` 撞成同一棵日志目录 —— 那正是本需求要消灭的
  * 「同一目录两个写者、日志互相覆盖」；所以凡发生有损映射或截断，补一段 raw 的 sha256 指纹。
  *
