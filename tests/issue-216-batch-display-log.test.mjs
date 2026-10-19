@@ -319,7 +319,19 @@ describe('#216 日志：一批有开始行、总账分开活跃时长与会话�
 describe('#216 日志：批量里 check-expired 当场重查重提留一行', () => {
   it('两家以上批量首批提交凭证过期 → update.install.retry 如实记录，随后正常装完', async () => {
     const { dir, scope } = await mkScope()
-    const sideOf = (spec) => realSide(dir, spec.packageName)
+    const sideOf = (spec) => {
+      const side = realSide(dir, spec.packageName)
+      if (spec.key !== 'self') return side
+      // 测试确定性：读取器单槽「最后建的那家留下凭证」是既有行为，但两家检查谁先完成受机器负载影响。
+      // 让 self 的检查拖后完成 → 安装 a 时其凭证必然已被挤掉，check-expired 重查重提是必然而不是撞时序。
+      return {
+        ...side,
+        fetchImpl: async (...args) => {
+          await new Promise((resolve) => setTimeout(resolve, 30))
+          return side.fetchImpl(...args)
+        },
+      }
+    }
     const host = createMultiHostUpdate(
       { scope, installPollMs: 5, readerOverridesFor: sideOf },
       { prefix: 'life', targets: [mkTarget('a'), mkTarget('self')], selfKey: 'self' },
