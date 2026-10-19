@@ -146,7 +146,7 @@
       "trigger": ["entry", "resume", "drain"]
     },
     "update.install.retry": {
-      "reason": ["check-expired"]
+      "reason": ["check-expired", "stale-request-id"]
     },
     "update.queue.transition": {
       "phase": ["queued", "running", "done", "reclaimed", "pruned", "abandoned"]
@@ -247,7 +247,7 @@
       "level": "info",
       "kind": "resident",
       "fields": ["reason", "attempt", "requestHash"],
-      "guard": "一次提交重来一条；reason=check-expired 表示凭证过期后当场重查重提（ADR-0004 §3 A 案设计内动作，不是环境故障）"
+      "guard": "一次提交重来一条；reason=check-expired 表示凭证过期后当场重查重提（ADR-0004 §3 A 案设计内动作，不是环境故障）；reason=stale-request-id 表示核心按 requestId 幂等命中了上一轮的旧任务（已完成别的版本/已失败），换一次尝试编号重提（#218）"
     },
     "update.queue.transition": {
       "level": "info",

@@ -259,6 +259,33 @@ export function phoneRequestIdOf(batchRequestId: string): string {
   return (safe || 'batch') + '-' + hash8(raw)
 }
 
+/**
+ * #218：这次安装回包是不是「同一 requestId 的旧任务」的幂等命中？
+ *
+ * 核心按 requestId 幂等（service.ts：同一编号重复提交直接返回上一次的结果），这是为了让
+ * 「重试同一意图」不重复装；但续跑的旧账本会把上一轮用过的编号带到新目标版本上。
+ * 旧任务 completed 了别的版本、或干脆 failed/interrupted 着，照它收尾都会说谎：
+ * 前者把没装的这一轮记成成功，后者让用户永远重试不出去。认出来就必须换编号重提。
+ */
+export function staleIdempotentHit(job: Record<string, unknown> | null, phoneRequestId: string, version: string): boolean {
+  if (!job) return false
+  if (typeof job['requestId'] !== 'string' || job['requestId'] !== phoneRequestId) return false
+  const state = typeof job['state'] === 'string' ? (job['state'] as string) : ''
+  if (state === 'completed') return typeof job['targetVersion'] !== 'string' || job['targetVersion'] !== version
+  return state === 'failed' || state === 'interrupted'
+}
+
+/**
+ * #218：同一账本编号的「换一次尝试」编号。形状仍是核心收的不透明编号
+ * （[A-Za-z0-9._~-]，见 service.ts 的 validRequestId）；同一 nonce 恒得同一编号，
+ * 不同 nonce 必得不同编号（末尾 8 位哈希覆盖整段输入）。
+ */
+export function attemptRequestId(phoneRequestId: string, nonce: string): string {
+  const raw = typeof phoneRequestId === 'string' ? phoneRequestId : ''
+  const base = raw.replace(/[^A-Za-z0-9._~-]/g, '-').replace(/^[.-]+/, '').slice(0, REQUEST_ID_MAX_CHARS - 12)
+  return (base || 'batch') + '-a' + hash8(raw + '|' + (typeof nonce === 'string' ? nonce : ''))
+}
+
 function errorPayloadOf(error: unknown): { error: string; errorKind: string } {
   const code = error && typeof (error as { code?: unknown }).code === 'string' ? String((error as { code: string }).code) : ''
   if (isBatchReplyCode(code)) return { error: code, errorKind: code }
@@ -579,9 +606,24 @@ function installOutcomeOf(job: Record<string, unknown> | null): BatchInstallOutc
   return null
 }
 
+/**
+ * #218：收尾读数必须同时对得上目标版本。
+ * `installOutcomeOf` 只看任务相位；相位是核心按 requestId 幂等返回的旧快照时，
+ * 「completed」可能是上一轮装到别的版本的旧结果——只看相位就会把没装的这一轮记成成功。
+ * 所以 done 一律再核一次装完快照里的磁盘版本：不是本次目标版就不认。
+ */
+function settleOutcomeOf(reply: Record<string, unknown>, version: string): BatchInstallOutcome | null {
+  const outcome = installOutcomeOf(jobOf(snapshotOf(reply)))
+  if (!outcome) return null
+  if (outcome.kind !== 'done') return outcome
+  const installed = firstText(snapshotOf(reply)['installedVersion'])
+  if (installed !== version) return { kind: 'failed', error: 'install-failed', stage: 'settle' }
+  return outcome
+}
+
 /** 等这一家收尾：轮询它的 updateStatus 到终态；超安装时限按失败收（不把整轮永远挂着）。 */
-async function settleInstall(rt: TargetRuntime, firstReply: Record<string, unknown>): Promise<BatchInstallOutcome> {
-  const early = installOutcomeOf(jobOf(snapshotOf(firstReply)))
+async function settleInstall(rt: TargetRuntime, firstReply: Record<string, unknown>, version: string): Promise<BatchInstallOutcome> {
+  const early = settleOutcomeOf(firstReply, version)
   if (early) return early
   const deadline = rt.now() + rt.resolved.installTimeoutMs
   while (true) {
@@ -590,7 +632,7 @@ async function settleInstall(rt: TargetRuntime, firstReply: Record<string, unkno
     await sleep(rt.pollMs)
     const status = await callPhone(rt, rt.host.phoneNames.updateStatus, {})
     if (status['ok'] !== true) return { kind: 'failed', error: codeOfReply(status), stage: 'settle' }
-    const outcome = installOutcomeOf(jobOf(snapshotOf(status)))
+    const outcome = settleOutcomeOf(status, version)
     if (outcome) return outcome
   }
 }
@@ -620,18 +662,38 @@ async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetS
     receipt = rt.receipt
     if (!receipt) return { kind: 'failed', error: 'check-expired', stage: 'check' }
   }
-  const phoneRequestId = phoneRequestIdOf(requestId)
+  let version = receipt.version
+  let phoneRequestId = phoneRequestIdOf(requestId)
   // 意图来源（#124）：批量的装由驱动器发起、不是用户点面板，如实自报——只进日志行
   // `update.install.request.from`，不参与任何决策（认不出时宿主按 'panel' 兜底）。
-  const submitOnce = async (checkId: string): Promise<Record<string, unknown>> =>
+  const submitOnce = async (checkId: string, requestIdToUse: string): Promise<Record<string, unknown>> =>
     await callPhone(rt, rt.host.phoneNames.updateInstall, {
       checkId,
-      requestId: phoneRequestId,
+      requestId: requestIdToUse,
       from: 'batch',
     })
-  let reply = await submitOnce(receipt.checkId)
+  // #218：核心按 requestId 幂等（同一编号重复提交直接回上一轮结果）。续跑的旧账本会带着
+  // 上一轮用过的编号：旧任务若已完成（别的版本）或已失败，回包就是旧快照；照它收尾会
+  // 「没装却记成功」或者永远重试不出去。认出来就换一次尝试编号重提（形状仍是核心收的
+  // 不透明编号），并如实记一行说明换过号。
+  const rotateIfStale = async (reply: Record<string, unknown>, checkId: string): Promise<Record<string, unknown>> => {
+    const job = jobOf(snapshotOf(reply))
+    if (!staleIdempotentHit(job, phoneRequestId, version)) return reply
+    const jobId = job && typeof job['id'] === 'string' ? (job['id'] as string) : ''
+    const retryRequestId = attemptRequestId(phoneRequestId, rt.now() + '|' + jobId)
+    emitBatchLog(rt.pluginId, 'info', 'update.install.retry', {
+      reason: 'stale-request-id',
+      attempt: 2,
+      requestHash: hash8(phoneRequestId),
+    })
+    phoneRequestId = retryRequestId
+    return await submitOnce(checkId, retryRequestId)
+  }
+  let checkIdInUse = receipt.checkId
+  let reply = await submitOnce(checkIdInUse, phoneRequestId)
   rt.receipt = null
-  if (reply['ok'] === true) return await settleInstall(rt, reply)
+  if (reply['ok'] === true) reply = await rotateIfStale(reply, checkIdInUse)
+  if (reply['ok'] === true) return await settleInstall(rt, reply, version)
   let code = codeOfReply(reply)
   if (code === 'check-expired') {
     // A 案（#70 ADR-0004 §3）：单例 sharedReader 同一时刻只留最后一家，预查并发查完后
@@ -645,7 +707,9 @@ async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetS
     if (!fresh || typeof fresh.checkId !== 'string' || !fresh.checkId) {
       return { kind: 'failed', error: 'check-expired', stage: 'check' }
     }
-    reply = await submitOnce(fresh.checkId)
+    version = fresh.version
+    checkIdInUse = fresh.checkId
+    reply = await submitOnce(checkIdInUse, phoneRequestId)
     rt.receipt = null
     // #216：凭证过期后当场重查重提是设计内动作（ADR-0004 §3 A 案 ≥2 家的批每家首次都会走），
     // 但日志要留一行说明「第一次提交不是环境坏了、是凭证过期」——否则读日志只看到一条 gate-refused。
@@ -654,7 +718,8 @@ async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetS
       attempt: 2,
       requestHash: hash8(phoneRequestId),
     })
-    if (reply['ok'] === true) return await settleInstall(rt, reply)
+    if (reply['ok'] === true) reply = await rotateIfStale(reply, checkIdInUse)
+    if (reply['ok'] === true) return await settleInstall(rt, reply, version)
     code = codeOfReply(reply)
   }
   if (code === 'update-busy') {
