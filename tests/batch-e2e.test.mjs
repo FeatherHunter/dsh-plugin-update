@@ -99,6 +99,27 @@ function entryOf(session, key) {
   return session.entries.find((entry) => entry.key === key) ?? null
 }
 
+/**
+ * #218 测试确定性：执行器被调起的那一刻，队列 owner 可能是上一家「正在收尾→已摘牌」的
+ * 竞态窗口（全量并行时窗口变宽，单跑几乎不出现）。这里等到 owner 换成正在装的这一家再采样；
+ * 产品真坏了会等满超时后返回旧 owner，断言仍然按原口径红。
+ */
+async function sampleOwnerWhileInstalling(queueFile, key) {
+  const want = 'life-' + key
+  const until = Date.now() + 1500
+  let owner = null
+  for (;;) {
+    try {
+      owner = (await readJson(queueFile)).owner
+    } catch {
+      owner = null
+    }
+    if (owner && owner.pluginId === want) return owner
+    if (Date.now() >= until) return owner
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+}
+
 function phaseOf(session, key) {
   const entry = entryOf(session, key)
   return entry ? entry.phase : null
@@ -186,7 +207,7 @@ describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执
     const { host, fetches, installs } = buildBatch(scope, specsOf(['pkg-a', 'pkg-b']), {
       a: {
         onInstall: async () => {
-          ownerWhileInstalling.push({ key: 'a', owner: (await readJson(queueFile)).owner })
+          ownerWhileInstalling.push({ key: 'a', owner: await sampleOwnerWhileInstalling(queueFile, 'a') })
         },
       },
       b: {
@@ -194,7 +215,7 @@ describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执
           if (!sessionAtBStart) sessionAtBStart = await readJson(sessionFile)
         },
         onInstall: async () => {
-          ownerWhileInstalling.push({ key: 'b', owner: (await readJson(queueFile)).owner })
+          ownerWhileInstalling.push({ key: 'b', owner: await sampleOwnerWhileInstalling(queueFile, 'b') })
         },
       },
     })
@@ -234,7 +255,7 @@ describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执
       },
       c: {
         onInstall: async () => {
-          ownerWhileC = (await readJson(queueFile)).owner
+          ownerWhileC = await sampleOwnerWhileInstalling(queueFile, 'c')
           lockWhileC = existsSync(lockFile)
         },
       },
@@ -276,7 +297,7 @@ describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执
         },
         b: {
           onInstall: async () => {
-            ownerWhileB = (await readJson(queueFile)).owner
+            ownerWhileB = await sampleOwnerWhileInstalling(queueFile, 'b')
           },
         },
       },
