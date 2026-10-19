@@ -192,7 +192,7 @@ export function createMultiHostUpdate(
 
   // 共享队列端口（#15 的同一份）：七个目标共用一套读写口与一把全局锁，不各建一套。
   // #208 一行修复（C-F02③）：队列端口必须带上按动作方取口的 logFor，否则 update.queue.transition /
-  // update.store.fail 落不到正确目录（与 host.ts:399-421 的接线同形状；取口实现在 host-batch-log.ts）。
+  // update.store.fail 落不到正确目录（与 host/factory.ts 的 wireUpdateLog 同形状；取口实现在 host/batch/log.ts）。
 
   const queue =
     batchScope && batchScope.profileDir
@@ -294,7 +294,7 @@ export function createMultiHostUpdate(
   let lastRun: { stoppedBecause: BatchStoppedByBecause; steps: BatchRunStep[] } | null = null
   /**
    * 批量侧日志接缝（#208/#209）：入队行去重、总账收尾边沿、「为什么停」、电话失败去重这些
-   * 日志状态都在 host-batch-log.ts；这里只递宿主读数，发射点仍与账本/电话同处一条流程。
+   * 日志状态都在 host/batch/log.ts；这里只递宿主读数，发射点仍与账本/电话同处一条流程。
    */
   const batchLog = createBatchLogSeams({
     ownerPluginId: selfRuntime ? selfRuntime.pluginId : null,

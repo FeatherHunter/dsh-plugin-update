@@ -27,7 +27,7 @@ import type { ReleaseChannel } from './ports.js'
 const COMPLIANT_KINDS = ['minimum-release-age'] as const
 
 // 类型已上收 ports（#165 断 ports⇄compliant-version 纯类型环）：本模块只留值实现，
-// 对外脸经垫片不变（tests 深引用 ../dist/compliant-version.js 与包根转出口零碰）。
+// 对外脸经垫片不变（tests 深引用 ../dist/shared/compliant.js 与包根转出口零碰）。
 import type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './ports.js'
 export type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './ports.js'
 
