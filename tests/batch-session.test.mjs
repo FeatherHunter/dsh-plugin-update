@@ -15,12 +15,12 @@ import { describe, it, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { createBatchSession } from '../dist/batch.js'
+import { createBatchSession } from '../dist/core/batch/model.js'
 import { hash8 } from '../dist/shared/hash.js'
 import { createMultiHostUpdate } from '../dist/host-batch.js'
 import { __resetSharedUpdateReaderForTests } from '../dist/host.js'
 import { primeUpdateEventTable } from '../dist/log/manifest.js'
-import { batchPathsForOwner } from '../dist/store.js'
+import { batchPathsForOwner } from '../dist/core/disk.js'
 import {
   SILENT,
   bind,

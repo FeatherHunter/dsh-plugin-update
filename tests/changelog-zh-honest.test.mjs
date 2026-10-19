@@ -9,11 +9,8 @@
  */
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import {
-  parseChangelog,
-  validateChangelog,
-  CHANGELOG_VALIDATE_HINTS,
-} from '../dist/changelog.js'
+import { parseChangelog } from '../dist/core/changelog/parse.js'
+import { validateChangelog, CHANGELOG_VALIDATE_HINTS } from '../dist/core/changelog/validator.js'
 import { renderUpdatePanelHTML } from '../dist/panel.js'
 
 function baseSnapshot(overrides = {}) {

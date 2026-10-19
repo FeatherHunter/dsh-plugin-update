@@ -34,7 +34,7 @@ const {
   currentLogTraceFor,
   __resetOwnLogRegistryForTests,
 } = kernel
-const { lintEventFields, parseLogRow, stripReservedLogFields, RESERVED_LOG_FIELDS } = await import('../dist/gate.js')
+const { lintEventFields, parseLogRow, stripReservedLogFields, RESERVED_LOG_FIELDS } = await import('../dist/core/gate.js')
 
 /** 读回一个日志目录里的全部落盘行（按文件顺序）。 */
 function readRows(dir) {

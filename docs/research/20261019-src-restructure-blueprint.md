@@ -15,7 +15,7 @@
 - **exports 契约不打破**：npm 已发布版本（0.18.6 起）+ 4 家消费方（deck、life-pack、im-companion、palette）的子路径 import 是真契约；其余（#159 程序性冻结、tests 深引用、文档）都是我方纪律，钥匙在自己手里，本次按 §7 成本表处理。
 - **一步到位**：拆文件 + 搬目录一次做完，不经历“拆完还在扁平里”的中间态（同步打破 #159 Q1 分阶段纪律，已获批）。
 
-## 2. 目标目录树（87 文件：54 旧全量 + 33 拆分新增；目录职责一句话）
+## 2. 目标目录树（88 文件：54 旧全量 + 34 拆分新增；目录职责一句话）
 
 ```text
 src/
@@ -62,6 +62,7 @@ src/
 ├── core/                    # 两侧共享的纯逻辑：版本判断、结论、队列、执行、网关
 │   ├── service.ts           # 旧 service.ts 整搬（核心服务装配，不再拆：CONFIRMATION_TTL_MS/RECHECK_WINDOW_MS/validRequestId/__resetFallbackSlots/createUpdateCore，
 │   │                        # 1101 行但无次级截面可锚，硬拆即散装）
+│   ├── store-base.ts        # 落盘公共底座：旧 store.ts L37–364（冻结字面/稳定失败码/原子锁原语/落盘日志发射；#228 执行补记，见 §4）
 │   ├── queue/
 │   │   ├── model.ts         # 旧 queue.ts 整搬（队列纯模型）
 │   │   └── ports.ts         # 旧 store.ts L656–970 队列端口段
@@ -157,11 +158,11 @@ src/
 
 > ambient 声明 `runtime.d.ts` 与 `node-ambient.d.ts` 未在上表单列（#224 成稿时的遗漏），#223 执行时按同一原则一并进 `shared/`：只参与类型检查，不产 dist 产物。
 
-### 3.2 拆分搬家（9 个神文件 → 33 新文件，见 §4 方法职责表）
+### 3.2 拆分搬家（9 个神文件 → 34 新文件，见 §4 方法职责表）
 
 panel.ts(4226) → panel/{theme,view-model,render,archive-theme,failure-latch,skip-store,mount,client★}.ts + 壳留 types；
 panel-batch.ts(3624) → panel/batch/{ledger,render,styles,mount}.ts（★原型曾列 actions/prefs 六拆，export 盘点无依据，已改判为四拆）；
-store.ts(2570) → core/{disk,executor}.ts + core/queue/ports.ts；
+store.ts(2570) → core/{disk,executor}.ts + core/queue/ports.ts + core/store-base.ts（前置段，#228 补记）；
 install-button.ts(1786) → core/install-button/{widgets,view,render,styles,mount}.ts；
 host.ts(1716) → host/{factory,phones,capabilities,environment}.ts + forwarding 现状；
 host-batch.ts(1640) → host/batch/{fan-out,phones,resume}.ts；
@@ -194,14 +195,15 @@ bilingual.ts(959) → core/i18n/{dictionary,text,styles}.ts。
 公开类型 L79–253（含 BATCH_PANEL_POLL/buildBatchPhoneNames）→ 壳留存。
 **改判**：原型 v4 曾列 `actions.ts`/`prefs.ts` 六拆；export 盘点显示回退/失败助手全部位于挂载段、偏好（BatchPrefs/normalizeBatchPrefs/PREFS_FILE）位于 store.ts（→ core/disk.ts），panel-batch 内无独立截面可锚，故六拆→四拆。
 
-### store.ts → 3 去向（无 [S] 截面，按导出 runs 划分）
+### store.ts → 4 去向（无 [S] 截面，按导出 runs 划分；#228 执行补记第 4 条）
 
 core/disk.ts ← UpdatePaths/pathsForUpdate/DiskPortsDeps/createUpdateDiskPorts（L366–655）
 + BatchPaths/BatchPortsDeps/createBatchDiskPorts（L972–1056）
 + 属主/清单/偏好段（L1057–1463：OwnerIdentity/InventoryInput/collectInventory/SKIPPED_FILE/BatchPrefs/normalizeBatchPrefs）
 + 跳过段（L1249–1340：SkippedVersionEntry/createSkipDiskPorts）；
 core/queue/ports.ts ← 队列端口段 L656–970（含 QUEUE_DIR_SEGMENT/QueuePaths/QueuePortsDeps/createQueueDiskPorts）；
-core/executor.ts ← resolveCliEntry（L1464）+ ExecutorParts（L1507）+ createUpdateExecutor（L2531 起至文件尾）。
+core/executor.ts ← resolveCliEntry（L1464）+ ExecutorParts（L1507）+ createUpdateExecutor（L2531 起至文件尾）；
+core/store-base.ts ← 前置段 L37–364（冻结旧路径字面/稳定失败码白名单/原子锁与锁代际/createStoreLog 三类日志发射）。§4 原文未给该段指定归属：它同时被 disk 与 queue/ports 需要，若塞进 disk 会形成 disk↔queue 环（§6 R1 禁止），故独立成文件，其余三家单向依赖它；目标树因此 87→88 文件。
 
 ### install-button.ts → 5 去向 + 壳
 

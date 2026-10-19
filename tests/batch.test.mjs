@@ -22,7 +22,7 @@ import {
   normalizeBatchSession,
   orderTargets,
   resumeBatchSession,
-} from '../dist/batch.js'
+} from '../dist/core/batch/model.js'
 
 const KEYS = ['alpha', 'beta', 'self', 'gamma']
 

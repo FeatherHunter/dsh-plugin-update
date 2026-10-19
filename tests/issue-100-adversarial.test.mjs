@@ -7,9 +7,9 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { createUpdateExecutor } from '../dist/store.js'
-import { createUpdateCore } from '../dist/service.js'
-import { installRecipe } from '../dist/commands.js'
+import { createUpdateExecutor } from '../dist/core/executor.js'
+import { createUpdateCore } from '../dist/core/service.js'
+import { installRecipe } from '../dist/shared/commands.js'
 import { mountUpdatePanel, panelViewModel } from '../dist/panel.js'
 
 const TARGET = 'dsh-mattpocock-skills-deck'

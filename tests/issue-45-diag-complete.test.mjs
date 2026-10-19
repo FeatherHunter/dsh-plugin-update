@@ -8,7 +8,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
 import { buildUpdateDiagCopy, mountUpdatePanel } from '../dist/panel.js'
-import { emptyQueueState } from '../dist/queue.js'
+import { emptyQueueState } from '../dist/core/queue/model.js'
 
 const TARGET = 'dsh-mattpocock-skills-deck'
 const REGISTRY = 'https://registry.npmjs.org/'

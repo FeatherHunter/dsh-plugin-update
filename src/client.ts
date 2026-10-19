@@ -19,11 +19,11 @@
 // 未新增日志事件：本文件不发日志，三个旧事件的标识字段由宿主入口发出。
 
 import { buildPhoneNames, CHECK_FALLBACK_PHONE_ACTION, DEFAULT_PANEL_POLL_MS, MIN_PANEL_POLL_MS, type ChangelogPhoneAction, type CheckFallbackPhoneAction, type PhoneAction } from './shared/config.js'
-import { manualCommand } from './commands.js'
+import { manualCommand } from './shared/commands.js'
 
 export { buildChangelogPhoneName, buildPhoneName, buildPhoneNames, CHECK_FALLBACK_PHONE_ACTION } from './shared/config.js'
 export type { ChangelogPhoneAction, CheckFallbackPhoneAction, PhoneAction } from './shared/config.js'
-export { manualCommand } from './commands.js'
+export { manualCommand } from './shared/commands.js'
 // 跨插件队列的面板侧形状（#15）：纯函数，无 Node 专属能力，可进浏览器闭包。
 // 面板凭电话可选参数（includeQueue/showOthers）拿队列视图，用这里的同名函数再做展示裁剪。
 export {
@@ -39,8 +39,8 @@ export {
   releaseOwnerInQueue,
   setOwnerIfFree,
   visibleQueueFor,
-} from './queue.js'
-export type { QueuedEntry, QueueOwner, UpdateQueueState, VisibleQueue, VisibleQueueOwner } from './queue.js'
+} from './core/queue/model.js'
+export type { QueuedEntry, QueueOwner, UpdateQueueState, VisibleQueue, VisibleQueueOwner } from './core/queue/model.js'
 
 // 多目标批量更新的会话账本（#25）：纯函数，无 Node 专属能力，可进浏览器闭包。
 // 面板凭它渲染批量进度（第几家在装、哪几家要重启、哪几家失败），宿主凭它落盘续跑。
@@ -60,8 +60,8 @@ export {
   normalizeBatchSession,
   orderTargets,
   resumeBatchSession,
-} from './batch.js'
-export type { BatchEntry, BatchPhase, BatchProgress, BatchSession } from './batch.js'
+} from './core/batch/model.js'
+export type { BatchEntry, BatchPhase, BatchProgress, BatchSession } from './core/batch/model.js'
 
 // 更新日志纯函数（#23：面板闭包同缝，零依赖；取数在宿主 Node 侧按需调用）。
 export {
@@ -70,10 +70,10 @@ export {
   CHANGELOG_NEUTRAL_LINE,
   changelogForUpdate,
   parseChangelog,
-  renderChangelogHTML,
   selectChangelogEntries,
-} from './changelog.js'
-export type { ChangelogCategory, ChangelogEntry } from './changelog.js'
+} from './core/changelog/parse.js'
+export { renderChangelogHTML } from './core/changelog/render-model.js'
+export type { ChangelogCategory, ChangelogEntry } from './core/changelog/parse.js'
 
 export const CLIENT_POLL = {
   defaultMs: DEFAULT_PANEL_POLL_MS,

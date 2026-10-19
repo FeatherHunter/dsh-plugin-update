@@ -27,7 +27,7 @@ export const DEFAULT_REGISTRY = 'https://registry.npmjs.org/'
 // 默认旧标识：落盘目录按插件标识派生时，取该值即回到旧路径（永久冻结特例）。
 export const LEGACY_PLUGIN_ID = 'dsh-mattpocock-skills-deck'
 // 默认旧路径原文：家目录下 updates 加旧标识加使用范围短指纹（永久冻结，一字不差）。
-// 该字符串作为注释永不删除的特例保留在 store.ts 的实现里，这里只存字面常量。
+// 该字符串作为注释永不删除的特例保留在 core/disk.ts 的实现里，这里只存字面常量。
 export const LEGACY_DIR_SEGMENT = 'updates'
 // 三个落盘文件名（冻结：保持三名不变）。
 export const STATE_FILE = 'state.json'

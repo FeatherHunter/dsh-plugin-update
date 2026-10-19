@@ -11,7 +11,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { cloneEventEntry, parseEventListManifest, mergeUpdateEvents, type GateEventList, type GateEventEntry } from '../gate.js'
+import { cloneEventEntry, parseEventListManifest, mergeUpdateEvents, type GateEventList, type GateEventEntry } from '../core/gate.js'
 import { packageRoot } from './own-version.js'
 
 /** 随包清单的文件名（`package.json files` 白名单里要有它，发布门禁会核）。 */

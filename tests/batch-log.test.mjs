@@ -18,11 +18,11 @@
  */
 import { describe, it, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { createBatchSession } from '../dist/batch.js'
-import { runBatch } from '../dist/batch-run.js'
+import { createBatchSession } from '../dist/core/batch/model.js'
+import { runBatch } from '../dist/core/batch/run.js'
 import { hash8 } from '../dist/shared/hash.js'
 import { createMultiHostUpdate } from '../dist/host-batch.js'
-import { pruneEventFields } from '../dist/gate.js'
+import { pruneEventFields } from '../dist/core/gate.js'
 import { __resetSharedUpdateReaderForTests } from '../dist/host.js'
 import { currentUpdateEventTable, primeUpdateEventTable } from '../dist/log/manifest.js'
 import {

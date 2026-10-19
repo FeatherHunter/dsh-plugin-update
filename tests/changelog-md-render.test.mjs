@@ -11,15 +11,8 @@ import { readFileSync } from 'node:fs'
 
 const tick = () => new Promise((r) => setTimeout(r, 10))
 
-const {
-  parseChangelog,
-  renderChangelogInline,
-  renderChangelogBlocks,
-  renderChangelogItem,
-  renderChangelogSection,
-  renderChangelogHTML,
-  CHANGELOG_MD_INLINE,
-} = await import('../dist/changelog.js')
+const { parseChangelog } = await import('../dist/core/changelog/parse.js')
+const { renderChangelogInline, renderChangelogBlocks, renderChangelogItem, renderChangelogSection, renderChangelogHTML, CHANGELOG_MD_INLINE } = await import('../dist/core/changelog/render-model.js')
 const { renderUpdatePanelHTML, mountUpdatePanel, UPDATE_PANEL_CSS, UPDATE_PANEL_ARCHIVE_CSS } = await import('../dist/panel.js')
 
 const LINK_ATTRS = /data-openlink="1" href="([^"]*)" target="_blank" rel="noopener noreferrer"/

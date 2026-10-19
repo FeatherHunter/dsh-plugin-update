@@ -11,7 +11,7 @@
  * ⇒ 需要 postinstall/原生构建的包永远 install-failed 且不解释。
  *
  * 这里只走公开入口：
- * A. `createUpdateExecutor`（dist/store.js）+ 假管理器：失败回包点名包名、给批准后重试的路径、
+ * A. `createUpdateExecutor`（dist/core/executor.js）+ 假管理器：失败回包点名包名、给批准后重试的路径、
  *    守 300 字上限与「原文在前」；approvedBuilds 重试原样进宿主选项；畸形输入一律过滤；
  * B. `createHostUpdate`（dist/host.js）安装电话：approvedBuilds 从电话参数进到 runInstall 端口。
  */
@@ -20,9 +20,9 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
-import { createUpdateExecutor } from '../dist/store.js'
+import { createUpdateExecutor } from '../dist/core/executor.js'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import { normalizeApprovedBuilds } from '../dist/commands.js'
+import { normalizeApprovedBuilds } from '../dist/shared/commands.js'
 
 const TARGET = 'native-plugin-under-test'
 const SPEC = `${TARGET}@2.0.0`

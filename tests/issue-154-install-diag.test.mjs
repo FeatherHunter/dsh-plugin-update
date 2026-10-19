@@ -77,7 +77,7 @@ test('#154-3 守住：install-failed 无原因行不重排', async () => {
 
 test('#154-5 宿主码前缀不污染前置：operation-error: 进度头不算原因行，✗ 行仍置顶', async () => {
   const host = await freshHost()
-  // 2026-10-17 dsh-prompt 0.4.28→0.4.29 现场：store.ts detailText 把宿主 ManagementError
+  // 2026-10-17 dsh-prompt 0.4.28→0.4.29 现场：core/executor.ts detailText 把宿主 ManagementError
   // 收成 `operation-error: <原话首行>`，前缀自身含 error 一词，旧判定把进度头误判成原因行。
   const detail = [
     'operation-error: ? Verifying lockfile against supply-chain policies (310 entries)...',

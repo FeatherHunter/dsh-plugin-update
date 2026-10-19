@@ -9,7 +9,7 @@
 import { copyText } from './core/i18n/text.js'
 import type { BilingualKey } from './core/i18n/dictionary.js'
 import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './shared/codes.js'
-import { blameCausePackage, CAUSE_KINDS, formatUnlockAt, interpretInstallCause } from './install-cause.js'
+import { blameCausePackage, CAUSE_KINDS, formatUnlockAt, interpretInstallCause } from './core/cause.js'
 import { normalizeLangTag, type AppLang } from './shared/lang.js'
 import { COPY_BUDGET_CHARS, sanitizeForCopy } from './shared/redaction.js'
 import type { BlockedReason } from './shared/ports.js'

@@ -24,8 +24,8 @@ import {
 } from '../dist/panel-batch.js'
 import { createMultiHostUpdate } from '../dist/host-batch.js'
 import { __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import { createBatchSession } from '../dist/batch.js'
-import { batchPathsForOwner } from '../dist/store.js'
+import { createBatchSession } from '../dist/core/batch/model.js'
+import { batchPathsForOwner } from '../dist/core/disk.js'
 import { beforeEach } from 'node:test'
 
 beforeEach(() => {

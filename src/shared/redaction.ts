@@ -19,7 +19,7 @@
  * → 空白边界封顶（封顶后不再扫描；遮蔽说明占尾部预算）。顺序的目的是输出确定性（同一输入两次运行逐字节相同），
  * 封顶在脱敏之后，且封顶之后不再扫描。
  *
- * 本模块是唯一的规则源（#24 单源收敛）：宿主侧（store.ts 经 sanitizeDetail）与面板侧
+ * 本模块是唯一的规则源（#24 单源收敛）：宿主侧（core/executor.ts 经 sanitizeDetail）与面板侧
  * （panel.ts 经 redactForCopy）同缝消费，不再各存一份 PANEL_* 镜像。面板侧的复制预算
  * 1500 字也在此单源定义（COPY_BUDGET_CHARS），面板只转出口。
  * 本模块零 Node 导入（只用 URL / TextEncoder 全局），宿主与浏览器闭包两边都进得去。
@@ -62,7 +62,7 @@ export const KNOWN_GAP_FILE_URL_PREFIX = 'file:///'
 
 /**
  * 五条规则的真实可引用标识（固定顺序）：事件清单的 `rules` 栏引用这些名字，
- * 而不必复述匹配形态（见 src/gate.ts）。顺序即应用顺序，改顺序即改行为。
+ * 而不必复述匹配形态（见 src/core/gate.ts）。顺序即应用顺序，改顺序即改行为。
  */
 export const REDACTION_RULE_NAMES = [
   'R_ABSOLUTE_PATH',

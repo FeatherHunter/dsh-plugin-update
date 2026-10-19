@@ -17,7 +17,7 @@
 // 范围（#60 两条入口链 + #61 panel 状态与动作 + #62 panel 内核 HTML §3.7 + #63 诊断复制 §3.3/3.4 + #64 panel-batch 聚合总账 §4.1/4.3/4.4/4.5 + #65 panel-batch 行详情回执 §4.2/4.6/4.7 + #66 changelog 运行时 §6.1/ diag 兜底 §7.1）：entry 7 键（#52 §1）+ batch-entry 6 键 + panel 75 键
 // （#52 §3.1 16 + §3.2 14 + §3.5 16 + §3.6 18 + §3.8 11）+ diag 35 键（#52 §3.3 13 + §3.4 22（含 3 复用））+ batch-ledger 33 + batch-row 42 + changelog 9 + diag-fallback 16（§7.1 19 行含 3 复用电话表，逐条见 research/52-inventory.md）。
 // panel-batch 剩余与验收矩阵由后续票展开，本文件不预占它们的 key（避免双源）。
-// CHANGELOG 六类标题唯一源仍是 changelog.ts CATEGORY_ZH，本模块不另起第二套映射（#66 中文「新增（Added）」/英文「Added」由渲染层按 CATEGORY_ZH 现场组装，不进字典）。
+// CHANGELOG 六类标题唯一源仍是 core/changelog/parse.ts 的 CHANGELOG_CATEGORY_ZH，本模块不另起第二套映射（#66 中文「新增（Added）」/英文「Added」由渲染层按 CATEGORY_ZH 现场组装，不进字典）。
 
 /** 字典版本钉（#53 Q3 解耦）：key 冻即解阻塞 #54，文案按词标 draft/locked；开发钉此版本，转正只换文案不换 key。 */
 export const BILINGUAL_DICT_VERSION = '2026-10-06-pin53'

@@ -1,7 +1,7 @@
 /**
- * src/changelog-io.ts —— 更新日志的 Node 侧读写（#23）。
+ * src/core/changelog/io.ts —— 更新日志的 Node 侧读写（#23）。
  *
- * 纯解析在 `src/changelog.ts`（零导入，两边可进）；
+ * 纯解析在 `src/core/changelog/parse.ts`（零导入，两边可进）；
  * 本文件只做跑腿（读盘、联网、解包、验 integrity），仅 Node 侧导入，
  * 面板（浏览器闭包）永不导入本文件。
  *
@@ -23,11 +23,16 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { gunzipSync } from 'node:zlib'
-import { CHANGELOG_FILENAME, CHANGELOG_MAX_CHARS, classifyChangelog, type ChangelogContentStatus } from './changelog.js'
-import { INTEGRITY_PATTERN } from './service.js'
-// #211：tarball 取数也要留行——复用 registry-fetch 的同一台打点器（同一行语义，不另立一套）。
-import { makeFetchNoter } from './registry-fetch.js'
-import type { UpdateLogPort } from './shared/ports.js'
+import {
+  CHANGELOG_FILENAME,
+  CHANGELOG_MAX_CHARS,
+  classifyChangelog,
+  type ChangelogContentStatus,
+} from './parse.js'
+import { INTEGRITY_PATTERN } from '../service.js'
+// #211：tarball 取数也要留行——复用 core/fetch.ts 的同一台打点器（同一行语义，不另立一套）。
+import { makeFetchNoter } from '../fetch.js'
+import type { UpdateLogPort } from '../../shared/ports.js'
 
 /** tarball 下载上限（字节，压缩态）：超限直接回落中性提示，不解包、不OOM。 */
 export const CHANGELOG_TARBALL_MAX_BYTES = 8 * 1024 * 1024

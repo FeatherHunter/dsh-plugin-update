@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url'
 
 const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-const gate = await import('../dist/gate.js')
+const gate = await import('../dist/core/gate.js')
 const log = await import('../dist/log/index.js')
 const logManifest = await import('../dist/log/manifest.js')
 const hostMod = await import('../dist/host.js')

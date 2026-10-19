@@ -26,8 +26,8 @@ import {
   releaseOwnerInQueue,
   setOwnerIfFree,
   visibleQueueFor,
-} from '../dist/queue.js'
-import { createUpdateQueuePorts, queuePathsForUpdate } from '../dist/store.js'
+} from '../dist/core/queue/model.js'
+import { createUpdateQueuePorts, queuePathsForUpdate } from '../dist/core/queue/ports.js'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
 
 function shortHash(text) {

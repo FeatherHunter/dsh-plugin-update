@@ -12,8 +12,8 @@
  */
 import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { createUpdateCore, __resetFallbackSlots } from '../dist/service.js'
-import { resolveCompliantVersion } from '../dist/compliant-version.js'
+import { createUpdateCore, __resetFallbackSlots } from '../dist/core/service.js'
+import { resolveCompliantVersion } from '../dist/shared/compliant.js'
 
 const TARGET = 'dsh-demo-widget'
 const REGISTRY = 'https://registry.npmjs.org/'

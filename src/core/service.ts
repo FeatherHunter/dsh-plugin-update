@@ -1,5 +1,5 @@
 /**
- * src/service.ts — 更新模块的业务流程（安装闭环）。
+ * src/core/service.ts — 更新模块的业务流程（安装闭环）。
  *
  * 由 update-core/src/service.ts 原样拎入：只记得规矩，不动手装：查状态读本地、查新版联网问一次、
  * 装前复核用的凭证与指纹在这里生成与比对，安装的排队、去重、复核、备份顺序也在此。
@@ -29,7 +29,7 @@ import type {
   UpdateLogPort,
   UpdatePorts,
   UpdateSnapshot,
-} from './shared/ports.js'
+} from '../shared/ports.js'
 
 export const CONFIRMATION_TTL_MS = 10 * 60_000
 /** 2 秒内重复点击复用上次结果，不重新联网。 */
@@ -59,8 +59,8 @@ export function validRequestId(v: unknown): v is string {
   return true
 }
 
-// 判定核已搬家（#165 第二刀）：实体见 ./version-judgment.js，本文件只留垫片＋内部引用。
-// tests 深引用（../dist/service.js）与包导出表零碰（#159 冻结）。
+// 判定核已搬家（#165 第二刀）：实体见 ./judgment.js，本文件只留垫片＋内部引用。
+// tests 深引用与包导出表零碰（#159 冻结）。
 import {
   compareReleaseVersions,
   isVersionAllowedInChannel,
@@ -69,8 +69,8 @@ import {
   updateError,
   validReleaseVersion,
   validVersion,
-} from './version-judgment.js'
-import type { ReleaseChannel } from './version-judgment.js'
+} from './judgment.js'
+import type { ReleaseChannel } from './judgment.js'
 export {
   compareVersions,
   compareReleaseVersions,
@@ -83,17 +83,17 @@ export {
   validReleaseChannel,
   validReleaseVersion,
   validVersion,
-} from './version-judgment.js'
-export type { ReleaseChannel } from './version-judgment.js'
-// 检查结论编排已搬家（#163 故事 3 收尾）：实体见 ./check-conclusion.js，本文件只留内部引用。
+} from './judgment.js'
+export type { ReleaseChannel } from './judgment.js'
+// 检查结论编排已搬家（#163 故事 3 收尾）：实体见 ./conclusion.js，本文件只留内部引用。
 // 纯函数零值依赖；从未进包导出表，无垫片需要（#159 冻结）。
-import { checkErrorKindOf, httpStatusOfError, installSourceOf, stableCodeOf, stageOfError, triggerOf } from './check-conclusion.js'
+import { checkErrorKindOf, httpStatusOfError, installSourceOf, stableCodeOf, stageOfError, triggerOf } from './conclusion.js'
 // 安装失败原因链（#207）：现场事实分类与行字段收敛放在中立文件，本文件只负责「何时记一行」。
-import { attachInstallFail, installFailRowFields, normalizeCode, readInstallFail } from './install-fail.js'
-import type { InstallFailFacts } from './install-fail.js'
-import { BLOCKED_REASONS } from './shared/codes.js'
-import { hash8 } from './shared/hash.js'
-// ---------- 取数垫片（#163：实现搬 registry-fetch，老位置 re-export，行为零变化） ----------
+import { attachInstallFail, installFailRowFields, normalizeCode, readInstallFail } from './failure.js'
+import type { InstallFailFacts } from './failure.js'
+import { BLOCKED_REASONS } from '../shared/codes.js'
+import { hash8 } from '../shared/hash.js'
+// ---------- 取数垫片（#163：实现搬 core/fetch.ts，老位置 re-export，行为零变化） ----------
 import {
   CHECK_TIMEOUT_MS,
   NPM_REGISTRY,
@@ -102,7 +102,7 @@ import {
   fetchNpmRelease,
   fetchNpmVersionRelease,
   fetchPackumentTimes,
-} from './registry-fetch.js'
+} from './fetch.js'
 export {
   CHECK_TIMEOUT_MS,
   INTEGRITY_PATTERN,
@@ -113,7 +113,7 @@ export {
   fetchNpmRelease,
   fetchNpmVersionRelease,
   fetchPackumentTimes,
-} from './registry-fetch.js'
+} from './fetch.js'
 
 // ---------- 核心工厂（记得规矩，不动手装） ----------
 

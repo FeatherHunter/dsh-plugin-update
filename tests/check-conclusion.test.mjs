@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import * as cc from '../dist/check-conclusion.js'
+import * as cc from '../dist/core/conclusion.js'
 
 // #163 故事 3 收尾：检查结论编排（#124 五个纯 helper）从 service.ts 独立。
 // 本测试先红：check-conclusion 尚不存在；实现后逐字冻结旧语义（从旧内联逐条抄断言）。

@@ -9,9 +9,9 @@
 import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHostUpdate, detectEnvironmentKind, __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import { resolveProfileName } from '../dist/reader.js'
-import { installRecipe } from '../dist/commands.js'
-import { createUpdateExecutor } from '../dist/store.js'
+import { resolveProfileName } from '../dist/core/reader.js'
+import { installRecipe } from '../dist/shared/commands.js'
+import { createUpdateExecutor } from '../dist/core/executor.js'
 
 const RELEASE_VERSION = '9.9.9'
 const TARGET = 'dsh-mattpocock-skills-deck'

@@ -18,7 +18,7 @@ import { join } from 'node:path'
 import { hashToken, logDirKey, logSwitchFileName } from './namespace.js'
 import { sinkFromStore, type LogSink } from './sink.js'
 import { ownPackageVersion } from './own-version.js'
-import type { GateEventList } from '../gate.js'
+import type { GateEventList } from '../core/gate.js'
 
 /** 登记表在 globalThis 上的键（Symbol.for：跨副本、跨包副本同名同键）。 */
 export const OWN_LOG_REGISTRY_KEY = 'dsh-plugin-update.log.registry'

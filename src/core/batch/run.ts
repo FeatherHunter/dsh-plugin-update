@@ -1,14 +1,14 @@
-// src/batch-run.ts —— 批量更新的串行驱动器（#25）。
+// src/core/batch/run.ts —— 批量更新的串行驱动器（#25）。
 //
 // 第一性：批量更新是「一家收尾才起下一家」的串行过程，而每一步都可能被进程重启/页面重载打断。
 // 所以驱动器只做两件事，且每一步都落盘：
-//   1. 按会话顺序取下一家（顺序由 batch.ts 定：自己排最后）；
+//   1. 按会话顺序取下一家（顺序由 core/batch/model.ts 定：自己排最后）；
 //   2. 查 → （有新版才）装 → 记相位 → **立刻保存**。
 //   再重启时读回账本，已完成的不重装、没做完的接着走（幂等编号恒定，重复提交不重复装）。
 //
 // 传输（查/装）由调用方注入：宿主侧传真电话，单测给假件——所以「串行顺序」这件事能被门禁逮住。
 // 日志落点（#124）同样是注入的（deps.logFor）：路由要的插件标识只有宿主知道，驱动器不猜。
-// 本文件零 Node/浏览器专属能力（只 import batch.ts 的纯函数 + ports.ts 的类型），两边都跑得动。
+// 本文件零 Node/浏览器专属能力（只 import core/batch/model.ts 的纯函数 + ports.ts 的类型），两边都跑得动。
 
 import {
   batchProgress,
@@ -16,9 +16,9 @@ import {
   markBatchEntry,
   nextBatchKey,
   type BatchSession,
-} from './batch.js'
-import type { UpdateLogPort } from './shared/ports.js'
-import { hash8 } from './shared/hash.js'
+} from './model.js'
+import type { UpdateLogPort } from '../../shared/ports.js'
+import { hash8 } from '../../shared/hash.js'
 
 /** 失败发生在哪个阶段（#208）：查版本／提交安装／等安装收尾超时／读终态。 */
 export type BatchFailStage = 'check' | 'install' | 'timeout' | 'settle'

@@ -20,18 +20,16 @@
 import { buildChangelogPhoneName, buildLogAppendPhoneName, buildPhoneNames, DEFAULT_PANEL_POLL_MS, DEFAULT_PREFIX, MIN_PANEL_POLL_MS } from './shared/config.js'
 import { hash8 } from './shared/hash.js'
 import { COPY_BUDGET_CHARS, sanitizeForCopy } from './shared/redaction.js'
-import { compareReleaseVersions, validReleaseVersion } from './service.js'
+import { compareReleaseVersions, validReleaseVersion } from './core/service.js'
 import {
   changelogForUpdate,
   isChangelogStatus,
   parseChangelogReport,
-  renderChangelogHTML,
   shouldFetchChangelog,
-  truncationNoteHTML,
-  yankedBannerHTML,
   type ChangelogStatus,
-} from './changelog.js'
-import { visibleQueueFor, type UpdateQueueState, type VisibleQueue } from './queue.js'
+} from './core/changelog/parse.js'
+import { renderChangelogHTML, truncationNoteHTML, yankedBannerHTML } from './core/changelog/render-model.js'
+import { visibleQueueFor, type UpdateQueueState, type VisibleQueue } from './core/queue/model.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } from './shared/log-events.js'
 import { createPanelClientLogShell, type PanelClientLogOptions } from './log/panel-client.js'
 // #212：只要类型（import type 在编译期擦除，浏览器闭包里不会多出 log/ 内部模块的运行时依赖）。
@@ -41,11 +39,11 @@ import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './
 export { isCheckSideFailureCode } // 查侧判定从单点真源派生（#134/US15；#141 铁律：本文件不另建第二张表）
 import { copyText } from './core/i18n/text.js'
 import type { BilingualKey } from './core/i18n/dictionary.js'
-import { manualAbsentReasonOf, manualAbsentTextOf, manualAppliesToBanner } from './manual-absent.js'
-import { lastResortVerdictOf, type LastResortVerdict, type ManualSource } from './last-resort.js'
+import { manualAbsentReasonOf, manualAbsentTextOf, manualAppliesToBanner } from './shared/manual-absent.js'
+import { lastResortVerdictOf, type LastResortVerdict, type ManualSource } from './shared/last-resort.js'
 // #174：last-resort 的类型经既有子路径转出，消费者无需新子路径即可命名（`ManualSource` 已出现在本模块导出签名里）。
-export type { LastResortKind, RescueRouteKey, ManualSource, LastResortSubject, LastResortInput, LastResortVerdict } from './last-resort.js'
-import { blameCausePackage, CAUSE_KINDS, formatUnlockAt, interpretInstallCause } from './install-cause.js'
+export type { LastResortKind, RescueRouteKey, ManualSource, LastResortSubject, LastResortInput, LastResortVerdict } from './shared/last-resort.js'
+import { blameCausePackage, CAUSE_KINDS, formatUnlockAt, interpretInstallCause } from './core/cause.js'
 import { langSignalSource, normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './shared/lang.js'
 
 // ---------- 公开类型（完整类型定义：公开入口一律有类型，不做源码级复用） ----------
@@ -4192,8 +4190,8 @@ export {
   isHeadOfQueue,
   isQueueBusy,
   visibleQueueFor,
-} from './queue.js'
-export type { QueuedEntry, QueueOwner, UpdateQueueState, VisibleQueue as PanelVisibleQueue, VisibleQueueOwner } from './queue.js'
+} from './core/queue/model.js'
+export type { QueuedEntry, QueueOwner, UpdateQueueState, VisibleQueue as PanelVisibleQueue, VisibleQueueOwner } from './core/queue/model.js'
 
 // 宿主种类（诊断文本用；取值可增，不认就当普通宿主展示）。
 export type { EnvironmentKind as PanelEnvironmentKind } from './shared/ports.js'
@@ -4217,10 +4215,18 @@ export {
   isUnreleasedVersion,
   parseChangelog,
   parseChangelogReport,
+  selectChangelogEntries,
+} from './core/changelog/parse.js'
+export {
   renderChangelogHTML,
   renderChangelogNeutral,
   renderChangelogSection,
-  selectChangelogEntries,
   truncationNoteHTML,
-} from './changelog.js'
-export type { ChangelogCategory, ChangelogEntry, ChangelogOtherSection, ChangelogParseReport, ChangelogTruncation } from './changelog.js'
+} from './core/changelog/render-model.js'
+export type {
+  ChangelogCategory,
+  ChangelogEntry,
+  ChangelogOtherSection,
+  ChangelogParseReport,
+  ChangelogTruncation,
+} from './core/changelog/parse.js'

@@ -473,7 +473,7 @@ test('老合同不动：电话名、快照字段、配方键一字不动', async
   await panel.refresh()
   assert.ok(log[0].name === 'wf.updateStatus', '默认电话名冻结')
   assert.deepEqual(Object.keys(baseSnapshot()).sort(), ['blockedReason', 'canInstall', 'installed', 'installedVersion', 'job', 'latestVersion', 'runningVersion'].sort(), '快照七字段（#134 加 installed）')
-  const { installRecipe } = await import('../dist/commands.js')
+  const { installRecipe } = await import('../dist/shared/commands.js')
   const recipe = installRecipe({ profileName: 'web', version: '1.1.0', environmentKind: 'cli' })
   assert.deepEqual(Object.keys(recipe).sort(), ['pluginArgs', 'profileName', 'route', 'timeoutMs', 'version'].sort(), '配方五键冻结')
   panel.unmount()

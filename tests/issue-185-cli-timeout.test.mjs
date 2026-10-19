@@ -10,7 +10,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { createUpdateExecutor } from '../dist/store.js'
+import { createUpdateExecutor } from '../dist/core/executor.js'
 
 const TIMEOUT_DETAIL = '安装超时，已终止子进程'
 const NO_TERMINATE_DETAIL = '安装超时；宿主未提供终止能力，这次安装可能仍在后台继续'

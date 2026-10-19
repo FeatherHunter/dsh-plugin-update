@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
 import { batchFailedDiagText } from '../dist/panel-batch.js'
-import { pathsForUpdate } from '../dist/store.js'
+import { pathsForUpdate } from '../dist/core/disk.js'
 
 const TARGET = 'demo-215-plugin'
 const REGISTRY = 'https://registry.npmjs.org/'

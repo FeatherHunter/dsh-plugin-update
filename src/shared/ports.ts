@@ -56,9 +56,9 @@ export type UpdateLogPort = (
  * 本文件「只有类型、没有运行时逻辑」这条不变。
  */
 import type { BlockedReason, UpdateErrorCode } from './codes.js'
-import type { CauseBlame } from '../install-cause.js'
+import type { CauseBlame } from '../core/cause.js'
 export type { BlockedReason, UpdateErrorCode } from './codes.js'
-export type { CauseBlame } from '../install-cause.js'
+export type { CauseBlame } from '../core/cause.js'
 
 // 合规版决议类型（#165：从 compliant-version 上收进类型底座，断 ports⇄compliant-version
 // 纯类型环；值实现仍在 compliant-version，运行时方向只剩 compliant-version → ports）。

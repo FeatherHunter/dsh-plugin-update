@@ -9,8 +9,8 @@
  * - 电话失败落属主目录；没有属主一行不发。
  */
 
-import { batchProgress, isBatchFinished, type BatchSession } from './batch.js'
-import type { BatchStoppedByBecause } from './batch-run.js'
+import { batchProgress, isBatchFinished, type BatchSession } from './core/batch/model.js'
+import type { BatchStoppedByBecause } from './core/batch/run.js'
 import { isBatchReplyCode } from './shared/codes.js'
 import { hash8 } from './shared/hash.js'
 import { emitUpdateLog } from './log/emit.js'

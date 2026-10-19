@@ -1,7 +1,7 @@
 // src/host-batch.ts —— 多目标批量更新的宿主入口（#25）。
 //
 // 归属：宿主（Node）侧。为 N 个目标各建一份现有 createHostUpdate 能力（前缀与插件标识隔离），
-// 共享同一套队列端口（同一使用范围）；批量会话账本落盘（见 store.ts 的 batch 路径），
+// 共享同一套队列端口（同一使用范围）；批量会话账本落盘（见 core/disk.ts 的 batch 路径），
 // 让「关面板/重启进程」之后还能接着推进（resume）。
 //
 // 契约（面板侧按它写，见 src/panel-batch.ts）：
@@ -19,7 +19,7 @@
 // 实现要点（第一性）：
 //   1. 每个目标一份 createHostUpdate：它的单例复用键含插件标识与前缀（见 host.ts），
 //      七个目标各有各的内存状态，不串台；队列端口只建一份给所有目标共用（同一使用范围）。
-//   2. 串行与落盘全交 batch.ts / batch-run.ts（已有门禁），本文件只做「电话 <-> 驱动器」的翻译：
+//   2. 串行与落盘全交 core/batch/model.ts / run.ts（已有门禁），本文件只做「电话 <-> 驱动器」的翻译：
 //      查电话 -> BatchCheckOutcome；装电话 + 轮询该家到终态 -> BatchInstallOutcome。
 //   3. 查/装传输可注入（deps.transport），真路径走单插件电话；单测给假件即能逮住顺序与落盘。
 //   4. drain 默认关：显式 drain:true 才起定时器，一次只推一步（maxSteps:1），dispose() 停干净。
@@ -34,7 +34,7 @@
 //      时映射成驱动器的 { kind:'queued', position }（相位退回 ready，不是 failed），行上带出队列位置。
 //   8. 批量侧常驻事件三条（#124 / #208），全部 best-effort、只走唯一发射口（脱敏/白名单/预算都在里面）：
 //      建会话时一条 update.batch.entry.request（只给 total/own/foreign 三个计数 + sessionHash，不给插件名清单）、
-//      一家失败一条 update.batch.entry.fail（在 batch-run.ts 里按目标发射，落点是那家自己的插件标识；
+//      一家失败一条 update.batch.entry.fail（在 core/batch/run.ts 里按目标发射，落点是那家自己的插件标识；
 //      #208 起带 sessionHash、失败阶段 stage 与批内序号 index）、
 //      收尾一条 update.batch.summary（宿主侧汇总，面板只渲染；带 sessionHash 与 stoppedBecause）。
 //      总账的判据是**收尾边沿**：同一份会话每次「没收尾 → 收尾」都记一条（行内重试装成后再收尾会再记），
@@ -61,7 +61,7 @@ import {
   type BatchPhase,
   type BatchProgress,
   type BatchSession,
-} from './batch.js'
+} from './core/batch/model.js'
 import {
   noteBatchEntryFailure,
   runBatch,
@@ -69,25 +69,25 @@ import {
   type BatchInstallOutcome,
   type BatchRunStep,
   type BatchStoppedByBecause,
-} from './batch-run.js'
+} from './core/batch/run.js'
 import { assertPluginId, assertPrefix, buildLogAppendPhoneName, resolveUpdateConfig, type UpdateConfigInput } from './shared/config.js'
 import { CROSS_SCOPE_CODE, isBatchReplyCode, isCoreErrorCode } from './shared/codes.js'
 import { createBatchLogSeams, pluginLogPort } from './host-batch-log.js'
 import { createHostUpdate, type HostUpdate, type ReaderOverrides } from './host.js'
-import type { ManualSource } from './last-resort.js'
-import { defaultHomeDir } from './reader.js'
-import { compareReleaseVersions } from './service.js'
+import type { ManualSource } from './shared/last-resort.js'
+import { defaultHomeDir } from './core/reader.js'
+import { compareReleaseVersions } from './core/service.js'
 import {
   createBatchOwnerPorts,
   createSkipDiskPorts,
-  createUpdateQueuePorts,
   emptyBatchInventory,
   isVersionSkipped,
   normalizeBatchInventory,
   normalizeBatchPrefs,
   type BatchInventory,
   type BatchPrefs,
-} from './store.js'
+} from './core/disk.js'
+import { createUpdateQueuePorts } from './core/queue/ports.js'
 
 /** 一个批量目标：要更新的那个插件包 + 它在电话表里的前缀。 */
 export interface MultiTargetSpec {
@@ -243,7 +243,7 @@ function exitCodeOf(reply: Record<string, unknown>): number | null {
 
 /**
  * 账本幂等编号 -> 电话/队列收的编号。账本编号形如 batch:<会话>:<目标>，带冒号，
- * 不在更新核心收的「不透明编号」形状里（[A-Za-z0-9._~-]，见 service.ts 的 validRequestId）。
+ * 不在更新核心收的「不透明编号」形状里（[A-Za-z0-9._~-]，见 core/service.ts 的 validRequestId）。
  * 纯函数：同一账本编号恒得同一电话编号，所以「同一会话同一目标恒定、重复提交不重复装」原样成立；
  * 形状被改写过的追加短哈希，避免不同账本编号撞成同一个电话编号。
  */
@@ -860,7 +860,7 @@ export function createMultiHostUpdate(
     return now().toString(36) + '-' + (suffix || hash8(String(now())))
   }
 
-  /** 进度读数：有账本就按账本口径（与 batch.ts 同一份）；还没有账本时按清单给全待办。 */
+  /** 进度读数：有账本就按账本口径（与 core/batch/model.ts 同一份）；还没有账本时按清单给全待办。 */
   function progressOf(session: BatchSession): BatchProgress {
     if (session.entries.length > 0) return batchProgress(session)
     const total = runtimes.length

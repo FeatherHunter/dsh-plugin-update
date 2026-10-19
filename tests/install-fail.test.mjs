@@ -16,8 +16,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { createUpdateCore } from '../dist/service.js'
-import { createUpdateExecutor } from '../dist/store.js'
+import { createUpdateCore } from '../dist/core/service.js'
+import { createUpdateExecutor } from '../dist/core/executor.js'
 import { failedJobDiagOf } from '../dist/host.js'
 
 const TARGET = 'dsh-mattpocock-skills-deck'

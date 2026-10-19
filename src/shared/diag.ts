@@ -35,8 +35,8 @@
  */
 
 import { DIAG_INLINE_BUDGET_BYTES, diagByteLength, enforceDiagBudget, resolveRegistryHost, sanitizeDetail } from './redaction.js'
-import { causeInterpreter } from '../install-cause.js'
-import { validReleaseVersion, validRequestId } from '../service.js'
+import { causeInterpreter } from '../core/cause.js'
+import { validReleaseVersion, validRequestId } from '../core/service.js'
 import { hash8 } from './hash.js'
 import { copyText } from '../core/i18n/text.js'
 import type { BilingualKey } from '../core/i18n/dictionary.js'
@@ -283,7 +283,7 @@ const CAUSE_LINE_RE =
 
 /**
  * 行首 `code:` 前缀剥离（仅分类用，不改输出一字）。
- * 动机：store.ts 的 detailText 把宿主 ManagementError 收成 `operation-error: <原话首行>`，
+ * 动机：core/executor.ts 的 detailText 把宿主 ManagementError 收成 `operation-error: <原话首行>`，
  * 该前缀自身含 `error` 一词——不剥，它会把进度头 `? Verifying…` 误判成原因行，
  * 真因 `✗ Lockfile failed…` 反而挤到 300 字截断之外（2026-10-17 dsh-prompt 0.4.28→0.4.29 现场）。
  * 只剥一层 `Token:`（宿主码形）；`ERR_*` 机器 token 本身即信号，不剥。

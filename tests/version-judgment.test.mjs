@@ -1,12 +1,12 @@
 // tests/version-judgment.test.mjs —— #165 第二刀：service 判定核独立。
 //
-// 契约：版本判定纯函数搬新模块后，老位置（dist/service.js）经垫片 re-export，外部一切照旧。
+// 契约：版本判定纯函数搬新模块后，老位置（dist/core/service.js）经垫片 re-export，外部一切照旧。
 // 只测外部行为：抽样判定函数在两边同时存在、恒等（===），并在新地址上锁住关键语义。
 // 型导出（ReleaseChannel）由 tsc 覆盖；类型环清零由基线脚本重跑＋tsc 全绿证明（不读源码断言）。
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import * as service from '../dist/service.js'
-import * as vj from '../dist/version-judgment.js'
+import * as service from '../dist/core/service.js'
+import * as vj from '../dist/core/judgment.js'
 
 const JUDGES = [
   'validVersion',

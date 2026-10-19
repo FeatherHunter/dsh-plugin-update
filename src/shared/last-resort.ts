@@ -1,5 +1,5 @@
 /**
- * src/last-resort.ts —— 「最后手段」判定的唯一真源（#174，规格 #173 v2 + #177 D1–D4）。
+ * src/shared/last-resort.ts —— 「最后手段」判定的唯一真源（#174，规格 #173 v2 + #177 D1–D4）。
  *
  * 为什么单独成模块：同一件事实（当前帧还有没有自动救援、手工命令能不能信）要在三处渲染点
  * （单插件面板 / 批量面板 / 槽位安装按钮）用同一个口径，各算一遍迟早会漂。这里只做纯派生，
@@ -21,7 +21,7 @@ import {
   CHECK_SIDE_FAILURE_CODES,
   INTERNAL_CODE,
   type BlockedReason,
-} from './shared/codes.js'
+} from './codes.js'
 
 /** 判定四态。只有 `last-resort` 允许在渲染层高亮。 */
 export type LastResortKind = 'last-resort' | 'salvageable' | 'dead-end' | 'unknown'

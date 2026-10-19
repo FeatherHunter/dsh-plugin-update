@@ -17,13 +17,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createMultiHostUpdate } from '../dist/host-batch.js'
 import { __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import { batchPathsForOwner, pathsForUpdate, queuePathsForUpdate } from '../dist/store.js'
+import { batchPathsForOwner, pathsForUpdate } from '../dist/core/disk.js'
+import { queuePathsForUpdate } from '../dist/core/queue/ports.js'
 
 const REGISTRY = 'https://registry.npmjs.org/'
 const ENTRIES = ['index.js', 'client.js', 'patch.js']
 const RUNNING_VERSION = '1.0.0'
 const TARGET_VERSION = '2.0.0'
-/** 超时那条用的极小安装时限：真执行器到点终止子进程并按 install-failed 收（store.ts 口径）。 */
+/** 超时那条用的极小安装时限：真执行器到点终止子进程并按 install-failed 收（core/executor.ts 口径）。 */
 const INSTALL_TIMEOUT_MS = 40
 
 /** 入口文件内容：不用引号嵌引号，避免夹具源码再被转义。 */
@@ -268,7 +269,7 @@ describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执
       {
         a: {
           // 诚实模拟真执行器：被装的子进程永不退出，执行器自己到 installTimeoutMs 按超时失败
-          // （store.ts 的 awaitOutcome 口径：到点终止并抛 install-failed，不假装装成功）。
+          // （core/executor.ts 的 awaitOutcome 口径：到点终止并抛 install-failed，不假装装成功）。
           runInstall: () =>
             new Promise((resolve, reject) => {
               setTimeout(() => reject(new Error('e2e-executor-timeout')), INSTALL_TIMEOUT_MS)

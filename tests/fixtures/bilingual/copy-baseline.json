@@ -4,58 +4,71 @@
     "src/core/i18n/dictionary.ts"
   ],
   "files": {
-    "src/changelog.ts": [
+    "src/client.ts": [
+      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到"
+    ],
+    "src/core/changelog/parse.ts": [
       "不兼容",
       "作者未提供更新说明",
       "作者未提供更新说明，安装不受影响。",
       "修复",
-      "共",
-      "分类",
       "变更",
       "安全",
       "弃用预告",
-      "文件超 64K，仅校验前 64K",
       "新增",
+      "移除"
+    ],
+    "src/core/changelog/validator.ts": [
+      "共",
+      "分类",
+      "文件超 64K，仅校验前 64K",
       "未解析到任何版本节，面板将显示中性提示",
       "条",
       "条，仅显示前",
       "疑似破坏标记误写（缺冒号/拼写接近/位置疑似放错），请检查是否想写 BREAKING:/不兼容:",
-      "移除",
       "该条目不在任何版本节之下，已被忽略",
       "该标题不是合法版本号，其下条目已被忽略，请改成 ## [x.y.z] 形态",
       "该版本已被标记撤回（yanked），安装不受影响，继续前请确认",
       "该类共 M 条，仅显示前 N 条",
       "非六类小节名（也不在别名表里），按作者原文标题原样显示、不丢内容；六类名：Added/Fixed/Changed/Deprecated/Removed/Security，亦收中文名（新增/修复/变更/弃用预告/移除/安全）与并列写法（Fixed / 修复）"
     ],
-    "src/client.ts": [
-      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到"
+    "src/core/executor.ts": [
+      "启用已装包超时，未继续安装；请在宿主插件页确认该插件已启用后重试",
+      "安装已被取消",
+      "安装脚本需要批准（pendingBuilds），请在宿主插件页批准构建后重试",
+      "安装超时，已终止子进程",
+      "安装超时，已请求宿主取消",
+      "安装超时，已请求宿主终止",
+      "安装超时；任务随后退出，安装未完成",
+      "安装超时；宿主未提供取消能力，这次安装可能仍在后台继续",
+      "安装超时；宿主未提供终止能力，这次安装可能仍在后台继续",
+      "安装超时；终止进程失败，这次安装可能仍在后台继续",
+      "宿主不支持恢复选中，无法安全更新已装包，请用载体 CLI 原地更新",
+      "宿主不支持自动移除重装，请复制手工命令在桌面 CLI 里更新",
+      "宿主写不了使用范围目录，修好权限后重试",
+      "宿主子进程能力异常，安装未完成",
+      "宿主安装服务异常退出",
+      "宿主找不到 pnpm，请先安装 pnpm",
+      "宿主把这个包标为不可移除，请复制手工命令在桌面 CLI 里更新",
+      "新版本与当前 DSH 不兼容，请先升级 DSH 再更新",
+      "有构建脚本被忽略",
+      "构建批准名单已过期（宿主已重新记录），请重新发起更新，不要沿用上次的批准名单",
+      "的",
+      "目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装",
+      "磁盘空间不足，腾出空间后重试",
+      "移除已装包超时，未继续安装；目标包可能已不在册，请重启宿主检查并按手工命令重装",
+      "等 个",
+      "要求",
+      "还有别的层在用这个插件，请先在宿主插件页停用后再更新",
+      "这个使用范围没有 HMR，请停掉 DSH 后在命令行更新",
+      "这个包没有声明 dsh.bundle，不能当作插件管理",
+      "这个条目归宿主插件管理本体所有，不能在这里更新",
+      "需要批准构建脚本：",
+      "（当前 ）",
+      "；请先在宿主的插件管理里批准该包的构建脚本，再重试",
+      "；请先批准构建脚本（运行 ），再重试本次安装"
     ],
-    "src/core/i18n/text.ts": [
-      "[dsh-plugin-update] 未知文案 key："
-    ],
-    "src/entry-batch.ts": [
-      "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到",
-      "[dsh-plugin-update] 入口件形态非法：只收 button / badge / inline（收到",
-      "[dsh-plugin-update] 挂批量入口件缺少配置：批量电话前缀 prefix 必填",
-      "[dsh-plugin-update] 挂批量入口件需要一个有 innerHTML 的容器",
-      "[dsh-plugin-update] 挂批量入口件需要传输函数 call（入口件调宿主电话的唯一接触面）",
-      "[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual / direct（收到",
-      "[dsh-plugin-update] 自动检查时机非法：只收 mount 或 never（收到",
-      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到"
-    ],
-    "src/entry.ts": [
-      "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ）",
-      "[dsh-plugin-update] 入口件尺寸参数 sizing 非法：只收 fontSize / padding / borderRadius（非空 CSS 值）与 scale（大于 0 的有限数）（收到 )",
-      "[dsh-plugin-update] 入口件形态非法：只收 button / badge / inline（收到 ）",
-      "[dsh-plugin-update] 挂更新入口件缺少配置：插件标识 pluginId 必填",
-      "[dsh-plugin-update] 挂更新入口件需要一个有 innerHTML 的容器",
-      "[dsh-plugin-update] 挂更新入口件需要传输函数 call（入口件调宿主电话的唯一接触面）",
-      "[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ）",
-      "[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual / direct（收到 ）",
-      "[dsh-plugin-update] 自动检查时机非法：只收 mount 或 never（收到 ）",
-      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ）"
-    ],
-    "src/gate.ts": [
+    "src/core/gate.ts": [
       "[dsh-plugin-update] 事件清单 eventList 非法：",
       "[dsh-plugin-update] 事件清单 eventList 非法：events 必须是事件名到条目的对象",
       "[dsh-plugin-update] 事件清单 eventList 非法：version 现在只认 1（收到",
@@ -101,6 +114,42 @@
       "（收到",
       "，实际",
       "，归类"
+    ],
+    "src/core/i18n/text.ts": [
+      "[dsh-plugin-update] 未知文案 key："
+    ],
+    "src/core/reader.ts": [
+      "[dsh-plugin-update] 建读取器必须给绝对路径的使用范围目录 profileDir",
+      "[dsh-plugin-update] 建读取器必须给网络实现 fetchImpl（本机没有全局 fetch）"
+    ],
+    "src/core/service.ts": [
+      "未知",
+      "目标版本与已装版本相同，无需安装",
+      "装完校验没过：profile 未登记该插件（重启后不会加载）",
+      "装完校验没过：环境报告",
+      "装完校验没过：磁盘上是 ，目标是"
+    ],
+    "src/entry-batch.ts": [
+      "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到",
+      "[dsh-plugin-update] 入口件形态非法：只收 button / badge / inline（收到",
+      "[dsh-plugin-update] 挂批量入口件缺少配置：批量电话前缀 prefix 必填",
+      "[dsh-plugin-update] 挂批量入口件需要一个有 innerHTML 的容器",
+      "[dsh-plugin-update] 挂批量入口件需要传输函数 call（入口件调宿主电话的唯一接触面）",
+      "[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual / direct（收到",
+      "[dsh-plugin-update] 自动检查时机非法：只收 mount 或 never（收到",
+      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到"
+    ],
+    "src/entry.ts": [
+      "[dsh-plugin-update] 主题非法：只收 default 或 archive（收到 ）",
+      "[dsh-plugin-update] 入口件尺寸参数 sizing 非法：只收 fontSize / padding / borderRadius（非空 CSS 值）与 scale（大于 0 的有限数）（收到 )",
+      "[dsh-plugin-update] 入口件形态非法：只收 button / badge / inline（收到 ）",
+      "[dsh-plugin-update] 挂更新入口件缺少配置：插件标识 pluginId 必填",
+      "[dsh-plugin-update] 挂更新入口件需要一个有 innerHTML 的容器",
+      "[dsh-plugin-update] 挂更新入口件需要传输函数 call（入口件调宿主电话的唯一接触面）",
+      "[dsh-plugin-update] 插件标识 pluginId 必填：须为非空字符串（收到 ）",
+      "[dsh-plugin-update] 点击去向非法：只收 has-update / always / manual / direct（收到 ）",
+      "[dsh-plugin-update] 自动检查时机非法：只收 mount 或 never（收到 ）",
+      "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ）"
     ],
     "src/host-batch.ts": [
       "[dsh-plugin-update] 批量目标清单 targets 必填：至少一个目标",
@@ -187,17 +236,6 @@
       "[dsh-plugin-update] 跳过版本号非法：须为发行版本号（收到 ）",
       "[dsh-plugin-update] 面板轮询间隔非法：不得小于 250 毫秒（收到 ）"
     ],
-    "src/reader.ts": [
-      "[dsh-plugin-update] 建读取器必须给绝对路径的使用范围目录 profileDir",
-      "[dsh-plugin-update] 建读取器必须给网络实现 fetchImpl（本机没有全局 fetch）"
-    ],
-    "src/service.ts": [
-      "未知",
-      "目标版本与已装版本相同，无需安装",
-      "装完校验没过：profile 未登记该插件（重启后不会加载）",
-      "装完校验没过：环境报告",
-      "装完校验没过：磁盘上是 ，目标是"
-    ],
     "src/shared/config.ts": [
       "[dsh-plugin-update] 官方源 registryUrl 非法：须为非空字符串",
       "[dsh-plugin-update] 建更新能力缺少配置：插件标识 pluginId 必填",
@@ -219,42 +257,6 @@
       "<脱敏>",
       "<路径>",
       "（原话里的账号密码已隐去；请核对源地址里的凭据后重试）"
-    ],
-    "src/store.ts": [
-      "启用已装包超时，未继续安装；请在宿主插件页确认该插件已启用后重试",
-      "安装已被取消",
-      "安装脚本需要批准（pendingBuilds），请在宿主插件页批准构建后重试",
-      "安装超时，已终止子进程",
-      "安装超时，已请求宿主取消",
-      "安装超时，已请求宿主终止",
-      "安装超时；任务随后退出，安装未完成",
-      "安装超时；宿主未提供取消能力，这次安装可能仍在后台继续",
-      "安装超时；宿主未提供终止能力，这次安装可能仍在后台继续",
-      "安装超时；终止进程失败，这次安装可能仍在后台继续",
-      "宿主不支持恢复选中，无法安全更新已装包，请用载体 CLI 原地更新",
-      "宿主不支持自动移除重装，请复制手工命令在桌面 CLI 里更新",
-      "宿主写不了使用范围目录，修好权限后重试",
-      "宿主子进程能力异常，安装未完成",
-      "宿主安装服务异常退出",
-      "宿主找不到 pnpm，请先安装 pnpm",
-      "宿主把这个包标为不可移除，请复制手工命令在桌面 CLI 里更新",
-      "新版本与当前 DSH 不兼容，请先升级 DSH 再更新",
-      "有构建脚本被忽略",
-      "构建批准名单已过期（宿主已重新记录），请重新发起更新，不要沿用上次的批准名单",
-      "的",
-      "目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装",
-      "磁盘空间不足，腾出空间后重试",
-      "移除已装包超时，未继续安装；目标包可能已不在册，请重启宿主检查并按手工命令重装",
-      "等 个",
-      "要求",
-      "还有别的层在用这个插件，请先在宿主插件页停用后再更新",
-      "这个使用范围没有 HMR，请停掉 DSH 后在命令行更新",
-      "这个包没有声明 dsh.bundle，不能当作插件管理",
-      "这个条目归宿主插件管理本体所有，不能在这里更新",
-      "需要批准构建脚本：",
-      "（当前 ）",
-      "；请先在宿主的插件管理里批准该包的构建脚本，再重试",
-      "；请先批准构建脚本（运行 ），再重试本次安装"
     ]
   }
 }

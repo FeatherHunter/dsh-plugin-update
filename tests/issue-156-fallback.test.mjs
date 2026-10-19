@@ -14,8 +14,8 @@
  */
 import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { createUpdateCore, __resetFallbackSlots } from '../dist/service.js'
-import { resolveCompliantVersion } from '../dist/compliant-version.js'
+import { createUpdateCore, __resetFallbackSlots } from '../dist/core/service.js'
+import { resolveCompliantVersion } from '../dist/shared/compliant.js'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
 
 const TARGET = 'dsh-demo-widget'
@@ -149,7 +149,7 @@ async function setup({ fetchImpl } = {}) {
 }
 
 describe('合规版降级决议与候选安装（#156）', () => {
-  // 凭证槽是模块级状态（按安装指纹寻址，见 src/service.ts 的 FallbackSlot 注释）：
+  // 凭证槽是模块级状态（按安装指纹寻址，见 src/core/service.ts 的 FallbackSlot 注释）：
   // 用例之间必须清空，否则上一个用例留下的候选会让下一个用例"假绿"。
   beforeEach(() => {
     __resetFallbackSlots()

@@ -20,7 +20,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import { createUpdateDiskPorts, createUpdateQueuePorts } from '../dist/store.js'
+import { createUpdateDiskPorts } from '../dist/core/disk.js'
+import { createUpdateQueuePorts } from '../dist/core/queue/ports.js'
 
 const TARGET = 'dsh-mattpocock-skills-deck'
 const REGISTRY = 'https://registry.npmjs.org/'

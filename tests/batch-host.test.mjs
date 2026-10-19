@@ -13,8 +13,9 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createMultiHostUpdate, phoneRequestIdOf } from '../dist/host-batch.js'
 import { __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import { createBatchSession, markBatchEntry } from '../dist/batch.js'
-import { batchPathsForOwner, batchPathsForUpdate, queuePathsForUpdate } from '../dist/store.js'
+import { createBatchSession, markBatchEntry } from '../dist/core/batch/model.js'
+import { batchPathsForOwner, batchPathsForUpdate } from '../dist/core/disk.js'
+import { queuePathsForUpdate } from '../dist/core/queue/ports.js'
 
 beforeEach(() => {
   __resetSharedUpdateReaderForTests()

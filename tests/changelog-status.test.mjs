@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { gzipSync } from 'node:zlib'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import * as changelogModule from '../dist/changelog.js'
+import { CHANGELOG_STATUSES } from '../dist/core/changelog/parse.js'
 import { currentUpdateEventTable, isEdgeEvent, primeUpdateEventTable } from '../dist/log/manifest.js'
 
 const REGISTRY = 'https://registry.npmjs.org/'
@@ -429,7 +429,7 @@ describe('#213 update.changelog.parse 六状态 / 缓存边沿 / 清单升档', 
     assert.deepEqual([...entry.fields].sort(), ROW_KEYS, '清单声明的字段与冻结契约一致')
     assert.deepEqual(raw.fieldEnums?.[PARSE_EVENT]?.status, STATUSES, 'fieldEnums.status 应声明六个状态')
 
-    assert.deepEqual(changelogModule.CHANGELOG_STATUSES, STATUSES, 'src/changelog.ts 应导出冻结的六状态表')
+    assert.deepEqual(CHANGELOG_STATUSES, STATUSES, 'src/core/changelog/parse.ts 应导出冻结的六状态表')
 
     primeUpdateEventTable()
     assert.equal(

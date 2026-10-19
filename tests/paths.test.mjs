@@ -10,7 +10,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
-import { createUpdateDiskPorts, pathsForUpdate } from '../dist/store.js'
+import { createUpdateDiskPorts, pathsForUpdate } from '../dist/core/disk.js'
 
 function shortHash(text) {
   return createHash('sha256').update(String(text)).digest('hex').slice(0, 24)

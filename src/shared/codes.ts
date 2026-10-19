@@ -65,7 +65,7 @@ export type CheckSideFailureCode = (typeof CHECK_SIDE_FAILURE_CODES)[number]
 /** 码不可信时的兜底码：errorKind 认不出即按它走人话兜底，不拿 error 那格猜。 */
 export const INTERNAL_CODE = 'internal' as const
 
-/** 只读半程的诚实失败码：安装能力还没接上时用它（src/service.ts 的 install）。 */
+/** 只读半程的诚实失败码：安装能力还没接上时用它（src/core/service.ts 的 install）。 */
 export const UNSUPPORTED_CODE = 'unsupported' as const
 
 /** 批量入口的跨使用范围拒绝码：不替调用方跨范围抢锁（src/host-batch.ts）。 */

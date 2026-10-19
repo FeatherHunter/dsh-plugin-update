@@ -2,7 +2,7 @@
  * tests/issue-92-manual-absent.test.mjs —— #92：手工命令为空时按原因说清，不再一句含糊话。
  *
  * 缝（外部行为）：
- * - 分类纯函数 `manualAbsentReasonOf(snapshot)`（dist/manual-absent.js）；
+ * - 分类纯函数 `manualAbsentReasonOf(snapshot)`（dist/shared/manual-absent.js）；
  * - 单插件面板 05 章（renderUpdatePanelKernel）；批量面板横幅置灰 title 与聚合注释行
  *   （renderBatchPanelHTML / batchFailedManualText）。
  *
@@ -12,7 +12,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { manualAbsentReasonOf } from '../dist/manual-absent.js'
+import { manualAbsentReasonOf } from '../dist/shared/manual-absent.js'
 import { panelViewModel, renderUpdatePanelKernel } from '../dist/panel.js'
 import { batchFailedManualText, renderBatchPanelHTML } from '../dist/panel-batch.js'
 

@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createMultiHostUpdate } from '../dist/host-batch.js'
 import { __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import { batchPathsForUpdate } from '../dist/store.js'
+import { batchPathsForUpdate } from '../dist/core/disk.js'
 import {
   batchRowKnowledgeText,
   hasUnfinishedRows,
@@ -71,7 +71,7 @@ describe('host（4 条）', () => {
     // 账本未被污染：空账本 check 不建旧公共 batch.json
     await assert.rejects(readFile(batchPathsForUpdate(dir, dir).file, 'utf8'))
     // 知识落盘：按属主目录 inventory.json 可读两家 latest
-    const { batchPathsForOwner } = await import('../dist/store.js')
+    const { batchPathsForOwner } = await import('../dist/core/disk.js')
     const ownerPaths = batchPathsForOwner(dir, dir, 't')
     assert.ok(ownerPaths, '属主路径可算')
     const invRaw = JSON.parse(await readFile(ownerPaths.inventoryFile, 'utf8'))

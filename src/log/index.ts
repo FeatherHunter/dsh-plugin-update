@@ -47,7 +47,7 @@ export {
 export { ownPackageVersion, packageRoot, __resetOwnPackageVersionForTests } from './own-version.js'
 // 引擎保留名与读侧豁免（0.16.4 起，需要 dsh-log 0.3.3 的宿主侧链）：拿清单量**落盘行**之前
 // 先 `stripReservedLogFields`，否则每条带链的行都会因为 traceId/spanId/seq 被判黄。
-export { RESERVED_LOG_FIELDS, stripReservedLogFields } from '../gate.js'
+export { RESERVED_LOG_FIELDS, stripReservedLogFields } from '../core/gate.js'
 export {
   acquireOwnLog,
   describeOwnLogRegistry,

@@ -1,12 +1,12 @@
 /**
- * src/version-judgment.ts —— 版本判定核（#165 第二刀：从 service.ts 独立）。
+ * src/core/judgment.ts —— 版本判定核（#165 第二刀：从 service.ts 独立）。
  *
  * 纯函数：版本号合法性、通道、比较、Node 范围判定，外加判定失败抛的码错工厂。
  * 零导入（只有 type 进 ports 取 UpdateErrorCode，运行时无边，天然叶子）。
- * 老位置（service.ts）留垫片 re-export，测试深引用与包导出表零碰。
+ * 老位置（core/service.ts）留垫片 re-export，测试深引用与包导出表零碰。
  */
 
-import type { ReleaseChannel, UpdateErrorCode } from './shared/ports.js'
+import type { ReleaseChannel, UpdateErrorCode } from '../shared/ports.js'
 
 export function updateError(code: UpdateErrorCode): Error & { code: UpdateErrorCode } {
   return Object.assign(new Error(code), { code })

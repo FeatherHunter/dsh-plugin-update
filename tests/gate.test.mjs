@@ -18,7 +18,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url'
 
 const PKG_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-const gateUrl = pathToFileURL(path.join(PKG_DIR, 'dist', 'gate.js')).href + '?x=' + Date.now()
+const gateUrl = pathToFileURL(path.join(PKG_DIR, 'dist', 'core', 'gate.js')).href + '?x=' + Date.now()
 const gate = await import(gateUrl)
 const {
   LOG_ROW_VERSION,
@@ -32,7 +32,7 @@ const {
   checkEventCounts
 } = gate
 const host = await import(pathToFileURL(path.join(PKG_DIR, 'dist', 'host.js')).href + '?x=' + Date.now())
-const store = await import(pathToFileURL(path.join(PKG_DIR, 'dist', 'store.js')).href + '?x=' + Date.now())
+const store = await import(pathToFileURL(path.join(PKG_DIR, 'dist', 'core', 'disk.js')).href + '?x=' + Date.now())
 
 function shortHash(text) {
   return createHash('sha256').update(String(text)).digest('hex').slice(0, 24)
@@ -414,7 +414,7 @@ describe('门禁模板：无新依赖与数组无 shell', () => {
   })
 
   it('数组无 shell：执行器只走参数数组，不经 shell、不用 PATH 名、不按系统分支', () => {
-    const text = readFileSync(path.join(PKG_DIR, 'src', 'store.ts'), 'utf8')
+    const text = readFileSync(path.join(PKG_DIR, 'src', 'core', 'executor.ts'), 'utf8')
     // 有参数数组的形状。
     assert.match(text, /argv/)
     // 无 shell 字符串、无命令名字段。
@@ -424,7 +424,7 @@ describe('门禁模板：无新依赖与数组无 shell', () => {
     // 不按操作系统分支：包内不出现平台分支字面。
     assert.ok(!/process\.platform/.test(text), '执行器不按操作系统分支')
     // 配方侧同样无 shell：复查命令拼接文件。
-    const commands = readFileSync(path.join(PKG_DIR, 'src', 'commands.ts'), 'utf8')
+    const commands = readFileSync(path.join(PKG_DIR, 'src', 'shared', 'commands.ts'), 'utf8')
     assert.ok(!/shell\s*:/.test(commands))
     assert.ok(!/process\.platform/.test(commands))
   })

@@ -7,25 +7,25 @@
  * 本包此前只调 installBundle，于是已装的包永远更新不了（install-failed，管理器从未起过 pnpm 子进程）。
  *
  * 本文件是**独立于实现**的黑箱测试：断言照 task-3 的冻结契约写，不照实现反推。
- * 只从 `../dist/store.js` 的公开入口 `createUpdateExecutor` 进；管理器、日志、计时全用假件，
+ * 只从 `../dist/core/executor.js` 的公开入口 `createUpdateExecutor` 进；管理器、日志、计时全用假件，
  * 不碰真机、不起进程、不联网、不读 asar。形状照 tests/desktop-manager.test.mjs。
  *
  * 未覆盖（经公开入口不可达）：冻结契约第 5 条后半句「spec 取不出包名」。公开入口的 spec 恒为
- * installRecipe 生成的 `<合法管理器包名>@<三段版本>`（src/commands.ts:163-168），
+ * installRecipe 生成的 `<合法管理器包名>@<三段版本>`（src/shared/commands.ts:163-168），
  * 「取不出包名」那一支在库内没有可观测入口——已报 lead，绝不为了凑覆盖率另造一个内部入口。
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { createUpdateExecutor, __executorInternals } from '../dist/store.js'
+import { createUpdateExecutor, __executorInternals } from '../dist/core/executor.js'
 
 const TARGET = 'dsh-mattpocock-skills-deck'
 const SPEC = `${TARGET}@1.2.3`
 const MANAGER_KIND = 'desktop-manager'
 const REGISTRY = 'https://registry.npmjs.org/'
 
-/** 首装超时那条冻结中文（src/store.ts:1487）。契约第 8 条以它为「必须不同」的基准。 */
+/** 首装超时那条冻结中文（src/core/executor.ts:34）。契约第 8 条以它为「必须不同」的基准。 */
 const INSTALL_TIMEOUT_DETAIL = '安装超时，已请求宿主取消'
-/** 终止宽限期：既有常量（src/store.ts:1053 的 3000ms），超时后宿主还会等它自己收尾这么久。 */
+/** 终止宽限期：既有常量（src/core/executor.ts:29 的 3000ms），超时后宿主还会等它自己收尾这么久。 */
 const GRACE_MS = __executorInternals.TERMINATION_GRACE_MS
 
 /** 宿主对「已在 dependencies 里」的回包：预期失败不 reject，是 resolve 出来的。 */

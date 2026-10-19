@@ -4,17 +4,9 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import {
-  CHANGELOG_MAX_BULLETS_PER_SECTION,
-  countsOf,
-  isBreakingChangelogItem,
-  parseChangelog,
-  renderChangelogHTML,
-  shouldFetchChangelog,
-  splitBreakingPrefix,
-  validateChangelog,
-  yankedBannerHTML,
-} from '../dist/changelog.js'
+import { CHANGELOG_MAX_BULLETS_PER_SECTION, isBreakingChangelogItem, parseChangelog, shouldFetchChangelog, splitBreakingPrefix } from '../dist/core/changelog/parse.js'
+import { countsOf, renderChangelogHTML, yankedBannerHTML } from '../dist/core/changelog/render-model.js'
+import { validateChangelog } from '../dist/core/changelog/validator.js'
 import { renderUpdatePanelHTML } from '../dist/panel.js'
 import { mountUpdatePanel } from '../dist/panel.js'
 

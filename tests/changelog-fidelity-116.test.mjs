@@ -12,18 +12,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-const {
-  parseChangelog,
-  parseChangelogReport,
-  renderChangelogHTML,
-  renderChangelogBlocks,
-  renderChangelogItem,
-  renderChangelogSection,
-  truncationNoteHTML,
-  validateChangelog,
-  CHANGELOG_CATEGORY_ALIASES,
-  CHANGELOG_MAX_ENTRIES,
-} = await import('../dist/changelog.js')
+const { parseChangelog, parseChangelogReport, CHANGELOG_CATEGORY_ALIASES, CHANGELOG_MAX_ENTRIES } = await import('../dist/core/changelog/parse.js')
+const { renderChangelogHTML, renderChangelogBlocks, renderChangelogItem, renderChangelogSection, truncationNoteHTML } = await import('../dist/core/changelog/render-model.js')
+const { validateChangelog } = await import('../dist/core/changelog/validator.js')
 
 /** 可见文本：去标签、还原实体，用来判「这一行到底有没有出现在读者眼前」。 */
 function visibleText(html) {

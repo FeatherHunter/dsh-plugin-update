@@ -13,7 +13,7 @@ import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { updateLogRouter } from '../../dist/log/router.js'
-import { queuePathsForUpdate } from '../../dist/store.js'
+import { queuePathsForUpdate } from '../../dist/core/queue/ports.js'
 
 /** 构造期用的静默落点：真正要断言的落点在构造之后再按插件标识绑上。 */
 export const SILENT = { fire: () => {} }

@@ -6,8 +6,8 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { batchEntryOf, createBatchSession, resumeBatchSession } from '../dist/batch.js'
-import { runBatch } from '../dist/batch-run.js'
+import { batchEntryOf, createBatchSession, resumeBatchSession } from '../dist/core/batch/model.js'
+import { runBatch } from '../dist/core/batch/run.js'
 
 function session(overrides = {}) {
   return createBatchSession({ id: 'b1', keys: ['alpha', 'beta', 'self'], selfKey: 'self', now: 1000, ...overrides })

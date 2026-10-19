@@ -1,9 +1,9 @@
 /**
- * src/registry-fetch.ts —— 联网取数（#163 registry 从 service.ts 独立）。
+ * src/core/fetch.ts —— 联网取数（#163 registry 从 service.ts 独立）。
  *
  * 四个取数函数＋取数常量＋取数小工具：问官方源 latest 文档、版本文档、全量包文档时间表，
  * 以及在通道内挑最高发行版（#183 的 `/latest` 回退）。
- * 只依赖判定核（version-judgment，叶子）与 ports 类型；service.ts 留垫片 re-export，老位置零变化。
+ * 只依赖判定核（core/judgment.ts，叶子）与 ports 类型；core/service.ts 留垫片 re-export，行为零变化。
  */
 
 import type {
@@ -12,15 +12,15 @@ import type {
   ReleaseInfo,
   UpdateErrorCode,
   UpdateLogPort,
-} from './shared/ports.js'
-import { CHECK_FAIL_CAUSE_KEY, type CheckErrorKind } from './check-conclusion.js'
+} from '../shared/ports.js'
+import { CHECK_FAIL_CAUSE_KEY, type CheckErrorKind } from './conclusion.js'
 import {
   compareReleaseVersions,
   isVersionAllowedInChannel,
   updateError,
   validReleaseVersion,
-} from './version-judgment.js'
-import type { ReleaseChannel } from './version-judgment.js'
+} from './judgment.js'
+import type { ReleaseChannel } from './judgment.js'
 
 export const PACKAGE_NAME = 'dsh-mattpocock-skills-deck'
 export const NPM_REGISTRY = 'https://registry.npmjs.org/'

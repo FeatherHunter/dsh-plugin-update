@@ -1,5 +1,5 @@
 /**
- * src/install-fail.ts —— 安装失败原因的分类器与日志字段收敛（#207 / 审查 S1-1）。
+ * src/core/failure.ts —— 安装失败原因的分类器与日志字段收敛（#207 / 审查 S1-1）。
  *
  * 为什么单独一个中立文件：原因分类在四处产生（核心闸门、装后校验、三条执行路由），
  * 但只有 Node 侧的执行器知道「超时/崩溃/非零退出/起进程失败/终止失败」这些现场事实。
@@ -9,8 +9,8 @@
  * 通道给面板/诊断副本）；宿主管理器给的原始标识（如 already-installed）按仓库既有口径
  * 折成 hash8（hostCodeHash），行里不出现原始码；`code` 只收本包码面（src/shared/codes.ts）里的稳定码。
  */
-import { CORE_ERROR_CODES, INTERNAL_CODE, UNSUPPORTED_CODE } from './shared/codes.js'
-import { hash8 } from './shared/hash.js'
+import { CORE_ERROR_CODES, INTERNAL_CODE, UNSUPPORTED_CODE } from '../shared/codes.js'
+import { hash8 } from '../shared/hash.js'
 
 /** 一次安装失败发生在哪个阶段：装前闸门 / 执行 / 装后校验。 */
 export const INSTALL_FAIL_STAGES = ['gate', 'exec', 'verify'] as const

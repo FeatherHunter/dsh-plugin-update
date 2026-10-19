@@ -1,5 +1,5 @@
 /**
- * src/commands.ts — 安装命令的纯拼接（政策收归核心）。
+ * src/shared/commands.ts — 安装命令的纯拼接（政策收归核心）。
  *
  * 由 update-core/src/commands.ts 原样拎入，两条产物形状冻结（改键改模板即破冰）：
  *   1. 执行配方（installRecipe）——真正安装时用：按宿主种类选路由，程序与参数数组分开，
@@ -14,12 +14,12 @@
  * 默认值等于现状常量。不传即走现状，老调用零变化。
  */
 
-import type { BlockedReason, EnvironmentKind, InstallRecipe, ReleaseChannel } from './shared/ports.js'
+import type { BlockedReason, EnvironmentKind, InstallRecipe, ReleaseChannel } from './ports.js'
 
 /**
  * #92 单点真源：哪些阻塞原因本身就意味「不该给手工命令」。
  * 源码安装会被按版本安装覆盖（#153）、开发态挂载只服务版本安装、认不出使用范围就没有可指向的范围名。
- * `manualCommand` 的早退与面板空态分类（src/manual-absent.ts）共用这一个 predicate，别在两处各抄一份。
+ * `manualCommand` 的早退与面板空态分类（src/shared/manual-absent.ts）共用这一个 predicate，别在两处各抄一份。
  */
 const MANUAL_SUPPRESSING_REASONS = ['source-install', 'unknown-profile', 'dev-source'] as const
 export type ManualSuppressingReason = (typeof MANUAL_SUPPRESSING_REASONS)[number]
@@ -42,7 +42,7 @@ function validVersion(v: unknown): v is string {
   return typeof v === 'string' && /^\d+\.\d+\.\d+$/.test(v)
 }
 
-// 发行版识别（#16，与 src/service.ts 同口径的内联版，本文件自包含不引用同层其它文件）。
+// 发行版识别（#16，与 src/core/service.ts 同口径的内联版，本文件自包含不引用同层其它文件）。
 function validPrereleaseIds(ids: string): boolean {
   if (typeof ids !== 'string' || !ids) return false
   const parts = ids.split('.')
@@ -224,7 +224,7 @@ export function installRecipe(input: {
   if (!targetName || !registry) return null
   if (kind === 'desktop-manager') {
     // 管理器只吃一个 spec 字符串，且包名形状比 npm 通用写法更窄（全小写）；不合就不给配方。
-    // 解码处见 src/store.ts 的 managerSpecOf——改这条形状要同时改两处（五键冻结，只能这样传）。
+    // 解码处见 src/core/executor.ts 的 managerSpecOf——改这条形状要同时改两处（五键冻结，只能这样传）。
     if (!MANAGER_TARGET_RE.test(targetName)) return null
     return {
       route: 'desktop-manager',

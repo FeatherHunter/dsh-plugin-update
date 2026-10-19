@@ -7,8 +7,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { dirname, resolve } from 'node:path'
-import { installRecipe, manualCommand } from '../dist/commands.js'
-import { createUpdateExecutor, resolveCliEntry } from '../dist/store.js'
+import { installRecipe, manualCommand } from '../dist/shared/commands.js'
+import { createUpdateExecutor, resolveCliEntry } from '../dist/core/executor.js'
 
 const TARGET = 'dsh-mattpocock-skills-deck'
 const REGISTRY = 'https://registry.npmjs.org/'

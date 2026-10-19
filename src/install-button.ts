@@ -39,16 +39,16 @@ import {
   type UpdatePanelClientLogOptions,
   type UpdateThemeTokens,
 } from './panel.js'
-import { formatUnlockAt } from './install-cause.js'
+import { formatUnlockAt } from './core/cause.js'
 import { hash8 } from './shared/hash.js'
-import { lastResortVerdictOf, type ManualSource } from './last-resort.js'
+import { lastResortVerdictOf, type ManualSource } from './shared/last-resort.js'
 // #174：last-resort 的类型经既有子路径转出，消费者无需新子路径即可命名（`ManualSource` 已出现在本模块导出签名里）。
-export type { LastResortKind, RescueRouteKey, ManualSource, LastResortVerdict } from './last-resort.js'
+export type { LastResortKind, RescueRouteKey, ManualSource, LastResortVerdict } from './shared/last-resort.js'
 import { createClientLogChannel, type ClientLogChannel } from './log/client-queue.js'
 // #212：只借类型（浏览器侧不许运行时引 ./log 的 Node 模块；类型导入编译即抹掉）。
 import type { UpdateLogHealth } from './log/health.js'
 import type { InstallSource, UpdateSnapshot } from './shared/ports.js'
-import type { VisibleQueue } from './queue.js'
+import type { VisibleQueue } from './core/queue/model.js'
 
 // ---------- 对外类型 ----------
 

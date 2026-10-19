@@ -5,7 +5,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { createUpdateCore, fetchNpmRelease } from '../dist/service.js'
+import { createUpdateCore, fetchNpmRelease } from '../dist/core/service.js'
 
 const INTEGRITY = 'sha512-' + 'B'.repeat(86) + '=='
 

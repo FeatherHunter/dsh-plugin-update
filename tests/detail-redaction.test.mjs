@@ -3,16 +3,16 @@
  *
  * 只断外部行为：经公开电话（假插件管理器回失败结果），断言最终失败详情里有什么、没有什么。
  * 不断言用了哪条规则、内部函数叫什么、调用了几次；规则名与顺序的引用关系见
- * src/shared/redaction.ts（规则表）与 src/gate.ts（`rules` 栏引用），不在这里复述形态。
+ * src/shared/redaction.ts（规则表）与 src/core/gate.ts（`rules` 栏引用），不在这里复述形态。
  * 既有 8 条 must-mask + 5 条 must-not-touch 回归仍在 tests/desktop-manager.test.mjs，
  * 本文件不重写它们，只加本轮新增形状与四条新规则的双向语料。不真联网、不真装。
  */
 import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import { createUpdateExecutor } from '../dist/store.js'
+import { createUpdateExecutor } from '../dist/core/executor.js'
 import { DIAG_INLINE_BUDGET_BYTES } from '../dist/shared/redaction.js'
-import { validRequestId } from '../dist/service.js'
+import { validRequestId } from '../dist/core/service.js'
 
 const PROFILE_DIR = 'C:\\fake\\profiles\\desktop'
 

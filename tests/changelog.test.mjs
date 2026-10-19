@@ -11,15 +11,9 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
 import { gzipSync } from 'node:zlib'
-import {
-  CHANGELOG_FILENAME,
-  CHANGELOG_NEUTRAL_HINT,
-  changelogForUpdate,
-  parseChangelog,
-  renderChangelogHTML,
-  selectChangelogEntries,
-} from '../dist/changelog.js'
-import { extractChangelogFromTar, fetchReleaseChangelogText, readInstalledChangelogText } from '../dist/changelog-io.js'
+import { CHANGELOG_FILENAME, CHANGELOG_NEUTRAL_HINT, changelogForUpdate, parseChangelog, selectChangelogEntries } from '../dist/core/changelog/parse.js'
+import { renderChangelogHTML } from '../dist/core/changelog/render-model.js'
+import { extractChangelogFromTar, fetchReleaseChangelogText, readInstalledChangelogText } from '../dist/core/changelog/io.js'
 import { panelViewModel, renderUpdatePanelHTML } from '../dist/panel.js'
 
 const SAMPLE = `# Changelog
@@ -125,9 +119,12 @@ test('解析：脏输入永不抛错，回 []', () => {
 })
 
 test('解析器零依赖：不碰 Node 专属导入（测编译后行为，#162 首拆票附带）', () => {
-  const src = readFileSync(new URL('../dist/changelog.js', import.meta.url), 'utf8')
-  assert.ok(!/from\s+['"]node:/.test(src), '纯解析器不得导入 node: 内建')
-  assert.ok(!/require\s*\(/.test(src), '纯解析器不得用 require')
+  // #228 起纯函数拆成三个模块：解析、渲染、校验，逐个查（拆分不改这条契约）。
+  for (const name of ['parse', 'render-model', 'validator']) {
+    const src = readFileSync(new URL(`../dist/core/changelog/${name}.js`, import.meta.url), 'utf8')
+    assert.ok(!/from\s+['"]node:/.test(src), `${name} 不得导入 node: 内建`)
+    assert.ok(!/require\s*\(/.test(src), `${name} 不得用 require`)
+  }
 })
 
 // ---------- 对抗复查回归（第一性原理重审抓到的真问题） ----------
@@ -403,7 +400,7 @@ test('tarball 取数：包里没同名文件/非官方源/失败一律回 null',
 })
 
 test('对抗：gzip 炸弹（小压缩包炸出超大 tar）直接回 null，不 OOM', async () => {
-  const { CHANGELOG_TAR_MAX_BYTES } = await import('../dist/changelog-io.js')
+  const { CHANGELOG_TAR_MAX_BYTES } = await import('../dist/core/changelog/io.js')
   assert.ok(CHANGELOG_TAR_MAX_BYTES > 0, '解压后上限常量存在')
   // 33MB 全零：gzip 后仅数十 KB，解压后超 32MB 墙。
   const big = Buffer.alloc(33 * 1024 * 1024, 0)

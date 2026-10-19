@@ -1,4 +1,4 @@
-// src/gate.ts —— 更新包的门禁模板检查器（#584 落地门禁模板；#120 迁到日志包 0.3.1 形状）。
+// src/core/gate.ts —— 更新包的门禁模板检查器（#584 落地门禁模板；#120 迁到日志包 0.3.1 形状）。
 //
 // 给第二个接入更新包的插件自查用：字段白名单检查与三类计数检查，配包内的空模板
 // event-list.template.json 一起用。形状与日志包（dsh-log）0.3.1 的事件清单完全一致
@@ -58,8 +58,8 @@
 // lintEventFields 是纯函数（不抛错、不记日志、不被任何生产代码调用），
 // 真正在守日志字段基线的是 tests/phones.test.mjs 与 tests/routes.test.mjs 里的逐字键集断言。
 
-import { assertPluginId } from './shared/config.js'
-import { REDACTION_RULE_NAMES } from './shared/redaction.js'
+import { assertPluginId } from '../shared/config.js'
+import { REDACTION_RULE_NAMES } from '../shared/redaction.js'
 
 // 事件级别（沿用附录定版：错误与告警始终落盘，信息中常驻落盘，其余只在调试开关打开时落盘）。
 export const EVENT_LEVELS = ['error', 'warn', 'info', 'debug'] as const

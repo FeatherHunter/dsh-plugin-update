@@ -43,16 +43,16 @@ import {
   manualAbsentReasonTextOf,
   manualAbsentTextOf,
   type ManualAbsentReason,
-} from './manual-absent.js'
+} from './shared/manual-absent.js'
 import { normalizeLangTag, resolveLang, subscribeLang, type AppLang, type LocaleOption } from './shared/lang.js'
-import { compareReleaseVersions, validReleaseVersion } from './service.js'
-import { shouldFetchChangelog } from './changelog.js'
+import { compareReleaseVersions, validReleaseVersion } from './core/service.js'
+import { shouldFetchChangelog } from './core/changelog/parse.js'
 import {
   isTerminalPhase,
   normalizeBatchSession,
   type BatchPhase,
   type BatchSession,
-} from './batch.js'
+} from './core/batch/model.js'
 import {
   UPDATE_PANEL_CSS,
   UPDATE_PANEL_ARCHIVE_CSS,
@@ -72,10 +72,10 @@ import {
   type UpdatePanelTheme,
   type UpdateThemeTokens,
 } from './panel.js'
-import { formatUnlockAt } from './install-cause.js'
-import { lastResortVerdictOf, type LastResortVerdict, type ManualSource } from './last-resort.js'
+import { formatUnlockAt } from './core/cause.js'
+import { lastResortVerdictOf, type LastResortVerdict, type ManualSource } from './shared/last-resort.js'
 import type { UpdateSnapshot } from './shared/ports.js'
-import type { VisibleQueue } from './queue.js'
+import type { VisibleQueue } from './core/queue/model.js'
 
 // ---------- 公开类型 ----------
 
@@ -371,7 +371,7 @@ export function batchLedgerText(counts: BatchLedgerCounts, lang?: unknown): stri
 
 /**
  * 排队中的状态词：只回答「还要等多久」。位置从该行的队列视图来。
- * queue.ts 的 position 是 waiting 顺位（队首为 1、0 = 自己正在装），而正在装的那一家也压在这一家前面，
+ * core/queue/model.ts 的 position 是 waiting 顺位（队首为 1、0 = 自己正在装），而正在装的那一家也压在这一家前面，
  * 所以「前方 N 个」= position N（队首那家前方正好 1 个：正在装的拥有者）。
  * 位置取不到（宿主只记了忙、没给占位读数）就说「等前面安装完」，不猜数字。
  */

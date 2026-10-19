@@ -21,7 +21,7 @@ export {
   pruneEventFields,
   checkEventFields,
   checkEventCounts
-} from './gate.js'
+} from './core/gate.js'
 export type {
   GateEventLevel,
   GateEventKind,
@@ -36,8 +36,8 @@ export type {
   GateLogRow,
   GateMergeResult,
   GateCountCheck
-} from './gate.js'
-export { containingPackage, defaultHomeDir, profileNameValid, registrySpec, resolveTargetPackage } from './reader.js'
+} from './core/gate.js'
+export { containingPackage, defaultHomeDir, profileNameValid, registrySpec, resolveTargetPackage } from './core/reader.js'
 // 脱敏词汇（#19：五条具名规则 + 两占位符 + 顺序 + 源主机名规则，经包根转出口，第二家可达）。
 // #24 单源收敛 + 字节墙：复制预算 / known-gap / 按序丢弃 enforcement 同经此出口。
 export {
@@ -85,11 +85,11 @@ export {
   createCauseInterpreter,
   formatUnlockAt,
   interpretInstallCause,
-} from './install-cause.js';
-export type { CauseBlame, CauseFacts, CauseInterpreterCounts, CauseKind, CauseSignature, InterpretCauseInput } from './install-cause.js';
+} from './core/cause.js';
+export type { CauseBlame, CauseFacts, CauseInterpreterCounts, CauseKind, CauseSignature, InterpretCauseInput } from './core/cause.js';
 // 合规版决议（#156：年龄门拦住时找"满门限的最新版"；纯函数，经包根转出口）。
-export { resolveCompliantVersion } from './compliant-version.js';
-export type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './compliant-version.js';
+export { resolveCompliantVersion } from './shared/compliant.js';
+export type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './shared/compliant.js';
 // 更新日志（#23，承接 #11：包内 CHANGELOG.md 展示；纯函数两边可进，I/O 仅 Node 侧）。
 export {
   CHANGELOG_ALL_CATEGORIES,
@@ -105,24 +105,27 @@ export {
   BREAKING_BADGE_TEXT,
   CHANGELOG_POLL_BACKOFF_MS,
   changelogForUpdate,
-  countsOf,
   hasVisibleSections,
   isBreakingChangelogItem,
   isUnreleasedVersion,
   parseChangelog,
   parseChangelogReport,
+  selectChangelogEntries,
+  shouldFetchChangelog,
+  splitBreakingPrefix,
+} from './core/changelog/parse.js'
+export {
+  countsOf,
   renderChangelogHTML,
   renderChangelogItem,
   renderChangelogNeutral,
   renderChangelogSection,
-  selectChangelogEntries,
-  shouldFetchChangelog,
-  splitBreakingPrefix,
   truncatedNoteHTML,
-  validateChangelog,
   yankedBannerHTML,
-} from './changelog.js';
-export type { ChangelogCategory, ChangelogDiagnostic, ChangelogEntry, ChangelogValidation } from './changelog.js';
+} from './core/changelog/render-model.js'
+export { validateChangelog } from './core/changelog/validator.js';
+export type { ChangelogCategory, ChangelogEntry } from './core/changelog/parse.js'
+export type { ChangelogDiagnostic, ChangelogValidation } from './core/changelog/validator.js';
 export {
   CHANGELOG_DEFAULT_REGISTRY,
   CHANGELOG_FETCH_MAX_BYTES,
@@ -131,9 +134,10 @@ export {
   extractChangelogFromTar,
   fetchReleaseChangelogText,
   readInstalledChangelogText,
-} from './changelog-io.js';
-export type { ReleaseChangelogRef } from './changelog-io.js';
-export { createUpdateDiskPorts, createUpdateExecutor, pathsForUpdate, resolveCliEntry } from './store.js'
+} from './core/changelog/io.js';
+export type { ReleaseChangelogRef } from './core/changelog/io.js';
+export { createUpdateDiskPorts, pathsForUpdate } from './core/disk.js'
+export { createUpdateExecutor, resolveCliEntry } from './core/executor.js'
 // 跳过与版本通道（#16：按插件 + 版本持久化跳过、stable 默认 / prerelease 开关、精确版锁定）。
 export { SKIPPED_FILE } from './shared/config.js'
 export {
@@ -145,7 +149,7 @@ export {
   normalizeSkipped,
   skipKey,
   type SkippedVersionEntry,
-} from './store.js'
+} from './core/disk.js'
 export {
   compareReleaseVersions,
   isPrereleaseVersion,
@@ -153,7 +157,7 @@ export {
   validReleaseVersion,
   validVersion,
   compareVersions,
-} from './service.js'
+} from './core/service.js'
 export type { ReleaseChannel } from './shared/ports.js'
 export type { CheckFallbackPhoneAction } from './shared/config.js'
 export type { FallbackCheckInput, FallbackCheckResult } from './shared/ports.js'
@@ -165,7 +169,7 @@ export {
   QUEUE_FILE,
   QUEUE_LOCK_FILE,
   QUEUE_LOCK_STALE_MS,
-} from './store.js'
+} from './core/queue/ports.js'
 export {
   QUEUE_INTENT_TTL_MS,
   cancelEnqueuedInQueue,
@@ -178,5 +182,5 @@ export {
   releaseOwnerInQueue,
   setOwnerIfFree,
   visibleQueueFor,
-} from './queue.js'
-export type { QueuedEntry, QueueOwner, UpdateQueueState, VisibleQueue } from './queue.js'
+} from './core/queue/model.js'
+export type { QueuedEntry, QueueOwner, UpdateQueueState, VisibleQueue } from './core/queue/model.js'

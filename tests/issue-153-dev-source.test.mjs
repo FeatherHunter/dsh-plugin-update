@@ -80,7 +80,7 @@ test('#153-A 守住：包真不存在 → 仍是 unknown-profile（旧行为不�
 
 test('#153-A 文案层：dev-source 有中文、不给手工命令、面板认识', async () => {
   const panel = await import(pathToFileURL(join(PKG_DIR, 'dist', 'panel.js')).href + '?x=' + Date.now() + Math.random())
-  const cmds = await import(pathToFileURL(join(PKG_DIR, 'dist', 'commands.js')).href + '?x=' + Date.now() + Math.random())
+  const cmds = await import(pathToFileURL(join(PKG_DIR, 'dist', 'shared', 'commands.js')).href + '?x=' + Date.now() + Math.random())
   const copy = panel.blockedCopy('dev-source')
   assert.ok(copy && copy.title && copy.action, 'dev-source 必须有标题与行动句')
   assert.match(copy.title + copy.action, /[\u4e00-\u9fff]/, '必须含中文')
@@ -150,7 +150,7 @@ test('#153-A 读者层：junction 实装（node_modules 下是链接，实址在
     return
   }
   const { createUpdateReader } = await import(
-    pathToFileURL(join(PKG_DIR, 'dist', 'reader.js')).href + '?x=' + Date.now() + Math.random()
+    pathToFileURL(join(PKG_DIR, 'dist', 'core', 'reader.js')).href + '?x=' + Date.now() + Math.random()
   )
   const reader = createUpdateReader({
     runningVersion: VERSION,

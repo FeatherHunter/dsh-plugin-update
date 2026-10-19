@@ -7,7 +7,7 @@
  * 升级永久失败。修形：移除前先探宿主拓扑（`listBundles`），不可移除就诚实拒绝；未选中就用
  * 宿主能力恢复选中（`setBundleEnabled`），再走移除+重装。
  *
- * 钉死的契约（直接跑执行器 `dist/store.js`，假管理器记录调用序列）：
+ * 钉死的契约（直接跑执行器 `dist/core/executor.js`，假管理器记录调用序列）：
  * 1. 未选中 + 可移除 ⇒ 先 `setBundleEnabled(name, true)`，再 remove→install，成功；
  * 2. 已选中 ⇒ 不碰选中名单，直接 remove→install（旧行为不变）；
  * 3. 不可移除 ⇒ 不调 remove，诚实失败，细节带宿主码 + 中文下一步 + 载体 CLI 命令；
@@ -22,7 +22,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { createUpdateExecutor } from '../dist/store.js'
+import { createUpdateExecutor } from '../dist/core/executor.js'
 
 const TARGET = 'dsh-mattpocock-skills-deck'
 const SPEC = `${TARGET}@2.0.0`

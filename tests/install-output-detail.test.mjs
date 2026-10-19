@@ -11,8 +11,8 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { createUpdateExecutor } from '../dist/store.js'
-import { interpretInstallCause } from '../dist/install-cause.js'
+import { createUpdateExecutor } from '../dist/core/executor.js'
+import { interpretInstallCause } from '../dist/core/cause.js'
 import { failedJobDiagOf } from '../dist/host.js'
 import { fallbackCauseFromDiag } from '../dist/panel.js'
 

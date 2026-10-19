@@ -19,7 +19,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
-import { createUpdateExecutor, __executorInternals } from '../dist/store.js'
+import { createUpdateExecutor, __executorInternals } from '../dist/core/executor.js'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
 
 const TARGET = 'demo-desktop-service-plugin'

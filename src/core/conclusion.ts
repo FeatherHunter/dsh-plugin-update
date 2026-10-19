@@ -1,13 +1,13 @@
 /**
- * src/check-conclusion.ts —— 检查结论编排（#163 故事 3 收尾：从 service.ts 独立）。
+ * src/core/conclusion.ts —— 检查结论编排（#163 故事 3 收尾：从 service.ts 独立）。
  *
  * 查失败了贴什么阶段、报什么稳定码、认谁触发的：五个纯函数，无 I/O。
- * 只依赖类型（ports/registry-fetch 的 type-only import），零值导入；
- * service.ts 按内部 import 引用，不进包导出表（#159 冻结）。
+ * 只依赖类型（ports 与 core/fetch.ts 的 type-only import），零值导入；
+ * core/service.ts 按内部 import 引用，不进包导出表（#159 冻结）。
  */
 
-import type { CheckTrigger, InstallSource } from './shared/ports.js'
-import type { FetchStage } from './registry-fetch.js'
+import type { CheckTrigger, InstallSource } from '../shared/ports.js'
+import type { FetchStage } from './fetch.js'
 
 /**
  * 给错误贴一个取数阶段（#124）：核心只用它写 `update.check.fail.stage`，不参与归类决策。
@@ -51,7 +51,7 @@ export const CHECK_ERROR_KINDS = [
 export type CheckErrorKind = (typeof CHECK_ERROR_KINDS)[number]
 
 /**
- * 抛错上的内部成因键（#211）：registry-fetch 在各 throw 处贴（不可枚举属性，
+ * 抛错上的内部成因键（#211）：core/fetch.ts 在各 throw 处贴（不可枚举属性，
  * 不改变错误码/消息/既有 detail 形状），本文件只读它做映射。
  */
 export const CHECK_FAIL_CAUSE_KEY = 'checkFailCause'

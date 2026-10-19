@@ -105,7 +105,7 @@ describe('issue #3：普通依赖形态按包名解析（验收 1）', () => {
     const profileDir = makeProfile()
     tmpRoots.push(profileDir)
     const distDir = vendorAsDependency(profileDir)
-    const reader = await importFresh(distDir, 'reader.js')
+    const reader = await importFresh(distDir, join('core', 'reader.js'))
     const found = await reader.resolveTargetPackage(TARGET)
     assert.ok(found, '普通依赖形态必须定位到目标包')
     assert.equal(found.directory, await realpath(join(profileDir, 'node_modules', TARGET)))
@@ -250,7 +250,7 @@ describe('issue #3：老形态不回归（验收 2）', () => {
     const innerDist = join(targetDir, 'src', 'updatePkg', 'dist')
     mkdirSync(innerDist, { recursive: true })
     cpSync(join(PKG_DIR, 'dist'), innerDist, { recursive: true })
-    const reader = await importFresh(innerDist, 'reader.js')
+    const reader = await importFresh(innerDist, join('core', 'reader.js'))
     const found = await reader.resolveTargetPackage(TARGET)
     assert.ok(found, '老形态必须定位到目标包')
     assert.equal(found.directory, await realpath(targetDir))
@@ -263,7 +263,7 @@ describe('issue #3：显式逃生口（验收 4）', () => {
     tmpRoots.push(profileDir)
     const targetDir = join(profileDir, 'node_modules', TARGET)
     const { resolveTargetPackage } = await import(
-      pathToFileURL(join(PKG_DIR, 'dist', 'reader.js')).href + '?x=' + Date.now() + Math.random()
+      pathToFileURL(join(PKG_DIR, 'dist', 'core', 'reader.js')).href + '?x=' + Date.now() + Math.random()
     )
     // 起点故意不在假范围内：只靠自动解析必失败，靠显式目录必须命中。
     const found = await resolveTargetPackage(TARGET, { targetPackageDir: targetDir })
@@ -274,7 +274,7 @@ describe('issue #3：显式逃生口（验收 4）', () => {
 
   it('给了显式目录就不走自动解析：指错地方即 null，不回退猜别处', async () => {
     const { resolveTargetPackage } = await import(
-      pathToFileURL(join(PKG_DIR, 'dist', 'reader.js')).href + '?x=' + Date.now() + Math.random()
+      pathToFileURL(join(PKG_DIR, 'dist', 'core', 'reader.js')).href + '?x=' + Date.now() + Math.random()
     )
     const missing = await resolveTargetPackage(TARGET, { targetPackageDir: join(tmpdir(), 'dpu-no-such-dir-xyz') })
     assert.equal(missing, null)
@@ -285,7 +285,7 @@ describe('issue #3：显式逃生口（验收 4）', () => {
     tmpRoots.push(profileDir)
     const targetDir = join(profileDir, 'node_modules', TARGET)
     const { createUpdateReader } = await import(
-      pathToFileURL(join(PKG_DIR, 'dist', 'reader.js')).href + '?x=' + Date.now() + Math.random()
+      pathToFileURL(join(PKG_DIR, 'dist', 'core', 'reader.js')).href + '?x=' + Date.now() + Math.random()
     )
     const reader = createUpdateReader({
       runningVersion: VERSION,
@@ -400,7 +400,7 @@ describe('issue #3：定位不到时诚实失败（验收 5）', () => {
     tmpRoots.push(profileDir)
     // 主包位置（包外运行）：自动解析必失败，且刻意不给 targetPackageDir。
     const { createUpdateReader } = await import(
-      pathToFileURL(join(PKG_DIR, 'dist', 'reader.js')).href + '?x=' + Date.now() + Math.random()
+      pathToFileURL(join(PKG_DIR, 'dist', 'core', 'reader.js')).href + '?x=' + Date.now() + Math.random()
     )
     const reader = createUpdateReader({
       runningVersion: VERSION,

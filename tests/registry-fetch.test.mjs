@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import * as service from '../dist/service.js'
-import * as rf from '../dist/registry-fetch.js'
+import * as service from '../dist/core/service.js'
+import * as rf from '../dist/core/fetch.js'
 
 const FACE = [
   'fetchNpmRelease',

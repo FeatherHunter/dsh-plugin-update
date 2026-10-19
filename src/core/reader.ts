@@ -1,5 +1,5 @@
 /**
- * src/reader.ts —— 把本机真实情况翻译成更新核心要的零件（读取器）。
+ * src/core/reader.ts —— 把本机真实情况翻译成更新核心要的零件（读取器）。
  *
  * 由 src/host/updateReader.js 改写拎入：只翻译不决定。相对旧实现的增量（规格 #591）：
  * 1. 插件标识必填（第 2 条）：非空且不含路径分隔符；环境指纹强制含插件标识（第 6 条单例隔离）。
@@ -14,10 +14,10 @@ import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { assertPluginId } from './shared/config.js'
-import { resolveCompliantVersion } from './compliant-version.js'
+import { assertPluginId } from '../shared/config.js'
+import { resolveCompliantVersion } from '../shared/compliant.js'
 import { createUpdateCore, isVersionAllowedInChannel, validReleaseVersion } from './service.js'
-import type { EnvironmentKind, EnvironmentView, FetchImpl, ReleaseChannel, UpdateCore, UpdateJob, UpdateLogPort } from './shared/ports.js'
+import type { EnvironmentKind, EnvironmentView, FetchImpl, ReleaseChannel, UpdateCore, UpdateJob, UpdateLogPort } from '../shared/ports.js'
 
 const LOCK_FILES = ['pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package-lock.json']
 

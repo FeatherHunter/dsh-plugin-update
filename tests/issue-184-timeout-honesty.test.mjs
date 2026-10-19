@@ -11,7 +11,7 @@
  * 3. 验收后半句：移除超时后环境读取得出「已摘选中」（#180 的 `registered === false`，磁盘还在），
  *    面板据此可识别「包被摘下但没重装」，不再以为包还在。
  *
- * 只从公开入口进：`dist/store.js` 的 `createUpdateExecutor` 与 `dist/reader.js` 的
+ * 只从公开入口进：`dist/core/executor.js` 的 `createUpdateExecutor` 与 `dist/core/reader.js` 的
  * `createUpdateReader`；管理器、计时全用假件，不碰真机、不起进程、不联网。
  * 先红后绿：未修树两条全红（谎称已请求取消 / 不点明包可能已不在册）。
  */
@@ -20,8 +20,8 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
-import { createUpdateExecutor, __executorInternals } from '../dist/store.js'
-import { createUpdateReader } from '../dist/reader.js'
+import { createUpdateExecutor, __executorInternals } from '../dist/core/executor.js'
+import { createUpdateReader } from '../dist/core/reader.js'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
 
 const TARGET = 'dsh-mattpocock-skills-deck'

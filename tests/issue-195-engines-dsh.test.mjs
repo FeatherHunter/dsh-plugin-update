@@ -16,7 +16,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import { createUpdateExecutor } from '../dist/store.js'
+import { createUpdateExecutor } from '../dist/core/executor.js'
 import { panelViewModel } from '../dist/panel.js'
 
 const TARGET = 'demo-engine-dsh'

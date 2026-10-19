@@ -20,7 +20,7 @@ const ROOT = resolve(HERE, '..')
 // 打包入口：面板 + 队列视图（canned 宿主用它算出与真宿主同形的 queue 字段）
 const entry = `
 export { mountUpdatePanel, buildDiagnosticText, renderUpdatePanelHTML } from ${JSON.stringify(resolve(ROOT, 'src/panel.ts'))}
-export { visibleQueueFor } from ${JSON.stringify(resolve(ROOT, 'src/queue.ts'))}
+export { visibleQueueFor } from ${JSON.stringify(resolve(ROOT, 'src/core/queue/model.ts'))}
 export { buildPhoneNames } from ${JSON.stringify(resolve(ROOT, 'src/shared/config.ts'))}
 `
 

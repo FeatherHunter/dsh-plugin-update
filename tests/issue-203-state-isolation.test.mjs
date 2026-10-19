@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createHostUpdate, __resetSharedUpdateReaderForTests } from '../dist/host.js'
-import { pathsForUpdate } from '../dist/store.js'
+import { pathsForUpdate } from '../dist/core/disk.js'
 
 // #203：状态落盘按插件标识分目录，但旧影子回退读的是**冻结字面**
 // `updates/dsh-mattpocock-skills-deck/<指纹>`——在新版里那恰好是默认标识自己的实时目录。

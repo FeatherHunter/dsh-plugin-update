@@ -24,7 +24,7 @@ import { NOOP_SINK, type LogSink } from './sink.js'
 import { currentLogTraceFor } from './trace.js'
 import { updateLogRouter } from './router.js'
 import { currentUpdateEventTable, isEdgeEvent } from './manifest.js'
-import { isEventName, pruneEventFields } from '../gate.js'
+import { isEventName, pruneEventFields } from '../core/gate.js'
 
 /** 丢弃原因（内部计数用的口径，比事件目录的 reason 取值更细）。 */
 export type LogDropReason = 'unknown-field' | 'invalid-enum' | 'unknown-event' | 'no-plugin-id' | 'no-sink' | 'emit-threw'

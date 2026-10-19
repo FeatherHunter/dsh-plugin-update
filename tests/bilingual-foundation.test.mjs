@@ -534,7 +534,7 @@ test('面板 dialog 打开期间切换语言不打断轮询与瞬时态（入口
 // ---------- 不制造双源：changelog 标题仍唯一源于 CATEGORY_ZH ----------
 
 test('不为 changelog 分类另立第二映射：底座无 changelog 分类 key（#66：运行时 9 键允许，分类仍唯一源于 CATEGORY_ZH）', () => {
-  assert.ok(!Object.keys(BILINGUAL_STRINGS).some((k) => k.startsWith('changelog.category.')), '分类表唯一源仍在 changelog.ts')
-  assert.ok(!Object.keys(BILINGUAL_STRINGS).some((k) => k.startsWith('changelog.category-')), '分类表唯一源仍在 changelog.ts')
+  assert.ok(!Object.keys(BILINGUAL_STRINGS).some((k) => k.startsWith('changelog.category.')), '分类表唯一源仍在 core/changelog/parse.ts')
+  assert.ok(!Object.keys(BILINGUAL_STRINGS).some((k) => k.startsWith('changelog.category-')), '分类表唯一源仍在 core/changelog/parse.ts')
   assert.ok(Object.keys(BILINGUAL_STRINGS).some((k) => k.startsWith('changelog.')), '运行时 9 键已入字典')
 })

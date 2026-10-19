@@ -21,12 +21,8 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import {
-  createUpdateDiskPorts,
-  createUpdateQueuePorts,
-  pathsForUpdate,
-  queuePathsForUpdate,
-} from '../dist/store.js'
+import { createUpdateDiskPorts, pathsForUpdate } from '../dist/core/disk.js'
+import { createUpdateQueuePorts, queuePathsForUpdate } from '../dist/core/queue/ports.js'
 import {
   cancelEnqueuedInQueue,
   emptyQueueState,
@@ -34,9 +30,9 @@ import {
   promoteHeadToOwner,
   pruneExpiredIntents,
   releaseOwnerInQueue,
-} from '../dist/queue.js'
+} from '../dist/core/queue/model.js'
 import { hash8 } from '../dist/shared/hash.js'
-import { pruneEventFields } from '../dist/gate.js'
+import { pruneEventFields } from '../dist/core/gate.js'
 
 /** 三个事件的字段白名单（逐字抄 event-list.update.json，多一格整行会被发射口丢掉）。 */
 const WHITELIST = {
@@ -515,7 +511,7 @@ describe('与真发射口对得上', () => {
     router.bind('p-a', { fire: (level, event, fields) => rows.push({ level, event, fields }) })
     const emitter = createLogEmitter({ resolve: (id) => router.resolve(id), table: () => table, mode: 'throw' })
 
-    // 逐字照抄 src/store.ts 里真正会发的那几种字段组合（#209 起带目录/持有者指纹与清理相位）。
+    // 逐字照抄 src/core/store-base.ts 里真正会发的那几种字段组合（#209 起带目录/持有者指纹与清理相位）。
     const dirHash = dirHashOf('some-directory')
     const ownerHash = hash8('p-a')
     assert.equal(

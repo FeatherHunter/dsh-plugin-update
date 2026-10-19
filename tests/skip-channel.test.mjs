@@ -18,17 +18,10 @@ import {
   isVersionAllowedInChannel,
   validReleaseVersion,
   validVersion,
-} from '../dist/service.js'
-import { installRecipe, manualCommand } from '../dist/commands.js'
+} from '../dist/core/service.js'
+import { installRecipe, manualCommand } from '../dist/shared/commands.js'
 import { resolveUpdateConfig } from '../dist/shared/config.js'
-import {
-  addSkipped,
-  clearSkipped,
-  createSkipDiskPorts,
-  isVersionSkipped,
-  normalizeSkipped,
-  skipKey,
-} from '../dist/store.js'
+import { addSkipped, clearSkipped, createSkipDiskPorts, isVersionSkipped, normalizeSkipped, skipKey } from '../dist/core/disk.js'
 
 const INTEGRITY = 'sha512-' + 'C'.repeat(86) + '=='
 

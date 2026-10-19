@@ -14,7 +14,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { createHostUpdate, __resetSharedUpdateReaderForTests, buildDiag } from '../dist/host.js'
-import { manualCommand } from '../dist/commands.js'
+import { manualCommand } from '../dist/shared/commands.js'
 import { blockedCopy, failureCopy, isKnownFailureCode } from '../dist/panel.js'
 
 const TARGET = 'demo-plugin'

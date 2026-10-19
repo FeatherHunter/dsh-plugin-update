@@ -23,15 +23,21 @@ import {
   type PhoneNames,
   type UpdateConfigInput,
 } from './shared/config.js'
-import { manualCommand, normalizeApprovedBuilds } from './commands.js'
-import { fetchReleaseChangelogOutcome, type ReleaseChangelogOutcome } from './changelog-io.js'
-import { isChangelogDegraded, isChangelogTruncated, parseChangelogReport, shouldFetchChangelog, type ChangelogContentStatus } from './changelog.js'
+import { manualCommand, normalizeApprovedBuilds } from './shared/commands.js'
+import { fetchReleaseChangelogOutcome, type ReleaseChangelogOutcome } from './core/changelog/io.js'
+import {
+  isChangelogDegraded,
+  isChangelogTruncated,
+  parseChangelogReport,
+  shouldFetchChangelog,
+  type ChangelogContentStatus,
+} from './core/changelog/parse.js'
 import { buildDiag, type DiagObject } from './shared/diag.js'
 import { hash8 } from './shared/hash.js'
 import { isCoreErrorCode } from './shared/codes.js'
 import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL } from './shared/log-events.js'
 import { emitUpdateLog, logEmitterCounts } from './log/emit.js'
-import { pruneEventFields } from './gate.js'
+import { pruneEventFields } from './core/gate.js'
 import { buildUpdateLogHealth, type LogHealthExternalGate, type UpdateLogHealth, type UpdateLogWiring } from './log/health.js'
 import { buildUpdateManifest, currentUpdateEventTable, primeUpdateEventTable, updateContractStatus, type UpdateContractStatus } from './log/manifest.js'
 import { deriveLogNamespace } from './log/namespace.js'
@@ -56,10 +62,12 @@ export type {
   LogHealthSink,
   UpdateLogHealth,
 } from './log/health.js'
-import { fetchNpmVersionRelease, isVersionAllowedInChannel, updateError, validReleaseVersion, validRequestId } from './service.js'
+import { fetchNpmVersionRelease, isVersionAllowedInChannel, updateError, validReleaseVersion, validRequestId } from './core/service.js'
 import { selfCopyInfo, selfCopyLevelOf, type SelfCopyInfo, type SelfCopyLevel } from './shared/self.js'
-import { createUpdateDiskPorts, createUpdateExecutor, createUpdateQueuePorts } from './store.js'
-import { createUpdateReader, defaultHomeDir, resolveProfileName, resolveTargetPackage } from './reader.js'
+import { createUpdateDiskPorts } from './core/disk.js'
+import { createUpdateExecutor } from './core/executor.js'
+import { createUpdateQueuePorts } from './core/queue/ports.js'
+import { createUpdateReader, defaultHomeDir, resolveProfileName, resolveTargetPackage } from './core/reader.js'
 import { resolveRegistryHost } from './shared/redaction.js'
 import type { CheckTrigger, EnvironmentKind, InstallSource, ReleaseChannel, UpdateLogPort } from './shared/ports.js'
 import {
@@ -76,7 +84,7 @@ import {
   visibleQueueFor,
   type UpdateQueueState,
   type VisibleQueue,
-} from './queue.js'
+} from './core/queue/model.js'
 
 // 转发表已搬家（#162 首刀，#164 规格）：实体见 ./host-forwarding.js，本包根只留垫片。
 // tests 深引用（../dist/host.js）与包导出表零碰（#159 冻结）。
