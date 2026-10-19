@@ -6,7 +6,7 @@
  *
  * 为什么从批量用例搬到这里：原 `tests/batch-host.test.mjs`“真路径两家批”断言
  * registry 取数恰好 6 次，但两家预查并发触及读取器工厂时，先后顺序由
- * `resolveTargetPackage` 的真实文件 I/O 竞态决定（`src/host.ts` 单例只留最后
+ * `resolveTargetPackage` 的真实文件 I/O 竞态决定（`src/host/capabilities.ts` 的 sharedReader 单例只留最后
  * 创建的那家，与预查完成顺序无关）；先创建的恰是后装的那家时，首次提交命中
  * 自家槽位、无需重查，实测 5 次。500ms 读延迟只能定完成顺序，定不了创建顺序，
  * 所以 6 次的断言在该场景下不可达到确定性（干净树复现约 1/2 红）。

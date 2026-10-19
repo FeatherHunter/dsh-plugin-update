@@ -68,7 +68,7 @@ export const INTERNAL_CODE = 'internal' as const
 /** 只读半程的诚实失败码：安装能力还没接上时用它（src/core/service.ts 的 install）。 */
 export const UNSUPPORTED_CODE = 'unsupported' as const
 
-/** 批量入口的跨使用范围拒绝码：不替调用方跨范围抢锁（src/host-batch.ts）。 */
+/** 批量入口的跨使用范围拒绝码：不替调用方跨范围抢锁（src/host/batch/fan-out.ts）。 */
 export const CROSS_SCOPE_CODE = 'cross-scope' as const
 
 /** 面板口径的全表：阻塞 + 电话 + internal（面板文案与分支的完备面，双语门禁按它查）。 */

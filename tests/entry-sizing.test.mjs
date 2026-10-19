@@ -222,12 +222,13 @@ test('铁律：带 sizing 的完整生命周期里只打只读电话，绝不自
 })
 
 test('入口件源码仍不出现安装电话，类型随包分发', async () => {
-  const source = readFileSync(join(PKG_DIR, 'src', 'entry.ts'), 'utf8')
+  const source = readFileSync(join(PKG_DIR, 'src', 'panel', 'entry.ts'), 'utf8')
   const code = source.split('\n').filter((line) => !line.trim().startsWith('//')).join('\n')
   assert.ok(!code.includes('updateInstall'), '入口件只许查：源码里不许出现安装电话')
   const dts = join(PKG_DIR, 'dist', 'entry.d.ts')
   assert.ok(existsSync(dts), 'dist/entry.d.ts 已产出')
-  const text = readFileSync(dts, 'utf8')
+  // #227 起 dist/entry.d.ts 是壳：渲染类型从 panel/entry 转出（冻结路径仍在）。
+  const text = readFileSync(join(PKG_DIR, 'dist', 'panel', 'entry.d.ts'), 'utf8')
   assert.match(text, /EntrySizing/, '尺寸类型随包分发')
   assert.match(text, /sizing\?: EntrySizing/, '挂载选项含 sizing')
   assert.match(text, /entrySizingStyleFor/, '纯函数出口随包分发')

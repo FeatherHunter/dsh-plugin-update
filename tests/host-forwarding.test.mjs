@@ -6,7 +6,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import * as host from '../dist/host.js'
-import * as fwd from '../dist/host-forwarding.js'
+import * as fwd from '../dist/host/forwarding.js'
 
 // [来源家族 → 抽样值导出]：每家至少一个函数＋一个常量（如有），搬家漏项即红。
 const SAMPLES = [
@@ -35,8 +35,8 @@ describe('host 转发表垫片（#162/#164）', () => {
     })
   }
 
-  it('宿主真实现仍在老包根：createHostUpdate 可建能力', () => {
-    assert.equal(typeof host.createHostUpdate, 'function', '真实现不搬家')
+  it('宿主真实现仍经包根转出：createHostUpdate 可建能力（#227 实现已搬 host/factory.ts）', () => {
+    assert.equal(typeof host.createHostUpdate, 'function', '壳经 factory 转出真实现（#227）')
     assert.equal(fwd.createHostUpdate, undefined, '转发表不许顺手带走真实现')
   })
 })

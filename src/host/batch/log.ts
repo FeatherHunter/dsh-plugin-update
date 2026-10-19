@@ -1,3 +1,4 @@
+// src/host/batch/log.ts —— 批量侧日志接缝（#227 从 src/host-batch-log.ts 整搬，蓝图 §4 待定 #2 落 host 域）。
 /**
  * 批量侧日志接缝（#208/#209）：批量级事件落哪、去重怎么判、失败行长什么形状——这些「日志状态」
  * 从 host-batch.ts 的闭包里抽出来单独一份，宿主侧只递读数（谁属主、每个目标的插件标识、最近一次
@@ -9,12 +10,12 @@
  * - 电话失败落属主目录；没有属主一行不发。
  */
 
-import { batchProgress, isBatchFinished, type BatchSession } from './core/batch/model.js'
-import type { BatchStoppedByBecause } from './core/batch/run.js'
-import { isBatchReplyCode } from './shared/codes.js'
-import { hash8 } from './shared/hash.js'
-import { emitUpdateLog } from './log/emit.js'
-import type { UpdateLogPort } from './shared/ports.js'
+import { batchProgress, isBatchFinished, type BatchSession } from '../../core/batch/model.js'
+import type { BatchStoppedByBecause } from '../../core/batch/run.js'
+import { isBatchReplyCode } from '../../shared/codes.js'
+import { hash8 } from '../../shared/hash.js'
+import { emitUpdateLog } from '../../log/emit.js'
+import type { UpdateLogPort } from '../../shared/ports.js'
 
 /** 一次发射的容错口：日志是旁路，任何发射异常都不许改变调用方行为。 */
 export function emitBatchLog(

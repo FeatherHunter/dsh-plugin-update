@@ -246,7 +246,7 @@ export function createUpdateDiskPorts(homeDir: string, pluginId: string, profile
       }
       // 二次核对：年龄仍超、且锁没被换过才动手——别人可能在「判陈旧 → 删锁」之间已经重建。
       // 残余窗口（B 的删锁落在 A 的重建之后）在直接集成 createUpdateDiskPorts 时仍存在；宿主路径先拿
-      // 跨插件全局锁（src/host.ts:355-370），到不了这里。记在 #181 票面，不在本批扩大。
+      // 跨插件全局锁（src/host/capabilities.ts 的 getSharedReader），到不了这里。记在 #181 票面，不在本批扩大。
       const again = await probeInstallLock()
       if (!again.present) {
         const won = await createInstallLock(lockId)

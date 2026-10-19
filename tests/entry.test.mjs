@@ -554,7 +554,7 @@ test('参数校验与面板同一口径：轮询下限、必填项、取值白�
 })
 
 test('入口件零 Node 专属能力，源码里不出现安装电话，类型随包分发', () => {
-  const source = readFileSync(join(PKG_DIR, 'src', 'entry.ts'), 'utf8')
+  const source = readFileSync(join(PKG_DIR, 'src', 'panel', 'entry.ts'), 'utf8')
   assert.ok(!/from 'node:/.test(source), '入口件不得出现 node: 导入（浏览器闭包进不去）')
   const code = source
     .split('\n')
@@ -563,7 +563,11 @@ test('入口件零 Node 专属能力，源码里不出现安装电话，类型�
   assert.ok(!code.includes('updateInstall'), '入口件只许查：源码里不许出现安装电话')
   const dts = join(PKG_DIR, 'dist', 'entry.d.ts')
   assert.ok(existsSync(dts), 'dist/entry.d.ts 已产出')
-  const text = readFileSync(dts, 'utf8')
+  // #227 起 dist/entry.js 是壳：冻结路径仍在，声明逐名从 panel/entry 转出（壳纪律：不 export *）。
+  const shell = readFileSync(dts, 'utf8')
+  assert.match(shell, /from '\.\/panel\/entry\.js'/, '壳把类型转出实现文件')
+  assert.ok(!/export \*/.test(shell), '壳逐名转出，不用 export *（#159 冻结）')
+  const text = readFileSync(join(PKG_DIR, 'dist', 'panel', 'entry.d.ts'), 'utf8')
   assert.match(text, /mountUpdateEntry/, '类型定义含挂载入口')
   assert.match(text, /entryLabelFor/, '类型定义含状态文案纯函数')
   const manifest = JSON.parse(readFileSync(join(PKG_DIR, 'package.json'), 'utf8'))

@@ -1,7 +1,7 @@
 /**
  * tests/issue-156-fallback-slot-survival.test.mjs —— #156 凭证槽的存活（对抗审查 B2 回归锁）。
  *
- * 事实（2026-10-17 对抗审查实证）：宿主侧 `sharedReader` 是**单例**（src/host.ts:75/291/453），
+ * 事实（2026-10-17 对抗审查实证）：宿主侧 `sharedReader` 是**单例**（src/host/capabilities.ts 的 sharedReader），
  * 批量面板逐家打电话时每取下一家的读取器都会把上一家丢出缓存；逐行路径也活不过一次
  * 1.5s 轮询（轮询会为每一家重建读取器）。凭证槽若活在被丢掉的读取器实例里，
  * 「装合规版」在 N≥2 的批量里必然 check-expired——确认时已是新读取器、槽是空的。

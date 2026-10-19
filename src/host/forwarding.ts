@@ -1,13 +1,12 @@
-// src/host-forwarding.ts —— 宿主转发表门面（#162 首刀，#164 规格）。
+// src/host/forwarding.ts —— 宿主转发表门面（#162 首刀，#164 规格；#227 随 host 域整搬）。
 //
 // 身份：纯转发表，不含任何实现。本文件所有条目都是 `export…from` 搬运工：
-// 把散在各模块的公开能力经包根（host.ts）一次转出口，第二家可达。
-// 机制：搬家＋垫片 —— host.ts 用 `export * from './host-forwarding.js'` 原地垫片，
+// 把散在各模块的公开能力经包根（host.ts 壳）一次转出口，第二家可达。
+// 机制：壳 host.ts 用 `export * from './host/forwarding.js'` 转出，
 // 测试深引用（../dist/host.js）与包导出表零碰（#159 冻结决议的直接派生）。
-// 判定核/渲染等后续拆分照抄本模式：函数搬新文件，老地方留垫片。
 
-export { buildChangelogPhoneName, buildPhoneName, buildPhoneNames, resolveUpdateConfig } from './shared/config.js'
-export type { ChangelogPhoneAction, PhoneAction, UpdateConfigInput } from './shared/config.js'
+export { buildChangelogPhoneName, buildPhoneName, buildPhoneNames, resolveUpdateConfig } from '../shared/config.js'
+export type { ChangelogPhoneAction, PhoneAction, UpdateConfigInput } from '../shared/config.js'
 // 门禁模板检查器（#584 落地；#120 起形状对齐日志包 0.3.1：清单不写自报计数、字段检查分两档、
 // 落盘行断言 v === 3。对象形式，更新包不读盘；经包根转出口，第二家可达）。
 export {
@@ -21,7 +20,7 @@ export {
   pruneEventFields,
   checkEventFields,
   checkEventCounts
-} from './core/gate.js'
+} from '../core/gate.js'
 export type {
   GateEventLevel,
   GateEventKind,
@@ -36,8 +35,8 @@ export type {
   GateLogRow,
   GateMergeResult,
   GateCountCheck
-} from './core/gate.js'
-export { containingPackage, defaultHomeDir, profileNameValid, registrySpec, resolveTargetPackage } from './core/reader.js'
+} from '../core/gate.js'
+export { containingPackage, defaultHomeDir, profileNameValid, registrySpec, resolveTargetPackage } from '../core/reader.js'
 // 脱敏词汇（#19：五条具名规则 + 两占位符 + 顺序 + 源主机名规则，经包根转出口，第二家可达）。
 // #24 单源收敛 + 字节墙：复制预算 / known-gap / 按序丢弃 enforcement 同经此出口。
 export {
@@ -57,8 +56,8 @@ export {
   sanitizeDetail,
   sanitizeForCopy,
   truncateToWordBoundary,
-} from './shared/redaction.js';
-export type { DiagDropKey, RedactionRuleName } from './shared/redaction.js';
+} from '../shared/redaction.js';
+export type { DiagDropKey, RedactionRuleName } from '../shared/redaction.js';
 // 电话侧失败证据 diag（#21，承接 #18 契约：19 键目录 + 阶段六值 + 路由/方法正交 +
 // 包内动作推导 + 缺省省略 + 1024 字节墙；queuePos 留空到队列转正，经包根转出口）。
 export {
@@ -73,8 +72,8 @@ export {
   deriveRouteMethod,
   deriveStage,
   enforceBudget as enforceDiagBudgetForPhone,
-} from './shared/diag.js';
-export type { DiagAction, DiagInput, DiagObject, DiagStage } from './shared/diag.js';
+} from '../shared/diag.js';
+export type { DiagAction, DiagInput, DiagObject, DiagStage } from '../shared/diag.js';
 // 安装失败翻译官（#155：已知签名识别 + 诚实归因；纯函数 + 计数解释器，经包根转出口）。
 export {
   blameCausePackage,
@@ -85,11 +84,11 @@ export {
   createCauseInterpreter,
   formatUnlockAt,
   interpretInstallCause,
-} from './core/cause.js';
-export type { CauseBlame, CauseFacts, CauseInterpreterCounts, CauseKind, CauseSignature, InterpretCauseInput } from './core/cause.js';
+} from '../core/cause.js';
+export type { CauseBlame, CauseFacts, CauseInterpreterCounts, CauseKind, CauseSignature, InterpretCauseInput } from '../core/cause.js';
 // 合规版决议（#156：年龄门拦住时找"满门限的最新版"；纯函数，经包根转出口）。
-export { resolveCompliantVersion } from './shared/compliant.js';
-export type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from './shared/compliant.js';
+export { resolveCompliantVersion } from '../shared/compliant.js';
+export type { CompliantVerdict, CompliantVersionInput, CompliantWindowSource } from '../shared/compliant.js';
 // 更新日志（#23，承接 #11：包内 CHANGELOG.md 展示；纯函数两边可进，I/O 仅 Node 侧）。
 export {
   CHANGELOG_ALL_CATEGORIES,
@@ -113,7 +112,7 @@ export {
   selectChangelogEntries,
   shouldFetchChangelog,
   splitBreakingPrefix,
-} from './core/changelog/parse.js'
+} from '../core/changelog/parse.js'
 export {
   countsOf,
   renderChangelogHTML,
@@ -122,10 +121,10 @@ export {
   renderChangelogSection,
   truncatedNoteHTML,
   yankedBannerHTML,
-} from './core/changelog/render-model.js'
-export { validateChangelog } from './core/changelog/validator.js';
-export type { ChangelogCategory, ChangelogEntry } from './core/changelog/parse.js'
-export type { ChangelogDiagnostic, ChangelogValidation } from './core/changelog/validator.js';
+} from '../core/changelog/render-model.js'
+export { validateChangelog } from '../core/changelog/validator.js';
+export type { ChangelogCategory, ChangelogEntry } from '../core/changelog/parse.js'
+export type { ChangelogDiagnostic, ChangelogValidation } from '../core/changelog/validator.js';
 export {
   CHANGELOG_DEFAULT_REGISTRY,
   CHANGELOG_FETCH_MAX_BYTES,
@@ -134,12 +133,12 @@ export {
   extractChangelogFromTar,
   fetchReleaseChangelogText,
   readInstalledChangelogText,
-} from './core/changelog/io.js';
-export type { ReleaseChangelogRef } from './core/changelog/io.js';
-export { createUpdateDiskPorts, pathsForUpdate } from './core/disk.js'
-export { createUpdateExecutor, resolveCliEntry } from './core/executor.js'
+} from '../core/changelog/io.js';
+export type { ReleaseChangelogRef } from '../core/changelog/io.js';
+export { createUpdateDiskPorts, pathsForUpdate } from '../core/disk.js'
+export { createUpdateExecutor, resolveCliEntry } from '../core/executor.js'
 // 跳过与版本通道（#16：按插件 + 版本持久化跳过、stable 默认 / prerelease 开关、精确版锁定）。
-export { SKIPPED_FILE } from './shared/config.js'
+export { SKIPPED_FILE } from '../shared/config.js'
 export {
   addSkipped,
   clearSkipped,
@@ -149,7 +148,7 @@ export {
   normalizeSkipped,
   skipKey,
   type SkippedVersionEntry,
-} from './core/disk.js'
+} from '../core/disk.js'
 export {
   compareReleaseVersions,
   isPrereleaseVersion,
@@ -157,10 +156,10 @@ export {
   validReleaseVersion,
   validVersion,
   compareVersions,
-} from './core/service.js'
-export type { ReleaseChannel } from './shared/ports.js'
-export type { CheckFallbackPhoneAction } from './shared/config.js'
-export type { FallbackCheckInput, FallbackCheckResult } from './shared/ports.js'
+} from '../core/service.js'
+export type { ReleaseChannel } from '../shared/ports.js'
+export type { CheckFallbackPhoneAction } from '../shared/config.js'
+export type { FallbackCheckInput, FallbackCheckResult } from '../shared/ports.js'
 // 跨插件单队列（#15）：纯决策经包根转出口，落盘与全局锁同上；面板展示过滤见 client.ts 同名转出口。
 export {
   createUpdateQueuePorts,
@@ -169,7 +168,7 @@ export {
   QUEUE_FILE,
   QUEUE_LOCK_FILE,
   QUEUE_LOCK_STALE_MS,
-} from './core/queue/ports.js'
+} from '../core/queue/ports.js'
 export {
   QUEUE_INTENT_TTL_MS,
   cancelEnqueuedInQueue,
@@ -182,5 +181,5 @@ export {
   releaseOwnerInQueue,
   setOwnerIfFree,
   visibleQueueFor,
-} from './core/queue/model.js'
-export type { QueuedEntry, QueueOwner, UpdateQueueState, VisibleQueue } from './core/queue/model.js'
+} from '../core/queue/model.js'
+export type { QueuedEntry, QueueOwner, UpdateQueueState, VisibleQueue } from '../core/queue/model.js'
