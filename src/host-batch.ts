@@ -77,6 +77,7 @@ import { createHostUpdate, type HostUpdate, type ReaderOverrides } from './host.
 import type { ManualSource } from './last-resort.js'
 import { defaultHomeDir } from './reader.js'
 import { compareReleaseVersions } from './service.js'
+import type { UpdateQueueState } from './queue.js'
 import {
   createBatchOwnerPorts,
   createSkipDiskPorts,
@@ -826,6 +827,30 @@ export function createMultiHostUpdate(
     now: () => now(),
   })
   const { logPortFor, noteEntryRequest, noteBatchSummary, noteBatchStopped, noteRunOutcome, notePhoneFail, noteRunStart } = batchLog
+
+  /**
+   * #217：撤掉批次自己留下的排队占位。真机 2026-10-19 08:47：续跑把待装行的意向写进共享队列后
+   * 因「非队首」停下，队首那条的任务却已经结束——10 分钟 TTL 内任何安装都被公平门判
+   * update-busy，面板上就表现为「点全部更新毫无反应」。所以每次开跑（建会话/续跑/drain 每一轮）
+   * 和用户取消时都先扫掉自己的遗留意向；停下时不扫——留着的占位还要给面板显示位置、给「取消排队」用。
+   * 只清 targetPluginIds 且 requestId 以 `batch-` 开头的 waiting 条目；owner 不碰（正在装的别家不受影响）。
+   */
+  async function clearBatchQueueIntents(): Promise<void> {
+    try {
+      const read = baseOverrides.readQueue ?? (queue ? () => queue.readQueue() : null)
+      const write =
+        baseOverrides.writeQueue ?? (queue ? (next: UpdateQueueState) => queue.writeQueue(next) : null)
+      if (!read || !write) return
+      const state = await read()
+      const ids = new Set(runtimes.map((rt) => rt.pluginId))
+      const waiting = state.waiting.filter(
+        (one) =>
+          !(ids.has(one.pluginId) && typeof one.requestId === 'string' && one.requestId.startsWith('batch-')),
+      )
+      if (waiting.length === state.waiting.length) return
+      await write({ version: 1, owner: state.owner, waiting })
+    } catch {}
+  }
   let drainTimer: unknown = null
   let disposed = false
 
@@ -1438,6 +1463,10 @@ export function createMultiHostUpdate(
     if (driveActive) return await joinWhileBusy(selected)
     if (selected && selected.size === 0) return await table(await readSession())
     driveActive = true
+    // #217：开跑前先扫掉上一轮停下时留下的排队占位（真机 2026-10-19 08:47：续跑留下两条，
+    // 队首任务已结束，公平门让之后每次点击都瞬间 update-busy；不扫就要等 10 分钟 TTL）。
+    // 放在开跑前而不是停下时清：停下后占位还留着，面板才能显示「前方还有 N 个」并允许取消排队。
+    await clearBatchQueueIntents()
     let driven: BatchSession
     let session: BatchSession | null = null
     try {
@@ -1498,6 +1527,8 @@ export function createMultiHostUpdate(
     if (!hadUnfinished) return { ...(await table(disk)), resumed: false }
     const resumed = resumeBatchSession(disk, now())
     if (resumed !== disk) await saveSession(resumed)
+    // #217：续跑也是「重新开跑」，先把上一轮留下的排队占位扫掉再推进。
+    await clearBatchQueueIntents()
     try {
       // #216：跨重启续跑也要有一行「这次真推进开始了」。
       noteRunStart(resumed, { trigger: 'resume', resumed: true })
@@ -1529,6 +1560,8 @@ export function createMultiHostUpdate(
     } catch {
       // 读不到账本不挡取消：取消本身仍按原口径清空。
     }
+    // #217：用户取消也是一次「停下」，自己的排队占位一并撤掉。
+    await clearBatchQueueIntents()
     await clearSession()
     return await table(emptyBatchSession())
   }
@@ -1545,6 +1578,8 @@ export function createMultiHostUpdate(
     if (disposed || driveActive || scopeError) return
     const disk = await readSession()
     if (disk.entries.length === 0 || isBatchFinished(disk)) return
+    // #217：每轮开推前扫掉上一轮停下的排队占位（同一份理由见 installPhone）。
+    await clearBatchQueueIntents()
     try {
       // #216：drain 每轮真推进也留一行（trigger=drain），把每个主动作与被推动的步串起来。
       noteRunStart(disk, { trigger: 'drain', resumed: true })
