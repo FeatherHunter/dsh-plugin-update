@@ -37,7 +37,7 @@
 import { DIAG_INLINE_BUDGET_BYTES, diagByteLength, enforceDiagBudget, resolveRegistryHost, sanitizeDetail } from './redaction.js'
 import { causeInterpreter } from './install-cause.js'
 import { validReleaseVersion, validRequestId } from './service.js'
-import { hash8 } from './hash.js'
+import { hash8 } from './shared/hash.js'
 import { copyText, type BilingualKey } from './bilingual.js'
 import { normalizeLangTag, type AppLang } from './lang.js'
 

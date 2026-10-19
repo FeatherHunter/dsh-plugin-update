@@ -6,7 +6,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mountUpdatePanel } from '../dist/panel.js'
-import { hash8 } from '../dist/hash.js'
+import { hash8 } from '../dist/shared/hash.js'
 import { createClientLogChannel } from '../dist/log/client-queue.js'
 
 function baseSnapshot() {

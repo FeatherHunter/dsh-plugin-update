@@ -13,7 +13,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { mountUpdatePanel } from '../dist/panel.js'
 import { createClientLogChannel } from '../dist/log/client-queue.js'
-import { hash8 } from '../dist/hash.js'
+import { hash8 } from '../dist/shared/hash.js'
 
 function baseSnapshot(overrides = {}) {
   return {

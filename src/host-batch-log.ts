@@ -12,7 +12,7 @@
 import { batchProgress, isBatchFinished, type BatchSession } from './batch.js'
 import type { BatchStoppedByBecause } from './batch-run.js'
 import { isBatchReplyCode } from './codes.js'
-import { hash8 } from './hash.js'
+import { hash8 } from './shared/hash.js'
 import { emitUpdateLog } from './log/emit.js'
 import type { UpdateLogPort } from './ports.js'
 

@@ -92,7 +92,7 @@ import { checkErrorKindOf, httpStatusOfError, installSourceOf, stableCodeOf, sta
 import { attachInstallFail, installFailRowFields, normalizeCode, readInstallFail } from './install-fail.js'
 import type { InstallFailFacts } from './install-fail.js'
 import { BLOCKED_REASONS } from './codes.js'
-import { hash8 } from './hash.js'
+import { hash8 } from './shared/hash.js'
 // ---------- 取数垫片（#163：实现搬 registry-fetch，老位置 re-export，行为零变化） ----------
 import {
   CHECK_TIMEOUT_MS,

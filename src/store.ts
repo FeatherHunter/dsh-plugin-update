@@ -25,7 +25,7 @@ import { installRecipe, normalizeApprovedBuilds, shellSafeArg } from './commands
 import { BACKUP_FILE, DEFAULT_INSTALL_TIMEOUT_MS, LEGACY_PLUGIN_ID, LOCK_FILE, SKIPPED_FILE, STATE_FILE } from './config.js'
 import { emptyBatchSession, normalizeBatchSession, type BatchSession } from './batch.js'
 import { QUEUE_INTENT_TTL_MS, normalizeQueueState, type QueueOwner, type UpdateQueueState } from './queue.js'
-import { hash8 } from './hash.js'
+import { hash8 } from './shared/hash.js'
 import { hashToken } from './log/namespace.js'
 import { validReleaseVersion } from './service.js'
 import { DETAIL_MAX_CHARS, MASKED_CREDENTIAL_NOTE, sanitizeDetail } from './redaction.js'

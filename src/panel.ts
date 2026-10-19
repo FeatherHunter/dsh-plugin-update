@@ -18,7 +18,7 @@
 // 平时一句话、旁边常驻复制诊断；复制文本经 redactForCopy 收干净后再交出去。
 
 import { buildChangelogPhoneName, buildLogAppendPhoneName, buildPhoneNames, DEFAULT_PANEL_POLL_MS, DEFAULT_PREFIX, MIN_PANEL_POLL_MS } from './config.js'
-import { hash8 } from './hash.js'
+import { hash8 } from './shared/hash.js'
 import { COPY_BUDGET_CHARS, sanitizeForCopy } from './redaction.js'
 import { compareReleaseVersions, validReleaseVersion } from './service.js'
 import {

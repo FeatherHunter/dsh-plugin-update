@@ -35,7 +35,7 @@ import {
   pruneExpiredIntents,
   releaseOwnerInQueue,
 } from '../dist/queue.js'
-import { hash8 } from '../dist/hash.js'
+import { hash8 } from '../dist/shared/hash.js'
 import { pruneEventFields } from '../dist/gate.js'
 
 /** 三个事件的字段白名单（逐字抄 event-list.update.json，多一格整行会被发射口丢掉）。 */

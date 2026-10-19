@@ -45,7 +45,7 @@
 //      有属主时登记 `<批量前缀>.logAppend` 转发给属主的 logAppend，批量面板的客户端日志行才落得下来。
 
 import { homedir } from 'node:os'
-import { hash8 } from './hash.js'
+import { hash8 } from './shared/hash.js'
 import {
   batchEntryOf,
   batchProgress,

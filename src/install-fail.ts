@@ -10,7 +10,7 @@
  * 折成 hash8（hostCodeHash），行里不出现原始码；`code` 只收本包码面（src/codes.ts）里的稳定码。
  */
 import { CORE_ERROR_CODES, INTERNAL_CODE, UNSUPPORTED_CODE } from './codes.js'
-import { hash8 } from './hash.js'
+import { hash8 } from './shared/hash.js'
 
 /** 一次安装失败发生在哪个阶段：装前闸门 / 执行 / 装后校验。 */
 export const INSTALL_FAIL_STAGES = ['gate', 'exec', 'verify'] as const

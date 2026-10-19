@@ -9,7 +9,7 @@
  * 浏览器安全：本文件零 `node:` 依赖（只引客户端通道与 djb2 短哈希），可被面板打包。
  */
 import { createClientLogChannel, type ClientLogChannel, type ClientLogEvent } from './client-queue.js'
-import { hash8 } from '../hash.js'
+import { hash8 } from '../shared/hash.js'
 
 /** 调用方对客户端日志通道的三种表态：传通道复用、传 null 关闭、不传自建。 */
 export interface PanelClientLogOptions {

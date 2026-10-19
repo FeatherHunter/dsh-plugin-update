@@ -34,7 +34,7 @@
 // DOM 只在 mountUpdateBatchPanel 被调用时经容器与 globalThis 现取，模块顶层不碰。
 
 import { assertPrefix, buildLogAppendPhoneName, DEFAULT_PREFIX, MIN_PANEL_POLL_MS } from './config.js'
-import { hash8 } from './hash.js'
+import { hash8 } from './shared/hash.js'
 import { createPanelClientLogShell, type PanelClientLogOptions } from './log/panel-client.js'
 import { copyText as bilingualText, type BilingualKey } from './bilingual.js'
 import {

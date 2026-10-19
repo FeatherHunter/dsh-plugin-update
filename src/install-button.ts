@@ -39,7 +39,7 @@ import {
   type UpdateThemeTokens,
 } from './panel.js'
 import { formatUnlockAt } from './install-cause.js'
-import { hash8 } from './hash.js'
+import { hash8 } from './shared/hash.js'
 import { lastResortVerdictOf, type ManualSource } from './last-resort.js'
 // #174：last-resort 的类型经既有子路径转出，消费者无需新子路径即可命名（`ManualSource` 已出现在本模块导出签名里）。
 export type { LastResortKind, RescueRouteKey, ManualSource, LastResortVerdict } from './last-resort.js'

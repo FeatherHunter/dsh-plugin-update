@@ -18,7 +18,7 @@ import {
   type BatchSession,
 } from './batch.js'
 import type { UpdateLogPort } from './ports.js'
-import { hash8 } from './hash.js'
+import { hash8 } from './shared/hash.js'
 
 /** 失败发生在哪个阶段（#208）：查版本／提交安装／等安装收尾超时／读终态。 */
 export type BatchFailStage = 'check' | 'install' | 'timeout' | 'settle'

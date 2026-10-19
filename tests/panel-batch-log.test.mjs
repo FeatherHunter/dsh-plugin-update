@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { mountUpdateBatchPanel } from '../dist/panel-batch.js';
-import { hash8 } from '../dist/hash.js';
+import { hash8 } from '../dist/shared/hash.js';
 import { createClientLogChannel } from '../dist/log/client-queue.js';
 
 const settled = (ms = 25) => new Promise((resolve) => setTimeout(resolve, ms));
