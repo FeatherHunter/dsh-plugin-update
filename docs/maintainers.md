@@ -94,7 +94,7 @@ npm publish
 `package.json` 的 `files` 共 7 项：`dist`、`derive-client-values.mjs`、`event-list.template.json`、`event-list.update.json`、`README.md`、`CHANGELOG.md`、`LICENSE`（另加隐含的 `package.json`；`dist` 是目录，**src 下每个 TS 都会带上对应 JS 与 `.d.ts`**——加模块不必改白名单，但要跑一次 `npm publish --dry-run` 核对文件数）。
 
 包出口共 11 个子路径：`.`（宿主侧）、`./log`（日志内核：派生命名空间 / 登记表 / 路由 / 唯一发射口 / 随包事件表 / 客户端通道）、`./panel`、`./client`、`./batch`（多目标批量宿主入口）、`./panel-batch`（批量面板）、`./entry`（更新入口件）、`./entry-batch`（批量感知入口件：一颗按钮看 N 家聚合，点开即批量面板）、`./install-button`（安装按钮控件：一颗按钮原地装好一家，判定文案与面板同一口径）、`./http`（HTTP 万能插头：createHttpCall 单五电话 + 批量五电话同一内核 + 面板/入口/批量面板直挂）、`./package.json`。新增能力一律**新开子路径**，不改既有入口的形状。
-其中浏览器安全面只有 `src/log/client-queue.ts`、`src/log/panel-client.ts`（单面板与批量面板共用的客户端日志壳；零 `node:` 依赖）与 `src/log/{sink,router}.ts`：单面板主体的运行期日志引用在 `src/panel/mount.ts`、批量面板在 `src/panel-batch.ts`，两边都只许引 `./log/panel-client.js` 这一处（面板目录内相对写法是 `../log/panel-client.js`；壳内部再引 client-queue），其余 `src/log/**` 只许 `import type`（`tests/log-kernel.test.mjs` 会红）。
+其中浏览器安全面只有 `src/log/client-queue.ts`、`src/log/panel-client.ts`（单面板与批量面板共用的客户端日志壳；零 `node:` 依赖）与 `src/log/{sink,router}.ts`：单面板主体的运行期日志引用在 `src/panel/mount.ts`、批量面板在 `src/panel/batch/mount.ts`，两边都只许引 `./log/panel-client.js` 这一处（面板目录内相对写法：单面板 `../log/panel-client.js`、批量面板 `../../log/panel-client.js`；壳内部再引 client-queue），其余 `src/log/**` 只许 `import type`（`tests/log-kernel.test.mjs` 会红）。
 加新文件进包时同步改 `files`，并重跑 `npm publish --dry-run` 确认文件数。
 
 ## 本包门禁
@@ -132,7 +132,7 @@ npm run gate:bilingual            # 三道硬门禁：文案源 grep + 字典快
 npm run gate:bilingual:release    # 再加第四道：零 draft 放行（合入主分支/发版条件，见 #57）
 ```
 
-- **文案源 grep**：`src/` 里的中文字符串字面量只许出现在文案源 `src/bilingual.ts`；其余位置按冻结基线
+- **文案源 grep**：`src/` 里的中文字符串字面量只许出现在文案源 `src/core/i18n/dictionary.ts`；其余位置按冻结基线
   `tests/fixtures/bilingual/copy-baseline.json` 逐条放行——**只许减，不许增，而且要减干净**。日志/抛错等冻结中文要
   新增或改词，必须 `node scripts/bilingual-gate.mjs --update-baseline` 重算基线、并在评审 diff 里看见；
   源里已消失的条目（迁移删掉了）必须同一次改动里收紧，别留僵尸放行（`npm test` 会盯着，CLI 加 `--strict-baseline` 也拦）。

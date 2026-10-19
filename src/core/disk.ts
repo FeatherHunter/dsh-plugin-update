@@ -1,8 +1,8 @@
 /**
- * src/core/disk.ts —— 更新任务的落盘端口（自旧 src/store.ts 拆出；公共底座在 store-base.ts，
+ * src/core/disk.ts —— 更新任务的落盘端口（自旧 store.ts 拆出；公共底座在 store-base.ts，
  * 队列端口在 queue/ports.ts，执行器在 executor.ts）。
  *
- * 由 src/host/updateStore.js 改写拎入：只跑腿不决策。相对旧实现的增量（规格 #591）：
+ * 由旧版 updateStore.js 改写拎入：只跑腿不决策。相对旧实现的增量（规格 #591）：
  * 1. 状态目录按插件标识派生（第 3 条）：join(家目录, 'updates', 插件标识, 使用范围短指纹)，
  *    三文件名保持 state.json、install.lock、before.json 不变。
  * 2. 默认旧路径冻结（第 14 条）：插件标识取旧值 dsh-mattpocock-skills-deck 时路径与旧原文

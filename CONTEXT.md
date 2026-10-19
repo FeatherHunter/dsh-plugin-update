@@ -64,6 +64,20 @@ _避免_：无救、兜底、最后手段态
 与当前快照来自同一份成功回包、且回包带 `manual` 键的手工命令（`frame`）。失败回包沿用旧值时叫 `carried-over`，一律不展示、不复制、不高亮——旧命令可能指向已经不对的目标，宁缺毋滥。
 _避免_：旧命令、缓存命令、最新命令
 
+## 源码结构
+
+**入口壳**:
+根目录 9 个文件（`host.ts`、`panel.ts`、`client.ts`、`host-batch.ts`、`panel-batch.ts`、`entry.ts`、`entry-batch.ts`、`install-button.ts`、`http.ts`）各自只做该 exports 子路径的公开导出（curated re-export + 公开类型），不写逻辑、不做决策；第 10 个入口壳 `src/log/index.ts` 对应 `./log` 子路径，原位不动。
+_避免_：barrel、转发层、公共入口
+
+**域目录**:
+入口壳背后实现所在的目录：`shared/`（跨域底座）、`core/`（业务核心）、`host/`（宿主运行层）、`panel/`（面板与入口件）、`log/`（日志内核）。按调用链与概念分层，域内再分文件；实现只向下依赖，不反向值依赖入口壳。
+_避免_：平铺文件、按旧文件一对一名、层级（layer）
+
+**公开面**:
+对外承诺的稳定面：10 个 exports 子路径（`.`、`./panel`、`./client`、`./batch`、`./panel-batch`、`./entry`、`./entry-batch`、`./install-button`、`./http`、`./log`）与它们对应的 dist 产物路径（如 `./batch` → `dist/host-batch.js`）。重构前后零变，只有加新能力才新开子路径。
+_避免_：API 面、目录树、内部文件清单
+
 ## 待规格确认后补入
 
 `诊断块（diag）`、`源主机名（registryHost）`、`动作提示（action）`、`稳定码`、`破冰` 等词的最终定义，随 #5 / #18 / #6 的规格落定后再建。**在此之前不要当既成事实引用**——本文件只收已定的。

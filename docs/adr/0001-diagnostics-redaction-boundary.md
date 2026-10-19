@@ -4,6 +4,8 @@
 - 日期：2026-10-02
 - 关联：[#4 错误信息返回能力架构地图](https://github.com/FeatherHunter/dsh-plugin-update/issues/4)、[#5 契约 v3](https://github.com/FeatherHunter/dsh-plugin-update/issues/5)、[#6 脱敏边界](https://github.com/FeatherHunter/dsh-plugin-update/issues/6)、[#18 规格](https://github.com/FeatherHunter/dsh-plugin-update/issues/18)
 
+> 路径注：#220（2026-10-19）重构后 `src/` 已按域分目录、根只留入口壳；本 ADR 内 `src/...` 路径为决策当时位置，对照见 [ADR-0007](0007-src-directory-shape.md) 与[蓝图](../research/20261019-src-restructure-blueprint.md) §3。
+
 ## 背景
 
 [#5](https://github.com/FeatherHunter/dsh-plugin-update/issues/5) 定下了失败回包的形状：稳定错误码之外加一个可选的 `diag` 小诊断块，面板只认稳定码。它同时把脱敏定性为**生成属性**——敏感信息在构造时不产生，不是构造后过滤。

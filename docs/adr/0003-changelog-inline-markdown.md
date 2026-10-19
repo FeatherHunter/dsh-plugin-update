@@ -5,6 +5,8 @@
 - 关联：[#109 地图](https://github.com/FeatherHunter/dsh-plugin-update/issues/109)、[#110 野外取样](https://github.com/FeatherHunter/dsh-plugin-update/issues/110)、[#111 宿主外链能力](https://github.com/FeatherHunter/dsh-plugin-update/issues/111)、[#112 形状与截断口径](https://github.com/FeatherHunter/dsh-plugin-update/issues/112)、[#113 图片策略](https://github.com/FeatherHunter/dsh-plugin-update/issues/113)、[#114 双主题预览](https://github.com/FeatherHunter/dsh-plugin-update/issues/114)、[#115 落地](https://github.com/FeatherHunter/dsh-plugin-update/issues/115)、[#116 解析覆盖缺口](https://github.com/FeatherHunter/dsh-plugin-update/issues/116)
 - 取证：`docs/research/20261014-changelog-markdown-constructs.md`（97 份 changelog／2.28 MB 的构造计数）、`docs/research/20261014-changelog-markdown-sample.md`（本机已装插件 8 份）、`docs/research/20261014-host-open-link-capability.md`（宿主开链能力）、预览件 `docs/research/20261014-changelog-md-preview.html`
 
+> 路径注：#220（2026-10-19）重构后 `src/` 已按域分目录、根只留入口壳；本 ADR 内 `src/...` 路径为决策当时位置，对照见 [ADR-0007](0007-src-directory-shape.md) 与[蓝图](../research/20261019-src-restructure-blueprint.md) §3。
+
 ## 背景
 
 面板第 02 章此前把 `CHANGELOG.md` 条目**原样**显示：反引号、`**`、`[文本](url)` 与裸 URL 都当普通字符画出来。野外取样显示正文里最密的就是这些行内符号（行内代码 4914 处／81 份、粗体 4742／26、绝对链接 6286、裸 URL 6671），所以“原样显示”等于把作者写的排版意图全丢掉。约束：日志来自第三方包、内容不可信；面板正文宽约 400–460px；本包零运行期依赖；`renderChangelogHTML` 的输出被集成方直接用（形状不能乱动）；两主题同一份 DOM、只换 CSS。

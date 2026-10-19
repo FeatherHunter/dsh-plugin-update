@@ -11,7 +11,7 @@ export { isCheckSideFailureCode } from './shared/codes.js' // 查侧判定从单
 export type { LastResortKind, RescueRouteKey, ManualSource, LastResortSubject, LastResortInput, LastResortVerdict } from './shared/last-resort.js'
 
 import type { PanelClientLogOptions } from './log/panel-client.js'
-import type { DiagCopyFormat } from './panel-copy.js'
+import type { DiagCopyFormat } from './shared/copy.js'
 import type { UpdateThemeTokens } from './panel/theme.js'
 import type { LocaleOption } from './shared/lang.js'
 import type { PanelSkipStore } from './panel/skip-store.js'
@@ -181,7 +181,7 @@ export interface UpdatePanelController {
   unmount(): void
 }
 
-// ---------- 文案垫片（#166：实现搬 panel-copy，老位置 re-export，行为零变化） ----------
+// ---------- 文案垫片（#166：实现从 panel.ts 独立；#230 搬入 shared/copy，老位置 re-export，行为零变化） ----------
 export {
   PANEL_DIAG_MAX_CHARS,
   blockedCopy,
@@ -197,8 +197,8 @@ export {
   redactForCopy,
   replyIsCheckExpired,
   thrownIsCheckExpired,
-} from './panel-copy.js'
-export type { BlockedCopy, DiagCopyFormat, FailureCopy, HealthyDiagCopyInput, PanelDiagnosticInput, TolerantDiag, UpdateDiagCopyInput, UpdaterSelfView } from './panel-copy.js'
+} from './shared/copy.js'
+export type { BlockedCopy, DiagCopyFormat, FailureCopy, HealthyDiagCopyInput, PanelDiagnosticInput, TolerantDiag, UpdateDiagCopyInput, UpdaterSelfView } from './shared/copy.js'
 
 // ---------- 实现（#226 拆入 panel/；这里 curated 转出，蓝图 §4） ----------
 export { normalizePanelTheme, isSafeThemeCssValue, themeTokensStyleFor } from './panel/theme.js'

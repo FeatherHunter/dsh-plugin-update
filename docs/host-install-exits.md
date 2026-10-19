@@ -139,7 +139,7 @@
   内部 `runCli({ manageDesktopProfile: true, … })`），所以 `plugin` 子命令的 `rejectElectronProfile` 守卫**不触发**。
   实测：`dsh --version` = `0.2.1-rc.2`；`dsh plugin --profile desktop add --help` → 打印 pnpm 11.28.5 帮助、无拒绝；
   `dsh plugin --profile desktop list --depth 0` → 正确列出 profile 直接依赖。
-  ⇒ 本包 `manualCommand`（`src/commands.ts:189-213`）生成的那条
+  ⇒ 本包 `manualCommand`（`src/shared/commands.ts:256-288`）生成的那条
   `dsh plugin --profile desktop add --save-exact <包名>@<版本> --registry=…` 在这台机器上**可执行**；
   且该进程里**没有 HMR**（管理器的 `already-installed` 守卫不成立）⇒ 它是当前唯一能绕过
   「已装直接依赖」这条死路的用户侧通道。注意它是**裸 pnpm**（不经 `publishAndReload`、bundle 选择表与移除确认），

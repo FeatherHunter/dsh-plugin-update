@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as panel from '../dist/panel.js'
-import * as pc from '../dist/panel-copy.js'
+import * as pc from '../dist/shared/copy.js'
 
 const FACE = [
   'blockedCopy',

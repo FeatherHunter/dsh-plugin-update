@@ -28,7 +28,7 @@ import type { VisibleQueue } from '../core/queue/model.js'
 import { validReleaseVersion } from '../core/service.js'
 import type { UpdateLogHealth } from '../log/health.js'
 import { createPanelClientLogShell } from '../log/panel-client.js'
-import { PANEL_DIAG_MAX_CHARS, buildHealthyDiagCopy, buildUpdateDiagCopy, failureCodeOf, redactForCopy, replyIsCheckExpired, thrownIsCheckExpired, type DiagCopyFormat, type UpdaterSelfView } from '../panel-copy.js'
+import { PANEL_DIAG_MAX_CHARS, buildHealthyDiagCopy, buildUpdateDiagCopy, failureCodeOf, redactForCopy, replyIsCheckExpired, thrownIsCheckExpired, type DiagCopyFormat, type UpdaterSelfView } from '../shared/copy.js'
 import type { UpdatePanelActionKind, UpdatePanelClientLogOptions, UpdatePanelContainer, UpdatePanelController, UpdatePanelMode, UpdatePanelOptions, UpdatePanelTheme } from '../panel.js'
 import { DEFAULT_PANEL_POLL_MS, DEFAULT_PREFIX, MIN_PANEL_POLL_MS, buildChangelogPhoneName, buildLogAppendPhoneName, buildPhoneNames } from '../shared/config.js'
 import { hash8 } from '../shared/hash.js'
@@ -721,7 +721,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
   let envUpdater: UpdaterSelfView | null = null
   /**
    * 日志健康读数（#212）：宿主成功回包里的 logHealth；旧宿主没有这个键就一直是 null，
-   * 面板日志区那一行随之不出现（老输出一字不差）。语义判断全在 panel-copy.logHealthText。
+   * 面板日志区那一行随之不出现（老输出一字不差）。语义判断全在 shared/copy.logHealthText。
    */
   let envLogHealth: UpdateLogHealth | null = null
 
@@ -977,7 +977,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
    * #212：采纳成功回包里的日志健康读数（选填键）。
    * 键缺席（老宿主 / 该回包不带）→ 保持现状，不动已有读数、也不制造新读数；
    * 键在但不是对象（null / 字符串…）→ 显式清空：「这一帧说没有」就照实没有，不沿用旧值；
-   * 形状对不对由 panel-copy.logHealthText 在渲染时按枚举分支判定（认不出即「无法识别」）。
+   * 形状对不对由 shared/copy.logHealthText 在渲染时按枚举分支判定（认不出即「无法识别」）。
    */
   function adoptLogHealth(value: unknown): void {
     if (value === undefined) return
@@ -1585,7 +1585,7 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         // 健康态诚实复制（#58）：没有失败就不伪造失败码，只给当前状态快照。
         if (!latch && !jobCode && !snapshot?.blockedReason && snapshot) {
           // 健康态复制：缺席不写注入的假版号、不谎称已是最新（#134/US16/US19）。
-          // 文案实现在 panel-copy（#166 切片 2），内核只留分支条件与复制动作。
+          // 文案实现在 shared/copy（#166 切片 2），内核只留分支条件与复制动作。
           const text = buildHealthyDiagCopy({
             canInstall: snapshot.canInstall,
             latestVersion: snapshot.latestVersion,

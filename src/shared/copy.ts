@@ -1,19 +1,20 @@
 /**
- * src/panel-copy.ts —— 面板文案簇（#166 第三刀：从 panel.ts 独立）。
+ * src/shared/copy.ts —— 面板文案簇（#166 从 panel.ts 独立；#230 搬入 shared/）。
  *
  * 阻塞/失败文案＋诊断复制文本＋容错读：改文案只碰这里，不翻面板大文件。
- * 只依赖叶子模块（bilingual/codes/install-cause/lang/redaction）与 ports 类型；
- * panel.ts 留垫片 re-export，老位置零变化。
+ * 只依赖叶子模块（core/i18n、core/cause、shared/ 的 codes/lang/redaction）与 ports、
+ * 日志健康读数的类型（`type ../log/health.js`）；panel.ts 留垫片 re-export，公开面
+ * ./panel 零变化。
  */
 
-import { copyText } from './core/i18n/text.js'
-import type { BilingualKey } from './core/i18n/dictionary.js'
-import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './shared/codes.js'
-import { blameCausePackage, CAUSE_KINDS, formatUnlockAt, interpretInstallCause } from './core/cause.js'
-import { normalizeLangTag, type AppLang } from './shared/lang.js'
-import { COPY_BUDGET_CHARS, sanitizeForCopy } from './shared/redaction.js'
-import type { BlockedReason } from './shared/ports.js'
-import type { UpdateLogHealth } from './log/health.js'
+import { copyText } from '../core/i18n/text.js'
+import type { BilingualKey } from '../core/i18n/dictionary.js'
+import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './codes.js'
+import { blameCausePackage, CAUSE_KINDS, formatUnlockAt, interpretInstallCause } from '../core/cause.js'
+import { normalizeLangTag, type AppLang } from './lang.js'
+import { COPY_BUDGET_CHARS, sanitizeForCopy } from './redaction.js'
+import type { BlockedReason } from './ports.js'
+import type { UpdateLogHealth } from '../log/health.js'
 
 // ---------- 状态与失败文案（#61 起全部出自集中字典，单语渲染；分支只认稳定码） ----------
 //

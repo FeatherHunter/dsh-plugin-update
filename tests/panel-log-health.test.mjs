@@ -12,7 +12,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mountUpdatePanel, renderUpdatePanelHTML } from '../dist/panel.js'
-import { logHealthText } from '../dist/panel-copy.js'
+import { logHealthText } from '../dist/shared/copy.js'
 
 function baseSnapshot(overrides = {}) {
   return {

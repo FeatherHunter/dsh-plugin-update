@@ -10,7 +10,7 @@ import { renderChangelogHTML, truncationNoteHTML, yankedBannerHTML } from '../co
 import type { BilingualKey } from '../core/i18n/dictionary.js'
 import { copyText } from '../core/i18n/text.js'
 import type { UpdateLogHealth } from '../log/health.js'
-import { logHealthText, updaterPartsOf, type UpdaterSelfView } from '../panel-copy.js'
+import { logHealthText, updaterPartsOf, type UpdaterSelfView } from '../shared/copy.js'
 import type { UpdatePanelMode, UpdatePanelTheme } from '../panel.js'
 import { normalizeLangTag, type AppLang } from '../shared/lang.js'
 import { lastResortVerdictOf, type LastResortVerdict, type ManualSource } from '../shared/last-resort.js'
@@ -265,7 +265,7 @@ export interface PanelRenderInput extends PanelViewInput {
   logDir?: string | null
   /**
    * 日志健康读数（#212）：宿主成功回包里的 logHealth，只在日志区露一行；缺省（老宿主）不出现，
-   * 输出与旧版一字不差。面板不解释语义，措辞全部来自 panel-copy 的 logHealthText（单一措辞源）。
+   * 输出与旧版一字不差。面板不解释语义，措辞全部来自 shared/copy 的 logHealthText（单一措辞源）。
    */
   logHealth?: UpdateLogHealth | null
   /**
@@ -1039,7 +1039,7 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
         })}</div>`,
       )
       // #212 日志健康：成功回包带了读数就多一行（这一帧日志到底有没有、落点是谁、为什么没有）；
-      // 老宿主没有这个键 / 没读数即不出现（不占位），措辞全部来自 panel-copy.logHealthText。
+      // 老宿主没有这个键 / 没读数即不出现（不占位），措辞全部来自 shared/copy.logHealthText。
       const healthLine = logHealthText(input.logHealth, l)
       if (healthLine) errLines.push(`<div class="dsh-upd-log">${escapeHtml(healthLine)}</div>`)
       if (b.kind === 'failed' && failRef && (failRef.requestId || failRef.checkId)) {

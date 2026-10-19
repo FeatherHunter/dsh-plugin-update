@@ -880,7 +880,7 @@ await flushUpdateLog({ timeoutMs: 500 })      // 缺省超时 1000ms：有界等
 
 它返回一份可观测读数 `{ flushed: boolean, timedOut: boolean, pending: number, stores: number }`：`flushed` 表示待写行是否都冲下去了、`timedOut` 是否等到超时、`pending` 是超时时刻估计还没落盘的行数、`stores` 是本次涉及的日志实例数。它冲的是**本插件自建落点的全部在册实例**（同进程登记表里按目录复用的那些自建句柄：顶层副本与嵌套副本共用同一个实例，所以 `stores` 通常小于副本数，别读成「有几份插件」）：外部落点（集成方自己的 dsh-log 实例）归集成方管，本函数不碰——没有自建落点时返回 `{ flushed: true, timedOut: false, pending: 0, stores: 0 }`，含义是「没有本插件自建落点要冲」，不是「冲完了」；`external` 支的短命进程仍要靠集成方自己冲它的实例。它**永不抛 / 永不 reject**——没有接线、没有落点、超时都只是读数；`timedOut: true` 表示没冲完，剩余行仍可能丢。所以它是「把救得回来的行救回来」，不是落盘承诺：`await flushUpdateLog()` 之后正常退出即可，别指望它保证 100% 落盘。
 
-日志在写入前就脱敏（绝对路径、URL 里的账密、令牌、凭据、邮箱五类换成占位符，规则见 `src/redaction.ts`），可以放心贴；贴之前扫一眼仍是好习惯。
+日志在写入前就脱敏（绝对路径、URL 里的账密、令牌、凭据、邮箱五类换成占位符，规则见 `src/shared/redaction.ts`），可以放心贴；贴之前扫一眼仍是好习惯。
 
 ## 致谢
 

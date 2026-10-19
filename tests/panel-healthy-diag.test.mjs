@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import * as pc from '../dist/panel-copy.js'
+import * as pc from '../dist/shared/copy.js'
 
 // #166 切片 2：健康态复制文本是 panel.ts 里最后一块硬编码中文用户文案
 //（有新版…可装／已是最新／插件=/宿主=/使用范围=/队列=/[update-diag] 当前无失败）。

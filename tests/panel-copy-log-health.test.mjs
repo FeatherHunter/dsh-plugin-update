@@ -11,7 +11,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildHealthyDiagCopy, buildUpdateDiagCopy, logHealthText } from '../dist/panel-copy.js'
+import { buildHealthyDiagCopy, buildUpdateDiagCopy, logHealthText } from '../dist/shared/copy.js'
 import { parseDiagCopy } from '../scripts/bilingual-gate.mjs'
 
 const CJK = /[\u4e00-\u9fff]/

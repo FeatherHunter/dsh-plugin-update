@@ -5,6 +5,8 @@
 - 关联：地图 [本包全面集成 dsh-log 0.3.1](https://github.com/FeatherHunter/dsh-plugin-update/issues/117) · 本票 [规格定稿](https://github.com/FeatherHunter/dsh-plugin-update/issues/119) · 调研 `docs/research/20261014-dsh-log-031-api.md` · `docs/research/20261014-update-logging-inventory.md` · `docs/research/20261014-dsh-host-logging-surface.md` · ADR-0001 · ADR-0003 · ADR-0006 · 事件目录 `docs/research/20261014-log-event-catalog.md`
 - 决策来源：用户 2026-10-14 把本图的决策整体授权给执行会话（地图 #117 前提 1）
 
+> 路径注：#220（2026-10-19）重构后 `src/` 已按域分目录、根只留入口壳；本 ADR 内 `src/...` 路径为决策当时位置，对照见 [ADR-0007](0007-src-directory-shape.md) 与[蓝图](../research/20261019-src-restructure-blueprint.md) §3。
+
 ## 背景
 
 需求三条：每个环节的关键信息都要能打出来、第三方开发者能把日志交给我们、同一份 DSH 里多个使用本更新系统的插件日志不能相互覆盖。

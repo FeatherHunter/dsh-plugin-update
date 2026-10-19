@@ -5,6 +5,8 @@
 - 关联：本票 [规格定稿](https://github.com/FeatherHunter/dsh-plugin-update/issues/119) · 地图 [本包全面集成 dsh-log 0.3.1](https://github.com/FeatherHunter/dsh-plugin-update/issues/117) · ADR-0001（脱敏边界，尤其 `:92-103` 登记的 README 张力）· ADR-0005 · 事件目录 `docs/research/20261014-log-event-catalog.md` · 调研 `docs/research/20261014-dsh-log-031-api.md`
 - 决策来源：用户 2026-10-14 把本图的决策整体授权给执行会话（地图 #117 前提 3）
 
+> 路径注：#220（2026-10-19）重构后 `src/` 已按域分目录、根只留入口壳；本 ADR 内 `src/...` 路径为决策当时位置，对照见 [ADR-0007](0007-src-directory-shape.md) 与[蓝图](../research/20261019-src-restructure-blueprint.md) §3。
+
 ## 背景
 
 ADR-0001 把 `detail` 定为「全系统唯一自由文本出口」，并登记了一条它自己答不了的前置张力（`docs/adr/0001-diagnostics-redaction-boundary.md:92-103`）：`README.md:260` 教用户 `message` 形如 `install-failed: <宿主原话>`，而 #5 冻结的是「`diagnostic` 永指宿主脏原文、永不过边界」——真实存在的唯一诊断通道恰恰就是宿主原话。
