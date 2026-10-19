@@ -1642,6 +1642,9 @@ export const UPDATE_BATCH_PANEL_CSS = [
   // reduced-motion 由下方既有规则关掉动画，配色与文字仍在。
   '.dsh-upd .dsh-upd-busy-btn:disabled{opacity:1;cursor:progress;font-weight:700;border-color:var(--dsh-update-busy-border,#2563eb);color:var(--dsh-update-busy-border,#2563eb);background:var(--dsh-update-busy-bg,#eff6ff)}',
   '.dsh-upd .dsh-upd-busy-btn:disabled::before{content:"";display:inline-block;width:9px;height:9px;margin-right:6px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;vertical-align:-1px;animation:dsh-upd-busy-spin .8s linear infinite}',
+  // #219 双转条：单面板主题对 [aria-busy="true"] 按钮自带一枚 ::after 转圈，批量在装按钮自己还有一枚
+  // ::before 转圈，两枚叠起来像两个转动条。在装按钮已用 ::before 表达忙碌，这里关掉主题那枚。
+  '.dsh-upd .dsh-upd-busy-btn[aria-busy="true"]::after{content:none;display:none}',
   '.dsh-upd .dsh-upd-busy-btn[data-busy="1"]{animation:dsh-upd-busy-pulse 1.4s ease-in-out infinite}',
   '@keyframes dsh-upd-busy-spin{to{transform:rotate(360deg)}}',
   '@keyframes dsh-upd-busy-pulse{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,.35)}50%{box-shadow:0 0 0 4px rgba(37,99,235,0)}}',

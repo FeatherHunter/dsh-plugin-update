@@ -60,6 +60,7 @@ import {
   type BatchEntry,
   type BatchPhase,
   type BatchProgress,
+  type BatchSelfOrder,
   type BatchSession,
 } from './batch.js'
 import {
@@ -112,10 +113,15 @@ export interface MultiTargetSpec {
 export interface MultiHostOptions {
   /** 批量电话前缀（例 'life'）。 */
   prefix: string
-  /** 目标清单（顺序即会话顺序；selfKey 会被排到最后）。 */
+  /** 目标清单（顺序即会话顺序；selfKey 的位置由 selfOrder 决定，默认最后）。 */
   targets: MultiTargetSpec[]
-  /** 「自己」的键：排序时排最后，自更新安全。 */
+  /** 「自己」的键：只作日志属主识别；排位由 selfOrder 决定。 */
   selfKey?: string | null
+  /**
+   * 「自己」在会话顺序里的排位（#219）：默认 'last'（自更新安全：先升别家、最后升自己）；
+   * 'first' 让本体排第一行（爱生活本体诉求：爱生活应在批量面板第一行）。
+   */
+  selfOrder?: BatchSelfOrder
   /** 一家失败后是否停下（默认 false：继续下一家）。 */
   stopOnFailure?: boolean
   /** 宿主侧 drain：定时自动推进队列（**默认关**，显式 opt-in）。 */
@@ -393,10 +399,17 @@ function addKeys(session: BatchSession, keys: Iterable<string>, at: number): Bat
     })
   }
   if (added.length === 0) return session
+  const addedKeys = added.map((entry) => entry.key)
+  const merged = [...session.order, ...addedKeys.filter((key) => !session.order.includes(key))]
+  // #219：本体在第一位的会话，追加目标后仍让本体留在第一位（不能按默认 last 又把它踢到最后）。
+  const order =
+    session.selfKey !== null && merged[0] === session.selfKey
+      ? [session.selfKey, ...merged.filter((key) => key !== session.selfKey)]
+      : orderTargets(merged, session.selfKey)
   return {
     ...session,
     entries: [...session.entries, ...added],
-    order: orderTargets([...session.order, ...added.map((entry) => entry.key)], session.selfKey),
+    order,
     updatedAt: at,
   }
 }
@@ -745,7 +758,7 @@ export function createMultiHostUpdate(
   const prefix = assertPrefix(options && options.prefix, '批量电话前缀 prefix')
   const specs = validateTargets(options && options.targets)
   const byKey = new Map(specs.map((spec) => [spec.key, spec]))
-  const orderedSpecs = orderTargets(specs.map((spec) => spec.key), options.selfKey ?? null).map(
+  const orderedSpecs = orderTargets(specs.map((spec) => spec.key), options.selfKey ?? null, options.selfOrder).map(
     (key) => byKey.get(key) as MultiTargetSpec,
   )
   const now = typeof input.now === 'function' ? input.now : Date.now
@@ -1387,6 +1400,7 @@ export function createMultiHostUpdate(
         id: newSessionId(),
         keys: runtimes.map((rt) => rt.spec.key),
         selfKey: options.selfKey ?? null,
+        selfOrder: options.selfOrder,
         stopOnFailure: options.stopOnFailure === true,
         now: now(),
       })
@@ -1545,6 +1559,7 @@ export function createMultiHostUpdate(
           id: newSessionId(),
           keys: runtimes.map((rt) => rt.spec.key),
           selfKey: options.selfKey ?? null,
+          selfOrder: options.selfOrder,
           stopOnFailure: options.stopOnFailure === true,
           now: now(),
         })
