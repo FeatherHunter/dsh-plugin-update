@@ -15,7 +15,7 @@
 - **exports 契约不打破**：npm 已发布版本（0.18.6 起）+ 4 家消费方（deck、life-pack、im-companion、palette）的子路径 import 是真契约；其余（#159 程序性冻结、tests 深引用、文档）都是我方纪律，钥匙在自己手里，本次按 §7 成本表处理。
 - **一步到位**：拆文件 + 搬目录一次做完，不经历“拆完还在扁平里”的中间态（同步打破 #159 Q1 分阶段纪律，已获批）。
 
-## 2. 目标目录树（89 文件：54 旧全量 + 35 拆分新增；目录职责一句话；#229 执行补记：panel/batch/helpers.ts 让目标树 88→89）
+## 2. 目标目录树（89 文件：54 旧全量 + 35 拆分新增；目录职责一句话；#229 执行补记：panel/batch/helpers.ts 让目标树 88→89；#221 执行补记：install-button 五模块按原树落位、文件数不变，行号锚点修正见 §4）
 
 ```text
 src/
@@ -70,12 +70,12 @@ src/
 │   ├── batch/
 │   │   ├── model.ts         # 旧 batch.ts 整搬（会话纯模型）
 │   │   └── run.ts           # 旧 batch-run.ts 整搬（runBatch 步骤机）
-│   ├── install-button/      # 安装按钮域
-│   │   ├── widgets.ts       # 旧 install-button.ts L173–263 内部小件（无导出，挂载与视图共用）
-│   │   ├── view.ts          # installButtonViewModel（旧 install-button.ts L264–315）
-│   │   ├── render.ts        # renderInstallButtonHTML（旧 install-button.ts L316–523）
-│   │   ├── styles.ts        # 按钮样式（旧 install-button.ts L524–599）
-│   │   └── mount.ts         # mountInstallButton（旧 install-button.ts L600–1786）
+│   ├── install-button/      # 安装按钮域（#221 已执行；实测行号见 §4，原文锚点已随文件重排失真）
+│   │   ├── widgets.ts       # 旧 install-button.ts L174–263 本地小件（形如 panel 的转义/归一/计时器；跨文件复用故补 export，不进公开面）
+│   │   ├── view.ts          # installButtonViewModel + 私有 installButtonFallbackOf（旧 install-button.ts L265–426）
+│   │   ├── render.ts        # renderInstallButtonHTML（旧 install-button.ts L428–579）
+│   │   ├── styles.ts        # INSTALL_BUTTON_CSS（旧 install-button.ts L148–172，顶部常量段）
+│   │   └── mount.ts         # 轮询口径常量 + InstallButtonLatch + mountInstallButton（旧 install-button.ts L581–1786；常量随挂载段迁入，见 §4）
 │   ├── changelog/
 │   │   ├── parse.ts         # 解析：常量/正则 + parseChangelogReport/parseChangelog/归类（旧 changelog.ts L29–921）
 │   │   ├── render-model.ts  # 渲染：CHANGELOG_MD_INLINE + render*HTML（旧 changelog.ts L922–1495）
@@ -210,11 +210,14 @@ core/queue/ports.ts ← 队列端口段 L656–970（含 QUEUE_DIR_SEGMENT/Queue
 core/executor.ts ← resolveCliEntry（L1464）+ ExecutorParts（L1507）+ createUpdateExecutor（L2531 起至文件尾）；
 core/store-base.ts ← 前置段 L37–364（冻结旧路径字面/稳定失败码白名单/原子锁与锁代际/createStoreLog 三类日志发射）。§4 原文未给该段指定归属：它同时被 disk 与 queue/ports 需要，若塞进 disk 会形成 disk↔queue 环（§6 R1 禁止），故独立成文件，其余三家单向依赖它；目标树因此 87→88 文件。
 
-### install-button.ts → 5 去向 + 壳
+### install-button.ts → 5 去向 + 壳（#221 执行补记：原文行号锚点已随此前搬家/文件重排失真，以实测为准）
 
-对外类型段 L50–172 → 壳留存；内部小件段 L173–263（无导出，挂载与视图共用）→ core/install-button/widgets.ts；
-installButtonViewModel（L295，视图段 L264–315）→ view.ts；renderInstallButtonHTML（L427，渲染段 L316–523）→ render.ts；
-按钮样式段 L524–599 → styles.ts；mountInstallButton（L600，挂载段 L600–1786）→ mount.ts。
+拆前实测 1786 行。对外类型段 L53–138 → 壳留存；内部小件段 L174–263 → core/install-button/widgets.ts；
+样式常量段 L148–172（INSTALL_BUTTON_CSS）→ styles.ts；视图段 L265–426（installButtonFallbackOf + installButtonViewModel）→ view.ts；
+渲染段 L428–579（renderInstallButtonHTML）→ render.ts；挂载段 L581–1786（InstallButtonLatch + mountInstallButton）→ mount.ts。
+**改判 1（#221 执行时）**：原文把「对外类型段 L50–172」整体划给壳，但 INSTALL_BUTTON_POLL（L140–143，值由 shared/config 的 DEFAULT_/MIN_PANEL_POLL_MS 算出）与 INSTALL_BUTTON_MAX_POLLS（L145–146，只被挂载段用）都是实现值：壳按 §1 只许留公开类型 + re-export、零逻辑；且 MAX_POLLS 若留壳会与挂载段形成壳↔mount 运行期值循环（§6 R1 禁止；实现不得值依赖入口壳）。故两常量随挂载段迁入 mount.ts、壳只 re-export（照 #229 helpers/BATCH_PANEL_POLL 先例），公开集不变。
+**改判 2**：原文说 widgets「无导出」；实际 escapeHtml 被 render、其余 8 件被 mount 跨文件调用，拆后补 `export`（内部用法，壳不转出）；私有 installButtonFallbackOf 留在 view.ts。
+**导出对账**：拆后 10 个入口 values+types 与拆前逐名一致；`dist/install-button.js` 运行期导出 6 值不变（INSTALL_BUTTON_CSS / INSTALL_BUTTON_MAX_POLLS / INSTALL_BUTTON_POLL / installButtonViewModel / mountInstallButton / renderInstallButtonHTML），d.ts 18 名不变（6 值 + 12 类型）。
 
 ### host.ts → 4 去向 + 壳
 
@@ -259,7 +262,7 @@ core/i18n/styles.ts ← BILINGUAL_CSS。
 | panel-batch.ts（`./panel-batch`） | 公开类型（L79–253）+ 总账/渲染/挂载全部公开名；BATCH_PANEL_POLL/buildBatchPhoneNames 定义在 batch/helpers.ts、经壳 re-export（#229 执行补记，公开集不变） |
 | entry.ts（`./entry`） | `export *` panel/entry.ts（EntryVariant/EntryAutoCheck/EntryOpenOn/UpToDateDisplay/EntryTheme/EntryStateKind/UpdateEntryState/EntrySizing/UpdateEntryOptions/UpdateEntryController/entryStateKind/entryBilingual*/entryLabelFor/entrySizingStyleFor/UPDATE_ENTRY_CSS/mountUpdateEntry） |
 | entry-batch.ts（`./entry-batch`） | `export *` panel/batch/entry-batch.ts（BatchEntryVariant/BatchEntryAutoCheck/BatchEntryOpenOn/BatchEntryStateKind/UpdateBatchEntryState/BatchEntrySummary/UpdateBatchEntryOptions/UpdateBatchEntryController/batchEntrySummary/batchEntryStateKind/batchEntryLabelFor/batchEntryBilingual*/mountUpdateBatchEntry） |
-| install-button.ts（`./install-button`） | 对外类型（L50–172）+ installButtonViewModel/renderInstallButtonHTML/mountInstallButton |
+| install-button.ts（`./install-button`） | 对外类型（拆前实测 L53–138）+ installButtonViewModel/renderInstallButtonHTML/mountInstallButton；INSTALL_BUTTON_CSS/POLL/MAX_POLLS 定义在 core/install-button/{styles,mount}.ts、经壳 re-export（#221 执行补记，公开集不变） |
 | client.ts（`./client`） | `export *` panel/client.ts（CLIENT_POLL/buildClientPhoneNames/assertPollInterval + 电话名构建组 + manualCommand 转出口） |
 | http.ts（`./http`） | `export *` host/http.ts（HTTP_TRANSPORT_FAILED/DEFAULT_HTTP_*_TIMEOUT_MS/HTTP_PHONE_ACTIONS/HttpPhoneAction/HTTP_BATCH_ACTIONS/HttpBatchAction/HttpRoutes/HttpFetch/HttpTimeouts/CreateHttpCallOptions/assertHttpRoutes/resolveHttpPath/httpTransportFailed/pickHttpDiag/shapeHttpReply/createHttpCall/UpdatePanelHttpOptions/mountUpdatePanelHttp/UpdateEntryHttpOptions/mountUpdateEntryHttp/UpdateBatchPanelHttpOptions/mountUpdateBatchPanelHttp/assertPollInterval） |
 | log/index.ts（`./log`） | 事件目录与门禁（现 log/ 原位不动；独立成壳因消费方是宿主侧而非面板侧） |

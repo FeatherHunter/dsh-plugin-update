@@ -456,16 +456,26 @@ describe('日志内核：真引擎端到端（dsh-log 0.3.4 真落一份文件�
 
 describe('日志内核：面板侧只许引用无 node: 依赖的纯类型与客户端通道', () => {
   it('浏览器侧入口不 import 会拖进 node: 的内核模块', () => {
-    const browserFiles = ['panel.ts', 'client.ts', 'entry.ts', 'entry-batch.ts', 'panel-batch.ts', 'http.ts']
+    const browserFiles = [
+      'panel.ts',
+      'client.ts',
+      'entry.ts',
+      'entry-batch.ts',
+      'panel-batch.ts',
+      'http.ts',
+      'install-button.ts',
+    ]
     // #226/#229：面板实现拆进 src/panel/（含批量面板 panel/batch/），拆出文件与入口壳同样要浏览器安全，
-    // 逐个查（相对 src/ 的路径；#229 起批量面板实现也在 panel/batch/ 下，由 walkPanel 一并覆盖）。
-    const walkPanel = (dir, prefix = '') => {
+    // 逐个查（相对 src/ 的路径；#229 起批量面板实现也在 panel/batch/ 下，由 walkBrowser 一并覆盖）。
+    const walkBrowser = (dir, prefix) => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        if (entry.isDirectory()) walkPanel(join(dir, entry.name), prefix + entry.name + '/')
-        else if (entry.name.endsWith('.ts')) browserFiles.push('panel/' + prefix + entry.name)
+        if (entry.isDirectory()) walkBrowser(join(dir, entry.name), prefix + entry.name + '/')
+        else if (entry.name.endsWith('.ts')) browserFiles.push(prefix + entry.name)
       }
     }
-    walkPanel(join(PKG_DIR, 'src', 'panel'))
+    walkBrowser(join(PKG_DIR, 'src', 'panel'), 'panel/')
+    // #221：安装按钮实现拆进 src/core/install-button/，拆出文件与入口壳同样要浏览器安全。
+    walkBrowser(join(PKG_DIR, 'src', 'core', 'install-button'), 'core/install-button/')
     // 浏览器安全的只有客户端通道（#122：面板唯一的报日志出口）；其余会把 node: 内建拖进打包器
     // （`trace` 也在列：宿主侧链上下文要 node:async_hooks）。
     const forbidden = /\.\.?\/log\/(index|namespace|emit|manifest|registry|trace|own-version)\.js$/
