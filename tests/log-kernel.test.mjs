@@ -457,7 +457,8 @@ describe('日志内核：真引擎端到端（dsh-log 0.3.4 真落一份文件�
 describe('日志内核：面板侧只许引用无 node: 依赖的纯类型与客户端通道', () => {
   it('浏览器侧入口不 import 会拖进 node: 的内核模块', () => {
     const browserFiles = ['panel.ts', 'client.ts', 'entry.ts', 'entry-batch.ts', 'panel-batch.ts', 'http.ts']
-    // #226：面板实现拆进 src/panel/，拆出文件与入口壳同样要浏览器安全，逐个查（相对 src/ 的路径）。
+    // #226/#229：面板实现拆进 src/panel/（含批量面板 panel/batch/），拆出文件与入口壳同样要浏览器安全，
+    // 逐个查（相对 src/ 的路径；#229 起批量面板实现也在 panel/batch/ 下，由 walkPanel 一并覆盖）。
     const walkPanel = (dir, prefix = '') => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
         if (entry.isDirectory()) walkPanel(join(dir, entry.name), prefix + entry.name + '/')
@@ -471,7 +472,7 @@ describe('日志内核：面板侧只许引用无 node: 依赖的纯类型与客
     for (const name of browserFiles) {
       const raw = readFileSync(join(PKG_DIR, 'src', name), 'utf8')
       const text = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^A-Za-z0-9_$:])\/\/.*$/gm, '$1')
-      for (const m of text.matchAll(/import\s+(type\s+)?[^'\n]*?from\s+['"](\.\.?\/log\/[^'"]+)['"]/g)) {
+      for (const m of text.matchAll(/import\s+(type\s+)?[^'\n]*?from\s+['"]((?:\.\.\/|\.\/)*log\/[^'"]+)['"]/g)) {
         assert.ok(!forbidden.test(m[2]) || m[1], `${name} 引了会拖进 node: 的 ${m[2]}（只许 import type）`)
       }
     }
@@ -486,8 +487,9 @@ describe('日志内核：面板侧只许引用无 node: 依赖的纯类型与客
     // #226：面板实现拆进 src/panel/，panel-client 的运行时引用落在 panel/mount.ts。
     const mount = readFileSync(join(PKG_DIR, 'src', 'panel', 'mount.ts'), 'utf8')
     assert.match(mount, /from\s+['"]\.\.\/log\/panel-client\.js['"]/, 'panel/mount.ts 要经共享日志壳报日志')
-    const panelBatch = readFileSync(join(PKG_DIR, 'src', 'panel-batch.ts'), 'utf8')
-    assert.match(panelBatch, /from\s+['"]\.\/log\/panel-client\.js['"]/, 'panel-batch.ts 要经共享日志壳报日志')
+    // #229：批量面板实现拆进 src/panel/batch/，运行时引用落在 panel/batch/mount.ts（根壳只留类型与 re-export）。
+    const batchMount = readFileSync(join(PKG_DIR, 'src', 'panel', 'batch', 'mount.ts'), 'utf8')
+    assert.match(batchMount, /from\s+['"]\.\.\/\.\.\/log\/panel-client\.js['"]/, 'panel/batch/mount.ts 要经共享日志壳报日志')
   })
 
   it('内核里只有登记表一处动态 import dsh-log/node（运行期唯一外部依赖）', () => {

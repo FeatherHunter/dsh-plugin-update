@@ -152,8 +152,9 @@ test('面板 02 章：日志节里真的出现可点锚与代码样式', () => {
 })
 
 test('三处生效：批量两处复用单插件内核（静态接线核对，测编译后行为，#162 首拆票附带）', () => {
-  const batchSrc = readFileSync(new URL('../dist/panel-batch.js', import.meta.url), 'utf8')
-  assert.ok(/import[\s\S]*renderUpdatePanelHTML[\s\S]*from\s+['"]\.\/panel\.js['"]/.test(batchSrc), '批量面板导入单插件内核')
+  // #229：批量面板实现拆进 dist/panel/batch/render.js，壳只做 re-export；接线断言跟着实现文件走。
+  const batchSrc = readFileSync(new URL('../dist/panel/batch/render.js', import.meta.url), 'utf8')
+  assert.ok(/import[\s\S]*renderUpdatePanelHTML[\s\S]*from\s+['"]\.\.\/\.\.\/panel\.js['"]/.test(batchSrc), '批量面板导入单插件内核')
   assert.ok(batchSrc.includes('renderUpdatePanelHTML({'), '批量展开行/详情弹窗都走同一内核')
 })
 

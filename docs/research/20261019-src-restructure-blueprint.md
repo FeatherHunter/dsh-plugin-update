@@ -15,7 +15,7 @@
 - **exports 契约不打破**：npm 已发布版本（0.18.6 起）+ 4 家消费方（deck、life-pack、im-companion、palette）的子路径 import 是真契约；其余（#159 程序性冻结、tests 深引用、文档）都是我方纪律，钥匙在自己手里，本次按 §7 成本表处理。
 - **一步到位**：拆文件 + 搬目录一次做完，不经历“拆完还在扁平里”的中间态（同步打破 #159 Q1 分阶段纪律，已获批）。
 
-## 2. 目标目录树（88 文件：54 旧全量 + 34 拆分新增；目录职责一句话）
+## 2. 目标目录树（89 文件：54 旧全量 + 35 拆分新增；目录职责一句话；#229 执行补记：panel/batch/helpers.ts 让目标树 88→89）
 
 ```text
 src/
@@ -54,10 +54,11 @@ src/
 │   ├── client.ts            # 旧 client.ts 整搬 + 旧 panel.ts L4172–4226 电话名段并入
 │   ├── entry.ts             # 旧 entry.ts 整搬
 │   └── batch/               # 面板侧批量 UI
+│       ├── helpers.ts      # 共享底座：形状归一/转义/回退与失败文案/电话名（#229 执行新增，见 §4 改判 2）
 │       ├── ledger.ts        # 批量总账函数（旧 panel-batch.ts L254–668）
 │       ├── render.ts        # 批量渲染（旧 panel-batch.ts L676–1574）
 │       ├── styles.ts        # 批量样式 CSS + ARCHIVE_CSS（旧 panel-batch.ts L1575–1689）
-│       ├── mount.ts         # 批量挂载 + 回退/失败文案助手（旧 panel-batch.ts L1690–3624）
+│       ├── mount.ts         # 批量挂载（旧 panel-batch.ts L1690–3624，助手移 helpers）
 │       └── entry-batch.ts   # 旧 entry-batch.ts 整搬
 ├── core/                    # 两侧共享的纯逻辑：版本判断、结论、队列、执行、网关
 │   ├── service.ts           # 旧 service.ts 整搬（核心服务装配，不再拆：CONFIRMATION_TTL_MS/RECHECK_WINDOW_MS/validRequestId/__resetFallbackSlots/createUpdateCore，
@@ -187,13 +188,17 @@ bilingual.ts(959) → core/i18n/{dictionary,text,styles}.ts。
 | panel/mount.ts | 挂载段 L2310–4171：pendingAutoCheck（L2395）+ mountUpdatePanel |
 | panel/client.ts | 电话名段 L4172–4226：buildPanelPhoneNames/buildPanelChangelogPhoneName/PANEL_POLL，并入旧 client.ts 内容 |
 
-### panel-batch.ts → 4 去向 + 壳（改判记录）
+### panel-batch.ts → 4 去向 + 共享底座 + 壳（改判记录，#229 执行补记）
 
 总账段 L254–668 → panel/batch/ledger.ts；渲染段 L676–1574 → render.ts；
 样式段 L1575–1689（含 ARCHIVE_CSS）→ styles.ts；
-挂载段 L1690–3624（含 singleFallbackPhoneOf/singleInstallPhoneOf/fallbackOutcomeOf/batchFallbackCauseOf/compliantInstalledOf/batchFailedRows/batchFailedDiagText/batchFailedManualText + mountUpdateBatchPanel）→ mount.ts；
-公开类型 L79–253（含 BATCH_PANEL_POLL/buildBatchPhoneNames）→ 壳留存。
-**改判**：原型 v4 曾列 `actions.ts`/`prefs.ts` 六拆；export 盘点显示回退/失败助手全部位于挂载段、偏好（BatchPrefs/normalizeBatchPrefs/PREFS_FILE）位于 store.ts（→ core/disk.ts），panel-batch 内无独立截面可锚，故六拆→四拆。
+挂载段 L1690–3624（不含移出的共享助手）→ mount.ts；
+公开类型 L79–253 → 壳留存（类型声明）；BATCH_PANEL_POLL/buildBatchPhoneNames 定义在 batch/helpers.ts，经壳 re-export，导出集不变。
+**改判 1**：原型 v4 曾列 `actions.ts`/`prefs.ts` 六拆；export 盘点显示回退/失败助手全部位于挂载段、偏好（BatchPrefs/normalizeBatchPrefs/PREFS_FILE）位于 store.ts（→ core/disk.ts），panel-batch 内无独立截面可锚，故六拆→四拆。
+**改判 2（#229 执行时）**：照本节原文把共享助手留在 mount、把 `batchFailedManualText` 留在挂载段，会形成 ledger↔mount、render↔mount、壳↔mount 运行期循环（§6 R1 禁止：实现只向下依赖），故：
+(a) 新增 `panel/batch/helpers.ts` 收 BATCH_PHASES + 行/队列/会话形状归一、转义、回退原因、失败行、电话名等被 ledger/render/mount 共用的助手（目标树因此 88→89 文件；与 store-base.ts 同一手法）；
+(b) `batchFailedManualText`（依赖 ledger 的 langOf/batchText）落 render.ts，挂载侧调用点不变；
+(c) `BATCH_PANEL_POLL`/`buildBatchPhoneNames` 定义在 helpers.ts、壳只 re-export；公开集仍 34/34（23 值 + 11 类型），dist/panel-batch.js 运行期导出与拆前逐名一致。
 
 ### store.ts → 4 去向（无 [S] 截面，按导出 runs 划分；#228 执行补记第 4 条）
 
@@ -251,7 +256,7 @@ core/i18n/styles.ts ← BILINGUAL_CSS。
 | host.ts（`.`） | HostUpdate/createHostUpdate/__resetSharedUpdateReaderForTests/failedJobDiagOf/ReaderOverrides/PhoneEnvView/detectEnvironmentKind…（今日 host.ts 全部公开名） |
 | host-batch.ts（`./host-batch`） | MultiTargetSpec/Options/Timer/Deps/PhoneNames/Update/createMultiHostUpdate/BATCH_CHECK_CONCURRENCY/BatchHostPhoneNames… |
 | panel.ts（`./panel`） | 公开类型（L50–347）+ 视图/渲染/挂载/主题/跳过存储/电话名全部公开名 + isCheckSideFailureCode 转出口 |
-| panel-batch.ts（`./panel-batch`） | 公开类型（L79–253，含 BATCH_PANEL_POLL）+ 总账/渲染/挂载全部公开名 |
+| panel-batch.ts（`./panel-batch`） | 公开类型（L79–253）+ 总账/渲染/挂载全部公开名；BATCH_PANEL_POLL/buildBatchPhoneNames 定义在 batch/helpers.ts、经壳 re-export（#229 执行补记，公开集不变） |
 | entry.ts（`./entry`） | `export *` panel/entry.ts（EntryVariant/EntryAutoCheck/EntryOpenOn/UpToDateDisplay/EntryTheme/EntryStateKind/UpdateEntryState/EntrySizing/UpdateEntryOptions/UpdateEntryController/entryStateKind/entryBilingual*/entryLabelFor/entrySizingStyleFor/UPDATE_ENTRY_CSS/mountUpdateEntry） |
 | entry-batch.ts（`./entry-batch`） | `export *` panel/batch/entry-batch.ts（BatchEntryVariant/BatchEntryAutoCheck/BatchEntryOpenOn/BatchEntryStateKind/UpdateBatchEntryState/BatchEntrySummary/UpdateBatchEntryOptions/UpdateBatchEntryController/batchEntrySummary/batchEntryStateKind/batchEntryLabelFor/batchEntryBilingual*/mountUpdateBatchEntry） |
 | install-button.ts（`./install-button`） | 对外类型（L50–172）+ installButtonViewModel/renderInstallButtonHTML/mountInstallButton |
