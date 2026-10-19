@@ -1,6 +1,6 @@
 # 日志事件目录：19 环节 → 事件码 / 级别 / 档位 / 字段 / 脱敏
 
-- 日期：2026-10-14（**2026-10-15 契约回填**：本文件的「事件名 / 字段 / 取值」三处与随包清单、实现对齐；见文末 §7。**2026-10-19 二次回填（`#211`）**：五个事件的字段与枚举按随包清单一字回填，错误类别细化见 §8。**2026-10-19 三次回填（`#208`）**：批量三事件补 `sessionHash` / `stage` / `index` / `stoppedBecause`，`host.call.fail` 与批量面板客户端日志接上批量现场；事件名与档位归属不变、字段 +6，见 §9。**2026-10-19 四次回填（`#209`）**：队列 / 锁 / 存储三行补持有者指纹与清理相位、批量异常停止行、轮询失败心跳；事件名与档位归属不变、字段实发 +3（白名单净新增一栏 `update.queue.transition.holderHash`，`update.lock.anomaly.ownerHash` 与 `update.store.fail.dirHash` 原已声明、本票转为实发），见 §10）
+- 日期：2026-10-14（**2026-10-15 契约回填**：本文件的「事件名 / 字段 / 取值」三处与随包清单、实现对齐；见文末 §7。**2026-10-19 二次回填（`#211`）**：五个事件的字段与枚举按随包清单一字回填，错误类别细化见 §8。**2026-10-19 三次回填（`#208`）**：批量三事件补 `sessionHash` / `stage` / `index` / `stoppedBecause`，`host.call.fail` 与批量面板客户端日志接上批量现场；事件名与档位归属不变、字段 +6，见 §9。**2026-10-19 四次回填（`#209`）**：队列 / 锁 / 存储三行补持有者指纹与清理相位、批量异常停止行、轮询失败心跳；事件名与档位归属不变、字段实发 +3（白名单净新增一栏 `update.queue.transition.holderHash`，`update.lock.anomaly.ownerHash` 与 `update.store.fail.dirHash` 原已声明、本票转为实发），见 §10。**2026-10-19 五次回填（`#206` P2-1）**：HEAD（`18df6d7`）重查基线 + 对抗审查 §8.3 五处修正落字，见 §11）
 - 本票：[规格定稿](https://github.com/FeatherHunter/dsh-plugin-update/issues/119)（地图 [本包全面集成 dsh-log 0.3.1](https://github.com/FeatherHunter/dsh-plugin-update/issues/117)）
 - 上游事实源：`docs/research/20261014-update-logging-inventory.md`（19 环节清单与逐条 `文件:行号`）、`docs/research/20261014-dsh-log-031-api.md`、`docs/research/20261014-dsh-host-logging-surface.md`
 - 立规的两份 ADR：[ADR-0005 运行期依赖与落盘归属](https://github.com/FeatherHunter/dsh-plugin-update/blob/main/docs/adr/0005-dsh-log-as-first-runtime-dependency.md)、[ADR-0006 行只承载稳定码](https://github.com/FeatherHunter/dsh-plugin-update/blob/main/docs/adr/0006-log-rows-carry-codes-not-prose.md)
@@ -290,3 +290,36 @@
 - 非轮询电话（check / install / changelog / logAppend…）口径不变：一次失败电话一条，不做时间窗限速（它们的调用频率由用户动作决定）。
 - 时钟取 `readerOverrides.now`（可注入），拿不到或坏了回退 `Date.now()`——宁可多发也不吞失败。
 - 字段与形状不变（仍是 `method` / `kind` / `error` / `errorHash` / `pluginId` 五格），只改「发不发」；`host.call` 成功行的轮询抑制（`#124`）不受影响，恢复成功本身**不补行**（成功行本来就抑制）。
+
+## 11. 五次回填（2026-10-19）：HEAD 重查基线 + 对抗审查 §8.3 五处修正（`#206` P2-1）
+
+- HEAD 基线：`18df6d7`（`fix(#209)` 审查跟进之后）。事件总数 **27**（常驻 20 / 按需 6 / 自监控 1），与 §10 口径一致；随包清单 `event-list.update.json` 是唯一事实源（`fieldEnums` 14 组）。核对命令：`node -e "Object.keys(require('./event-list.update.json').events).length"` 应得 27；`npm run docs:log:check` 只查不写；批量相关定向测试 `npm run test:batch`。
+- 本节是对抗审查（`docs/research/20261018-日志必要性对抗审查.md`）§8.3 五处修正的落字：旧说法逐条作废，以下为 HEAD 真值；正文旧行保留历史痕迹，读数以本节为准。
+
+### 11.1 `update.check.start` 在本包内不可达（§8.3-①）
+
+- HEAD 真值：`update.check.start` 只在调用方自报了触发方时才发——`src/service.ts:639-645`（`triggerOf(trigger)` 非空才 `emit`）；宿主侧 `src/host.ts:1452-1454` 从电话参数读 `args.trigger`（`readCheck`）。
+- 包内调用方（单面板 `src/panel.ts:3580` 的 `act('check')`、入口件 `src/entry.ts:567` 的 `checkNow()`、批量 `src/host-batch.ts:535`）**均不传 `trigger`**，所以本包面板/入口件发起的检查不产生这一行；§3.1 的「② 自动检查更新 … 客户端 `update.check.start(trigger:auto)`」与 §1 的「把「用户点了」与「自动触发」分开」两处旧行作废。
+- 自动检查的证据看 `update.panel.mount.autoCheck`（四值 `started` / `recent` / `disabled` / `failed`，见 §5 与 `fieldEnums`），不要等 `check.start`。
+
+### 11.2 批量 `mode:'batch'` 已存在（§8.3-②，为 `#208` 已修复项）
+
+- 旧说法（批量面板以 `mode:'batch'` 上报、而代码零发射）是 `#208` 之前的真值，已被 `#208` 修复：批量入口件 `src/entry-batch.ts:552` 传 `clientLog: { mount: 'batch' }`，批量面板 `src/panel-batch.ts:2868` 落挂载行（`mode:'batch'`，电话名是 `<批量前缀>.logAppend`，由批量宿主转发给属主落盘，无属主时一行不发，见 §9.3）。§1 / §5 / §9.3 的 batch 行是现行真值，无需再改。
+
+### 11.3 trace 覆盖修正（§8.3-③）：自建落点跨异步链成立
+
+- §4.2 的「自建路径上关联靠时间窗 … 本包自己铸链列为未做」作废。HEAD 真值：自建落点上电话链跨异步安装链成立——`src/log/trace.ts`（`AsyncLocalStorage` 跟着 `await` 走）+ 自建 sink 铸链；`update.install.request` 与其后 `install.exec` / `install.verify` 同 `traceId`，`npx dsh-log <dir> --trace <traceId>` 可追完整链（`tests/log-trace.test.mjs:245-272` 锁定「await 之后链仍是自己的」；README §11 亦已按此写）。
+- 无链的仍是这五处（已知边界，不是断链）：**外部 `logCtx`**（`sinkFromLogCtx` 不暴露 trace）、**客户端行**（`logAppend` 不在链内）、dsh-log < 0.3.3、旧副本（`#196`）、重启补记行。外部落点的跨行聚合靠 `update.install.request.intentHash`（`hash8(requestId)`），见 §8.2-1 的配套修法。
+
+### 11.4 `install.request` 时机（§8.3-④ / §8.2-1）：闸门之后、开工之前，但中间隔着 acquire + 复核
+
+- §3.1 的「过闸门之后、开工之前一条」细化为准确定位。HEAD 真值（`src/service.ts`）：
+  - latest 路径：过完所有闸门、真的要装了才发（`:1055-1064`，注释原话「过完所有闸门、真的要装了才落这一条；被闸门挡掉的请求不算一次意图」），但发完与 `runBackground` 之间还隔着建作业 → `acquire` 抢锁 → 装前复核重读（`:1065-1084`）；
+  - 候选（合规版）路径：同样闸门后发（`:932-939`），之后隔着 `acquire` + 同一批次复核（`:947-978`）。
+- 后果：日志里可能出现「已发 request、随后 `check-expired`/拒绝」的空请求行；聚合靠 `intentHash`（请求行 / 失败行 / 诊断回包同值），不改发射位置。
+
+### 11.5 事件数与枚举漂移（§8.3-⑤ + `install-button` / `panel.action` 值漂移）
+
+- 「26 事件」「28 事件时代旧编号（`retry` / `restart outcome` …）」一律作废：HEAD 27 事件（§11 基线），`update.changelog.parse` 档位升级与 `update.install.fail` 新增之后即 26→27（§8.5），`#209` 起条目总数仍 27。
+- `update.panel.render.fail.kind` 多出的四值（`prefix` / `auto-check` / `theme-tokens` / `locale`）已声明：`fieldEnums['update.panel.render.fail'].kind` 14 值（`#214`），见 §1 常驻表。
+- `update.panel.action`：§5 的「11 值」滞后，HEAD 代码 `src/panel.ts:211-225`（`UpdatePanelActionKind`，与面板 HTML `data-action` 一一对应）实际 **14 值**：`check` / `install` / `skip` / `reset-skip` / `copy-manual` / `copy-diag` / `toggle-queue` / `toggle-changelog` / `restart-hint` / `close-view` / `dismiss-failure` / `install-fallback` / `install-fallback-confirm` / `wait-latest`。清单 `fieldEnums` 暂未收录该组（客户端动作名，非日志聚合键），按 ADR-0006「改三处」纪律，后续若进清单需同步事件清单与负断言用例。

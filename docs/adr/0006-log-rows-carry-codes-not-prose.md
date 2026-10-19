@@ -26,7 +26,7 @@ ADR-0001 把 `detail` 定为「全系统唯一自由文本出口」，并登记�
 - 类型：`string | number | boolean | null`，**不嵌套对象、不嵌套数组**（与 dsh-log 五键行的形状对齐）。
 - 字符串值只许来自四类：
   1. **版本号**——经中央校验器规范化后的 semver 形状；
-  2. **枚举白名单值**——每个枚举在事件清单里逐值声明（`channel: 'stable'|'beta'`、`outcome: 'delegated'|'manual'|'failed'` …）；
+  2. **枚举白名单值**——每个枚举在事件清单里逐值声明（例见下 §6 受控 cause 枚举白名单；旧例 `channel` / `outcome` 已被清单真实枚举取代，不再引用）；
   3. **导出量**——`hash8` 短哈希、计数、时长（ms）、字节数、布尔。
   4. **契约标识符**（`#210` 增补）——只用于 `update.log.degraded` 的 `event` / `field` 两格：它们是事件名与字段名这类**清单内的机器标识**，由发射口按 `EVENT_NAME_RE` 与标识符形状收敛，非法值一律打成占位符 `<event>` / `<field>`，绝不承载宿主原文；仅此一处，不得作为自由文本的后门。
 - 不允许的字符串：宿主原话、错误 `message`、命令行、文件路径、URL、usage 原文、插件标识原文。
@@ -57,6 +57,20 @@ ADR-0001 把 `detail` 定为「全系统唯一自由文本出口」，并登记�
 - `message` 仍是宿主原话的**受控**出口（经 `sanitizeDetail`），`diagnostic` 仍永不过边界——ADR-0001 有关 `detail` 的全部口径一个字不改。
 - 新增的规矩只针对日志：**同一份宿主原话绝不进日志行**。两个出口从此不重叠：要看人话去面板（或将来由渲染层生成），要聚合去日志。
 - 因此 README:260 那处措辞不需要为日志而改；W5 只在 README 新增「日志」一节时说明「日志行里只有稳定码，人话在面板」，把两边的关系写清楚。
+
+### 6. 受控 cause 枚举白名单（`#206` P2-1 增补，2026-10-19）
+
+- 「原因」一律是**闭集枚举**，不是自由文本：任何回答「为什么没成 / 为什么没装 / 谁在占着」的中文字段只许出现在面板渲染与回包 `detail`，日志行里只记下表的稳定码。白名单的唯一事实源是随包 `event-list.update.json` 顶层 `fieldEnums`（事件名 → 字段名 → 允许值数组）；发射口 `emitRow()` 按它校验，非法值运行期摘字段 + `update.log.degraded` 计数（见 §3），开发期抛错。
+- HEAD（`18df6d7`）闭集一览：
+  - 安装失败：`update.install.fail.stage`（`gate` / `exec` / `verify`）、`reason`（12 值：`host-rejected` / `timeout` / `crashed` / `nonzero-exit` / `spawn-failed` / `terminate-failed` / `version-mismatch` / `not-registered` / `env-blocked` / `noop` / `gate-refused` / `unknown`，无法归类时 `unknown` 照记、不静默）、`code`（回包同一稳定码集 + `none`）、`check`（`version` / `registered` / `env` / `none`）；
+  - 检查失败：`update.check.fail.errorKind`（失败类别 10 值：`timeout` / `network` / `dns` / `tls` / `http` / `bad-json` / `too-large` / `shape` / `channel` / `unknown`）；
+  - 状态与阻拦：`update.status.changed.blockedReason` / `update.check.done.blockedReason`（12 值，`none` = 没有阻挡）、`unknownCause`（`no-latest` / `running-version-unknown` / `compare-failed`）、`identity`（`update` / `first-install` / `up-to-date` / `unknown`）；
+  - 批量：`update.batch.summary.stoppedBecause`（7 值：`finished` / `stopped-after-failure` / `user-cancel` / `error` / `queued` / `max-steps` / `empty`，其中 `max-steps` / `empty` 不发停止行）、`update.batch.entry.fail.stage`（`check` / `install` / `timeout` / `settle`）；
+  - 队列与锁：`update.queue.transition.phase`（`queued` / `running` / `done` / `reclaimed` / `pruned` / `abandoned`）、`update.lock.anomaly.kind`（`stale-owner` / `release-failed` / `busy-owner`）；
+  - 存储与降级：`update.store.fail` 落点只有 `op` + `dirHash`（目录指纹，无原文）；`update.log.degraded.reason`（12 值：`no-dsh-log` / `lease-conflict` / `write-fail` / `emit-threw` / `unknown-event` / `unknown-field` / `invalid-enum` / `client-batch-refused` / `client-drop-overflow` / `client-drop-host-refused` / `client-drop-send-failed` / `client-drop-disposed`）；
+  - 校验与更新说明：`update.install.verify.result`（`completed` / `restart-required` / `failed` / `interrupted`）、`update.changelog.parse.status`（`ok` / `empty` / `missing` / `fetch-failed` / `parse-degraded` / `cache-hit`）；
+  - 接线与挂载：`update.wire.ready.logSink`（`external` / `external-unverified` / `self` / `off`，`external-unverified` = 门径没通过的未验证态）、`copyLevel`（`profile` / `nested` / `repo` / `unknown`）、`hostKind`；`update.panel.mount.autoCheck`（`started` / `recent` / `disabled` / `failed`）。
+- 客户端动作名（`update.panel.action.action` 14 值，`src/panel.ts:211-225`）暂未收进 `fieldEnums`：它是面板 `data-action` 的闭集（代码侧逐字对应），不是日志聚合键；若将来进清单，按本 ADR「改三处」（发射点、事件清单、负向断言）同步。
 
 ## 反向范围
 
