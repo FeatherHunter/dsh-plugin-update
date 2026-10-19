@@ -68,6 +68,16 @@ export const UPDATE_BATCH_PANEL_CSS = [
   '.dsh-upd-bdetail-dialog-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;margin-bottom:8px;border-bottom:1px dashed var(--dsh-update-border,#e5e7eb)}',
   '.dsh-upd-bdetail-dialog-bar .dsh-upd-bdetail-actions{margin:0}',
   '@media (prefers-color-scheme: dark){.dsh-upd-batch-title i{color:var(--dsh-update-focus,#93c5fd)}}',
+  // #216：正在安装＝醒目 + 动态（旋转描边 + 呼吸脉冲），让「在装」与「卡住」一眼可分；
+  // reduced-motion 由下方既有规则关掉动画，配色与文字仍在。
+  '.dsh-upd .dsh-upd-busy-btn:disabled{opacity:1;cursor:progress;font-weight:700;border-color:var(--dsh-update-busy-border,#2563eb);color:var(--dsh-update-busy-border,#2563eb);background:var(--dsh-update-busy-bg,#eff6ff)}',
+  '.dsh-upd .dsh-upd-busy-btn:disabled::before{content:"";display:inline-block;width:9px;height:9px;margin-right:6px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;vertical-align:-1px;animation:dsh-upd-busy-spin .8s linear infinite}',
+  // #219 双转条：单面板主题对 [aria-busy="true"] 按钮自带一枚 ::after 转圈，批量在装按钮自己还有一枚
+  // ::before 转圈，两枚叠起来像两个转动条。在装按钮已用 ::before 表达忙碌，这里关掉主题那枚。
+  '.dsh-upd .dsh-upd-busy-btn[aria-busy="true"]::after{content:none;display:none}',
+  '.dsh-upd .dsh-upd-busy-btn[data-busy="1"]{animation:dsh-upd-busy-pulse 1.4s ease-in-out infinite}',
+  '@keyframes dsh-upd-busy-spin{to{transform:rotate(360deg)}}',
+  '@keyframes dsh-upd-busy-pulse{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,.35)}50%{box-shadow:0 0 0 4px rgba(37,99,235,0)}}',
   '@media (prefers-reduced-motion: reduce){.dsh-upd-batch *{transition:none !important;animation:none !important}}',
   // Batch check layout stability: reserve macro width + rows/summary heights + no scroll anchoring jumps.
   '.dsh-upd-batch{overflow-anchor:none}',
@@ -106,13 +116,20 @@ export const UPDATE_BATCH_PANEL_ARCHIVE_CSS = [
   '.dsh-upd[data-theme="archive"] .dsh-upd-batch-macros button{font-size:13px;line-height:1.45;padding:6px 12px;margin:0;min-width:0}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-batch-macros button:first-child,.dsh-upd[data-theme="archive"] .dsh-upd-batch-macros button[data-primary="1"]{min-width:0}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-batch-macros button:not([data-primary="1"]){background:transparent}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-brow-actions button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0;background:transparent}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-bdetail-actions button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0;background:transparent}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-more button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0;background:transparent}',
+  // #216：透明底只给「次级」按钮；主按钮（data-primary）与正在安装（data-busy）必须保留实底，
+  // 否则档案卷里白字落在透明/浅底上＝按钮文字看不见（真机截图：加入队列/正在安装整块隐形）。
+  // 尺寸坚持小号 12px（贴原型），底色单独一条规则，免得把主按钮的实底一起盖掉。
+  '.dsh-upd[data-theme="archive"] .dsh-upd-brow-actions button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-brow-actions button:not([data-primary="1"]):not([data-busy="1"]){background:transparent}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-bdetail-actions button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-bdetail-actions button:not([data-primary="1"]):not([data-busy="1"]){background:transparent}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-more button{font-size:12px;line-height:1.45;padding:4px 10px;margin:0;min-width:0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-batch-more button:not([data-primary="1"]):not([data-busy="1"]){background:transparent}',
   // prefs 开关贴幽灵口径（#106：以请重启/详情为基准——此前无覆盖，吃到底层 archive button 填充；沿用 border-strong/text，不独立设键；13px 与宏/名单行同档）。
   '.dsh-upd[data-theme="archive"] .dsh-upd-batch-prefs button{font-size:13px;line-height:1.45;padding:6px 12px;margin:0;min-width:0;background:transparent}',
   // 黄框名单行（只收敛不对齐规则，不声明横幅盒体布局）：标题行拉满，名单居左，按钮同行居右。
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner>.dsh-upd-browline{align-self:stretch;display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
   '.dsh-upd[data-theme="archive"] .dsh-upd-banner>.dsh-upd-browline .dsh-upd-blist{flex:1 1 auto;min-width:220px;text-align:left;margin:0;color:var(--dsh-update-text-muted)}',
-  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>.dsh-upd-browline button{flex:none;margin:0;margin-left:auto;font-size:13px;line-height:1.45;padding:6px 12px;min-width:0;background:transparent}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>.dsh-upd-browline button{flex:none;margin:0;margin-left:auto;font-size:13px;line-height:1.45;padding:6px 12px;min-width:0}',
+  '.dsh-upd[data-theme="archive"] .dsh-upd-banner>.dsh-upd-browline button:not([data-primary="1"]):not([data-busy="1"]){background:transparent}',
 ].join(String.fromCharCode(10))

@@ -482,9 +482,20 @@ describe('#211 多源真相字段一次补齐（状态/检查/接线/挂载）',
       'blockedReason',
       'fallback',
       'dataSource',
+      'pendingRestart',
+      'jobState',
     ])
     assert.deepEqual(enums('update.check.done').blockedReason, ['none', ...codes.BLOCKED_REASONS])
     assert.deepEqual(enums('update.check.done').dataSource, ['npm-version', 'npm-channel'])
+    assert.deepEqual(enums('update.check.done').jobState, [
+      'none',
+      'installing',
+      'verifying',
+      'restart-required',
+      'completed',
+      'failed',
+      'interrupted',
+    ])
     assert.deepEqual(raw.events['update.check.fail'].fields, [
       'stage',
       'errorKind',
@@ -529,7 +540,7 @@ describe('#211 多源真相字段一次补齐（状态/检查/接线/挂载）',
     assert.deepEqual(enums('update.panel.mount').autoCheck, ['started', 'recent', 'disabled', 'failed'])
   })
 
-  it('新枚举不改变事件档位与总数（27 = 20 常驻 / 6 按需 / 1 自监控）', () => {
+  it('新枚举不改变事件档位与总数（#216 起 29 = 22 常驻 / 6 按需 / 1 自监控）', () => {
     assert.equal(raw.events['update.status.changed'].kind, 'resident')
     assert.equal(raw.events['update.status.changed'].level, 'info')
     assert.equal(raw.events['update.check.done'].kind, 'resident')
@@ -538,8 +549,8 @@ describe('#211 多源真相字段一次补齐（状态/检查/接线/挂载）',
     assert.equal(raw.events['update.wire.ready'].kind, 'resident')
     assert.equal(raw.events['update.panel.mount'].kind, 'resident')
     const counts = gate.computeEventCounts(raw)
-    assert.deepEqual(counts, { resident: 20, ondemand: 6, selfmon: 1 })
-    assert.equal(counts.resident + counts.ondemand + counts.selfmon, 27)
+    assert.deepEqual(counts, { resident: 22, ondemand: 6, selfmon: 1 })
+    assert.equal(counts.resident + counts.ondemand + counts.selfmon, 29)
     assert.deepEqual(lintEventList(parseEventListManifest(raw)).red, [])
   })
 })

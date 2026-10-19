@@ -104,15 +104,18 @@ describe('门禁模板：空模板与本包事件表随包发布', () => {
     // 0.16.3 契约回填：删掉两条零发射点事件（update.install.retry / update.restart.outcome）
     // 与一个从未出现的字段名（update.registry.fetch.cacheHit），常驻 20 → 18、总数 28 → 26。
     // #213：update.changelog.parse 由按需升常驻（档位 19/7/1 → 20/6/1），事件总数仍 27。
-    assert.deepEqual(linted.counts, { resident: 20, ondemand: 6, selfmon: 1 })
+    // #216：补两条真有发射点的常驻事件（update.batch.run.start / update.install.retry），档位 22/6/1、总数 29。
+    assert.deepEqual(linted.counts, { resident: 22, ondemand: 6, selfmon: 1 })
     // 冻结的三个旧事件名一字不动；host.call.fail 的字段经 #150 破冰加 `error`
     // （只增稳定码一格，旧读数忽略未知格，见 #150 进度区）：其余两事件字段仍冻结。
     const events = manifest.events
     assert.deepEqual(events['host.call'].fields, ['method', 'latencyMs', 'ok', 'kind', 'pluginId'])
     assert.deepEqual(events['host.call.fail'].fields, ['method', 'kind', 'error', 'errorHash', 'pluginId'])
     assert.deepEqual(events['update.install.exec'].fields, ['route', 'ok', 'exitCode', 'durationMs', 'pluginId'])
-    // 契约回填的负向断言：这三样不许再回到清单里（清单是发布出去的契约，声明了就得真发）。
-    assert.equal(events['update.install.retry'], undefined, '零发射点的事件不该留在随包清单里')
+    // 契约回填的负向断言：这些样不许再回到清单里（清单是发布出去的契约，声明了就得真发）。
+    // #216：update.install.retry 重新有了发射点（批量 check-expired 当场重查重提），按契约登记回来。
+    assert.deepEqual(events['update.install.retry'].fields, ['reason', 'attempt', 'requestHash'])
+    assert.deepEqual(events['update.batch.run.start'].fields, ['trigger', 'resumed', 'total', 'pending', 'sessionHash'])
     assert.equal(events['update.restart.outcome'], undefined, '零发射点的事件不该留在随包清单里')
     assert.ok(
       !events['update.registry.fetch'].fields.includes('cacheHit'),
@@ -285,6 +288,8 @@ describe('门禁模板：事件表合并与落盘行断言', () => {
       'blockedReason',
       'fallback',
       'dataSource',
+      'pendingRestart',
+      'jobState',
     ])
     assert.equal(merged.conflicts.length, 1)
     assert.match(merged.conflicts[0], /update\.check\.done/)

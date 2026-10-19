@@ -235,16 +235,23 @@ export function latestVersionOf(row: BatchRowView): string | null {
   return typeof latest === 'string' && latest ? latest : null
 }
 
-/** 当前版本（运行版优先，退回磁盘版）；读不到给 null，不猜。缺席时永不采信运行版号（#134/US19）。 */
+/** 当前版本（运行版优先，退回磁盘版）；读不到给 null，不猜。缺席时永不采信运行版号（#134/US19）。
+ *  #216：集成方可能注入占位运行版（life-pack 的 `0.0.0`）——显示层不把占位当版本：退回磁盘版；
+ *  两者皆占位即 null（版本列不画假号）。判定与「缺席」不同：在场但运行版未知时磁盘版更可信。 */
 export function currentVersionOf(row: BatchRowView): string | null {
   const snapshot = row.snapshot
   if (!isObject(snapshot)) return null
   if (snapshot['installed'] === false) return null
   const running = snapshot['runningVersion']
-  if (typeof running === 'string' && running) return running
+  if (typeof running === 'string' && running && !isPlaceholderVersion(running)) return running
   const installed = snapshot['installedVersion']
-  if (typeof installed === 'string' && installed) return installed
+  if (typeof installed === 'string' && installed && !isPlaceholderVersion(installed)) return installed
   return null
+}
+
+/** 占位版号（#216）：`0.0.0` 是集成方给缺席包/未知运行版填的哨兵，不是任何一版的真版本。 */
+function isPlaceholderVersion(version: string): boolean {
+  return version === '0.0.0'
 }
 
 /**

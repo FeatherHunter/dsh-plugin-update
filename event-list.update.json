@@ -100,7 +100,8 @@
         "recovery-required",
         "dev-source"
       ],
-      "dataSource": ["npm-version", "npm-channel"]
+      "dataSource": ["npm-version", "npm-channel"],
+      "jobState": ["none", "installing", "verifying", "restart-required", "completed", "failed", "interrupted"]
     },
     "update.check.fail": {
       "errorKind": ["timeout", "network", "dns", "tls", "http", "bad-json", "too-large", "shape", "channel", "unknown"]
@@ -141,6 +142,12 @@
         "error"
       ]
     },
+    "update.batch.run.start": {
+      "trigger": ["entry", "resume", "drain"]
+    },
+    "update.install.retry": {
+      "reason": ["check-expired", "stale-request-id"]
+    },
     "update.queue.transition": {
       "phase": ["queued", "running", "done", "reclaimed", "pruned", "abandoned"]
     },
@@ -178,8 +185,8 @@
     "update.check.done": {
       "level": "info",
       "kind": "resident",
-      "fields": ["ok", "current", "latest", "channel", "source", "latencyMs", "blockedReason", "fallback", "dataSource"],
-      "guard": "一次 check 一条；取数走了通道回退时 fallback=true、dataSource=npm-channel"
+      "fields": ["ok", "current", "latest", "channel", "source", "latencyMs", "blockedReason", "fallback", "dataSource", "pendingRestart", "jobState"],
+      "guard": "一次 check 一条；取数走了通道回退时 fallback=true、dataSource=npm-channel；pendingRestart/jobState 是「已装好等重启」与「已是最新」的分辨格（#216）"
     },
     "update.check.fail": {
       "level": "warn",
@@ -227,8 +234,20 @@
     "update.batch.summary": {
       "level": "info",
       "kind": "resident",
-      "fields": ["total", "ok", "failed", "skipped", "durationMs", "sessionHash", "stoppedBecause"],
-      "guard": "收尾一批一条；stoppedBecause 说明这一批为什么停（finished 是全部跑完，不是没有失败）；未收尾就停下时另记一条异常停止（queued/stopped-after-failure/user-cancel/error），同一会话同一原因只记一次"
+      "fields": ["total", "ok", "failed", "skipped", "durationMs", "sessionAgeMs", "resumed", "sessionHash", "stoppedBecause"],
+      "guard": "收尾一批一条；stoppedBecause 说明这一批为什么停（finished 是全部跑完，不是没有失败）；未收尾就停下时另记一条异常停止（queued/stopped-after-failure/user-cancel/error），同一会话同一原因只记一次；durationMs 是本次推进的活跃时长，sessionAgeMs 是建会话至今（旧会话续跑时两者会差很大，别把会话年龄当安装耗时）"
+    },
+    "update.batch.run.start": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["trigger", "resumed", "total", "pending", "sessionHash"],
+      "guard": "一次真推进一条；trigger 说明是谁推动的（entry=用户点全部更新 / resume=跨重启续跑 / drain=后台节拍），resumed 说明是接着旧账本还是新开一批"
+    },
+    "update.install.retry": {
+      "level": "info",
+      "kind": "resident",
+      "fields": ["reason", "attempt", "requestHash"],
+      "guard": "一次提交重来一条；reason=check-expired 表示凭证过期后当场重查重提（ADR-0004 §3 A 案设计内动作，不是环境故障）；reason=stale-request-id 表示核心按 requestId 幂等命中了上一轮的旧任务（已完成别的版本/已失败），换一次尝试编号重提（#218）"
     },
     "update.queue.transition": {
       "level": "info",

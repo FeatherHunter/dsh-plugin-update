@@ -542,6 +542,13 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
     }
     try {
       const out = await snapWithManual(reader, (await reader.install({ checkId, requestId, from: installFrom, ...(installVersion ? { version: installVersion } : {}), ...(approvedBuilds.length > 0 ? { approvedBuilds } : {}) })) as never, config)
+      // #218：成功收下也要撤掉自家 waiting 占位——核心按 requestId 幂等命中旧结果时不会写任务，
+      // 镜像写队列那条路也就不会替我们清；不清就会留下「队首已无人消费」的僵尸占位。
+      try {
+        const current = await reader.readQueuePruned()
+        const next = cancelEnqueuedInQueue(current, pluginId, requestId)
+        if (next.removed) await reader.writeQueueState(next.state)
+      } catch {}
       if (!includeQueue) return { ...out, ...envPatch }
       return { ...out, ...envPatch, queue: visibleQueueFor(await reader.readQueuePruned(), pluginId, showOthers, requestId) }
     } catch (error) {

@@ -200,14 +200,16 @@ describe('#124 批量侧常驻事件', () => {
     const fields = summary[0].fields
     assert.deepEqual(
       Object.keys(fields).sort(),
-      ['durationMs', 'failed', 'ok', 'sessionHash', 'skipped', 'stoppedBecause', 'total'],
-      '七个字段恰好（#208 加 sessionHash / stoppedBecause）',
+      ['durationMs', 'failed', 'ok', 'resumed', 'sessionAgeMs', 'sessionHash', 'skipped', 'stoppedBecause', 'total'],
+      '九个字段恰好（#208 加 sessionHash / stoppedBecause；#216 加 resumed / sessionAgeMs）',
     )
     assert.equal(fields.total, 5)
     assert.equal(fields.ok, 3, 'a 已最新 + b 装完 + self 已最新 = ok 3')
     assert.equal(fields.failed, 1, 'd 查失败 1')
     assert.equal(fields.skipped, 1, 'c 跳过 1')
-    assert.equal(fields.durationMs, 60, '共 6 次传输调用 ×10ms')
+    assert.equal(fields.durationMs, 50, '本次推进的活跃时长：4 次预查 + 1 次安装 = 5 次传输 ×10ms；此前单家推进那 10ms 不算本轮（#216）')
+    assert.equal(fields.sessionAgeMs, 60, '会话年龄从建会话量到收尾：首次单家推进 10ms + 本轮 50ms（#216）')
+    assert.equal(fields.resumed, false, '全新一批不是续跑（#216）')
     assert.match(fields.sessionHash, /^[0-9a-f]{8}$/)
     assert.equal(fields.sessionHash, hash8(reply.session.id))
     assert.equal(fields.stoppedBecause, 'finished', '全部跑完（有失败也算收尾）')
@@ -252,7 +254,7 @@ describe('#124 批量侧常驻事件', () => {
     assert.equal(both[1].fields.stoppedBecause, 'finished')
     assert.equal(both[1].fields.sessionHash, both[0].fields.sessionHash, '同一批：重发总账也沿用同一个 sessionHash')
     assert.equal(sum(both[1].fields), both[1].fields.total)
-    assert.ok(both[1].fields.durationMs >= both[0].fields.durationMs, '时长是同一会话的累计真测量')
+    assert.ok(both[1].fields.sessionAgeMs >= both[0].fields.sessionAgeMs, '会话年龄是累计真测量（#216：durationMs 已改为本次推进的活跃时长，不再会话累计）')
 
     // 对已经装成的行再点一次「装这家」：没有可重试的行，就没有「没收尾 → 收尾」这个边沿。
     await host.handlers['life.batchInstall']({ keys: ['a'] })

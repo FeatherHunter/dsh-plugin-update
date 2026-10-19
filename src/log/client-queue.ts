@@ -199,6 +199,8 @@ export function createClientLogChannel(options: ClientLogChannelOptions): Client
   let inFlight = false
   /** 按原因分的丢弃计数（#214）：no-channel 无法投递，只能从这里被看见；disposed 另尽力上浮一条。 */
   const droppedByReason: Record<string, number> = {}
+  /** 每种丢弃原因下第一条被丢的事件名（#216）：只写事件名、不带字段值——让读日志的人知道丢了什么事。 */
+  const droppedEventByReason: Record<string, string> = {}
   /** 已经上浮过的丢弃原因：同一原因整条通道生命周期只上浮一次（防刷）。 */
   const reportedDropReasons = new Set<string>()
 
@@ -206,6 +208,10 @@ export function createClientLogChannel(options: ClientLogChannelOptions): Client
     dropped++
     const key = typeof reason === 'string' && reason ? reason : 'unknown'
     droppedByReason[key] = (droppedByReason[key] ?? 0) + 1
+    // #216：记下这一原因丢的第一件事（事件名是白名单值，不含字段内容），随上浮行一起交出去。
+    if (row && typeof row.event === 'string' && row.event && !droppedEventByReason[key]) {
+      droppedEventByReason[key] = row.event
+    }
     if (!onDrop) return
     try {
       onDrop(row, reason)
@@ -215,7 +221,14 @@ export function createClientLogChannel(options: ClientLogChannelOptions): Client
   }
 
   function makeDropReport(reason: string): ClientLogRow {
-    return { level: 'warn', event: 'update.log.degraded', fields: { reason: `client-drop-${reason}` }, ts: now() }
+    const event = droppedEventByReason[reason]
+    return {
+      level: 'warn',
+      event: 'update.log.degraded',
+      // event 格＝被丢的第一件事（#216），与字段级漂移的语义一致：告诉我丢了什么，而不是只告诉我丢了。
+      fields: { reason: `client-drop-${reason}`, ...(event ? { event } : {}) },
+      ts: now(),
+    }
   }
   /**
    * 丢弃上浮（#214）：每个冲刷周期末尾，把「发生了、还没说过、且通道还开着能投递」的丢弃原因

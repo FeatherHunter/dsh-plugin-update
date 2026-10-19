@@ -63,6 +63,7 @@ import {
   type BatchPrefs,
 } from '../../core/disk.js'
 import { createUpdateQueuePorts } from '../../core/queue/ports.js'
+import type { UpdateQueueState } from '../../core/queue/model.js'
 
 // src/host-batch.ts —— 多目标批量更新的宿主入口（#25）。
 //
@@ -157,7 +158,7 @@ export function createMultiHostUpdate(
   const prefix = assertPrefix(options && options.prefix, '批量电话前缀 prefix')
   const specs = validateTargets(options && options.targets)
   const byKey = new Map(specs.map((spec) => [spec.key, spec]))
-  const orderedSpecs = orderTargets(specs.map((spec) => spec.key), options.selfKey ?? null).map(
+  const orderedSpecs = orderTargets(specs.map((spec) => spec.key), options.selfKey ?? null, options.selfOrder).map(
     (key) => byKey.get(key) as MultiTargetSpec,
   )
   const now = typeof input.now === 'function' ? input.now : Date.now
@@ -303,7 +304,31 @@ export function createMultiHostUpdate(
     lastStoppedBecause: () => lastRun?.stoppedBecause,
     now: () => now(),
   })
-  const { logPortFor, noteEntryRequest, noteBatchSummary, noteBatchStopped, noteRunOutcome, notePhoneFail } = batchLog
+  const { logPortFor, noteEntryRequest, noteBatchSummary, noteBatchStopped, noteRunOutcome, notePhoneFail, noteRunStart } = batchLog
+
+  /**
+   * #217：撤掉批次自己留下的排队占位。真机 2026-10-19 08:47：续跑把待装行的意向写进共享队列后
+   * 因「非队首」停下，队首那条的任务却已经结束——10 分钟 TTL 内任何安装都被公平门判
+   * update-busy，面板上就表现为「点全部更新毫无反应」。所以每次开跑（建会话/续跑/drain 每一轮）
+   * 和用户取消时都先扫掉自己的遗留意向；停下时不扫——留着的占位还要给面板显示位置、给「取消排队」用。
+   * 只清 targetPluginIds 且 requestId 以 `batch-` 开头的 waiting 条目；owner 不碰（正在装的别家不受影响）。
+   */
+  async function clearBatchQueueIntents(): Promise<void> {
+    try {
+      const read = baseOverrides.readQueue ?? (queue ? () => queue.readQueue() : null)
+      const write =
+        baseOverrides.writeQueue ?? (queue ? (next: UpdateQueueState) => queue.writeQueue(next) : null)
+      if (!read || !write) return
+      const state = await read()
+      const ids = new Set(runtimes.map((rt) => rt.pluginId))
+      const waiting = state.waiting.filter(
+        (one) =>
+          !(ids.has(one.pluginId) && typeof one.requestId === 'string' && one.requestId.startsWith('batch-')),
+      )
+      if (waiting.length === state.waiting.length) return
+      await write({ version: 1, owner: state.owner, waiting })
+    } catch {}
+  }
   let drainTimer: unknown = null
   let disposed = false
 
@@ -651,6 +676,10 @@ export function createMultiHostUpdate(
       entries[rt.spec.key] = { lastCheckedAt: at, installed, installedVersion, latestVersion: outcome.version, canInstall, error: null }
     } else if (outcome.kind === 'current') {
       entries[rt.spec.key] = { lastCheckedAt: at, installed, installedVersion, latestVersion: installedVersion, canInstall: false, error: null }
+    } else if (outcome.kind === 'done') {
+      // #216：已装到目标版、只等重启——知识行也记「装完了」，最新版写成目标版，
+      // 不让版本列再显示上一次的旧版。
+      entries[rt.spec.key] = { lastCheckedAt: at, installed, installedVersion, latestVersion: outcome.version, canInstall: false, error: null }
     } else if (outcome.kind === 'skipped') {
       entries[rt.spec.key] = { lastCheckedAt: at, installed, installedVersion, latestVersion: outcome.version, canInstall: false, error: null }
     } else {
@@ -732,6 +761,12 @@ export function createMultiHostUpdate(
         if (entry.phase !== 'skipped' || entry.targetVersion !== outcome.version || entry.error !== null) {
           patch = { phase: 'skipped', targetVersion: outcome.version, error: null }
         }
+      } else if (outcome.kind === 'done') {
+        // #216：检查发现「已经装好、只差重启」——会话从 ready/failed 收敛成 done+待重启，
+        // 与驱动的结论同一口径（否则面板还停在「可更新」）。
+        if (entry.phase !== 'done' || entry.restartRequired !== outcome.restartRequired || entry.targetVersion !== outcome.version || entry.error !== null) {
+          patch = { phase: 'done', targetVersion: outcome.version, restartRequired: outcome.restartRequired, error: null }
+        }
       }
       if (patch) {
         const marked = markBatchEntry(reconciled, key, patch, at)
@@ -765,6 +800,7 @@ export function createMultiHostUpdate(
         id: newSessionId(),
         keys: runtimes.map((rt) => rt.spec.key),
         selfKey: options.selfKey ?? null,
+        selfOrder: options.selfOrder,
         stopOnFailure: options.stopOnFailure === true,
         now: now(),
       })
@@ -861,6 +897,8 @@ export function createMultiHostUpdate(
         patch = { phase: 'ready', targetVersion: outcome.version, error: null }
       } else if (outcome.kind === 'current') {
         patch = { phase: 'current', targetVersion: null, error: null }
+      } else if (outcome.kind === 'done') {
+        patch = { phase: 'done', targetVersion: outcome.version, restartRequired: outcome.restartRequired, error: null }
       } else if (outcome.kind === 'skipped') {
         patch = { phase: 'skipped', targetVersion: outcome.version, error: null }
       } else {
@@ -904,6 +942,10 @@ export function createMultiHostUpdate(
     if (driveActive) return await joinWhileBusy(selected)
     if (selected && selected.size === 0) return await table(await readSession())
     driveActive = true
+    // #217：开跑前先扫掉上一轮停下时留下的排队占位（真机 2026-10-19 08:47：续跑留下两条，
+    // 队首任务已结束，公平门让之后每次点击都瞬间 update-busy；不扫就要等 10 分钟 TTL）。
+    // 放在开跑前而不是停下时清：停下后占位还留着，面板才能显示「前方还有 N 个」并允许取消排队。
+    await clearBatchQueueIntents()
     let driven: BatchSession
     let session: BatchSession | null = null
     try {
@@ -917,6 +959,7 @@ export function createMultiHostUpdate(
           id: newSessionId(),
           keys: runtimes.map((rt) => rt.spec.key),
           selfKey: options.selfKey ?? null,
+          selfOrder: options.selfOrder,
           stopOnFailure: options.stopOnFailure === true,
           now: now(),
         })
@@ -932,6 +975,10 @@ export function createMultiHostUpdate(
       // 推进前先看一次账本：重试把失败行退回 pending 时，「已收尾」标记要跟着清掉，
       // 装成后的那次收尾才算一次新的边沿（日志不写假话）。
       noteBatchSummary(session)
+      // #216：一次真推进开始也留一行（trigger=entry 表示用户点「全部更新/重试」推的；resumed
+      // 专指「续跑」——继续上次未完成或自动续跑，entry 推旧账本仍算一次新推进，不算续跑）。
+      // 没有这行，日志里只有入队与总账，中间隔着几小时没法看出这几步是哪一次点击推动的。
+      noteRunStart(session, { trigger: 'entry', resumed: false })
       // 两段式（#70）：先把选中 keys 全查成 ready 进会话，再串行装（装阶段复用 ready，不重查）。
       session = await precheckSelectedToReady(session, selected)
       driven = await driveLocked(session, selected, Number.POSITIVE_INFINITY)
@@ -960,7 +1007,11 @@ export function createMultiHostUpdate(
     if (!hadUnfinished) return { ...(await table(disk)), resumed: false }
     const resumed = resumeBatchSession(disk, now())
     if (resumed !== disk) await saveSession(resumed)
+    // #217：续跑也是「重新开跑」，先把上一轮留下的排队占位扫掉再推进。
+    await clearBatchQueueIntents()
     try {
+      // #216：跨重启续跑也要有一行「这次真推进开始了」。
+      noteRunStart(resumed, { trigger: 'resume', resumed: true })
       const driven = await drive(resumed, null, Number.POSITIVE_INFINITY)
       // 跨重启续跑收尾：这一轮是「接着推」，但收尾仍在宿主侧汇总（面板不重发）；
       // 没跑完就停也记一行（#209）。
@@ -989,6 +1040,8 @@ export function createMultiHostUpdate(
     } catch {
       // 读不到账本不挡取消：取消本身仍按原口径清空。
     }
+    // #217：用户取消也是一次「停下」，自己的排队占位一并撤掉。
+    await clearBatchQueueIntents()
     await clearSession()
     return await table(emptyBatchSession())
   }
@@ -1005,7 +1058,11 @@ export function createMultiHostUpdate(
     if (disposed || driveActive || scopeError) return
     const disk = await readSession()
     if (disk.entries.length === 0 || isBatchFinished(disk)) return
+    // #217：每轮开推前扫掉上一轮停下的排队占位（同一份理由见 installPhone）。
+    await clearBatchQueueIntents()
     try {
+      // #216：drain 每轮真推进也留一行（trigger=drain），把每个主动作与被推动的步串起来。
+      noteRunStart(disk, { trigger: 'drain', resumed: true })
       // drain 一轮只推一步：推完可能正好收尾（最后一家做完），总账就在这一轮记；
       // 排上队/按策略停下也各有一行（#209）。
       noteRunOutcome(await drive(disk, null, 1))

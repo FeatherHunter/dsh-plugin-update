@@ -65,11 +65,11 @@ export interface BatchSession {
   version: 1
   /** 会话编号（调用方给：时间戳 + 随机串之类，只作标识用）。 */
   id: string
-  /** 「自己」的键：排序时排最后；没有就传 null。 */
+  /** 「自己」的键：只作日志属主识别；排位由创建时的 selfOrder 决定（#219）。没有就传 null。 */
   selfKey: string | null
   /** 一家失败后是否停下（默认 false：继续下一家）。 */
   stopOnFailure: boolean
-  /** 目标处理顺序（自更新安全：selfKey 在最后）。 */
+  /** 目标处理顺序（selfKey 的位置由创建时的 selfOrder 决定：默认最后，'first' 时第一）。 */
   order: string[]
   entries: BatchEntry[]
   createdAt: number
@@ -102,11 +102,20 @@ function asPhase(value: unknown): BatchPhase {
   return typeof value === 'string' && (PHASES as readonly string[]).includes(value) ? (value as BatchPhase) : 'pending'
 }
 
+/** 会话里「自己」的排位：默认排最后（自更新安全）；'first' 让本体排第一个（#219 爱生活诉求）。 */
+export type BatchSelfOrder = 'last' | 'first'
+
 /**
- * 目标顺序：selfKey 排最后，其余保持传入顺序（稳定排序，不许键乱序导致顺序漂移）。
+ * 目标顺序：selfOrder 决定 selfKey 的位置，其余保持传入顺序（稳定排序，不许键乱序导致顺序漂移）。
+ * 默认 'last'：自更新安全（先升别家、最后升自己，避免自己先升级打断整轮）。
+ * 'first'：让本体排第一个（#219：爱生活本体应作为批量面板的第一个目标）。
  * 传进来的键去重后仍为空即返回空数组，调用方按「没有可做的」处理。
  */
-export function orderTargets(keys: readonly string[], selfKey?: string | null): string[] {
+export function orderTargets(
+  keys: readonly string[],
+  selfKey?: string | null,
+  selfOrder: BatchSelfOrder = 'last',
+): string[] {
   const seen = new Set<string>()
   const others: string[] = []
   let self: string | null = null
@@ -116,7 +125,8 @@ export function orderTargets(keys: readonly string[], selfKey?: string | null): 
     if (selfKey && key === selfKey) self = key
     else others.push(key)
   }
-  return self ? [...others, self] : others
+  if (!self) return others
+  return selfOrder === 'first' ? [self, ...others] : [...others, self]
 }
 
 /** 会话内某一行的幂等编号：会话 + 目标 ⇒ 恒定（重跑同一会话不会重复装）。 */
@@ -124,17 +134,21 @@ export function batchRequestId(sessionId: string, key: string): string {
   return 'batch:' + sessionId + ':' + key
 }
 
-/** 开一轮会话：给定目标键与「自己」的键，按自更新安全排好序，每行落一个幂等编号。 */
+/**
+ * 开一轮会话：给定目标键与「自己」的键，按 selfOrder（默认 last=自更新安全；first=本体排第一）排好序，
+ * 每行落一个幂等编号。
+ */
 export function createBatchSession(args: {
   id: string
   keys: readonly string[]
   selfKey?: string | null
+  selfOrder?: BatchSelfOrder
   stopOnFailure?: boolean
   now: number
 }): BatchSession {
   const id = isNonEmptyString(args.id) ? args.id : 'batch'
   const selfKey = isNonEmptyString(args.selfKey) ? args.selfKey : null
-  const order = orderTargets(args.keys, selfKey)
+  const order = orderTargets(args.keys, selfKey, args.selfOrder ?? 'last')
   const now = asMillis(args.now, 0)
   const entries: BatchEntry[] = order.map((key) => ({
     key,

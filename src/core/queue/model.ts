@@ -24,6 +24,13 @@
 
 /** 队列意向默认有效期：10 分钟（与凭证有效期同口径，调用方可覆盖）。 */
 export const QUEUE_INTENT_TTL_MS = 10 * 60_000
+/**
+ * #217：**owner 为空**时 waiting 意向的存活上限。owner 为空意味着全局锁没人在装——
+ * 这时还留在队首的意向只会把后来者的公平门挡成 update-busy（真机 2026-10-19 08:47
+ * 「点全部更新没反应」即此：续跑留下的两条占位，队首任务早已结束，TTL 却还有 10 分钟）。
+ * 有人在装（owner 非空）时仍按 QUEUE_INTENT_TTL_MS 等，别误伤正常排队。
+ */
+export const QUEUE_INTENT_STALE_MS = 30_000
 
 /** 正在安装的拥有者（一次只能有一个，与全局锁持有者一一对应）。 */
 export interface QueueOwner {
@@ -115,7 +122,9 @@ export function pruneExpiredIntents(
 ): UpdateQueueState {
   const now = asMillis(nowMs, 0)
   const ttl = typeof ttlMs === 'number' && Number.isFinite(ttlMs) && ttlMs > 0 ? ttlMs : QUEUE_INTENT_TTL_MS
-  const waiting = state.waiting.filter((e) => now - asMillis(e.enqueuedAt, now) < ttl)
+  // #217：没人在装时用更短的「僵尸意向」时限，避免已结束任务的队首把所有人挡到 TTL。
+  const effectiveTtl = state.owner === null ? Math.min(ttl, QUEUE_INTENT_STALE_MS) : ttl
+  const waiting = state.waiting.filter((e) => now - asMillis(e.enqueuedAt, now) < effectiveTtl)
   if (waiting.length === state.waiting.length) return state
   return { version: 1, owner: state.owner, waiting }
 }

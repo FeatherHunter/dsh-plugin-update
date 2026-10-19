@@ -551,6 +551,7 @@ export function mountUpdateBatchPanel(
       skippedVersions: skippedVersionsOf(),
       inFlight,
       loaded,
+      staleResults: staleResultsActive(),
       titles,
       confirmCancel: confirmCancelArmed,
       changelogs: changelogView(),
@@ -909,6 +910,14 @@ export function mountUpdateBatchPanel(
     maybeAutoRowChangelog(expandedKey)
     maybeAutoPlanCompliant()
     return out
+  }
+
+  /** 旧账本结果可能过期的窗口：旧会话已收尾、挂载后的自动检查还没结论（#231）。 */
+  function staleResultsActive(): boolean {
+    if (lastSession === null) return false
+    if (autoCheckOutcome !== null) return false
+    if (!checkOnOpenEffective()) return false
+    return !hasUnfinishedRows(rows, lastSession ?? undefined)
   }
 
   function remainingCount(): number {
@@ -1560,7 +1569,8 @@ export function mountUpdateBatchPanel(
             applyReply(reply)
             const r = reply as Record<string, unknown>
             if (r['resumed'] !== false) {
-              say(batchText('batch.notice.auto-resumed', currentLang(), { count: String(remainingCount()) }))
+              // #232：剩余 0 个就别再提示「已自动继续（剩余 0 个）」——那只会让人以为还有事。
+              if (remainingCount() > 0) say(batchText('batch.notice.auto-resumed', currentLang(), { count: String(remainingCount()) }))
               rowFailedAt.clear()
             }
             // 续完没走查：对挂载行而言等价于「最近查过/还没到再查的时候」。

@@ -17,11 +17,13 @@
 //   每行的单插件三电话照旧各自前缀暴露（<target.prefix>.updateStatus 等）。
 //
 // #227 起实现搬进 host/batch/ 域目录（蓝图 §4/§5），本文件只保留公开面：
-// `dist/host-batch.js` 是冻结出口（package.json `./batch`），运行期名字仍是 3 个
-// （BATCH_CHECK_CONCURRENCY / createMultiHostUpdate / phoneRequestIdOf），导出类型逐名转出。
+// `dist/host-batch.js` 是冻结出口（package.json `./batch`），运行期名字共 5 个
+// （BATCH_CHECK_CONCURRENCY / createMultiHostUpdate / phoneRequestIdOf / staleIdempotentHit /
+// attemptRequestId），导出类型逐名转出。
 // 实现要点见 host/batch/fan-out.ts 头注释；电话外壳与目标零件见 host/batch/phones.ts。
 
 import type { BatchCheckOutcome, BatchInstallOutcome, BatchRunStep, BatchStoppedByBecause } from './core/batch/run.js'
+import type { BatchSelfOrder } from './core/batch/model.js'
 import type { UpdateConfigInput } from './shared/config.js'
 import type { ReaderOverrides } from './host/capabilities.js'
 import type { BatchHostPhoneNames } from './host/batch/phones.js'
@@ -48,10 +50,15 @@ export interface MultiTargetSpec {
 export interface MultiHostOptions {
   /** 批量电话前缀（例 'life'）。 */
   prefix: string
-  /** 目标清单（顺序即会话顺序；selfKey 会被排到最后）。 */
+  /** 目标清单（顺序即会话顺序；selfKey 的位置由 selfOrder 决定，默认最后）。 */
   targets: MultiTargetSpec[]
-  /** 「自己」的键：排序时排最后，自更新安全。 */
+  /** 「自己」的键：只作日志属主识别；排位由 selfOrder 决定。 */
   selfKey?: string | null
+  /**
+   * 「自己」在会话顺序里的排位（#219）：默认 'last'（自更新安全：先升别家、最后升自己）；
+   * 'first' 让本体排第一行（爱生活本体诉求：爱生活应在批量面板第一行）。
+   */
+  selfOrder?: BatchSelfOrder
   /** 一家失败后是否停下（默认 false：继续下一家）。 */
   stopOnFailure?: boolean
   /** 宿主侧 drain：定时自动推进队列（**默认关**，显式 opt-in）。 */
@@ -128,4 +135,4 @@ export interface MultiHostUpdate {
 export type { BatchHostPhoneNames } from './host/batch/phones.js'
 
 export { BATCH_CHECK_CONCURRENCY, createMultiHostUpdate } from './host/batch/fan-out.js'
-export { phoneRequestIdOf } from './host/batch/resume.js'
+export { attemptRequestId, phoneRequestIdOf, staleIdempotentHit } from './host/batch/resume.js'
