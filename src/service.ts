@@ -690,6 +690,10 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
           // #211：回退与数据源是取数层交回的如实事实（审查 S2-4），不在这里猜。
           fallback: effective.fallback,
           dataSource: effective.dataSource,
+          // #216：「已是最新」与「装好了但没重启」在 current/latest 两格里长得一样——读日志的人
+          // 分不出这一家还需要什么下一步。两格如实补上（不参与任何决策，只补可读性）。
+          pendingRestart: snapshot.job?.state === 'restart-required' || snapshot.blockedReason === 'pending-restart',
+          jobState: snapshot.job?.state ?? 'none',
           latencyMs: Math.max(0, Date.now() - startedAt),
         })
         return { snapshot, receipt: snapshot.canInstall ? toReceipt() : null }

@@ -412,16 +412,16 @@ describe('#213 update.changelog.parse 六状态 / 缓存边沿 / 清单升档', 
   it('随包清单：#213 不增事件；changelog.parse 升常驻 + 边沿触发', () => {
     const raw = JSON.parse(readFileSync(new URL('../event-list.update.json', import.meta.url), 'utf8'))
     const names = Object.keys(raw.events)
-    assert.equal(names.length, 27, '#213 只升档不增事件（#207 之后的事故总数 27）')
+    assert.equal(names.length, 29, '#213 只升档不增事件；#216 补两条（batch.run.start / install.retry），#207 之后事故总数 27→29')
 
     const kinds = { resident: 0, ondemand: 0, selfmon: 0 }
     for (const name of names) kinds[raw.events[name].kind] += 1
     assert.deepEqual(
       kinds,
-      { resident: 20, ondemand: 6, selfmon: 1 },
-      'update.changelog.parse 由按需升常驻：19/7/1 → 20/6/1',
+      { resident: 22, ondemand: 6, selfmon: 1 },
+      'update.changelog.parse 由按需升常驻：19/7/1 → 20/6/1；#216 再补两条常驻 → 22/6/1',
     )
-    assert.equal(kinds.resident + kinds.ondemand, 26, '常驻 + 按需总数仍是 26')
+    assert.equal(kinds.resident + kinds.ondemand, 28, '#216 两条常驻加入后：常驻 + 按需总数 28')
 
     const entry = raw.events[PARSE_EVENT]
     assert.ok(entry, `清单里应有 ${PARSE_EVENT}`)

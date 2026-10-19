@@ -63,6 +63,11 @@ export interface BatchLogSeams {
   logPortFor(key: string): UpdateLogPort | null
   /** 一批一条入队行。 */
   noteEntryRequest(session: BatchSession): void
+  /**
+   * 一次真推进开始（#216）：trigger 说明是谁推动的（用户点「全部更新」/ 跨重启续跑 / 后台 drain），
+   * resumed 说明这次是接着旧账本还是新开了一批。同时重置「本次活跃时长」的起点（总账 durationMs 用）。
+   */
+  noteRunStart(session: BatchSession, info: { trigger: 'entry' | 'resume' | 'drain'; resumed: boolean }): void
   /** 总账按收尾边沿记。 */
   noteBatchSummary(session: BatchSession): void
   /** 没跑完就停下也有一行（同一会话同一原因只记一次）。 */
@@ -94,6 +99,30 @@ export function createBatchLogSeams(host: BatchLogHost): BatchLogSeams {
    * batchStatus 每 1.5s 轮询一次失败时不能灌爆目录。
    */
   const phoneFailSeen = new Map<string, string>()
+
+  /**
+   * 本次推进的起点与「是不是接着旧账本跑」（#216）。总账里的 durationMs 是**本次推进的活跃时长**
+   * （从这一格算到收尾行），不是「建会话至今」——一份昨天的会话今天接着跑，后者会报出几小时。
+   * sessionAgeMs 另行如实给建会话至今的总年龄；resumed 让读日志的人知道这一批是不是续跑。
+   */
+  let activeRunStartAt: number | null = null
+  let activeRunResumed = false
+
+  /** 一次真推进开始：重置活跃计时，并落一行 update.batch.run.start（属主目录，无属主不发）。 */
+  function noteRunStart(session: BatchSession, info: { trigger: 'entry' | 'resume' | 'drain'; resumed: boolean }): void {
+    activeRunStartAt = host.now()
+    activeRunResumed = info.resumed
+    const owner = host.ownerPluginId
+    if (!owner) return
+    const progress = batchProgress(session)
+    emitBatchLog(owner, 'info', 'update.batch.run.start', {
+      trigger: info.trigger,
+      resumed: info.resumed,
+      total: progress.total,
+      pending: progress.pending,
+      sessionHash: hash8(session.id),
+    })
+  }
 
   /**
    * 单项失败的发射口按「目标键 → 那家自己的插件标识」路由（#124）：一家失败记在那个插件自己的
@@ -131,13 +160,25 @@ export function createBatchLogSeams(host: BatchLogHost): BatchLogSeams {
     const owner = host.ownerPluginId
     if (!owner) return
     const progress = batchProgress(session)
-    const elapsed = host.now() - session.createdAt
+    const at = host.now()
+    // #216：durationMs = 本次推进的活跃时长（noteRunStart → 收尾）；sessionAgeMs = 建会话至今。
+    // 旧口径 durationMs 两者混用，续跑一批能报出 7 小时，读日志的人无法判断「到底装了多久」。
+    const sessionAge = at - session.createdAt
+    const active = activeRunStartAt === null ? null : at - activeRunStartAt
+    const durationMs =
+      active !== null && Number.isFinite(active) && active >= 0
+        ? Math.floor(active)
+        : Number.isFinite(sessionAge) && sessionAge > 0
+          ? Math.floor(sessionAge)
+          : 0
     emitBatchLog(owner, 'info', 'update.batch.summary', {
       total: progress.total,
       ok: progress.done,
       failed: progress.failed,
       skipped: progress.skipped,
-      durationMs: Number.isFinite(elapsed) && elapsed > 0 ? Math.floor(elapsed) : 0,
+      durationMs,
+      sessionAgeMs: Number.isFinite(sessionAge) && sessionAge > 0 ? Math.floor(sessionAge) : 0,
+      resumed: activeRunResumed,
       sessionHash: hash8(session.id),
       stoppedBecause,
     })
@@ -215,5 +256,5 @@ export function createBatchLogSeams(host: BatchLogHost): BatchLogSeams {
     })
   }
 
-  return { logPortFor, noteEntryRequest, noteBatchSummary, noteBatchStopped, noteRunOutcome, notePhoneFail }
+  return { logPortFor, noteEntryRequest, noteRunStart, noteBatchSummary, noteBatchStopped, noteRunOutcome, notePhoneFail }
 }

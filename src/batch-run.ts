@@ -29,6 +29,11 @@ export type BatchCheckOutcome =
   | { kind: 'update'; version: string }
   /** 已是最新，不需要动。 */
   | { kind: 'current' }
+  /**
+   * 已经装到目标版、只差宿主重启才生效（#216）：磁盘版==最新版，但任务/环境还标着待重启。
+   * 这与「已是最新，无需操作」是两件事——前者要用户重启，后者什么都别做。
+   */
+  | { kind: 'done'; version: string; restartRequired: boolean }
   /** 这一版被用户跳过（不装，但也不算失败）。 */
   | { kind: 'skipped'; version: string | null }
   /** 查失败（稳定码）；stage 只在失败阶段不是「查」时才显式给（缺省按查算）。 */
@@ -232,6 +237,20 @@ export async function runBatch(
       if (checked.kind === 'skipped') {
         await persist(markBatchEntry(current, key, { phase: 'skipped', targetVersion: checked.version }, deps.now()).session)
         steps.push({ key, action: 'check', phase: 'skipped', error: null })
+        continue
+      }
+      if (checked.kind === 'done') {
+        // #216：已经装好、只等重启——账本按 done + 待重启收尾，状态词说「重启宿主后生效」，
+        // 不说「已是最新，无需操作」（后者会让用户以为没事了，其实新版还没加载）。
+        await persist(
+          markBatchEntry(
+            current,
+            key,
+            { phase: 'done', targetVersion: checked.version, restartRequired: checked.restartRequired, error: null },
+            deps.now(),
+          ).session,
+        )
+        steps.push({ key, action: 'check', phase: 'done', error: null })
         continue
       }
 

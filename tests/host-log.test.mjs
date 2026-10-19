@@ -149,9 +149,11 @@ describe('#124 检查环节：registry.fetch / channel.decide / check.start / ch
       'current',
       'dataSource',
       'fallback',
+      'jobState',
       'latencyMs',
       'latest',
       'ok',
+      'pendingRestart',
       'source',
     ])
     assert.equal(done[0].fields.ok, true)

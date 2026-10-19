@@ -246,9 +246,11 @@ describe('#211-A update.check.done：阻挡原因、回退与数据源', () => {
       'current',
       'dataSource',
       'fallback',
+      'jobState',
       'latencyMs',
       'latest',
       'ok',
+      'pendingRestart',
       'source',
     ])
     assert.deepEqual(stripVolatile(done[0].fields), {
@@ -260,6 +262,8 @@ describe('#211-A update.check.done：阻挡原因、回退与数据源', () => {
       blockedReason: 'none',
       fallback: false,
       dataSource: 'npm-version',
+      pendingRestart: false,
+      jobState: 'none',
     })
     assert.equal(typeof done[0].fields.latencyMs, 'number')
     assert.ok(done[0].fields.latencyMs >= 0)
@@ -312,9 +316,11 @@ describe('#211-A update.check.done：阻挡原因、回退与数据源', () => {
       'channel',
       'dataSource',
       'fallback',
+      'jobState',
       'latencyMs',
       'latest',
       'ok',
+      'pendingRestart',
       'source',
     ])
   })

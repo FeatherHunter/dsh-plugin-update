@@ -72,7 +72,7 @@ import {
 } from './batch-run.js'
 import { assertPluginId, assertPrefix, buildLogAppendPhoneName, resolveUpdateConfig, type UpdateConfigInput } from './config.js'
 import { CROSS_SCOPE_CODE, isBatchReplyCode, isCoreErrorCode } from './codes.js'
-import { createBatchLogSeams, pluginLogPort } from './host-batch-log.js'
+import { createBatchLogSeams, emitBatchLog, pluginLogPort } from './host-batch-log.js'
 import { createHostUpdate, type HostUpdate, type ReaderOverrides } from './host.js'
 import type { ManualSource } from './last-resort.js'
 import { defaultHomeDir } from './reader.js'
@@ -548,7 +548,15 @@ async function defaultCheck(rt: TargetRuntime): Promise<BatchCheckOutcome> {
     } catch {
       newer = true
     }
-    if (!newer) return { kind: 'current' }
+    if (!newer) {
+      // #216：磁盘已是目标版、但安装任务/环境还标着待重启时，结论不是「已是最新，无需操作」，
+      // 而是「已安装完成，重启宿主后生效」——账本按 done+待重启收尾，别把用户的下一步抹掉。
+      const job = asRecord(snapshot['job'])
+      const jobState = firstText(job['state'])
+      const pendingRestart = jobState === 'restart-required' || firstText(snapshot['blockedReason']) === 'pending-restart'
+      if (pendingRestart) return { kind: 'done', version: latest, restartRequired: true }
+      return { kind: 'current' }
+    }
   }
   if (snapshot['canInstall'] !== true) {
     const blocked = firstText(snapshot['blockedReason'])
@@ -638,6 +646,13 @@ async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetS
     }
     reply = await submitOnce(fresh.checkId)
     rt.receipt = null
+    // #216：凭证过期后当场重查重提是设计内动作（ADR-0004 §3 A 案 ≥2 家的批每家首次都会走），
+    // 但日志要留一行说明「第一次提交不是环境坏了、是凭证过期」——否则读日志只看到一条 gate-refused。
+    emitBatchLog(rt.pluginId, 'info', 'update.install.retry', {
+      reason: 'check-expired',
+      attempt: 2,
+      requestHash: hash8(phoneRequestId),
+    })
     if (reply['ok'] === true) return await settleInstall(rt, reply)
     code = codeOfReply(reply)
   }
@@ -810,7 +825,7 @@ export function createMultiHostUpdate(
     lastStoppedBecause: () => lastRun?.stoppedBecause,
     now: () => now(),
   })
-  const { logPortFor, noteEntryRequest, noteBatchSummary, noteBatchStopped, noteRunOutcome, notePhoneFail } = batchLog
+  const { logPortFor, noteEntryRequest, noteBatchSummary, noteBatchStopped, noteRunOutcome, notePhoneFail, noteRunStart } = batchLog
   let drainTimer: unknown = null
   let disposed = false
 
@@ -1158,6 +1173,10 @@ export function createMultiHostUpdate(
       entries[rt.spec.key] = { lastCheckedAt: at, installed, installedVersion, latestVersion: outcome.version, canInstall, error: null }
     } else if (outcome.kind === 'current') {
       entries[rt.spec.key] = { lastCheckedAt: at, installed, installedVersion, latestVersion: installedVersion, canInstall: false, error: null }
+    } else if (outcome.kind === 'done') {
+      // #216：已装到目标版、只等重启——知识行也记「装完了」，最新版写成目标版，
+      // 不让版本列再显示上一次的旧版。
+      entries[rt.spec.key] = { lastCheckedAt: at, installed, installedVersion, latestVersion: outcome.version, canInstall: false, error: null }
     } else if (outcome.kind === 'skipped') {
       entries[rt.spec.key] = { lastCheckedAt: at, installed, installedVersion, latestVersion: outcome.version, canInstall: false, error: null }
     } else {
@@ -1238,6 +1257,12 @@ export function createMultiHostUpdate(
       } else if (outcome.kind === 'skipped') {
         if (entry.phase !== 'skipped' || entry.targetVersion !== outcome.version || entry.error !== null) {
           patch = { phase: 'skipped', targetVersion: outcome.version, error: null }
+        }
+      } else if (outcome.kind === 'done') {
+        // #216：检查发现「已经装好、只差重启」——会话从 ready/failed 收敛成 done+待重启，
+        // 与驱动的结论同一口径（否则面板还停在「可更新」）。
+        if (entry.phase !== 'done' || entry.restartRequired !== outcome.restartRequired || entry.targetVersion !== outcome.version || entry.error !== null) {
+          patch = { phase: 'done', targetVersion: outcome.version, restartRequired: outcome.restartRequired, error: null }
         }
       }
       if (patch) {
@@ -1368,6 +1393,8 @@ export function createMultiHostUpdate(
         patch = { phase: 'ready', targetVersion: outcome.version, error: null }
       } else if (outcome.kind === 'current') {
         patch = { phase: 'current', targetVersion: null, error: null }
+      } else if (outcome.kind === 'done') {
+        patch = { phase: 'done', targetVersion: outcome.version, restartRequired: outcome.restartRequired, error: null }
       } else if (outcome.kind === 'skipped') {
         patch = { phase: 'skipped', targetVersion: outcome.version, error: null }
       } else {
@@ -1439,6 +1466,10 @@ export function createMultiHostUpdate(
       // 推进前先看一次账本：重试把失败行退回 pending 时，「已收尾」标记要跟着清掉，
       // 装成后的那次收尾才算一次新的边沿（日志不写假话）。
       noteBatchSummary(session)
+      // #216：一次真推进开始也留一行（trigger=entry 表示用户点「全部更新/重试」推的；resumed
+      // 专指「续跑」——继续上次未完成或自动续跑，entry 推旧账本仍算一次新推进，不算续跑）。
+      // 没有这行，日志里只有入队与总账，中间隔着几小时没法看出这几步是哪一次点击推动的。
+      noteRunStart(session, { trigger: 'entry', resumed: false })
       // 两段式（#70）：先把选中 keys 全查成 ready 进会话，再串行装（装阶段复用 ready，不重查）。
       session = await precheckSelectedToReady(session, selected)
       driven = await driveLocked(session, selected, Number.POSITIVE_INFINITY)
@@ -1468,6 +1499,8 @@ export function createMultiHostUpdate(
     const resumed = resumeBatchSession(disk, now())
     if (resumed !== disk) await saveSession(resumed)
     try {
+      // #216：跨重启续跑也要有一行「这次真推进开始了」。
+      noteRunStart(resumed, { trigger: 'resume', resumed: true })
       const driven = await drive(resumed, null, Number.POSITIVE_INFINITY)
       // 跨重启续跑收尾：这一轮是「接着推」，但收尾仍在宿主侧汇总（面板不重发）；
       // 没跑完就停也记一行（#209）。
@@ -1513,6 +1546,8 @@ export function createMultiHostUpdate(
     const disk = await readSession()
     if (disk.entries.length === 0 || isBatchFinished(disk)) return
     try {
+      // #216：drain 每轮真推进也留一行（trigger=drain），把每个主动作与被推动的步串起来。
+      noteRunStart(disk, { trigger: 'drain', resumed: true })
       // drain 一轮只推一步：推完可能正好收尾（最后一家做完），总账就在这一轮记；
       // 排上队/按策略停下也各有一行（#209）。
       noteRunOutcome(await drive(disk, null, 1))
