@@ -1,10 +1,17 @@
 // src/panel/skip-store.ts —— 面板本地的跳过读写承诺（localStorage 优先，无环境退内存；写坏吞掉不挡更新）。
 //
-// 从 src/panel.ts 拆出（#226，蓝图 §4：panel/skip-store）。PanelSkipStore 类型按蓝图留在
-// 入口壳（公开类型面），这里只实现内存版与浏览器版两个工厂。
+// 从 src/panel.ts 拆出（#226，蓝图 §4：panel/skip-store）。PanelSkipStore 类型按蓝图随实现
+// 搬到这里（§4：旧 L348 的公开类型 + L398–522 的实现同住 skip-store），入口壳只做转出。
 
 import { validReleaseVersion } from '../core/service.js'
-import type { PanelSkipStore } from '../panel.js'
+
+/** 面板本地的跳过读写承诺：按版本记、可重置（宿主侧 skipped.json 是另一套落盘，互不干扰）。 */
+export interface PanelSkipStore {
+  list(): string[]
+  has(version: string): boolean
+  skip(version: string): void
+  reset(version?: string): void
+}
 
 // ---------- 跳过存储（面板本地：localStorage 优先，无环境退内存；写坏吞掉不挡更新） ----------
 

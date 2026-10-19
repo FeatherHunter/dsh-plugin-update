@@ -4,10 +4,21 @@
 // 客户端日志、跳过读写、语言订阅全在这里；渲染与视图模型是它依赖的纯函数层。
 // DOM 与剪贴板只在 mountUpdatePanel 被调用时经 globalThis 现取，模块顶层不碰。
 //
-// 组件行为总述（原 src/panel.ts 头注）：框架无关的整组件，调用者只传 pluginId + prefix，
-// 另加 mode/showOthers/pollMs 可选；单组件单内核（内嵌与弹窗同一套 HTML，只差最外层包裹），
-// 关闭面板只停轮询、不停安装，重开立刻重查。本域文件零 Node 专属能力，
-// Node 宿主与浏览器闭包两边都跑得动。
+// 组件行为总述（原 src/panel.ts 头注，逐字迁移）：
+// 框架无关的整组件。调用者只传标识与摆放参数（pluginId + prefix，另加 mode / showOthers /
+// pollMs 可选），面板里放一个挂载点即跑。轮询调度、安装门控、中文一句话、待重启横幅、
+// 手工命令展示与复制、排队可见开关、跳过读写承诺、诊断一键复制全在组件内部消化。
+//
+// 单组件单内核：内嵌与弹窗是同一套内核、同一套 HTML，只差最外层包裹（mode 参数切换），
+// 不做两个组件。关闭面板/弹窗只停轮询、不停安装（安装在宿主进程内跑；重开面板立刻重查，
+// 默认 1 秒轮询即恢复进度）。
+//
+// 本域文件零 Node 专属能力（不读盘、不起进程、不拼 shell），Node 宿主与浏览器闭包两边都
+// 跑得动；DOM 与剪贴板只在 mountUpdatePanel 被调用时经 globalThis 现取，模块顶层不碰。
+// 样式隔离走 `dsh-upd` 前缀类 + 按需内联的最小默认样式（跟随系统主题、可被调用方覆盖）。
+//
+// 与错误架构子地图的分工：回包形状由子地图定，本组件只承诺“有、够、已脱敏”——
+// 平时一句话、旁边常驻复制诊断；复制文本经 redactForCopy 收干净后再交出去。
 
 import { formatUnlockAt } from '../core/cause.js'
 import { isChangelogStatus, shouldFetchChangelog, type ChangelogStatus } from '../core/changelog/parse.js'

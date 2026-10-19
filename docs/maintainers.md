@@ -94,7 +94,7 @@ npm publish
 `package.json` 的 `files` 共 7 项：`dist`、`derive-client-values.mjs`、`event-list.template.json`、`event-list.update.json`、`README.md`、`CHANGELOG.md`、`LICENSE`（另加隐含的 `package.json`；`dist` 是目录，**src 下每个 TS 都会带上对应 JS 与 `.d.ts`**——加模块不必改白名单，但要跑一次 `npm publish --dry-run` 核对文件数）。
 
 包出口共 11 个子路径：`.`（宿主侧）、`./log`（日志内核：派生命名空间 / 登记表 / 路由 / 唯一发射口 / 随包事件表 / 客户端通道）、`./panel`、`./client`、`./batch`（多目标批量宿主入口）、`./panel-batch`（批量面板）、`./entry`（更新入口件）、`./entry-batch`（批量感知入口件：一颗按钮看 N 家聚合，点开即批量面板）、`./install-button`（安装按钮控件：一颗按钮原地装好一家，判定文案与面板同一口径）、`./http`（HTTP 万能插头：createHttpCall 单五电话 + 批量五电话同一内核 + 面板/入口/批量面板直挂）、`./package.json`。新增能力一律**新开子路径**，不改既有入口的形状。
-其中浏览器安全面只有 `src/log/client-queue.ts`、`src/log/panel-client.ts`（单面板与批量面板共用的客户端日志壳；零 `node:` 依赖）与 `src/log/{sink,router}.ts`：`panel.ts` / `panel-batch.ts` 只许运行期引 `./log/panel-client.js`（壳内部再引 client-queue），其余 `src/log/**` 只许 `import type`（`tests/log-kernel.test.mjs` 会红）。
+其中浏览器安全面只有 `src/log/client-queue.ts`、`src/log/panel-client.ts`（单面板与批量面板共用的客户端日志壳；零 `node:` 依赖）与 `src/log/{sink,router}.ts`：单面板主体的运行期日志引用在 `src/panel/mount.ts`、批量面板在 `src/panel-batch.ts`，两边都只许引 `./log/panel-client.js` 这一处（面板目录内相对写法是 `../log/panel-client.js`；壳内部再引 client-queue），其余 `src/log/**` 只许 `import type`（`tests/log-kernel.test.mjs` 会红）。
 加新文件进包时同步改 `files`，并重跑 `npm publish --dry-run` 确认文件数。
 
 ## 本包门禁

@@ -1,8 +1,10 @@
 // src/panel.ts —— 面板公开入口壳（#226：实现拆进 panel/，本文件只做 curated 转出口）。
 //
 // `dist/panel.js` 是冻结出口（package.json `./panel`，map #220 §5）：路径与导出集一字不动；
-// 蓝图 §5 铁律——入口壳只有导出语句、不写逻辑。公开类型完整定义留在这里（不做源码级复用），
-// 视图/渲染/挂载/主题/跳过存储/电话名的实现都在 panel/ 里，本文件逐一转出。
+// 蓝图 §5 铁律——入口壳只有导出语句、不写逻辑。公开类型面完整（公开入口一律有类型，不做
+// 源码级复用）；类型定义按 §4 分布：留在壳里的公开类型在此完整定义，与实现同处的少数公开
+// 类型（UpdateThemeTokens/PanelSkipStore/PanelView/PanelRenderInput/PanelFailureRef 等）从
+// panel/ 转出。视图/渲染/挂载/主题/跳过存储/电话名的实现都在 panel/ 里，本文件逐一转出。
 
 export { isCheckSideFailureCode } from './shared/codes.js' // 查侧判定从单点真源派生（#134/US15）
 // #174：last-resort 的类型经既有子路径转出，消费者无需新子路径即可命名（`ManualSource` 已出现在本模块导出签名里）。
@@ -12,6 +14,7 @@ import type { PanelClientLogOptions } from './log/panel-client.js'
 import type { DiagCopyFormat } from './panel-copy.js'
 import type { UpdateThemeTokens } from './panel/theme.js'
 import type { LocaleOption } from './shared/lang.js'
+import type { PanelSkipStore } from './panel/skip-store.js'
 
 // ---------- 公开类型（完整类型定义：公开入口一律有类型，不做源码级复用） ----------
 
@@ -178,14 +181,6 @@ export interface UpdatePanelController {
   unmount(): void
 }
 
-/** 面板本地的跳过读写承诺：按版本记、可重置（宿主侧 skipped.json 是另一套落盘，互不干扰）。 */
-export interface PanelSkipStore {
-  list(): string[]
-  has(version: string): boolean
-  skip(version: string): void
-  reset(version?: string): void
-}
-
 // ---------- 文案垫片（#166：实现搬 panel-copy，老位置 re-export，行为零变化） ----------
 export {
   PANEL_DIAG_MAX_CHARS,
@@ -209,6 +204,7 @@ export type { BlockedCopy, DiagCopyFormat, FailureCopy, HealthyDiagCopyInput, Pa
 export { normalizePanelTheme, isSafeThemeCssValue, themeTokensStyleFor } from './panel/theme.js'
 export type { UpdateThemeTokens } from './panel/theme.js'
 export { createMemorySkipStore, createBrowserSkipStore } from './panel/skip-store.js'
+export type { PanelSkipStore } from './panel/skip-store.js'
 export { panelSealFor, messageCodeOf, panelViewModel, checkPrejudgeOfView } from './panel/view-model.js'
 export type { PanelBanner, PanelView, PanelSealTone, PanelSeal, PanelViewInput, CheckPrejudge } from './panel/view-model.js'
 export { UPDATE_PANEL_CSS, fallbackBlockedVersionOf, fallbackCauseFromDetail, fallbackCauseFromDiag, lastResortBarHTML, lastResortCopyButtonHTML, copyBubbleHTML, renderUpdatePanelKernel, renderUpdatePanelHTML } from './panel/render.js'

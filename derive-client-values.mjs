@@ -83,10 +83,10 @@ function loadEsbuild() {
 
 // ---------- 打包客户端入口 ----------
 const esbuild = loadEsbuild()
-const entry = join(PKG_DIR, 'src', 'panel', 'client.ts')
+const entry = join(PKG_DIR, 'src', 'client.ts')
 const sourceOfTruth = existsSync(entry) ? entry : join(PKG_DIR, 'dist', 'client.js')
 if (!existsSync(sourceOfTruth)) {
-  console.error('错误：包里既没有 src/panel/client.ts 也没有 dist/client.js，包可能不完整（重装一次试试）。')
+  console.error('错误：包里既没有 src/client.ts 也没有 dist/client.js，包可能不完整（重装一次试试）。')
   process.exit(1)
 }
 
