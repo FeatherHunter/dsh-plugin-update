@@ -693,6 +693,8 @@ export interface BatchPanelRenderInput {
   confirmCancel?: boolean
   /** 是否已经拿到过第一次回包（决定总账那句是不是「正在读取…」）。 */
   loaded?: boolean
+  /** 旧批次结果可能过期（首帧/自动检查在途）：行状态先按「检查中」渲染，别把旧 done 当结论（#231）。 */
+  staleResults?: boolean
   titles?: Record<string, string>
   /** 键 -> 该家被跳过的版本（挂载侧从跳过存储读出；纯渲染函数不读存储）。 */
   skippedVersions?: Record<string, string | null>
@@ -744,6 +746,8 @@ interface RowRenderContext {
   knowledge: BatchKnowledgeEntry | null
   /** 该行是否在没做完的一轮里（轮次事实小标记用，不改写下一步）。 */
   inRound: boolean
+  /** 首帧/自动检查在途：旧账本结果可能过期，行状态先按「检查中」渲染（#231）。 */
+  staleResults: boolean
   /** 世界账推翻出的新版本号（#90：终态行被更新鲜的知识推翻时非 null，状态词与圆点同它走）。 */
   worldLatest: string | null
   /** 该行已决议出的候选（#156；有即二次确认态，无即首问态；旧决议由调用方过滤）。 */
@@ -799,6 +803,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
     lang,
     knowledge: null,
     inRound: false,
+    staleResults: input.staleResults === true,
     worldLatest: null,
     fallbackCandidate: null,
     fallbackBusy: false,
@@ -884,6 +889,7 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
         lang,
         knowledge,
         inRound,
+        staleResults: input.staleResults === true,
         worldLatest: worldUpdateVersion(row, knowledge, sessionUpdatedAtOf(input.session, row.key)),
         fallbackCandidate: offerCand && offerTarget === latest ? offerCand : null,
         fallbackBusy: fallbackBusyKey === row.key,
@@ -895,7 +901,9 @@ export function renderBatchPanelHTML(input: BatchPanelRenderInput): string {
 
   // 表下一行分类总账。
   if (total > 0) {
-    parts.push('<div class="dsh-upd-batch-ledger">' + escapeHtml(batchLedgerText(counts, lang)) + '</div>')
+    // #231：自动检查还没结论时，别把旧账本的总账当结论（尤其「N 个已是最新」）。
+    const ledgerText = input.staleResults === true ? batchText('batch.ledger.checking', lang) : batchLedgerText(counts, lang)
+    parts.push('<div class="dsh-upd-batch-ledger">' + escapeHtml(ledgerText) + '</div>')
   }
 
   // 断点续跑与取消（有没做完的一轮才有意义；不与顶部两件宏抢位）。
@@ -1306,13 +1314,18 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
   // 兜底按钮都得跟着说实话：说"安装失败"是撒谎，再劝它装合规版是白劝（已经装上了）。
   const rowDone = phase === 'failed' && !queued ? compliantInstalledOf(row) : null
   const versionHTML = batchRowVersionHTML(row, ctx.knowledge, ctx.lang)
-  const rowStatusText = rowDone !== null
+  const staleRow = ctx.staleResults && (phase === 'done' || phase === 'current')
+  const rowStatusText = staleRow
+    ? batchText('batch.row.checking', ctx.lang)
+    : rowDone !== null
     ? rowDone.needsRestart
       ? batchText('batch.row.done-restart', ctx.lang)
       : batchText('batch.row.done', ctx.lang)
     : queued
       ? batchQueuedStatus(position, ctx.lang)
-      : ctx.worldLatest !== null
+      : phase === 'ready' && ctx.inRound && ctx.busy
+        ? batchText('batch.row.batch-queued', ctx.lang)
+        : ctx.worldLatest !== null
         ? batchText('batch.row.update', ctx.lang, { version: ctx.worldLatest })
         : ctx.inRound
           ? (batchRowKnowledgeText(row, ctx.knowledge, ctx.lang) ?? batchRowStatus(row, skipped, ctx.lang))
@@ -1339,10 +1352,14 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
       )
     }
   } else if (phase === 'ready' && skipped === null) {
-    actions.push(
-      '<button type="button" data-act="row-install" data-key="' + keyAttr + '" data-primary="1"' + off + '>' +
-        escapeHtml(ctx.busy ? batchText('batch.row-action.queue', ctx.lang) : batchText('batch.row-action.install-row', ctx.lang)) + '</button>',
-    )
+    // #232：批次正在跑时这一家已在批次队列里，消费完上一家会自动装——不画「加入队列」按钮，
+    // 免得读成「还得手动入队」。停下/空闲时才给手动的「安装此插件」。
+    if (!(ctx.inRound && ctx.busy)) {
+      actions.push(
+        '<button type="button" data-act="row-install" data-key="' + keyAttr + '" data-primary="1"' + off + '>' +
+          escapeHtml(ctx.busy ? batchText('batch.row-action.queue', ctx.lang) : batchText('batch.row-action.install-row', ctx.lang)) + '</button>',
+      )
+    }
   } else if (phase === 'ready' && skipped !== null) {
     // 跳过后这一版的下一步是「恢复」：与单插件面板同一套本地跳过语义（按插件 + 版本记）。
     actions.push(
@@ -1403,7 +1420,7 @@ function rowSetHTML(row: BatchRowView, ctx: RowRenderContext): string {
     '<span class="dsh-upd-updot" data-tone="' + dotToneOf(row, phase, skipped, queued, ctx.worldLatest, rowDone === null ? null : rowDone.needsRestart) + '"></span>' +
     '<span class="dsh-upd-bname">' + escapeHtml(titleOf(row, ctx.titles)) + '</span>' +
     versionHTML +
-    '<span class="dsh-upd-bstat">' + lastResortBadge + escapeHtml(rowStatusText) + (ctx.inRound && !queued ? '（' + escapeHtml(batchText('batch.row.unfinished-tag', ctx.lang)) + '）' : '') + '</span>' +
+    '<span class="dsh-upd-bstat">' + lastResortBadge + escapeHtml(rowStatusText) + (ctx.inRound && !queued && phase === 'failed' ? '（' + escapeHtml(batchText('batch.row.unfinished-tag', ctx.lang)) + '）' : '') + '</span>' +
     failLine +
     '</button>'
   // 详情默认弹窗（#108：删内嵌展开路径——行内不再叠 `.dsh-upd-bdetail`，展开走弹窗 sibling overlay，见 detailDialogHTML）。
@@ -1449,10 +1466,13 @@ function detailActionsHTML(row: BatchRowView, ctx: RowRenderContext): string {
       if (fallback) buttons.push(fallback)
     }
   } else if (phase === 'ready' && ctx.skipped === null) {
-    buttons.push(
-      '<button type="button" data-act="row-install" data-key="' + keyAttr + '" data-primary="1"' + off +
-        '>' + escapeHtml(ctx.busy ? batchText('batch.row-action.queue', ctx.lang) : version !== null ? batchText('batch.row-action.install-version', ctx.lang, { version }) : batchText('batch.row-action.install-generic', ctx.lang)) + '</button>',
-    )
+    // #232：与行内同一口径——批次正在跑时这一家已在队列，不给「加入队列」误动作。
+    if (!(ctx.inRound && ctx.busy)) {
+      buttons.push(
+        '<button type="button" data-act="row-install" data-key="' + keyAttr + '" data-primary="1"' + off +
+          '>' + escapeHtml(ctx.busy ? batchText('batch.row-action.queue', ctx.lang) : version !== null ? batchText('batch.row-action.install-version', ctx.lang, { version }) : batchText('batch.row-action.install-generic', ctx.lang)) + '</button>',
+      )
+    }
   }
   // 单查（#84）：该行自己的查新版电话透过行 phoneNames 透传（老宿主没给即不画，诚实缺省）。
   // 文案沿用批量宏的已有键（不新增键）：在详情里它自然就是「查这一家」。
@@ -2510,6 +2530,7 @@ export function mountUpdateBatchPanel(
       skippedVersions: skippedVersionsOf(),
       inFlight,
       loaded,
+      staleResults: staleResultsActive(),
       titles,
       confirmCancel: confirmCancelArmed,
       changelogs: changelogView(),
@@ -2868,6 +2889,14 @@ export function mountUpdateBatchPanel(
     maybeAutoRowChangelog(expandedKey)
     maybeAutoPlanCompliant()
     return out
+  }
+
+  /** 旧账本结果可能过期的窗口：旧会话已收尾、挂载后的自动检查还没结论（#231）。 */
+  function staleResultsActive(): boolean {
+    if (lastSession === null) return false
+    if (autoCheckOutcome !== null) return false
+    if (!checkOnOpenEffective()) return false
+    return !hasUnfinishedRows(rows, lastSession ?? undefined)
   }
 
   function remainingCount(): number {
@@ -3519,7 +3548,8 @@ export function mountUpdateBatchPanel(
             applyReply(reply)
             const r = reply as Record<string, unknown>
             if (r['resumed'] !== false) {
-              say(batchText('batch.notice.auto-resumed', currentLang(), { count: String(remainingCount()) }))
+              // #232：剩余 0 个就别再提示「已自动继续（剩余 0 个）」——那只会让人以为还有事。
+              if (remainingCount() > 0) say(batchText('batch.notice.auto-resumed', currentLang(), { count: String(remainingCount()) }))
               rowFailedAt.clear()
             }
             // 续完没走查：对挂载行而言等价于「最近查过/还没到再查的时候」。

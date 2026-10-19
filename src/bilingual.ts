@@ -357,6 +357,8 @@ export type BilingualKey =
   | 'batch.banner.restart-button'
   | 'batch.row.queued-generic'
   | 'batch.row.queued-n'
+  | 'batch.row.batch-queued'
+  | 'batch.ledger.checking'
   | 'batch.row.skipped'
   | 'batch.row.wait-turn'
   | 'batch.row.checking'
@@ -763,7 +765,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.banner.loading': { en: 'Loading batch update status\u2026', zh: '正在读取批量更新状态…', draft: true },
   'batch.hint.error': { en: 'Last run failed: follow the red banner below.', zh: '上次执行失败：请按下方红色横幅提示操作。', draft: true },
   'batch.hint.empty': { en: 'No targets yet: select \u201CCheck for updates\u201D to see which plugins have updates.', zh: '暂无目标：请选择「检查更新」查看哪些插件有更新。', draft: true },
-  'batch.hint.installing-queueable': { en: 'Installing {a}; {b} more can join the queue.', zh: '正在安装 {a} 个；另有 {b} 个可选择「加入队列」等待。', draft: true },
+  'batch.hint.installing-queueable': { en: 'Installing {a}; {b} more are queued and will install automatically.', zh: '正在安装 {a} 个；队列里还有 {b} 个，会自动依次安装。', draft: true },
   'batch.hint.installing-auto': { en: 'Installing {a}; the next starts automatically.', zh: '正在安装 {a} 个，完成后自动安装下一项。', draft: true },
   'batch.hint.failed': { en: '{n} failed to install; retry each one from the failure notes below.', zh: '{n} 个插件安装失败；请按下方失败提示逐项重试。', draft: true },
   'batch.hint.updatable': { en: '{n} updates available; select \u201CUpdate all\u201D to install at once, or install each one inline.', zh: '{n} 个可更新；请选择「全部更新」一次安装完成，也可逐项选择「安装此插件」。', draft: true },
@@ -794,6 +796,8 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.banner.restart-button': { en: 'Please restart DSH', zh: '请重启DSH', draft: true },
   'batch.row.queued-generic': { en: 'Queued \u00b7 waiting for the running install to finish', zh: '已排队 · 等待前方安装完成', draft: true },
   'batch.row.queued-n': { en: 'Queued \u00b7 {n} ahead', zh: '已排队 · 前方还有 {n} 项', draft: true },
+  'batch.row.batch-queued': { en: 'In batch queue \u00b7 installs automatically', zh: '已在队列 · 会自动依次安装', draft: true },
+  'batch.ledger.checking': { en: 'Re-checking latest versions\u2026', zh: '正在按最新版本重新检查…', draft: true },
   'batch.row.skipped': { en: 'Skipped {version}', zh: '已跳过版本 {version}', draft: true },
   'batch.row.wait-turn': { en: 'Waiting for its turn; it will check automatically', zh: '请等待，轮到将自动查询版本信息。', draft: true },
   'batch.row.checking': { en: 'Checking for updates; please wait', zh: '正在查询版本信息，请稍候。', draft: true },
@@ -809,7 +813,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.row.unknown': { en: 'Unknown state; select \u201cCheck for updates\u201d to check again', zh: '状态无法识别，请选择「检查更新」重新查询。', draft: true },
   'batch.row-action.installing': { en: 'Installing\u2026', zh: '正在安装…', draft: true },
   'batch.row-action.cancel-queue': { en: 'Cancel queue', zh: '取消排队', draft: true },
-  'batch.row-action.queue': { en: 'Join queue', zh: '加入队列', draft: true },
+  'batch.row-action.queue': { en: 'Install next', zh: '优先安装', draft: true },
   'batch.row-action.install-row': { en: 'Install this plugin', zh: '安装此插件', draft: true },
   'batch.row-action.retry': { en: 'Retry', zh: '重试', draft: true },
   'batch.row-action.install-version': { en: 'Install {version}', zh: '安装版本 {version}', draft: true },

@@ -223,8 +223,8 @@
       "draft": true
     },
     "batch.hint.installing-queueable": {
-      "en": "Installing {a}; {b} more can join the queue.",
-      "zh": "正在安装 {a} 个；另有 {b} 个可选择「加入队列」等待。",
+      "en": "Installing {a}; {b} more are queued and will install automatically.",
+      "zh": "正在安装 {a} 个；队列里还有 {b} 个，会自动依次安装。",
       "draft": true
     },
     "batch.hint.pending": {
@@ -250,6 +250,11 @@
     "batch.lastresort.row-badge": {
       "en": "Last resort",
       "zh": "最后手段",
+      "draft": true
+    },
+    "batch.ledger.checking": {
+      "en": "Re-checking latest versions…",
+      "zh": "正在按最新版本重新检查…",
       "draft": true
     },
     "batch.notice.auto-resumed": {
@@ -323,8 +328,8 @@
       "draft": true
     },
     "batch.row-action.queue": {
-      "en": "Join queue",
-      "zh": "加入队列",
+      "en": "Install next",
+      "zh": "优先安装",
       "draft": true
     },
     "batch.row-action.restart": {
@@ -350,6 +355,11 @@
     "batch.row-action.unskip": {
       "en": "Restore ({version})",
       "zh": "恢复提醒（{version}）",
+      "draft": true
+    },
+    "batch.row.batch-queued": {
+      "en": "In batch queue · installs automatically",
+      "zh": "已在队列 · 会自动依次安装",
       "draft": true
     },
     "batch.row.checking": {

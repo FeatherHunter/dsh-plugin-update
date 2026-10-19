@@ -167,7 +167,7 @@ describe('#108 详情默认弹窗：点详情弹 dialog，不再内嵌', () => {
     assert.ok(at >= 0, '弹窗在');
     const dlg = html.slice(at);
     assert.ok(dlg.includes('data-act="row-check"'), '单查透 phoneNames');
-    assert.ok(dlg.includes('>重试</button>') || dlg.includes('加入队列'), '失败给重试/队列');
+    assert.ok(dlg.includes('>重试</button>') || dlg.includes('优先安装'), '失败给重试/优先安装');
     assert.ok(dlg.includes('data-act="row-copy-manual"'), '复制手工在');
     assert.ok(dlg.includes('data-act="row-copy-diag"'), '复制诊断恒在');
     assert.ok(dlg.includes('data-chapter="01"'), '五章内核在（只查一章代表）');

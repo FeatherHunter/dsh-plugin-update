@@ -175,7 +175,7 @@ describe('#71 Q3：永远显示当前版 + 四态', () => {
     const session = { version: 1, id: 's', selfKey: null, stopOnFailure: false, order: ['a'], entries: [{ key: 'a', phase: 'pending', requestId: 'r', targetVersion: null, restartRequired: false, error: null, updatedAt: 0 }], createdAt: 0, updatedAt: 0 }
     const html = renderBatchPanelHTML({ rows: [rowOf({ key: 'a', phase: 'pending', snapshot: snap('1.0.0') })], session, inventory: { version: 1, updatedAt: 1, entries: { a: { lastCheckedAt: 1, installedVersion: '1.0.0', latestVersion: '2.0.0', canInstall: true, error: null } } }, lang: 'zh' })
     assert.ok(html.includes('请等待，轮到将自动查询版本信息。'), '轮次中仍 wait-turn')
-    assert.ok(html.includes('上次未完成'), '轮次标记保留')
+    assert.ok(!html.includes('（上次未完成）'), '轮次中 pending 行不再挂「上次未完成」（#232 只给失败重试行）')
     assert.ok(!rowMainOf(html, 'a').includes('dsh-upd-bver-new'), '轮次中版本不提前 →，只显当前')
   })
 })
