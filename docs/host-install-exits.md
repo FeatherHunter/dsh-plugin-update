@@ -166,8 +166,10 @@
 
 - 调用形：`[当前运行时, …运行时参数, CLI 的 JS 入口, 'plugin', '--profile', 使用范围名, …参数数组]`
   —— 一律参数数组，不经 shell、不用 `PATH` 上的 `dsh` 命令名、不按系统分支。
-- CLI 入口靠**反查**而不是猜：从 `process.argv[1]` 逐级向上找名为 `@deepseek-ai/dsh` 的包，
-  且该文件必须正好是包声明的可执行入口；对不上返回 null，诚实失败。
+- CLI 入口靠**反查**而不是猜：从 `process.argv[1]` 逐级向上找 CLI 包，入口必须正好是包里声明的
+  入口——npm 布局认名为 `@deepseek-ai/dsh` 的包声明的 `bin.dsh`/`bin`；官方桌面运行时认
+  `@deepseek-ai/dsh-desktop-host` 包里固定的 `lib/cli.js`（#237：`dsh web` 的 CLI 入口就是这份，
+  该包没有 `bin` 字段，只认 npm 布局会 2ms 内 `spawn-failed`）。对不上返回 null，诚实失败。
 - 这个出口对使用范围名为 `desktop` 的情形，**只对没有 CLI 载体的普通 `dsh` 一定失败**（出处同上）；
   官方桌面版发行包里的载体 CLI 不拒绝 `--profile desktop`（见出口二末条实测）。因此本包仍不把官方桌面版
   路由到这里（in-process 管理器能力最全），但兜底命令在有载体的机器上是可执行的。

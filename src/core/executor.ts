@@ -21,6 +21,14 @@ import { fail } from './store-base.js'
 /** 运行入口要反查的 CLI 包名（入口必须来自正在运行的这份 CLI）。 */
 const CLI_PACKAGE_NAME = '@deepseek-ai/dsh'
 /**
+ * 官方桌面运行时自带的 CLI 宿主包名（#237）：`dsh web` 的入口是
+ * `<包目录>/lib/cli.js`。这个包没有 `bin` 字段、包名也不是 @deepseek-ai/dsh，
+ * 只认 npm 布局会把 web/CLI 模式 profile 的一键安装直接打成 spawn-failed。
+ */
+const DESKTOP_HOST_PACKAGE_NAME = '@deepseek-ai/dsh-desktop-host'
+/** 桌面运行时 CLI 宿主包里的入口相对路径（与 npm 布局的 bin 声明等价）。 */
+const DESKTOP_HOST_CLI_ENTRY = ['lib', 'cli.js'] as const
+/**
  * 安装子进程的流出置：输出只留一段有界缓冲（不读、不落盘），只看退出事实。
  * 必须是「有界收集」形状——子进程能力的 'pipe' 会没人读、'ignore' 不是它的合法取值。
  */
@@ -137,9 +145,10 @@ async function readManifestAt(directory: string): Promise<Record<string, unknown
 }
 
 /**
- * 从正在运行的入口反查 CLI 的 JS 入口：逐级向上找名字为 @deepseek-ai/dsh 的包，
- * 且该文件必须正好是包声明的可执行入口（bin.dsh 或 bin 字符串）。对不上就返回 null，
- * 绝不用 PATH 上的 `dsh` 命令名——否则可能装到别的使用范围或用错版本。
+ * 从正在运行的入口反查 CLI 的 JS 入口：逐级向上找 CLI 包，且该文件必须正好是包里
+ * 声明的入口——npm 布局认名字为 @deepseek-ai/dsh 的包声明的 bin.dsh 或 bin 字符串；
+ * 官方桌面运行时认 @deepseek-ai/dsh-desktop-host 包里固定在 lib/cli.js 的入口（#237）。
+ * 对不上就返回 null，绝不用 PATH 上的 `dsh` 命令名——否则可能装到别的使用范围或用错版本。
  * 第二参只给测试注入假清单读取器与假路径解析用（默认都走真文件系统）。
  */
 export async function resolveCliEntry(
@@ -175,6 +184,14 @@ export async function resolveCliEntry(
       if (typeof declared !== 'string' || !declared || isAbsolute(declared) || declared.includes('\0')) return null
       try {
         return (await realpathImpl(resolve(directory, declared))) === entry ? entry : null
+      } catch {
+        return null
+      }
+    }
+    // #237：官方桌面运行时的 CLI 宿主包没有 bin 声明，入口固定是 <包目录>/lib/cli.js。
+    if (manifest && manifest.name === DESKTOP_HOST_PACKAGE_NAME) {
+      try {
+        return (await realpathImpl(join(directory, ...DESKTOP_HOST_CLI_ENTRY))) === entry ? entry : null
       } catch {
         return null
       }
@@ -1372,4 +1389,4 @@ export function createUpdateExecutor(parts: ExecutorParts = {}): (args?: { versi
 }
 
 // 内部复用导出（供单测断言子进程形态：数组、无 shell、不用 PATH 名、不按系统分支）。
-export const __executorInternals = { INSTALL_STDIO, TERMINATION_GRACE_MS, CLI_PACKAGE_NAME }
+export const __executorInternals = { INSTALL_STDIO, TERMINATION_GRACE_MS, CLI_PACKAGE_NAME, DESKTOP_HOST_PACKAGE_NAME }
