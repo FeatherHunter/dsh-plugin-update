@@ -9,6 +9,15 @@
 ### Added
 - **开发工具：一键发版脚本 + 布局探针进仓（#208 复盘：编排税 / 复现税）**：`scripts/release.mjs`（`npm run release`）把「门禁 → CHANGELOG 定格 → 版本号 → commit/tag/push → token 发布 → 可见性轮询 → GitHub Release」固化成一条命令，默认**计划模式只读**、`--yes` 才执行、`--verify <版本>` 做发布后自检（npm 可见 / latest / tag 指向 / GitHub Release / tarball 布局）；`scripts/panel-layout-probe.mjs`（`npm run probe:layout`）用系统 Chrome 渲染真面板量盒子，断言 #93 单面板布局契约与 #240 批量盘弹窗契约（横幅不被压扁、复制按钮不越框、内容超高时自身可滚且末行可达）。口径写进 `docs/maintainers.md`，`docs/agents/architecture.md` 门径表同步指路。
 
+### Fixed
+- **#242 批量入口按钮卡「正在安装…」：弹窗关掉后台继续跑完后，入口件没人再刷（真机 2026-10-20 16:41 web profile，宿主 16:41:53 已收尾、按钮到 16:44 仍 disabled）**：入口件只在挂载/点击/关弹窗时各刷一次，关弹窗时批量还在跑就停在 `installing` 相位，之后无人跟进。现在：`src/panel/batch/entry-batch.ts` 在「有未终态行 + 面板没开 + 未卸载」时排后台跟进刷新（间隔取入口件 `pollMs`（缺省批量面板缺省值）且不小于全局下限），最多跟 10 分钟；弹窗打开、卸载、收尾即停，跟进只打只读 `batchStatus`，绝不再触发安装。
+- **#243 打开批量面板静默续跑两小时前的旧会话（autoResume 无新鲜度门限，用户以为只是「检查更新」；真机 2026-10-20 16:41 web profile 自动执行 14:17 旧会话 7 家）**：`runAutoOnce` 自动续跑只看「账本里有没有未完成行」，不看会话多旧。现在：`src/panel/batch/mount.ts` 增 `AUTO_RESUME_MAX_AGE_MS = 10 分钟` 新鲜度门限——超龄会话不自动跑，落 `batch.notice.resume-stale`（「上次更新未完成，点『继续上次未完成的更新』继续」）并把决定权交给用户（底部 `resume` 按钮本来就在）；`updatedAt` 读不到的旧形状保持原行为（照旧自动续跑），`autoResume:false` 与显式续跑/丢弃语义不变。
+
+### Tests
+- 新增 `tests/issue-242-entry-background-watch.test.mjs` 4 例（后台收尾后按钮自己刷回、卸载即停、收尾不空转、跟进只打只读电话）；`tests/issue-243-auto-resume-stale.test.mjs` 4 例（超龄不自动续跑且留按钮与提示、点继续才续跑、新鲜会话照旧打开即续、缺 `updatedAt` 保持旧行为、无未完成行不动作）。
+
+门禁（**发版定格**）：`npm run check` **全绿**——`node --test tests/*.test.mjs` **1966 例：1965 过 / 0 失败 / 1 跳过**；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（88 个源文件、414 个 key、17 错误码、20 diag 键，违规 0）；`npm run docs:log:check` 过（6 条缺行警告是既有缺行，只警告不失败）；`npm publish --dry-run` **183 文件**（`dsh-plugin-update@0.18.37`，518.9 kB 压缩 / 1.7 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（414 个 key 仍全是 `draft: true`）。
+
 ## [0.18.36] - 2026-10-20
 
 ### Fixed

@@ -59,6 +59,13 @@ import {
   type UpdatePanelTheme,
   type UpdateThemeTokens,
 } from '../../panel.js'
+import { hasUnfinishedRows } from './ledger.js'
+
+/**
+ * #242：弹窗关掉、批量仍在后台跑时，入口按钮要自己刷回收尾态。
+ * 跟进只读 batchStatus，最多跟这么久（10 分钟硬界），到点即停，不无限打宿主。
+ */
+const ENTRY_WATCH_MAX_MS = 10 * 60 * 1000
 
 // ---------- 公开类型 ----------
 
@@ -417,6 +424,9 @@ export function mountUpdateBatchEntry(
   let mounted = true
   let panel: BatchPanelController | null = null
   let panelMode: BatchPanelMode | null = null
+  // #242：后台跟进定时器与期限（只针对「弹窗关了但批量还在跑」这一种现场）。
+  let watchTimer: ReturnType<typeof setTimeout> | null = null
+  let watchUntil = 0
 
   // 面板与入口件共用同一个容器：面板经这个转发件写 innerHTML、挂监听，接入方不用给第二个挂载点。
   const panelHost = {
@@ -489,6 +499,44 @@ export function mountUpdateBatchEntry(
     if (!mounted) return
     if (panelMode !== null) return
     container.innerHTML = entryHTML()
+    // #242：状态里还有没做完的一轮时，入口件不能只画一帧就不管——排后续只读刷新。
+    scheduleBackgroundWatch()
+  }
+
+  function stopBackgroundWatch(): void {
+    if (watchTimer !== null) {
+      clearTimeout(watchTimer)
+      watchTimer = null
+    }
+    watchUntil = 0
+  }
+
+  /**
+   * #242：弹窗关掉后批量可能仍在后台跑。只在「有未终态行 + 没有弹窗 + 未卸载」时排下一跳；
+   * 间隔取入口件自己的 pollMs（缺省批量面板缺省值），并不小于全局下限；到硬界或收尾即停。
+   */
+  function scheduleBackgroundWatch(): void {
+    if (!mounted || panelMode !== null) {
+      stopBackgroundWatch()
+      return
+    }
+    if (!hasUnfinishedRows(rows ?? [], session ?? undefined)) {
+      stopBackgroundWatch()
+      return
+    }
+    const now = Date.now()
+    if (watchUntil === 0) watchUntil = now + ENTRY_WATCH_MAX_MS
+    if (now >= watchUntil) {
+      stopBackgroundWatch()
+      return
+    }
+    if (watchTimer !== null) return
+    const base = pollMs === undefined ? BATCH_PANEL_POLL.defaultMs : pollMs
+    const gap = Math.max(MIN_PANEL_POLL_MS, Math.min(base, 5000))
+    watchTimer = setTimeout(() => {
+      watchTimer = null
+      void refresh()
+    }, gap)
   }
 
   function applyReply(reply: unknown): void {
@@ -534,6 +582,8 @@ export function mountUpdateBatchEntry(
   /** 把批量面板挂进容器（复用 src/panel-batch.ts 的整组件，不另写界面）。 */
   function mountPanel(mode: BatchPanelMode): void {
     if (!mounted || panelMode !== null) return
+    // #242：弹窗自己会轮询，入口件的后台跟进让位。
+    stopBackgroundWatch()
     panel = mountUpdateBatchPanel(panelHost, {
       prefix: options.prefix,
       mode,
@@ -679,6 +729,8 @@ export function mountUpdateBatchEntry(
   function unmount(): void {
     if (!mounted) return
     mounted = false
+    // #242：卸载必须停掉后台跟进定时器（不许卸完还打宿主）。
+    stopBackgroundWatch()
     try {
       unsubLang()
     } catch {

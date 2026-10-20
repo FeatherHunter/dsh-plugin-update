@@ -23,6 +23,12 @@ import { batchText, hasUnfinishedRows, langOf, unfinishedCount } from './ledger.
 import { batchFailedManualText, renderBatchPanelHTML } from './render.js'
 import type { BatchPanelActionKind, BatchPanelContainer, BatchPanelController, BatchPanelMode, BatchPanelOptions, BatchPhoneNames, BatchRowView } from '../../panel-batch.js'
 
+/**
+ * #243：自动续跑只对「新鲜」会话生效。打开面板就静默续跑两小时前的旧会话，
+ * 用户以为只是「检查更新」——超过这个时长的旧会话必须由用户显式点「继续上次未完成的更新」。
+ */
+const AUTO_RESUME_MAX_AGE_MS = 10 * 60 * 1000
+
 /** 候选安装要打的电话：该家自己的单插件安装电话（带 version 走第二槽绑定）；老宿主不给即装不了候选。 */
 export function singleInstallPhoneOf(row: BatchRowView): string | null {
   const phones = isObject(row.phoneNames) ? (row.phoneNames as Record<string, unknown>) : null
@@ -1543,9 +1549,16 @@ export function mountUpdateBatchPanel(
     }
   }
 
+  /** #243：未完成会话有多旧（毫秒）。updatedAt 缺失/不合法 → null（保持旧行为，不改老形状语义）。 */
+  function autoResumeAgeMsOf(value: unknown): number | null {
+    if (!isObject(value)) return null
+    const at = (value as Record<string, unknown>)['updatedAt']
+    if (typeof at !== 'number' || !Number.isFinite(at) || at <= 0) return null
+    return Math.max(0, Date.now() - at)
+  }
+
   /** 打开即查/续（#59 D3/Q3）：每挂载最多各一次；自动失败不弹红条，只留行上标记。 */
-  async function autoOnce(): Promise<void> {
-    try {
+  async function autoOnce(): Promise<void> {    try {
       await runAutoOnce()
     } catch {
       // 自动查/续出错不挡挂载：失败痕迹留给行上标记与轮询。
@@ -1560,6 +1573,14 @@ export function mountUpdateBatchPanel(
     if (autoResumeOption && !autoResumeDone) {
       autoResumeDone = true
       if (hasUnfinishedRows(rows, lastSession ?? undefined) && !inFlight && !refreshing) {
+        // #243：旧会话不静默开跑——把「继续」交给用户（底部本来就有 resume 按钮）。
+        const ageMs = autoResumeAgeMsOf(lastSession)
+        if (ageMs !== null && ageMs > AUTO_RESUME_MAX_AGE_MS) {
+          autoCheckOutcome = 'recent'
+          say(batchText('batch.notice.resume-stale', currentLang()))
+          render()
+          return
+        }
         const before = lastError
         const latchBefore = failureLatch
         try {

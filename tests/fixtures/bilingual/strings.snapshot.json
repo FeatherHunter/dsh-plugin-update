@@ -282,6 +282,11 @@
       "zh": "暂无可继续的内容。",
       "draft": true
     },
+    "batch.notice.resume-stale": {
+      "en": "The last update was left unfinished. Click \"Continue the unfinished batch\" to resume.",
+      "zh": "上次更新未完成，点「继续上次未完成的更新」继续。",
+      "draft": true
+    },
     "batch.notice.resumed": {
       "en": "Continued the unfinished batch ({count} left).",
       "zh": "已继续上次未完成的更新（剩余 {count} 个）。",

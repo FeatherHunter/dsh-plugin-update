@@ -303,6 +303,7 @@ export type BilingualKey =
   | 'batch.row.not-installed'
   | 'batch.notice.auto-resumed'
   | 'batch.notice.resumed'
+  | 'batch.notice.resume-stale'
   | 'batch.notice.no-resume'
   | 'batch.notice.discarded'
   | 'batch.notice.cancel-confirm'
@@ -739,6 +740,7 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.row.not-installed': { en: 'Not installed', zh: '未安装', draft: true },
   'batch.notice.auto-resumed': { en: 'Auto-continued the unfinished batch ({count} left).', zh: '已自动继续上次未完成的更新（剩余 {count} 个）。', draft: true },
   'batch.notice.resumed': { en: 'Continued the unfinished batch ({count} left).', zh: '已继续上次未完成的更新（剩余 {count} 个）。', draft: true },
+  'batch.notice.resume-stale': { en: 'The last update was left unfinished. Click "Continue the unfinished batch" to resume.', zh: '上次更新未完成，点「继续上次未完成的更新」继续。', draft: true },
   'batch.notice.no-resume': { en: 'Nothing to continue.', zh: '暂无可继续的内容。', draft: true },
   'batch.notice.discarded': { en: 'Discarded this unfinished batch (installed ones stay).', zh: '已丢弃本批未完成的更新（已完成的将保留）。', draft: true },
   'batch.notice.cancel-confirm': { en: 'Click again to confirm discard.', zh: '请再次选择以确认丢弃。', draft: true },
