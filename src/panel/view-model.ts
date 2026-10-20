@@ -219,7 +219,14 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
   // 锁存还在（errorKind/lastError 有值）时失败页优先，本门直接 null。
   const noFreshFailure = !(typeof errorKind === 'string' && errorKind.trim()) && !lastError
   const gated = noFreshFailure ? checkPrejudgeOfView(input.checkPrejudge, snapshot) : null
-  if (!staleFailure && !gated && (failedCode || jobState === 'failed' || jobState === 'interrupted')) {
+  // #238：目标从未装过（磁盘没有）时，盘上残留的失败任务只是「上一次尝试」的历史账本，
+  // 不得冒充当前「更新失败」现状——旧帧会让首装用户一进页签就吃一个失败横幅。放行条件：
+  // 失败若来自本回包/本会话的新鲜证据（errorKind/lastError = 用户动作或锁存的失败），照旧显示。
+  const freshFailure = (typeof errorKind === 'string' && errorKind.trim()) || lastError
+  const historicalJobFailure =
+    !freshFailure && snapshot.installed === false && (jobState === 'failed' || jobState === 'interrupted')
+  if (!staleFailure && !gated && !historicalJobFailure && (failedCode || jobState === 'failed' || jobState === 'interrupted')) {
+
     const code = failedCode || 'install-failed'
     const copy = failureCopy(code, l)
     // 未装 + 查侧失败（#134/US15）：未装状态词打头 + 查侧文案，不说安装失败。

@@ -69,12 +69,39 @@ export interface QueuePortsDeps {
    * pluginId 的发射口；取不到标识的调用段（如 readQueue／不看主人的放锁）就不发——不许猜。
    */
   logFor?: (pluginId: string) => UpdateLogPort | null
+  /**
+   * 落盘实现（#239，测试注入用；生产不传即 node:fs/promises）：Windows 上临时文件写入与改名
+   * 会撞到瞬时 EPERM/EBUSY（杀软/别的进程正打开），队列整写因此加了受限重试。
+   */
+  writeFileImpl?: (filename: string, data: string, options: { mode: number; flag: string }) => Promise<void>
+  /** 改名实现（#239 测试注入用；生产不传即 node:fs/promises）。 */
+  renameImpl?: (from: string, to: string) => Promise<void>
 }
 
 function queueFail(): Error & { code: string } {
   // 队列自身的错不用 install-failed（那是安装失败的码）：队列坏了只影响可见性与公平
   // 提示，不改变安装成败的归类，调用方（host.ts）一律 best-effort 吞掉。
   return Object.assign(new Error('queue-unavailable'), { code: 'queue-unavailable' })
+}
+
+/**
+ * 瞬时落盘错（#239）：Windows 上杀软/别的进程短暂持有句柄时，写临时文件或改名会偶发这些码。
+ * 真机现场（2026-10-20 web profile）：卡路里首次安装撞一次 EPERM，队列整写失败，随后被换算成
+ * 「上次安装异常中断」。这类错重试几次即可过去，不许把一次瞬时占用升格成恢复态。
+ */
+const TRANSIENT_WRITE_CODES = new Set(['EPERM', 'EACCES', 'EBUSY', 'ENOTEMPTY', 'EMFILE'])
+const TRANSIENT_WRITE_ATTEMPTS = 3
+const TRANSIENT_WRITE_DELAY_MS = 25
+
+function isTransientWriteError(error: unknown): boolean {
+  const code = error && (error as { code?: unknown }).code
+  return typeof code === 'string' && TRANSIENT_WRITE_CODES.has(code)
+}
+
+async function delayMs(ms: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setTimeout(() => resolve(), ms)
+  })
 }
 
 /** 一次队列真实跃迁：谁跨了相位、新相位、以及真量到的等待/位次/当时谁持有队列（#209）。 */
@@ -177,6 +204,8 @@ export function createUpdateQueuePorts(
   const paths = queuePathsForUpdate(homeDir, profileDir)
   const readText = deps.readFileImpl ?? ((filename: string, encoding: string) => readFile(filename, encoding))
   const statFile = deps.statImpl ?? ((filename: string) => stat(filename))
+  const writeText = deps.writeFileImpl ?? ((filename: string, data: string, options: { mode: number; flag: string }) => writeFile(filename, data, options))
+  const renameTo = deps.renameImpl ?? ((from: string, to: string) => rename(from, to))
   const now = deps.nowImpl ?? Date.now
   const ttlMs =
     typeof deps.ttlMs === 'number' && Number.isFinite(deps.ttlMs) && deps.ttlMs > 0 ? deps.ttlMs : QUEUE_INTENT_TTL_MS
@@ -219,14 +248,39 @@ export function createUpdateQueuePorts(
     try {
       await mkdir(paths.directory, { recursive: true, mode: 0o700 })
       const temporary = `${paths.file}.${randomUUID()}.tmp`
+      const payload = `${JSON.stringify(next, null, 2)}\n`
+      let tempExists = false
       try {
-        await writeFile(temporary, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600, flag: 'wx' })
-        await rename(temporary, paths.file)
-      } catch (error) {
-        failure = error
-        throw queueFail()
+        for (let attempt = 1; ; attempt += 1) {
+          try {
+            await writeText(temporary, payload, { mode: 0o600, flag: 'wx' })
+            tempExists = true
+            break
+          } catch (error) {
+            if (!isTransientWriteError(error) || attempt >= TRANSIENT_WRITE_ATTEMPTS) {
+              failure = error
+              throw queueFail()
+            }
+            // 上一次可能已经把临时文件写出来了（改名失败的那条路径），重写前先清掉。
+            await unlink(temporary).catch(() => {})
+            await delayMs(TRANSIENT_WRITE_DELAY_MS * attempt)
+          }
+        }
+        for (let attempt = 1; ; attempt += 1) {
+          try {
+            await renameTo(temporary, paths.file)
+            tempExists = false
+            break
+          } catch (error) {
+            if (!isTransientWriteError(error) || attempt >= TRANSIENT_WRITE_ATTEMPTS) {
+              failure = error
+              throw queueFail()
+            }
+            await delayMs(TRANSIENT_WRITE_DELAY_MS * attempt)
+          }
+        }
       } finally {
-        await unlink(temporary).catch(() => {})
+        if (tempExists) await unlink(temporary).catch(() => {})
       }
     } catch (error) {
       const code = error && (error as { code?: string }).code
@@ -342,3 +396,4 @@ export function createUpdateQueuePorts(
   }
   return { paths, readQueue, writeQueue, tryAcquireGlobalLock, releaseGlobalLock }
 }
+

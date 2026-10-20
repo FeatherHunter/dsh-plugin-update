@@ -93,6 +93,7 @@ import { attachInstallFail, installFailRowFields, normalizeCode, readInstallFail
 import type { InstallFailFacts } from './failure.js'
 import { BLOCKED_REASONS } from '../shared/codes.js'
 import { hash8 } from '../shared/hash.js'
+import { normalizeRunningVersion } from '../shared/version.js'
 // ---------- 取数垫片（#163：实现搬 core/fetch.ts，老位置 re-export，行为零变化） ----------
 import {
   CHECK_TIMEOUT_MS,
@@ -276,8 +277,9 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
    */
   function readRunningVersionOf(): string | null {
     try {
-      const value = ports.readRunningVersion()
-      return typeof value === 'string' && value.trim() ? value.trim() : null
+      // #241：集成方拿不到运行版时会注入占位 `0.0.0`（老 #216 只挡了显示层）——占位不是版本，
+      // 一律按未知处理；否则 `0.0.0 !== 盘上版` 会伪造出 recovery-required 并挡住恢复性重试。
+      return normalizeRunningVersion(ports.readRunningVersion())
     } catch {
       return null
     }
@@ -464,13 +466,30 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
       newer = false
       remoteOk = false
     }
+    // #241 恢复豁免：任务已判定中断/失败、运行版未知（占位 0.0.0 在上游按未知处理）、盘上版本比
+    // 目标旧——这一次重试就是恢复动作，不该被「运行版未知」挡死；仍不宣称「有更新」（#182 的状态
+    // 判定照旧走 runningVersion 为 null 的 unknown 分支）。已知运行版时豁免不生效（#179/#215 不回归）。
+    let recoverable = false
+    if (
+      present &&
+      (job?.state === 'interrupted' || job?.state === 'failed') &&
+      runningVersion === null &&
+      env.installedVersion &&
+      checked?.release
+    ) {
+      try {
+        recoverable = compareReleaseVersions(checked.release.version, env.installedVersion) === 1
+      } catch {
+        recoverable = false
+      }
+    }
     const canInstall = Boolean(
       env.eligible &&
         !blockedReason &&
         !busy &&
         fresh &&
         checked?.installationKey === env.installationKey &&
-        (present ? newer : remoteOk),
+        (present ? newer || recoverable : remoteOk),
     )
     // 安装身份（#197）：三种关系分开讲，面板据此给三张脸；判定不了为 null，不冒充。
     // 缺席时只有清单也明确未登记才算「新增依赖」的首次安装——登记了却磁盘缺失是坏安装现场。
@@ -1102,3 +1121,5 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
 
   return { status, check, install, checkFallback }
 }
+
+

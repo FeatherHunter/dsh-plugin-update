@@ -6,6 +6,14 @@
 
 export const UPDATE_BATCH_PANEL_CSS = [
   '/* 批量面板（#25）：类名沿用 dsh-upd-* 前缀；默认（最小）主题，Archive 皮肤见 UPDATE_BATCH_PANEL_ARCHIVE_CSS。 */',
+  // —— 弹窗帧高度契约（#240，headless 量盒子实测）——
+  // 批量弹窗根（.dsh-upd.dsh-upd-batch）没有 .dsh-upd-body 滚动区，内核的 #93 契约（:has(>.dsh-upd-body)）
+  // 刻意不覆盖它；于是内容高过 85vh 时纵向 flex 把所有子项按比例压，唯独显式 min-height:3.4em 的横幅
+  // 先被压到地板：失败横幅只剩一个 3.4em 高的红框，名单行与「复制诊断/复制手工命令」越出框外
+  // （实测窗口 CSS 高 ≤ 约 636 时必现；用户 876x1084@DPR2 截图即此形）。
+  // 契约：批量弹窗里各 child 不许让高度（flex:none），放不下时整根自己滚。
+  '.dsh-upd-overlay .dsh-upd.dsh-upd-batch{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}',
+  '.dsh-upd-overlay .dsh-upd.dsh-upd-batch>*{flex:none}',
   '.dsh-upd-batch-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}',
   '.dsh-upd-batch-title{font-weight:700;font-size:var(--dsh-update-panel-chapter-font-size,15px);letter-spacing:.06em}',
   '.dsh-upd-batch-title i{font-style:normal;color:var(--dsh-update-primary,#2563eb)}',

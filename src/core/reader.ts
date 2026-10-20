@@ -15,6 +15,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertPluginId } from '../shared/config.js'
+import { normalizeRunningVersion } from '../shared/version.js'
 import { resolveCompliantVersion } from '../shared/compliant.js'
 import { createUpdateCore, isVersionAllowedInChannel, validReleaseVersion } from './service.js'
 import type { EnvironmentKind, EnvironmentView, FetchImpl, ReleaseChannel, UpdateCore, UpdateJob, UpdateLogPort } from '../shared/ports.js'
@@ -278,8 +279,7 @@ export interface UpdateReaderOptions {
 export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & { readEnv: () => Promise<EnvironmentView> } {
   const rawRunningVersion = options.runningVersion
   // #182：未知是一等状态——null/空串/非字符串一律归一为 null，绝不伪造占位版本号。
-  const runningVersion: string | null =
-    typeof rawRunningVersion === 'string' && rawRunningVersion.trim() ? rawRunningVersion.trim() : null
+  const runningVersion: string | null = normalizeRunningVersion(rawRunningVersion)
   const rawDshVersion = options.dshVersion
   const dshVersion: string | null = typeof rawDshVersion === 'string' && rawDshVersion.trim() ? rawDshVersion.trim() : null
   const profileDirInput = options.profileDir
@@ -464,3 +464,4 @@ export function createUpdateReader(options: UpdateReaderOptions): UpdateCore & {
   })
   return Object.assign(core, { readEnv: readInstalled as () => Promise<EnvironmentView> })
 }
+

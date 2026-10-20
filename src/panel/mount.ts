@@ -1023,9 +1023,11 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         clearLatch()
       } else if ((jobState === 'failed' || jobState === 'interrupted') && snapshot?.job) {
         // 后台结局到达：单调置入（只允许从无到有或同源更新，永不由轮询清除）。
-        // #100：三元组已变（比如远端出了新版）→ 旧失败的上下文被新信息替代，不再复活；
-        // 同上下文才常驻（#58）。
-        if (snapshot && tripleChanged(snapshot)) clearLatch()
+        // #238：目标从未装过时，盘上旧失败任务只是历史账本——不拿它铺「更新失败」当前态；
+        // 本会话已有新鲜锁存（用户动作失败）时不动它，仍按 #58 常驻。
+        if (snapshot.installed === false && !latch) {
+          // 历史帧让位给首装/未装视图（渲染侧同口径，见 view-model 的 historicalJobFailure）。
+        } else if (snapshot && tripleChanged(snapshot)) clearLatch()
         else {
           // #143：同语义重复轮询冻结首次失败时刻，不重建锁存（时间戳 churn 即重绘即丢滚动）。
           // #156 第四轮：异步失败的事实（包名/归因）由宿主随本次回包的 diag 一起带回——
