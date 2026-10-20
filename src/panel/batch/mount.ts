@@ -24,10 +24,10 @@ import { batchFailedManualText, renderBatchPanelHTML } from './render.js'
 import type { BatchPanelActionKind, BatchPanelContainer, BatchPanelController, BatchPanelMode, BatchPanelOptions, BatchPhoneNames, BatchRowView } from '../../panel-batch.js'
 
 /**
- * #243：自动续跑只对「新鲜」会话生效。打开面板就静默续跑两小时前的旧会话，
- * 用户以为只是「检查更新」——超过这个时长的旧会话必须由用户显式点「继续上次未完成的更新」。
+ * 自动续跑是设计行为（2026-10-20 拍板保留）：打开面板就把上次没跑完的批次接着推。
+ * #243 的「会话年龄门限」已移除——真实宿主里检查对账会刷新 session.updatedAt，
+ * 年龄门限永远读到「刚活动过」，形同虚设；改为在续跑开始时落一条可见回执（见 runAutoOnce）。
  */
-const AUTO_RESUME_MAX_AGE_MS = 10 * 60 * 1000
 
 /** 候选安装要打的电话：该家自己的单插件安装电话（带 version 走第二槽绑定）；老宿主不给即装不了候选。 */
 export function singleInstallPhoneOf(row: BatchRowView): string | null {
@@ -1549,14 +1549,6 @@ export function mountUpdateBatchPanel(
     }
   }
 
-  /** #243：未完成会话有多旧（毫秒）。updatedAt 缺失/不合法 → null（保持旧行为，不改老形状语义）。 */
-  function autoResumeAgeMsOf(value: unknown): number | null {
-    if (!isObject(value)) return null
-    const at = (value as Record<string, unknown>)['updatedAt']
-    if (typeof at !== 'number' || !Number.isFinite(at) || at <= 0) return null
-    return Math.max(0, Date.now() - at)
-  }
-
   /** 打开即查/续（#59 D3/Q3）：每挂载最多各一次；自动失败不弹红条，只留行上标记。 */
   async function autoOnce(): Promise<void> {    try {
       await runAutoOnce()
@@ -1573,16 +1565,14 @@ export function mountUpdateBatchPanel(
     if (autoResumeOption && !autoResumeDone) {
       autoResumeDone = true
       if (hasUnfinishedRows(rows, lastSession ?? undefined) && !inFlight && !refreshing) {
-        // #243：旧会话不静默开跑——把「继续」交给用户（底部本来就有 resume 按钮）。
-        const ageMs = autoResumeAgeMsOf(lastSession)
-        if (ageMs !== null && ageMs > AUTO_RESUME_MAX_AGE_MS) {
-          autoCheckOutcome = 'recent'
-          say(batchText('batch.notice.resume-stale', currentLang()))
-          render()
-          return
-        }
+        // 自动续跑是设计行为（2026-10-20 拍板保留）：打开面板就把上次没跑完的批次接着推。
+        // 不做会话年龄门限——真实宿主里检查对账会刷新 session.updatedAt，
+        // 年龄门限永远读到「刚活动过」；改为「可见」：先落回执再开跑，用户始终知道在干什么。
+        const pending = unfinishedCount(rows, lastSession ?? undefined)
         const before = lastError
         const latchBefore = failureLatch
+        say(batchText('batch.notice.auto-resuming', currentLang(), { count: String(pending) }))
+        render()
         try {
           const reply = await call(phones.resume, {})
           if (!mounted) return
@@ -1590,8 +1580,10 @@ export function mountUpdateBatchPanel(
             applyReply(reply)
             const r = reply as Record<string, unknown>
             if (r['resumed'] !== false) {
-              // #232：剩余 0 个就别再提示「已自动继续（剩余 0 个）」——那只会让人以为还有事。
-              if (remainingCount() > 0) say(batchText('batch.notice.auto-resumed', currentLang(), { count: String(remainingCount()) }))
+              // #232：剩余 0 个时别说「剩余 0 个」，改报「全部完成」。
+              const left = remainingCount()
+              if (left > 0) say(batchText('batch.notice.auto-resumed', currentLang(), { count: String(left) }))
+              else say(batchText('batch.notice.auto-finished', currentLang()))
               rowFailedAt.clear()
             }
             // 续完没走查：对挂载行而言等价于「最近查过/还没到再查的时候」。
@@ -1600,11 +1592,15 @@ export function mountUpdateBatchPanel(
             maybeAutoRowChangelog(expandedKey)
             return
           }
+          clearNotice()
           lastError = before
           failureLatch = latchBefore
           render()
         } catch {
-          if (mounted) render()
+          if (mounted) {
+            clearNotice()
+            render()
+          }
         }
       }
     }

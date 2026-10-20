@@ -741,29 +741,30 @@ export function createMultiHostUpdate(
     // 成功检查对账（#152）：检查的后置条件是“此后展示的状态反映这次检查”。
     // 只查不装以前只写知识、会话终态（昨日失败/陈旧目标）永生，面板永远拼出昨天的数据。
     // 成功查出结论的行按与驱动预查同一口径收敛进会话；查失败的行没学到新东西，原样保留；
-    // 重启 pending 行一律不动（等重启收尾）；飞行中（checking/installing）是驱动正在经手的行，
-    // 检查不许碰；驱动半路起跑则跳过落盘（不踩驱动的账本）。
+    // #244：重启 pending 行不再是「一律不动」——检查结果是磁盘真相：若外部把版本改低，
+    // done+restartRequired 的行必须按检查结论退回 ready/current，否则面板一直宣称「已安装完成」。
+    // 飞行中（checking/installing）是驱动正在经手的行，检查不许碰；驱动半路起跑则跳过落盘（不踩驱动的账本）。
     let reconciled = session
     for (const [key, outcome] of outcomes) {
       const entry = batchEntryOf(reconciled, key)
-      if (!entry || entry.restartRequired) continue
+      if (!entry) continue
       if (entry.phase === 'checking' || entry.phase === 'installing') continue
       let patch: Partial<Omit<BatchEntry, 'key' | 'requestId'>> | null = null
       if (outcome.kind === 'update') {
-        if (entry.phase !== 'ready' || entry.targetVersion !== outcome.version || entry.error !== null) {
-          patch = { phase: 'ready', targetVersion: outcome.version, error: null }
+        if (entry.phase !== 'ready' || entry.targetVersion !== outcome.version || entry.error !== null || entry.restartRequired) {
+          patch = { phase: 'ready', targetVersion: outcome.version, error: null, restartRequired: false }
         }
       } else if (outcome.kind === 'current') {
-        if (entry.phase !== 'current' || entry.targetVersion !== null || entry.error !== null) {
-          patch = { phase: 'current', targetVersion: null, error: null }
+        if (entry.phase !== 'current' || entry.targetVersion !== null || entry.error !== null || entry.restartRequired) {
+          patch = { phase: 'current', targetVersion: null, error: null, restartRequired: false }
         }
       } else if (outcome.kind === 'skipped') {
-        if (entry.phase !== 'skipped' || entry.targetVersion !== outcome.version || entry.error !== null) {
-          patch = { phase: 'skipped', targetVersion: outcome.version, error: null }
+        if (entry.phase !== 'skipped' || entry.targetVersion !== outcome.version || entry.error !== null || entry.restartRequired) {
+          patch = { phase: 'skipped', targetVersion: outcome.version, error: null, restartRequired: false }
         }
       } else if (outcome.kind === 'done') {
         // #216：检查发现「已经装好、只差重启」——会话从 ready/failed 收敛成 done+待重启，
-        // 与驱动的结论同一口径（否则面板还停在「可更新」）。
+        // 与驱动的结论同一口径（否则面板还停在「可更新」）。同版 done 保持不动（等重启收尾）。
         if (entry.phase !== 'done' || entry.restartRequired !== outcome.restartRequired || entry.targetVersion !== outcome.version || entry.error !== null) {
           patch = { phase: 'done', targetVersion: outcome.version, restartRequired: outcome.restartRequired, error: null }
         }

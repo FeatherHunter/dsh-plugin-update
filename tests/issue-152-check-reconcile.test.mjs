@@ -87,7 +87,7 @@ describe('issue-152：新鲜检查必须冲掉陈旧会话', () => {
     host.dispose()
   })
 
-  it('restartRequired 行：新鲜检查也不碰（重启未完成前不改状态）', async () => {
+  it('#244：restartRequired 行遇新鲜检查为 update ⇒ 退回 ready（磁盘真相优先）', async () => {
     const { scope } = await tempScope()
     let latest = '0.3.55'
     const host = createMultiHostUpdate(
@@ -104,8 +104,9 @@ describe('issue-152：新鲜检查必须冲掉陈旧会话', () => {
     assert.equal(entryOf(drove.session, 'a').restartRequired, true)
     latest = '0.3.61'
     const checked = await host.handlers['life.batchCheck']({})
-    assert.equal(entryOf(checked.session, 'a').phase, 'done', '重启 pending 行不动')
-    assert.equal(entryOf(checked.session, 'a').targetVersion, '0.3.55', '陈旧目标也不动，等重启收尾')
+    assert.equal(entryOf(checked.session, 'a').phase, 'ready', '磁盘没有目标版本时不许再宣称已安装完成')
+    assert.equal(entryOf(checked.session, 'a').targetVersion, '0.3.61')
+    assert.equal(entryOf(checked.session, 'a').restartRequired, false)
     host.dispose()
   })
 

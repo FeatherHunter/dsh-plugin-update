@@ -4,6 +4,19 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
+## [Unreleased]
+
+### Changed
+- **#243 自动续跑改成「保留行为 + 必须可见」，删除失效的会话年龄门限（真机 2026-10-20 23:17、23:34 web profile 两次「只打开面板就自己把卡路里/备忘录装完」）**：0.18.37 按「会话超过 10 分钟不自动续跑」修过一版，但真实宿主里这个门限永远不触发——面板挂载前的检查对账会写会话账本（`markBatchEntry` 会刷新 `session.updatedAt`），客户端读到的年龄永远是「刚活动过」。产品拍板：自动续跑本身是合理的（用户不必在「检查更新」和「安装」之间反复点），但必须让用户看见它。现在：`src/panel/batch/mount.ts` 发起 `batchResume` 前先 `say`「正在继续上次未完成的更新…」并立即渲染（不静默开工）；续跑结束如果还剩未完成行，报「已自动继续上次未完成的更新（剩余 N 个）」；全部收尾则报「上次未完成的更新已全部完成」；续跑失败时清掉临时回执、保留最后一条错误并按原错误路径收尾。删除 `AUTO_RESUME_MAX_AGE_MS`、`autoResumeAgeMsOf()` 与 `batch.notice.resume-stale`（不变量从「够新才自动跑」改为「跑就必须看得见」）。
+
+### Fixed
+- **#244 批量检查不纠正「已安装完成，重启宿主后生效」行：磁盘被外部改回旧版后仍宣称已装好（真机 2026-10-20 22:59 web profile「饼干记账」：磁盘 0.3.81，会话账本却是 done + restartRequired 目标 0.3.82）**：`src/host/batch/fan-out.ts` 的 `checkPhone` 对账循环把 `restartRequired` 行整行跳过，检查学到的新版本永远写不进这条会话行，面板便按会话相位继续渲染「已安装完成，重启后生效」——可重启只会加载旧版，等于静默降级 + 假待重启。现在：对账不再整行跳过，按检查结论分派——`update` ⇒ 退回 `ready`、目标置最新、清 `restartRequired`（磁盘真相优先，重启救不回来只能重装）；`done` 且版本一致 ⇒ 保持 `done + restartRequired`（还在等重启，不动）；`current` ⇒ 收敛 `current` 并清目标与标记；检查失败的结论照旧不改动画像。
+
+### Tests
+- 新增 `tests/issue-244-restart-row-reconcile.test.mjs` 3 例（update ⇒ 退 ready 清标记；done 同版本 ⇒ 保持待重启；current ⇒ 收敛当前）；`tests/issue-152-check-reconcile.test.mjs` 的「restartRequired 行不碰」旧断言按 #244 新口径改写；`tests/issue-243-auto-resume-stale.test.mjs` 删除（年龄门限语义取消），新增 `tests/issue-243-auto-resume-visible.test.mjs` 5 例（旧会话照跑但先落可见回执、剩余>0 报已自动继续、全部收尾报已完成、无未完成行不动作）。
+
+门禁（**发版定格**）：`npm run check` **全绿**——`node --test tests/*.test.mjs` **1970 例：1969 过 / 0 失败 / 1 跳过**；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（88 个源文件、415 个 key、17 错误码、20 diag 键，违规 0）；`npm publish --dry-run` **183 文件**（`dsh-plugin-update@0.18.38`，520.3 kB 压缩 / 1.8 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（415 个 key 仍全是 `draft: true`）。
+
 ## [0.18.37] - 2026-10-20
 
 ### Added
