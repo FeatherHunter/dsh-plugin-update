@@ -28,6 +28,11 @@ const INSTALL_STDIO = { stdin: 'ignore', stdout: { maxBytes: 64 * 1024 }, stderr
 /** 终止宽限期：先请进程树自己退，宽限到了再强杀（由子进程能力执行）。 */
 const TERMINATION_GRACE_MS = 3000
 /**
+ * 失败补偿里复探宿主的时限上限（#236）：正常 `listBundles` 是毫秒级；宿主被拖住时也不能让
+ * 失败详情永远上不了报——到点按「探测失效」处理，绝不拿缺省猜拓扑。
+ */
+const PROBE_TIMEOUT_MS = 5000
+/**
  * 桌面管理器的三条超时人话格（#184）：按「宿主有没有取消能力」与「卡在哪一步」分支，不许笼统。
  * 没取消能力就一次取消都没发过，不能说「已请求宿主取消」；移除步超时则要先说清包可能已被摘掉。
  */
@@ -51,6 +56,20 @@ const ENABLE_TIMEOUT_DETAIL = '启用已装包超时，未继续安装；请在�
  * 「还有别的层在用」——真实原因是宿主缺恢复选中的能力，和活 fiber 无关）。
  */
 const ENABLE_UNSUPPORTED_DETAIL = '宿主不支持恢复选中，无法安全更新已装包，请用载体 CLI 原地更新'
+/**
+ * 移除失败/超时后的补偿事实（#236）：宿主 `removeBundle` 对**在册**的 bundle 先取消选中
+ * （立即写盘，词义见 `CONTEXT.md` 的「在册」）再校验活 fiber，失败时那次取消选中没有回滚。
+ * 于是本包拿到「移除失败」时，插件可能已经装着、却不在在册名单（`dsh.profile.bundles`）里——
+ * 插件页显示关闭、重启也不加载。本包会把在册状态放回去，并把结果如实说出来：更新失败归更新
+ * 失败，插件状态归插件状态，不许含混，也不许谎报已恢复。
+ */
+const REMOVE_FAILED_RESTORED_DETAIL = '宿主在移除步骤里已把这个插件移出在册名单，本次已恢复在册；更新未完成，重启 DSH 后可重试'
+const REMOVE_FAILED_RESTORE_FAILED_DETAIL = '宿主在移除步骤里已把这个插件移出在册名单，恢复在册未成功；请在插件页重新启用'
+/**
+ * 前置/结果两步里任何一步拿不到明确结论（复探失效、宿主没有恢复能力、恢复调用超时）的档：
+ * 只说「无法确认」，既不许谎报已恢复，也不许把「可能」写成「已经」——尤其不能宣称一次没发起的尝试。
+ */
+const REMOVE_FAILED_RESTORE_UNVERIFIED_DETAIL = '无法确认宿主是否把该插件移出了在册名单，也未能恢复在册；若插件页显示关闭，请重新启用'
 /**
  * 这几种拒绝码说明「管理器通道对这个包走不通」：把一定能用的载体 CLI 命令补进人话格，
  * 用户不必再回面板翻手工命令（有些半装态下面板已经不给命令了，见 #168 同类处置）。
@@ -650,6 +669,88 @@ async function probeManagerTopology(
 }
 
 /**
+ * 带时限的拓扑探测（#236）：失败补偿里的复探不能无限等宿主——`listBundles` 若被拖住，
+ * 失败详情就永远上不了报。到点按「探测失效」（null）处理，调用方绝不拿缺省猜拓扑。
+ * 时限只用于补偿路径；装前的探测保持旧行为（宿主自己会把 `change()` 排队，不在这里另加钟）。
+ */
+async function probeManagerTopologyWithin(
+  manager: { listBundles?: () => unknown },
+  name: string,
+  timeoutMs: number
+): Promise<ManagerBundleTopology | null> {
+  if (!(timeoutMs > 0)) return probeManagerTopology(manager, name)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const expired = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), timeoutMs)
+    ;(timer as { unref?: () => void }).unref?.()
+  })
+  try {
+    return await Promise.race([probeManagerTopology(manager, name), expired])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
+/**
+ * 移除失败/超时后的在册补偿（#236）：宿主 `removeBundle` 对在册的 bundle 是「先取消选中
+ * （`selectBundle(name,false)`，立即写盘）再重载卸载」，活 fiber 没卸掉就抛 `bundle-in-use`；
+ * 外层 `change()` 只把结果标 `failed`，那次取消选中没有回滚——于是本包拿到失败时插件已装着、
+ * 却不在 `dsh.profile.bundles` 里（插件页关闭、重启不加载）。
+ *
+ * 只在「移除前已探到在册（`enabled === true`）」时动手：先复探一次，确认已不在册就
+ * best-effort `setBundleEnabled(name, true)`；恢复后再复探一次，只有明确回到在册才敢说「已恢复」。
+ * 装前本来未在册的（#201 先启用再移除）不恢复——回到用户原本状态；前置态未知（老宿主没有
+ * `listBundles`、或探测抛错）不猜拓扑、不动在册名单。返回值是可追加的如实事实，'' 表示无需补偿。
+ *
+ * 恢复调用本身也走宿主 `change()`，可能被拖住：额度取「剩余配方额度」与「终止宽限」的较大者，
+ * 到点再给一次收尾宽限，仍不落定就报「无法确认」，绝不无限重试。两次复探同样带时限（#236），
+ * 探测失效按「无法确认」档处理，绝不把没看到的事写成事实。
+ */
+async function restoreEnabledAfterRemovalFailure(
+  manager: { listBundles?: () => unknown; setBundleEnabled?: (name: string, enabled: boolean) => unknown },
+  name: string,
+  enabledBeforeRemoval: boolean | null,
+  nextStepTimeoutMs: () => number
+): Promise<string> {
+  if (enabledBeforeRemoval !== true) return ''
+  // 失败补偿里的每次复探都带时限：宿主若被拖住，失败详情也要能上报（探测失效按 null 处理，不猜拓扑）。
+  const probeMs = Math.min(Math.max(nextStepTimeoutMs(), TERMINATION_GRACE_MS), PROBE_TIMEOUT_MS)
+  const probeWithin = (): Promise<ManagerBundleTopology | null> => probeManagerTopologyWithin(manager, name, probeMs)
+  // 复探：宿主若在失败前已完成取消选中，这里能看到；仍在册（或宿主没给结论）时再尽力恢复。
+  const afterFailure = await probeWithin()
+  if (afterFailure !== null && afterFailure.enabled === true) return ''
+  // 只有明确看到「已被移出」才算确认；null（探测失效）不许当成事实往下写。
+  const removedConfirmed = afterFailure !== null && afterFailure.enabled === false
+  const setBundleEnabled = manager.setBundleEnabled
+  if (typeof setBundleEnabled !== 'function') return REMOVE_FAILED_RESTORE_UNVERIFIED_DETAIL
+  const restoreState = async (): Promise<'enabled' | 'failed' | 'unknown'> => {
+    const enabling = Promise.resolve(setBundleEnabled.call(manager, name, true)) as Promise<ManagerChangeResult>
+    const recoveryMs = Math.max(nextStepTimeoutMs(), TERMINATION_GRACE_MS)
+    const outcome = await raceManager(enabling, recoveryMs, async () => 'not-running')
+    const settled = outcome.timedOut ? await settleWithin(enabling, TERMINATION_GRACE_MS) : outcome.value
+    if (!settled) {
+      void enabling.catch(() => {})
+      return 'unknown'
+    }
+    const application = settled && typeof settled.application === 'string' ? settled.application : ''
+    return MANAGER_OK.includes(application) ? 'enabled' : 'failed'
+  }
+  const restored = await restoreState().catch((): 'unknown' => 'unknown')
+  if (restored !== 'enabled') {
+    // 只有复探确认「已被移出」且恢复调用明确失败，才把「恢复未成功」说成事实；
+    // 前置结论不明（null）或恢复调用超时，一律只说「无法确认」。
+    return removedConfirmed && restored === 'failed'
+      ? REMOVE_FAILED_RESTORE_FAILED_DETAIL
+      : REMOVE_FAILED_RESTORE_UNVERIFIED_DETAIL
+  }
+  // 宿主回了成功不等于真落盘：再探一次，只有明确回到在册才敢说「已恢复」。
+  const afterEnable = await probeWithin()
+  if (afterEnable !== null && afterEnable.enabled === true) return REMOVE_FAILED_RESTORED_DETAIL
+  if (afterEnable !== null && afterEnable.enabled === false) return REMOVE_FAILED_RESTORE_FAILED_DETAIL
+  return REMOVE_FAILED_RESTORE_UNVERIFIED_DETAIL
+}
+
+/**
  * 载体 CLI 的原位更新命令（官方桌面版自带 `dsh plugin --profile <名> …` 通道，参数逐字转给 pnpm）。
  *
  * 形状与 `src/shared/commands.ts` 的 `manualCommand` 同源（`add --save-exact <包>@<版本> --registry=<源>`）：
@@ -786,7 +887,7 @@ const MANAGER_CODE_HINTS: Record<string, string> = {
   'not-removable': '宿主把这个包标为不可移除，请复制手工命令在桌面 CLI 里更新',
   'management-required': '这个条目归宿主插件管理本体所有，不能在这里更新',
   'not-bundle': '这个包没有声明 dsh.bundle，不能当作插件管理',
-  'bundle-in-use': '还有别的层在用这个插件，请先在宿主插件页停用后再更新',
+  'bundle-in-use': '可能已被宿主移出在册名单；请重启 DSH 后重试更新，若插件页显示关闭请重新启用',
   'stop-profile': '这个使用范围没有 HMR，请停掉 DSH 后在命令行更新',
   'stale-approval': '构建批准名单已过期（宿主已重新记录），请重新发起更新，不要沿用上次的批准名单',
   'incompatible-version': '新版本与当前 DSH 不兼容，请先升级 DSH 再更新',
@@ -856,6 +957,21 @@ function withIncompatibleFact(error: Error & { detail?: string }, result: Manage
 }
 
 /**
+ * 把一条「事实」补在详情尾部（原文永远在前、事实在后），总长守 DETAIL_MAX_CHARS。
+ * 事实为空、或原文里已经带过同一句时不重复拼；事实本身放不下时宁可只留（截断的）原文，绝不越界。
+ * #168 的移除后重装事实与 #236 的移除失败补偿共用这一份排版。
+ */
+function withTrailingFact(error: Error & { detail?: string }, fact: string): Error & { detail?: string } {
+  if (!fact) return error
+  const said = typeof error.detail === 'string' ? error.detail : ''
+  if (said.includes(fact)) return error
+  const room = DETAIL_MAX_CHARS - fact.length - 1
+  if (room <= 0) return withDetail(error, said.slice(0, DETAIL_MAX_CHARS))
+  const head = said.length > room ? said.slice(0, room) : said
+  return withDetail(error, head ? `${head}；${fact}` : fact)
+}
+
+/**
  * 移除已成功、重装却没成（失败或超时）：在宿主原话之后补「目标包已被摘掉」这条事实与一条
  * 一定能用的重装命令（#168）。原文在前、本包补记在后，总长仍守 DETAIL_MAX_CHARS。
  * 命令为 null（插值不安全）时只说事实；原文里已经带过同一条命令时不再重复拼。
@@ -879,11 +995,8 @@ function withRemovalFact(
     const head = said.length > room ? said.slice(0, room) : said
     return withDetail(error, head ? `${head}；${advice}；${fact}` : `${advice}；${fact}`)
   }
-  const room = DETAIL_MAX_CHARS - fact.length - 1
   // 命令/事实本身就超预算时宁可丢补充事实也不越界：原文截到上限，绝不输出超长详情。
-  if (room <= 0) return withDetail(error, said.slice(0, DETAIL_MAX_CHARS))
-  const head = said.length > room ? said.slice(0, room) : said
-  return withDetail(error, head ? `${head}；${fact}` : fact)
+  return withTrailingFact(error, fact)
 }
 
 /**
@@ -898,7 +1011,9 @@ function withRemovalFact(
  * pnpm 之前就同步拒绝 `already-installed`（宿主自己的 next-step 表：先移除再装），本包若只调
  * `installBundle`，更新就永远停在这句拒绝上。所以命中这个拒绝时先按包名 removeBundle，再带新
  * requestId 装一次；别的失败一律不碰移除。四条宿主调用（首装、启用、移除、重装）共用配方里的
- * 一个超时额度，总上界不因多一步放宽。
+ * 一个超时额度；唯一例外是移除失败/超时后的在册补偿（#236）：它只发生在失败路径上，多一发
+ * `setBundleEnabled` 与至多三次 `listBundles`，恢复调用额度取 max(剩余额度, 终止宽限)（另加一次
+ * 收尾宽限），成功路径的总上界不变。
  */
 async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): Promise<number | null> {
   try {
@@ -944,6 +1059,8 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
       return options
     }
     // 一个配方额度管四条宿主调用（首装／启用／移除／重装）：每步只领剩下的，领完给 1ms 让 raceManager 走自己的超时收场。
+    // #236 的失败补偿是唯一例外（只在移除失败/超时后发生，见 restoreEnabledAfterRemovalFailure）：恢复调用取
+    // max(剩余额度, 终止宽限) 再给一次收尾宽限，免得「恢复还没写完就被判失败」——失败路径最多多约 6s，成功路径不变。
     const budgetMs = typeof recipe.timeoutMs === 'number' && recipe.timeoutMs > 0 ? recipe.timeoutMs : 0
     const deadline = budgetMs > 0 ? Date.now() + budgetMs : 0
     const stepTimeoutMs = (): number => (budgetMs > 0 ? Math.max(1, deadline - Date.now()) : recipe.timeoutMs)
@@ -1021,6 +1138,8 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
       // 却不在选中名单里（`dsh.profile.bundles` 没有它们）——直接 remove 会在活 fiber 判
       // `bundle-in-use`（2–3ms 就回），两步配方永远走不完。所以先探拓扑：不可移除就诚实拒绝；
       // 未选中就先用宿主能力恢复选中，再按常规两步走。老宿主没有探测/启用能力时退回旧行为。
+      // 这次探测也把「移除前是否选中」留成快照：#236 里宿主的失败路径可能已经取消了选中，
+      // 补偿逻辑只对「本来是开着的」负责（见下面移除步）。
       const topology = await probeManagerTopology(manager, targetName)
       // `not-removable` 这个码宿主在这条路径上没回过话，是包侧按宿主 `removable === false`
       // 的语义给的原因；人话格会照常拼「宿主原话不够用 → 本包建议」，不冒充宿主原话。
@@ -1051,15 +1170,40 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
           throw withCarrierHint(failureOf(enabled, enableApplication), carrierCommand)
         }
       }
+      // 移除前留一份「用户是不是开着它」的在册快照：#201 的探测顺带给出这格，#236 的失败补偿
+      // 只对「本来就在册」的包下手——装前就未在册的包，宿主移除失败时不会把它从在册名单里拿走
+      // （未在册的 bundle 走不到「先取消选中」那半步），补偿反而会擅自改用户拓扑。
+      const enabledBeforeRemoval = topology === null ? null : topology.enabled
       // 移除步刻意不请求取消；超时意味着「可能已经摘掉了、但没来得及重装」（#184）——要当场说清并给下一步。
       // 这一步的「手工命令」面板里可能拿不到（目标已不在 dependencies，读取器会判成源码安装、不给命令），
       // 所以把这条桌面 CLI 一定能用的重装命令直接写进人话格（spec = 包名@目标版本）。
       const removalTimeoutDetail =
         carrierCommand === null ? REMOVE_TIMEOUT_DETAIL : `${REMOVE_TIMEOUT_DETAIL} (${carrierCommand})`
-      const removing = Promise.resolve(removeBundle.call(manager, targetName)) as Promise<ManagerChangeResult>
-      const removed = await finishCall(removing, async () => 'not-running', removalTimeoutDetail)
+      let removed: ManagerChangeResult
+      try {
+        // 创建 Promise 也放进 try：`removeBundle.call` 同步抛错（宿主实现异常）同样可能已经走过
+        // 「先取消选中」那半步，必须走同一份补偿（Spec 审查 C1）。
+        removed = await finishCall(
+          Promise.resolve(removeBundle.call(manager, targetName)) as Promise<ManagerChangeResult>,
+          async () => 'not-running',
+          removalTimeoutDetail
+        )
+      } catch (error) {
+        // 超时/宿主异常同样可能已经走过「先取消选中」那半步：照样补偿，原失败口径仍在前。
+        // 同步抛错（宿主实现异常）不是带分类的 install-failed：先补分类再上抛，否则外层按
+        // `detailText(error)` 重包会丢掉 detail，补偿事实就没了（Spec 审查 C1）。
+        const fact = await restoreEnabledAfterRemovalFailure(manager, targetName, enabledBeforeRemoval, stepTimeoutMs)
+        const failed =
+          (error as { code?: unknown })?.code === 'install-failed'
+            ? (error as Error & { detail?: string })
+            : failExec(withDetail(fail('install-failed'), detailText(error)), { reason: 'unknown' })
+        throw withTrailingFact(failed, fact)
+      }
       const removalApplication = removed && typeof removed.application === 'string' ? removed.application : ''
-      if (!MANAGER_OK.includes(removalApplication)) throw failureOf(removed, removalApplication)
+      if (!MANAGER_OK.includes(removalApplication)) {
+        const fact = await restoreEnabledAfterRemovalFailure(manager, targetName, enabledBeforeRemoval, stepTimeoutMs)
+        throw withTrailingFact(failureOf(removed, removalApplication), fact)
+      }
       result = await installOnce().catch((error) => {
         throw withRemovalFact(error as Error & { detail?: string }, carrierCommand)
       })
