@@ -4,7 +4,7 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
-## [Unreleased]
+## [0.18.37] - 2026-10-20
 
 ### Added
 - **开发工具：一键发版脚本 + 布局探针进仓（#208 复盘：编排税 / 复现税）**：`scripts/release.mjs`（`npm run release`）把「门禁 → CHANGELOG 定格 → 版本号 → commit/tag/push → token 发布 → 可见性轮询 → GitHub Release」固化成一条命令，默认**计划模式只读**、`--yes` 才执行、`--verify <版本>` 做发布后自检（npm 可见 / latest / tag 指向 / GitHub Release / tarball 布局）；`scripts/panel-layout-probe.mjs`（`npm run probe:layout`）用系统 Chrome 渲染真面板量盒子，断言 #93 单面板布局契约与 #240 批量盘弹窗契约（横幅不被压扁、复制按钮不越框、内容超高时自身可滚且末行可达）。口径写进 `docs/maintainers.md`，`docs/agents/architecture.md` 门径表同步指路。
