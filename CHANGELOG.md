@@ -4,6 +4,19 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
+## [0.18.36] - 2026-10-20
+
+### Fixed
+- **#241 recovery-required 死锁：宿主插件未加载（运行版 0.0.0）≠ 盘上版时，安装/重试全被同一拦截拒绝，只能重启宿主（真机 2026-10-20 14:23 爱生活面板「饼干记账」升级卡死）**：集成方拿不到宿主半区运行版时会注入占位版号 `0.0.0`（#216 只挡了显示层）。核心把它当真实版本判「运行版 ≠ 盘上版」，于是任务中断后派生 `recovery-required`；同一个拦截又拒绝 canInstall，形成「想恢复必须重试、重试被恢复态挡住」的自锁。现在：①`src/shared/version.ts`（新）提供 `normalizeRunningVersion`，读取器与核心把非字符串/空串/占位 `0.0.0` 一律归一为「未知」（null）；②`buildSnapshot` 增恢复豁免——任务已中断/失败、运行版未知、盘上版本比目标旧时允许发起重试安装（这一次重试就是恢复动作），但仍不宣称「有更新」（#182 的 unknown 状态判定照旧）；已知运行版时豁免不生效，#179/#215 判定不回归。异动文件：`src/shared/version.ts`、`src/core/reader.ts`、`src/core/service.ts`。
+- **#238 单品面板进入时先渲染上一次失败账本：首次安装前先弹「更新失败」误导帧（真机 2026-10-20 14:11 web profile 首装「饼干记账」一进页签就吃 13:19 的旧失败横幅）**：目标从未装过（磁盘没有）时，盘上残留的 failed/interrupted 任务只是历史账本；面板把任务态直接当「当前失败」渲染，还把它铺进 mount 的 job-failed 锁存。现在：①`src/panel/view-model.ts` 区分「新鲜失败」（本回包 errorKind/lastError、会话锁存）与 `historicalJobFailure`（未装 + 盘上旧任务），后者不再进失败页；②`src/panel/mount.ts` 的 job-failed 锁存对「未装 + 无新鲜锁存」让位，等首装/未装视图。
+- **#239 队列整写瞬时 EPERM 被误判成「上次安装异常中断」（真机 2026-10-20 14:16 web profile「卡路里」首装与 CLI 并发写同一份队列账本）**：`writeQueue` 整写队列账本（写临时文件 + rename），Windows 上句柄短占会偶发 EPERM/EACCES/EBUSY/ENOTEMPTY/EMFILE；写入被拒即抛，上层把「没写进去」落成 interrupted + recovery-required。现在：`src/core/queue/ports.ts` 对可判定的瞬时写错误做小步重试（瞬时错误码集合、最多 3 次、25ms 间隔、重试前清残留临时文件），非瞬时错误照旧立即失败；`createUpdateQueuePorts` 增 `writeFileImpl`/`renameImpl` 注入缝（只给测试用）。
+- **#240 批量面板失败横幅被压扁：「复制诊断/复制手工命令」越出红框（真机 2026-10-20 14:17 web profile「更新档案·总账」8 行批量面板，窗口 CSS 高约 542）**：批量弹窗根没有 `.dsh-upd-body` 滚动区，内核 #93 弹窗契约（`:has(>.dsh-upd-body)`）刻意不覆盖它；内容高过 85vh 时纵向 flex 按比例压子项，横排且显式 `min-height:3.4em` 的失败横幅先被压到地板，名单行与按钮越框。现在：`src/panel/batch/styles.ts` 增批量弹窗高度契约——`.dsh-upd-overlay .dsh-upd.dsh-upd-batch` 自己滚（`overflow-y:auto`）、child 一律 `flex:none`；契约只挂 overlay 作用域且只认批量根，内核面板与 embedded 形态零影响。
+
+### Tests
+- 新增 `tests/issue-241-recovery-deadlock.test.mjs` 4 例（占位 0.0.0 归一未知、中断任务可恢复重试、未知运行版不伪造 pending-restart、已知运行版时豁免不生效）；`tests/issue-238-first-install-stale-failure.test.mjs` 8 例（首帧不渲染旧失败账本、新鲜失败仍显示、锁存让位、历史帧让位后新失败照常回归）；`tests/issue-239-queue-transient-write.test.mjs` 4 例（瞬时 EPERM 重试成功、非瞬时立即失败、重试耗尽如实失败、只读队列不受影响）；`tests/issue-240-batch-dialog-height-contract.test.mjs` 7 例（两条契约存在、只挂 overlay+batch 根、内核 #93 契约不扩到批量、dialog/embedded DOM 形状不回归、失败横幅与复制按钮组形状不变）。
+
+门禁（**发版定格**）：`npm run check` **全绿**——`node --test tests/*.test.mjs` **1958 例：1957 过 / 0 失败 / 1 跳过**；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（88 个源文件、413 个 key、17 错误码、20 diag 键，违规 0）；`npm run docs:log:check` 过（6 条缺行警告是既有缺行，只警告不失败）；`npm publish --dry-run` **183 文件**（`dsh-plugin-update@0.18.36`，517.3 kB 压缩 / 1.7 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（413 个 key 仍全是 `draft: true`（合入条件未满足））。
+
 ## [0.18.35] - 2026-10-20
 
 ### Fixed
