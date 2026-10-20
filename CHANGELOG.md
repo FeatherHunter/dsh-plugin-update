@@ -4,6 +4,14 @@
 
 版本号按**已发布**口径读：`0.14.0` 与 `0.15.0` 没有单独发到 npm（registry 上从 `0.13.0` 直接到 `0.16.0`），那两节的内容随 `0.16.0` 首发；`0.16.1` 起是发布后的补丁。
 
+## [0.18.35] - 2026-10-20
+
+### Fixed
+- **#237 CLI 路：官方桌面运行时里的 `dsh web` / CLI 模式使用范围，安装第一步就 `spawn-failed`（真机 2026-10-20 13:19 爱生活面板「首次安装」点下去 2ms 失败）**：普通 DSH 宿主这条路由靠反查 `process.argv[1]` 找 CLI 的 JS 入口，旧实现只认 npm 布局（包名 `@deepseek-ai/dsh` + 清单声明 `bin.dsh`/`bin`）。而官方桌面运行时里 `dsh web` 的 CLI 入口是运行时自带的 `…\app.asar\dsh\node_modules\@deepseek-ai\dsh-desktop-host\lib\cli.js`——该包没有 `bin` 字段、包名也不同，反查永远返回 null，执行器 2ms 内如实失败 `spawn-failed`（面板显示「安装执行失败」），web profile 里爱生活对单品的「安装 / 升级」全部走不通。现在：反查同时认官方桌面运行时布局——向上找到包名 `@deepseek-ai/dsh-desktop-host` 时，入口必须正好是该包的 `lib/cli.js`；npm 布局、无关包、入口对不上返回 null 的既有语义不变，仍不猜 `PATH` 上的 `dsh` 命令名。桌面使用范围走管理器路，行为不变。
+- 测试：新增 `tests/issue-237-cli-entry-desktop-runtime.test.mjs` 4 例（桌面运行时布局返回入口；同包但入口不是 `lib/cli.js` 返回 null；npm 布局不回归；无关包仍 null）。
+
+门禁（**发版定格**）：`npm run check` **全绿**——`node --test tests/*.test.mjs` **1935 例：1934 过 / 0 失败 / 1 跳过**；`npm run typecheck` 过；`npm run gate:bilingual` **三道硬门禁过**（87 个源文件、413 个 key、17 错误码、20 diag 键，违规 0）；`npm run docs:log:check` 过（6 条缺行警告是既有缺行，只警告不失败）；`npm publish --dry-run` **181 文件**（`dsh-plugin-update@0.18.35`，513.1 kB 压缩 / 1.7 MB 解包）；`gate:bilingual:release` 的第四道照旧**如实红、非阻断**（413 个 key 仍全是 `draft: true`）。
+
 ## [0.18.34] - 2026-10-20
 
 ### Fixed
