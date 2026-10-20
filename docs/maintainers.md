@@ -36,6 +36,20 @@ pwsh -NoProfile -File scripts\publish-token.ps1           # 门禁(build+test)�
 
 快协议：publish exit 0 或 `E409 previously-staged` 即证明 registry 收下（受理≠可见，staged 要等几分钟才可见，属正常）；token 只走环境变量、不进仓库不打屏。发布侧到 registry 全绿即交付，安装一律用户侧做。
 
+**一键发版脚本（`npm run release`，agent 与人共用；2026-10-20 起）**：
+
+把「门禁 → 版本号 + CHANGELOG 定格 → commit/tag/push → token 发布 → 可见性轮询 → GitHub Release」固化成一条命令（实现见 `scripts/release.mjs`）。默认**计划模式只读**，加 `--yes` 才执行：
+
+```sh
+node scripts/release.mjs --version 0.18.37           # 计划：预检 + 打印将执行的步骤
+node scripts/release.mjs --version 0.18.37 --yes     # 执行全流程
+node scripts/release.mjs --verify 0.18.37            # 发布后自检（npm 可见/latest/tag/GitHub Release/tarball 布局）
+```
+
+发版前先把本节要发布的内容写进 CHANGELOG `[Unreleased]`；脚本会把它改名为 `## [x.y.z] - 日期` 并追加门禁定格行。`--skip-tests/--skip-commit/--skip-push/--skip-publish/--skip-release/--skip-changelog` 可分段执行；token 只从 `NODE_AUTH_TOKEN` 取。脚本不做的事：判断这次该发什么、写 CHANGELOG 内容、真机验收。
+
+- 长等待（npm 可见性轮询那几分钟）里先并行做下一步（写 Release notes、收尾票单），不要串行空等；脚本每步打 `STAGE n/N` 行，可直接转述给人当进度播报。
+
 **发布后校验必须轮询，不能立刻下结论**（2026-09-30 实测）：npm 的网页 2FA 审批走完后，registry 常回 `PUT 202` 且 `npm publish` 退出码 0，但那只是**已受理**——`npm` 自己会打印 “may take a few minutes to become available”，本次实测约 5 分钟后 `0.1.2` 才在 registry 上可见。窗口因此最多轮询 10 分钟（每 15 秒、`--prefer-online`），只有真能查到这一版才做冒烟安装；状态文件里的 `visible` 字段把「已受理但未确认」与「成功」分开。
 
 - npm 的 2FA 审批要**真实 TTY ＋ 用户本人**：Agent 的后台环境直接跑 `npm publish` 只会拿到 `EOTP`，隔空传一次性验证码必过期。所以发布必须在这个窗口里做。
@@ -127,6 +141,7 @@ npm run smoke:log        # 真 dist 六场景端到端日志冒烟（scripts/log
 npm run docs:log         # 从 event-list.update.json 生成事件目录 §1/§2 表机器列
 npm run docs:log:check   # 只查漂移（漂移则退出码 1）
 npm run check            # typecheck + build + 全量测试 + 双语门禁，提交前跑
+npm run probe:layout     # 弹窗布局量盒子（#93/#240 契约；需系统 Chrome，找不到就跳过=退出码 0）
 ```
 
 - **事件目录生成范围**：`scripts/gen-log-catalog.mjs` 按表头精确识别 §1 常驻表与 §2 按需表（两张表头逐字相同），只重写事件/级别/字段三列，「说明与脱敏」列逐字保留；清单里有、目录里缺的事件只警告（走 stderr、不失败，缺行属 #206 回填范围）。改了语义列或表结构后先跑 `--check` 看漂移面，再决定是否手工补行。

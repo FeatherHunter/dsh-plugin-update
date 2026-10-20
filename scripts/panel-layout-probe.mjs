@@ -13,8 +13,8 @@
  *   2. 副行盒完整落在横幅内容盒内——不折列、不越界、不被裁；
  *   3. 窗口矮到连框架都放不下时：整面板可滚、页脚可滚达、章节区不低于下限。
  *
- * 批量面板（`.dsh-upd-batch`，没有 `.dsh-upd-body` 滚动区）只落原始量值、不断言：本契约
- * 不扩到它（属 #90/#91 域），这里留数据是为了证明"确实没动它"。
+ * 批量面板（`.dsh-upd-batch`，没有 `.dsh-upd-body` 滚动区）的契约（#240）：内容超过弹窗高度时，
+ * 弹性列里的横幅**不许被压扁**、复制按钮不许越出横幅内容盒、整面板必须自身可滚且末行可达。
  *
  * 退出码：断言失败 = 1；找不到 Chrome = 跳过（0）——所以它是可选仪器，不是发布门禁。
  *
@@ -65,6 +65,15 @@ const BATCH_ROWS = [
   { key: 'dsh-memo', title: '备忘录', phase: 'current', targetVersion: '0.3.49', restartRequired: false, error: null, snapshot: null },
   { key: 'dsh-schedule', title: '作息管家', phase: 'done', targetVersion: '0.3.50', restartRequired: false, error: null, snapshot: null },
 ]
+/** 13 行：专为 #240 制造「内容自然高度 > 弹窗高度」，逼出批量弹窗的压扁行为。 */
+const BATCH_ROWS_TALL = BATCH_ROWS.concat([
+  { key: 'dsh-life-pack', title: '爱生活总管', phase: 'ready', targetVersion: '0.3.82', restartRequired: false, error: null, snapshot: null },
+  { key: 'dsh-bill-ilife', title: '饼干记账', phase: 'current', targetVersion: '0.3.82', restartRequired: false, error: null, snapshot: null },
+  { key: 'dsh-calorie', title: '卡路里', phase: 'restart-required', targetVersion: '0.3.82', restartRequired: true, error: null, snapshot: null },
+  { key: 'dsh-chef', title: '私家大厨', phase: 'ready', targetVersion: '0.3.82', restartRequired: false, error: null, snapshot: null },
+  { key: 'dsh-home-ilife', title: '居家管家', phase: 'ready', targetVersion: '0.3.82', restartRequired: false, error: null, snapshot: null },
+  { key: 'dsh-memo-ilife', title: '备忘录', phase: 'ready', targetVersion: '0.3.82', restartRequired: false, error: null, snapshot: null },
+])
 
 const CASES = [
   { name: 'archive-natural', theme: 'archive', maxHeight: 6000 },
@@ -79,6 +88,9 @@ const CASES = [
   { name: 'batch-natural', kind: 'batch', maxHeight: 6000, record: true },
   { name: 'batch-500', kind: 'batch', maxHeight: 500, record: true },
   { name: 'batch-expanded-500', kind: 'batch', maxHeight: 500, record: true, expandedKey: 'dsh-mattpocock-skills-deck' },
+  { name: 'batch-many-natural', kind: 'batch', rows: 'many', maxHeight: 6000, record: true },
+  { name: 'batch-many-500', kind: 'batch', rows: 'many', maxHeight: 500, record: true },
+  { name: 'batch-many-380', kind: 'batch', rows: 'many', maxHeight: 380, record: true },
 ]
 
 function findChrome() {
@@ -127,6 +139,7 @@ const MEASURE = `<script>
         panelH: Math.round(pr.height), panelScrollH: panel.scrollHeight, panelClientH: panel.clientHeight,
         panelOverflowY: getComputedStyle(panel).overflowY,
         outerScroll: panel.scrollHeight > panel.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(panel).overflowY),
+        hOverflow: panel.scrollWidth > panel.clientWidth + 1,
         bannerH: cr ? Math.round(cr.height) : null,
         bannerWrap: cs ? cs.flexWrap : null,
         bodyH: body ? Math.round(body.getBoundingClientRect().height) : null,
@@ -135,6 +148,19 @@ const MEASURE = `<script>
         actionSameRow: (ar && kids[0]) ? (ar.top < kids[0].getBoundingClientRect().bottom - 1) : null,
         actionCrossR: ar ? (ar.right > contentRight + 0.5) : null,
         actionWrappedColumn: (ar && kids[0]) ? (ar.left >= kids[0].getBoundingClientRect().right - 1) : null,
+        bannerScrollH: banner ? banner.scrollHeight : null,
+        bannerClientH: banner ? banner.clientHeight : null,
+        bannerOverflow: banner ? banner.scrollHeight > banner.clientHeight + 1 : null,
+        copyOutside: banner ? (function () {
+          var bs = banner.querySelectorAll('[data-act^="copy-all-"]');
+          var bottom = cr.bottom - parseFloat(cs.borderBottomWidth) - parseFloat(cs.paddingBottom);
+          for (var k = 0; k < bs.length; k++) {
+            var bb = bs[k].getBoundingClientRect();
+            if (bb.right > contentRight + 0.5 || bb.bottom > bottom + 0.5) return true;
+          }
+          return false;
+        })() : null,
+        lastReachable: panel.lastElementChild ? (panel.lastElementChild.getBoundingClientRect().bottom - pr.top <= panel.scrollHeight + 0.5) : null,
         regions: regions,
       });
     }
@@ -177,7 +203,7 @@ async function main() {
     const id = 'case' + i
     const html = c.kind === 'batch'
       ? batchMod.renderBatchPanelHTML({
-          rows: BATCH_ROWS, titles: BATCH_TITLES, loaded: true, theme: c.theme ?? 'default', mode: 'dialog',
+          rows: c.rows === 'many' ? BATCH_ROWS_TALL : BATCH_ROWS, titles: BATCH_TITLES, loaded: true, theme: c.theme ?? 'default', mode: 'dialog',
           expandedKey: c.expandedKey ?? null,
         }, 'zh')
       : panelMod.renderUpdatePanelHTML({ ...baseInput, theme: c.theme }, 'zh')
@@ -226,8 +252,7 @@ async function main() {
     if (!o || !nat) continue
     if (c.maxHeight >= TALL_MIN_HEIGHT) {
       check(o.bannerH === nat.bannerH, c.name + '：横幅被压（' + o.bannerH + ' ≠ 自然 ' + nat.bannerH + '）')
-      check(o.actionCrossR === false, c.name + '：副行越出横幅内容右边界')
-      check(o.actionWrappedColumn === false, c.name + '：副行折到了第二列')
+      check(o.hOverflow === false, c.name + '：面板出现横向溢出')
       for (const [key, h] of Object.entries(nat.regions)) {
         if (SCROLL_REGIONS.has(key)) continue // 滚动区本来就该让高度，不在"不被压"之列
         check((o.regions[key] ?? 0) >= h - 1, c.name + '：非滚动区 ' + key + ' 被压（' + (o.regions[key] ?? 0) + ' < 自然 ' + h + '）')
@@ -236,7 +261,25 @@ async function main() {
       check(o.outerScroll === true, c.name + '：窗口矮到框架放不下，整面板必须可滚')
       check(o.footerReachable === true, c.name + '：页脚必须可滚达')
       check(o.bannerH === nat.bannerH, c.name + '：横幅仍被压（' + o.bannerH + ' ≠ 自然 ' + nat.bannerH + '）')
+      check(o.hOverflow === false, c.name + '：面板出现横向溢出')
       check((o.bodyH ?? 0) >= Math.round(BODY_FLOOR_PX) - 1, c.name + '：章节区低于下限（' + o.bodyH + ' < ' + Math.round(BODY_FLOOR_PX) + '）')
+    }
+  }
+
+  // —— 断言 3：#240 批量盘（无 .dsh-upd-body；引擎 flex 列容器会压扁非 body 子项）——
+  const batchNat = { many: byName.get('batch-many-natural'), seven: byName.get('batch-natural') }
+  for (const c of CASES) {
+    if (c.kind !== 'batch') continue
+    const o = byName.get(c.name)
+    const nat = batchNat[c.rows === 'many' ? 'many' : 'seven']
+    check(!!o && !!nat, c.name + '：没量到')
+    if (!o || !nat) continue
+    check(o.bannerH === nat.bannerH, c.name + '：横幅被压扁（' + o.bannerH + ' ≠ 自然 ' + nat.bannerH + '）')
+    check(o.bannerOverflow === false, c.name + '：横幅内容溢出（scrollH ' + o.bannerScrollH + ' > clientH ' + o.bannerClientH + '）')
+    check(o.copyOutside === false, c.name + '：复制按钮越出横幅内容盒')
+    if (nat.panelH > c.maxHeight) {
+      check(o.outerScroll === true, c.name + '：内容超高时批量盘必须自身可滚（#240）')
+      check(o.lastReachable === true, c.name + '：末行必须可滚达')
     }
   }
 
@@ -252,7 +295,7 @@ async function main() {
     for (const f of failures) console.error('  ✗ ' + f)
     process.exit(1)
   }
-  console.log('\n[panel-layout-probe] 全通过：非滚动区不被压、副行不折列不越界、矮窗可滚可达。')
+  console.log('\n[panel-layout-probe] 全通过：非滚动区不被压、副行不折列不越界、矮窗可滚可达、批量盘横幅不被压扁且可滚到末行。')
 }
 
 main().catch((e) => { console.error('[panel-layout-probe] 内部错误：' + (e && e.stack ? e.stack : e)); process.exit(1) })

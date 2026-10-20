@@ -263,4 +263,7 @@ npm run smoke:log      # 端到端：只打真 dist，6 场景 PASS/PASSED
 | `tests/log-contract.test.mjs` | 清单与发射口契约（含负断言样板 `makeEmitter`） |
 | `tests/gate.test.mjs` | `lintEventList` 与门禁；递归扫 `src/` 全树的依赖纪律 |
 | `tests/log-kernel.test.mjs` | 日志内核与浏览器闭包边界 |
+| `scripts/panel-layout-probe.mjs` | 弹窗布局量盒子（#93 / #240 契约）：`npm run probe:layout`，需系统 Chrome |
+| `src/panel/render.ts` 顶部样式契约注释 | 改弹窗布局/CSS 前先读（#93 高度让渡、弹窗是 flex 列容器、`overflow` 只能落在外层），别只凭肉眼 |
+| `scripts/release.mjs` | 一键发版（计划/执行/`--verify` 自检），口径见 `docs/maintainers.md` |
 | `npm run check` | 改契约后的聚合验证全绿口径 |
