@@ -78,14 +78,22 @@ function elapsed() { return `${((Date.now() - started) / 1000).toFixed(1)}s` }
 /** 跑命令并继承 stdio（流式进度给用户看）；失败即 FAIL。 */
 function run(title, cmd, args, { allowFail = false } = {}) {
   log('    » ' + title)
-  const r = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', shell: WINDOWS && !/^(pwsh|node)$/i.test(cmd) })
+  const r = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', shell: needsShell(cmd) })
   if (r.status !== 0 && !allowFail) fail(`${title} 失败（exit ${r.status}）：${cmd} ${args.join(' ')}`)
   return r.status ?? 1
 }
 /** 静默跑命令，返回 {ok, status, out, err}。 */
 function capture(cmd, args) {
-  const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8', shell: WINDOWS && !/^(pwsh|node)$/i.test(cmd) })
+  const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8', shell: needsShell(cmd) })
   return { ok: r.status === 0, status: r.status ?? 1, out: String(r.stdout ?? '').trim(), err: String(r.stderr ?? '').trim() }
+}
+/**
+ * 只有 npm 这类 .cmd 垫片在 Windows 上必须借 shell；git/gh/pwsh/node 一律直接 spawn。
+ * shell:true 时 Node 只把 args 用空格拼起来、不加引号，带空格的提交信息会被拆成 pathspec
+ * （2026-10-20 首次实跑 0.18.37 就栽在这里）。
+ */
+function needsShell(cmd) {
+  return WINDOWS && /^npm(\.cmd)?$/i.test(cmd)
 }
 function mustCapture(title, cmd, args) {
   const r = capture(cmd, args)
