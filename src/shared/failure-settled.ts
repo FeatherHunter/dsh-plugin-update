@@ -51,6 +51,10 @@ export function failureSettledOf(snapshot: UpdateSnapshot | null | undefined): b
  * 装侧锁存由失败 job 派生，job 一被版本证据了结它就不再是当下事实，就地解除且不再重建；
  * 查侧锁存（读/联网失败）是当下证据，仍循 #58 只由一次成功查询解除。面板与安装按钮件
  * 共用这一条规则，不各写一份判断。
+ *
+ * 粒度说明：这里按「装侧 / 查侧」判定，不比对 `jobId` —— 目标版本确实在跑时，任何装侧旧失败
+ * 都已过期（含本会话里用户亲自触发、随后被版本证据推翻的那次失败）；「本回包新鲜失败仍可见」
+ * 由 view-model 的新鲜失败守卫保证，不受本函数影响。
  */
 export function settledClearsLatch(latch: { source?: unknown; code?: unknown } | null | undefined): boolean {
   if (!latch || typeof latch !== 'object') return false
