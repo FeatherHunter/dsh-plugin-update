@@ -31,6 +31,7 @@ import { createPanelClientLogShell } from '../log/panel-client.js'
 import { PANEL_DIAG_MAX_CHARS, buildHealthyDiagCopy, buildUpdateDiagCopy, failureCodeOf, redactForCopy, replyIsCheckExpired, thrownIsCheckExpired, type DiagCopyFormat, type UpdaterSelfView } from '../shared/copy.js'
 import type { UpdatePanelActionKind, UpdatePanelClientLogOptions, UpdatePanelContainer, UpdatePanelController, UpdatePanelMode, UpdatePanelOptions, UpdatePanelTheme } from '../panel.js'
 import { DEFAULT_PANEL_POLL_MS, DEFAULT_PREFIX, MIN_PANEL_POLL_MS, buildChangelogPhoneName, buildLogAppendPhoneName, buildPhoneNames } from '../shared/config.js'
+import { failureSettledOf, settledClearsLatch } from '../shared/failure-settled.js'
 import { hash8 } from '../shared/hash.js'
 import { langSignalSource, resolveLang, subscribeLang, type AppLang, type LocaleOption } from '../shared/lang.js'
 import type { ManualSource } from '../shared/last-resort.js'
@@ -310,7 +311,8 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
     return bytes
   }
   function logPanelState(): void {
-    const state = busyAct ? 'busy' : latch || snapshot?.job?.state === 'failed' ? 'error' : 'ready'
+    // #245：已结算的旧失败不算当前 error 态（与横幅同口径，日志面板状态跟着视图走）。
+    const state = busyAct ? 'busy' : latch || (snapshot?.job?.state === 'failed' && !failureSettledOf(snapshot)) ? 'error' : 'ready'
     let tokensApplied = 0
     if (themeTokens) {
       for (const key of Object.keys(themeTokens)) {
@@ -1025,8 +1027,13 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         // 后台结局到达：单调置入（只允许从无到有或同源更新，永不由轮询清除）。
         // #238：目标从未装过时，盘上旧失败任务只是历史账本——不拿它铺「更新失败」当前态；
         // 本会话已有新鲜锁存（用户动作失败）时不动它，仍按 #58 常驻。
-        if (snapshot.installed === false && !latch) {
-          // 历史帧让位给首装/未装视图（渲染侧同口径，见 view-model 的 historicalJobFailure）。
+        // #245：失败任务已被版本证据结算（目标版本确在跑）→ 旧失败是历史账本：
+        // 装侧失败锁存就地解除且不再重建（一次只读轮询带回的安装失败码同样让位）；
+        // 查侧锁存（读/联网失败）是当下证据，仍循 #58 只由成功查询解除。
+        if (failureSettledOf(snapshot)) {
+          if (settledClearsLatch(latch)) clearLatch()
+        } else if (snapshot.installed === false && !latch) {
+          // 历史帧让位给首装/未装视图（渲染侧同口径，见 view-model 的 jobFailureCurrent）。
         } else if (snapshot && tripleChanged(snapshot)) clearLatch()
         else {
           // #143：同语义重复轮询冻结首次失败时刻，不重建锁存（时间戳 churn 即重绘即丢滚动）。
@@ -1583,7 +1590,10 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         return
       }
       case 'copy-diag': {
-        const jobCode = snapshot?.job?.state === 'failed' ? messageCodeOf(snapshot.job.message) || 'install-failed' : ''
+        // #245：已结算的旧失败不再是当前失败码（复制诊断给当前快照，不替历史失败开病历）。
+        const jobFailureSettled = failureSettledOf(snapshot)
+        const jobCode =
+          snapshot?.job?.state === 'failed' && !jobFailureSettled ? messageCodeOf(snapshot.job.message) || 'install-failed' : ''
         // 健康态诚实复制（#58）：没有失败就不伪造失败码，只给当前状态快照。
         if (!latch && !jobCode && !snapshot?.blockedReason && snapshot) {
           // 健康态复制：缺席不写注入的假版号、不谎称已是最新（#134/US16/US19）。
@@ -1624,9 +1634,11 @@ export function mountUpdatePanel(container: UpdatePanelContainer, options: Updat
         const code = frozen?.code ?? failureCodeOf({ error: null, errorKind: null }, jobCode || snapshot?.blockedReason || 'check-failed')
         const detail =
           frozen?.detail ??
-          (snapshot?.job?.message && snapshot.job.message.includes(':')
-            ? snapshot.job.message.slice(snapshot.job.message.indexOf(':') + 1)
-            : snapshot?.job?.message)
+          (jobFailureSettled
+            ? null
+            : snapshot?.job?.message && snapshot.job.message.includes(':')
+              ? snapshot.job.message.slice(snapshot.job.message.indexOf(':') + 1)
+              : snapshot?.job?.message)
         const text = buildUpdateDiagCopy({
           pluginId,
           code,

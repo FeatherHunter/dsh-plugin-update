@@ -12,6 +12,7 @@ import type { VisibleQueue } from '../core/queue/model.js'
 import { compareReleaseVersions } from '../core/service.js'
 import { blockedCopy, failureCopy } from '../shared/copy.js'
 import { isCheckSideFailureCode } from '../shared/codes.js'
+import { failureSettledOf } from '../shared/failure-settled.js'
 import { normalizeLangTag, type AppLang } from '../shared/lang.js'
 import type { UpdateSnapshot } from '../shared/ports.js'
 
@@ -74,6 +75,14 @@ export function messageCodeOf(message: unknown): string {
   if (typeof message !== 'string' || !message) return ''
   const at = message.indexOf(':')
   return (at < 0 ? message : message.slice(0, at)).trim()
+}
+
+/**
+ * #245：失败任务的稳定失败码——只有 failed 任务取 message 前缀，interrupted 与无码一律回到
+ * install-failed（与失败横幅同口径）。失败横幅与历史行共用这一处，渲染层不再各推一遍语义。
+ */
+export function jobFailureCodeOf(job: UpdateSnapshot['job'] | null | undefined): string {
+  return job && job.state === 'failed' ? messageCodeOf(job.message) || 'install-failed' : 'install-failed'
 }
 
 export interface PanelViewInput {
@@ -144,6 +153,8 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
   }
   const job = snapshot.job ?? null
   const jobState = job?.state ?? null
+  // #245：失败任务已被版本证据结算（目标版本确在跑）→ 它只是历史账本，不再驱动当前失败面。
+  const jobFailureSettled = failureSettledOf(snapshot)
   const queueNote =
     queue && queue.busy
       ? queue.position === 0
@@ -191,12 +202,13 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
     }
   }
   // 失败：稳定码 + 一句话 + 常驻复制诊断（分支只认 errorKind，error 仅回退）。
-  const jobCode = jobState === 'failed' ? messageCodeOf(job?.message) || 'install-failed' : ''
-  const failedCode =
-    (typeof errorKind === 'string' && errorKind.trim()) ||
-    lastError ||
-    jobCode ||
-    ''
+  // #238/#245：盘上失败任务在两种情况下只是历史账本、不驱动当前失败面——目标从未装过（#238），
+  // 或失败已被版本证据结算（#245）。本回包/本会话的新鲜失败（errorKind/lastError）是当下证据，不受此限。
+  const failureJobState = jobState === 'failed' || jobState === 'interrupted'
+  const freshFailure = (typeof errorKind === 'string' && errorKind.trim()) || lastError
+  const jobFailureCurrent = failureJobState && !jobFailureSettled && !(snapshot.installed === false && !freshFailure)
+  const jobCode = jobFailureCurrent ? jobFailureCodeOf(job) : ''
+  const failedCode = freshFailure || jobCode || ''
   // #100：失败任务已是旧目标、远端已有新版 → 失败页让位给新信息（旧失败不挡新版）。
   // 只压任务自带的失败：另有新鲜的 errorKind/lastError 时仍按失败页（那是当下的证据）。
   // 让位只发生在有当下故事可讲时（可装 / 有阻拦原因）；否则退回失败页——撒谎说“已最新”比留旧失败更糟。
@@ -217,15 +229,8 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
   // + 记住的窗口正对当前新版 + 还没放行 → 失败横幅让位给检查页预判，不再拿旧失败挡路。
   // 记住的窗口仍是事实（这版现在装还是会被拦），且只在"无新鲜失败"时让位——
   // 锁存还在（errorKind/lastError 有值）时失败页优先，本门直接 null。
-  const noFreshFailure = !(typeof errorKind === 'string' && errorKind.trim()) && !lastError
-  const gated = noFreshFailure ? checkPrejudgeOfView(input.checkPrejudge, snapshot) : null
-  // #238：目标从未装过（磁盘没有）时，盘上残留的失败任务只是「上一次尝试」的历史账本，
-  // 不得冒充当前「更新失败」现状——旧帧会让首装用户一进页签就吃一个失败横幅。放行条件：
-  // 失败若来自本回包/本会话的新鲜证据（errorKind/lastError = 用户动作或锁存的失败），照旧显示。
-  const freshFailure = (typeof errorKind === 'string' && errorKind.trim()) || lastError
-  const historicalJobFailure =
-    !freshFailure && snapshot.installed === false && (jobState === 'failed' || jobState === 'interrupted')
-  if (!staleFailure && !gated && !historicalJobFailure && (failedCode || jobState === 'failed' || jobState === 'interrupted')) {
+  const gated = freshFailure ? null : checkPrejudgeOfView(input.checkPrejudge, snapshot)
+  if (!staleFailure && !gated && (failedCode || jobFailureCurrent)) {
 
     const code = failedCode || 'install-failed'
     const copy = failureCopy(code, l)

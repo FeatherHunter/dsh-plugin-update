@@ -18,9 +18,10 @@ import { LOG_EVENT_CALL, LOG_EVENT_CALL_FAIL, LOG_EVENT_INSTALL_EXEC } from '../
 import { manualAbsentReasonOf, manualAbsentTextOf, manualAppliesToBanner } from '../shared/manual-absent.js'
 import type { UpdateSnapshot } from '../shared/ports.js'
 import { UPDATE_PANEL_ARCHIVE_CSS } from './archive-theme.js'
+import { failureSettledOf } from '../shared/failure-settled.js'
 import { formatLatchTime, type PanelFailureRef } from './failure-latch.js'
 import { normalizePanelTheme, themeTokensStyleFor, type UpdateThemeTokens } from './theme.js'
-import { checkPrejudgeOfView, panelViewModel, type CheckPrejudge, type PanelView, type PanelViewInput } from './view-model.js'
+import { checkPrejudgeOfView, jobFailureCodeOf, panelViewModel, type CheckPrejudge, type PanelView, type PanelViewInput } from './view-model.js'
 
 // ---------- 渲染（纯函数：同一视图 → 同一内核 HTML；内外摆放只差外层包裹） ----------
 
@@ -42,6 +43,8 @@ export const UPDATE_PANEL_CSS = [
   '.dsh-upd-banner[data-kind="failed"],.dsh-upd-banner[data-kind="blocked"]{border-color:var(--dsh-update-bad-border);background:var(--dsh-update-bad-bg)}',
   '.dsh-upd-banner[data-kind="update"]{border-color:var(--dsh-update-ok-border);background:var(--dsh-update-ok-bg)}',
   '.dsh-upd-banner[data-kind="busy"]{border-color:var(--dsh-update-busy-border);background:var(--dsh-update-busy-bg)}',
+  // #245：已结算的旧失败只留一条中性历史行（不报警、不占横幅）。
+  '.dsh-upd-settled{font-size:var(--dsh-update-panel-small-font-size,12px);opacity:.75;margin:0 0 8px;overflow-wrap:anywhere}',
   // —— 最后手段条（#174 A′ 形态）——
   // 只有判定为 last-resort（无自动救援且命令当帧可信）才画；语义类 `.dsh-upd-lastresort` 也只在那一档出现，
   // 测试靠 data-last-resort 钩子与它区分「有高亮」和「只是样式表里恰好有这个名字」。
@@ -722,6 +725,17 @@ export function renderUpdatePanelKernel(input: PanelRenderInput, view: PanelView
   // 横幅副行（行动句）：放在色框之外、框下第二行居左（原型口径：状态行是裸文本，色框只装标题）。
   // 色框（绿/蓝/黄）只装标题 strong，副行是框外的补充说明，不进 role=status 的框体。
   if (b.action) parts.push(`<div class="dsh-upd-banner-sub">${escapeHtml(b.action)}</div>`)
+  // #245：旧失败已在版本证据里结算 → 只留一条中性历史行，不再由它驱动当前失败面。
+  const settledJob = snapshot && failureSettledOf(snapshot) ? snapshot.job : null
+  if (settledJob && b.kind !== 'failed') {
+    const settledCode = jobFailureCodeOf(settledJob)
+    const settledTarget = typeof settledJob.targetVersion === 'string' ? settledJob.targetVersion.trim() : ''
+    parts.push(
+      `<div class="dsh-upd-settled" data-settled="1">${escapeHtml(
+        copyText('panel.history.failure-settled', l, { code: settledCode, version: settledTarget }),
+      )}</div>`,
+    )
+  }
   // 版本条（原型 :216 `.strip`）：运行 / 磁盘 / 远端三格。
   // 首帧无快照：画骨架占位（纯 CSS 微光，不加语义节点；快照一到即换真格）。
   parts.push(snapshot ? versionStrip(snapshot, l) : skeletonStrip(view.banner.kind === 'loading', l))

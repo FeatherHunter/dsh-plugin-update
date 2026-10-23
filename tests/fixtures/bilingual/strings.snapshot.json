@@ -1592,6 +1592,11 @@
       "zh": "关闭窗口，更新不受影响，可随时返回查看。",
       "draft": true
     },
+    "panel.history.failure-settled": {
+      "en": "An earlier attempt failed ({code}); target version {version} or newer is running.",
+      "zh": "上次尝试失败（{code}）；目标版本 {version} 或更新版本正在运行。",
+      "draft": true
+    },
     "panel.lastresort.badge": {
       "en": "Last resort",
       "zh": "最后手段",

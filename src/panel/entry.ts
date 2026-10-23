@@ -34,6 +34,7 @@ import {
   type UpdatePanelTheme,
   type UpdateThemeTokens,
 } from '../panel.js'
+import { failureSettledOf } from '../shared/failure-settled.js'
 import type { UpdateSnapshot } from '../shared/ports.js'
 import { BILINGUAL_CSS } from '../core/i18n/styles.js'
 import { copyHTML, copyText } from '../core/i18n/text.js'
@@ -181,7 +182,9 @@ export function entryStateKind(state: UpdateEntryState | null | undefined): Entr
   const snapshot = state?.snapshot ?? null
   const job = snapshot?.job ?? null
   if (job && (job.state === 'installing' || job.state === 'verifying')) return 'busy'
-  if ((state && state.error) || (job && (job.state === 'failed' || job.state === 'interrupted'))) {
+  // #245：失败任务已被版本证据结算 → 入口件不再显示失败档（新失败码 state.error 仍然赢）。
+  const jobFailureSettled = failureSettledOf(snapshot)
+  if ((state && state.error) || (job && (job.state === 'failed' || job.state === 'interrupted') && !jobFailureSettled)) {
     return 'failed'
   }
   if (snapshot && (snapshot.blockedReason === 'pending-restart' || job?.state === 'restart-required')) {

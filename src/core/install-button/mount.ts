@@ -31,6 +31,7 @@ import {
   type UpdatePanelClientLogOptions,
 } from '../../panel.js'
 import { formatUnlockAt } from '../../core/cause.js'
+import { failureSettledOf, settledClearsLatch } from '../../shared/failure-settled.js'
 import { hash8 } from '../../shared/hash.js'
 import type { ManualSource } from '../../shared/last-resort.js'
 import { createClientLogChannel, type ClientLogChannel } from '../../log/client-queue.js'
@@ -494,16 +495,22 @@ export function mountInstallButton(
       } else if (jobState === 'completed' || jobState === 'restart-required') {
         clearLatch()
       } else if ((jobState === 'failed' || jobState === 'interrupted') && snapshot?.job) {
-        // #156 第四轮：异步失败的事实（包名/归因）随本次回包的 diag 一起来，锁存空着时收下。
-        const next = latchFromJob(snapshot.job, snapshot, isObject(reply['diag']) ? reply['diag'] : null)
-        if (
-          !latch ||
-          latch.volatile ||
-          latch.code !== next.code ||
-          latch.targetVersion !== next.targetVersion ||
-          latch.latestVersion !== next.latestVersion
-        ) {
-          setLatch(next)
+        // #245：失败任务已被版本证据结算（目标版本确在跑）→ 旧失败是历史账本：
+        // 装侧失败锁存就地解除且不再重建；查侧锁存（读/联网失败）是当下证据，仍循 #58 不动。
+        if (failureSettledOf(snapshot)) {
+          if (settledClearsLatch(latch)) clearLatch()
+        } else {
+          // #156 第四轮：异步失败的事实（包名/归因）随本次回包的 diag 一起来，锁存空着时收下。
+          const next = latchFromJob(snapshot.job, snapshot, isObject(reply['diag']) ? reply['diag'] : null)
+          if (
+            !latch ||
+            latch.volatile ||
+            latch.code !== next.code ||
+            latch.targetVersion !== next.targetVersion ||
+            latch.latestVersion !== next.latestVersion
+          ) {
+            setLatch(next)
+          }
         }
       } else if (via === 'install') {
         clearLatch()

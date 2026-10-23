@@ -212,6 +212,7 @@ export type BilingualKey =
   | 'panel.error.no-failure'
   | 'panel.error.log-hint'
   | 'panel.error.log-follow'
+  | 'panel.history.failure-settled'
   | 'panel.loghealth.line'
   | 'panel.loghealth.self'
   | 'panel.loghealth.external.open'
@@ -646,6 +647,8 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.error.no-failure': { en: 'No failure: copying diagnostics gives the current state snapshot.', zh: '暂无失败：此时复制诊断提供的是当前状态快照。', draft: true },
   'panel.error.log-hint': { en: 'Check logs: {dir} (one directory per plugin, no overlap). Read them with {cmd}; filter by plugin ID {pluginId} for events {e1}, {e2}, {e3}.', zh: '请查看日志：{dir}（一个插件一棵目录，互不覆盖）。一条命令看：{cmd}；按插件标识 {pluginId} 筛选 {e1}、{e2}、{e3} 事件。', draft: true },
   'panel.error.log-follow': { en: 'Match the request/check IDs above in {eFail}; baseline timing in {eCall}, execution result in {eExec}.', zh: '凭上方请求／检查编号在 {eFail} 中匹配；基线耗时请查看 {eCall}，执行结果请查看 {eExec}。', draft: true },
+  // #245：已结算的旧失败只留一条中性历史行——说清“那次失败”与“现在在跑什么”，不带任何报错口气。
+  'panel.history.failure-settled': { en: 'An earlier attempt failed ({code}); target version {version} or newer is running.', zh: '上次尝试失败（{code}）；目标版本 {version} 或更新版本正在运行。', draft: true },
   // #212 日志健康（面板日志区与复制诊断共用的唯一措辞源）：机读码（self/external/pending/off、
   // contract 四态、三个原因码）全部走具名槽传值，模板本身不含 ASCII —— 中文只存这里，机读真值不译。
   'panel.loghealth.line': { en: 'Log: {text}', zh: '日志：{text}', draft: true },

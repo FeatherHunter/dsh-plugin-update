@@ -6,7 +6,7 @@
 
 符号名是稳定地标。本文行号按写作时的 HEAD 标注（2026-10-19，`#230` 收口后）；漂了就用
 `Select-String -Path src -Pattern '<符号名>'` 重新定位。`src/` 下每个非 ambient 的 `.ts`
-（87 个）由 `node build.mjs` 一对一转成 `dist/` 同名 `.js`（2 个 ambient `.d.ts` 只进类型
+（89 个）由 `node build.mjs` 一对一转成 `dist/` 同名 `.js`（2 个 ambient `.d.ts` 只进类型
 检查、不产 js；`.d.ts` 由 tsc 随 `npm run build` 产出）。
 
 ## 目录地图
@@ -54,6 +54,7 @@ src/
 ├─ shared/             中立零件：不碰宿主状态，宿主与浏览器同缝（仅 self.ts 读 node:url）
 │  └─ codes.ts  ports.ts  redaction.ts  diag.ts  hash.ts  lang.ts  log-events.ts
 │     copy.ts  compliant.ts  commands.ts  manual-absent.ts  last-resort.ts
+│     failure-settled.ts
 │     config.ts  self.ts  node-ambient.d.ts  runtime.d.ts
 │
 └─ log/                日志内核：发射口、清单、路由/落点、登记表、客户端通道
@@ -185,6 +186,7 @@ mountUpdateBatchPanel   src/panel/batch/mount.ts:237        （日志壳创建 :
 | HTTP 插头与路由 | `src/host/http.ts:231`（`createHttpCall`）；环境探测 `src/host/environment.ts:109` |
 | 手动手令 / 无命令原因 | `src/shared/commands.ts:256`（`manualCommand`）、`src/shared/manual-absent.ts` |
 | 最后手段判定 | `src/shared/last-resort.ts`（三处渲染点共用的唯一口径） |
+| 失败任务是否已了结（#245 第三态） | `src/shared/failure-settled.ts`：`failureSettledOf`（唯一判据，消费方只问它、不各写版本比较） |
 
 ## 改一个日志事件：三处 + 生成目录
 
