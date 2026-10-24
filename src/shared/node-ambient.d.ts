@@ -29,6 +29,8 @@ declare module 'node:fs' {
 
 declare module 'node:fs/promises' {
   export function mkdir(path: string, options?: { recursive?: boolean; mode?: number }): Promise<string | undefined>
+  /** 中枢方案目录列举（host/hub/plan-store.ts）：只读文件名，不递归。 */
+  export function readdir(path: string): Promise<string[]>
   export function open(
     path: string,
     flags: string,
@@ -90,6 +92,7 @@ declare const Buffer: {
 }
 
 // 宿主进程全局（本包只读环境变量、运行时路径、进程号、Node 版本号，不写进程状态）。
+// kill(pid, 0) 是租约「原驾驶者还活着吗」的探测（host/hub/registry.ts）：只发零号信号，不真杀。
 declare const process: {
   env: Record<string, string | undefined>
   execPath: string
@@ -97,4 +100,5 @@ declare const process: {
   argv: string[]
   pid: number
   versions: { node: string }
+  kill(pid: number, signal?: number | string): boolean
 }

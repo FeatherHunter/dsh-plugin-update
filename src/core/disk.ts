@@ -17,6 +17,7 @@
  */
 
 import { randomUUID } from 'node:crypto'
+import { renameWithRetry } from './fs-atomic.js'
 import { mkdir, open, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BACKUP_FILE, LOCK_FILE, SKIPPED_FILE, STATE_FILE } from '../shared/config.js'
@@ -88,7 +89,7 @@ async function writeJsonAtomic(filename: string, value: unknown, onFail?: (error
   const temporary = `${filename}.${randomUUID()}.tmp`
   try {
     await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600, flag: 'wx' })
-    await rename(temporary, filename)
+    await renameWithRetry(temporary, filename)
   } catch (error) {
     // 先把原始失败交给记账（稳定短码），再按原样抛 install-failed：归类与原来一字不差。
     if (onFail) onFail(error)
@@ -400,7 +401,7 @@ export function createBatchDiskPorts(
       const temporary = `${paths.file}.${randomUUID()}.tmp`
       try {
         await writeFile(temporary, `${JSON.stringify(normalized, null, 2)}\n`, { mode: 0o600, flag: 'wx' })
-        await rename(temporary, paths.file)
+        await renameWithRetry(temporary, paths.file)
       } catch {
         throw batchFail()
       } finally {
@@ -548,7 +549,7 @@ async function writeJsonFileAtomic(filename: string, value: unknown, directory: 
   const temporary = filename + '.' + randomUUID() + '.tmp'
   try {
     await writeFile(temporary, JSON.stringify(value, null, 2) + '\n', { mode: 0o600, flag: 'wx' })
-    await rename(temporary, filename)
+    await renameWithRetry(temporary, filename)
   } catch {
     throw batchFail()
   } finally {
@@ -707,7 +708,7 @@ export function createSkipDiskPorts(
     const temporary = `${file}.${randomUUID()}.tmp`
     try {
       await writeFile(temporary, `${JSON.stringify({ skipped: normalized }, null, 2)}\n`, { mode: 0o600, flag: 'wx' })
-      await rename(temporary, file)
+      await renameWithRetry(temporary, file)
     } catch {
       throw fail('install-failed')
     } finally {
@@ -721,3 +722,6 @@ export function createSkipDiskPorts(
   }
   return { file, readSkipped, writeSkipped, clearSkippedVersion }
 }
+
+
+

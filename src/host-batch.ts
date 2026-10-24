@@ -65,6 +65,12 @@ export interface MultiHostOptions {
   drain?: boolean
   /** drain 间隔（毫秒，缺省 5000，下限 1000）。 */
   drainIntervalMs?: number
+  /**
+   * 进程内更新中枢（ADR-0008）：批量推进不再绑定发起方 fiber。
+   * 缺省：有宿主 ctx（真机接入）时开；测试/无 ctx 的纯宿主场景缺省关，显式 `hub: true` 可开。
+   * `hub: false` 强制回到「调用方自己推」的旧路径（回退线）。
+   */
+  hub?: boolean
 }
 
 /** 查一家：真路径打该目标的 updateCheck 电话，单测给假件。 */
@@ -100,7 +106,7 @@ export interface MultiHostDeps {
   /** 逐目标共用的配置覆盖（pluginId / prefix / targetPackageName 按目标算，不从这里来）。 */
   config?: Omit<UpdateConfigInput, 'pluginId' | 'prefix' | 'targetPackageName'>
   /** 批量使用范围（会话落盘与共享队列端口用；缺省取 readerOverrides 的同名项）。 */
-  scope?: { homeDir?: string; profileDir?: string }
+  scope?: { homeDir?: string; profileDir?: string; profileName?: string }
   /** 查/装传输：缺省走单插件电话；测试给假件。 */
   transport?: { check?: TargetCheckFn; install?: TargetInstallFn }
   /** drain 的定时器（缺省真 setTimeout / clearTimeout）。 */
@@ -109,6 +115,16 @@ export interface MultiHostDeps {
   randomId?: () => string
   /** 装完之后轮询该家状态的间隔毫秒（缺省 500；后台安装收尾用）。 */
   installPollMs?: number
+  /**
+   * 中枢让位后的退避间隔毫秒（缺省 1000）：中枢拿不到驾驶位/被队列挡住时，
+   * 隔这么久再试一次。测试注入短间隔，生产用缺省。
+   */
+  hubRetryMs?: number
+  /**
+   * 「原驾驶者还活着吗」的探测（中枢接管租约用；缺省发零号信号探测进程）。
+   * 测试注入假判据，避免真机 PID 猜测。
+   */
+  hubIsProcessAlive?: (pid: number) => boolean
 }
 
 /** 批量宿主入口的返回面。 */

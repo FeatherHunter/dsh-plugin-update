@@ -44,6 +44,11 @@ export interface BatchHostPhoneNames {
    * 批量面板自建的日志通道打这个名。没有属主时**不登记**——面板行宁可投递失败，也不猜落点。
    */
   logAppend?: string
+  /**
+   * 只读全局进度电话（#250）：批量前缀 + `.updateHubStatus`。
+   * 只有启用中枢（hub）时登记；回 `{ ok: true, snapshot }`，形状见 core/hub/snapshot.ts。
+   */
+  hubStatus?: string
 }
 export function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}

@@ -23,7 +23,14 @@ import { addKeys, mergeInto } from './resume.js'
 import type { MultiHostDeps, MultiHostOptions, MultiHostUpdate, MultiTargetSpec } from '../../host-batch.js'
 
 import { homedir } from 'node:os'
+import { basename } from 'node:path'
 import { hash8 } from '../../shared/hash.js'
+import { createHubPlan, type HubPlan, type HubScopeRef } from '../../core/hub/plan.js'
+import { emptyHubSnapshot } from '../../core/hub/snapshot.js'
+import { readHubStatus } from '../hub/aggregate.js'
+import { hubBusyForScope, submitHubTask } from '../hub/registry.js'
+import { hubPathsForUpdate, readHubPlans } from '../hub/plan-store.js'
+import type { HubRuntimeDeps, HubScope, HubSeat } from '../hub/protocol.js'
 import {
   batchEntryOf,
   batchProgress,
@@ -190,6 +197,44 @@ export function createMultiHostUpdate(
   // 混进别的使用范围：如实拒绝（五个电话都回错），绝不跨范围抢锁、绝不写别家的账本。
   const scopeError = distinctScopes.size > 1 ? CROSS_SCOPE_CODE : null
   const batchScope = scopeError ? null : (scopes.get(specs[0].key) as TargetScope)
+
+  // 进程内更新中枢（ADR-0008）：批量推进从本 fiber 里搬出去。
+  // 缺省开关：有宿主 ctx（真机接入）时开；纯宿主脚本/测试显式 hub:true 可开；hub:false 强制回旧路径。
+  const hubEnabled = options.hub === true || (options.hub !== false && input.ctx != null)
+  const hubScope: HubScope | null =
+    hubEnabled && batchScope && batchScope.profileDir
+      ? {
+          homeDir: batchScope.homeDir,
+          profileDir: batchScope.profileDir,
+          profileName:
+            firstText(input.scope?.profileName, input.readerOverrides?.profileName, basename(batchScope.profileDir)) ??
+            basename(batchScope.profileDir),
+        }
+      : null
+  const hubPlanScope: HubScopeRef | null = hubScope
+    ? {
+        homeDir: hubScope.homeDir,
+        profileDir: hubScope.profileDir,
+        profileName: hubScope.profileName,
+        ...(firstText(input.readerOverrides?.environmentKind)
+          ? { environmentKind: firstText(input.readerOverrides?.environmentKind) as string }
+          : {}),
+        ...(firstText(input.config?.releaseChannel)
+          ? { releaseChannel: firstText(input.config?.releaseChannel) as string }
+          : {}),
+        ...(firstText(input.config?.registryUrl) ? { registryUrl: firstText(input.config?.registryUrl) as string } : {}),
+      }
+    : null
+  const hubDeps: HubRuntimeDeps = {
+    now: () => now(),
+    randomId: () => String(randomId() ?? ''),
+    timers,
+    pid: typeof process !== 'undefined' && typeof process.pid === 'number' ? process.pid : 0,
+    ...(typeof input.hubRetryMs === 'number' && Number.isFinite(input.hubRetryMs) && input.hubRetryMs > 0
+      ? { retryMs: Math.floor(input.hubRetryMs) }
+      : {}),
+    ...(typeof input.hubIsProcessAlive === 'function' ? { isProcessAlive: input.hubIsProcessAlive } : {}),
+  }
 
   // 共享队列端口（#15 的同一份）：七个目标共用一套读写口与一把全局锁，不各建一套。
   // #208 一行修复（C-F02③）：队列端口必须带上按动作方取口的 logFor，否则 update.queue.transition /
@@ -554,9 +599,58 @@ export function createMultiHostUpdate(
     return outcome
   }
 
+  /**
+   * 执行席（ADR-0008）：把「查/装/落盘/日志 + 方案」冻结成一个值交给进程级中枢。
+   * 席位里的函数只依赖盘与宿主能力，不依赖本 fiber 是否还活着——这正是自更新后能接着推的前提。
+   */
+  function hubSeatFor(session: BatchSession): HubSeat | null {
+    if (!hubScope || !hubPlanScope) return null
+    const plan = createHubPlan({
+      sessionId: session.id,
+      owner: prefix,
+      targets: runtimes.map((rt) => ({
+        key: rt.spec.key,
+        title: rt.spec.title ?? rt.spec.key,
+        packageName: rt.spec.packageName,
+        pluginId: rt.pluginId,
+        prefix: rt.spec.prefix,
+        ...(rt.homeDir ? { homeDir: rt.homeDir } : {}),
+        ...(rt.profileDir ? { profileDir: rt.profileDir } : {}),
+      })),
+      scope: hubPlanScope,
+      selfKey: options.selfKey ?? null,
+      selfOrder: options.selfOrder,
+      stopOnFailure: options.stopOnFailure === true,
+      now: now(),
+    })
+    // 失败行的序号取**提交时**的整批顺序（视图可能只含选中的几行，不能用视图下标）。
+    const order = [...session.order]
+    return {
+      owner: prefix,
+      plan,
+      readSession,
+      saveSession,
+      check: (key: string) => checkByKey(key),
+      install: (key: string, requestId: string, version: string) => installByKey(key, requestId, version),
+      logFor: logPortFor,
+      indexOf: (key: string) => order.indexOf(key),
+      enterDrive: () => {
+        driveActive = true
+      },
+      exitDrive: () => {
+        driveActive = false
+      },
+      onSettled: async (report) => {
+        if (!report.session) return
+        lastRun = { stoppedBecause: report.stoppedBecause, steps: [...report.steps] }
+        // 收尾边沿（#209）：中枢替本实例把这一轮推完时，总账仍由本实例的日志接缝发（落点不变）。
+        noteRunOutcome(report.session)
+      },
+    }
+  }
+
   /** 显式重试：选中的行里，失败（或显式点到的跳过）先复位成 pending 再推，别的行不动。 */
-  function resetForRetry(session: BatchSession, selected: Set<string> | null, at: number): BatchSession {
-    let changed = false
+  function resetForRetry(session: BatchSession, selected: Set<string> | null, at: number): BatchSession {    let changed = false
     const entries = session.entries.map((entry) => {
       const picked = selected === null || selected.has(entry.key)
       if (!picked) return entry
@@ -940,7 +1034,16 @@ export function createMultiHostUpdate(
     const selected = selectedKeysOf(args)
     // 忙时入队（#25 排队语义）：驱动进行中不再回 update-busy——把 keys 并进当前会话（幂等）就回全表；
     // 单飞：已有驱动在跑就不另起一个，等它把这批带完（或用户再点一次 / drain 接着推）。
-    if (driveActive) return await joinWhileBusy(selected)
+    if (driveActive) {
+      const reply = await joinWhileBusy(selected)
+      // 中枢在推时，第二次点击（可能点了别的行）必须并进中枢任务的行级选择里：
+      // 否则这批只等第一次的行带完，第二次的意图就丢了（审查报告 B1 残余）。
+      if (hubEnabled && hubScope && selected && hubBusyForScope(hubScope)) {
+        const runningSeat = hubSeatFor(await readSession())
+        if (runningSeat) await submitHubTask(hubScope, runningSeat, hubDeps, { selection: [...selected] })
+      }
+      return reply
+    }
     if (selected && selected.size === 0) return await table(await readSession())
     driveActive = true
     // #217：开跑前先扫掉上一轮停下时留下的排队占位（真机 2026-10-19 08:47：续跑留下两条，
@@ -982,9 +1085,21 @@ export function createMultiHostUpdate(
       noteRunStart(session, { trigger: 'entry', resumed: false })
       // 两段式（#70）：先把选中 keys 全查成 ready 进会话，再串行装（装阶段复用 ready，不重查）。
       session = await precheckSelectedToReady(session, selected)
-      driven = await driveLocked(session, selected, Number.POSITIVE_INFINITY)
-      // 收尾总账（#209 起同时记「没跑完就停」的那一行）：面板只渲染不重发。
-      noteRunOutcome(driven)
+      const seat = hubSeatFor(session)
+      if (seat && hubScope) {
+        // 中枢（ADR-0008）：装阶段交给进程级中枢——它拿执行席推进，本 fiber 结束/被替换也不断。
+        // 行级选择（keys）必须一起冻结进任务：否则中枢会把「只点这一家」当整批推进（B1）。
+        const outcome = await submitHubTask(hubScope, seat, hubDeps, {
+          selection: selected ? [...selected] : null,
+        })
+        driven = await readSession()
+        if (outcome === 'failed') throw batchFail('install-failed')
+        // 收尾总账由中枢触发 onSettled 发（同上一条纪律）；这里不再重复发。
+      } else {
+        driven = await driveLocked(session, selected, Number.POSITIVE_INFINITY)
+        // 收尾总账（#209 起同时记「没跑完就停」的那一行）：面板只渲染不重发。
+        noteRunOutcome(driven)
+      }
     } catch (error) {
       // #209：驱动自己抛异常也是一次「停止」——记之前先读回最新账本（推进是逐步落盘的），
       // 否则停止行的计数会停在推进开始前（把已装好的算成没装）。
@@ -1013,6 +1128,14 @@ export function createMultiHostUpdate(
     try {
       // #216：跨重启续跑也要有一行「这次真推进开始了」。
       noteRunStart(resumed, { trigger: 'resume', resumed: true })
+      const seat = hubSeatFor(resumed)
+      if (seat && hubScope) {
+        // 中枢（ADR-0008）：续跑也交给中枢，避免「面板关掉后续跑断在 fiber 里」。
+        const outcome = await submitHubTask(hubScope, seat, hubDeps)
+        const hubDriven = await readSession()
+        if (outcome === 'failed') throw batchFail('install-failed')
+        return { ...(await table(hubDriven)), resumed: true }
+      }
       const driven = await drive(resumed, null, Number.POSITIVE_INFINITY)
       // 跨重启续跑收尾：这一轮是「接着推」，但收尾仍在宿主侧汇总（面板不重发）；
       // 没跑完就停也记一行（#209）。
@@ -1057,6 +1180,8 @@ export function createMultiHostUpdate(
 
   async function drainOnce(): Promise<void> {
     if (disposed || driveActive || scopeError) return
+    // 中枢在手时同一份会话已由中枢任务推进（drain 再推就是双驱动）；让中枢的退避/接管负责。
+    if (hubEnabled && hubScope && hubBusyForScope(hubScope)) return
     const disk = await readSession()
     if (disk.entries.length === 0 || isBatchFinished(disk)) return
     // #217：每轮开推前扫掉上一轮停下的排队占位（同一份理由见 installPhone）。
@@ -1092,8 +1217,56 @@ export function createMultiHostUpdate(
     }, drainIntervalMs)
   }
 
-  async function prefsPhone(): Promise<Record<string, unknown>> {
-    const refuse = denied()
+  /**
+   * T3 孤儿接管：装载时扫盘上属于本属主的方案，把「同一会话、未收尾」的批次交给中枢接着推。
+   *
+   * 第一性：自更新换掉的只是「发起方这段 fiber」，盘上的方案 + 账本是它留下的全部事实。
+   * 任一活着的集成方（新 fiber / 新进程 / 另一个挂载了同一属主批量入口的插件）读到同一份方案，
+   * 就能用自己的宿主能力把剩下的步骤走完——不需要重开面板，也不需要重新点一次更新。
+   *
+   * 纪律：只动自己属主；会话必须对得上方案；已收尾不重装；有人在推就不抢（FIFO 由中枢管）。
+   */
+  async function adoptOrphanSessions(): Promise<void> {
+    if (!hubEnabled || !hubScope || !hubPlanScope || !ownerPorts || scopeError) return
+    const hubPaths = hubPathsForUpdate(hubScope.homeDir, hubScope.profileDir)
+    if (!hubPaths) return
+    let plans: HubPlan[]
+    try {
+      plans = await readHubPlans(hubPaths)
+    } catch {
+      return
+    }
+    for (const plan of plans) {
+      if (plan.owner !== prefix) continue
+      if (hubBusyForScope(hubScope)) return
+      const disk = await readSession()
+      if (disk.entries.length === 0 || isBatchFinished(disk)) continue
+      if (disk.id !== plan.sessionId) continue
+      const resumed = resumeBatchSession(disk, now())
+      if (resumed !== disk) await saveSession(resumed)
+      // #217：上一任留下的排队占位先撤掉，这一任会重新逐家入队。
+      await clearBatchQueueIntents()
+      noteRunStart(resumed, { trigger: 'resume', resumed: true })
+      const seat = hubSeatFor(resumed)
+      if (!seat) continue
+      try {
+        await submitHubTask(hubScope, seat, hubDeps)
+      } catch {}
+      return
+    }
+  }
+
+  /**
+   * T4（#250）：只读全局进度。盘是唯一真相——方案 + 各家账本 + 检查知识 + 租约，
+   * 投影成任意集成方都能渲染的快照；中枢在不在、面板开没开都不影响答案。
+   */
+  async function hubStatusPhone(): Promise<Record<string, unknown>> {
+    if (!hubScope) return { ok: true, snapshot: emptyHubSnapshot(now()) }
+    const snapshot = await readHubStatus({ homeDir: hubScope.homeDir, profileDir: hubScope.profileDir }, { at: now() })
+    return { ok: true, snapshot }
+  }
+
+  async function prefsPhone(): Promise<Record<string, unknown>> {    const refuse = denied()
     if (refuse) return refuse
     return { ok: true, prefs: await readPrefs() }
   }
@@ -1150,6 +1323,12 @@ export function createMultiHostUpdate(
   handlers[phoneNames.cancel] = phone(phoneNames.cancel, 'batch-cancel', () => cancelPhone())
   handlers[phoneNames.prefs] = phone(phoneNames.prefs, 'batch-prefs', () => prefsPhone())
   handlers[phoneNames.prefsSave] = phone(phoneNames.prefsSave, 'batch-prefs-save', (args) => prefsSavePhone(args))
+  // T4（#250）：只读全局进度电话，只有启用中枢时登记（hub:false 的接入方不需要它）。
+  if (hubEnabled && hubScope) {
+    const hubStatusName = prefix + '.updateHubStatus'
+    phoneNames.hubStatus = hubStatusName
+    handlers[hubStatusName] = phone(hubStatusName, 'hub-status', () => hubStatusPhone())
+  }
   // 每个目标的单插件三电话照旧各自前缀暴露：批量电话与它们同处一张表，接入方一次登记。
   for (const rt of runtimes) {
     for (const name of Object.keys(rt.host.handlers)) {
@@ -1172,6 +1351,10 @@ export function createMultiHostUpdate(
 
   armDrain()
 
+  // T3 孤儿接管（#249）：装载时扫一眼自己属主的未收尾方案，交给中枢接着推。
+  // 异步、不阻塞装载；没有方案/已收尾/别的属主都不动。
+  if (hubEnabled && hubScope) void adoptOrphanSessions()
+
   return {
     handlers,
     phoneNames,
@@ -1188,3 +1371,4 @@ export function createMultiHostUpdate(
     },
   }
 }
+

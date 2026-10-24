@@ -20,7 +20,7 @@
 - **一个现成整组件**：默认内嵌、可切弹窗，调用者传参指定；轮询、安装门控、中文一句话、待重启横幅、手工命令展示与复制、排队可见开关、跳过与恢复、诊断一键复制、**更新日志自动展示**全在组件内部消化。
 - **一个更新入口件**：配置页一行挂上就是「检查更新」按钮（或只给状态点的徽标、或整块内嵌），按钮文案随状态自己变；见第 2.5 节。
 - **一个安装按钮控件**：任意卡片里原地装好一家插件（缺席可装：未装显示「未安装 → 目标版本」，点下先查后装）；判定、文案、诊断与面板同一口径，失败兜底手工命令；见第 2.8 节。
-- **一套多目标批量更新**：一个插件管 N 个插件的更新（总账 + 明细 + 动作，一家收尾才起下一家，会话落盘可断点续跑）；见第 2.6 节。
+- **一套多目标批量更新**：一个插件管 N 个插件的更新（总账 + 明细 + 动作，一家收尾才起下一家，会话落盘可断点续跑，进程级更新中枢让自更新不断链、全局进度可只读查询）；见第 2.6 节。
 
 ## 1. 安装
 
@@ -373,7 +373,8 @@ mountUpdateBatchPanelHttp(document.querySelector('#batch'), {
 **升级说明**：旧版无属主 `batch.json`（根目录那份）不再被读取、不删除、不接管——没跑完的那批重打一次「全部更新」即可（幂等，已完成的秒过不重装）。单队列不变：四家单插件与批量仍共用同一份 `queue.json` + 全局锁，一次只装一个。
 
 **自更新安全**：`selfKey` 指定的那家默认排到最后。承载更新界面的那个包若第一个被替换掉，
-界面与推进它的循环会一起消失——排最后则前面几家早已落盘收尾。
+界面与推进它的循环会一起消失——排最后则前面几家早已落盘收尾。启用本节末的「更新中枢」后，
+这条排序退成**展示与兜底**：自更新把界面换掉也不会断链。
 
 **跨使用范围如实拒绝**：`web` 与 `desktop` 各自排队（装的是不同落点），混在一起的目标会回
 `cross-scope`，本包不会替你跨范围抢锁。
@@ -395,6 +396,74 @@ mountUpdateBatchPanelHttp(document.querySelector('#batch'), {
 | 批量面板的客户端行（挂载行 `mode:'batch'`、动作、渲染失败、全局兜底） | 属主插件的日志落点：批量面板默认自建通道，打 `<批量前缀>.logAppend`，由批量宿主转发给属主的 `logAppend` |
 
 **没指定 `selfKey`（无属主）时**：批量接口不传 `selfKey` 也能跑，但日志按「不知道落点就不猜」如实退化——① 批量级行（入队行与总账行）**一行不发**，没有属主就没有落点；② 失败行**照落**失败那家自己的目录（它按目标取口，不依赖属主）；③ 七个批量电话的失败行**一行不发**；④ 批量面板的客户端行**落不下来**：宿主没登记 `<批量前缀>.logAppend`（没有属主、或属主那家没接 `logAppend`），面板侧的日志投递失败，只在客户端队列的内存计数里留着（不落行、不挡批量主流程）；⑤ 队列行照旧落当次动作方的目录。要完整的批次证据，就把 `selfKey` 传上。
+
+#### 更新中枢：自更新不断链 + 全局进度（进程级）
+
+批量推进默认搬进一个**进程级更新中枢**：批次不再挂在发起它的那段宿主 fiber 上。界面被卸载、页面关掉、甚至发起方自己就是被替换的那一家，中枢都会按盘上的方案把这一轮推完；新挂载的同类入口（或下次进程启动后装载的批量入口）会接着推剩下的步骤。接入方不用改代码——只要还在用 `createMultiHostUpdate({ ctx, logCtx }, …)`。
+
+**为什么需要它**：上一段「自更新安全」靠 `selfKey` 排最后缓解问题；但承载面板与驱动闭包的 bundle 被宿主卸载时，那段 `driveLocked → runBatch` 循环会随 fiber 一起销毁，剩下几家停在 `pending` / `ready`，宿主侧没有自愈。中枢把「执行席」交给进程级单例：席里封的是查/装/落盘/日志能力与盘上方案，不依赖任何 fiber 是否活着，所以替换完自己后仍有人能接着走。
+
+**开关与前提**：
+
+- 传了宿主 `ctx`（真机接入）**缺省开**；纯宿主脚本/测试（没有 `ctx`）缺省关，显式 `hub: true` 可开；`hub: false` 强制回旧路径——旧行为原样保留，作为回退线。
+- 必须能识别出使用范围（`profileDir`，一般由 `ctx` 或 `readerOverrides.profileDir` 带出）。识别不出时中枢自动不启用，照旧路径跑。
+- 同一使用范围一个中枢；同一进程里本包的多份副本也共用（`globalThis` 注册表按使用范围分槽），不会出现两个推进者。
+- 一次只推一家、单队列，`selfOrder` 语义与原有七个批量电话及回包形状都一字不变（中枢只增了一通只读电话，见下）。忙时提交立刻回 `queued`、由中枢接着推；同一批次重复提交并入原任务，不会把同一步走两遍。
+
+**盘上两份文件**（都在这个使用范围的队列目录下）：
+
+- 方案 `<家目录>/update-queue/<使用范围短指纹>/hub/plans/<批量前缀>.json`：这一轮装什么、装到哪（属主、目标清单、`selfKey` 与顺序、失败策略）。它**只写意图、不写进度**——进度仍在 `<批量前缀>/batch.json`。写不进去不影响本进程推进，只是别人接不了手。
+- 租约 `<家目录>/update-queue/<使用范围短指纹>/hub/lease.json`：驾驶位。同一使用范围同一时刻只认一个推进者；每推进一步续心跳（上限 5 秒一次），心跳陈旧超过 20 秒、或同机 pid 已死才允许接管；接管者把代次 +1，释放只认自己那一代（绝不删别人的驾驶位）。
+
+**孤儿接管**：装载批量入口时扫一遍自己属主的方案。盘上若还有未收尾、且会话编号对得上的那一轮，就交给中枢接着推——不需要用户重开面板，也不需要再点一次「继续上次未完成的更新」。只动自己属主（批量前缀）；已收尾的不重装。
+
+**只读电话 `<批量前缀>.updateHubStatus`**（仅中枢启用时登记；全名也可从 `multi.phoneNames.hubStatus` 读到）：
+
+```js
+const reply = await host.call('life.updateHubStatus')   // args 可不传
+// → { ok: true, snapshot }
+```
+
+`snapshot` 回答的是「这个使用范围里所有批量会话」的全局进度，不只是自己前缀：只读聚合（方案 + 各属主 `batch.json` + `inventory.json` + 租约），不写盘、不驱动，中枢在不在、面板开没开都如实回答；坏文件当缺失，永不抛。回包有上限：最多 8 个会话、每个会话最多 20 行，超了用 `sessionsTruncated` / `rowsTruncated` 如实说：
+
+```js
+{
+  version: 1, at: 1730000000000,
+  sessionsTotal: 2, sessionsTruncated: false,
+  activeInstall: { pluginId: 'dsh-life-pack', startedAt: 1730000000000 }, // 没有在装的就是 null
+  sessions: [{
+    sessionId: 'b-…', owner: 'life',
+    selfKey: 'life-pack',        // 方案里没给 selfKey 时为 null
+    state: 'running',            // running / waiting / finished / missing（有方案但账本读不出或对不上）
+    updatedAt: 1730000000000,
+    progress: { total: 3, done: 1, failed: 0, skipped: 0, current: 1, pending: 1, finished: false },
+    rowsTotal: 3, rowsTruncated: false,
+    rows: [{ key: 'bill', title: '记账', phase: 'installing', targetVersion: '0.3.82',
+             installedVersion: '0.3.81', latestVersion: '0.3.82', restartRequired: false, error: null }],
+  }],
+}
+```
+
+排序固定：进行中 → 等待 → 记录缺失 → 已收尾；同状态内按更新时间新到旧。未启用中枢的那几轮批量会话不在这份快照里（快照只聚合写了方案的轮次）；`activeInstall` 是中枢驾驶位租约里的「正在装哪一家」，心跳陈旧就不算。单插件更新链路 Phase 1 不迁入中枢，所以单插件的安装既不出现在会话里，也不进 `activeInstall`。
+
+**常驻进度坞（面板侧，可选）**：挂在自选容器里（右下角浮层或底部条），只轮询上面那通只读电话：
+
+```js
+import { mountHubProgressDock } from 'dsh-plugin-update/panel-batch'
+
+const dock = mountHubProgressDock(document.getElementById('upd-dock'), {
+  prefix: 'life',                               // 由它派生 life.updateHubStatus；也可用 phone 直接点名
+  call: (name, args) => host.call(name, args),  // call 只透传完整电话名，前缀由组件自己拼
+  title: '更新进度',
+  mountAs: 'bottom-right',                      // 或 'bottom-bar'
+  onOpen: () => openMyBatchPanel(),
+})
+// 空闲（没有会话也没有在装的）时整块隐藏、不占空间；document.hidden 时暂停轮询。
+// 卸载时调 dock.dispose()：只停轮询，不打断中枢。
+// prefix 与 phone 都不传会在 mount 时直接抛配置错误（不静默失败）。
+```
+
+**迁移与兼容**：对现有集成方透明——`hub` 不传就是「有 `ctx` 开、没有关」；`hub: false` 回到旧路径。中枢只在使用范围队列目录下新增 `hub/` 的方案与租约，不读、不改旧的无属主 `batch.json`；运行期依赖与公开子路径都不变（进度坞随 `./panel-batch` 子路径一起导出）。自建 HTTP 宿主若走 `createMultiHostUpdate` 却没传 `ctx`，要显式 `hub: true` 才用上中枢。
 
 ### 第 2.7 节：更新日志自动展示（告诉用户更新了什么）
 
