@@ -5,7 +5,7 @@
  * 上任（acquire）、续任（renew）、接管（takeover）、让位（wait）。
  *
  * 这里守的是「防双驾驶」：投递判决永远拿不到更小的 generation；旧代次写回必须被拒；
- * 失联或进程已死才接管，活着就等——宁可不动，也不抢一次错的安装。
+ * 失联（心跳过期）或进程已死才接管；心跳新鲜就等——宁可不动，也不抢一次错的安装。
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -57,10 +57,17 @@ describe('#247 中枢驾驶位租约（纯判决）', () => {
     )
   })
 
-  it('对方进程活着 → 不接管（哪怕心跳旧：可能只是卡在安装里）', () => {
+  it('对方进程活着但心跳未满陈旧窗口 → 让位', () => {
     assert.deepEqual(
-      decideHubLease({ current: leaseOf(), driverId: 'dsh-hub:9999:zzz', now: 10_000 + HUB_LEASE_STALE_MS * 10, processAlive: true }),
+      decideHubLease({ current: leaseOf(), driverId: 'dsh-hub:9999:zzz', now: 10_000 + HUB_LEASE_STALE_MS - 1, processAlive: true }),
       { kind: 'wait' },
+    )
+  })
+
+  it('对方进程活着但心跳已满陈旧窗口 → 接管（假死，不等它「也许还活着」）', () => {
+    assert.deepEqual(
+      decideHubLease({ current: leaseOf(), driverId: 'dsh-hub:9999:zzz', now: 10_000 + HUB_LEASE_STALE_MS, processAlive: true }),
+      { kind: 'takeover', generation: 2 },
     )
   })
 

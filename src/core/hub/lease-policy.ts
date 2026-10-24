@@ -3,8 +3,8 @@
 // 第一性：怀疑自己不再是驾驶位时什么都不做，比做一次错的安装便宜得多。所以判决只有四种：
 //   - acquire：盘上还没有租约，我上任（generation=1）；
 //   - renew  ：租约还是我的，续任（generation 不变）；
-//   - takeover：原驾驶者已失联/已死，我顶上（generation+1，旧者下次心跳必然失配）；
-//   - wait   ：有人活着且租约未过期，我什么都不做。
+//   - takeover：原驾驶者已失联（心跳过期，含进程活着但假死）/已死，我顶上（generation+1，旧者下次心跳必然失配）；
+//   - wait   ：驾驶者心跳未过期，我什么都不做。
 //
 // 纪律：本文件零 IO；「进程还活着吗」「现在几点」都由调用方给事实，函数只给判决（纯函数可单测）。
 //   generation 单调递增是防「双驾驶」的唯一开关：旧 generation 的写回必须被判为非属主。
@@ -57,7 +57,7 @@ export interface HubLeaseDecisionInput {
   /** 现在几点（毫秒）。 */
   now: number
   /**
-   * 现租约进程是否还活着：true=活着（不许接管，哪怕心跳旧——多半只是卡在安装里）；
+   * 现租约进程是否还活着：true=进程还在（仅说明没死；是否接管仍按心跳判）；
    * false=已死（立即接管）；null/缺省=不知道（按心跳是否过期决定）。
    */
   processAlive?: boolean | null
@@ -128,8 +128,9 @@ export function decideHubLease(input: HubLeaseDecisionInput): HubLeaseDecision {
     const current = normalizeHubLease(input.current)
     if (!current) return { kind: 'acquire', generation: 1 }
     if (current.driverId === input.driverId.trim()) return { kind: 'renew', generation: current.generation }
+    // 进程已死：立即接管。进程活着也按心跳判——心跳过期就当它失联（假死）；
+    // 长安装步骤若超过陈旧窗口会被误判，由全局锁与幂等安装请求兜底，只有心跳新鲜才算真有人在推。
     if (input.processAlive === false) return { kind: 'takeover', generation: current.generation + 1 }
-    if (input.processAlive === true) return { kind: 'wait' }
     const staleMs = typeof input.staleMs === 'number' && Number.isFinite(input.staleMs) && input.staleMs > 0 ? input.staleMs : HUB_LEASE_STALE_MS
     if (now - current.heartbeatAt >= staleMs) return { kind: 'takeover', generation: current.generation + 1 }
     return { kind: 'wait' }

@@ -121,8 +121,8 @@ export interface MultiHostDeps {
    */
   hubRetryMs?: number
   /**
-   * 「原驾驶者还活着吗」的探测（中枢接管租约用；缺省发零号信号探测进程）。
-   * 测试注入假判据，避免真机 PID 猜测。
+   * 「原驾驶者进程还在吗」的探测（中枢接管租约用；缺省发零号信号探测进程）。
+   * true 只说明进程没死，是否接管仍看它的心跳是否陈旧；测试注入假判据，避免真机 PID 猜测。
    */
   hubIsProcessAlive?: (pid: number) => boolean
 }

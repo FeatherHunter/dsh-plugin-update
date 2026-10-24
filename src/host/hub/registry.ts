@@ -100,7 +100,7 @@ function defaultIsProcessAlive(pid: number): boolean {
     process.kill(pid, 0)
     return true
   } catch (error) {
-    // EPERM：进程存在但没权限发信号——算活着（比误接管安全）。
+    // EPERM：进程存在但没权限探测——只说明「没死」；接管仍看它的心跳是否陈旧。
     return (error as { code?: string } | null)?.code === 'EPERM'
   }
 }
@@ -343,7 +343,10 @@ async function driveTask(slot: HubSlot, task: HubTask): Promise<DriveTaskResult>
     if (lastStoppedBecause !== 'queued') {
       task.idleSteps = progressSignature(session) === before ? task.idleSteps + 1 : 0
     }
-    await heartbeat(slot)
+    const beat = await heartbeat(slot)
+    // 心跳时发现已经被换代接管：这一步的成果已经在盘上，留给新驾驶位合并；
+    // 自己退回队列走退避重试，不能拿旧代次继续判收尾/写盘。
+    if (beat === 'lost') return { kind: 'yield' }
     const verdict: HubCycleVerdict = decideHubCycleVerdict({
       sessionFinished: scopeFinished,
       stoppedBecause: lastStoppedBecause,
@@ -462,14 +465,24 @@ async function stillOwnsLease(slot: HubSlot): Promise<boolean> {
   return isHubLeaseOwner(current, slot.driverId, lease.generation)
 }
 
-async function heartbeat(slot: HubSlot): Promise<void> {
+/**
+ * 续心跳。返回 'lost' 表示盘上已经换成别人的代次——此时一个字都不写（lease-store 的口径：
+ * 不是我的代次就不动），并清掉本地租约，让调用方让位重排队。
+ */
+async function heartbeat(slot: HubSlot): Promise<'ok' | 'lost'> {
   const lease = slot.lease
-  if (!lease) return
+  if (!lease) return 'ok'
   const now = slot.deps.now()
-  if (!shouldHeartbeatHubLease(lease, now)) return
+  if (!shouldHeartbeatHubLease(lease, now)) return 'ok'
+  const current = await readHubLease(slot.paths)
+  if (current && !isHubLeaseOwner(current, slot.driverId, lease.generation)) {
+    slot.lease = null
+    return 'lost'
+  }
   const next: HubLease = { ...lease, heartbeatAt: now }
   slot.lease = next
   await writeHubLease(slot.paths, next)
+  return 'ok'
 }
 
 async function releaseIfOwner(slot: HubSlot): Promise<void> {

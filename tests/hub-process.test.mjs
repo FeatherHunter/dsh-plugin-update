@@ -7,7 +7,7 @@
  *      中枢退避后自己把剩下的推完（不绑在调用方 fiber 上）；
  *   3. FIFO：忙时后到的批次立刻回 queued，前一个收尾后中枢自己接着推；
  *   4. 回退线：hub:false 时不写中枢方案，仍在调用方里推完（旧路径零回归）；
- *   5. 接管：盘上租约记着死进程，活着的一方换代接过来推完。
+ *   5. 接管：盘上租约记着死进程或活着但心跳过期的假死进程，活着的一方换代接过来推完。
  */
 import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
@@ -16,7 +16,7 @@ import { createMultiHostUpdate } from '../dist/host-batch.js'
 import { batchPathsForOwner } from '../dist/core/disk.js'
 import { hubPathsForUpdate, readHubPlan } from '../dist/host/hub/plan-store.js'
 import { readHubLease, writeHubLease } from '../dist/host/hub/lease-store.js'
-import { HUB_LEASE_VERSION } from '../dist/core/hub/lease-policy.js'
+import { HUB_LEASE_HEARTBEAT_MS, HUB_LEASE_STALE_MS, HUB_LEASE_VERSION } from '../dist/core/hub/lease-policy.js'
 import { __resetHubRegistryForTests, hubSlotCountForTests } from '../dist/host/hub/registry.js'
 import { fakeTransport, mkScope, mkTarget, phaseOf, unbindAll } from './helpers/batch-log-harness.mjs'
 
@@ -223,6 +223,86 @@ test('回退线：hub:false 不写中枢方案，仍在调用方里推完', asyn
     const paths = hubPathsForUpdate(scope.homeDir, scope.profileDir)
     assert.equal(await readHubPlan(paths, 'life'), null, '回旧路径时不碰中枢方案')
     assert.equal(hubSlotCountForTests(), 0, '回旧路径时不起中枢槽')
+  } finally {
+    host.dispose()
+    unbindAll()
+  }
+})
+
+test('接管：盘上租约记着活着但假死的进程（心跳过期），活着的一方换代接过来推完', async () => {
+  const { scope } = await mkScope('hub-proc-stale-alive-')
+  const clock = fakeClock()
+  const paths = hubPathsForUpdate(scope.homeDir, scope.profileDir)
+  const now = clock.now()
+  await writeHubLease(paths, {
+    version: HUB_LEASE_VERSION,
+    driverId: 'hung-driver',
+    pluginId: 'life',
+    pid: 4242,
+    generation: 1,
+    startedAt: now - 120_000,
+    heartbeatAt: now - HUB_LEASE_STALE_MS,
+  })
+  let leaseDuringInstall = null
+  const transport = {
+    check: async () => ({ kind: 'update', version: '2.0.0' }),
+    install: async () => {
+      leaseDuringInstall = await readHubLease(paths)
+      return { kind: 'done', restartRequired: false }
+    },
+  }
+  const host = createMultiHostUpdate(hubDeps(scope, clock, transport, { hubIsProcessAlive: () => true }), {
+    hub: true,
+    prefix: 'life',
+    targets: [mkTarget('a')],
+  })
+  try {
+    const reply = await host.handlers['life.batchInstall']({})
+    assert.equal(reply.ok, true)
+    assert.equal(phaseOf(reply.session, 'a'), 'done')
+    assert.ok(leaseDuringInstall, '安装期间应该有活着的驾驶位')
+    assert.notEqual(leaseDuringInstall.driverId, 'hung-driver', '心跳过期的假死进程租约被接管')
+    assert.equal(leaseDuringInstall.generation, 2, '换代 +1')
+    assert.equal(await readHubLease(paths), null, '推完归还租约')
+  } finally {
+    host.dispose()
+    unbindAll()
+  }
+})
+
+test('换代期间的旧心跳不覆盖新驾驶位：被接管后旧驱动不复写旧代次', async () => {
+  const { scope } = await mkScope('hub-proc-heartbeat-fence-')
+  const clock = fakeClock()
+  const paths = hubPathsForUpdate(scope.homeDir, scope.profileDir)
+  const transport = {
+    check: async () => ({ kind: 'update', version: '2.0.0' }),
+    install: async () => {
+      // 安装期间另一个实例换代接管（模拟长步骤里发生的真接管）。
+      await clock.advance(HUB_LEASE_HEARTBEAT_MS + 1)
+      await writeHubLease(paths, {
+        version: HUB_LEASE_VERSION,
+        driverId: 'new-driver',
+        pluginId: 'life',
+        pid: 4242,
+        generation: 2,
+        startedAt: clock.now(),
+        heartbeatAt: clock.now(),
+      })
+      return { kind: 'done', restartRequired: false }
+    },
+  }
+  const host = createMultiHostUpdate(hubDeps(scope, clock, transport, { hubIsProcessAlive: () => true }), {
+    hub: true,
+    prefix: 'life',
+    targets: [mkTarget('a')],
+  })
+  try {
+    const reply = await host.handlers['life.batchInstall']({})
+    assert.equal(reply.ok, true)
+    const lease = await readHubLease(paths)
+    assert.ok(lease, '新驾驶位的租约应还在（旧驱动不许删/不许覆盖）')
+    assert.equal(lease.driverId, 'new-driver')
+    assert.equal(lease.generation, 2, '旧代次的心跳不能把代次写回去')
   } finally {
     host.dispose()
     unbindAll()
