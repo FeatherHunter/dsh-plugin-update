@@ -46,12 +46,12 @@
 
 ### 6. 只读电话 `<prefix>.updateHubStatus`
 
-- 批量宿主（`createMultiHostUpdate`，CPU 本地组装、不依赖单插件链路）多注册一通电话 `<prefix>.updateHubStatus`，回 `{ok: true, snapshot}`。快照由磁盘聚合（中枢方案 + 各属主 `batch.json` + `inventory.json` + 活租约判定的正在安装者），纯函数生成；中枢不在也能如实回答，**任何还活着的集成插件都能回答「全部插件的更新进度」**。
+- 每套集成更新系统都注册一通只读电话 `<prefix>.updateHubStatus`，回 `{ok: true, snapshot}`：批量宿主只要识别得出使用范围就登记（`hub: false` 也登记并从盘上答；识别不出范围才不登记）；单插件宿主始终登记（句柄 `HostUpdate.hubStatus`，与批量侧同语义）。快照由磁盘聚合（中枢方案 + 各属主 `batch.json` + `inventory.json` + 没写方案的旧批账本 + 活租约判定的正在安装者），纯函数生成；中枢不在也能如实回答，**任何还活着的集成插件都能回答「全部插件的更新进度」**。
 - 单插件链路 Phase 1 不注册这通电话、也不迁入中枢；面板与常驻 UI 只读这通电话，不推导、不写账。
 
 ### 7. 常驻更新队列 UI（可选、位置由集成方决定）
 
-- `mountHubProgressDock(container, { call, prefix?, phone?, title?, pollMs?, mountAs?: 'bottom-right' | 'bottom-bar', lang?, onOpen? })`：轮询自己前缀的 `updateHubStatus`（缺省 1s，最小 250ms，页面隐藏时暂停），渲染全部会话/行/进度（聚合百分比）；可折叠、空闲自动隐藏；只挂到调用方给的容器，不写 `document.body`、不占宿主未分配的槽；`dispose()` 只停轮询。
+- `mountHubProgressDock(container, { call, prefix?, phone?, title?, pollMs?, mountAs?: 'bottom-right' | 'bottom-bar' | 'inline', hideWhenIdle?, collapsed?, maxRows?, lang?, onOpen? })`：轮询自己前缀的 `updateHubStatus`（缺省 1s，最小 250ms，页面隐藏时暂停），渲染行级明细（标题、版本箭头、相位、失败码、待重启汇总）与聚合百分比；`hideWhenIdle: false` 留空壳；`collapsed` 起步只留一行计数；`maxRows` 缺省 3、最多 20，超出折 `+K`；控制器 `refresh()` 与 `update()` 同义。只挂到调用方给的容器，不写 `document.body`、不占宿主未分配的槽；`dispose()` 只停轮询。
 - 位置由集成方宿主的槽位决定（`shell.overlay` / `shell.bottom` / 任意容器）；本包给 `bottom-right` 的 CSS 形态。插件方不采用不影响别的插件采用——任一集成插件挂上即看全量。
 
 ### 8. 自更新顺序语义一个字不改

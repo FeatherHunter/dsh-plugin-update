@@ -1,11 +1,12 @@
 // tests/hub-status.test.mjs —— #250 只读全局进度电话（updateHubStatus）验收。
 //
 // 验收口径（票 #250）：
-//   1. 同一使用范围里的多个属主都能聚到一份快照里（谁都能答全局进度）；
+//   1. 单插件宿主与批量宿主都注册；同一使用范围里的多个属主都能聚到一份快照里；
 //   2. 电话是只读的：调它不改盘上任何账本；
 //   3. 坏账本按「记录缺失」如实上报，绝不抛；
 //   4. 租约活着才报 activeInstall，陈旧租约不报；
-//   5. hub:false 的接入方**不登记**这个电话（回退线干净）。
+//   5. hub:false 的接入方照常登记并从盘上答（回退线也看得见旧批次）；
+//   6. 不返回跨使用范围数据。
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -14,8 +15,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { createMultiHostUpdate } from '../dist/host-batch.js'
+import { createHostUpdate } from '../dist/host.js'
 import { batchPathsForOwner } from '../dist/core/disk.js'
-import { hubPathsForUpdate } from '../dist/host/hub/plan-store.js'
+import { hubPathsForUpdate, readHubPlans } from '../dist/host/hub/plan-store.js'
+import { readHubLease } from '../dist/host/hub/lease-store.js'
 import { HUB_LEASE_VERSION } from '../dist/core/hub/lease-policy.js'
 
 const FIXED_NOW = 1_700_000_000_000
@@ -182,18 +185,82 @@ test('activeInstall：租约活着才报，陈旧租约不报', async () => {
   }
 })
 
-test('回退线：hub:false 不登记 updateHubStatus', async () => {
+test('回退线：hub:false 照常登记，并从盘上答（旧批次无方案也看得见）', async () => {
   const scope = await mkScope()
   const clock = fakeClock()
   try {
     const host = createMultiHostUpdate(
-      { scope, now: clock.now, timers: clock.timers, randomId: () => 'legacy-id' },
+      { scope, now: clock.now, timers: clock.timers, randomId: () => 'legacy-id', transport: transports },
       { prefix: 'legacy', targets: [mkTarget('legacy-a')], hub: false },
     )
-    assert.equal(host.phoneNames.hubStatus, undefined)
-    assert.equal(host.handlers['legacy.updateHubStatus'], undefined)
+    assert.equal(host.phoneNames.hubStatus, 'legacy.updateHubStatus', 'hub:false 也要登记这通只读电话')
+    assert.equal(typeof host.handlers['legacy.updateHubStatus'], 'function')
+
+    const installed = await host.handlers['legacy.batchInstall']({})
+    assert.equal(installed.ok, true)
+    const reply = await host.handlers['legacy.updateHubStatus']({})
+    assert.equal(reply.ok, true)
+    assert.deepEqual(
+      reply.snapshot.sessions.map((session) => session.owner),
+      ['legacy'],
+      '没有中枢方案的旧批次，也要能从盘上账本聚合出来',
+    )
+    // 中枢没启用：不写方案/租约（回退线干净）。
+    const paths = hubPathsForUpdate(scope.homeDir, scope.profileDir)
+    assert.deepEqual(await readHubPlans(paths), [])
+    assert.equal(await readHubLease(paths), null)
   } finally {
     await rm(scope.homeDir, { recursive: true, force: true })
     await rm(scope.profileDir, { recursive: true, force: true })
+  }
+})
+
+test('单插件宿主也登记 hubStatus，并看到别家属主的批次（两套前缀都能答）', async () => {
+  const scope = await mkScope()
+  const clock = fakeClock()
+  try {
+    await runBatch('life', [mkTarget('life-a')], scope, clock)
+    const single = createHostUpdate(
+      {
+        readerOverrides: {
+          homeDir: scope.homeDir,
+          profileDir: scope.profileDir,
+          env: process.env,
+        },
+      },
+      { pluginId: 'hub-status-single', prefix: 'demo', targetPackageName: 'dsh-plugin-update' },
+    )
+    assert.equal(single.hubStatus, 'demo.updateHubStatus', '单插件宿主必须也有这通电话')
+    const reply = await single.handlers['demo.updateHubStatus']({})
+    assert.equal(reply.ok, true)
+    assert.deepEqual(
+      reply.snapshot.sessions.map((session) => session.owner),
+      ['life'],
+      '单插件宿主读到的是同一使用范围的全局视图',
+    )
+  } finally {
+    await rm(scope.homeDir, { recursive: true, force: true })
+    await rm(scope.profileDir, { recursive: true, force: true })
+  }
+})
+
+test('不返回跨使用范围数据', async () => {
+  const scopeA = await mkScope()
+  const scopeB = await mkScope()
+  const clock = fakeClock()
+  try {
+    await runBatch('life', [mkTarget('life-a')], scopeA, clock)
+    const other = createMultiHostUpdate(depsFor(scopeB, clock, 'scope-b-id'), {
+      prefix: 'other',
+      targets: [mkTarget('other-a')],
+    })
+    const reply = await other.handlers['other.updateHubStatus']({})
+    assert.equal(reply.ok, true)
+    assert.deepEqual(reply.snapshot.sessions, [], '别的使用范围的会话不得出现在快照里')
+  } finally {
+    await rm(scopeA.homeDir, { recursive: true, force: true })
+    await rm(scopeA.profileDir, { recursive: true, force: true })
+    await rm(scopeB.homeDir, { recursive: true, force: true })
+    await rm(scopeB.profileDir, { recursive: true, force: true })
   }
 })

@@ -17,6 +17,8 @@ import {
   normalizeBatchInventory,
   type BatchInventory,
 } from '../../core/disk.js'
+import { readdir } from 'node:fs/promises'
+import { queuePathsForUpdate } from '../../core/queue/ports.js'
 import { normalizeBatchSession, type BatchSession } from '../../core/batch/model.js'
 import { HUB_LEASE_STALE_MS, type HubLease } from '../../core/hub/lease-policy.js'
 import type { HubPlan } from '../../core/hub/plan.js'
@@ -35,7 +37,8 @@ import { readJsonFile } from './json-file.js'
 /** 聚合所需的最小使用范围（与中枢槽键同一形状）。 */
 export interface HubStatusScope {
   homeDir: string
-  profileDir: string | null
+  /** 使用范围目录（调用方已解析；只读聚合不接受「没有范围」的请求）。 */
+  profileDir: string
 }
 
 export interface ReadHubStatusOptions {
@@ -47,6 +50,9 @@ export interface ReadHubStatusOptions {
 /**
  * 读一遍这个使用范围的全部进度，投影成 HubSnapshot。
  * 永不抛：没有方案/坏账本/读不到租约都按「缺失」处理。
+ *
+ * 真相分两层：方案是索引（认领过的批次），账本是事实（旧版本 / hub:false 留下的批次没有方案）。
+ * 所以先按方案收，再把队列目录里没方案、但有批次的属主补进来——「从盘上读」才不会漏掉回退线批次。
  */
 export async function readHubStatus(scope: HubStatusScope, options: ReadHubStatusOptions): Promise<HubSnapshot> {
   const at = Number.isFinite(options.at) ? options.at : 0
@@ -56,8 +62,14 @@ export async function readHubStatus(scope: HubStatusScope, options: ReadHubStatu
   try {
     const plans = await readHubPlans(hubPaths)
     const sources: HubSessionSource[] = []
+    const claimedOwners = new Set<string>()
     for (const plan of plans) {
+      claimedOwners.add(plan.owner)
       sources.push(await readOwnerSource(scope, plan.owner, plan))
+    }
+    for (const owner of await listLedgerOwners(scope, claimedOwners)) {
+      const source = await readOwnerSource(scope, owner, null)
+      if (source.session) sources.push(source)
     }
     const lease = await readHubLease(hubPaths)
     return projectHubSnapshot({
@@ -71,16 +83,39 @@ export async function readHubStatus(scope: HubStatusScope, options: ReadHubStatu
   }
 }
 
-/** 一个属主的来源：方案 + 账本 + 检查知识；坏文件按缺失处理。 */
-async function readOwnerSource(scope: HubStatusScope, owner: string, plan: HubPlan): Promise<HubSessionSource> {
-  const paths = batchPathsForOwner(scope.homeDir, scope.profileDir as string, owner)
-  if (!paths) return { plan, session: null, inventory: null }
+/**
+ * 队列目录下「有账本、但没有方案」的属主目录（旧版本 / hub:false 的批次）。
+ * 只认能通过 owner 校验且 batch.json 读得出来的目录；读目录失败按「没有」处理。
+ */
+async function listLedgerOwners(scope: HubStatusScope, skip: ReadonlySet<string>): Promise<string[]> {
+  const queuePaths = queuePathsForUpdate(scope.homeDir, scope.profileDir)
+  if (!queuePaths) return []
+  let names: string[]
+  try {
+    names = await readdir(queuePaths.directory)
+  } catch {
+    return []
+  }
+  const owners: string[] = []
+  for (const name of names) {
+    if (skip.has(name) || name === 'hub') continue
+    const paths = batchPathsForOwner(scope.homeDir, scope.profileDir, name)
+    if (!paths) continue
+    owners.push(name)
+  }
+  return owners
+}
+
+/** 一个属主的来源：方案 + 账本 + 检查知识；坏文件按缺失处理。方案可缺（旧批次）。 */
+async function readOwnerSource(scope: HubStatusScope, owner: string, plan: HubPlan | null): Promise<HubSessionSource> {
+  const paths = batchPathsForOwner(scope.homeDir, scope.profileDir, owner)
+  if (!paths) return { plan, owner, session: null, inventory: null }
   const [session, inventory] = await Promise.all([readBatch(paths.batchFile), readInventory(paths.inventoryFile)])
   const installed: Record<string, string | null> = {}
   for (const [key, entry] of Object.entries(inventory?.entries ?? {})) {
     installed[key] = entry.installedVersion ?? null
   }
-  return { plan, session, inventory, installed }
+  return plan ? { plan, session, inventory, installed } : { owner, sessionId: session?.id ?? null, session, inventory, installed }
 }
 
 async function readBatch(file: string): Promise<BatchSession | null> {

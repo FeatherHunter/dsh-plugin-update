@@ -44,7 +44,12 @@ type SharedQueueIO = {
   queueTtlMs: number
   queueNow(): number
 }
-let sharedReader: (ReturnType<typeof createUpdateReader> & SharedQueueIO) | null = null
+// #250：解析出的使用范围（家目录 + 使用范围目录）。只读全局进度电话直接拿它去盘上聚合，
+// 不再让每个集成方自己拼路径——范围解析只有这里一份，电话只消费结果。
+type SharedHubScope = {
+  hubScope: { homeDir: string; profileDir: string }
+}
+let sharedReader: (ReturnType<typeof createUpdateReader> & SharedQueueIO & SharedHubScope) | null = null
 let sharedReaderKey = ''
 export interface ReaderOverrides {
   env?: Record<string, string | undefined>
@@ -118,7 +123,7 @@ export interface ReaderOverrides {
   /** 显式目标包目录：优先于按包名自动解析（hoisted、多副本、开发态链接等场景的逃生口）。 */
   targetPackageDir?: string
 }
-export async function getSharedReader(pluginId: string, config: ReturnType<typeof resolveUpdateConfig>, overrides: ReaderOverrides = {}): Promise<ReturnType<typeof createUpdateReader> & SharedQueueIO> {
+export async function getSharedReader(pluginId: string, config: ReturnType<typeof resolveUpdateConfig>, overrides: ReaderOverrides = {}): Promise<ReturnType<typeof createUpdateReader> & SharedQueueIO & SharedHubScope> {
   const env = overrides.env ?? process.env
   const osHome = overrides.osHome ?? homedir()
   const homeDirDefault = defaultHomeDir(env, osHome)
@@ -414,7 +419,8 @@ export async function getSharedReader(pluginId: string, config: ReturnType<typeo
       registryHost: coreRegistryHost,
     }),
     // 跨插件队列的面板侧读写口（#15）：与本次解析出的使用范围绑定，面板经电话可选参数消费。
-    { readQueuePruned: loadQueuePruned, writeQueueState: writeQueueBestEffort, queueTtlMs, queueNow },
+    // #250：使用范围同样随单例缓存——只读全局进度电话拿它去盘上聚合，不重复解析路径。
+    { readQueuePruned: loadQueuePruned, writeQueueState: writeQueueBestEffort, queueTtlMs, queueNow, hubScope: { homeDir: homeDirInput, profileDir: profileDirInput } },
   )
   sharedReaderKey = key
   return sharedReader

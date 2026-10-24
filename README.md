@@ -61,7 +61,7 @@ for (const [name, handler] of Object.entries(update.handlers)) {
 }
 ```
 
-这一步得到六个电话名：`notes.updateStatus`、`notes.updateCheck`、`notes.updateInstall`、`notes.updateChangelog`（取日志：给版本号，回该版 tarball 里的更新日志全文，取不到回空）、`notes.logAppend`（收面板侧的日志行，见第 10 节；`0.16.0` 起新增）、`notes.updateCheckFallback`（合规版决议：最新版还在年龄门内时装不上，问它「满门限的最新版是哪个」，`0.18.6` 起新增）。
+这一步得到六个电话名：`notes.updateStatus`、`notes.updateCheck`、`notes.updateInstall`、`notes.updateChangelog`（取日志：给版本号，回该版 tarball 里的更新日志全文，取不到回空）、`notes.logAppend`（收面板侧的日志行，见第 10 节；`0.16.0` 起新增）、`notes.updateCheckFallback`（合规版决议：最新版还在年龄门内时装不上，问它「满门限的最新版是哪个」，`0.18.6` 起新增）。另外还有一通只读全局进度的 `notes.updateHubStatus`（`hubStatus` 字段给出全名，见第 2.6 节末尾），与批量宿主那通同语义。
 
 `pluginId` 必填（非空字符串，不含路径分隔符）。单例复用键强制含插件标识，多插件不串内存状态与锁。
 除 `pluginId` 之外的配置都可选并带默认值，不传即走默认（见第 3 节）。
@@ -417,7 +417,7 @@ mountUpdateBatchPanelHttp(document.querySelector('#batch'), {
 
 **孤儿接管**：装载批量入口时扫一遍自己属主的方案。盘上若还有未收尾、且会话编号对得上的那一轮，就交给中枢接着推——不需要用户重开面板，也不需要再点一次「继续上次未完成的更新」。只动自己属主（批量前缀）；已收尾的不重装。
 
-**只读电话 `<批量前缀>.updateHubStatus`**（仅中枢启用时登记；全名也可从 `multi.phoneNames.hubStatus` 读到）：
+**只读电话 `<批量前缀>.updateHubStatus`**（每套集成更新系统都登记：批量宿主在识别得出使用范围时登记（`hub: false` 也登记，照样从盘上答）；单插件宿主始终登记，名字同在前缀派生、句柄见 `host.hubStatus`；批量侧全名也可从 `multi.phoneNames.hubStatus` 读到；识别不出使用范围时不登记）：
 
 ```js
 const reply = await host.call('life.updateHubStatus')   // args 可不传
@@ -444,9 +444,9 @@ const reply = await host.call('life.updateHubStatus')   // args 可不传
 }
 ```
 
-排序固定：进行中 → 等待 → 记录缺失 → 已收尾；同状态内按更新时间新到旧。未启用中枢的那几轮批量会话不在这份快照里（快照只聚合写了方案的轮次）；`activeInstall` 是中枢驾驶位租约里的「正在装哪一家」，心跳陈旧就不算。单插件更新链路 Phase 1 不迁入中枢，所以单插件的安装既不出现在会话里，也不进 `activeInstall`。
+排序固定：进行中 → 等待 → 记录缺失 → 已收尾；同状态内按更新时间新到旧。快照同一使用范围内「写了中枢方案」与「没写方案的旧批账本」都会收进来（后者 `selfKey` 为 null，按账本相位判 running/waiting）；`activeInstall` 是中枢驾驶位租约里的「正在装哪一家」，心跳陈旧就不算。单插件更新链路 Phase 1 不迁入中枢，所以单插件的安装既不出现在会话里，也不进 `activeInstall`。
 
-**常驻进度坞（面板侧，可选）**：挂在自选容器里（右下角浮层或底部条），只轮询上面那通只读电话：
+**常驻进度坞（面板侧，可选）**：挂在自选容器里（右下角浮层、底部条，或 `mountAs: 'inline'` 内联进自己的页面流），只轮询上面那通只读电话：
 
 ```js
 import { mountHubProgressDock } from 'dsh-plugin-update/panel-batch'
@@ -455,11 +455,15 @@ const dock = mountHubProgressDock(document.getElementById('upd-dock'), {
   prefix: 'life',                               // 由它派生 life.updateHubStatus；也可用 phone 直接点名
   call: (name, args) => host.call(name, args),  // call 只透传完整电话名，前缀由组件自己拼
   title: '更新进度',
-  mountAs: 'bottom-right',                      // 或 'bottom-bar'
+  mountAs: 'bottom-right',                      // 'bottom-bar' 贴底通栏；'inline' 由调用方放进页面流
+  hideWhenIdle: true,                           // 缺省 true：空闲整块隐藏不占空间；false 留一个空壳
+  collapsed: false,                             // 缺省 false；true 起步就折叠成标题+百分比+一行计数
+  maxRows: 3,                                   // 明细行上限（缺省 3，最多 20），超出折叠成 +K
   onOpen: () => openMyBatchPanel(),
 })
-// 空闲（没有会话也没有在装的）时整块隐藏、不占空间；document.hidden 时暂停轮询。
-// 卸载时调 dock.dispose()：只停轮询，不打断中枢。
+// 明细一行一个目标：标题、版本箭头（已装 -> 目标）、相位人话、失败码；装完要重启的另汇总一句。
+// dock.refresh() / dock.update() 手动刷一次（并发合并、永不 reject；坏回包保持上一次画面，不清屏）。
+// document.hidden 时暂停轮询；dock.dispose() 只停轮询、摘监听、移除根节点，不打断中枢。
 // prefix 与 phone 都不传会在 mount 时直接抛配置错误（不静默失败）。
 ```
 

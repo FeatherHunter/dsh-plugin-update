@@ -539,3 +539,176 @@ describe('mountHubProgressDock（挂载与生命周期）', () => {
     }
   })
 })
+
+// ---------- #251 验收补齐：位置 / 行级明细 / 待重启 / 折叠 / 上限 / refresh ----------
+
+function rowOf(overrides = {}) {
+  return {
+    key: 'a',
+    title: 'life',
+    phase: 'installing',
+    targetVersion: '0.3.85',
+    installedVersion: '0.3.83',
+    latestVersion: '0.3.85',
+    restartRequired: false,
+    error: null,
+    ...overrides,
+  }
+}
+
+function snapshotWithRows(rows, progressOverrides = {}) {
+  return snapshotOf({
+    sessions: [
+      sessionOf({
+        progress: progressOf({ total: rows.length, done: 0, current: 1, pending: rows.length - 1, ...progressOverrides }),
+        rows,
+        rowsTotal: rows.length,
+      }),
+    ],
+  })
+}
+
+describe('T5 验收补齐（#251）', () => {
+  it('行级明细：标题 / 版本箭头 / 相位人话 / 失败码都画;空文本不 append 空 span', () => {
+    const { container } = fakeMountTarget()
+    const rows = [
+      rowOf({ key: 'a', title: 'life', phase: 'installing' }),
+      rowOf({ key: 'b', title: 'bill', phase: 'failed', targetVersion: null, installedVersion: null, error: 'install-failed' }),
+    ]
+    const dock = mountHubProgressDock(container, {
+      prefix: 'wf',
+      call: async () => ({ ok: true, snapshot: snapshotWithRows(rows) }),
+    })
+    return (async () => {
+      try {
+        await dock.update()
+        const root = container.children[0]
+        const rowList = root.children.find((child) => child.className === 'dsh-hub-dock-rows')
+        assert.ok(rowList, '要有行级明细容器')
+        assert.equal(rowList.children.length, 2)
+        const first = rowList.children[0]
+        assert.match(first.text, /life/)
+        assert.match(first.text, /0\.3\.83 -> 0\.3\.85/)
+        assert.match(first.text, /安装中|正在安装/)
+        const second = rowList.children[1]
+        assert.equal(second.className.includes('dsh-hub-dock-row-failed'), true)
+        assert.match(second.text, /install-failed/)
+        // 没有失败码的行不挂失败样式,也不追加空 span（标题/版本/相位 3 个）。
+        assert.equal(first.children.length, 3)
+        assert.equal(second.children.length, 4)
+      } finally {
+        dock.dispose()
+      }
+    })()
+  })
+
+  it('待重启汇总：会话 restartCount 与聚合 restartCount 一致，文案进摘要', () => {
+    const { container } = fakeMountTarget()
+    const rows = [rowOf({ key: 'a', restartRequired: true, phase: 'done' }), rowOf({ key: 'b', title: 'bill', restartRequired: true, phase: 'done' })]
+    const view = hubDockViewModel(snapshotWithRows(rows), { lang: 'zh' })
+    assert.equal(view.restartCount, 2)
+    assert.ok(view.restartText.length > 0)
+    assert.ok(view.summaryText.includes(view.restartText))
+    assert.equal(view.failed, 0)
+
+    const dock = mountHubProgressDock(container, { prefix: 'wf', call: async () => ({ ok: true, snapshot: snapshotWithRows(rows) }) })
+    return (async () => {
+      try {
+        await dock.update()
+        const meta = container.children[0].children.find((child) => child.className === 'dsh-hub-dock-meta')
+        assert.ok(meta.text.length > 0)
+      } finally {
+        dock.dispose()
+      }
+    })()
+  })
+
+  it('行数上限：maxRows 只画前 N 行,其余折叠成 +K 计数', async () => {
+    const { container } = fakeMountTarget()
+    const rows = [0, 1, 2, 3, 4].map((index) => rowOf({ key: 'k' + index, title: 't' + index }))
+    const dock = mountHubProgressDock(container, {
+      prefix: 'wf',
+      maxRows: 2,
+      call: async () => ({ ok: true, snapshot: snapshotWithRows(rows) }),
+    })
+    try {
+      await dock.update()
+      const root = container.children[0]
+      const rowList = root.children.find((child) => child.className === 'dsh-hub-dock-rows')
+      assert.equal(rowList.children.length, 2)
+      const folded = root.children.find((child) => child.className === 'dsh-hub-dock-folded')
+      assert.equal(folded.textContent, '+3')
+    } finally {
+      dock.dispose()
+    }
+  })
+
+  it('折叠：collapsed 初始只留一行计数,点 toggle 展开再折回', async () => {
+    const { container } = fakeMountTarget()
+    const dock = mountHubProgressDock(container, {
+      prefix: 'wf',
+      collapsed: true,
+      call: async () => ({ ok: true, snapshot: snapshotWithRows([rowOf()]) }),
+    })
+    try {
+      await dock.update()
+      const root = container.children[0]
+      assert.match(root.className, /dsh-hub-dock-collapsed/)
+      const toggle = root.children.find((child) => child.className === 'dsh-hub-dock-toggle')
+      assert.equal(toggle.getAttribute('aria-expanded'), 'false')
+      toggle.click()
+      assert.doesNotMatch(root.className, /dsh-hub-dock-collapsed/)
+      assert.equal(toggle.getAttribute('aria-expanded'), 'true')
+      toggle.click()
+      assert.match(root.className, /dsh-hub-dock-collapsed/)
+    } finally {
+      dock.dispose()
+    }
+  })
+
+  it('hideWhenIdle:false 时空壳保留（不挂 idle 类）,inline 形态落到类名', async () => {
+    const { container } = fakeMountTarget()
+    const dock = mountHubProgressDock(container, {
+      prefix: 'wf',
+      mountAs: 'inline',
+      hideWhenIdle: false,
+      call: async () => ({ ok: true, snapshot: snapshotOf() }),
+    })
+    try {
+      await dock.update()
+      const root = container.children[0]
+      assert.match(root.className, /dsh-hub-dock-mode-inline/)
+      assert.doesNotMatch(root.className, /dsh-hub-dock-idle/)
+      assert.match(root.className, /dsh-hub-dock-empty/)
+    } finally {
+      dock.dispose()
+    }
+  })
+
+  it('refresh 是 update 的同义名：调一次就重拉一次,且失败回包不清空上次画面', async () => {
+    const { doc, container } = fakeMountTarget()
+    doc.hidden = true // 关掉挂载自动那一拍，让计数只反映手动 refresh
+
+    let calls = 0
+    let broken = false
+    const dock = mountHubProgressDock(container, {
+      prefix: 'wf',
+      call: async () => {
+        calls += 1
+        return broken ? { ok: false } : { ok: true, snapshot: snapshotWithRows([rowOf()]) }
+      },
+    })
+    try {
+      await dock.refresh()
+      assert.equal(calls, 1)
+      const root = container.children[0]
+      assert.match(root.text, /life/)
+      broken = true
+      await dock.refresh()
+      assert.equal(calls, 2)
+      assert.match(root.text, /life/, '坏回包保持上一次画面')
+    } finally {
+      dock.dispose()
+    }
+  })
+})

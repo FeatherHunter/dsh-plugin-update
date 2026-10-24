@@ -47,6 +47,8 @@ import {
 } from '../core/changelog/parse.js'
 import { buildDiag, type DiagObject } from '../shared/diag.js'
 import { hash8 } from '../shared/hash.js'
+import { readHubStatus } from './hub/aggregate.js'
+import { emptyHubSnapshot } from '../core/hub/snapshot.js'
 import { emitUpdateLog, logEmitterCounts } from '../log/emit.js'
 import { pruneEventFields } from '../core/gate.js'
 import { buildUpdateLogHealth, type UpdateLogHealth, type UpdateLogWiring } from '../log/health.js'
@@ -262,6 +264,8 @@ function wireUpdateLog(
 export interface HostUpdate {
   phoneNames: PhoneNames
   handlers: Record<string, (args: Record<string, unknown>) => Promise<Record<string, unknown>>>
+  /** #250：只读全局进度电话全名（`<前缀>.updateHubStatus`）。每套集成更新系统都注册。 */
+  hubStatus: string
 }
 /**
  * 建宿主更新能力：一次调用得到该插件的一组电话名与处理器（调用方负责注册进自己的电话表）。
@@ -653,6 +657,19 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
   const statusPollMemory: StatusPollMemory = new Map()
   // 轮询失败限速记忆（#209）：实例级；只喂给 updateStatus，成功即清（恢复信号）。
   const statusFailMemory: PollFailureMemory = new Map()
+  // #250：只读全局进度电话。每套集成更新系统都登记（单插件宿主同样），集成方传 hub:false 也照常答：
+  // 快照从盘上聚合（方案 + 各属主批量账本 + 检查知识 + 活租约），中枢在不在、面板开没开都不影响答案。
+  const hubStatusName = config.prefix + '.updateHubStatus'
+  const hubStatusPhone = async (): Promise<Record<string, unknown>> => {
+    const at = Date.now()
+    try {
+      const reader = await getSharedReader(pluginId, config, readerOverrides)
+      return { ok: true, snapshot: await readHubStatus(reader.hubScope, { at }) }
+    } catch {
+      // 只读电话永不抛：读不出来就如实给空快照（坏文件按「缺失」的同一口径）。
+      return { ok: true, snapshot: emptyHubSnapshot(at) }
+    }
+  }
   const handlers: Record<string, (args: Record<string, unknown>) => Promise<Record<string, unknown>>> = {
     [phoneNames.updateStatus]: loggedPhone(
       phoneNames.updateStatus,
@@ -681,8 +698,10 @@ export function createHostUpdate(deps: { ctx?: unknown; logCtx?: LogCtx; logEven
     }),
     [phoneNames.logAppend]: async (args: Record<string, unknown>): Promise<Record<string, unknown>> =>
       logAppendRows(args && typeof args === 'object' ? args : {}),
+    // #250：只读全局进度电话（名字只从前缀派生）。
+    [hubStatusName]: hubStatusPhone,
   }
-  return { phoneNames, handlers }
+  return { phoneNames, handlers, hubStatus: hubStatusName }
 }
 // 未用到的默认值引用（保持与旧实现同一份超时口径，类型检查不误删常量）。
 void DEFAULT_CHECK_TIMEOUT_MS

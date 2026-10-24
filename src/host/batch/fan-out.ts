@@ -201,8 +201,9 @@ export function createMultiHostUpdate(
   // 进程内更新中枢（ADR-0008）：批量推进从本 fiber 里搬出去。
   // 缺省开关：有宿主 ctx（真机接入）时开；纯宿主脚本/测试显式 hub:true 可开；hub:false 强制回旧路径。
   const hubEnabled = options.hub === true || (options.hub !== false && input.ctx != null)
+  // #250：范围解析与中枢开关解耦——只读全局进度电话在 hub:false 下也要能答（从盘上读）。
   const hubScope: HubScope | null =
-    hubEnabled && batchScope && batchScope.profileDir
+    batchScope && batchScope.profileDir
       ? {
           homeDir: batchScope.homeDir,
           profileDir: batchScope.profileDir,
@@ -604,7 +605,9 @@ export function createMultiHostUpdate(
    * 席位里的函数只依赖盘与宿主能力，不依赖本 fiber 是否还活着——这正是自更新后能接着推的前提。
    */
   function hubSeatFor(session: BatchSession): HubSeat | null {
-    if (!hubScope || !hubPlanScope) return null
+    // 中枢没启用（hub:false 且无宿主上下文）时绝不出席：否则范围一解析出来就会抢驱动，
+    // 「hub:false 退回旧路径」的承诺就破了。只读进度电话不受这里影响（它读盘，不驱动）。
+    if (!hubEnabled || !hubScope || !hubPlanScope) return null
     const plan = createHubPlan({
       sessionId: session.id,
       owner: prefix,
@@ -1323,8 +1326,9 @@ export function createMultiHostUpdate(
   handlers[phoneNames.cancel] = phone(phoneNames.cancel, 'batch-cancel', () => cancelPhone())
   handlers[phoneNames.prefs] = phone(phoneNames.prefs, 'batch-prefs', () => prefsPhone())
   handlers[phoneNames.prefsSave] = phone(phoneNames.prefsSave, 'batch-prefs-save', (args) => prefsSavePhone(args))
-  // T4（#250）：只读全局进度电话，只有启用中枢时登记（hub:false 的接入方不需要它）。
-  if (hubEnabled && hubScope) {
+  // T4（#250）：只读全局进度电话。每套集成更新系统都登记——hub:false 的接入方同样要能答，
+  // 快照从盘上聚合，中枢在不在、面板开没开都不影响答案。
+  if (hubScope) {
     const hubStatusName = prefix + '.updateHubStatus'
     phoneNames.hubStatus = hubStatusName
     handlers[hubStatusName] = phone(hubStatusName, 'hub-status', () => hubStatusPhone())

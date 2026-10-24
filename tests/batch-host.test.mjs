@@ -97,9 +97,11 @@ describe('注册与命名', () => {
       prefsSave: 'life.batchPrefsSave',
       // #208：有属主时登记客户端日志电话（转发给属主的 logAppend）。
       logAppend: 'life.logAppend',
+      // #250：识别得出使用范围就登记只读全局进度电话（中枢开关不影响登记）。
+      hubStatus: 'life.updateHubStatus',
     })
     const names = Object.keys(host.handlers)
-    assert.equal(names.length, 8 + keys.length * 6)
+    assert.equal(names.length, 9 + keys.length * 7)
     for (const name of Object.values(host.phoneNames)) assert.ok(names.includes(name), name)
     const prefixes = new Set()
     for (const one of targets) {
