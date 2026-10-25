@@ -6,7 +6,7 @@
 
 符号名是稳定地标。本文行号按写作时的 HEAD 标注（2026-10-19，`#230` 收口后）；漂了就用
 `Select-String -Path src -Pattern '<符号名>'` 重新定位。`src/` 下每个非 ambient 的 `.ts`
-（103 个）由 `node build.mjs` 一对一转成 `dist/` 同名 `.js`（2 个 ambient `.d.ts` 只进类型
+（104 个）由 `node build.mjs` 一对一转成 `dist/` 同名 `.js`（2 个 ambient `.d.ts` 只进类型
 检查、不产 js；`.d.ts` 由 tsc 随 `npm run build` 产出）。
 
 ## 目录地图
@@ -28,9 +28,9 @@ src/
 │
 ├─ host/               宿主侧：电话装配、日志接线、环境探测、HTTP 插头（Node 侧）
 │  ├─ factory.ts  phones.ts  capabilities.ts  environment.ts  forwarding.ts  http.ts
-│  ├─ hub/             进程级更新中枢：协议/异常边界/方案/租约/泵/孤儿接管/只读聚合
-│  │  └─ protocol.ts  boundary.ts  plan-store.ts  lease-store.ts  json-file.ts
-│  │     registry.ts  adopt.ts  aggregate.ts
+│  ├─ hub/             进程级更新中枢：协议/异常边界/方案/租约/泵/孤儿接管/换代/只读聚合
+│  │  └─ protocol.ts  boundary.ts  handoff.ts  plan-store.ts  lease-store.ts
+│  │     json-file.ts  registry.ts  adopt.ts  aggregate.ts
 │  └─ batch/           批量宿主：扇出、批内电话语义、续跑、日志接缝
 │     └─ fan-out.ts  phones.ts  resume.ts  log.ts
 │
@@ -178,7 +178,7 @@ mountUpdateBatchPanel   src/panel/batch/mount.ts:237        （日志壳创建 :
 | 宿主电话装配 | `src/host/factory.ts:270`（`createHostUpdate`）、`:649`（handlers）；电话日志 `src/host/phones.ts:124` |
 | 批量宿主 / 批内电话语义 | `src/host/batch/fan-out.ts:152`；`src/host/batch/phones.ts`：`validateTargets:89`、`callPhone:197`、`defaultCheck:245`、`defaultInstall:315` |
 | 批量账本 / 驱动 | `src/core/batch/model.ts:128`（`createBatchSession`）、`src/core/batch/run.ts:180`（`runBatch`） |
-| 更新中枢（方案/租约/泵/关停） | 契约 `src/host/hub/protocol.ts`；异常边界 `src/host/hub/boundary.ts`；泵与任务表 `src/host/hub/registry.ts`（`submitHubTask` / `shutdownHubScope` / `releaseHubLeasesOnExit`）；孤儿接管 `src/host/hub/adopt.ts`；纯逻辑 `src/core/hub/` |
+| 更新中枢（方案/租约/泵/换代/关停） | 契约 `src/host/hub/protocol.ts`（`HubSeat`，含接手续跑用的 `takeOver`）；异常边界 `src/host/hub/boundary.ts`；协议换代的版本限定 Symbol 与旧代清单 `src/host/hub/handoff.ts`；泵与任务表 `src/host/hub/registry.ts`（`submitHubTask` / `shutdownHubScope` / `releaseHubLeasesOnExit`）；孤儿接管 `src/host/hub/adopt.ts`；纯逻辑 `src/core/hub/` |
 | 队列 / 锁 / 磁盘 | 队列 `src/core/queue/ports.ts:166` + `src/core/queue/model.ts`；锁与稳定失败码 `src/core/store-base.ts:256`；磁盘端口 `src/core/disk.ts:122` |
 | changelog 解析 / 渲染 / 校验 | `src/core/changelog/parse.ts:538`（`parseChangelogReport`）、`render-model.ts:587`（`renderChangelogHTML`）、`validator.ts:68`、Node 读取 `io.ts:325` |
 | 日志清单真源 | `event-list.update.json` + 加载器 `src/log/manifest.ts:72`（`loadUpdateEventTable`） |
@@ -265,6 +265,7 @@ npm run smoke:log      # 端到端：只打真 dist，6 场景 PASS/PASSED
 | --- | --- |
 | `docs/research/20261014-log-event-catalog.md` | 人读事件目录：§1 常驻 / §2 按需，事件/级别/字段三列由 `npm run docs:log` 生成 |
 | `tests/helpers/batch-log-harness.mjs` | 批量日志测试共享夹具（bind/collector/rowsOf/fakeTransport/mkTarget/mkScope/seedQueue） |
+| `tests/helpers/hub-harness.mjs` | 中枢宿主测试共享夹具（fakeClock/makeHubDeps/waitForPhase/trackUnhandledRejections） |
 | `scripts/log-smoke.mjs` | 端到端日志冒烟：真 dist，六场景，`PASS`/`SMOKE PASSED` |
 | `tests/log-contract.test.mjs` | 清单与发射口契约（含负断言样板 `makeEmitter`） |
 | `tests/gate.test.mjs` | `lintEventList` 与门禁；递归扫 `src/` 全树的依赖纪律 |

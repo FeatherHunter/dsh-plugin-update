@@ -1,6 +1,6 @@
 # 8. 更新中枢：自更新不断链 + 全局进度
 
-- 状态：accepted（实现见 `src/core/hub/`、`src/host/hub/`、`src/panel/batch/dock.ts`；票 #246–#253；#253 起补后台异常边界与关停/退出口径）
+- 状态：accepted（实现见 `src/core/hub/`、`src/host/hub/`、`src/panel/batch/dock.ts`；票 #246–#254；#253 起补后台异常边界与关停/退出口径，#254 补协议换代交接）
 - 日期：2026-10-24
 - 关联：真机故障（爱生活 0.3.85 批量更新面板：`饼干记账` 正在安装、`卡路里/备忘录/作息管家/居家管家/私家大厨` 停在「已在队列」；盘上 `update-queue/<指纹>/life/batch.json` 停在 `life-pack: current`）· 研究 `docs/research/20261024-更新机制现状调查.md`（§3/§5/§10）· ADR-0003 · ADR-0004 · #219 · 宿主安装出口契约 `docs/host-install-exits.md`
 
@@ -14,22 +14,27 @@
 
 ### 1. 进程级更新中枢（Hub）
 
-- 引入 `Hub`：进程级单例，挂 `globalThis[Symbol.for('dsh-plugin-update:update-hub:registry')]`，按使用范围 `(homeDir, profileDir)` 分槽。`Symbol.for` 是 realm 级注册表，同一进程里本包的多份副本也能拿到同一对象。
+- 引入 `Hub`：进程级单例，按使用范围 `(homeDir, profileDir)` 分槽；注册表挂在 `globalThis[Symbol.for('dsh-plugin-update:update-hub:registry:v<协议版本>')]`（#254：键里带协议版本，见 §1.1）。`Symbol.for` 是 realm 级注册表，同一进程里本包的多份副本也能拿到同一对象。
 - 中枢持有：驱动泵、定时器、订阅者、租约、方案登记表。插件 fiber 只做「提交任务 / 查询快照 / 取消」三件事，不再亲自跑循环；fiber 被销毁，泵照跑。
 - 中枢不注册成宿主服务——不依赖「谁先注册、注册在哪」的鸡生蛋；也不要求 DSH 提供新 API。
-- 协议版本写在对象上（`protocol: 1`）。版本不一致时后来者只观察、不接管，避免两代实现互踩。
+### 1.1 协议换代交接（#254）
+
+- 注册表 Symbol 带协议版本（当前 `HUB_PROTOCOL_VERSION = 2` → `...:registry:v2`）；版本 Symbol 与旧代清单集中在 `src/host/hub/handoff.ts`。协议 v1（中枢初版，未随 0.18.39 发布——0.18.39（f5d4f8d）早于中枢（35704a1），本身没有中枢）用无后缀的旧键。HMR 在同一进程里把包版本换掉时，新旧两代各用各的 Symbol 槽：**新一代绝不覆盖、清空或往旧一代的任务表里塞任务**（两代共用的旧实现会把新任务塞进旧表，旧等待者永远悬挂）。
+- 旧任务表与旧等待者原样留给旧泵排空（旧任务只能由旧一代结算）；旧一代还有未结算任务时，新一代只观察、不驱动同一步——任务让位回队列并退避。观察从「本代第一次看见旧一代忙」起算，超过 `HUB_LEASE_STALE_MS`（20s）仍没排空则视为旧一代已死/假死，不再只观察、交给租约仲裁（旧租约新鲜时 `ensureLease` 仍会让位，不会双驱动）。观察窗与心跳窗同值（20s）的取舍：旧泵单步（一次真安装）可能长于 20s，届时会被判假死、本代可能在其仍写盘时接管同一步；兜底是安装侧既有的全局锁（同范围一次只装一个）与 requestId 幂等，属已知取舍（心跳只在步与步之间刷新，单步进度不可读）。
+- 旧一代排空（或观察超时）后，本代在装载时按盘上方案 + 账本把未收尾会话装成席位提交进自己的队列接管；旧一代忙期间只读装席位，不写账本/队列（避免两代各记一遍启动日志、各改写一次行状态）。这种只读席位挂 `HubSeat.takeOver` 钩子：本代真正拿到驾驶位、开推之前先重读最新账本、把中断相位（`checking`/`installing`）退回 `pending`、清上一任的 `batch-` 排队占位、补记一条 `trigger=resume` 的启动行——接管那一轮的 `durationMs`/`resumed` 因此与正常续跑同口径（#216），不会回落到「会话年龄」。
+- `hubBusyForScope`（drain/自动续跑等旁路的让位判据）把旧一代的未结算任务也算忙；这是严格的让位，不随观察超时放松——盘上会话的接管由泵路径负责。
 
 ### 2. 执行席（Seat）：闭包与 ctx 解绑
 
 - 中枢续跑需要的一切宿主能力在**提交任务时**固化成普通闭包：插件管理器 / 子进程 / 桌面服务引用、使用范围身份、目标清单、执行器。宿主根服务不随某个 bundle 卸载而失效，所以 fiber 销毁后这些引用仍可调用。
-- 席位由 `src/host/hub/protocol.ts` 的 `HubSeat` 定型，实际装配点在 `src/host/batch/fan-out.ts` 的 `hubSeatFor(session)`；批量面板路径与孤儿接管路径共用这一套装配，不写两份。
+- 席位由 `src/host/hub/protocol.ts` 的 `HubSeat` 定型，实际装配点在 `src/host/batch/fan-out.ts` 的 `hubSeatFor(session)`；批量面板路径与孤儿接管路径共用这一套装配，不写两份。`HubSeat` 还带可选的 `takeOver` 钩子（#254，接手续跑前的补写，见 §1.1）。
 - `createHostUpdate` 在创建时就把 `ctx` 能取到的宿主服务引用塞进 `readerOverrides`，避免读取器在 fiber 死后才去 `ctxService` 现取。
 
 ### 3. 中枢方案（Plan）：可被任一存活集成方接手的持久任务书
 
 - 路径：`<家目录>/update-queue/<使用范围短指纹>/hub/plans/<属主前缀>.json`（`hubPlanFileName(owner)`，属主即 ADR-0003 的批量前缀）；内容：`{version, sessionId, owner, selfKey, selfOrder, stopOnFailure, targets[{key,title,packageName,pluginId,prefix,homeDir?,profileDir?}], scope{homeDir,profileDir,profileName,environmentKind?,releaseChannel?,registryUrl?}, createdAt, updatedAt}`。
 - 方案只说「装什么、装到哪、从哪个源查」，不记进度；进度唯一真相仍是各属主 `batch.json`（ADR-0003 不变）。
-- 任一使用本包的插件在挂载时调用 `hub.activate()`（实现：`src/host/hub/adopt.ts` 的 `adoptOrphanHubTasks()` 包异常边界，装载末尾异步触发；扫到方案后由 `fan-out.ts` 的 `adoptOrphanPlan(plan)` 按属主/会话/忙碌条件装配席位）：扫描方案，发现「会话未收尾 + 租约空闲/陈旧」就按通用席位接管续跑 → 覆盖进程重启、崩溃、换执行者三种断链。
+- 任一使用本包的插件在挂载时调用 `hub.activate()`（实现：`src/host/hub/adopt.ts` 的 `adoptOrphanHubTasks()` 包异常边界，装载末尾异步触发；扫到方案后由 `fan-out.ts` 的 `adoptOrphanPlan(plan)` 按属主/会话/忙碌条件装配席位）：扫描方案，发现「会话未收尾 + 租约空闲/陈旧」就按通用席位接管续跑 → 覆盖进程重启、崩溃、换执行者三种断链。并发由中枢 FIFO 与租约仲裁；旧一代还忙时只读装席位、提交进本代队列等它排空（§1.1，#254）。
 
 ### 4. 单写者：中枢租约 + 既有全局锁分工
 
@@ -66,6 +71,7 @@
 - 中枢一切 I/O best-effort：方案/租约坏文件自愈（读坏当没有，写坏吞掉留既有 `store.fail`），绝不挡安装。
 - 中枢后台（泵、退避重试、孤儿接管、退出钩子）**绝不**以未处理 rejection / 未捕获异常逃逸（#253）：异常只能变成「任务 failed / 让位重排队 / 落盘降级 / 这次接管放弃」，边界见 `src/host/hub/boundary.ts`、`adopt.ts`、`registry.ts`。
 - 单插件更新链路 Phase 1 不迁入中枢（`updateHubStatus` 仍会显示 `queue.json` owner 指向的进行中安装）；不新增运行时依赖、不新增 package 子路径。
+- 协议换代不丢任务：旧一代的任务表与等待者只能由旧泵结算，新一代绝不改写；新一代只在旧一代排空或观察超时后按盘上事实接管（#254，§1.1）。
 
 ## 反向范围
 
@@ -87,3 +93,5 @@
 4. 常驻 UI：`src/panel/batch/dock.ts` + 渲染/轮询单测（#251，已完成）。
 5. 文档与门禁：README/CONTEXT/CHANGELOG；`npm run check`、`npm run test:batch`（#252）。
 6. 对抗式审查（独立 reviewer）并落实修复（独立审查票）。
+7. 后台异常边界与关停/退出口径（#253，已完成；`boundary.ts`/`adopt.ts` + 子进程探针）。
+8. 协议换代交接（#254，已完成；版本限定 Symbol + 只观察窗 + 升级观测超时用例）。

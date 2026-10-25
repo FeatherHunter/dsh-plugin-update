@@ -29,7 +29,7 @@ import { createHubPlan, type HubPlan, type HubScopeRef } from '../../core/hub/pl
 import { emptyHubSnapshot } from '../../core/hub/snapshot.js'
 import { readHubStatus } from '../hub/aggregate.js'
 import { adoptOrphanHubTasks } from '../hub/adopt.js'
-import { hubBusyForScope, submitHubTask } from '../hub/registry.js'
+import { hubBusyForScope, legacyHubBusyForScope, ownHubBusyForScope, submitHubTask } from '../hub/registry.js'
 import type { HubRuntimeDeps, HubScope, HubSeat } from '../hub/protocol.js'
 import {
   batchEntryOf,
@@ -1235,17 +1235,39 @@ export function createMultiHostUpdate(
   async function adoptOrphanPlan(plan: HubPlan): Promise<void> {
     if (!hubEnabled || !hubScope || !hubPlanScope || !ownerPorts || scopeError) return
     if (plan.owner !== prefix) return
-    if (hubBusyForScope(hubScope)) return
+    // 本代已有一份在推就交给 FIFO 去重；但旧一代忙不算——旧任务表归旧泵，本代仍要把
+    // 盘上未收尾的会话装成席位提交进自己的队列，等旧泵排空后接着推（#254）。
+    if (ownHubBusyForScope(hubScope)) return
+    const legacyBusy = legacyHubBusyForScope(hubScope)
     const disk = await readSession()
     if (disk.entries.length === 0 || isBatchFinished(disk)) return
     if (disk.id !== plan.sessionId) return
-    const resumed = resumeBatchSession(disk, now())
-    if (resumed !== disk) await saveSession(resumed)
-    // #217：上一任留下的排队占位先撤掉，这一任会重新逐家入队。
-    await clearBatchQueueIntents()
-    noteRunStart(resumed, { trigger: 'resume', resumed: true })
+    // 旧一代还活着时只读装席位、先不写账本/队列（两代各写一遍只会互相覆盖）；
+    // 真正拿到驾驶位后由泵调 takeOver 补做续跑收尾（#254）。
+    const resumed = legacyBusy ? disk : resumeBatchSession(disk, now())
+    if (!legacyBusy) {
+      if (resumed !== disk) await saveSession(resumed)
+      // #217：上一任留下的排队占位先撤掉，这一任会重新逐家入队。
+      await clearBatchQueueIntents()
+      noteRunStart(resumed, { trigger: 'resume', resumed: true })
+    }
     const seat = hubSeatFor(resumed)
     if (!seat) return
+    if (legacyBusy) {
+      let tookOver = false
+      // 旧泵刚排空/观察超时后本代才真正开推：这时才补做装载时跳过的续跑落盘。
+      // 重读最新账本（旧泵可能又写了几步），没东西可推就不留启动日志。
+      seat.takeOver = async () => {
+        if (tookOver) return
+        tookOver = true
+        const latest = await readSession()
+        if (latest.entries.length === 0 || isBatchFinished(latest)) return
+        const next = resumeBatchSession(latest, now())
+        if (next !== latest) await saveSession(next)
+        await clearBatchQueueIntents()
+        noteRunStart(next, { trigger: 'resume', resumed: true })
+      }
+    }
     await submitHubTask(hubScope, seat, hubDeps)
   }
 

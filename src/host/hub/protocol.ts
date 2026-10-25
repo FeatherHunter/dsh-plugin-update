@@ -10,8 +10,13 @@ import type { HubLease } from '../../core/hub/lease-policy.js'
 import type { HubPlan } from '../../core/hub/plan.js'
 import type { HubPaths } from './plan-store.js'
 
-/** 中枢协议版本：读不懂的租约/方案一律不接管（见 lease-store / plan-store 的归一）。 */
-export const HUB_PROTOCOL_VERSION = 1
+/**
+ * 中枢协议版本：读不懂的租约/方案一律不接管（见 lease-store / plan-store 的归一）。
+ *
+ * 也决定注册表挂哪个 Symbol（#254）：换代时两代实现各用各的槽，旧任务表原样留给旧泵排空，
+ * 绝不会像 0.18.39 那样因为版本字符串恰好相同而把新任务塞进旧任务表。
+ */
+export const HUB_PROTOCOL_VERSION = 2
 
 /** 让位（排队/锁被占/租约不在手）之后多久再试一次；不与 drain 抢节拍。 */
 export const HUB_RETRY_INTERVAL_MS = 1000
@@ -50,6 +55,12 @@ export interface HubSeat {
   /** 开始/结束驱动：让本实例的其它电话看到「忙」，结束后必须复位。 */
   enterDrive?(): void
   exitDrive?(): void
+  /**
+   * 接手续跑前的补写（#254）：旧一代忙时席位是只读装的，泵真正拿到驾驶位后调一次——
+   * 重读最新账本、把中断相位退回 pending、清上一任排队占位、记续跑日志。
+   * 只允许做「本来该在装载时做、但旧一代还活着所以推迟」的写；抛异常按任务失败处理。
+   */
+  takeOver?(): void | Promise<void>
   /** 一次任务收尾（done/failed）后的旁路：让发起方补日志、更新 lastRun。永不改变判定。 */
   onSettled?(report: HubSettledReport): void | Promise<void>
 }

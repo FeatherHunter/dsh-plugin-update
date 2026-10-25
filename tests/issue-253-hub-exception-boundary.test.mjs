@@ -30,60 +30,11 @@ import {
   submitHubTask,
 } from '../dist/host/hub/registry.js'
 import { fakeTransport, mkScope, mkTarget, phaseOf, unbindAll } from './helpers/batch-log-harness.mjs'
+import { fakeClock, makeHubDeps, trackUnhandledRejections, waitForPhase } from './helpers/hub-harness.mjs'
 
 beforeEach(() => {
   __resetHubRegistryForTests()
 })
-
-/** 假钟：定时器归测试手动推进（退避重试要可控）；pending() 让「定时器停没停」可断言。 */
-function fakeClock(start = 1_000_000) {
-  let current = start
-  let seq = 0
-  const timers = new Map()
-  const timersPort = {
-    setTimeout(fn, ms) {
-      seq += 1
-      const id = seq
-      timers.set(id, { fn, at: current + Math.max(0, Number(ms) || 0) })
-      return id
-    },
-    clearTimeout(id) {
-      timers.delete(id)
-    },
-  }
-  async function flush() {
-    for (let i = 0; i < 20; i += 1) await new Promise((resolve) => setImmediate(resolve))
-    await new Promise((resolve) => setTimeout(resolve, 0))
-  }
-  async function advance(ms) {
-    const target = current + ms
-    for (let round = 0; round < 50; round += 1) {
-      await flush()
-      current = target
-      const due = [...timers.entries()]
-        .filter(([, timer]) => timer.at <= target)
-        .sort((a, b) => a[1].at - b[1].at)
-      if (due.length === 0) return
-      for (const [id, timer] of due) {
-        timers.delete(id)
-        timer.fn()
-      }
-    }
-  }
-  return { now: () => current, timers: timersPort, advance, flush, pending: () => timers.size }
-}
-
-function hubDeps(scope, clock, transport, extra = {}) {
-  return {
-    scope,
-    transport,
-    timers: clock.timers,
-    now: clock.now,
-    randomId: () => 'hub-test-slot',
-    hubRetryMs: 5,
-    ...extra,
-  }
-}
 
 const planScopeOf = (scope) => ({ homeDir: scope.homeDir, profileDir: scope.profileDir, profileName: 'web' })
 
@@ -111,23 +62,6 @@ function makeSeat({ owner, key, scope, install }) {
   return { seat, sessionOf: () => session }
 }
 
-/** 收未处理 rejection：DSH 会把它们升级成进程退出，所以测试里必须断言「一个都没有」。 */
-function trackUnhandled() {
-  const seen = []
-  const onUnhandled = (reason) => seen.push(reason)
-  process.on('unhandledRejection', onUnhandled)
-  return {
-    seen,
-    async settle() {
-      for (let i = 0; i < 30; i += 1) await new Promise((resolve) => setImmediate(resolve))
-      await new Promise((resolve) => setTimeout(resolve, 0))
-    },
-    stop() {
-      process.off('unhandledRejection', onUnhandled)
-    },
-  }
-}
-
 const TIMED_OUT = Symbol('timed-out')
 /** 「不悬挂」的可断言形式：等待超过 3 秒还没回话就是悬挂。先到先清表，别把定时器留到测试进程退出。 */
 function within(promise, ms = 3000) {
@@ -136,16 +70,6 @@ function within(promise, ms = 3000) {
     timer = setTimeout(() => resolve(TIMED_OUT), ms)
   })
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
-}
-
-async function waitForPhase(clock, host, phone, key, phase) {
-  for (let i = 0; i < 200; i += 1) {
-    await clock.flush()
-    await clock.advance(10)
-    const reply = await host.handlers[phone]({})
-    if (phaseOf(reply.session, key) === phase) return reply
-  }
-  throw new Error('等不到相位 ' + phase + '（' + key + '）')
 }
 
 const doneTransport = () => ({
@@ -173,9 +97,9 @@ test('任务边界：租约判定抛未预期异常 → 任务明确 failed，�
     startedAt: 1000,
     heartbeatAt: clock.now(),
   })
-  const track = trackUnhandled()
+  const track = trackUnhandledRejections()
   const host = createMultiHostUpdate(
-    hubDeps(scope, clock, fakeTransport({ a: { check: { kind: 'update', version: '2.0.0' } } }), {
+    makeHubDeps(scope, clock, fakeTransport({ a: { check: { kind: 'update', version: '2.0.0' } } }), {
       hubIsProcessAlive: () => {
         throw new Error('probe boom')
       },
@@ -223,7 +147,7 @@ test('任务边界：一个任务抛错不拖垮后续任务（泵在同一轮�
     scope,
     install: async () => ({ kind: 'done', restartRequired: false }),
   })
-  const track = trackUnhandled()
+  const track = trackUnhandledRejections()
   try {
     const pendingA = submitHubTask(scope, seatA.seat, deps)
     await aStarted
@@ -258,12 +182,12 @@ test('租约读取 seam：一次异常按让位收场，退避重试后继续推
       return await DEFAULT_HUB_IO.readLease(paths)
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, doneTransport(), { hubIo: io }), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, doneTransport(), { hubIo: io }), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
   })
-  const track = trackUnhandled()
+  const track = trackUnhandledRejections()
   try {
     const first = await within(host.handlers['life.batchInstall']({}))
     assert.notEqual(first, TIMED_OUT, '等待者不许悬挂')
@@ -291,12 +215,12 @@ test('租约读取 seam：持续异常到达上限 → 任务明确 failed，不
       throw new Error('lease read boom')
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, doneTransport(), { hubIo: io }), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, doneTransport(), { hubIo: io }), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
   })
-  const track = trackUnhandled()
+  const track = trackUnhandledRejections()
   try {
     const first = await within(host.handlers['life.batchInstall']({}))
     assert.notEqual(first, TIMED_OUT)
@@ -337,12 +261,12 @@ test('租约在驱动中被读坏：这一步让位重排队，不带着坏 I/O 
       return { kind: 'done', restartRequired: false }
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, transport, { hubIo: io }), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, transport, { hubIo: io }), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
   })
-  const track = trackUnhandled()
+  const track = trackUnhandledRejections()
   try {
     const first = await within(host.handlers['life.batchInstall']({}))
     assert.notEqual(first, TIMED_OUT, '等待者不许悬挂')
@@ -377,12 +301,12 @@ test('租约写入 seam：一次异常按让位收场，退避重试后继续推
       return await DEFAULT_HUB_IO.writeLease(paths, lease)
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, doneTransport(), { hubIo: io }), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, doneTransport(), { hubIo: io }), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
   })
-  const track = trackUnhandled()
+  const track = trackUnhandledRejections()
   try {
     const first = await within(host.handlers['life.batchInstall']({}))
     assert.notEqual(first, TIMED_OUT, '等待者不许悬挂')
@@ -410,12 +334,12 @@ test('租约写入 seam：持续异常到达上限 → 任务明确 failed，不
       throw new Error('lease write boom')
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, doneTransport(), { hubIo: io }), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, doneTransport(), { hubIo: io }), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
   })
-  const track = trackUnhandled()
+  const track = trackUnhandledRejections()
   try {
     const first = await within(host.handlers['life.batchInstall']({}))
     assert.notEqual(first, TIMED_OUT)
@@ -438,12 +362,12 @@ test('租约写入 seam：端口正常返回 false（没写进去）仍按单进
   const { scope } = await mkScope('hub253-lease-write-false-')
   const clock = fakeClock()
   const io = { ...DEFAULT_HUB_IO, writeLease: async () => false }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, doneTransport(), { hubIo: io }), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, doneTransport(), { hubIo: io }), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
   })
-  const track = trackUnhandled()
+  const track = trackUnhandledRejections()
   try {
     const reply = await within(host.handlers['life.batchInstall']({}))
     assert.notEqual(reply, TIMED_OUT)
@@ -469,12 +393,12 @@ test('租约释放 seam：释放异常不改写结局，只多留一份过期租
       throw new Error('lease release boom')
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, doneTransport(), { hubIo: io }), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, doneTransport(), { hubIo: io }), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
   })
-  const track = trackUnhandled()
+  const track = trackUnhandledRejections()
   try {
     const reply = await within(host.handlers['life.batchInstall']({}))
     assert.notEqual(reply, TIMED_OUT)
@@ -500,12 +424,12 @@ test('方案写入 seam：方案写不进去只影响别人接手，不影响本
       throw new Error('plan write boom')
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, doneTransport(), { hubIo: io }), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, doneTransport(), { hubIo: io }), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
   })
-  const track = trackUnhandled()
+  const track = trackUnhandledRejections()
   try {
     const reply = await within(host.handlers['life.batchInstall']({}))
     assert.notEqual(reply, TIMED_OUT)
@@ -531,8 +455,8 @@ test('孤儿接管 seam：装载时读方案抛异常 → 按没有方案降级�
       throw new Error('plans read boom')
     },
   }
-  const track = trackUnhandled()
-  const host = createMultiHostUpdate(hubDeps(scope, clock, doneTransport(), { hubIo: io }), {
+  const track = trackUnhandledRejections()
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, doneTransport(), { hubIo: io }), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
@@ -572,7 +496,7 @@ test('孤儿接管 seam：单个方案接管抛错只放弃那一个，下一个
   })
   const io = { ...DEFAULT_HUB_IO, readPlans: async () => [planA, planB] }
   const adopted = []
-  const track = trackUnhandled()
+  const track = trackUnhandledRejections()
   try {
     adoptOrphanHubTasks(scope, { ...deps, io }, async (plan) => {
       if (plan.owner === 'other') throw new Error('adopt boom')
@@ -603,8 +527,8 @@ test('关停：停掉所有中枢退避定时器，下一次装载不用等陈�
     },
   }
   const options = { hub: true, prefix: 'life', targets: [mkTarget('a')] }
-  const first = createMultiHostUpdate(hubDeps(scope, clock, transport), options)
-  const track = trackUnhandled()
+  const first = createMultiHostUpdate(makeHubDeps(scope, clock, transport), options)
+  const track = trackUnhandledRejections()
   try {
     const reply = await within(first.handlers['life.batchInstall']({}))
     assert.notEqual(reply, TIMED_OUT)
@@ -618,7 +542,7 @@ test('关停：停掉所有中枢退避定时器，下一次装载不用等陈�
     assert.equal(await readHubLease(paths), null, '关停后盘上没有租约')
 
     // 新实例（同进程新槽）装载：按盘上方案与账本接管，不用等 20 秒陈旧窗口。
-    const second = createMultiHostUpdate(hubDeps(scope, clock, transport), options)
+    const second = createMultiHostUpdate(makeHubDeps(scope, clock, transport), options)
     try {
       const done = await waitForPhase(clock, second, 'life.batchStatus', 'a', 'done')
       assert.equal(phaseOf(done.session, 'a'), 'done')
@@ -654,12 +578,12 @@ test('关停：推进中关停也归还本代租约，等待者拿到终态（�
       return { kind: 'done', restartRequired: false }
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, transport), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, transport), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
   })
-  const track = trackUnhandled()
+  const track = trackUnhandledRejections()
   try {
     const pending = host.handlers['life.batchInstall']({})
     await installStarted
@@ -709,17 +633,17 @@ test('宿主退出：同步停表并归还本代租约（下一次启动立刻�
       return { kind: 'done', restartRequired: false }
     },
   }
-  const queuedHost = createMultiHostUpdate(hubDeps(scopeQueued.scope, clock, queuedTransport), {
+  const queuedHost = createMultiHostUpdate(makeHubDeps(scopeQueued.scope, clock, queuedTransport), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
   })
-  const runningHost = createMultiHostUpdate(hubDeps(scopeRunning.scope, clock, runningTransport), {
+  const runningHost = createMultiHostUpdate(makeHubDeps(scopeRunning.scope, clock, runningTransport), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
   })
-  const track = trackUnhandled()
+  const track = trackUnhandledRejections()
   try {
     await queuedHost.handlers['life.batchInstall']({})
     assert.ok(clock.pending() > 0, '让位后有待触发的退避定时器')

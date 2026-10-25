@@ -8,6 +8,8 @@
 //      排队由本模块的任务表表达，不靠调用方自己重试。
 //   3. 每步都复用既有驱动器（core/batch/run.ts，maxSteps:1）并立即落盘；
 //      本模块只负责「什么时候推、推完告诉谁」，不重写批量语义。
+//   4. 协议换代（#254）：注册表的 Symbol 带协议版本，新一代用新槽；旧任务表留在旧 Symbol 上由旧泵排空，
+//      旧一代还有未结算任务时本代只观察，排空或观察超时后按盘上方案/账本接管。
 //
 // 边界：本模块不认识具体插件，只认识 HubSeat（执行席）与盘上账本。
 //   发起方返回/卸载不影响已提交任务的推进；等待者在 done/failed 时拿到终态，
@@ -19,11 +21,13 @@ import { decideHubCycleVerdict, type HubCycleVerdict } from '../../core/hub/driv
 import {
   createHubLease,
   decideHubLease,
+  HUB_LEASE_STALE_MS,
   isHubLeaseOwner,
   shouldHeartbeatHubLease,
   type HubLease,
 } from '../../core/hub/lease-policy.js'
 import { hubIoOf, safeReadLease, safeReleaseLease, safeWriteLease, safeWritePlan } from './boundary.js'
+import { HUB_REGISTRY_KEY, legacyHubBusyForKey } from './handoff.js'
 import { releaseHubLeaseSync } from './lease-store.js'
 import { hubPathsForUpdate, type HubPaths } from './plan-store.js'
 import {
@@ -36,9 +40,6 @@ import {
   type HubSettledReport,
   type HubTaskOutcome,
 } from './protocol.js'
-
-/** 进程级注册表的 Symbol 槽：同一进程里不同包副本共用一份（协议版本随状态一起存）。 */
-const REGISTRY_KEY = Symbol.for('dsh-plugin-update:update-hub:registry')
 
 /** 槽位里保留多少条已结算任务（只为去重/诊断，防内存无界增长）。 */
 const MAX_SETTLED_TASKS = 8
@@ -74,6 +75,8 @@ interface HubSlot {
   pumping: boolean
   /** 槽位已关停（宿主关停/协议换代）：泵不再起新轮、退避定时器不再续命。 */
   closed: boolean
+  /** 换代观察起点（#254）：第一次看见旧一代还有未结算任务的时间；null = 当前没在观察。 */
+  legacyObservedAt: number | null
   retryTimer: unknown
   lease: HubLease | null
   deps: HubRuntimeDeps
@@ -86,13 +89,14 @@ interface HubRegistryState {
 
 function registry(): HubRegistryState {
   const holder = globalThis as unknown as Record<PropertyKey, unknown>
-  const existing = holder[REGISTRY_KEY] as HubRegistryState | undefined
+  const existing = holder[HUB_REGISTRY_KEY] as HubRegistryState | undefined
   if (existing && typeof existing === 'object' && existing.version === HUB_PROTOCOL_VERSION && existing.slots instanceof Map) {
     return existing
   }
-  // 协议换代：旧任务表不再被读（它们的推进语义已不可保证）；盘上方案/账本原样保留，等新代码认领。
+  // 旧一代的任务表在别的 Symbol 上（handoff.ts 的 LEGACY_HUB_REGISTRIES）：本代不读、不写、不覆盖——
+  // 旧任务与旧等待者只归旧泵（#254）。盘上方案/账本原样保留，排空后由本代接管。
   const fresh: HubRegistryState = { version: HUB_PROTOCOL_VERSION, slots: new Map<string, HubSlot>() }
-  holder[REGISTRY_KEY] = fresh
+  holder[HUB_REGISTRY_KEY] = fresh
   return fresh
 }
 
@@ -142,6 +146,7 @@ function slotFor(scope: HubScope, deps: HubRuntimeDeps): HubSlot | null {
     tasks: [],
     pumping: false,
     closed: false,
+    legacyObservedAt: null,
     retryTimer: null,
     lease: null,
     deps,
@@ -155,11 +160,15 @@ function taskIdOf(seat: HubSeat): string {
   return seat.owner + ':' + seat.plan.sessionId
 }
 
-function waitForTask(task: HubTask): Promise<HubTaskOutcome> {
-  if (task.state === 'settled' && task.outcome) return Promise.resolve(task.outcome)
+function registerTaskWaiter(task: HubTask): Promise<HubTaskOutcome> {
   return new Promise<HubTaskOutcome>((resolve) => {
     task.waiters.push(resolve)
   })
+}
+
+function waitForTask(task: HubTask): Promise<HubTaskOutcome> {
+  if (task.state === 'settled' && task.outcome) return Promise.resolve(task.outcome)
+  return registerTaskWaiter(task)
 }
 
 function resolveWaiters(task: HubTask, outcome: HubTaskOutcome): void {
@@ -319,10 +328,18 @@ async function submitHubTaskToSlot(
     waiters: [],
   }
   slot.tasks.push(task)
+  if (busyBefore) {
+    // 忙时只回 queued，不登记等待者：这个结局已经定了，留一个没人等兑现的 promise 只会误导下一个读者。
+    kickPump(slot)
+    if (slot.closed) settleTaskAsQueued(task)
+    return 'queued'
+  }
+  // 先登记等待者、再起泵（#254）：换代观察闸是同步路径，泵可能在同一 tick 里就把任务让位回队列；
+  // 晚一步登记的等待者会永远等不到唤醒（让位只结算当时已有的等待者）。
+  const outcome = registerTaskWaiter(task)
   kickPump(slot)
   if (slot.closed) settleTaskAsQueued(task)
-  if (busyBefore) return 'queued'
-  return await waitForTask(task)
+  return await outcome
 }
 
 async function pumpSlot(slot: HubSlot): Promise<void> {
@@ -358,6 +375,15 @@ async function runTaskGuarded(slot: HubSlot, task: HubTask): Promise<RunVerdict>
 }
 
 async function runTask(slot: HubSlot, task: HubTask): Promise<RunVerdict> {
+  // 换代只观察（#254）：旧一代还有未结算任务时，本代先不驱动同一步——旧任务与旧等待者只认旧泵，
+  // 贸然接管会把同一步走两遍。让位退避等它排空；观察窗口到 HUB_LEASE_STALE_MS 还没排空，
+  // 说明旧一代可能已死/假死，此后不再只观察，交给租约仲裁（旧租约新鲜时 ensureLease 仍会让位）。
+  if (legacyHubBusyForKey(slot.key)) {
+    if (slot.legacyObservedAt === null) slot.legacyObservedAt = slot.deps.now()
+    if (slot.deps.now() - slot.legacyObservedAt < HUB_LEASE_STALE_MS) return requeueTask(slot, task)
+  } else {
+    slot.legacyObservedAt = null
+  }
   const attempt = await ensureLease(slot, task.owner)
   if (attempt.kind === 'fault') {
     // 租约端口抛了未预期异常：这不是「等别家让位」，坏 I/O 等不来。记一次故障后让位；
@@ -389,6 +415,10 @@ async function runTask(slot: HubSlot, task: HubTask): Promise<RunVerdict> {
       await settleTask(slot, task, { outcome: 'done', stoppedBecause: 'finished', steps: [], session })
       return 'next'
     }
+    // 旧一代排空/观察超时后真正由本代开推：补做「接手续跑」该做的落盘（重读最新账本再 resume、
+    // 清上一任排队占位、记启动日志）。旧一代忙时这只席位是只读装的，不补就会带着中断相位开推、
+    // 日志也缺续跑口径（#254 审查）。
+    await task.seat.takeOver?.()
     const result = await driveTask(slot, task)
     // 让位：账本已逐步落盘，任务回队列等退避重试；等待者先拿到「已排队」。
     if (result.kind === 'yield') return requeueTask(slot, task)
@@ -652,10 +682,23 @@ function progressSignature(session: BatchSession): string {
   return session.id + '|' + rows
 }
 
-/** 这个使用范围里有没有未收尾的中枢任务（drain 等旁路据此让位，避免双驱动）。 */
-export function hubBusyForScope(scope: HubScope): boolean {
+/** 这个使用范围里旧一代中枢还有没有未结算任务（#254：只观察、不接管、不修改；探针在 handoff.ts）。 */
+export function legacyHubBusyForScope(scope: HubScope): boolean {
+  return legacyHubBusyForKey(slotKeyOf(scope))
+}
+
+/** 本代这个使用范围里有没有未收尾的中枢任务（drain 等旁路据此让位，避免双驱动）。 */
+export function ownHubBusyForScope(scope: HubScope): boolean {
   const slot = registry().slots.get(slotKeyOf(scope))
   return Boolean(slot && slot.tasks.some((task) => task.state !== 'settled'))
+}
+
+/**
+ * 这个使用范围里有没有未收尾的中枢任务：本代，或上一代（#254）。
+ * 上一代的任务本代只观察不抢；drain 等旁路也一起让位，等旧泵排空。
+ */
+export function hubBusyForScope(scope: HubScope): boolean {
+  return ownHubBusyForScope(scope) || legacyHubBusyForScope(scope)
 }
 
 /**

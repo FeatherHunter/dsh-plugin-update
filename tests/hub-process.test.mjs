@@ -19,74 +19,12 @@ import { readHubLease, writeHubLease } from '../dist/host/hub/lease-store.js'
 import { HUB_LEASE_HEARTBEAT_MS, HUB_LEASE_STALE_MS, HUB_LEASE_VERSION } from '../dist/core/hub/lease-policy.js'
 import { __resetHubRegistryForTests, hubSlotCountForTests } from '../dist/host/hub/registry.js'
 import { fakeTransport, mkScope, mkTarget, phaseOf, unbindAll } from './helpers/batch-log-harness.mjs'
+import { fakeClock, makeHubDeps, waitForPhase } from './helpers/hub-harness.mjs'
 
 beforeEach(() => {
   __resetHubRegistryForTests()
 })
 
-/** 假钟：定时器归测试手动推进（中枢的退避重试要可控）。 */
-function fakeClock(start = 1_000_000) {
-  let current = start
-  let seq = 0
-  const timers = new Map()
-  const timersPort = {
-    setTimeout(fn, ms) {
-      seq += 1
-      const id = seq
-      timers.set(id, { fn, at: current + Math.max(0, Number(ms) || 0) })
-      return id
-    },
-    clearTimeout(id) {
-      timers.delete(id)
-    },
-  }
-  async function flush() {
-    for (let i = 0; i < 20; i += 1) {
-      await new Promise((resolve) => setImmediate(resolve))
-    }
-    // setImmediate 轮转不保证等得到磁盘/线程池回调：再让出一拍真实时间，
-    // 否则整组套件并发时「泵刚收手」与「断言已到」会赛跑（假阴性）。
-    await new Promise((resolve) => setTimeout(resolve, 0))
-  }
-  async function advance(ms) {
-    const target = current + ms
-    for (let round = 0; round < 50; round += 1) {
-      await flush()
-      current = target
-      const due = [...timers.entries()]
-        .filter(([, timer]) => timer.at <= target)
-        .sort((a, b) => a[1].at - b[1].at)
-      if (due.length === 0) return
-      for (const [id, timer] of due) {
-        timers.delete(id)
-        timer.fn()
-      }
-    }
-  }
-  return { now: () => current, timers: timersPort, advance, flush }
-}
-
-function hubDeps(scope, clock, transport, extra = {}) {
-  return {
-    scope,
-    transport,
-    timers: clock.timers,
-    now: clock.now,
-    randomId: () => 'hub-test-slot',
-    hubRetryMs: 5,
-    ...extra,
-  }
-}
-
-async function waitForPhase(clock, host, phone, key, phase) {
-  for (let i = 0; i < 200; i += 1) {
-    await clock.flush()
-    await clock.advance(10)
-    const reply = await host.handlers[phone]({})
-    if (phaseOf(reply.session, key) === phase) return reply
-  }
-  throw new Error(`等不到相位 ${phase}（${key}）`)
-}
 function allDone(session) {
   return session.entries.every((entry) => entry.phase === 'done' || entry.phase === 'skipped' || entry.phase === 'current')
 }
@@ -95,7 +33,7 @@ test('空闲提交：推到收尾、账本/方案落盘、租约归还', async (
   const { scope } = await mkScope('hub-proc-idle-')
   const clock = fakeClock()
   const transport = fakeTransport({ a: { check: { kind: 'update', version: '2.0.0' } } })
-  const host = createMultiHostUpdate(hubDeps(scope, clock, transport), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, transport), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('self'), mkTarget('a')],
@@ -134,7 +72,7 @@ test('让位：先被队列挡住回 queued，中枢退避后自己推完', asyn
       return { kind: 'done', restartRequired: false }
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, transport), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, transport), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
@@ -174,12 +112,12 @@ test('FIFO：忙时提交立刻回 queued，前一个收尾后中枢接着推下
       return { kind: 'done', restartRequired: false }
     },
   }
-  const hostA = createMultiHostUpdate(hubDeps(scope, clock, slowTransport), { hub: true, prefix: 'life', targets: [mkTarget('a')] })
+  const hostA = createMultiHostUpdate(makeHubDeps(scope, clock, slowTransport), { hub: true, prefix: 'life', targets: [mkTarget('a')] })
   const fastTransport = {
     check: async () => ({ kind: 'update', version: '2.0.0' }),
     install: async () => ({ kind: 'done', restartRequired: false }),
   }
-  const hostB = createMultiHostUpdate(hubDeps(scope, clock, fastTransport), { hub: true, prefix: 'other', targets: [mkTarget('b')] })
+  const hostB = createMultiHostUpdate(makeHubDeps(scope, clock, fastTransport), { hub: true, prefix: 'other', targets: [mkTarget('b')] })
   try {
     const pendingA = hostA.handlers['life.batchInstall']({})
     await started
@@ -211,7 +149,7 @@ test('回退线：hub:false 不写中枢方案，仍在调用方里推完', asyn
     check: async () => ({ kind: 'update', version: '2.0.0' }),
     install: async () => ({ kind: 'done', restartRequired: false }),
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, transport), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, transport), {
     hub: false,
     prefix: 'life',
     targets: [mkTarget('a')],
@@ -251,7 +189,7 @@ test('接管：盘上租约记着活着但假死的进程（心跳过期），�
       return { kind: 'done', restartRequired: false }
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, transport, { hubIsProcessAlive: () => true }), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, transport, { hubIsProcessAlive: () => true }), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
@@ -291,7 +229,7 @@ test('换代期间的旧心跳不覆盖新驾驶位：被接管后旧驱动不�
       return { kind: 'done', restartRequired: false }
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, transport, { hubIsProcessAlive: () => true }), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, transport, { hubIsProcessAlive: () => true }), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
@@ -330,7 +268,7 @@ test('接管：盘上租约记着死进程，活着的一方换代接过来推�
       return { kind: 'done', restartRequired: false }
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, transport), { hub: true, prefix: 'life', targets: [mkTarget('a')] })
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, transport), { hub: true, prefix: 'life', targets: [mkTarget('a')] })
   try {
     const reply = await host.handlers['life.batchInstall']({})
     assert.equal(reply.ok, true)
@@ -359,7 +297,7 @@ test('行级选择：hub 下点装某一家只推那一家（B1 回归）', asyn
     check: async () => ({ kind: 'update', version: '2.0.0' }),
     install: async () => ({ kind: 'done', restartRequired: false }),
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, transport), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, transport), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a'), mkTarget('b')],
@@ -389,7 +327,7 @@ test('队列长期被占：让位不累计成故障（B2 回归）', async () =>
       return { kind: 'done', restartRequired: false }
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, transport), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, transport), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
@@ -433,7 +371,7 @@ test('驱动中并发重试不被陈旧快照覆盖（B3 回归：failed → pen
       return { kind: 'done', restartRequired: false }
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, transport), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, transport), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a'), mkTarget('b')],
@@ -480,7 +418,7 @@ test('排队中再点另一行：selection 取并集，两次点击都算数（B
       return { kind: 'done', restartRequired: false }
     },
   }
-  const host = createMultiHostUpdate(hubDeps(scope, clock, transport), {
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, transport), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a'), mkTarget('b')],

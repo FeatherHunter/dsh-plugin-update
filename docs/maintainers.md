@@ -145,7 +145,7 @@ npm run probe:layout     # 弹窗布局量盒子（#93/#240 契约；需系统 C
 ```
 
 - **事件目录生成范围**：`scripts/gen-log-catalog.mjs` 按表头精确识别 §1 常驻表与 §2 按需表（两张表头逐字相同），只重写事件/级别/字段三列，「说明与脱敏」列逐字保留；清单里有、目录里缺的事件只警告（走 stderr、不失败，缺行属 #206 回填范围）。改了语义列或表结构后先跑 `--check` 看漂移面，再决定是否手工补行。
-- **测试夹具**：批量日志测试共用 `tests/helpers/batch-log-harness.mjs`（`bind`/`collector`/`rowsOf`/`fakeTransport`/`mkTarget`/`mkScope`），新写批量/队列日志用例先看它，不要再抄一套 collector。
+- **测试夹具**：批量日志测试共用 `tests/helpers/batch-log-harness.mjs`（`bind`/`collector`/`rowsOf`/`fakeTransport`/`mkTarget`/`mkScope`），新写批量/队列日志用例先看它，不要再抄一套 collector；中枢宿主测试共用 `tests/helpers/hub-harness.mjs`（`fakeClock`/`makeHubDeps`/`waitForPhase`/`trackUnhandledRejections`），不要再抄一套假时钟或 hubDeps。
 - **端到端冒烟**：`scripts/log-smoke.mjs` 只打真 `dist/`，覆盖测试不易构造的现场（属主 `logAppend` 转发、无属主退化、真实队列归属、阶段注入）；改批量日志落点后跑一次，别只跑单测。
 
 ### 双语门禁（#56）

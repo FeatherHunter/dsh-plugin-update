@@ -41,7 +41,7 @@ _避免_：已修复、已解决、忽略失败、清掉失败
 ## 更新中枢
 
 **更新中枢**:
-进程级的批量更新推进者：批次从发起它的宿主 fiber 里搬出来，按使用范围 `(homeDir, profileDir)` 挂在一张进程级注册表上；fiber 被卸载、页面关掉、甚至发起方自己就是被替换的那一家，中枢仍按盘上的方案把这一轮推完。缺省开关是「传了宿主 `ctx` 开、纯宿主脚本关」，`hub: false` 回旧路径（`src/host/batch/fan-out.ts:203`，泵与任务表在 `src/host/hub/registry.ts`）。
+进程级的批量更新推进者：批次从发起它的宿主 fiber 里搬出来，按使用范围 `(homeDir, profileDir)` 挂在一张进程级注册表上；fiber 被卸载、页面关掉、甚至发起方自己就是被替换的那一家，中枢仍按盘上的方案把这一轮推完。缺省开关是「传了宿主 `ctx` 开、纯宿主脚本关」，`hub: false` 回旧路径（`src/host/batch/fan-out.ts:203`，泵与任务表在 `src/host/hub/registry.ts`）。注册表键带协议版本（`Symbol.for('dsh-plugin-update:update-hub:registry:v<协议版本>')`，版本 Symbol 与旧代清单在 `src/host/hub/handoff.ts`）：换代时新旧两代各用各的任务表，旧任务留给旧泵排空（#254）。
 _避免_：后台任务、队列服务、守护进程
 
 **执行席（seat）**:
@@ -56,8 +56,12 @@ _避免_：计划书、任务单、配置文件
 同一使用范围「谁是当前推进者」的唯一凭证，落在 `<queue.directory>/hub/lease.json`：心跳 5 秒，失联 20 秒或同机 pid 已死才允许接管，接管代次 +1，释放只认自己的代次——防两个进程同时推、互相覆盖账本（`src/core/hub/lease-policy.ts`、`src/host/hub/lease-store.ts`）。
 _避免_：锁、锁文件、抢锁
 
+**协议换代（hub handoff）**:
+HMR 在同一进程里换包版本时，新一代中枢用带协议版本的 Symbol 槽另起任务表，旧一代的任务表与等待者原样留给旧泵排空；本代先只观察、任务让位退避，旧一代排空或观察超时（`HUB_LEASE_STALE_MS`）后才按盘上方案与账本接管未收尾会话（`src/host/hub/registry.ts` 的版本限定注册表，装配在 `src/host/batch/fan-out.ts` 的 `adoptOrphanPlan`，#254）。旧一代忙时席位只读装好；真正开推前由 `HubSeat.takeOver` 重读最新账本、把中断相位退回 `pending`、清上一任排队占位并补记续跑启动行。
+_避免_：热迁移、接管旧任务表、清空重启
+
 **孤儿接管**:
-进程重启或发起方 fiber 被销毁后，盘上还留着「未收尾、有方案、会话编号对得上」的一轮；装载批量入口时按本属主扫方案，把它交给中枢续推，用户不必重开面板或再点一次「继续上次未完成的更新」（`src/host/hub/adopt.ts` 的 `adoptOrphanHubTasks`，装配在 `src/host/batch/fan-out.ts` 的 `adoptOrphanPlan`）。只动自己属主，已收尾不重装；接管失败只放弃那一个方案，绝不让后台异常变成进程退出（#253）。
+进程重启或发起方 fiber 被销毁后，盘上还留着「未收尾、有方案、会话编号对得上」的一轮；装载批量入口时按本属主扫方案，把它交给中枢续推，用户不必重开面板或再点一次「继续上次未完成的更新」（`src/host/hub/adopt.ts` 的 `adoptOrphanHubTasks`，装配在 `src/host/batch/fan-out.ts` 的 `adoptOrphanPlan`）。只动自己属主，已收尾不重装；旧一代中枢还有未结算任务时只观察、只读装席位，等它排空或观察超时（20s）后才由本代按租约 + 盘上方案接管（#254）；接管开推前先补齐续跑落盘（`takeOver`），接管失败只放弃那一个方案，绝不让后台异常变成进程退出（#253）。
 _避免_：恢复、重放、接续
 
 ## 日志

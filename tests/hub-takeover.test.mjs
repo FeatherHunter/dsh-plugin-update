@@ -15,66 +15,11 @@ import { createMultiHostUpdate } from '../dist/host-batch.js'
 import { hubPathsForUpdate, readHubPlan } from '../dist/host/hub/plan-store.js'
 import { __resetHubRegistryForTests } from '../dist/host/hub/registry.js'
 import { mkScope, mkTarget, phaseOf, unbindAll } from './helpers/batch-log-harness.mjs'
+import { fakeClock, makeHubDeps, waitForPhase } from './helpers/hub-harness.mjs'
 
 beforeEach(() => {
   __resetHubRegistryForTests()
 })
-
-/** 假钟：定时器归测试手动推进（中枢的退避重试要可控）。 */
-function fakeClock(start = 1_000_000) {
-  let current = start
-  let seq = 0
-  const timers = new Map()
-  const timersPort = {
-    setTimeout(fn, ms) {
-      seq += 1
-      const id = seq
-      timers.set(id, { fn, at: current + Math.max(0, Number(ms) || 0) })
-      return id
-    },
-    clearTimeout(id) {
-      timers.delete(id)
-    },
-  }
-  async function flush() {
-    for (let i = 0; i < 20; i += 1) {
-      await new Promise((resolve) => setImmediate(resolve))
-    }
-  }
-  async function advance(ms) {
-    const target = current + ms
-    for (let round = 0; round < 50; round += 1) {
-      await flush()
-      current = target
-      const due = [...timers.entries()]
-        .filter(([, timer]) => timer.at <= target)
-        .sort((a, b) => a[1].at - b[1].at)
-      if (due.length === 0) return
-      for (const [id, timer] of due) {
-        timers.delete(id)
-        timer.fn()
-      }
-    }
-  }
-  return { now: () => current, timers: timersPort, advance, flush }
-}
-
-let driverSeq = 0
-
-function hubDeps(scope, clock, transport, extra = {}) {
-  driverSeq += 1
-  // 每个实例一个独立 driverId：两个「宿主」同进程共存时，旧泵的释放不能删掉新驾驶位。
-  const driverId = 'hub-test-slot-' + driverSeq
-  return {
-    scope,
-    transport,
-    timers: clock.timers,
-    now: clock.now,
-    randomId: () => driverId,
-    hubRetryMs: 5,
-    ...extra,
-  }
-}
 
 /**
  * 「进程重启」：先让上一任泵把收尾（含租约释放的 I/O）跑完，再丢注册表。
@@ -105,23 +50,13 @@ function queuedThenDoneTransport(script) {
   }
 }
 
-async function waitForPhase(clock, host, phone, key, phase) {
-  for (let i = 0; i < 200; i += 1) {
-    await clock.flush()
-    await clock.advance(10)
-    const reply = await host.handlers[phone]({})
-    if (phaseOf(reply.session, key) === phase) return reply
-  }
-  throw new Error(`等不到相位 ${phase}（${key}）`)
-}
-
 test('重启接管：发起方消失后，同进程新实例按盘上方案接着推完', async () => {
   const { scope } = await mkScope('hub-takeover-resume-')
   const clock = fakeClock()
   const transport = queuedThenDoneTransport({ a: { check: { kind: 'update', version: '2.0.0' } } })
   const options = { hub: true, prefix: 'life', targets: [mkTarget('a')] }
 
-  const first = createMultiHostUpdate(hubDeps(scope, clock, transport), options)
+  const first = createMultiHostUpdate(makeHubDeps(scope, clock, transport), options)
   const reply = await first.handlers['life.batchInstall']({})
   assert.equal(reply.ok, true)
   assert.equal(phaseOf(reply.session, 'a'), 'ready', '被队列挡住时先把现状交回去，不算失败')
@@ -129,7 +64,7 @@ test('重启接管：发起方消失后，同进程新实例按盘上方案接�
   first.dispose()
   await restartProcess(clock)
 
-  const second = createMultiHostUpdate(hubDeps(scope, clock, transport), options)
+  const second = createMultiHostUpdate(makeHubDeps(scope, clock, transport), options)
   try {
     const done = await waitForPhase(clock, second, 'life.batchStatus', 'a', 'done')
     assert.equal(done.session.id, sessionId, '接手的是同一份账本，不新开批次')
@@ -149,13 +84,13 @@ test('已收尾的会话不再重装', async () => {
   const transport = queuedThenDoneTransport({ a: { check: { kind: 'update', version: '2.0.0' } } })
   const options = { hub: true, prefix: 'life', targets: [mkTarget('a')] }
 
-  const first = createMultiHostUpdate(hubDeps(scope, clock, transport), options)
+  const first = createMultiHostUpdate(makeHubDeps(scope, clock, transport), options)
   const reply = await first.handlers['life.batchInstall']({})
   assert.equal(phaseOf(reply.session, 'a'), 'ready')
   first.dispose()
   await restartProcess(clock)
 
-  const second = createMultiHostUpdate(hubDeps(scope, clock, transport), options)
+  const second = createMultiHostUpdate(makeHubDeps(scope, clock, transport), options)
   try {
     await waitForPhase(clock, second, 'life.batchStatus', 'a', 'done')
   } finally {
@@ -163,7 +98,7 @@ test('已收尾的会话不再重装', async () => {
   }
 
   const installsBefore = transport.installCount
-  const third = createMultiHostUpdate(hubDeps(scope, clock, transport), options)
+  const third = createMultiHostUpdate(makeHubDeps(scope, clock, transport), options)
   try {
     for (let i = 0; i < 20; i += 1) {
       await clock.flush()
@@ -183,7 +118,7 @@ test('只接手自己属主的方案：别家的方案与账本一概不动', as
   const clock = fakeClock()
   const transport = queuedThenDoneTransport({ b: { check: { kind: 'update', version: '2.0.0' } } })
 
-  const other = createMultiHostUpdate(hubDeps(scope, clock, transport), {
+  const other = createMultiHostUpdate(makeHubDeps(scope, clock, transport), {
     hub: true,
     prefix: 'other',
     targets: [mkTarget('b')],
@@ -193,7 +128,7 @@ test('只接手自己属主的方案：别家的方案与账本一概不动', as
   other.dispose()
   await restartProcess(clock)
 
-  const life = createMultiHostUpdate(hubDeps(scope, clock, transport), {
+  const life = createMultiHostUpdate(makeHubDeps(scope, clock, transport), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
