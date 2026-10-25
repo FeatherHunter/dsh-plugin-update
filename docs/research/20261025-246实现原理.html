@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>更新中枢 #246：从第一性原理讲清一次更新是怎么被执行的</title>
+<style>
+  :root {
+    --paper: #f6f3ec;
+    --paper-2: #efeae0;
+    --ink: #1d1c1a;
+    --ink-2: #3b3832;
+    --muted: #6f6a60;
+    --line: #d8d1c4;
+    --accent: #b4451f;
+    --accent-soft: #f3ded4;
+    --teal: #0f6b63;
+    --teal-soft: #dceeea;
+    --gold: #8a6417;
+    --gold-soft: #f3e8c9;
+    --code: #1f2724;
+    --code-ink: #e9eee9;
+    --radius: 16px;
+    --shadow: 0 10px 30px rgba(40, 33, 22, 0.08);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 12% 0%, rgba(180,69,31,0.08), transparent 32rem),
+      radial-gradient(circle at 92% 18%, rgba(15,107,99,0.07), transparent 30rem),
+      var(--paper);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:hover { color: #812d12; }
+  .wrap { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+
+  /* Hero */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    background: #1d2421;
+    color: #f7f3ea;
+    padding: 72px 0 56px;
+    border-bottom: 6px solid var(--accent);
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    inset: -30% -10% auto auto;
+    width: 54rem; height: 54rem;
+    background: radial-gradient(circle, rgba(180,69,31,0.45), transparent 62%);
+    pointer-events: none;
+  }
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: auto auto -40% -12%;
+    width: 38rem; height: 38rem;
+    background: radial-gradient(circle, rgba(15,107,99,0.35), transparent 65%);
+    pointer-events: none;
+  }
+  .hero .wrap { position: relative; z-index: 1; }
+  .kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; letter-spacing: .12em; text-transform: uppercase;
+    color: #f0b79f; margin: 0 0 18px;
+  }
+  .kicker::before { content: ""; width: 26px; height: 2px; background: #f0b79f; }
+  .hero h1 {
+    font-size: clamp(30px, 5vw, 54px);
+    line-height: 1.18;
+    letter-spacing: -0.02em;
+    margin: 0 0 18px;
+    max-width: 18em;
+    font-weight: 750;
+  }
+  .hero .lead {
+    font-size: clamp(16px, 2vw, 20px);
+    color: #d8d3c7;
+    max-width: 46em;
+    margin: 0 0 28px;
+  }
+  .hero .meta {
+    display: flex; flex-wrap: wrap; gap: 10px 18px;
+    font-size: 13px; color: #aaa99f;
+    border-top: 1px solid rgba(255,255,255,.14);
+    padding-top: 18px;
+  }
+  .hero .meta b { color: #ede7da; font-weight: 600; }
+
+  /* Nav */
+  .toc {
+    background: rgba(255,255,255,.55);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 50;
+  }
+  .toc .wrap { display: flex; gap: 8px; overflow-x: auto; padding: 12px 0; scrollbar-width: thin; }
+  .toc a {
+    flex: 0 0 auto;
+    font-size: 13px; color: var(--ink-2); text-decoration: none;
+    padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px;
+    background: #fffdf8;
+  }
+  .toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Sections */
+  main { padding: 54px 0 70px; }
+  section { margin: 0 0 66px; scroll-margin-top: 72px; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin: 0 0 18px; }
+  .sec-num {
+    flex: 0 0 auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px; color: var(--accent);
+    border: 1px solid rgba(180,69,31,.35);
+    background: var(--accent-soft);
+    padding: 2px 8px; border-radius: 6px;
+  }
+  h2 { font-size: clamp(23px, 3vw, 32px); line-height: 1.3; margin: 0; letter-spacing: -0.01em; }
+  h3 { font-size: 19px; margin: 30px 0 10px; color: var(--ink); }
+  h4 { font-size: 15px; margin: 18px 0 6px; color: var(--ink-2); }
+  p { margin: 0 0 14px; color: var(--ink-2); }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+
+  .quote {
+    margin: 0 0 24px;
+    padding: 22px 24px;
+    border-left: 4px solid var(--accent);
+    background: #fffaf2;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    box-shadow: var(--shadow);
+    font-size: 18px;
+    color: #2e2a23;
+  }
+  .quote b { color: var(--accent); }
+
+  .grid { display: grid; gap: 16px; }
+  .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .card {
+    background: #fffdf9;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px 20px 18px;
+    box-shadow: var(--shadow);
+  }
+  .card h4 { margin-top: 0; }
+  .card p:last-child { margin-bottom: 0; }
+  .card .ico {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 9px;
+    background: var(--teal-soft); color: var(--teal);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px; font-weight: 700; margin-bottom: 10px;
+  }
+  .card.acc .ico { background: var(--accent-soft); color: var(--accent); }
+  .card.gold .ico { background: var(--gold-soft); color: var(--gold); }
+
+  /* Constraint cards */
+  .constraint { position: relative; }
+  .constraint .tag {
+    position: absolute; top: 16px; right: 16px;
+    font-size: 11px; letter-spacing: .08em; color: var(--muted);
+  }
+  .constraint h4 { padding-right: 3.5em; }
+
+  /* Derivation table */
+  .derive {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    background: #fffdf9; border: 1px solid var(--line); border-radius: var(--radius);
+    overflow: hidden; box-shadow: var(--shadow); font-size: 14px;
+  }
+  .derive th, .derive td { padding: 13px 16px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  .derive th { background: #f1ece2; font-size: 12px; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+  .derive tr:last-child td { border-bottom: 0; }
+  .derive td:first-child { color: var(--accent); font-weight: 600; white-space: nowrap; }
+  .arrow { color: var(--teal); font-weight: 700; }
+
+  /* Architecture flow */
+  .arch {
+    display: grid;
+    grid-template-columns: 1fr 40px 1.15fr 40px 1fr;
+    align-items: stretch;
+    gap: 0;
+    margin: 22px 0 10px;
+  }
+  .arch .node {
+    background: #fffdf9; border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px; text-align: center; box-shadow: var(--shadow);
+  }
+  .arch .node strong { display: block; font-size: 15px; margin-bottom: 4px; }
+  .arch .node span { font-size: 12px; color: var(--muted); }
+  .arch .link {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent); font-size: 22px;
+  }
+  .arch .files { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 9px; }
+  .arch .files i {
+    font-style: normal; font-size: 11px; color: var(--teal);
+    background: var(--teal-soft); border-radius: 6px; padding: 4px 5px;
+  }
+
+  /* Timeline */
+  .timeline { position: relative; margin: 20px 0 0; padding-left: 34px; }
+  .timeline::before {
+    content: ""; position: absolute; left: 10px; top: 8px; bottom: 8px;
+    width: 2px; background: linear-gradient(var(--accent), var(--teal));
+    opacity: .35;
+  }
+  .step { position: relative; margin: 0 0 22px; }
+  .step::before {
+    content: ""; position: absolute; left: -30px; top: 8px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--accent); border: 3px solid var(--paper);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .step .when { font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+  .step h4 { margin: 2px 0 4px; font-size: 16px; }
+  .step p { margin: 0; font-size: 14px; }
+  .step .why {
+    margin-top: 8px; font-size: 13px; color: var(--teal);
+    background: var(--teal-soft); border-radius: 8px; padding: 7px 10px;
+  }
+
+  /* Code */
+  pre {
+    margin: 14px 0;
+    padding: 17px 18px;
+    background: var(--code);
+    color: var(--code-ink);
+    border-radius: 12px;
+    overflow-x: auto;
+    line-height: 1.65;
+    font-size: 12.5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    border: 1px solid #2c3733;
+  }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  p code, li code, td code {
+    background: #eee7da; color: #54331f; padding: 1px 5px; border-radius: 4px;
+    font-size: .9em;
+  }
+  .code-title { font-size: 12px; color: var(--muted); margin: 16px 0 -6px; letter-spacing: .04em; }
+
+  /* Parts */
+  .part {
+    background: #fffdf9; border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px; margin: 0 0 18px; box-shadow: var(--shadow);
+  }
+  .part h3 { margin-top: 0; display: flex; align-items: center; gap: 10px; }
+  .part h3 .idx {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px; color: #fff; background: var(--accent);
+    padding: 2px 8px; border-radius: 6px;
+  }
+  .part .analogy {
+    display: inline-block; margin: 0 0 10px;
+    font-size: 13px; color: var(--gold);
+    background: var(--gold-soft); border-radius: 999px; padding: 3px 10px;
+  }
+  .part p:last-child { margin-bottom: 0; }
+
+  /* state table */
+  .states { width: 100%; border-collapse: collapse; margin: 10px 0 0; font-size: 13.5px; }
+  .states th, .states td { border-bottom: 1px solid var(--line); padding: 9px 10px; text-align: left; vertical-align: top; }
+  .states th { background: #f1ece2; color: var(--muted); font-weight: 600; font-size: 12px; }
+  .states tr:last-child td { border-bottom: 0; }
+  .states td:first-child { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--teal); white-space: nowrap; }
+
+  /* chips */
+  .chip { display: inline-block; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; margin: 0 6px 6px 0; }
+  .chip.ok { background: #dceeea; color: #0b5a53; }
+  .chip.part { background: #f3e8c9; color: #6f4e0f; }
+  .chip.bad { background: #f3ded4; color: #8b3216; }
+  .chip.gray { background: #ece8df; color: #625d54; }
+
+  /* files table */
+  .files-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .files-table th, .files-table td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  .files-table th { background: #f1ece2; color: var(--muted); font-weight: 600; font-size: 12px; }
+  .files-table tr:last-child td { border-bottom: 0; }
+  .files-table td:first-child { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: var(--teal); white-space: nowrap; }
+
+  /* truth cards */
+  .truth { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .truth .card h4 { margin-bottom: 6px; }
+  .truth .card p { font-size: 13.5px; }
+
+  /* summary */
+  .summary {
+    background: #1d2421; color: #f7f3ea;
+    border-radius: 20px; padding: 34px 34px 30px;
+    box-shadow: 0 18px 50px rgba(28, 25, 20, .18);
+    position: relative; overflow: hidden;
+  }
+  .summary::after {
+    content: ""; position: absolute; right: -70px; bottom: -100px;
+    width: 300px; height: 300px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(180,69,31,.55), transparent 65%);
+  }
+  .summary h2 { color: #fff7ec; position: relative; z-index: 1; }
+  .summary p { color: #d8d3c7; position: relative; z-index: 1; font-size: 16px; }
+  .summary .big {
+    font-size: clamp(20px, 2.5vw, 27px); line-height: 1.55; color: #fff7ec;
+    margin: 8px 0 16px; font-weight: 650;
+  }
+  .summary em { color: #f0b79f; font-style: normal; }
+  .summary .fine { font-size: 13px; color: #aaa99f; margin-bottom: 0; }
+
+  footer { padding: 26px 0 46px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
+  footer p { margin: 4px 0; color: var(--muted); }
+  .backtop { float: right; font-size: 12px; text-decoration: none; }
+
+  @media (max-width: 900px) {
+    .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .g3, .truth { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .arch { grid-template-columns: 1fr; gap: 8px; }
+    .arch .link { height: 26px; transform: rotate(90deg); }
+    .arch .files { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 640px) {
+    .wrap { width: min(100% - 26px, 1120px); }
+    .hero { padding: 52px 0 40px; }
+    .hero h1 { font-size: 30px; }
+    .g2, .g3, .g4, .truth { grid-template-columns: 1fr; }
+    .derive { display: block; overflow-x: auto; }
+    .step { padding-right: 0; }
+    .summary { padding: 26px 22px; }
+    .sec-head { align-items: flex-start; }
+  }
+  @media print {
+    .toc { position: static; }
+    body { background: #fff; }
+    .hero { background: #1d2421 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .card, .part, .summary, pre { break-inside: avoid; }
+    a { color: inherit; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="kicker">规格 #246 · 实现原理</p>
+    <h1>更新中枢：把一次更新，从页面里搬进进程里</h1>
+    <p class="lead">不谈 API 清单，先问一个更根本的问题：更新为什么需要“中枢”？把这个问题拆到不能再拆，答案会自己长出来。</p>
+    <div class="meta">
+      <span>依据 <b>master @94b2774</b></span>
+      <span>涉及提交 <b>35704a1 · c2123c8 · 94b2774</b></span>
+      <span>发布面 <b>0.18.39 尚未包含中枢；0.18.40 未发布</b></span>
+      <span>整理于 <b>2026-10-25</b></span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="目录">
+  <div class="wrap">
+    <a href="#first">01 第一性原理</a>
+    <a href="#derive">02 推导出的部件</a>
+    <a href="#arch">03 架构总览</a>
+    <a href="#walk">04 一次更新的一生</a>
+    <a href="#parts">05 七个关键机制</a>
+    <a href="#files">06 代码地图</a>
+    <a href="#tradeoff">07 取舍与边界</a>
+    <a href="#truth">08 设计与现实</a>
+    <a href="#summary">09 一句话总结</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <section id="first">
+    <div class="sec-head"><span class="sec-num">01</span><h2>先问对问题：更新到底难在哪？</h2></div>
+    <div class="quote">
+      一次更新，本质上不是“调用一个安装函数”，而是<b>一段可能持续几分钟、会中途卸载自己、会跨页面、跨进程、跨重启的副作用序列</b>。所以真正要设计的不是“怎么装得更快”，而是：<b>当执行者消失时，事实和所有权怎么不消失。</b>
+    </div>
+
+    <p>把“更新”拆到第一性，会看到四个躲不掉的硬约束。它们不是实现细节，是问题本身的性质。后面的所有设计，都只是对这四条的回答。</p>
+
+    <div class="grid g4">
+      <article class="card acc constraint">
+        <span class="tag">约束 A</span>
+        <div class="ico">A</div>
+        <h4>安装很慢，而且不可“假装没发生”</h4>
+        <p>一次安装可能跑几十秒到几分钟，单步上限是 15 分钟；装到一半失败会留下半装、锁、待重启状态。它不是一个可以随手重试的纯函数。</p>
+      </article>
+      <article class="card acc constraint">
+        <span class="tag">约束 B</span>
+        <div class="ico">B</div>
+        <h4>发起更新的页面，随时会消失</h4>
+        <p>关面板、切页面、刷新、宿主重载，甚至更新器自己更新自己——承载“执行循环”的插件页面或 fiber 会先被卸载。执行者不能住在会被卸载的东西里。</p>
+      </article>
+      <article class="card acc constraint">
+        <span class="tag">约束 C</span>
+        <div class="ico">C</div>
+        <h4>同一个使用范围，不能两个人同时装</h4>
+        <p>两个进程同时推进同一个批次，会重复安装、互相覆盖账本、抢同一把全局安装锁。必须有一个“现在谁在开车”的裁判。</p>
+      </article>
+      <article class="card acc constraint">
+        <span class="tag">约束 D</span>
+        <div class="ico">D</div>
+        <h4>任何时候都要有人能回答“到哪了”</h4>
+        <p>用户切回页面、另一个插件、甚至中枢不在的时候，都要能看到进度。观察者不能依赖“执行者还活着”，也不能自己动手改状态。</p>
+      </article>
+    </div>
+
+    <h3>从四条约束，直接推出四个设计承诺</h3>
+    <table class="derive">
+      <thead><tr><th>约束</th><th>必须做到</th><th>对应承诺</th></tr></thead>
+      <tbody>
+        <tr><td>A · 慢且不可逆</td><td>把“要做什么”和“做到哪”持久化，每一步都能从盘上恢复</td><td>方案（plan）+ 账本（ledger）落盘，单步推进</td></tr>
+        <tr><td>B · 执行者会消失</td><td>执行权不能属于某个插件页面，要属于进程；页面没了，泵还在</td><td>进程级注册表 + 进程级单泵</td></tr>
+        <tr><td>C · 不能双写</td><td>同一使用范围同一时刻只允许一个驾驶者，且旧驾驶者写回要被认出</td><td>租约（lease）+ 代次（generation）</td></tr>
+        <tr><td>D · 随时可观察</td><td>观察者只读盘、不算账、不推进；没有中枢也能回答</td><td>只读进度电话 + 盘上聚合快照</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="derive">
+    <div class="sec-head"><span class="sec-num">02</span><h2>六个部件：每个都对应一条约束</h2></div>
+    <p>把这四条承诺落到代码，就是六个互相咬合的部件。它们不是“功能列表”，而是一组职责分离：<b>意图、事实、所有权、执行、观察、展示</b>，各归各的层。</p>
+
+    <div class="grid g3">
+      <article class="card">
+        <div class="ico">01</div>
+        <h4>方案 Plan</h4>
+        <p><b>只写意图。</b>装什么、装到哪个使用范围、从哪个源查、对应哪份账本。它是“任务书”，不是进度条。</p>
+      </article>
+      <article class="card">
+        <div class="ico">02</div>
+        <h4>账本 Ledger</h4>
+        <p><b>唯一进度真相。</b>每一行的阶段、版本、错误、请求编号都在这里；中枢、面板、取消、重试都读写它。</p>
+      </article>
+      <article class="card gold">
+        <div class="ico">03</div>
+        <h4>租约 Lease</h4>
+        <p><b>驾驶位。</b>谁在推、第几代、心跳到什么时候；它不保护文件内容，只决定“谁有资格写”。</p>
+      </article>
+      <article class="card">
+        <div class="ico">04</div>
+        <h4>单泵 Runner</h4>
+        <p><b>执行循环。</b>每轮只推一步，落盘、心跳、判定；然后决定继续、让位、收尾还是报错。</p>
+      </article>
+      <article class="card">
+        <div class="ico">05</div>
+        <h4>只读电话</h4>
+        <p><b>观察窗。</b>从盘上聚合方案、账本、清单、租约，回一份快照；不执行、不修改、不依赖中枢活着。</p>
+      </article>
+      <article class="card gold">
+        <div class="ico">06</div>
+        <h4>常驻进度坞 Dock</h4>
+        <p><b>可选展示。</b>纯渲染 + 轮询；页面隐藏时暂停，容器释放时停掉。它不参与正确性。</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="arch">
+    <div class="sec-head"><span class="sec-num">03</span><h2>架构总览：一条电话线，把页面和进程分开</h2></div>
+    <p>插件页面不再自己“跑安装循环”。它只做三件事：查、提交、观察。真正的推进发生在 DSH 进程里的中枢；中枢只认盘上的方案、账本和租约。</p>
+
+    <div class="arch" aria-label="架构示意图">
+      <div class="node">
+        <strong>插件页面 / 面板</strong>
+        <span>发起、展示、可被卸载</span>
+        <div class="files"><i>installPhone</i><i>batchCancel</i><i>updateHubStatus</i></div>
+      </div>
+      <div class="link" aria-hidden="true">→</div>
+      <div class="node" style="border-color:#c9a27d;background:#fff7ee;">
+        <strong>进程级更新中枢</strong>
+        <span>globalThis 注册表 · 单泵 · 冻结执行席</span>
+        <div class="files"><i>submitHubTask</i><i>pumpSlot</i><i>driveTask</i></div>
+      </div>
+      <div class="link" aria-hidden="true">→</div>
+      <div class="node">
+        <strong>盘上三份事实</strong>
+        <span>跨进程、跨重启可读</span>
+        <div class="files"><i>plans/&lt;owner&gt;.json</i><i>batch.json</i><i>lease.json</i></div>
+      </div>
+    </div>
+    <p class="small muted">虚线关系：任何还活着的集成方都能用 <code>updateHubStatus</code> 读这三份事实；它不需要先“拿到中枢”，也不需要中枢进程还活着。</p>
+
+    <h3>为什么是“进程级”，不是“插件级”</h3>
+    <div class="grid g2">
+      <article class="card">
+        <h4>插件 fiber 会死，进程不会因为一次卸载而死</h4>
+        <p>DSH 的插件运行在 fiber 里。面板关闭、插件重载、自更新都会销毁 fiber；如果把执行循环放在 fiber 的闭包里，循环就跟着消失。把状态和任务表放到 <code>globalThis</code> 的 Symbol 槽里，进程内所有副本共享同一份；fiber 销毁不影响它。</p>
+      </article>
+      <article class="card">
+        <h4>但“进程级”不等于“全局随便写”</h4>
+        <p>注册表按 <code>(homeDir, profileDir)</code> 分槽。desktop 和 web 两个 profile 即使在同一台机器、同一个进程里，也各自有槽；同一个槽里再靠租约决定谁开车。层级是：<b>进程 → 使用范围 → 驾驶位</b>。</p>
+      </article>
+    </div>
+
+    <p class="code-title">注册表与槽键（src/host/hub/registry.ts:37-141，节选）</p>
+    <pre><code>const REGISTRY_KEY = Symbol.for('dsh-plugin-update:update-hub:registry')
+
+function slotKeyOf(scope: HubScope): string {
+  return scope.homeDir + '\u0000' + scope.profileDir
+}
+
+// 同一进程里，后到的集成方复用同一驾驶者身份与任务表
+const slot = {
+  key: slotKeyOf(scope),
+  driverId: 'dsh-hub:' + pid + ':' + randomId(),
+  tasks: [],
+  pumping: false,
+  lease: null,
+}</code></pre>
+    <p class="small muted">关键点：Symbol 槽让“不同包副本”也能看到同一份注册表；槽键让不同使用范围互不串；driverId 让“这个进程”在租约里有可辨认的身份。</p>
+  </section>
+
+  <section id="walk">
+    <div class="sec-head"><span class="sec-num">04</span><h2>一次更新的一生：从点击到收尾</h2></div>
+    <p>下面把一次批量更新拆成七个阶段。注意每个阶段的“事实”落在哪里——这是理解整套实现最省力的线索。</p>
+
+    <div class="timeline">
+      <div class="step">
+        <div class="when">阶段 1 · 用户点击</div>
+        <h4>插件电话只负责“表达意图”</h4>
+        <p>面板调用 <code>installPhone</code>。它先看自己是不是已经在驱动（<code>driveActive</code>）；如果是，就把这次点击的行并进当前任务，而不是另起一个驱动。单插件链路（没有宿主上下文）则退回原来的 fiber 内驱动。</p>
+        <div class="why">为什么：同一个页面里的重复点击不能变成两个执行者；这是“单泵”的第一道门。</div>
+      </div>
+
+      <div class="step">
+        <div class="when">阶段 2 · 预查</div>
+        <h4>先把选中行查成 ready，再谈安装</h4>
+        <p><code>precheckSelectedToReady</code> 对选中的 key 逐个查新版，把结果写进账本。两段式是批量更新的基础：查和装分开，装阶段才能复用已查到的版本，不重复查。</p>
+        <div class="why">为什么：安装是最贵、最容易失败的一步；先把“值不值得装”确定下来，后面每一步才有明确目标。</div>
+      </div>
+
+      <div class="step">
+        <div class="when">阶段 3 · 冻结执行席</div>
+        <h4>把“怎么执行”打包成一个 HubSeat</h4>
+        <p>执行席里冻结了：属主、方案、读写账本、查、装、日志、行序、进入/退出驱动的回调。它是一组<b>能力</b>，不是数据；交给中枢之后，页面即使卸载，这些能力仍由宿主根服务持有。</p>
+        <div class="why">为什么：执行者不能依赖“页面还活着”；把能力冻结后交给进程，才有“页面消失、泵继续”的可能。</div>
+      </div>
+
+      <div class="step">
+        <div class="when">阶段 4 · 提交</div>
+        <h4>先写方案，再入任务表</h4>
+        <p><code>submitHubTask</code> 第一件事是 <code>await writeHubPlan(...)</code>：把目标、使用范围、会话编号写到盘上。写成功后才把任务放进槽里的任务表。任务键是 <code>owner + ':' + sessionId</code>，同一批次重复提交会合并，而不是排两个。</p>
+        <div class="why">为什么先写盘：如果进程在提交后立刻消失，下一次装载至少能从盘上知道“本来要做什么”。方案是给后来者的任务书。</div>
+      </div>
+
+      <div class="step">
+        <div class="when">阶段 5 · 取驾驶位</div>
+        <h4>ensureLease：读盘 → 判决 → 写盘 → 读回确认</h4>
+        <p>中枢先读 <code>hub/lease.json</code>，根据“有没有租约、是不是我的、进程死没死、心跳是否过期”判一个动作：<code>acquire / renew / takeover / wait</code>。拿不到就回 <code>queued</code>，退避重试，而不是报错。</p>
+        <div class="why">为什么不是内存锁：同一台机器可能有多个 DSH 进程（不同 profile、不同窗口）共用同一个使用范围；只有盘上的租约能跨进程裁判。</div>
+      </div>
+
+      <div class="step">
+        <div class="when">阶段 6 · 单泵推进</div>
+        <h4>每轮只走一步：runBatch(maxSteps: 1)</h4>
+        <p>推进循环每一轮：复核驾驶位 → 取账本底稿 → 执行一步查/装 → 写回账本 → 心跳 → 判下一步。一步一落盘，是“崩了也能从这里继续”的最小单位。</p>
+        <div class="why">为什么不是一口气跑完：跑得越久，崩溃时丢的越多；一步一落盘，最坏只丢当前这一步，而当前这一步本来就要靠幂等请求编号兜底。</div>
+      </div>
+
+      <div class="step">
+        <div class="when">阶段 7 · 收尾 / 让位 / 观察</div>
+        <h4>四种判决，而不是“成功/失败”两种</h4>
+        <p>一轮停下后，<code>decideHubCycleVerdict</code> 只给四种判决：<b>continue</b>（预算用完，再跑一轮）、<b>yield</b>（队列忙/暂时排不上，让位）、<b>settle</b>（真的走完）、<b>fail</b>（驱动器自身出错或无进展太久）。收尾时释放租约；只读电话随时可以从盘上聚合进度。</p>
+        <div class="why">为什么“排队”不能算失败：更新锁被另一家占着是正常状态，报失败会让用户误以为坏了，也会让队列被错误地清空。</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="parts">
+    <div class="sec-head"><span class="sec-num">05</span><h2>七个关键机制，逐个拆开</h2></div>
+
+    <article class="part">
+      <h3><span class="idx">5.1</span>方案 Plan：先写“要做什么”，再动手</h3>
+      <span class="analogy">类比：出门前先写好任务书，而不是边走边忘</span>
+      <p><code>hub/plans/&lt;owner&gt;.json</code> 只回答“要做什么”：对应的会话编号、属主、目标清单（key、包名、插件标识、电话前缀、可选的使用范围覆盖）、使用范围、排序意图、是否失败即停、创建/更新时间。</p>
+      <p><b>它刻意不写进度。</b>进度只有一个真相——各属主的 <code>batch.json</code>。方案是索引，账本是事实。这样设计的好处是：重启后不需要从方案“恢复进度”，只需要用它找到账本、重建执行席；也不会出现“方案说 done、账本说 failed”的双重真相。</p>
+      <p>方案按属主命名，同一属主同时只有一份；读到坏方案按“没写过”处理，绝不挡安装。写盘是“临时文件 + rename”的原子整写，进程崩溃最多留下一个旧版本，不会留下半个 JSON。</p>
+    </article>
+
+    <article class="part">
+      <h3><span class="idx">5.2</span>账本 Ledger：进度唯一真相，按行合并</h3>
+      <span class="analogy">类比：不是“总进度条”，而是一张逐行记账的流水</span>
+      <p><code>batch.json</code> 里的每一行有 key、阶段（pending / checking / ready / installing / done / failed / skipped / current 等）、目标版本、请求编号、错误、是否待重启。中枢每推进一步就落盘，并且保存时先读回盘上最新，再<b>只合并自己这一步真变过的行</b>，其余行以盘上为准。</p>
+      <p>这样做的原因是并发写者不止一个：面板可能刚点了重试、取消可能刚清了账本、另一个进程可能刚改过行。如果整份覆盖，旧快照会把别人的新事实吃掉。行级合并是“单写者”之外的第二个保护层。</p>
+      <p class="small muted">注意：当前实现的行级合并仍不是 CAS，且 save 不校验租约代次；这是报告里明确指出的已知缺口，不是“设计意图”。</p>
+    </article>
+
+    <article class="part">
+      <h3><span class="idx">5.3</span>租约 Lease：不是锁，是“驾驶位”</h3>
+      <span class="analogy">类比：车只有一把钥匙，但钥匙可以换手；每换一次手，车上贴的代次号 +1</span>
+      <p><code>hub/lease.json</code> 记录：谁（driverId）、哪个插件、哪个 pid、什么时候上任、最后一次心跳、第几代。默认心跳 5 秒，超过 20 秒没心跳视为失联。判决是一个纯函数，不读盘也不读钟：</p>
+      <div class="code-title">decideHubLease 的四种判决（src/core/hub/lease-policy.ts:124-140，简化）</div>
+      <pre><code>if (没有租约)                  return acquire(generation = 1)
+if (租约是我的)                return renew
+if (原进程已死)                return takeover(generation + 1)
+if (心跳已超过 20 秒)          return takeover(generation + 1)
+return wait</code></pre>
+      <table class="states">
+        <thead><tr><th>判决</th><th>什么时候</th><th>后果</th></tr></thead>
+        <tbody>
+          <tr><td>acquire</td><td>盘上还没有人开车</td><td>上任，代次 1</td></tr>
+          <tr><td>renew</td><td>租约还是我的，且我还活着</td><td>续任，代次不变</td></tr>
+          <tr><td>takeover</td><td>原驾驶者死了，或心跳陈旧（哪怕 pid 还活着）</td><td>代次 +1，旧驾驶者之后的写回应被判非属主</td></tr>
+          <tr><td>wait</td><td>原驾驶者心跳还新鲜</td><td>什么都不做，排队等</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:12px;">代次是整套设计的“防双写开关”：旧驾驶者如果醒来，看到盘上是 gen 2，就应该知道自己已不是属主。但“代次”要真正生效，需要每一个写盘路径都校验它——这正是当前实现没完全做到的地方（见第 8 节）。</p>
+    </article>
+
+    <article class="part">
+      <h3><span class="idx">5.4</span>单泵 Runner：为什么“一步一停”反而更快</h3>
+      <span class="analogy">类比：接力赛，不是一个人跑完全程；每一棒都要把棒交稳</span>
+      <p>中枢每轮复用批量层的 <code>runBatch</code>，但把 <code>maxSteps</code> 设为 1。每一步结束就保存账本，然后心跳、判决。这样做的直接收益是：</p>
+      <ul>
+        <li><b>崩溃可恢复：</b>最坏丢当前步，前面的行已经是盘上事实；</li>
+        <li><b>可让位：</b>队列忙时在步与步之间 yield，不会抱着锁空转；</li>
+        <li><b>可观测：</b>观察者随时能看到“已经到第几行”；</li>
+        <li><b>可失败隔离：</b>一行失败不必让整个批次无声挂死，判决会给出失败或继续。</li>
+      </ul>
+      <p>判决表看起来简单，但它把“正常排队”和“真的坏了”分开：<code>queued</code> / <code>empty</code> 走 yield，不报错；<code>max-steps</code> 走 continue；<code>finished</code> / <code>stopped-after-failure</code> 走 settle；未知值和连续 10 步无进展走 fail。这个区分是“用户看到的是排队，不是失败”的关键。</p>
+    </article>
+
+    <article class="part">
+      <h3><span class="idx">5.5</span>只读电话：为什么“中枢不在”也能回答</h3>
+      <span class="analogy">类比：看仪表盘不需要发动机先同意</span>
+      <p><code>&lt;prefix&gt;.updateHubStatus</code> 不推进任何任务，只做一件事：从盘上聚合。它先按方案收集“认领过的批次”，再把队列目录里“有账本但没有方案”的属主补进来（旧版本 / <code>hub:false</code> 留下的批次），再读租约判断“谁在装”，最后投影成快照。</p>
+      <p>快照有明确上限：最多 8 个会话、每个会话 20 行；状态按 running / waiting / missing / finished 排序。这样任何集成方都能在常数级内存里渲染，不会因为账本很大而拖垮页面。</p>
+      <p>关键取舍：<b>观察者不允许“顺手推进”</b>。如果只读电话也去拿租约、跑一步，它就不再是观察者，而会变成第二个执行者。所有写操作仍然只走中枢。</p>
+    </article>
+
+    <article class="part">
+      <h3><span class="idx">5.6</span>常驻进度坞：UI 是外壳，不是正确性</h3>
+      <span class="analogy">类比：后视镜不参与驾驶，但让你知道后面发生了什么</span>
+      <p><code>mountHubProgressDock(container, options)</code> 是一个叶子组件：纯渲染 + 轮询 <code>updateHubStatus</code>，支持右下角、底部条、内联三种挂载方式。页面隐藏时暂停轮询，空闲时隐藏，<code>dispose()</code> 时停表、摘监听、移除节点。</p>
+      <p>它被刻意设计成“可选”：不挂 dock，更新照常进行；dock 崩了，也不该影响中枢。这就是“展示层”和“执行层”分开的价值——UI 可以随时换、随时关，正确性不依赖它。</p>
+    </article>
+
+    <article class="part">
+      <h3><span class="idx">5.7</span>孤儿接管：重启后，谁来接这单？</h3>
+      <span class="analogy">类比：交接班时，下一班先看任务书，再核对账本编号</span>
+      <p>批量宿主入口装载时，会扫自己属主名下的方案：如果方案还没收尾、对应的账本会话编号对得上，就把它重新包成执行席，提交给中枢续跑。这就是“重启 DSH 后不用重开面板”的代码路径。</p>
+      <p><b>边界：</b>当前实现只接“自己属主”的方案（<code>plan.owner === prefix</code>），而规格 US31 / ADR-0008 写的是“任一存活的集成方都能接管”。这是一个已知偏差，不是设计本意；报告里把它列为 P1。</p>
+    </article>
+  </section>
+
+  <section id="files">
+    <div class="sec-head"><span class="sec-num">06</span><h2>代码地图：想改哪里，先看这张表</h2></div>
+    <table class="files-table">
+      <thead><tr><th>位置</th><th>职责</th><th>关键点</th></tr></thead>
+      <tbody>
+        <tr><td>src/host/hub/registry.ts</td><td>进程级注册表、任务表、单泵、推进循环</td><td>Symbol 槽、槽键、submitHubTask、pumpSlot、driveTask、ensureLease、heartbeat</td></tr>
+        <tr><td>src/core/hub/lease-policy.ts</td><td>租约判决（纯函数）</td><td>acquire / renew / takeover / wait；5s 心跳、20s 陈旧、代次 +1</td></tr>
+        <tr><td>src/host/hub/lease-store.ts</td><td>租约读写与释放</td><td>文件 JSON、按属主释放</td></tr>
+        <tr><td>src/core/hub/plan.ts</td><td>方案模型与归一化</td><td>只写意图；坏方案当没有</td></tr>
+        <tr><td>src/host/hub/plan-store.ts</td><td>方案落盘</td><td>hub/plans/&lt;owner&gt;.json；原子写</td></tr>
+        <tr><td>src/core/hub/drive-policy.ts</td><td>一轮结束后的判决</td><td>continue / yield / settle / fail；10 步无进展上限</td></tr>
+        <tr><td>src/host/hub/aggregate.ts</td><td>只读聚合</td><td>方案 + 无方案账本 + 清单 + 租约 → 快照</td></tr>
+        <tr><td>src/host/hub/protocol.ts</td><td>中枢协议</td><td>协议版本、HubSeat、HubRuntimeDeps、重试间隔</td></tr>
+        <tr><td>src/host/batch/fan-out.ts</td><td>批量宿主与电话</td><td>预查、冻结执行席、提交、取消、孤儿接管、登记 updateHubStatus</td></tr>
+        <tr><td>src/panel/batch/dock.ts</td><td>常驻进度坞</td><td>纯渲染、轮询、隐藏暂停、dispose</td></tr>
+      </tbody>
+    </table>
+    <p class="small muted" style="margin-top:12px;">入口壳与公开子路径：<code>src/panel-batch.ts</code> 只导出既有面板能力；<code>src/host-batch.ts</code> 是批量宿主入口。中枢不新增依赖、不新开公开子路径。</p>
+  </section>
+
+  <section id="tradeoff">
+    <div class="sec-head"><span class="sec-num">07</span><h2>取舍：每个设计选择都付了代价</h2></div>
+    <table class="derive">
+      <thead><tr><th>目标</th><th>选择</th><th>代价 / 边界</th></tr></thead>
+      <tbody>
+        <tr><td>页面消失也不断</td><td>执行权放进程级注册表，不放 fiber 闭包</td><td>依赖宿主根服务在 bundle 卸载后仍可用；这条只在假 transport 测试过，真机未验证</td></tr>
+        <tr><td>跨进程单写者</td><td>文件租约 + 心跳 + 代次</td><td>文件没有 CAS；读-判-写之间可能被并发接管；代次需要所有写路径校验才真正生效</td></tr>
+        <tr><td>崩溃可恢复</td><td>方案 + 账本每一步落盘</td><td>每步一次 I/O；大账本要控制上限；原子写是 tmp+rename，Windows 上仍可能遇到文件占用</td></tr>
+        <tr><td>随时可观察</td><td>只读电话从盘上聚合，不依赖中枢</td><td>聚合有 8×20 上限；旧账本/坏文件按缺失处理；观察者看到的是“最后落盘事实”，不是内存实时值</td></tr>
+        <tr><td>不新增依赖</td><td>JSON 文件 + 既有批量层 + 原生定时器</td><td>没有数据库的事务/索引；并发控制要自己写，也更容易漏掉边界</td></tr>
+        <tr><td>旧路径可回退</td><td><code>hub:false</code> 回原来的 fiber 内驱动</td><td>回退批次没有方案，只能走旧逻辑；孤儿接管、全局进度都不适用</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="truth">
+    <div class="sec-head"><span class="sec-num">08</span><h2>设计与现实：哪些成立，哪些还没证明</h2></div>
+    <p>原理讲完，必须把“设计意图”和“已验证事实”分开。下面这张表来自 2026-10-25 的功能完整性调查；详细证据在 <a href="./20261025-更新包功能完整性调查.md">调查报告</a>。</p>
+
+    <div class="truth">
+      <article class="card">
+        <h4>已证可用 <span class="chip ok">实测</span></h4>
+        <p>单插件基础链路（check → install → verify → restart）真机有成功记录；批量默认回退、<code>hub:false</code> 登记只读电话、8×20 截断、运行中取消回 <code>update-busy</code>、行级选择视图都有测试或探针支撑。</p>
+      </article>
+      <article class="card">
+        <h4>部分成立 <span class="chip part">有缺口</span></h4>
+        <p>单写者方向正确，但长步骤心跳只在步后写（20s 窗 &lt; 15min 安装上限）；租约读-判-写无 CAS；账本 save 无代次栅栏；取消后的空账本幽灵任务约 24 秒内阻塞同槽；旧任务不校验 sessionId，可能驱动新会话。</p>
+      </article>
+      <article class="card">
+        <h4>尚未证明 <span class="chip bad">真机 0 次</span></h4>
+        <p>“跨 fiber 宿主引用在 bundle 卸载后仍可用”只在假 transport 测试过；自更新不断链、重载/重启续跑、常驻 UI、真实多进程接管，均未在真机执行。0.18.40 未发布，两 profile 仍是 0.18.38。</p>
+      </article>
+    </div>
+
+    <h3>所以，这套实现现在到底是什么？</h3>
+    <p>一句话：<b>方向自洽、骨架完整、单进程测试通过；但“生产可用”还没有被证明，且单写者的护栏没有焊死。</b>它不是一个“全坏的功能”，也不是一个“可以对外宣称已支持自更新不断链”的完成品。更准确的定位是：<b>一个把问题拆对了、但还需要补关键防线和真机证据的系统。</b></p>
+  </section>
+
+  <section id="summary">
+    <div class="summary">
+      <div class="sec-head"><span class="sec-num" style="background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);color:#f0b79f;">09</span><h2>一句话总结</h2></div>
+      <p class="big">把一次更新，从“页面里的一个函数调用”，变成<em>盘上的一份意图 + 一个进程级的驾驶位 + 一本逐步落盘的账本</em>。这样页面可以消失、进程可以重启、别家插件可以观察，但事实和所有权不会丢。</p>
+      <p>这次 #246 最值钱的地方，不是多了一个“后台任务”，而是把更新拆成了四个可独立演进的层：<b>意图、事实、执行、观察</b>。剩下的工作，是把“单写者”的每一道缝焊死，然后在真机上跑一遍——在那之前，它只能算“解释得通”，还不能算“担保得住”。</p>
+      <p class="fine">依据：master @94b2774 / 规格 #246 / ADR-0008 / 2026-10-25 功能完整性调查。详细证据、复现命令与已知缺陷见调查报告。</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="backtop" href="#first">回到开头 ↑</a>
+    <p><b>延伸阅读</b></p>
+    <p><a href="./20261025-更新包功能完整性调查.md">2026-10-25 更新包功能完整性调查</a> · <a href="./20261025-更新中枢对抗式审查.md">2026-10-25 更新中枢对抗式审查</a> · <a href="../adr/0008-update-hub.md">ADR-0008 更新中枢</a></p>
+    <p class="small">本文是原理讲解，不替代规格与调查报告；实现细节以仓库源码为准。</p>
+  </div>
+</footer>
+
+</body>
+</html>
