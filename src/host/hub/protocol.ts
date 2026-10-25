@@ -6,13 +6,22 @@
 
 import type { BatchSession } from '../../core/batch/model.js'
 import type { BatchCheckOutcome, BatchInstallOutcome, BatchRunDeps, BatchRunStep, BatchStoppedByBecause } from '../../core/batch/run.js'
+import type { HubLease } from '../../core/hub/lease-policy.js'
 import type { HubPlan } from '../../core/hub/plan.js'
+import type { HubPaths } from './plan-store.js'
 
 /** 中枢协议版本：读不懂的租约/方案一律不接管（见 lease-store / plan-store 的归一）。 */
 export const HUB_PROTOCOL_VERSION = 1
 
 /** 让位（排队/锁被占/租约不在手）之后多久再试一次；不与 drain 抢节拍。 */
 export const HUB_RETRY_INTERVAL_MS = 1000
+
+/**
+ * 租约端口连续抛未预期异常多少次后把任务判 failed（#253）。
+ * 让位等待是正常的（别家占着驾驶位，等到就是）；但坏 I/O 不是等待能解决的——
+ * 不设上限就会每秒重试到进程结束（空转）。到上限给一个明确结局，把会话留给下一次续跑。
+ */
+export const HUB_MAX_LEASE_FAULTS = 3
 
 /** 中枢实例看待自己所在使用范围的三个坐标（家目录、使用范围目录、使用范围名）。 */
 export interface HubScope {
@@ -69,6 +78,23 @@ export interface HubTimers {
   clearTimeout(handle: unknown): void
 }
 
+/**
+ * 中枢落盘端口：租约与方案的读/写/释放。
+ *
+ * 真实实现在 lease-store / plan-store（它们自己已把「坏文件当没有」降级）；这个端口存在的意义是
+ * 让边界（boundary.ts）能对**任何**未预期异常做最后一道兜底，并让测试在四个 seam 上注入异常（#253）。
+ * 契约：实现可以返回 null / false 表示「没有 / 没写进去」，但**不许**把异常当正常回值；
+ * 意外异常由边界收住并降级。其中租约读/写的异常会被标记 fault 并计数（HUB_MAX_LEASE_FAULTS），
+ * 释放与方案读写只降级不外抛（一次性旁路，没有「等它自愈」的语义）。
+ */
+export interface HubIo {
+  readLease(paths: HubPaths): Promise<HubLease | null>
+  writeLease(paths: HubPaths, lease: HubLease): Promise<boolean>
+  releaseLease(paths: HubPaths, driverId: string, generation: number): Promise<void>
+  readPlans(paths: HubPaths): Promise<HubPlan[]>
+  writePlan(paths: HubPaths, plan: HubPlan | null | undefined): Promise<boolean>
+}
+
 /** 中枢运行期事实（时钟、编号、定时器、进程号）：全部由调用方给，注册表不读钟。 */
 export interface HubRuntimeDeps {
   now(): number
@@ -79,4 +105,6 @@ export interface HubRuntimeDeps {
   isProcessAlive?(pid: number): boolean
   /** 让位后重试间隔（缺省 HUB_RETRY_INTERVAL_MS；测试可调小）。 */
   retryMs?: number
+  /** 落盘端口（缺省真实文件系统；测试注入会抛异常的假端口验证异常边界）。生产不传。 */
+  io?: HubIo
 }

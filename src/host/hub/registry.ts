@@ -10,7 +10,8 @@
 //      本模块只负责「什么时候推、推完告诉谁」，不重写批量语义。
 //
 // 边界：本模块不认识具体插件，只认识 HubSeat（执行席）与盘上账本。
-//   发起方返回/卸载不影响已提交任务的推进；任务只在 done/failed 时通知等待者。
+//   发起方返回/卸载不影响已提交任务的推进；等待者在 done/failed 时拿到终态，
+//   让位（queued）与关停也会立刻回话——后台泵绝不让调用方悬挂，也绝不外抛异常（#253）。
 
 import { isBatchFinished, type BatchSession } from '../../core/batch/model.js'
 import { runBatch, type BatchRunStep, type BatchStoppedByBecause } from '../../core/batch/run.js'
@@ -22,9 +23,11 @@ import {
   shouldHeartbeatHubLease,
   type HubLease,
 } from '../../core/hub/lease-policy.js'
-import { readHubLease, releaseHubLease, writeHubLease } from './lease-store.js'
-import { hubPathsForUpdate, writeHubPlan, type HubPaths } from './plan-store.js'
+import { hubIoOf, safeReadLease, safeReleaseLease, safeWriteLease, safeWritePlan } from './boundary.js'
+import { releaseHubLeaseSync } from './lease-store.js'
+import { hubPathsForUpdate, type HubPaths } from './plan-store.js'
 import {
+  HUB_MAX_LEASE_FAULTS,
   HUB_PROTOCOL_VERSION,
   HUB_RETRY_INTERVAL_MS,
   type HubRuntimeDeps,
@@ -51,6 +54,8 @@ interface HubTask {
   steps: BatchRunStep[]
   /** 连续无进展步数（跨让位累计；付给 drive-policy 防饿死）。 */
   idleSteps: number
+  /** 租约端口连续抛未预期异常的次数（#253：坏 I/O 不许变成每秒空转，到上限给明确 failed）。 */
+  leaseFaults: number
   /** 行级选择（keys 提交时冻结）：null = 整份会话；数组 = 只推这几行，别家的行原样保留。 */
   selection: readonly string[] | null
   /** 结局等待者：done/failed/queued 都会被唤醒（queued = 让位，稍后泵会自己重试）。 */
@@ -67,6 +72,8 @@ interface HubSlot {
   driverId: string
   tasks: HubTask[]
   pumping: boolean
+  /** 槽位已关停（宿主关停/协议换代）：泵不再起新轮、退避定时器不再续命。 */
+  closed: boolean
   retryTimer: unknown
   lease: HubLease | null
   deps: HubRuntimeDeps
@@ -119,11 +126,13 @@ function slotFor(scope: HubScope, deps: HubRuntimeDeps): HubSlot | null {
   const key = slotKeyOf(scope)
   const state = registry()
   const existing = state.slots.get(key)
-  if (existing) {
+  if (existing && !existing.closed) {
     // 同一进程里后到的集成方复用同一驾驶者身份与任务表（换 deps 只为测试时钟/定时器能接手）。
     existing.deps = deps
     return existing
   }
+  // 已关停的槽不再复用：新实例拿新任务表（旧泵可能还在收手，绝不能与它共用表）。
+  if (existing) state.slots.delete(key)
   const slot: HubSlot = {
     key,
     homeDir: scope.homeDir,
@@ -132,11 +141,13 @@ function slotFor(scope: HubScope, deps: HubRuntimeDeps): HubSlot | null {
     driverId: normalizeDriverId('dsh-hub:' + String(deps.pid) + ':' + deps.randomId()),
     tasks: [],
     pumping: false,
+    closed: false,
     retryTimer: null,
     lease: null,
     deps,
   }
   state.slots.set(key, slot)
+  ensureProcessExitHook()
   return slot
 }
 
@@ -155,30 +166,92 @@ function resolveWaiters(task: HubTask, outcome: HubTaskOutcome): void {
   for (const waiter of task.waiters.splice(0)) waiter(outcome)
 }
 
+/**
+ * 让位终态：任务这次不推了，等等待者一个诚实的 'queued'（不是 failed，也不是悬挂）。
+ * 关停与「槽位已关但提交晚到」两种竞态都用它——只认第一次，重复调用不重复回话。
+ */
+function settleTaskAsQueued(task: HubTask): void {
+  if (task.state === 'settled') return
+  task.state = 'settled'
+  task.outcome = 'queued'
+  resolveWaiters(task, 'queued')
+}
+
+/**
+ * 让位重排队：任务回队列、等待者先拿到 'queued'、退避后自己再来。
+ * 关停已经给过终态时保持终态（不复活），并立刻停手。
+ */
+function requeueTask(slot: HubSlot, task: HubTask): RunVerdict {
+  if (task.state === 'settled') return 'stop'
+  task.state = 'queued'
+  resolveWaiters(task, 'queued')
+  scheduleRetry(slot)
+  return 'stop'
+}
+
+/** 任务明确 failed 的唯一写法（异常边界、租约故障上限、驱动抛错三处共用）。 */
+async function failTask(slot: HubSlot, task: HubTask): Promise<void> {
+  await settleTask(slot, task, {
+    outcome: 'failed',
+    stoppedBecause: 'error',
+    steps: task.steps.slice(),
+    session: null,
+  })
+}
+
+/** 停掉这个槽的退避定时器（关停/退出/测试重启三处共用；定时器假件抛错也不外泄）。 */
+function stopRetryTimer(slot: HubSlot): void {
+  if (slot.retryTimer === null) return
+  try {
+    slot.deps.timers.clearTimeout(slot.retryTimer)
+  } catch {
+    // 停表是清理旁路：假件/环境异常不该让清理本身失败。
+  }
+  slot.retryTimer = null
+}
+
 function retryDelayOf(deps: HubRuntimeDeps): number {
   const raw = deps.retryMs
   return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : HUB_RETRY_INTERVAL_MS
 }
 
 function scheduleRetry(slot: HubSlot): void {
-  if (slot.retryTimer !== null) return
-  slot.retryTimer = slot.deps.timers.setTimeout(() => {
+  if (slot.closed || slot.retryTimer !== null) return
+  try {
+    slot.retryTimer = slot.deps.timers.setTimeout(() => {
+      slot.retryTimer = null
+      try {
+        if (slot.closed) return
+        // 退避到点时泵还没收手：等它收手后再补一次（不丢这次重试，也不并发双泵）。
+        if (slot.pumping) {
+          scheduleRetry(slot)
+          return
+        }
+        kickPump(slot)
+      } catch {
+        // 退避定时器直接跑在事件循环里：这里的任何异常都会变成宿主级未捕获异常（致命），
+        // 所以连重排定时器这一步也要收住（#253）。
+      }
+    }, retryDelayOf(slot.deps))
+  } catch {
+    // 定时器本身起不来（环境限制/假件抛错）：这次重试放弃，等待者们已经拿到 queued，不会悬挂。
     slot.retryTimer = null
-    // 退避到点时泵还没收手：等它收手后再补一次（不丢这次重试，也不并发双泵）。
-    if (slot.pumping) {
-      scheduleRetry(slot)
-      return
-    }
-    kickPump(slot)
-  }, retryDelayOf(slot.deps))
+  }
 }
 
 function kickPump(slot: HubSlot): void {
-  if (slot.pumping || slot.retryTimer !== null) return
+  if (slot.closed || slot.pumping || slot.retryTimer !== null) return
   slot.pumping = true
-  void pumpSlot(slot).finally(() => {
-    slot.pumping = false
-  })
+  // 两个回调都写：pumpSlot 已被泵级兜底包住，这里再兜一层——它的 rejection 绝不能被漏掉
+  // （裸 .finally() 会把 rejection 原样透给一个没人等的 promise）。
+  void pumpSlot(slot).then(
+    () => {
+      slot.pumping = false
+    },
+    () => {
+      slot.pumping = false
+    },
+  )
 }
 
 /**
@@ -193,12 +266,27 @@ export async function submitHubTask(
   deps: HubRuntimeDeps,
   options: { selection?: readonly string[] | null } = {},
 ): Promise<HubTaskOutcome> {
+  try {
+    return await submitHubTaskToSlot(scope, seat, deps, options)
+  } catch {
+    // 提交是电话/孤儿接管的一部分，也是 apply() 之外的后台入口：异常降级成 failed，
+    // 绝不让调用方（更不让宿主事件循环）拿到一个未处理 rejection。
+    return 'failed'
+  }
+}
+
+async function submitHubTaskToSlot(
+  scope: HubScope,
+  seat: HubSeat,
+  deps: HubRuntimeDeps,
+  options: { selection?: readonly string[] | null },
+): Promise<HubTaskOutcome> {
   const slot = slotFor(scope, deps)
   if (!slot) return 'failed'
   // 方案先落盘（best-effort）：写不进去只影响「别人接手」，不影响本进程推进。
   // 但必须等这一笔 I/O 有结果：进程/插件在提交后立刻消失时，下一次装载只有盘上方案可依，
   // 不能把「方案还没写完」当成「没有方案」。
-  await writeHubPlan(slot.paths, seat.plan)
+  await safeWritePlan(hubIoOf(deps), slot.paths, seat.plan)
   const id = taskIdOf(seat)
   const existing = slot.tasks.find((task) => task.state !== 'settled' && task.id === id)
   if (existing) {
@@ -209,6 +297,8 @@ export async function submitHubTask(
     if (existing.state === 'queued') {
       existing.seat = seat
       kickPump(slot)
+      // 槽位恰好在提交与起泵之间被关停：给等待者让位终态，别悬挂。
+      if (slot.closed) settleTaskAsQueued(existing)
       // 已入队未开跑：等这一轮跑完再回话，调用方拿到的才是可渲染的终态。
       return await waitForTask(existing)
     }
@@ -224,38 +314,71 @@ export async function submitHubTask(
     outcome: null,
     steps: [],
     idleSteps: 0,
+    leaseFaults: 0,
     selection: options.selection ?? null,
     waiters: [],
   }
   slot.tasks.push(task)
   kickPump(slot)
+  if (slot.closed) settleTaskAsQueued(task)
   if (busyBefore) return 'queued'
   return await waitForTask(task)
 }
 
 async function pumpSlot(slot: HubSlot): Promise<void> {
   try {
-    while (true) {
+    while (!slot.closed) {
       const task = slot.tasks.find((one) => one.state === 'queued')
       if (!task) break
-      const verdict = await runTask(slot, task)
+      const verdict = await runTaskGuarded(slot, task)
       if (verdict === 'stop') break
     }
+  } catch {
+    // 泵级兜底：任务边界已把每个任务收住，这里不该出现异常；真出现了也绝不外抛——
+    // DSH 把 apply() 之外的未处理 rejection 当致命错误，泵不能成为进程退出的入口。
   } finally {
-    // 让位/收尾都要把驾驶位还回去：不还，下一次接管就会误以为有人活着，等到租约过期。
+    // 让位/收尾/关停都要把驾驶位还回去：不还，下一次接管就会误以为有人活着，等到租约过期。
     await releaseIfOwner(slot)
   }
 }
 
 type RunVerdict = 'next' | 'stop'
 
+/**
+ * 任务边界（#253）：一次任务里的任何未预期异常（席位调用、会话读写、租约探测……）
+ * 都收在这里 → 该任务明确 failed、等待者拿到终态、泵继续下一个。
+ */
+async function runTaskGuarded(slot: HubSlot, task: HubTask): Promise<RunVerdict> {
+  try {
+    return await runTask(slot, task)
+  } catch {
+    await failTask(slot, task)
+    return 'next'
+  }
+}
+
 async function runTask(slot: HubSlot, task: HubTask): Promise<RunVerdict> {
-  const lease = await ensureLease(slot, task.owner)
-  if (!lease) {
+  const attempt = await ensureLease(slot, task.owner)
+  if (attempt.kind === 'fault') {
+    // 租约端口抛了未预期异常：这不是「等别家让位」，坏 I/O 等不来。记一次故障后让位；
+    // 连续到上限就给明确 failed（绝不每秒重试到进程结束）。
+    task.leaseFaults += 1
+    if (task.leaseFaults >= HUB_MAX_LEASE_FAULTS) {
+      await failTask(slot, task)
+      return 'next'
+    }
+    return requeueTask(slot, task)
+  }
+  if (attempt.kind === 'wait') {
     // 拿不到驾驶位：如实告诉等待者「已排队」，退避后再推（不是失败）。
-    task.state = 'queued'
-    resolveWaiters(task, 'queued')
-    scheduleRetry(slot)
+    return requeueTask(slot, task)
+  }
+  // 非故障的一次尝试（拿到或正常等待）说明「连续故障」断了，计数归零。
+  task.leaseFaults = 0
+  const lease = attempt.lease
+  if (slot.closed) {
+    // 提交/拿租约的同一瞬间槽关了：不再驱动，给等待者让位终态。
+    settleTaskAsQueued(task)
     return 'stop'
   }
   task.state = 'running'
@@ -267,25 +390,19 @@ async function runTask(slot: HubSlot, task: HubTask): Promise<RunVerdict> {
       return 'next'
     }
     const result = await driveTask(slot, task)
-    if (result.kind === 'yield') {
-      // 让位：账本已逐步落盘，任务回队列等退避重试；等待者先拿到「已排队」。
-      task.state = 'queued'
-      resolveWaiters(task, 'queued')
-      scheduleRetry(slot)
-      return 'stop'
-    }
+    // 让位：账本已逐步落盘，任务回队列等退避重试；等待者先拿到「已排队」。
+    if (result.kind === 'yield') return requeueTask(slot, task)
     await settleTask(slot, task, result.report)
     return 'next'
-  } catch (error) {
-    await settleTask(slot, task, {
-      outcome: 'failed',
-      stoppedBecause: 'error',
-      steps: task.steps.slice(),
-      session: null,
-    })
+  } catch {
+    await failTask(slot, task)
     return 'next'
   } finally {
-    task.seat.exitDrive?.()
+    try {
+      task.seat.exitDrive?.()
+    } catch {
+      // 复位「忙」标志是旁路：它抛错不该改写已经给出的结局。
+    }
   }
 }
 
@@ -304,6 +421,8 @@ async function driveTask(slot: HubSlot, task: HubTask): Promise<DriveTaskResult>
   let cycleSteps = 0
   let lastStoppedBecause: BatchStoppedByBecause = 'empty'
   while (true) {
+    // 槽位已关停（宿主关停/协议换代）：这一步的成果已在盘上，剩下的留给下一个实例，别再推。
+    if (slot.closed) return { kind: 'yield' }
     // 跨进程也算数：每一步前复核一次驾驶位（文件是最终裁判），丢了就让位——
     // 避免两个进程都以为自己拿到了早已被接管的那一代租约、把同一步走两遍。
     if (!(await stillOwnsLease(slot))) return { kind: 'yield' }
@@ -415,6 +534,8 @@ function mergeBatchSessions(base: BatchSession, patch: BatchSession, baseline: B
 }
 
 async function settleTask(slot: HubSlot, task: HubTask, report: HubSettledReport): Promise<void> {
+  // 关停/异常边界可能已经给过终态：只认第一次，等待者不会重复收，也不会被改写成另一个结局。
+  if (task.state === 'settled') return
   task.state = 'settled'
   task.outcome = report.outcome
   try {
@@ -433,63 +554,94 @@ function pruneSettledTasks(slot: HubSlot): void {
   slot.tasks = slot.tasks.filter((task) => !drop.has(task))
 }
 
-/** 拿/续/接管驾驶位；拿不到即 null（让位，退避后重试）。 */
-async function ensureLease(slot: HubSlot, pluginId: string): Promise<HubLease | null> {
+/** 一次驾驶位尝试的三种结局：拿到了 / 正常等待别家 / 端口抛了未预期异常。 */
+type LeaseAttempt =
+  | { kind: 'owned'; lease: HubLease }
+  | { kind: 'wait' }
+  | { kind: 'fault' }
+
+/**
+ * 拿/续/接管驾驶位。三种结局都显式：拿不到是等（退避后重试），端口异常是 fault
+ * （由任务边界计数，到上限判 failed——坏 I/O 不能靠等自愈）。
+ * 写不进去仍退回「本进程单飞」（ADR-0008：租约一切 I/O best-effort，绝不挡安装）。
+ */
+async function ensureLease(slot: HubSlot, pluginId: string): Promise<LeaseAttempt> {
   const deps = slot.deps
+  const io = hubIoOf(deps)
   const now = deps.now()
-  const current = await readHubLease(slot.paths)
+  const read = await safeReadLease(io, slot.paths)
+  if (read.fault) return { kind: 'fault' }
+  const current = read.value
   const processAlive = current && current.driverId !== slot.driverId ? isAlive(deps, current.pid) : null
   const decision = decideHubLease({ current, driverId: slot.driverId, now, processAlive })
-  if (decision.kind === 'wait') return null
+  if (decision.kind === 'wait') return { kind: 'wait' }
   const lease = createHubLease({ driverId: slot.driverId, pluginId, pid: deps.pid, now, generation: decision.generation })
-  const wrote = await writeHubLease(slot.paths, lease)
-  if (wrote) {
+  const wrote = await safeWriteLease(io, slot.paths, lease)
+  // 端口**抛出**未预期异常：算 fault（让位/到上限 failed），不拿「写失败也能单飞」的旧口径吞掉——
+  // 那条口径说的是端口**返回 false**（正常的没写进去），不是故障。
+  if (wrote.fault) return { kind: 'fault' }
+  if (wrote.value) {
     // 写完再读回确认代次：同机多进程同抢时，以最后一次落盘为准（写不出就退回单进程内推进）。
-    const confirmed = await readHubLease(slot.paths)
-    if (!isHubLeaseOwner(confirmed, slot.driverId, lease.generation)) return null
+    const confirmed = await safeReadLease(io, slot.paths)
+    if (confirmed.fault) return { kind: 'fault' }
+    if (!isHubLeaseOwner(confirmed.value, slot.driverId, lease.generation)) return { kind: 'wait' }
   }
   slot.lease = lease
-  return lease
+  return { kind: 'owned', lease }
 }
 
 /**
  * 每步前的驾驶位复核：文件是最终裁判。
- * - 读不到租约：说明这台机器上写不出租约（ensureLease 已确认过归属），退回单进程内推进；
+ * - 没有租约（单飞模式）或盘上没有租约：说明这台机器上写不出租约（ensureLease 已确认过归属），
+ *   退回单进程内推进；
+ * - 读**异常**：拿不到事实就不盲推（否则一整轮 2000 步都可能在坏 I/O 上双驱动）——
+ *   这一步让位，下一次 ensureLease 会把这次故障计数，到上限给明确 failed；
  * - 读到别人的代次：让位（yield），由退避重试重新排队，绝不和对方抢同一步。
  */
 async function stillOwnsLease(slot: HubSlot): Promise<boolean> {
   const lease = slot.lease
   if (!lease) return true
-  const current = await readHubLease(slot.paths)
-  if (!current) return true
-  return isHubLeaseOwner(current, slot.driverId, lease.generation)
+  const read = await safeReadLease(hubIoOf(slot.deps), slot.paths)
+  if (read.fault) return false
+  if (!read.value) return true
+  return isHubLeaseOwner(read.value, slot.driverId, lease.generation)
 }
 
 /**
  * 续心跳。返回 'lost' 表示盘上已经换成别人的代次——此时一个字都不写（lease-store 的口径：
  * 不是我的代次就不动），并清掉本地租约，让调用方让位重排队。
+ * 读异常时这一轮不写（读不到事实就别拿旧代次覆盖盘上可能更新的租约）。
  */
 async function heartbeat(slot: HubSlot): Promise<'ok' | 'lost'> {
   const lease = slot.lease
   if (!lease) return 'ok'
   const now = slot.deps.now()
   if (!shouldHeartbeatHubLease(lease, now)) return 'ok'
-  const current = await readHubLease(slot.paths)
+  const io = hubIoOf(slot.deps)
+  const read = await safeReadLease(io, slot.paths)
+  if (read.fault) {
+    // 读不到事实就不硬写旧代次（防「租约缺失时心跳复活旧代次」），并让位：
+    // 下一次 ensureLease 会把故障计数，绝不带着坏 I/O 继续盲推。
+    slot.lease = null
+    return 'lost'
+  }
+  const current = read.value
   if (current && !isHubLeaseOwner(current, slot.driverId, lease.generation)) {
     slot.lease = null
     return 'lost'
   }
   const next: HubLease = { ...lease, heartbeatAt: now }
   slot.lease = next
-  await writeHubLease(slot.paths, next)
+  await safeWriteLease(io, slot.paths, next)
   return 'ok'
 }
 
+/** 归还驾驶位：只认自己这一代（releaseHubLease 内部再核对）；异常吞在边界里。 */
 async function releaseIfOwner(slot: HubSlot): Promise<void> {
   const lease = slot.lease
   if (!lease) return
   slot.lease = null
-  await releaseHubLease(slot.paths, slot.driverId, lease.generation)
+  await safeReleaseLease(hubIoOf(slot.deps), slot.paths, slot.driverId, lease.generation)
 }
 
 /** 进展指纹：只看会改变判定的事实（键/相位/目标版/待重启/错误）。 */
@@ -506,14 +658,72 @@ export function hubBusyForScope(scope: HubScope): boolean {
   return Boolean(slot && slot.tasks.some((task) => task.state !== 'settled'))
 }
 
-/** 测试用：清空注册表并停掉所有退避定时器（等价于「进程重启」）。 */
+/**
+ * 关停一处中枢槽（宿主关停、协议换代、测试模拟重启）：停掉所有退避定时器、
+ * 给未结束任务的等待者一个诚实终态（queued＝这次没推完，盘上进度与方案留给下一个实例）、
+ * 归还本代租约。幂等；关停后新实例用新槽，按盘上方案与账本重新接管。
+ *
+ * 为什么不是 createMultiHostUpdate(...).dispose()：dispose 表示「这个插件的 fiber 没了」，
+ * 而中枢的全部意义就是在 fiber 没了之后继续推进（自更新场景）——所以关停必须是显式的宿主级动作。
+ */
+export async function shutdownHubScope(scope: HubScope): Promise<void> {
+  const state = registry()
+  const key = slotKeyOf(scope)
+  const slot = state.slots.get(key)
+  if (!slot) return
+  // 先摘槽：紧接着装载的新实例拿新槽，不会和正在收手的旧泵共用任务表。
+  state.slots.delete(key)
+  closeHubSlot(slot)
+  await releaseIfOwner(slot)
+}
+
+/** 关停一个槽的公共清理：不再起新轮、不再重试、未结算任务给 queued 终态。 */
+function closeHubSlot(slot: HubSlot): void {
+  slot.closed = true
+  stopRetryTimer(slot)
+  for (const task of slot.tasks) settleTaskAsQueued(task)
+}
+
+let processExitHookInstalled = false
+
+/**
+ * 进程级退出钩子（只装一次）：宿主关停时同步停表、同步归还本代租约。
+ * 下一次启动看到盘上没有租约就直接接管，不用先等 20 秒陈旧窗口 —— 这是「重启后续跑」
+ * 在优雅退出场景下也能立刻生效的关键。钩子本身绝不抛（exit 事件里抛出只会污染退出诊断）。
+ */
+function ensureProcessExitHook(): void {
+  if (processExitHookInstalled) return
+  processExitHookInstalled = true
+  if (typeof process === 'undefined' || typeof process.once !== 'function') return
+  process.once('exit', releaseHubLeasesOnExit)
+}
+
+/**
+ * 退出钩子的本体（导出给测试与诊断直接调）：同步停表、结算未结束任务、同步归还本代租约，
+ * 最后把槽位摘掉（之后同进程再装载会拿新槽，不会捡到一张已关停的旧表）。
+ */
+export function releaseHubLeasesOnExit(): void {
+  const state = registry()
+  for (const slot of state.slots.values()) {
+    closeHubSlot(slot)
+    const lease = slot.lease
+    if (!lease) continue
+    slot.lease = null
+    try {
+      releaseHubLeaseSync(slot.paths, slot.driverId, lease.generation)
+    } catch {
+      // 退出阶段尽力而为：删不掉只多留一份过期租约，下一次启动按死进程/陈旧窗口接管。
+    }
+  }
+  state.slots.clear()
+}
+
+/** 测试用：清空注册表并停掉所有退避定时器（等价于「进程重启」；租约与方案留在盘上）。 */
 export function __resetHubRegistryForTests(): void {
   const state = registry()
   for (const slot of state.slots.values()) {
-    if (slot.retryTimer !== null) {
-      slot.deps.timers.clearTimeout(slot.retryTimer)
-      slot.retryTimer = null
-    }
+    slot.closed = true
+    stopRetryTimer(slot)
   }
   state.slots.clear()
 }

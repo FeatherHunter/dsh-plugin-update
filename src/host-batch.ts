@@ -27,6 +27,7 @@ import type { BatchSelfOrder } from './core/batch/model.js'
 import type { UpdateConfigInput } from './shared/config.js'
 import type { ReaderOverrides } from './host/capabilities.js'
 import type { BatchHostPhoneNames } from './host/batch/phones.js'
+import type { HubIo } from './host/hub/protocol.js'
 
 /** 一个批量目标：要更新的那个插件包 + 它在电话表里的前缀。 */
 export interface MultiTargetSpec {
@@ -125,6 +126,11 @@ export interface MultiHostDeps {
    * true 只说明进程没死，是否接管仍看它的心跳是否陈旧；测试注入假判据，避免真机 PID 猜测。
    */
   hubIsProcessAlive?: (pid: number) => boolean
+  /**
+   * 中枢落盘端口的覆盖（租约/方案的读、写、释放；#253）。只给测试注入会抛异常的假端口，
+   * 验证「后台泵碰到异常也不外抛」；生产不传，走真实文件系统。返回 null/false 的降级口径不变。
+   */
+  hubIo?: HubIo
 }
 
 /** 批量宿主入口的返回面。 */
@@ -137,7 +143,11 @@ export interface MultiHostUpdate {
   targets: readonly MultiTargetSpec[]
   /** 最近一次推进的读数（驱动器停下来的原因 + 步骤）：给日志与门禁用；没推过为 null。 */
   lastRun: { stoppedBecause: BatchStoppedByBecause; steps: BatchRunStep[] } | null
-  /** 停掉 drain（接入方卸载时调）。 */
+  /**
+   * 停掉 drain（接入方卸载时调）。**不是**中枢关停：进程级中枢在 fiber 卸载后仍要推进
+   * （ADR-0008 的核心承诺），宿主退出由中枢的 exit 钩子同步归还本代租约；协议换代等显式
+   * teardown 走内部 `shutdownHubScope()`。
+   */
   dispose(): void
 }
 

@@ -28,8 +28,8 @@ import { hash8 } from '../../shared/hash.js'
 import { createHubPlan, type HubPlan, type HubScopeRef } from '../../core/hub/plan.js'
 import { emptyHubSnapshot } from '../../core/hub/snapshot.js'
 import { readHubStatus } from '../hub/aggregate.js'
+import { adoptOrphanHubTasks } from '../hub/adopt.js'
 import { hubBusyForScope, submitHubTask } from '../hub/registry.js'
-import { hubPathsForUpdate, readHubPlans } from '../hub/plan-store.js'
 import type { HubRuntimeDeps, HubScope, HubSeat } from '../hub/protocol.js'
 import {
   batchEntryOf,
@@ -235,6 +235,8 @@ export function createMultiHostUpdate(
       ? { retryMs: Math.floor(input.hubRetryMs) }
       : {}),
     ...(typeof input.hubIsProcessAlive === 'function' ? { isProcessAlive: input.hubIsProcessAlive } : {}),
+    // #253：落盘端口只在测试里注入（故障注入验证异常边界）；生产不传，走真实文件系统。
+    ...(input.hubIo ? { io: input.hubIo } : {}),
   }
 
   // 共享队列端口（#15 的同一份）：七个目标共用一套读写口与一把全局锁，不各建一套。
@@ -1228,35 +1230,23 @@ export function createMultiHostUpdate(
    * 就能用自己的宿主能力把剩下的步骤走完——不需要重开面板，也不需要重新点一次更新。
    *
    * 纪律：只动自己属主；会话必须对得上方案；已收尾不重装；有人在推就不抢（FIFO 由中枢管）。
+   * 异常边界在 hub/adopt.ts：这里抛出的任何异常都只放弃这一个方案，绝不外抛（#253）。
    */
-  async function adoptOrphanSessions(): Promise<void> {
+  async function adoptOrphanPlan(plan: HubPlan): Promise<void> {
     if (!hubEnabled || !hubScope || !hubPlanScope || !ownerPorts || scopeError) return
-    const hubPaths = hubPathsForUpdate(hubScope.homeDir, hubScope.profileDir)
-    if (!hubPaths) return
-    let plans: HubPlan[]
-    try {
-      plans = await readHubPlans(hubPaths)
-    } catch {
-      return
-    }
-    for (const plan of plans) {
-      if (plan.owner !== prefix) continue
-      if (hubBusyForScope(hubScope)) return
-      const disk = await readSession()
-      if (disk.entries.length === 0 || isBatchFinished(disk)) continue
-      if (disk.id !== plan.sessionId) continue
-      const resumed = resumeBatchSession(disk, now())
-      if (resumed !== disk) await saveSession(resumed)
-      // #217：上一任留下的排队占位先撤掉，这一任会重新逐家入队。
-      await clearBatchQueueIntents()
-      noteRunStart(resumed, { trigger: 'resume', resumed: true })
-      const seat = hubSeatFor(resumed)
-      if (!seat) continue
-      try {
-        await submitHubTask(hubScope, seat, hubDeps)
-      } catch {}
-      return
-    }
+    if (plan.owner !== prefix) return
+    if (hubBusyForScope(hubScope)) return
+    const disk = await readSession()
+    if (disk.entries.length === 0 || isBatchFinished(disk)) return
+    if (disk.id !== plan.sessionId) return
+    const resumed = resumeBatchSession(disk, now())
+    if (resumed !== disk) await saveSession(resumed)
+    // #217：上一任留下的排队占位先撤掉，这一任会重新逐家入队。
+    await clearBatchQueueIntents()
+    noteRunStart(resumed, { trigger: 'resume', resumed: true })
+    const seat = hubSeatFor(resumed)
+    if (!seat) return
+    await submitHubTask(hubScope, seat, hubDeps)
   }
 
   /**
@@ -1356,8 +1346,8 @@ export function createMultiHostUpdate(
   armDrain()
 
   // T3 孤儿接管（#249）：装载时扫一眼自己属主的未收尾方案，交给中枢接着推。
-  // 异步、不阻塞装载；没有方案/已收尾/别的属主都不动。
-  if (hubEnabled && hubScope) void adoptOrphanSessions()
+  // 异步、不阻塞装载；没有方案/已收尾/别的属主都不动；异常边界在 hub/adopt.ts（#253）。
+  if (hubEnabled && hubScope) adoptOrphanHubTasks(hubScope, hubDeps, adoptOrphanPlan)
 
   return {
     handlers,

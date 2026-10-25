@@ -24,7 +24,10 @@ declare module 'node:crypto' {
 declare module 'node:fs' {
   // 只用于「随包事件清单」的同步读取：字段白名单的判据必须当场就有（异步读会让同一份代码
   // 在清单没加载完时放行、加载完后拒收，行为不确定）。只读一个小 JSON，读一次进程内缓存。
+  // 另用于进程退出钩子的同步归还租约（host/hub/lease-store.ts 的 releaseHubLeaseSync）：
+  // exit 事件里只能跑同步代码，读回租约 + 删掉自己的那一代，下一次启动即可直接接管。
   export function readFileSync(path: string, encoding: string): string
+  export function unlinkSync(path: string): void
 }
 
 declare module 'node:fs/promises' {
@@ -91,7 +94,8 @@ declare const Buffer: {
   }
 }
 
-// 宿主进程全局（本包只读环境变量、运行时路径、进程号、Node 版本号，不写进程状态）。
+// 宿主进程全局（本包只读环境变量、运行时路径、进程号、Node 版本号；唯一的进程级挂钩是下面
+// once('exit') 的只读退出通知——它不写进程状态，只在退出前同步归还本代租约）。
 // kill(pid, 0) 是租约「原驾驶者还活着吗」的探测（host/hub/registry.ts）：只发零号信号，不真杀。
 declare const process: {
   env: Record<string, string | undefined>
@@ -101,4 +105,6 @@ declare const process: {
   pid: number
   versions: { node: string }
   kill(pid: number, signal?: number | string): boolean
+  // 中枢退出钩子（#253）：宿主关停时同步停表并归还本代租约；只认 exit 这一个事件。
+  once(event: 'exit', listener: () => void): void
 }

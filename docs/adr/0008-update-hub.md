@@ -1,6 +1,6 @@
 # 8. 更新中枢：自更新不断链 + 全局进度
 
-- 状态：accepted（实现见 `src/core/hub/`、`src/host/hub/`、`src/panel/batch/dock.ts`；票 #246–#252）
+- 状态：accepted（实现见 `src/core/hub/`、`src/host/hub/`、`src/panel/batch/dock.ts`；票 #246–#253；#253 起补后台异常边界与关停/退出口径）
 - 日期：2026-10-24
 - 关联：真机故障（爱生活 0.3.85 批量更新面板：`饼干记账` 正在安装、`卡路里/备忘录/作息管家/居家管家/私家大厨` 停在「已在队列」；盘上 `update-queue/<指纹>/life/batch.json` 停在 `life-pack: current`）· 研究 `docs/research/20261024-更新机制现状调查.md`（§3/§5/§10）· ADR-0003 · ADR-0004 · #219 · 宿主安装出口契约 `docs/host-install-exits.md`
 
@@ -29,13 +29,15 @@
 
 - 路径：`<家目录>/update-queue/<使用范围短指纹>/hub/plans/<属主前缀>.json`（`hubPlanFileName(owner)`，属主即 ADR-0003 的批量前缀）；内容：`{version, sessionId, owner, selfKey, selfOrder, stopOnFailure, targets[{key,title,packageName,pluginId,prefix,homeDir?,profileDir?}], scope{homeDir,profileDir,profileName,environmentKind?,releaseChannel?,registryUrl?}, createdAt, updatedAt}`。
 - 方案只说「装什么、装到哪、从哪个源查」，不记进度；进度唯一真相仍是各属主 `batch.json`（ADR-0003 不变）。
-- 任一使用本包的插件在挂载时调用 `hub.activate()`（实现名 `adoptOrphanSessions()`，`createMultiHostUpdate` 装载末尾异步触发）：扫描方案，发现「会话未收尾 + 租约空闲/陈旧」就按通用席位接管续跑 → 覆盖进程重启、崩溃、换执行者三种断链。
+- 任一使用本包的插件在挂载时调用 `hub.activate()`（实现：`src/host/hub/adopt.ts` 的 `adoptOrphanHubTasks()` 包异常边界，装载末尾异步触发；扫到方案后由 `fan-out.ts` 的 `adoptOrphanPlan(plan)` 按属主/会话/忙碌条件装配席位）：扫描方案，发现「会话未收尾 + 租约空闲/陈旧」就按通用席位接管续跑 → 覆盖进程重启、崩溃、换执行者三种断链。
 
 ### 4. 单写者：中枢租约 + 既有全局锁分工
 
 - 中枢租约 `<queueDir>/hub/lease.json`：`{version, driverId, pluginId, pid, startedAt, heartbeatAt, generation}`。每推进一步心跳一次（`HUB_LEASE_HEARTBEAT_MS = 5s` 节流）；心跳陈旧（`HUB_LEASE_STALE_MS = 20s`）或同机 pid 已死则允许接管，接管者把 `generation + 1`；释放只认自己的 `driverId + generation`。
 - 安装本身的互斥仍复用 `queue.json + global.lock`（同一使用范围一次只装一个，ADR-0003 §4 一个字不改）。两层职责不重叠：租约管「谁在推进会话」，全局锁管「谁在写盘装包」。
 - 同一进程内中枢天然串行（单泵 + 单 Job 队列）。
+- **异常边界（#253）**：泵/退避重试/孤儿接管都跑在插件 `apply()` 之外，而宿主（dsh-app-boot）把「脱离 `apply()` 的异步任务产生未处理 rejection」当致命错误并退出进程。所以中枢后台的每一种异常都必须在中枢边界收住：任务边界 → 该任务明确 failed、等待者拿终态、泵继续下一个；落盘边界（`src/host/hub/boundary.ts`）→ 租约/方案的读/写/释放按 best-effort 降级；租约端口**抛出**（不是返回 false）的意外异常额外标 fault，让位重排队并计数（坏 I/O 不许变成每秒空转：连续故障到上限就判 failed）；孤儿接管边界（`src/host/hub/adopt.ts`）→ 单个方案失败只放弃那一个。
+- **关停/释放**：宿主进程退出时中枢同步停掉退避定时器、只删「本代」租约（`releaseHubLeaseSync`），下一次启动看到盘上没有租约就直接接管，不用等陈旧窗口；显式关停（协议换代、测试模拟重启）走 `shutdownHubScope()`：先摘槽、停表、给未结束任务的等待者 `queued` 终态、归还本代租约，新实例再按盘上方案与账本重新接管（协议换代的接线由 #254 落到 `registry` 的换代路径）。注意 `createMultiHostUpdate(...).dispose()` **不是**关停：dispose 只表示这个插件的 fiber 没了，中枢恰恰要在那之后继续推进（自更新场景）。
 
 ### 5. 推进算法：单泵、逐会话、每步落盘
 
@@ -62,6 +64,7 @@
 
 - `batch.json` 仍是会话唯一真相；每步落盘、幂等编号、一次只装一个、失败继续下一家、跨 scope 拒绝、面板只渲染不推导。
 - 中枢一切 I/O best-effort：方案/租约坏文件自愈（读坏当没有，写坏吞掉留既有 `store.fail`），绝不挡安装。
+- 中枢后台（泵、退避重试、孤儿接管、退出钩子）**绝不**以未处理 rejection / 未捕获异常逃逸（#253）：异常只能变成「任务 failed / 让位重排队 / 落盘降级 / 这次接管放弃」，边界见 `src/host/hub/boundary.ts`、`adopt.ts`、`registry.ts`。
 - 单插件更新链路 Phase 1 不迁入中枢（`updateHubStatus` 仍会显示 `queue.json` owner 指向的进行中安装）；不新增运行时依赖、不新增 package 子路径。
 
 ## 反向范围
