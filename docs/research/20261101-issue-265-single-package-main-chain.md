@@ -128,6 +128,13 @@ node selftest/real-machine/tools/preflight-fixture-install.ts --run-base-dir <ru
 - `selftest/tsconfig.json` 只按 #258 批准加了一行 `exclude: ["./fixtures", "./real-machine", "./tooling"]`；
   工具层类型检查用新增 `selftest/tsconfig.tooling.json` + 最小 `selftest/tooling/node-ambient.d.ts`（未引入 `@types/node`、未改 package.json）。
 - 真机 run 不进 `npm run check`（#258 分层）；证据包是「门三真机签署」的输入。
+- **实测**（2026-11-01，merge integration tip 后）：上表四条全绿。`npx tsc` 两路 exit 0；
+  夹具单测 `OK（51 条断言）`；`npm run check` exit 0（typecheck + build + 2083 条测试 + gate:bilingual）。
+- **既知抖动（非本票引入）**：`npm run check` 的全量并行测试里 `tests/batch-e2e.test.mjs` 的
+  `E3b 执行器真卡死…` 用例在机器高负载、并行度高时偶发失败（失败点分别见过 `restartRequired` 与 `install-failed`）。
+  已用**基线 commit `0b782f4` 的独立 checkout** 跑同一全量命令复现（`D:/dsh-plugin/_wt263/runtime/t1-265/base-check/test1.log`），
+  证明与 #265 改动无关；同一测试文件单独跑、或全量低并发（`node --test --test-concurrency=2 tests/*.test.mjs`）均 4/4、全绿。
+  本票最终 `npm run check` 通过；若 CI 再遇 E3b 抖动，按基线抖动处理，不要归因到夹具层。
 
 ## 9. 从零复跑
 
