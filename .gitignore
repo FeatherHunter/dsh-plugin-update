@@ -24,3 +24,7 @@ tests/.tmp/
 
 # 体验场的单文件成品：由 demo/build-showcase.mjs 生成，不入库
 demo/showcase*.html
+
+# 会话上下文转录与审计原始输出（本地过程件，不入库）
+prototype/_b*.txt
+prototype/audit-out.txt

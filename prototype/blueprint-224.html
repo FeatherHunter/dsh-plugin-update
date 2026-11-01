@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>224 命名三方案（抛弃式）</title>
+<!-- PROTOTYPE 抛弃式，不进 main。双击即开，刷新重置。A=对抗式审查后的终版★，B/C=被否的备选。单根目录树，默认全展开。?variant=A/B/C 或 #variant= 可直达。 -->
+<style>
+  body { font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif; background: #faf9fc; color: #1e1b29; margin: 0; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 18px 60px; }
+  h1 { font-size: 19px; margin: 4px 0 2px; }
+  .hint { font-size: 13px; color: #555; margin-bottom: 10px; }
+  .bigbtns button { font-size: 16px; padding: 10px 22px; cursor: pointer; border: 1px solid #e6e1f2; background: #fff; border-radius: 10px; margin-right: 8px; }
+  .bigbtns button.active { background: #6d28d9; color: #fff; border-color: #6d28d9; }
+  .rule { font-size: 13px; color: #333; background: #fff; border: 1px solid #e6e1f2; border-radius: 10px; padding: 8px 12px; margin: 10px 0; }
+  .tree { background: #fff; border: 1px solid #e6e1f2; border-radius: 10px; padding: 10px 12px; }
+  .tree details { margin: 1px 0; }
+  .tree summary { cursor: pointer; font-size: 13px; padding: 3px 4px; border-radius: 6px; }
+  .tree summary:hover { background: #f5f1ff; }
+  .tree .kids { margin-left: 14px; padding-left: 12px; border-left: 2px solid #e6e1f2; }
+  .tree .file { font-family: Consolas, monospace; font-size: 12.5px; padding: 2px 4px; color: #333; white-space: nowrap; }
+  .tree .file .br { color: #aaa; }
+  .tree .cnt { color: #888; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>命名方案：A·终版★（B/C 是被否备选）</h1>
+  <div class="hint">A 经过对抗式审查：只改有语义收益的，现状好名一字不动，证据不足的不拆。根壳 ×9 是 npm 契约锁死的，不是设计。</div>
+  <div class="bigbtns" id="variantBtns"></div>
+  <div class="rule" id="ruleLine"></div>
+  <div class="tree" id="treeBox"></div>
+</div>
+
+<script>
+"use strict"
+/* 纯逻辑：零 DOM，可抬走。state = { variant } */
+const Logic = (() => {
+  const initial = (variant) => ({ variant })
+  function reduce(s, a) {
+    if (a.type === "SET_VARIANT") return { variant: a.variant }
+    return s
+  }
+  return { initial, reduce }
+})()
+
+const LOG12 = ["router.ts","namespace.ts","trace.ts","own-version.ts","manifest.ts","emit.ts","health.ts","sink.ts","client-queue.ts","registry.ts","index.ts","panel-client.ts"]
+const SHELLS9 = ["host.ts","panel.ts","client.ts","host-batch.ts","panel-batch.ts","entry.ts","entry-batch.ts","install-button.ts","http.ts"]
+/* 9 个根壳：package.json exports 锁 11 子路径 + build.mjs 一对一同名转译 ⇒ src/*.ts 必须在根、必须叫这 9 个名。冻结，不参与命名比较。log/ 12 个不动。*/
+
+const VARIANTS = [
+{ id: "A", name: "A·终版★", rule: "对抗式审查后：①只改语义错的（账本≠引擎、模板门禁≠安装门、锁存≠视图）；②现状好名一字不动（codes/ports/redaction/diag/hash/lang/panel-copy…文件名=主导出名）；③service.ts 整体保留（version/registry/check 早已独立，再拆是开倒车）；④根壳×9是契约。",
+  groups: [
+    ["shared/ ×17（现状好名全留，只改 2 个错的）", ["config.ts","lang.ts","client.ts","codes.ts","redaction.ts","diag.ts","hash.ts","ports.ts","compliant-version.ts","version-judgment.ts","check-conclusion.ts","install-cause.ts","install-fail.ts","self-check.ts ← self.ts","log-events.ts","panel-copy.ts","event-list-gate.ts ← gate.ts"]],
+    ["shared/types/ ×2", ["runtime.d.ts","node-ambient.d.ts"]],
+    ["shared/copy/ ×3 ← bilingual.ts（Copy是仓内既定术语）", ["dictionary.ts","text.ts","styles.ts"]],
+    ["core/ ×9（service.ts 整体保留，不拆）", ["reader.ts","registry-fetch.ts","changelog-io.ts","commands.ts","manual-absent.ts","last-resort.ts","service.ts（整体保留：version/registry/check 早已独立出去）","batch-ledger.ts ← batch.ts","batch-driver.ts ← batch-run.ts"]],
+    ["core/changelog/ ×3 ← changelog.ts", ["parser.ts","render-model.ts","validator.ts（待定：搬家时确认，或并入 parser）"]],
+    ["core/queue/ ×2 ← queue.ts + store.ts(端口)", ["queue.ts","ports.ts ← store.ts"]],
+    ["core/store/ ×2 ← store.ts(落盘/执行)", ["disk.ts","executor.ts"]],
+    ["host/ ×7 ← host.ts(拆4)+…", ["phones.ts ← host.ts","capabilities.ts ← host.ts","environment.ts ← host.ts","factory.ts ← host.ts","forwarding.ts ← host-forwarding.ts","http.ts","batch-log.ts ← host-batch-log.ts"]],
+    ["host/batch/ ×3 ← host-batch.ts", ["fan-out.ts","phones.ts","resume.ts"]],
+    ["panel/ ×8 ← panel.ts(拆7)+entry.ts（截面原话命名）", ["view-model.ts ← panel.ts","render.ts ← panel.ts","mount.ts ← panel.ts","theme.ts ← panel.ts","archive-theme.ts ← panel.ts","failure-latch.ts ← panel.ts","skip-store.ts ← panel.ts","entry.ts"]],
+    ["panel/install-button/ ×3 ← install-button.ts", ["widgets.ts","view.ts","mount.ts"]],
+    ["panel/batch/ ×7 ← panel-batch.ts(拆6)+entry-batch.ts", ["ledger.ts ← panel-batch.ts","render.ts ← panel-batch.ts","styles.ts ← panel-batch.ts","mount.ts ← panel-batch.ts","actions.ts（待定：截面无支撑，搬家时核对）","prefs.ts（待定：截面无支撑，搬家时核对）","entry-batch.ts"]],
+    ["log/ ×12（不动）", LOG12],
+    ["根壳 ×9（npm 契约锁死，非设计）", SHELLS9],
+  ]},
+{ id: "B", name: "B·短名惯例（否）", rule: "被否：保持现状短名本无错，但 service-*/changelog-* 前缀扁平化省目录不省心智，且 vocabulary 级的好名一个没给。留作对照。",
+  groups: [
+    ["shared/（现状短名不动）", ["config.ts","lang.ts","client.ts","codes.ts","redaction.ts","diag.ts","hash.ts","ports.ts","compliant-version.ts","version-judgment.ts","check-conclusion.ts","install-cause.ts","install-fail.ts","gate.ts","self.ts","log-events.ts","panel-copy.ts"]],
+    ["shared/types/", ["runtime.d.ts","node-ambient.d.ts"]],
+    ["shared/strings/ ← bilingual.ts", ["dict.ts","access.ts","css.ts"]],
+    ["core/（含扁平的 service-*/changelog-*）", ["reader.ts","registry-fetch.ts","changelog-io.ts","commands.ts","manual-absent.ts","last-resort.ts","batch.ts","batch-run.ts","service-version.ts ← service.ts","service-registry.ts ← service.ts","service-check.ts ← service.ts","changelog-parse.ts ← changelog.ts","changelog-validate.ts ← changelog.ts","changelog-render.ts ← changelog.ts"]],
+    ["core/queue/ ← queue.ts + store.ts(端口)", ["queue.ts","ports.ts ← store.ts"]],
+    ["core/store/ ← store.ts(账本/执行)", ["disk.ts","executor.ts"]],
+    ["host/ ← host.ts(拆4)+…", ["phone.ts ← host.ts","capability.ts ← host.ts","env.ts ← host.ts","facade.ts ← host.ts","forwarding.ts ← host-forwarding.ts","http.ts","batch-log.ts ← host-batch-log.ts"]],
+    ["host/batch/ ← host-batch.ts", ["capability.ts","phones.ts","drive.ts"]],
+    ["panel/ ← panel.ts(拆6)+install-button.ts(拆3)+entry.ts", ["model.ts ← panel.ts","view.ts ← panel.ts","mount.ts ← panel.ts","theme.ts ← panel.ts","archive.ts ← panel.ts","failure.ts ← panel.ts","install-button/model.ts ← install-button.ts","install-button/view.ts ← install-button.ts","install-button/mount.ts ← install-button.ts","entry.ts"]],
+    ["panel/batch/ ← panel-batch.ts(拆5)+entry-batch.ts", ["model.ts","view.ts","mount.ts","actions.ts","prefs.ts","entry-batch.ts"]],
+    ["log/（不动）", LOG12],
+    ["根壳 ×9", SHELLS9],
+  ]},
+{ id: "C", name: "C·业界术语（否）", rule: "被否：copy/locale/job-queue 等词本身是对的，A 已吸收（copy/）；其余全套换词（status-codes/conformance/telemetry-catalog…）收益为零、diff 最大。留作对照。",
+  groups: [
+    ["shared/", ["config.ts","locale.ts ← lang.ts","client.ts","status-codes.ts ← codes.ts","redaction.ts","diag.ts","content-digest.ts ← hash.ts","ports.ts","conformance.ts ← compliant-version.ts","version-policy.ts ← version-judgment.ts","check-verdict.ts ← check-conclusion.ts","install-blocker.ts ← install-cause.ts","install-failure.ts ← install-fail.ts","entry-guard.ts ← gate.ts","self-test.ts ← self.ts","telemetry-catalog.ts ← log-events.ts","panel-microcopy.ts ← panel-copy.ts"]],
+    ["shared/ambient/", ["runtime.d.ts","node-ambient.d.ts"]],
+    ["shared/copy/ ← bilingual.ts", ["phrases.ts","provider.ts","theme.ts"]],
+    ["core/", ["reader.ts","registry-fetch.ts","changelog-io.ts","commands.ts","manual-absent.ts","last-resort.ts","batch.ts","batch-run.ts"]],
+    ["core/release-service/ ← service.ts", ["version.ts","registry.ts","inspection.ts ← check.ts"]],
+    ["core/changelog/ ← changelog.ts", ["parser.ts","validator.ts","presenter.ts"]],
+    ["core/job-queue/ ← queue.ts + store.ts(端口)", ["engine.ts ← queue.ts","ports.ts ← store.ts"]],
+    ["core/store/ ← store.ts(账本/执行)", ["journal.ts ← store.ts","dispatcher.ts ← store.ts"]],
+    ["host/ ← host.ts(拆4)+…", ["phone-directory.ts ← host.ts","capability.ts ← host.ts","environment.ts ← host.ts","facade.ts ← host.ts","forwarding.ts ← host-forwarding.ts","http.ts","batch-log.ts ← host-batch-log.ts"]],
+    ["host/batch/ ← host-batch.ts", ["capability.ts","phones.ts","driver.ts ← drive.ts"]],
+    ["panel/ ← panel.ts(拆6)+install-button.ts(拆3)+entry.ts", ["view-state.ts ← panel.ts","view.ts ← panel.ts","mount.ts ← panel.ts","design-tokens.ts ← panel.ts","archive-state.ts ← panel.ts","error-view.ts ← panel.ts","install-button/view-state.ts ← install-button.ts","install-button/view.ts ← install-button.ts","install-button/mount.ts ← install-button.ts","entry.ts"]],
+    ["panel/batch/ ← panel-batch.ts(拆5)+entry-batch.ts", ["view-state.ts","view.ts","mount.ts","actions.ts","prefs.ts","entry-batch.ts"]],
+    ["log/（不动）", LOG12],
+    ["根壳 ×9", SHELLS9],
+  ]},
+]
+
+/* 把 groups（目录标注+文件列表）展开成完整相对路径，再建成嵌套树 */
+function dirPath(label) {
+  if (!label) return ""
+  let p = label.split(" ×")[0].split("（")[0].split(" ")[0]
+  return p.replace(/\/$/, "")
+}
+function fileParts(entry) {
+  const m = entry.match(/^(.*?)( ← .*)?(（.*）)?$/)
+  return { name: (m[1] || entry).trim(), note: ((m[2] || "") + (m[3] || "")).trim() }
+}
+function expandPaths(groups) {
+  const out = []
+  for (const [label, files] of groups) {
+    const d = dirPath(label)
+    for (const f of files) {
+      const fp = fileParts(f)
+      out.push({ p: d ? d + "/" + fp.name : fp.name, note: fp.note })
+    }
+  }
+  return out
+}
+function buildTree(items) {
+  const root = { dirs: new Map(), files: [] }
+  for (const it of items) {
+    const segs = it.p.split("/")
+    let node = root
+    for (let i = 0; i < segs.length - 1; i++) {
+      if (!node.dirs.has(segs[i])) node.dirs.set(segs[i], { dirs: new Map(), files: [] })
+      node = node.dirs.get(segs[i])
+    }
+    node.files.push({ t: segs[segs.length - 1], n: it.note })
+  }
+  const sortNode = (n) => {
+    n.files.sort((a, b) => a.t < b.t ? -1 : 1)
+    const ks = [...n.dirs.keys()].sort()
+    const m = new Map()
+    for (const k of ks) { const c = n.dirs.get(k); sortNode(c); m.set(k, c) }
+    n.dirs = m
+  }
+  sortNode(root)
+  return root
+}
+function countFiles(n) {
+  let c = n.files.length
+  for (const c2 of n.dirs.values()) c += countFiles(c2)
+  return c
+}
+function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") }
+function renderNode(name, node, isRoot) {
+  let h = ""
+  if (!isRoot) h += "<details open><summary>📁 <b>" + esc(name) + "/</b> <span class='cnt'>" + countFiles(node) + " 个文件</span></summary><div class='kids'>"
+  else h += "<div>"
+  for (const [dn, child] of node.dirs) h += renderNode(dn, child, false)
+  const fs = node.files
+  for (let i = 0; i < fs.length; i++) {
+    const br = (i === fs.length - 1 && node.dirs.size === 0) ? "└─" : "├─"
+    h += "<div class='file'><span class='br'>" + br + "</span> 📄 " + esc(fs[i].t) + (fs[i].n ? " <span class='cnt'>" + esc(fs[i].n) + "</span>" : "") + "</div>"
+  }
+  h += isRoot ? "</div>" : "</div></details>"
+  return h
+}
+
+function initVariant() {
+  try {
+    const q = new URLSearchParams(location.search).get("variant")
+    const h = (location.hash.match(/variant=([ABC])/i) || [])[1]
+    const v = String(q || h || "A").toUpperCase()
+    if ("ABC".includes(v)) return v
+  } catch (e) {}
+  return "A"
+}
+let S = Logic.initial(initVariant())
+const $ = (id) => document.getElementById(id)
+const V = () => VARIANTS.find(v => v.id === S.variant)
+function setVariant(v) {
+  S = Logic.reduce(S, { type: "SET_VARIANT", variant: v })
+  try { history.replaceState(null, "", "#variant=" + v) } catch (e) {}
+  render()
+}
+function render() {
+  const v = V()
+  $("variantBtns").innerHTML = VARIANTS.map(x =>
+    '<button data-v="' + x.id + '" class="' + (x.id === S.variant ? "active" : "") + '">' + esc(x.name) + "</button>").join("")
+  ;[...$("variantBtns").querySelectorAll("button")].forEach(x => x.onclick = () => setVariant(x.dataset.v))
+  $("ruleLine").innerHTML = "<b>" + esc(v.name) + "</b> · " + esc(v.rule)
+  const tree = buildTree(expandPaths(v.groups))
+  $("treeBox").innerHTML = "<details open><summary>🗂️ <b>src/</b> <span class='cnt'>" + countFiles(tree) + " 个文件（含根壳 ×9）</span></summary><div class='kids'>"
+    + renderNode("", tree, true) + "</div></details>"
+}
+render()
+</script>
+</body>
+</html>
