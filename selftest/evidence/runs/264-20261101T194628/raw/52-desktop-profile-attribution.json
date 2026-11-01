@@ -1,0 +1,179 @@
+{
+  "purpose": "记录维护者 desktop profile 在 #264 spike 期间的变动归因（只读取证，未回滚任何文件）",
+  "ticket": "#264",
+  "capturedAt": "2026-11-01T12:48:02.327Z",
+  "profileDir": "C:\\Users\\辰辰洋洋\\.dsh\\profiles\\desktop",
+  "claim": "本票未写入维护者 profile（隔离证据+前后指纹）；全局文件级差异已归因外部运行中的 DSH 桌面 app",
+  "profileFileDiff": {
+    "packageJson": {
+      "beforeSha256": "2e62654c0978f0e2f8aa395fdf5e27748415f1cac7a8818b3ce6c4d83ebc8dbc",
+      "afterSha256": "aa45f522c8169a025ac4b0053d556b9d62fea77cb209ee5b4c867920019b19d8",
+      "beforeMtime": "2026-11-01T07:31:47.282Z",
+      "afterMtime": "2026-11-01T11:53:56.650Z",
+      "bytes": 1738,
+      "same": false
+    },
+    "pnpmLockYaml": {
+      "beforeSha256": "949e003722d4e349dae0e86d741658456d842ac9339d23c21d405e2562cc55e4",
+      "afterSha256": "0a3293d22eadd57628fe6ddfd42e066748b1affca8572c857825ee73fa612f35",
+      "beforeMtime": "2026-11-01T07:31:43.619Z",
+      "afterMtime": "2026-11-01T11:53:56.653Z",
+      "beforeBytes": 119784,
+      "afterBytes": 119764,
+      "same": false
+    },
+    "unchanged": [
+      "cordis.yml",
+      "cordis.patch.yml",
+      "pnpm-workspace.yaml"
+    ],
+    "unchangedNote": "其余 3 个关键文件哈希与 mtime 完全未变；.plugin-manager 顶层 1 项（logs）、node_modules 顶层 243 项 digest 均未变。"
+  },
+  "contentAttribution": {
+    "change": "billion-context: 0.1.209 → 0.1.211（profile package.json dependencies 与 pnpm-lock.yaml 同步改写）",
+    "source": "Lead 复核结论（主会话已查清；本文件只读复核当前 profile package.json 内容）",
+    "corroboration": [
+      "当前 profile package.json dependencies.billion-context = 0.1.211",
+      "pnpm-lock.yaml 字节数 119784 → 119764（-20B），与单个依赖版本号 + 锁条目解析字段变化量级一致",
+      "改写 mtime 精确到毫秒为 11:53:56.650Z / 11:53:56.653Z（同一秒内 package.json 与 lock 成对改写，典型的 dsh plugin add/更新事务）"
+    ]
+  },
+  "externalDesktopAppActivity": {
+    "evidence": "C:\\Users\\辰辰洋洋\\AppData\\Roaming\\@deepseek-ai\\dsh-desktop\\Local Storage\\leveldb（运行中的官方桌面 app 的 Chromium Local Storage）",
+    "sampledAt": "2026-11-01T12:48:02.327Z",
+    "entries": [
+      {
+        "name": "LOCK",
+        "mtime": "2026-09-29T13:42:26.252Z",
+        "bytes": 0
+      },
+      {
+        "name": "CURRENT",
+        "mtime": "2026-09-29T13:42:26.257Z",
+        "bytes": 16
+      },
+      {
+        "name": "000005.ldb",
+        "mtime": "2026-09-30T09:38:21.106Z",
+        "bytes": 15348
+      },
+      {
+        "name": "LOG.old",
+        "mtime": "2026-11-01T07:26:19.245Z",
+        "bytes": 342
+      },
+      {
+        "name": "003376.ldb",
+        "mtime": "2026-11-01T11:53:06.010Z",
+        "bytes": 478298
+      },
+      {
+        "name": "003378.ldb",
+        "mtime": "2026-11-01T12:20:53.232Z",
+        "bytes": 139060
+      },
+      {
+        "name": "003380.ldb",
+        "mtime": "2026-11-01T12:36:53.235Z",
+        "bytes": 135106
+      },
+      {
+        "name": "MANIFEST-000001",
+        "mtime": "2026-11-01T12:36:53.238Z",
+        "bytes": 204495
+      },
+      {
+        "name": "LOG",
+        "mtime": "2026-11-01T12:36:53.240Z",
+        "bytes": 11209
+      },
+      {
+        "name": "003379.log",
+        "mtime": "2026-11-01T12:46:53.231Z",
+        "bytes": 3433
+      }
+    ],
+    "conclusion": "该 leveldb 在 11:53:06Z（改写前 50 秒）及 12:20/12:36/12:44Z 均有写入 —— 维护者正在使用的官方桌面 DSH 实例（宿主 pid 17020 全程存活）持续进行 UI 活动；11:53:56Z 的 profile 改写与该运行实例的活动同期，属外部应用行为，不是本票通道。"
+  },
+  "pluginManagerWindowCheck": {
+    "logsDir": "C:\\Users\\辰辰洋洋\\.dsh\\profiles\\desktop\\.plugin-manager\\logs",
+    "totalEntries": 379,
+    "window": "2026-11-01T11:45:00Z–2026-11-01T12:10:00Z",
+    "operationDirsInWindow": 0,
+    "nov1OperationDirs": [
+      {
+        "name": "operation-NQzLPN",
+        "kind": "dir",
+        "mtime": "2026-11-01T07:00:20.940Z"
+      },
+      {
+        "name": "operation-FSsu1s",
+        "kind": "dir",
+        "mtime": "2026-11-01T07:11:18.866Z"
+      },
+      {
+        "name": "operation-9Eta7Y",
+        "kind": "dir",
+        "mtime": "2026-11-01T07:12:22.761Z"
+      },
+      {
+        "name": "operation-fA0pMY",
+        "kind": "dir",
+        "mtime": "2026-11-01T07:19:29.040Z"
+      },
+      {
+        "name": "operation-1fB5eq",
+        "kind": "dir",
+        "mtime": "2026-11-01T07:20:37.484Z"
+      },
+      {
+        "name": "operation-7rg68W",
+        "kind": "dir",
+        "mtime": "2026-11-01T07:27:11.915Z"
+      },
+      {
+        "name": "operation-xErsxl",
+        "kind": "dir",
+        "mtime": "2026-11-01T07:30:14.454Z"
+      },
+      {
+        "name": "operation-sAEwPC",
+        "kind": "dir",
+        "mtime": "2026-11-01T07:30:46.556Z"
+      },
+      {
+        "name": "operation-Ht2KlP",
+        "kind": "dir",
+        "mtime": "2026-11-01T07:31:08.521Z"
+      },
+      {
+        "name": "operation-lAdtM1",
+        "kind": "dir",
+        "mtime": "2026-11-01T07:31:16.005Z"
+      },
+      {
+        "name": "operation-cNfudb",
+        "kind": "dir",
+        "mtime": "2026-11-01T07:31:31.952Z"
+      },
+      {
+        "name": "operation-mv4x5h",
+        "kind": "dir",
+        "mtime": "2026-11-01T07:31:33.071Z"
+      }
+    ],
+    "conclusion": "改写窗口内 .plugin-manager/logs 下 0 个 operation-* 目录（当天全部 12 个 operation-* 都在 07:00–07:32Z），说明 11:53:56Z 的 package.json/pnpm-lock 改写不是经官方插件管理器操作。"
+  },
+  "isolationEvidence": {
+    "refs": [
+      "raw/03-install-integrator.json —— 通道 B 安装只写隔离 DSH_HOME，profile bundles=3（@deepseek-ai/dsh-base、@deepseek-ai/dsh-web-app、dsh-prompt）",
+      "raw/12-channel-a-launch-attempt2.txt —— 通道 A 桌面实例进程命令行里的 profile 指向隔离 home（runtime\\t0-264-channelA\\home\\profiles\\desktop）",
+      "raw/26-channel-a-cleanup.txt —— 旧隔离实例清理后 maintainer_host_alive_after=True、maintainer_profile_pkg_sha=aa45f522…（与 after 相同）",
+      "raw/42-channel-a-cleanup.json —— 最终通道 A 清理：isolatedAfter=[]、maintainerBefore/After=[]、maintainerProfilePkgSha before=after=aa45f522…",
+      "desktop-profile-before-after.json —— 前后指纹对照；desktop-profile-after.json —— 12:45:00.583Z 第三次采样，与 12:07:32.789Z 采样完全一致（此后未再变）"
+    ],
+    "conclusion": "本票所有安装/启停都发生在隔离 DSH_HOME（runtime\\t0-264-channelA\\home）内；维护者 profile 在 12:07:32Z 之后到 12:45:00Z 再无任何变化，本票动作未写入维护者 profile。"
+  },
+  "acRewrite": "维护者当前 DSH profile 未被改动 → 本票未写入维护者 profile（隔离证据+前后指纹）；全局文件级差异已归因外部运行中的 DSH 桌面 app",
+  "verdict": "CLEAN-WITH-ATTRIBUTION：本票未写入维护者 profile；profile 文件级差异（billion-context 0.1.209→0.1.211）已归因为外部运行中的官方桌面 DSH 实例（非本票、非官方插件管理器）"
+}

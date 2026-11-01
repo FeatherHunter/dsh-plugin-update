@@ -1,0 +1,99 @@
+{
+  "step": "cleanup",
+  "channel": "A",
+  "at": "2026-11-01T13:07:35.707Z",
+  "isolatedBefore": [
+    {
+      "ProcessId": 84488,
+      "ParentProcessId": 17020,
+      "CommandLine": "\"D:\\DeepseekHarness\\DeepSeek Harness.exe\" D:\\DeepseekHarness\\resources\\app.asar\\dsh\\node_modules\\@deepseek-ai\\dsh-subprocess-local\\lib\\runner.js -- D:\\0Tools\\powershell7.6\\7\\pwsh.exe -NoLogo -NoProfile -NonInteractive -Command \"[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [System.Text.UTF8Encoding]::new($false); Set-Location \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\spike\\264\\\"\nnode --check channel-a-wizard.ts\nnode channel-a-wizard.ts --run-dir \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628\\\" --home \\\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home\\\" --user-data-dir \\\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd\\\" --cdp-port 59349 *>&1 | Tee-Object -FilePath \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628\\raw\\60-channel-a-wizard-run.log\\\"\nWrite-Output \\\"=== exit=$LASTEXITCODE ===\\\"\""
+    },
+    {
+      "ProcessId": 73996,
+      "ParentProcessId": 84488,
+      "CommandLine": "D:\\0Tools\\powershell7.6\\7\\pwsh.exe -NoLogo -NoProfile -NonInteractive -Command \"[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [System.Text.UTF8Encoding]::new($false); Set-Location \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\spike\\264\\\"\nnode --check channel-a-wizard.ts\nnode channel-a-wizard.ts --run-dir \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628\\\" --home \\\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home\\\" --user-data-dir \\\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd\\\" --cdp-port 59349 *>&1 | Tee-Object -FilePath \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628\\raw\\60-channel-a-wizard-run.log\\\"\nWrite-Output \\\"=== exit=$LASTEXITCODE ===\\\"\""
+    },
+    {
+      "ProcessId": 89976,
+      "ParentProcessId": 73996,
+      "CommandLine": "\"D:\\2Study\\nodejs\\node.exe\" channel-a-wizard.ts --run-dir D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628 --home D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home --user-data-dir D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd --cdp-port 59349"
+    },
+    {
+      "ProcessId": 86760,
+      "ParentProcessId": 89976,
+      "CommandLine": "\"D:\\DeepseekHarness\\DeepSeek Harness.exe\" --user-data-dir=D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd --remote-debugging-port=59349"
+    },
+    {
+      "ProcessId": 29052,
+      "ParentProcessId": 86760,
+      "CommandLine": "\"D:\\DeepseekHarness\\DeepSeek Harness.exe\" --type=gpu-process --user-data-dir=\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd\" --gpu-preferences=WAAAAAAAAADgAAAEAAAAAAAAAAAAAGAAQAAAAAAAAAADAAAAAAAAADgAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAKAAAAAAAAAAoAAAAAAAAAAgAAAAAAAAAEAAAAAIAAAABAAAAAAAAAAgAAAAAAAAACAAAAAAAAAA= --field-trial-handle=2264,i,4808152318446429006,1771247295125464532,262144 --enable-features=AllowWindowCaptureExclusionInRemoteSessions,PdfUseShowSaveFilePicker --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,NetworkServiceSandbox,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=2268,i,18124672247919892543,11222645299166381521,4 --trace-process-track-uuid=3190708988185955192 --mojo-platform-channel-handle=2256 /prefetch:2"
+    },
+    {
+      "ProcessId": 73072,
+      "ParentProcessId": 86760,
+      "CommandLine": "\"D:\\DeepseekHarness\\DeepSeek Harness.exe\" --type=utility --utility-sub-type=network.mojom.NetworkService --lang=zh-CN --service-sandbox-type=none --user-data-dir=\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd\" --standard-schemes=dsh-app --secure-schemes=dsh-app --cors-schemes=dsh-app --fetch-schemes=dsh-app --streaming-schemes=dsh-app --code-cache-schemes=dsh-app --field-trial-handle=2264,i,4808152318446429006,1771247295125464532,262144 --enable-features=AllowWindowCaptureExclusionInRemoteSessions,PdfUseShowSaveFilePicker --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,NetworkServiceSandbox,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=2268,i,18124672247919892543,11222645299166381521,4 --trace-process-track-uuid=3190708989122997041 --mojo-platform-channel-handle=2488 /prefetch:11"
+    },
+    {
+      "ProcessId": 65148,
+      "ParentProcessId": 86760,
+      "CommandLine": "\"D:\\DeepseekHarness\\DeepSeek Harness.exe\" --type=renderer --user-data-dir=\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd\" --standard-schemes=dsh-app --secure-schemes=dsh-app --cors-schemes=dsh-app --fetch-schemes=dsh-app --streaming-schemes=dsh-app --code-cache-schemes=dsh-app --app-path=\"D:\\DeepseekHarness\\resources\\app.asar\" --enable-sandbox --remote-debugging-port=59349 --video-capture-use-gpu-memory-buffer --lang=zh-CN --device-scale-factor=1.75 --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=4 --launch-time-ticks=550169604873 --field-trial-handle=2264,i,4808152318446429006,1771247295125464532,262144 --enable-features=AllowWindowCaptureExclusionInRemoteSessions,PdfUseShowSaveFilePicker --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,NetworkServiceSandbox,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=2268,i,18124672247919892543,11222645299166381521,4 --trace-process-track-uuid=3190708990060038890 --mojo-platform-channel-handle=3100 /prefetch:1"
+    },
+    {
+      "ProcessId": 65340,
+      "ParentProcessId": 89976,
+      "CommandLine": "powershell.exe -NoProfile -NonInteractive -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd*' } | Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress\""
+    }
+  ],
+  "portFreeBefore": false,
+  "maintainerBefore": [
+    {
+      "Id": 17020,
+      "ProcessName": "DeepSeek Harness",
+      "StartTime": "/Date(1793518061453)/"
+    },
+    {
+      "Id": 39812,
+      "ProcessName": "DeepSeek Harness",
+      "StartTime": "/Date(1793518061044)/"
+    }
+  ],
+  "maintainerProfilePkgShaBefore": "aa45f522c8169a025ac4b0053d556b9d62fea77cb209ee5b4c867920019b19d8",
+  "exited": true,
+  "portFree": true,
+  "portOwnerAfter": null,
+  "isolatedAfter": [
+    {
+      "ProcessId": 84488,
+      "ParentProcessId": 17020,
+      "CommandLine": "\"D:\\DeepseekHarness\\DeepSeek Harness.exe\" D:\\DeepseekHarness\\resources\\app.asar\\dsh\\node_modules\\@deepseek-ai\\dsh-subprocess-local\\lib\\runner.js -- D:\\0Tools\\powershell7.6\\7\\pwsh.exe -NoLogo -NoProfile -NonInteractive -Command \"[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [System.Text.UTF8Encoding]::new($false); Set-Location \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\spike\\264\\\"\nnode --check channel-a-wizard.ts\nnode channel-a-wizard.ts --run-dir \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628\\\" --home \\\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home\\\" --user-data-dir \\\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd\\\" --cdp-port 59349 *>&1 | Tee-Object -FilePath \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628\\raw\\60-channel-a-wizard-run.log\\\"\nWrite-Output \\\"=== exit=$LASTEXITCODE ===\\\"\""
+    },
+    {
+      "ProcessId": 73996,
+      "ParentProcessId": 84488,
+      "CommandLine": "D:\\0Tools\\powershell7.6\\7\\pwsh.exe -NoLogo -NoProfile -NonInteractive -Command \"[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [System.Text.UTF8Encoding]::new($false); Set-Location \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\spike\\264\\\"\nnode --check channel-a-wizard.ts\nnode channel-a-wizard.ts --run-dir \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628\\\" --home \\\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home\\\" --user-data-dir \\\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd\\\" --cdp-port 59349 *>&1 | Tee-Object -FilePath \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628\\raw\\60-channel-a-wizard-run.log\\\"\nWrite-Output \\\"=== exit=$LASTEXITCODE ===\\\"\""
+    },
+    {
+      "ProcessId": 89976,
+      "ParentProcessId": 73996,
+      "CommandLine": "\"D:\\2Study\\nodejs\\node.exe\" channel-a-wizard.ts --run-dir D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628 --home D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home --user-data-dir D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd --cdp-port 59349"
+    },
+    {
+      "ProcessId": 69648,
+      "ParentProcessId": 89976,
+      "CommandLine": "powershell.exe -NoProfile -NonInteractive -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd*' } | Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress\""
+    }
+  ],
+  "maintainerAfter": [
+    {
+      "Id": 17020,
+      "ProcessName": "DeepSeek Harness",
+      "StartTime": "/Date(1793518061453)/"
+    },
+    {
+      "Id": 39812,
+      "ProcessName": "DeepSeek Harness",
+      "StartTime": "/Date(1793518061044)/"
+    }
+  ],
+  "maintainerProfilePkgShaAfter": "aa45f522c8169a025ac4b0053d556b9d62fea77cb209ee5b4c867920019b19d8"
+}

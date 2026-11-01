@@ -1,0 +1,17 @@
+{
+  "shot": "a20-desktop-restarted.png",
+  "channel": "A",
+  "whatToLook": "重启后的官方桌面隔离实例首屏（同一 --user-data-dir / 同一隔离 DSH_HOME / 新调试端口 59344）",
+  "expected": "窗口正常渲染，页面是 dsh-app://app/；向导页或会话页可见",
+  "actual": "href=dsh-app://app/；wizard=false；welcome=false；viewport=1279x821@1.75；body 前 120 字=新会话 Ctrl + N 插件 自动化任务 更多 工作区 默认工作区 新会话 止息 新版本 探索未至之境 预览版 默认工作区 标准模式 描述你想要构建的内容, / 调用指令, @ 文件或对话 工作区内修改 Prompt DeepSeek-V",
+  "judgement": "符合预期",
+  "note": "重启前的旧实例进程树 taskkill 证据：raw/26-channel-a-cleanup.txt（isolated_after=0）；本次 pid=58804",
+  "run": "264-20261101T194628",
+  "capturedAt": "2026-11-01T12:40:07.977Z",
+  "viewport": {
+    "width": 1279,
+    "height": 821,
+    "dpr": 1.75
+  },
+  "clip": null
+}

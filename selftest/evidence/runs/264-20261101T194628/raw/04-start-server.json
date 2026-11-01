@@ -1,0 +1,19 @@
+{
+  "seq": 4,
+  "name": "start-server",
+  "file": "04-start-server.json",
+  "startedAt": "2026-11-01T11:55:43.853Z",
+  "ok": true,
+  "ms": 2121,
+  "data": {
+    "pid": 58500,
+    "port": 61925,
+    "redactedUrl": "http://127.0.0.1:61925/?token=***",
+    "stdoutTail": "dsh web: http://127.0.0.1:61925/?token=rtPQFqCmrJqjfm6O31x0sxq4W4GX6GMH3s0nPx4GwYU\n",
+    "stderrTail": "",
+    "http": {
+      "status": 303,
+      "bytes": 0
+    }
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "step": "launch",
+  "channel": "A",
+  "at": "2026-11-01T13:08:11.454Z",
+  "rootPid": 51252,
+  "argv": [
+    "--user-data-dir=D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd",
+    "--remote-debugging-port=59349"
+  ],
+  "dshHome": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home",
+  "userDataDir": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd",
+  "envRemoved": [
+    "DSH_HOME",
+    "DSH_PROFILE",
+    "DSH_PROFILE_DIR",
+    "DSH_SESSION_ID",
+    "DSH_SHELL",
+    "DSH_WEB_URL",
+    "ELECTRON_RUN_AS_NODE"
+  ],
+  "launchMs": 748,
+  "cdp": {
+    "Browser": "Chrome/152.0.7977.130",
+    "ProtocolVersion": "1.3",
+    "UserAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) @deepseek-ai/dsh-desktop/0.2.1-rc.3 Chrome/152.0.7977.130 Electron/44.7.0 Safari/537.36"
+  },
+  "isolatedProcs": [
+    {
+      "ProcessId": 53184,
+      "ParentProcessId": 17020,
+      "CommandLine": "\"D:\\DeepseekHarness\\DeepSeek Harness.exe\" D:\\DeepseekHarness\\resources\\app.asar\\dsh\\node_modules\\@deepseek-ai\\dsh-subprocess-local\\lib\\runner.js -- D:\\0Tools\\powershell7.6\\7\\pwsh.exe -NoLogo -NoProfile -NonInteractive -Command \"[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [System.Text.UTF8Encoding]::new($false); Set-Location \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\spike\\264\\\"\nnode channel-a-wizard.ts --run-dir \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628\\\" --home \\\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home\\\" --user-data-dir \\\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd\\\" --cdp-port 59349 *>&1 | Tee-Object -FilePath \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628\\raw\\60-channel-a-wizard-run.log\\\"\nWrite-Output \\\"=== exit=$LASTEXITCODE ===\\\"\""
+    },
+    {
+      "ProcessId": 35792,
+      "ParentProcessId": 53184,
+      "CommandLine": "D:\\0Tools\\powershell7.6\\7\\pwsh.exe -NoLogo -NoProfile -NonInteractive -Command \"[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [System.Text.UTF8Encoding]::new($false); Set-Location \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\spike\\264\\\"\nnode channel-a-wizard.ts --run-dir \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628\\\" --home \\\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home\\\" --user-data-dir \\\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd\\\" --cdp-port 59349 *>&1 | Tee-Object -FilePath \\\"D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628\\raw\\60-channel-a-wizard-run.log\\\"\nWrite-Output \\\"=== exit=$LASTEXITCODE ===\\\"\""
+    },
+    {
+      "ProcessId": 79168,
+      "ParentProcessId": 35792,
+      "CommandLine": "\"D:\\2Study\\nodejs\\node.exe\" channel-a-wizard.ts --run-dir D:\\dsh-plugin\\_wt263\\t0\\selftest\\evidence\\runs\\264-20261101T194628 --home D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home --user-data-dir D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd --cdp-port 59349"
+    },
+    {
+      "ProcessId": 51252,
+      "ParentProcessId": 79168,
+      "CommandLine": "\"D:\\DeepseekHarness\\DeepSeek Harness.exe\" --user-data-dir=D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd --remote-debugging-port=59349"
+    },
+    {
+      "ProcessId": 46284,
+      "ParentProcessId": 51252,
+      "CommandLine": "\"D:\\DeepseekHarness\\DeepSeek Harness.exe\" --type=gpu-process --user-data-dir=\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd\" --gpu-preferences=WAAAAAAAAADgAAAEAAAAAAAAAAAAAGAAQAAAAAAAAAADAAAAAAAAADgAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAKAAAAAAAAAAoAAAAAAAAAAgAAAAAAAAAEAAAAAIAAAABAAAAAAAAAAgAAAAAAAAACAAAAAAAAAA= --field-trial-handle=2256,i,9647423801286007084,1636340400285902518,262144 --enable-features=AllowWindowCaptureExclusionInRemoteSessions,PdfUseShowSaveFilePicker --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,NetworkServiceSandbox,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=2272,i,8019961895667336767,11747401113063912229,4 --trace-process-track-uuid=3190708988185955192 --mojo-platform-channel-handle=2268 /prefetch:2"
+    },
+    {
+      "ProcessId": 75580,
+      "ParentProcessId": 51252,
+      "CommandLine": "\"D:\\DeepseekHarness\\DeepSeek Harness.exe\" --type=utility --utility-sub-type=network.mojom.NetworkService --lang=zh-CN --service-sandbox-type=none --user-data-dir=\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd\" --standard-schemes=dsh-app --secure-schemes=dsh-app --cors-schemes=dsh-app --fetch-schemes=dsh-app --streaming-schemes=dsh-app --code-cache-schemes=dsh-app --field-trial-handle=2256,i,9647423801286007084,1636340400285902518,262144 --enable-features=AllowWindowCaptureExclusionInRemoteSessions,PdfUseShowSaveFilePicker --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,NetworkServiceSandbox,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=2272,i,8019961895667336767,11747401113063912229,4 --trace-process-track-uuid=3190708989122997041 --mojo-platform-channel-handle=2464 /prefetch:11"
+    },
+    {
+      "ProcessId": 74820,
+      "ParentProcessId": 51252,
+      "CommandLine": "\"D:\\DeepseekHarness\\DeepSeek Harness.exe\" --type=renderer --user-data-dir=\"D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd\" --standard-schemes=dsh-app --secure-schemes=dsh-app --cors-schemes=dsh-app --fetch-schemes=dsh-app --streaming-schemes=dsh-app --code-cache-schemes=dsh-app --app-path=\"D:\\DeepseekHarness\\resources\\app.asar\" --enable-sandbox --remote-debugging-port=59349 --video-capture-use-gpu-memory-buffer --lang=zh-CN --device-scale-factor=1.75 --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=4 --launch-time-ticks=550238804947 --field-trial-handle=2256,i,9647423801286007084,1636340400285902518,262144 --enable-features=AllowWindowCaptureExclusionInRemoteSessions,PdfUseShowSaveFilePicker --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,NetworkServiceSandbox,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=2272,i,8019961895667336767,11747401113063912229,4 --trace-process-track-uuid=3190708990060038890 --mojo-platform-channel-handle=2980 /prefetch:1"
+    },
+    {
+      "ProcessId": 68400,
+      "ParentProcessId": 79168,
+      "CommandLine": "powershell.exe -NoProfile -NonInteractive -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd*' } | Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress\""
+    }
+  ],
+  "stdoutTail": "https://download.deepseek.com/dsh-desk/bin/win-x64/deepseek-harness-0.2.1-rc.5-win-x64.exe)\ndsh web: http://127.0.0.1:55723/?token=CLTfrT4kemE5dNortH5-JLDjz9siFQiP_iFtM9dl0P8\n\r\nChecking for update\nGenerated new staging user ID: caa51ab9-5a98-5bfd-aedd-1fa604a5256c\nFound version 0.2.1-rc.5 (url: https://download.deepseek.com/dsh-desk/bin/win-x64/deepseek-harness-0.2.1-rc.5-win-x64.exe)\ndsh web: http://127.0.0.1:63452/?token=yc8S8BT3WikJc9-6fX4eLMGXjHF9RERkK9yM2dzLMbg\n[llm-deepseek-account] model listing from https://api.deepseek.com/models loaded 2 model(s), skipped 0 row(s)\n\r\nChecking for update\nGenerated new staging user ID: d0f9c8c6-1ab4-5fc5-b7ab-01cdcd4c61b6\nFound version 0.2.1-rc.5 (url: https://download.deepseek.com/dsh-desk/bin/win-x64/deepseek-harness-0.2.1-rc.5-win-x64.exe)\ndsh web: http://127.0.0.1:58154/?token=wpnjZeJ1KfhXslo0QMydmGXIYcw8ZNx4dcx8nXruv_Q\n[llm-deepseek-account] model listing from https://api.deepseek.com/models loaded 2 model(s), skipped 0 row(s)\n\r\nChecking for update\nGenerated new staging user ID: ad840beb-63c0-59d9-9d56-04409a28e41c\nFound version 0.2.1-rc.5 (url: https://download.deepseek.com/dsh-desk/bin/win-x64/deepseek-harness-0.2.1-rc.5-win-x64.exe)\n",
+  "stderrTail": "16:33\nError occurred in handler for 'dsh-desktop:boot': Error: desktop welcome: Web RPC failed\n    at invoke (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8905:162)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async call (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8770:56)\n    at async Object.read (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8964:15)\n    at async openInitialWindow (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:13018:17)\n    at async file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:12316:33\nError: Error invoking remote method 'dsh-desktop:boot': Error: desktop welcome: Web RPC failed\n    at file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:12437:15\n    at Session.<anonymous> (node:electron/js2c/browser_init:1:119988)\n    at Session.emit (node:events:514:28)\n\r\nDevTools listening on ws://127.0.0.1:59349/devtools/browser/6a720663-ec4c-4ac8-b03c-0347b76f205d\r\n\r\nDevTools listening on ws://127.0.0.1:59349/devtools/browser/305a66b1-096b-4686-bc3d-a3e79969d956\r\n\r\nDevTools listening on ws://127.0.0.1:59349/devtools/browser/991a10a9-f021-42fa-bf88-e0645102acb9\r\n"
+}

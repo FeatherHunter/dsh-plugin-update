@@ -1,0 +1,10 @@
+{
+  "shot": "a1-desktop-plugins.png",
+  "channel": "A",
+  "whatToLook": "点侧栏「插件」后是否进入插件管理页",
+  "expected": "插件页（安装/启用/配置插件 + 添加插件）",
+  "actual": "截图与 a0 同哈希（2e90ed34c0d2），画面仍是「欢迎使用 DSH / 开始设置」；该步只证明脚本点到了「插件」，截图早于渲染或截错窗口",
+  "judgement": "不符合预期（截图无效，需重拍）",
+  "note": "插件页文本证据见 raw/23-channel-a-click-plugins.json；a2 截图中左侧浮窗侧栏已高亮「插件」",
+  "run": "264-20261101T194628"
+}

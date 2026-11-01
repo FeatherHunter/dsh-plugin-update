@@ -1,0 +1,10 @@
+{
+  "shot": "b3-update-panel.png",
+  "channel": "B",
+  "whatToLook": "点击入口后是否弹出产品更新面板（.dsh-upd[data-mode=dialog]）且能定位",
+  "expected": "整窗截图能看清「插件更新 / 更新档案 卷 / 已是最新，无需更新」",
+  "actual": "面板居中弹出，标题、卷、版本信息清晰可读",
+  "judgement": "符合预期",
+  "note": "验收项「截图能定位到更新面板」由本图 + crop 满足",
+  "run": "264-20261101T194628"
+}

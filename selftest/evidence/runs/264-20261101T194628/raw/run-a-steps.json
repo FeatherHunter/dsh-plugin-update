@@ -1,0 +1,114 @@
+{
+  "channel": "A",
+  "status": "PASS",
+  "steps": [
+    {
+      "step": "preflight",
+      "file": "raw/30-channel-a-preflight.json",
+      "at": "2026-11-01T12:39:59.956Z"
+    },
+    {
+      "step": "launch",
+      "file": "raw/31-channel-a-launch.json",
+      "at": "2026-11-01T12:40:02.736Z"
+    },
+    {
+      "step": "attach",
+      "file": "raw/32-channel-a-attach.json",
+      "at": "2026-11-01T12:40:07.888Z"
+    },
+    {
+      "step": "wizard-skip",
+      "file": "raw/33-channel-a-wizard-skip.json",
+      "at": "2026-11-01T12:40:07.982Z"
+    },
+    {
+      "step": "entry",
+      "file": "raw/34-channel-a-entry.json",
+      "at": "2026-11-01T12:40:08.071Z"
+    },
+    {
+      "step": "prompt-panel",
+      "file": "raw/35-channel-a-prompt-panel.json",
+      "at": "2026-11-01T12:40:09.564Z"
+    },
+    {
+      "step": "settings-page",
+      "file": "raw/36-channel-a-settings-page.json",
+      "at": "2026-11-01T12:40:10.878Z"
+    },
+    {
+      "step": "update-entry",
+      "file": "raw/37-channel-a-update-entry.json",
+      "at": "2026-11-01T12:40:11.685Z"
+    },
+    {
+      "step": "update-entry-click",
+      "file": "raw/38-channel-a-update-entry-click.json",
+      "at": "2026-11-01T12:40:11.826Z"
+    },
+    {
+      "step": "update-panel",
+      "file": "raw/39-channel-a-update-panel.json",
+      "at": "2026-11-01T12:40:12.736Z"
+    },
+    {
+      "step": "click-check",
+      "file": "raw/40-channel-a-click-check.json",
+      "at": "2026-11-01T12:40:15.394Z"
+    },
+    {
+      "step": "console",
+      "file": "raw/41-channel-a-console.json",
+      "at": "2026-11-01T12:40:15.542Z"
+    },
+    {
+      "step": "cleanup",
+      "file": "raw/42-channel-a-cleanup.json",
+      "at": "2026-11-01T12:40:15.543Z"
+    }
+  ],
+  "shots": [
+    {
+      "shot": "a20-desktop-restarted.png",
+      "json": "a20-desktop-restarted.json",
+      "judgement": "符合预期"
+    },
+    {
+      "shot": "a21-desktop-wizard-skipped.png",
+      "json": "a21-desktop-wizard-skipped.json",
+      "judgement": "符合预期"
+    },
+    {
+      "shot": "a22-desktop-entry.png",
+      "json": "a22-desktop-entry.json",
+      "judgement": "符合预期"
+    },
+    {
+      "shot": "a23-desktop-prompt-panel.png",
+      "json": "a23-desktop-prompt-panel.json",
+      "judgement": "符合预期"
+    },
+    {
+      "shot": "a24-desktop-settings-entry.png",
+      "json": "a24-desktop-settings-entry.json",
+      "judgement": "符合预期"
+    },
+    {
+      "shot": "a25-desktop-update-panel.png",
+      "json": "a25-desktop-update-panel.json",
+      "judgement": "符合预期"
+    },
+    {
+      "shot": "a25-desktop-update-panel-crop.png",
+      "json": "a25-desktop-update-panel-crop.json",
+      "judgement": "符合预期"
+    },
+    {
+      "shot": "a26-desktop-after-check.png",
+      "json": "a26-desktop-after-check.json",
+      "judgement": "符合预期"
+    }
+  ],
+  "blockers": []
+}

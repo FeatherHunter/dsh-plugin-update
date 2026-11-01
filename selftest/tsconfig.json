@@ -10,5 +10,7 @@
     "types": []
   },
   "include": ["./**/*.ts", "../src/shared/node-ambient.d.ts"],
-  "exclude": ["./fixtures", "./real-machine", "./tooling"]
+  // 真机夹具层/工具层有自己更宽松的 tsconfig（直接碰 Node/WebSocket 真机能力），不并入 hermetic 门禁；
+  // spike 证据脚本同理（#264）。
+  "exclude": ["./fixtures", "./real-machine", "./tooling", "spike/**"]
 }

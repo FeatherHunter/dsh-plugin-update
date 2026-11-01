@@ -1,0 +1,25 @@
+{
+  "step": "settings-page",
+  "channel": "A",
+  "at": "2026-11-01T12:40:10.878Z",
+  "clicked": {
+    "found": true,
+    "visible": true,
+    "text": "模板管理",
+    "title": "设置 → 模板管理",
+    "disabled": false,
+    "rect": {
+      "x": 1067.4107666015625,
+      "y": 465.4375305175781,
+      "width": 59.58928680419922,
+      "height": 17.428571701049805,
+      "cx": 1097.205410003662,
+      "cy": 474.151816368103
+    },
+    "inViewport": true,
+    "inside": true,
+    "topTag": "BUTTON.",
+    "via": "cdp-mouse"
+  },
+  "route": "面板「模板管理」（title=设置 → 模板管理）"
+}

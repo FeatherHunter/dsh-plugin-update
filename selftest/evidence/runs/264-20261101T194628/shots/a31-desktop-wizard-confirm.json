@@ -1,0 +1,17 @@
+{
+  "shot": "a31-desktop-wizard-confirm.png",
+  "channel": "A",
+  "whatToLook": "点「跳过」后是否弹出二次确认「暂时跳过充值?」（两层里的第二层）",
+  "expected": "出现 [role=dialog]，按钮含「我知道了 / 前往充值」",
+  "actual": "dialogs=[\"暂时跳过充值？ 没有可用额度时，DeepSeek Harness 将无法开始新的任务。你可以稍后前往 设置 → 账号与余额 进行充值。 我知道了 前往充值\"]；buttons=[\"我知道了\",\"前往充值\"]",
+  "judgement": "符合预期",
+  "note": "隔离 home=D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home（该 home 自 11:58Z 起已 signed-in；为复现首启向导，运行前把 ui-settings-account config 临时置回 step: credit、completion: null，等价初版 raw/23 记录的向导态；跑完 app 自身又写回 step: done / completion: skipped）＋全新 --user-data-dir=D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd；官方桌面 0.2.1-rc.5。 原始点击细节见 raw/63-channel-a-wizard-wizard-skip.json。",
+  "run": "264-20261101T194628",
+  "capturedAt": "2026-11-01T13:08:16.329Z",
+  "viewport": {
+    "width": 1279,
+    "height": 821,
+    "dpr": 1.75
+  },
+  "clip": null
+}

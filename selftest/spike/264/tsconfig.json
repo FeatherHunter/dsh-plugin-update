@@ -1,0 +1,20 @@
+{
+  // spike 证据脚本自己的类型检查口径：不并入 selftest/tsconfig.json 的门禁。
+  // 原因：spike 直接碰 node:fs / node:child_process / WebSocket 等真机能力，而仓库不引 @types/node；
+  // 这里用宽松口径 + node-shims.d.ts 只保证「tsc 不报错」，行为正确性由真机运行取证。
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    // spike 脚本靠真机运行验证行为；这里只钉住语法/模块口径，不做逐行类型检查（对象字面量增补属性在严格检查下噪声太大）。
+    "noCheck": true,
+    "types": []
+  },
+  "include": ["./**/*.ts", "./node-shims.d.ts"]
+}

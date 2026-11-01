@@ -1,0 +1,9 @@
+{
+  "shot": "b0-host-loaded.png",
+  "channel": "B",
+  "whatToLook": "普通 DSH 宿主 web UI 首屏是否加载、关卡是否处理",
+  "expected": "对话页可见，启动遮罩已用真实按钮关掉",
+  "actual": "宿主首屏正常，无遮罩",
+  "judgement": "符合预期",
+  "run": "264-20261101T194628"
+}

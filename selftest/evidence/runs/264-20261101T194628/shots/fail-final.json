@@ -1,0 +1,10 @@
+{
+  "shot": "fail-final.png",
+  "channel": "B",
+  "whatToLook": "早期失败轮次（open-prompt-panel 脚本语法错误）的屏幕状态",
+  "expected": "保留失败现场，便于对照后续修复",
+  "actual": "首屏 + 已打开的面板，脚本因 SyntaxError 中途中止",
+  "judgement": "不符合预期（历史失败证据）",
+  "note": "失败原因见 zz-failure-dom-dump.json 与 raw/07",
+  "run": "264-20261101T194628"
+}

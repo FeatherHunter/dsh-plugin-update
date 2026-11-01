@@ -1,0 +1,60 @@
+{
+  "channel": "A",
+  "purpose": "向导两层（跳过 → 我知道了）首启原始证据",
+  "run": "264-20261101T194628",
+  "status": "PASS",
+  "startedAt": "2026-11-01T13:08:07.915Z",
+  "finishedAt": "2026-11-01T13:08:23.778Z",
+  "cdpPort": 59349,
+  "rootPid": 51252,
+  "home": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home",
+  "userDataDir": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd",
+  "desktopExe": "D:\\DeepseekHarness\\DeepSeek Harness.exe",
+  "steps": [
+    {
+      "step": "preflight",
+      "file": "raw/60-channel-a-wizard-preflight.json",
+      "at": "2026-11-01T13:08:07.916Z"
+    },
+    {
+      "step": "launch",
+      "file": "raw/61-channel-a-wizard-launch.json",
+      "at": "2026-11-01T13:08:11.454Z"
+    },
+    {
+      "step": "attach",
+      "file": "raw/62-channel-a-wizard-attach.json",
+      "at": "2026-11-01T13:08:15.918Z"
+    },
+    {
+      "step": "wizard-skip",
+      "file": "raw/63-channel-a-wizard-wizard-skip.json",
+      "at": "2026-11-01T13:08:17.662Z"
+    },
+    {
+      "step": "cleanup",
+      "file": "raw/64-channel-a-wizard-cleanup.json",
+      "at": "2026-11-01T13:08:17.749Z"
+    }
+  ],
+  "shots": [
+    {
+      "shot": "a30-desktop-wizard-credit.png",
+      "json": "a30-desktop-wizard-credit.json",
+      "judgement": "符合预期"
+    },
+    {
+      "shot": "a31-desktop-wizard-confirm.png",
+      "json": "a31-desktop-wizard-confirm.json",
+      "judgement": "符合预期"
+    },
+    {
+      "shot": "a32-desktop-wizard-closed.png",
+      "json": "a32-desktop-wizard-closed.json",
+      "judgement": "符合预期"
+    }
+  ],
+  "blockers": [],
+  "consoleTail": [],
+  "exceptions": []
+}

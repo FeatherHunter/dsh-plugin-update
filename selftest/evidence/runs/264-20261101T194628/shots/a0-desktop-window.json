@@ -1,0 +1,10 @@
+{
+  "shot": "a0-desktop-window.png",
+  "channel": "A",
+  "whatToLook": "Electron 窗口首屏是否可经 CDP 截图、是否有关卡遮罩",
+  "expected": "桌面主界面可见（对话页 + 侧栏），无阻塞遮罩",
+  "actual": "对话页与侧栏可见，但覆盖首启 onboarding 向导「开始设置」",
+  "judgement": "部分符合",
+  "note": "CDP 截图能力通过；首启向导仍覆盖产品 UI",
+  "run": "264-20261101T194628"
+}

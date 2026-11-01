@@ -1,0 +1,17 @@
+{
+  "shot": "a21-desktop-wizard-skipped.png",
+  "channel": "A",
+  "whatToLook": "向导两层点完后是否回到主界面（设置/向导消失）",
+  "expected": "「准备可用额度」与「暂时跳过充值?」都不再出现",
+  "actual": "wizard=false；dialogs=[]；rounds=[\"done\"]",
+  "judgement": "符合预期",
+  "note": "这一步补的是初版缺的「跳过 → 二次确认 → 我知道了」",
+  "run": "264-20261101T194628",
+  "capturedAt": "2026-11-01T12:40:08.068Z",
+  "viewport": {
+    "width": 1279,
+    "height": 821,
+    "dpr": 1.75
+  },
+  "clip": null
+}

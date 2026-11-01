@@ -1,0 +1,49 @@
+{
+  "seq": 9,
+  "name": "click-panel-entry",
+  "file": "09-click-panel-entry.json",
+  "startedAt": "2026-11-01T11:55:51.567Z",
+  "ok": true,
+  "ms": 3828,
+  "data": {
+    "pick": {
+      "action": "check",
+      "text": "检查更新",
+      "title": "重新向官方源查询版本信息（只读，不安装）",
+      "x": 467,
+      "y": 421.890625
+    },
+    "immediate": {
+      "checkText": "正在查询版本信息…",
+      "checkDisabled": true
+    },
+    "before": "插件更新\n更新档案 卷\nd h-prompt\n使用范围  263profile\n定已是最新，无需更新。\n运行版\n0.4.40\n已安装\n0.4.40\n最新版\n0.4.40\n01\n检查与安装\n检查更新\n安装更新\n复制诊断\n02\n更新日志\n更新说明（0.4.40 → 0.4.40）：\n作者未提供更新说明，安装不受影响。\n03\n更新队列\n当前无排队任务；同一使用范围同时仅安装一项。\n04\n错误信息\n暂无失败：此时复制诊断提供的是当前状态快照。\n请查看日志：<DSH_HOME>/log /<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx d h-log <log-dir>；按插件标识",
+    "after": {
+      "present": true,
+      "text": "插件更新\n更新档案 卷\nd h-prompt\n使用范围  263profile\n定已是最新，无需更新。\n运行版\n0.4.40\n已安装\n0.4.40\n最新版\n0.4.40\n01\n检查与安装\n检查更新\n安装更新\n复制诊断\n02\n更新日志\n更新说明（0.4.40 → 0.4.40）：\n作者未提供更新说明，安装不受影响。\n03\n更新队列\n当前无排队任务；同一使用范围同时仅安装一项。\n04\n错误信息\n暂无失败：此时复制诊断提供的是当前状态快照。\n请查看日志：<DSH_HOME>/log /<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx d h-log <log-dir>；按插件标识 d h-prompt 筛选 ho t.call、ho t.call.fail、update.in tall.exec 事件。\n日志：落点=external（落盘归集成方实例）；未验证（对方没给判据，",
+      "actions": [
+        {
+          "action": "check",
+          "disabled": false,
+          "busy": null
+        },
+        {
+          "action": "install",
+          "disabled": true,
+          "busy": null
+        },
+        {
+          "action": "copy-diag",
+          "disabled": false,
+          "busy": null
+        },
+        {
+          "action": "close-view",
+          "disabled": false,
+          "busy": null
+        }
+      ]
+    },
+    "changed": true
+  }
+}

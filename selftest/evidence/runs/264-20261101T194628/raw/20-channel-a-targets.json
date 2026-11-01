@@ -1,0 +1,11 @@
+[
+  {
+    "description": "",
+    "devtoolsFrontendUrl": "/devtools/inspector.html?ws=127.0.0.1:59333/devtools/page/8A344598C4FD7A53F77B602051F68960",
+    "id": "8A344598C4FD7A53F77B602051F68960",
+    "title": "DeepSeek Harness",
+    "type": "page",
+    "url": "dsh-app://app/",
+    "webSocketDebuggerUrl": "ws://127.0.0.1:59333/devtools/page/8A344598C4FD7A53F77B602051F68960"
+  }
+]

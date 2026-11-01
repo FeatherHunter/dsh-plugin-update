@@ -1,0 +1,17 @@
+{
+  "shot": "a30-desktop-wizard-credit.png",
+  "channel": "A",
+  "whatToLook": "全新隔离实例首启的「准备可用额度」向导页，底部有「跳过」",
+  "expected": "向导页出现且「跳过」可点（这是两层里的第一层）",
+  "actual": "wizard=true；welcome=false；text 前 200 字=新会话 Ctrl + N 插件 自动化任务 更多 工作区 默认工作区 新会话 止息 新版本 探索未至之境 预览版 默认工作区 标准模式 描述你想要构建的内容, / 调用指令, @ 文件或对话 工作区内修改 Prompt DeepSeek-V4.1-Flash 1017 High 准备可用额度 DeepSeek Harness 执行任务时，会根据模型与工具使用的 token 量扣除额度。请提前添加额",
+  "judgement": "符合预期",
+  "note": "隔离 home=D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home（该 home 自 11:58Z 起已 signed-in；为复现首启向导，运行前把 ui-settings-account config 临时置回 step: credit、completion: null，等价初版 raw/23 记录的向导态；跑完 app 自身又写回 step: done / completion: skipped）＋全新 --user-data-dir=D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd；官方桌面 0.2.1-rc.5。 原始点击细节见 raw/63-channel-a-wizard-wizard-skip.json。",
+  "run": "264-20261101T194628",
+  "capturedAt": "2026-11-01T13:08:16.082Z",
+  "viewport": {
+    "width": 1279,
+    "height": 821,
+    "dpr": 1.75
+  },
+  "clip": null
+}

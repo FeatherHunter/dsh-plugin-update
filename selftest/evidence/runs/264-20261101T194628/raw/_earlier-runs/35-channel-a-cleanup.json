@@ -1,0 +1,37 @@
+{
+  "step": "cleanup",
+  "channel": "A",
+  "at": "2026-11-01T12:36:20.392Z",
+  "isolatedBefore": [
+    {
+      "pid": 59916,
+      "parentPid": 77952
+    },
+    {
+      "pid": 28160,
+      "parentPid": 59916
+    },
+    {
+      "pid": 62036,
+      "parentPid": 59916
+    },
+    {
+      "pid": 62160,
+      "parentPid": 59916
+    }
+  ],
+  "portFreeBefore": false,
+  "maintainerBefore": [],
+  "maintainerProfilePkgShaBefore": "aa45f522c8169a025ac4b0053d556b9d62fea77cb209ee5b4c867920019b19d8",
+  "exited": true,
+  "portFree": true,
+  "portOwnerAfter": null,
+  "isolatedAfter": [],
+  "maintainerAfter": [],
+  "maintainerProfilePkgShaAfter": "aa45f522c8169a025ac4b0053d556b9d62fea77cb209ee5b4c867920019b19d8",
+  "dshPromptLog": {
+    "dir": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home\\logs\\dsh-prompt",
+    "file": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home\\logs\\dsh-prompt\\2026-11-01.log",
+    "tail": "{\"v\":3,\"ts\":1793534693963,\"level\":\"info\",\"event\":\"host.start\",\"fields\":{\"pid\":88984,\"startedAt\":\"2026-11-01T12:04:53.742Z\",\"dir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t0-264-channelA\\\\home\\\\logs\",\"pluginVersion\":\"0.4.40\",\"os\":\"win32\"}}\n{\"v\":3,\"ts\":1793534695215,\"level\":\"info\",\"event\":\"app.boot\",\"fields\":{\"hasReact\":true,\"lang\":\"zh\",\"entryCount\":8}}\n{\"v\":3,\"ts\":1793534695215,\"level\":\"info\",\"event\":\"settings.log.reconcile\",\"fields\":{\"ok\":true,\"on\":false}}\n{\"v\":3,\"ts\":1793534695215,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":77}}\n{\"v\":3,\"ts\":1793534695215,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":77}}\n{\"v\":3,\"ts\":1793536308824,\"level\":\"info\",\"event\":\"host.start\",\"fields\":{\"pid\":67332,\"startedAt\":\"2026-11-01T12:31:48.739Z\",\"dir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t0-264-channelA\\\\home\\\\logs\",\"pluginVersion\":\"0.4.40\",\"os\":\"win32\"}}\n{\"v\":3,\"ts\":1793536310888,\"level\":\"info\",\"event\":\"app.boot\",\"fields\":{\"hasReact\":true,\"lang\":\"zh\",\"entryCount\":8}}\n{\"v\":3,\"ts\":1793536310888,\"level\":\"info\",\"event\":\"settings.log.reconcile\",\"fields\":{\"ok\":true,\"on\":false}}\n{\"v\":3,\"ts\":1793536310888,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":254}}\n{\"v\":3,\"ts\":1793536310888,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":254}}\n{\"v\":3,\"ts\":1793536549386,\"level\":\"info\",\"event\":\"host.start\",\"fields\":{\"pid\":57416,\"startedAt\":\"2026-11-01T12:35:49.235Z\",\"dir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t0-264-channelA\\\\home\\\\logs\",\"pluginVersion\":\"0.4.40\",\"os\":\"win32\"}}\n{\"v\":3,\"ts\":1793536551786,\"level\":\"info\",\"event\":\"app.boot\",\"fields\":{\"hasReact\":true,\"lang\":\"zh\",\"entryCount\":8}}\n{\"v\":3,\"ts\":1793536551786,\"level\":\"info\",\"event\":\"settings.log.reconcile\",\"fields\":{\"ok\":true,\"on\":false}}\n{\"v\":3,\"ts\":1793536551786,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":325}}\n{\"v\":3,\"ts\":1793536551786,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":324}}\n{\"v\":3,\"ts\":1793536572307,\"level\":\"info\",\"event\":\"panel.open\",\"fields\":{\"mode\":\"compact\",\"rows\":24}}\n"
+  }
+}

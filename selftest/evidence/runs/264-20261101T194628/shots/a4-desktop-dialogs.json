@@ -1,0 +1,10 @@
+{
+  "shot": "a4-desktop-dialogs.png",
+  "channel": "A",
+  "whatToLook": "DOM dump 后同屏状态",
+  "expected": "可操作的 dialog",
+  "actual": "仍是额度页，与 a3 同哈希",
+  "judgement": "不确定",
+  "note": "对话框 DOM 全文见 raw/23-channel-a-dump-dialogs.json",
+  "run": "264-20261101T194628"
+}

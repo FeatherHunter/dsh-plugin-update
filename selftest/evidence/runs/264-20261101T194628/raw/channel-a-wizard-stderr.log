@@ -1,0 +1,52 @@
+
+DevTools listening on ws://127.0.0.1:59346/devtools/browser/76440404-dcc7-44d0-b115-49f8cfae855e
+
+DevTools listening on ws://127.0.0.1:59346/devtools/browser/9fcf57af-b9af-4c90-ab8d-61d59567e5c1
+
+DevTools listening on ws://127.0.0.1:59346/devtools/browser/fa3d9e37-5545-462c-94cd-ebef1b958fe1
+
+DevTools listening on ws://127.0.0.1:59347/devtools/browser/e4759df0-dcde-460a-9ae9-aacc8c3e960d
+Error: desktop welcome: Web RPC failed
+    at invoke (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8905:162)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async call (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8770:56)
+    at async Object.read (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8964:15)
+    at async openInitialWindow (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:13018:17)
+    at async file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:12316:33
+Error occurred in handler for 'dsh-desktop:boot': Error: desktop welcome: Web RPC failed
+    at invoke (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8905:162)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async call (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8770:56)
+    at async Object.read (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8964:15)
+    at async openInitialWindow (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:13018:17)
+    at async file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:12316:33
+Error: Error invoking remote method 'dsh-desktop:boot': Error: desktop welcome: Web RPC failed
+    at file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:12437:15
+    at Session.<anonymous> (node:electron/js2c/browser_init:1:119988)
+    at Session.emit (node:events:514:28)
+
+DevTools listening on ws://127.0.0.1:59348/devtools/browser/bac57c16-8665-46ee-98aa-441fcab011a2
+Error: desktop welcome: Web RPC failed
+    at invoke (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8905:162)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async call (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8770:56)
+    at async Object.read (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8964:15)
+    at async openInitialWindow (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:13018:17)
+    at async file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:12316:33
+Error occurred in handler for 'dsh-desktop:boot': Error: desktop welcome: Web RPC failed
+    at invoke (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8905:162)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async call (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8770:56)
+    at async Object.read (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:8964:15)
+    at async openInitialWindow (file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:13018:17)
+    at async file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:12316:33
+Error: Error invoking remote method 'dsh-desktop:boot': Error: desktop welcome: Web RPC failed
+    at file:///D:/DeepseekHarness/resources/app.asar/lib/main.js:12437:15
+    at Session.<anonymous> (node:electron/js2c/browser_init:1:119988)
+    at Session.emit (node:events:514:28)
+
+DevTools listening on ws://127.0.0.1:59349/devtools/browser/6a720663-ec4c-4ac8-b03c-0347b76f205d
+
+DevTools listening on ws://127.0.0.1:59349/devtools/browser/305a66b1-096b-4686-bc3d-a3e79969d956
+
+DevTools listening on ws://127.0.0.1:59349/devtools/browser/991a10a9-f021-42fa-bf88-e0645102acb9

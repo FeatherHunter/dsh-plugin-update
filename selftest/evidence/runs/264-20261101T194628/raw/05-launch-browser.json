@@ -1,0 +1,17 @@
+{
+  "seq": 5,
+  "name": "launch-browser",
+  "file": "05-launch-browser.json",
+  "startedAt": "2026-11-01T11:55:45.984Z",
+  "ok": true,
+  "ms": 295,
+  "data": {
+    "pid": 37068,
+    "cdpPort": 61945,
+    "version": {
+      "Browser": "Chrome/156.0.8078.79",
+      "protocol": "1.3"
+    },
+    "userDataDir": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264\\chrome-profile"
+  }
+}
