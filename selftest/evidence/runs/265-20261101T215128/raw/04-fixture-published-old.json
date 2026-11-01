@@ -1,0 +1,20 @@
+{
+  "spec": "dsh-plugin-update-fixture-a@0.0.1",
+  "plan": {
+    "packageName": "dsh-plugin-update-fixture-a",
+    "version": "0.0.1",
+    "dirName": "dsh-plugin-update-fixture-a-0.0.1"
+  },
+  "artifacts": [
+    "package.json",
+    "cordis.patch.yml",
+    "lib/index.js",
+    "lib/client.js"
+  ],
+  "publish": {
+    "exitCode": 0,
+    "stdout": "+ dsh-plugin-update-fixture-a@0.0.1\n",
+    "stderr": "npm notice\nnpm notice package: dsh-plugin-update-fixture-a@0.0.1\nnpm notice Tarball Contents\nnpm notice 211B cordis.patch.yml\nnpm notice 391.6kB lib/client.js\nnpm notice 3.1kB lib/index.js\nnpm notice 717B package.json\nnpm notice Tarball Details\nnpm notice name: dsh-plugin-update-fixture-a\nnpm notice version: 0.0.1\nnpm notice filename: dsh-plugin-update-fixture-a-0.0.1.tgz\nnpm notice package size: 97.0 kB\nnpm notice unpacked size: 395.6 kB\nnpm notice shasum: c12960d6609ce038ecc817eae652b249be33baa6\nnpm notice integrity: sha512-l2q5WYWfjMvv0[...]x+h6x9lr7bQ1A==\nnpm notice total files: 4\nnpm notice\nnpm notice Publishing to http://127.0.0.1:61855/ with tag latest and default access\n"
+  },
+  "buildTags011": 3282
+}

@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "runId": "265-20261101T215128",
+  "ticket": "265",
+  "scenarioId": "a-single-package-main-chain",
+  "hostChannel": "desktop-official",
+  "startedAt": "2026-11-01T13:51:29.288Z",
+  "finishedAt": "2026-11-01T13:54:51.462Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:\\dsh-plugin\\_wt263\\t1",
+    "branch": "impl/263-t1",
+    "head": "0b782f4aadbc4e19f4a3fda551badba88217e5d5",
+    "hostChannel": "desktop-official"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t1-265\\265-20261101T215128\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "951c8dbd61a5165e08517324f0989c01211a37abad29922956cc45cc3fbd68c3",
+    "distDigest": "44ffc4bbde2f942dcaf3991a2be602f617814f88271db32b916b40df1cfaabb9",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:61855",
+    "installedDistDigest": "44ffc4bbde2f942dcaf3991a2be602f617814f88271db32b916b40df1cfaabb9",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "03-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 951c8dbd61a5165e…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "07-assert",
+      "step": "干净 profile 装 A 旧版",
+      "what": "隔离 DSH_HOME 的新 desktop profile 里，dsh plugin add 装上 A@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "09-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile/node_modules/dsh-plugin-update/dist 的聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "44ffc4bbde2f942dcaf3991a2be602f617814f88271db32b916b40df1cfaabb9",
+      "actual": "44ffc4bbde2f942dcaf3991a2be602f617814f88271db32b916b40df1cfaabb9（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "11-assert",
+      "step": "旧版面板（重启后）",
+      "what": "官方桌面里 A 的更新面板显示：运行版 0.0.1、已安装 0.0.1、夹具卡片 client v0.0.1；更新器身份是当前 SUT",
+      "expected": "运行版=已安装=0.0.1；client 构建标记=client v0.0.1；updater 含 dsh-plugin-update@0.18.39",
+      "actual": "versions=[0.0.1, 0.0.1, 未知]；clientTag=client v0.0.1；updater=dsh-plugin-update@0.18.39 (profile)",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "发布 A 新版（可见变化）",
+      "what": "同一包名发布 0.0.2；新版 client bundle 与 host half 的内容哈希都和 0.0.1 不同（构建标记/卡片标题变化）",
+      "expected": "client 与 host 的 sha256 都变；registry 可见 0.0.2",
+      "actual": "client d9db85a16a93→f0cb943b347f；host 9929c515598c→ee260075ce27",
+      "verdict": "pass"
+    },
+    {
+      "id": "16-assert",
+      "step": "新版在 registry 可见",
+      "what": "本地 registry 的 A 元数据包含 0.0.1 与 0.0.2（更新系统查到的 latest 就是它）",
+      "expected": "versions 含 0.0.1、0.0.2",
+      "actual": "versions=[0.0.1, 0.0.2]；dist-tags={\"latest\":\"0.0.2\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "18-assert",
+      "step": "真 UI 检查更新",
+      "what": "点面板「检查更新」后，最新版变成 0.0.2，安装按钮可用（数据来自面板 DOM 快照）",
+      "expected": "最新版=0.0.2；安装更新按钮 enabled",
+      "actual": "versions=[0.0.1, 0.0.1, 0.0.2]；install={\"text\":\"安装版本 0.0.2\",\"disabled\":false}；seal=可更新",
+      "verdict": "pass"
+    },
+    {
+      "id": "21-assert",
+      "step": "真 UI 安装更新（in-process）",
+      "what": "点「安装更新」后，官方桌面通过 in-process remove→install（或 restart-required）把 profile 磁盘版本换成 0.0.2",
+      "expected": "磁盘 node_modules/<pkg>/package.json version=0.0.2",
+      "actual": "磁盘版本=0.0.2；面板 seal=已是最新；进度=null",
+      "verdict": "pass"
+    },
+    {
+      "id": "25-assert",
+      "step": "重启后新版 UI + 可见变化",
+      "what": "重启隔离桌面后重新加载的是 0.0.2 的 client/host：卡片标题相对旧版发生变化（旧标题→新标题）、client 构建标记、host 桥标记都变成新版",
+      "expected": "client v0.0.2；host v0.0.2；标题从「夹具 A · 更新演示」变为另一个值且含「新版」；运行版/已安装=0.0.2",
+      "actual": "clientTag=client v0.0.2；hostTag=host v0.0.2；title=夹具 A · 更新演示（新版）（旧：夹具 A · 更新演示）；versions=[0.0.2, 0.0.2, 未知]",
+      "verdict": "pass"
+    },
+    {
+      "id": "28-assert",
+      "step": "UI/磁盘一致（无虚假成功）",
+      "what": "重启后 UI 显示已安装 0.0.2，且磁盘 profile 的 dependencies 与 node_modules 包版本都是 0.0.2",
+      "expected": "diskVersion=0.0.2；dependencies[dsh-plugin-update-fixture-a]=0.0.2",
+      "actual": "diskVersion=0.0.2；dependencies=\"0.0.2\"",
+      "verdict": "pass"
+    },
+    {
+      "id": "30-assert",
+      "step": "日志摘录（结构化事件）",
+      "what": "临时 DSH_HOME 下找到更新日志，按 JSON 事件核对：检查更新看到 0.0.1→0.0.2、安装电话成功、重启后运行版=0.0.2，且无安装失败事件",
+      "expected": "日志文件存在；含 update.install.request（current=0.0.1, latest=0.0.2）；含 host.call(update-install, ok=true)；含重启后 status.changed(runningVersion=0.0.2)；含 wire.ready(hostKind=desktop-manager，证明走官方桌面 in-process 出口而非 CLI 兜底)；无安装失败事件",
+      "actual": "日志文件 3 个/事件 35 条；条件={\"logFilesPresent\":true,\"installRequest\":true,\"installCall\":true,\"restartNewVersion\":true,\"desktopManagerHost\":true,\"noInstallFailure\":true}",
+      "verdict": "pass"
+    },
+    {
+      "id": "31-assert",
+      "step": "宿主通道与安装出口（in-process）",
+      "what": "日志 update.wire.ready 的 hostKind 声明本次更新走的是官方桌面内建插件管理器（desktop-manager，removeBundle→installBundle），不是 CLI 兜底",
+      "expected": "hostKind=desktop-manager",
+      "actual": "hostKind=desktop-manager",
+      "verdict": "pass"
+    },
+    {
+      "id": "32-assert",
+      "step": "台账（作业/队列）",
+      "what": "找到更新器落盘的作业状态与跨插件队列台账，核对本次更新记录（0.0.1→0.0.2、completed）与 UI、磁盘一致",
+      "expected": "存在 updates/<目标>/<范围>/state.json 且状态 completed、targetVersion=0.0.2、previousVersion=0.0.1；存在 update-queue/<范围>/queue.json 且 owner=null、waiting=[]",
+      "actual": "作业状态文件 1 个；队列文件 1 个；completedState=true；queueDrained=true；记录={\"stateFiles\":[{\"requestId\":\"rmvxw4lyq5c5rn\",\"message\":null,\"id\":\"5f835f3e-7848-4a03-a9a1-7bc6aa003608\",\"state\":\"completed\",\"targetVersion\":\"0.0.2\",\"previousVersion\":\"0.0.1\"}],\"queueFiles\":[{\"version\":1,\"owner\":null,\"waiting\":[]}]}",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [
+    {
+      "id": "12-shot",
+      "step": "旧版面板",
+      "what": "官方桌面窗口里的 A 面板：版本条带三个 0.0.1/未知，夹具卡片显示 client v0.0.1，更新器显示 dsh-plugin-update@0.18.39 (profile)",
+      "expected": "运行版=已安装=0.0.1，最新版=未知（未检查），卡片 client v0.0.1",
+      "actual": "versions=[0.0.1, 0.0.1, 未知]；seal=已是最新；clientTag=client v0.0.1",
+      "verdict": "pass",
+      "png": "shots\\12-shot.png",
+      "sidecar": "shots\\12-shot.json"
+    },
+    {
+      "id": "19-shot",
+      "step": "检查更新后",
+      "what": "点击「检查更新」后的面板：最新版显示 0.0.2，出现「安装更新」可用按钮",
+      "expected": "版本条带第三项=0.0.2，安装按钮可用",
+      "actual": "versions=[0.0.1, 0.0.1, 0.0.2]；install.disabled=false",
+      "verdict": "pass",
+      "png": "shots\\19-shot.png",
+      "sidecar": "shots\\19-shot.json"
+    },
+    {
+      "id": "22-shot",
+      "step": "安装更新后（重启前）",
+      "what": "安装动作结束后的面板：出现安装结果/待重启状态（面板可能在安装后重挂载，故 clientTag 允许为空）；磁盘已是 0.0.2",
+      "expected": "安装动作结束（seal/进度有终态或面板重挂载）；磁盘已是 0.0.2",
+      "actual": "seal=已是最新；clientTag=client v0.0.2；磁盘=0.0.2",
+      "verdict": "pass",
+      "png": "shots\\22-shot.png",
+      "sidecar": "shots\\22-shot.json"
+    },
+    {
+      "id": "26-shot",
+      "step": "重启后新版面板",
+      "what": "重启后的官方桌面窗口：卡片标题变为新版变体，client/host 构建标记都是 v0.0.2，面板运行版/已安装=0.0.2",
+      "expected": "client v0.0.2 / host v0.0.2 / 标题含「新版」/ 版本条带 0.0.2",
+      "actual": "clientTag=client v0.0.2；hostTag=host v0.0.2；title=夹具 A · 更新演示（新版）；versions=[0.0.2, 0.0.2, 未知]",
+      "verdict": "pass",
+      "png": "shots\\26-shot.png",
+      "sidecar": "shots\\26-shot.json"
+    }
+  ],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "04-fixture-published-old",
+      "name": "fixture-published-old",
+      "file": "raw\\04-fixture-published-old.json"
+    },
+    {
+      "id": "05-desktop-first-launch",
+      "name": "desktop-first-launch",
+      "file": "raw\\05-desktop-first-launch.json"
+    },
+    {
+      "id": "06-install-old",
+      "name": "install-old",
+      "file": "raw\\06-install-old.json"
+    },
+    {
+      "id": "08-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\08-sut-installed-dist.json"
+    },
+    {
+      "id": "10-panel-old",
+      "name": "panel-old",
+      "file": "raw\\10-panel-old.json"
+    },
+    {
+      "id": "13-fixture-published-new",
+      "name": "fixture-published-new",
+      "file": "raw\\13-fixture-published-new.json"
+    },
+    {
+      "id": "15-registry-metadata-new",
+      "name": "registry-metadata-new",
+      "file": "raw\\15-registry-metadata-new.json"
+    },
+    {
+      "id": "17-panel-after-check",
+      "name": "panel-after-check",
+      "file": "raw\\17-panel-after-check.json"
+    },
+    {
+      "id": "20-panel-after-install",
+      "name": "panel-after-install",
+      "file": "raw\\20-panel-after-install.json"
+    },
+    {
+      "id": "23-profile-manifest-after-update",
+      "name": "profile-manifest-after-update",
+      "file": "raw\\23-profile-manifest-after-update.json"
+    },
+    {
+      "id": "24-panel-new",
+      "name": "panel-new",
+      "file": "raw\\24-panel-new.json"
+    },
+    {
+      "id": "27-final-disk-facts",
+      "name": "final-disk-facts",
+      "file": "raw\\27-final-disk-facts.json"
+    },
+    {
+      "id": "29-logs-and-ledger",
+      "name": "logs-and-ledger",
+      "file": "raw\\29-logs-and-ledger.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "desktop-app-bootstrap",
+        "pid": 61096,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-app-main",
+        "pid": 77556,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-app-restart",
+        "pid": 31536,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "cdp",
+        "port": 0,
+        "released": true
+      },
+      {
+        "label": "registry",
+        "port": 61855,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:61855（仓库外 verdaccio，run 内独立 storage）",
+      "夹具 dsh-plugin-update-fixture-a@0.0.1（A 案：批量集成方，selfOrder=first，targets=[a,b,c]）"
+    ]
+  },
+  "maintainerProfile": {
+    "homeDir": "C:\\Users\\辰辰洋洋\\.dsh",
+    "before": {
+      "package.json": "aa45f522c8169a025ac4b0053d556b9d62fea77cb209ee5b4c867920019b19d8",
+      "pnpm-lock.yaml": "0a3293d22eadd57628fe6ddfd42e066748b1affca8572c857825ee73fa612f35",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "819e9d715674a3ab090552c69fba13c1fcf366c95b00b50710dc9a9aaf2a9f2f",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dshmarket,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,@xmanrui/dsh-im,dsh-usage-statistics-panel,dsh-vision-router,billion-context,dsh-bili-scroll,dsh-mattpocock-skills-deck,dsh-opencode-palette,dsh-prompt,dsh-life-pack"
+    },
+    "after": {
+      "package.json": "aa45f522c8169a025ac4b0053d556b9d62fea77cb209ee5b4c867920019b19d8",
+      "pnpm-lock.yaml": "0a3293d22eadd57628fe6ddfd42e066748b1affca8572c857825ee73fa612f35",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "819e9d715674a3ab090552c69fba13c1fcf366c95b00b50710dc9a9aaf2a9f2f",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dshmarket,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,@xmanrui/dsh-im,dsh-usage-statistics-panel,dsh-vision-router,billion-context,dsh-bili-scroll,dsh-mattpocock-skills-deck,dsh-opencode-palette,dsh-prompt,dsh-life-pack"
+    },
+    "unchanged": true
+  },
+  "notes": [
+    "本地 registry：http://127.0.0.1:61855（仓库外 verdaccio，run 内独立 storage）",
+    "夹具 dsh-plugin-update-fixture-a@0.0.1（A 案：批量集成方，selfOrder=first，targets=[a,b,c]）"
+  ]
+}
