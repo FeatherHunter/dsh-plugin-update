@@ -16,7 +16,7 @@ import { createMultiHostUpdate } from '../dist/host-batch.js'
 import { batchPathsForOwner } from '../dist/core/disk.js'
 import { DEFAULT_HUB_IO } from '../dist/host/hub/boundary.js'
 import { hubPathsForUpdate, readHubPlan } from '../dist/host/hub/plan-store.js'
-import { readHubLease, writeHubLease } from '../dist/host/hub/lease-store.js'
+import { readHubLease } from '../dist/host/hub/lease-store.js'
 import { HUB_LEASE_HEARTBEAT_MS, HUB_LEASE_STALE_MS, HUB_LEASE_VERSION } from '../dist/core/hub/lease-policy.js'
 import { __resetHubRegistryForTests, hubSlotCountForTests } from '../dist/host/hub/registry.js'
 import { fakeTransport, mkScope, mkTarget, phaseOf, unbindAll } from './helpers/batch-log-harness.mjs'
@@ -28,6 +28,17 @@ beforeEach(() => {
 
 function allDone(session) {
   return session.entries.every((entry) => entry.phase === 'done' || entry.phase === 'skipped' || entry.phase === 'current')
+}
+
+// 推完归还租约是「最终一致」而不是「调用方拿到回包那一刻已经删掉」：
+// 等待者先被唤醒（settleTask），泵循环的 finally 才去释放（releaseIfOwner）。
+// 全量并行负载下这段窗口会变大，所以这里等一小会儿再断言，而不是靠重跑碰运气。
+async function waitLeaseGone(paths) {
+  for (let attempt = 0; attempt < 400; attempt += 1) {
+    if ((await readHubLease(paths)) === null) return true
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+  return false
 }
 
 test('空闲提交：推到收尾、账本/方案落盘、租约归还', async () => {
@@ -54,7 +65,7 @@ test('空闲提交：推到收尾、账本/方案落盘、租约归还', async (
     assert.ok(plan, '开跑前把方案落盘（别的集成方/后来者据此接手）')
     assert.equal(plan.sessionId, reply.session.id)
     assert.deepEqual(plan.selfOrder, 'first')
-    assert.equal(await readHubLease(paths), null, '收尾后把驾驶位还回去')
+    assert.equal(await waitLeaseGone(paths), true, '收尾后把驾驶位还回去')
   } finally {
     host.dispose()
     unbindAll()
@@ -202,7 +213,7 @@ test('接管：盘上租约记着活着但假死的进程（心跳过期），�
     assert.ok(leaseDuringInstall, '安装期间应该有活着的驾驶位')
     assert.notEqual(leaseDuringInstall.driverId, 'hung-driver', '心跳过期的假死进程租约被接管')
     assert.equal(leaseDuringInstall.generation, 2, '换代 +1')
-    assert.equal(await readHubLease(paths), null, '推完归还租约')
+    assert.equal(await waitLeaseGone(paths), true, '推完归还租约')
   } finally {
     host.dispose()
     unbindAll()
@@ -307,7 +318,7 @@ test('接管：盘上租约记着死进程，活着的一方换代接过来推�
     assert.ok(leaseDuringInstall, '安装期间应该有活着的驾驶位')
     assert.equal(leaseDuringInstall.driverId === 'dead-driver', false, '死进程的租约被接管')
     assert.equal(leaseDuringInstall.generation, 2, '换代 +1（不让旧进程复活后误认自己还持锁）')
-    assert.equal(await readHubLease(paths), null, '推完归还租约')
+    assert.equal(await waitLeaseGone(paths), true, '推完归还租约')
   } finally {
     host.dispose()
     unbindAll()
