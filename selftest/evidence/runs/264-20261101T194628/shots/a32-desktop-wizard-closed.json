@@ -1,0 +1,17 @@
+{
+  "shot": "a32-desktop-wizard-closed.png",
+  "channel": "A",
+  "whatToLook": "向导两层点完后是否回到主界面（「准备可用额度」与二次确认都不再出现）",
+  "expected": "wizard=false、dialogs=[]、输入框可见",
+  "actual": "wizard=false；dialogs=[]；composer=true",
+  "judgement": "符合预期",
+  "note": "隔离 home=D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home（该 home 自 11:58Z 起已 signed-in；为复现首启向导，运行前把 ui-settings-account config 临时置回 step: credit、completion: null，等价初版 raw/23 记录的向导态；跑完 app 自身又写回 step: done / completion: skipped）＋全新 --user-data-dir=D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd；官方桌面 0.2.1-rc.5。 原始点击细节见 raw/63-channel-a-wizard-wizard-skip.json。",
+  "run": "264-20261101T194628",
+  "capturedAt": "2026-11-01T13:08:17.749Z",
+  "viewport": {
+    "width": 1279,
+    "height": 821,
+    "dpr": 1.75
+  },
+  "clip": null
+}

@@ -1,0 +1,20 @@
+{
+  "seq": 1,
+  "name": "env-probe",
+  "file": "01-env-probe.json",
+  "startedAt": "2026-11-01T11:55:36.503Z",
+  "ok": true,
+  "ms": 175,
+  "data": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "dshCli": "D:\\DeepseekHarness\\resources\\runtime\\cli\\bin\\dsh.cmd",
+    "dshCliExists": true,
+    "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "browserExists": true,
+    "workRoot": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264",
+    "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264\\home",
+    "pluginSpec": "dsh-prompt@0.4.40",
+    "dshVersion": "0.2.1-rc.3"
+  }
+}

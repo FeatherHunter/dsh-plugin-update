@@ -1,0 +1,9 @@
+[step] preflight -> raw/60-channel-a-wizard-preflight.json
+[step] launch -> raw/61-channel-a-wizard-launch.json
+[step] attach -> raw/62-channel-a-wizard-attach.json
+[shot] a30-desktop-wizard-credit (符合预期)
+[shot] a31-desktop-wizard-confirm (符合预期)
+[step] wizard-skip -> raw/63-channel-a-wizard-wizard-skip.json
+[shot] a32-desktop-wizard-closed (符合预期)
+[step] cleanup -> raw/64-channel-a-wizard-cleanup.json
+[result] status=PASS steps=5 shots=3 blockers=[]

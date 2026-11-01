@@ -1,0 +1,847 @@
+{
+  "runId": "264-20261101T194628",
+  "ticket": "#264 T0 真机宿主矩阵与 UI 驱动可行性（spike）",
+  "branch": "impl/263-t0",
+  "base": "integration/spec-263 (0b782f4)",
+  "startedAt": "2026-11-01T19:46:28+08 (RUN 创建)",
+  "finishedAt": "2026-11-01T21:10+08 (T0 补：通道 A 深链 PASS、宿主矩阵按 #263 组名校准、TS 化、profile 归因)",
+  "updatedAt": "2026-11-01T21:10+08",
+  "machine": {
+    "os": "Windows 11 (10.0.26200)",
+    "node": "v24.19.0",
+    "npm": "10.9.2",
+    "pnpmStore": "D:\\.pnpm-store\\v11",
+    "chrome": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "dshCli": "D:\\DeepseekHarness\\runtime\\cli\\bin\\dsh.cmd (0.2.1-rc.3)",
+    "desktop": "D:\\DeepseekHarness\\DeepSeek Harness.exe (Electron 44.7.0 / Chrome 152 / @deepseek-ai/dsh-desktop 0.2.1-rc.5)",
+    "maintainerProfile": "C:\\Users\\辰辰洋洋\\.dsh\\profiles\\desktop"
+  },
+  "tempDirs": {
+    "channelB": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264 (保留用于排障；内含隔离 DSH_HOME=home、profile s263、Chrome user-data-dir)",
+    "channelA": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA (保留；内含隔离 home/profiles/desktop、--user-data-dir=udd2、stdout/stderr 日志)",
+    "channelAWizard": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4 (保留；--user-data-dir=udd，向导两层复现用)",
+    "channelBTsSmoke": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-tscheck2 (TS 冒烟重跑；可删)"
+  },
+  "commands": [
+    {
+      "step": "B/seed",
+      "cmd": "dsh --profile s263 --from-default-profile web --dump-config",
+      "env": "DSH_HOME=<tmp>\\home"
+    },
+    {
+      "step": "B/install",
+      "cmd": "dsh plugin --profile s263 add dsh-prompt@0.4.40",
+      "env": "DSH_HOME=<tmp>\\home"
+    },
+    {
+      "step": "B/serve",
+      "cmd": "dsh --profile s263 --port 0 --no-open",
+      "env": "DSH_HOME=<tmp>\\home"
+    },
+    {
+      "step": "B/browse",
+      "cmd": "chrome.exe --headless=new --remote-debugging-port=0 --user-data-dir=<tmp>\\udd <url>",
+      "env": "-"
+    },
+    {
+      "step": "B/ts-smoke",
+      "cmd": "node channel-b.ts --run-dir D:\\dsh-plugin\\_wt263\\runtime\\t0-264-tscheck2\\run --workdir D:\\dsh-plugin\\_wt263\\runtime\\t0-264-tscheck2 --plugin dsh-prompt@0.4.40",
+      "env": "cwd=selftest/spike/264"
+    },
+    {
+      "step": "A/launch",
+      "cmd": "删 ELECTRON_RUN_AS_NODE + 全部 DSH_* 后：DeepSeek Harness.exe --user-data-dir=<tmpA>\\udd2 --remote-debugging-port=59333",
+      "env": "DSH_HOME=<tmpA>\\home"
+    },
+    {
+      "step": "A/install",
+      "cmd": "CDP: 插件页 → 添加插件 → dsh-prompt@0.4.40 → 安装（出口二 installBundle）",
+      "env": "同上"
+    },
+    {
+      "step": "A/deeplink",
+      "cmd": "node channel-a-deeplink.ts --run-dir <evidence> --home <tmpA>\\home --user-data-dir <tmpA>\\udd2 --cdp-port 59344",
+      "env": "cwd=selftest/spike/264"
+    },
+    {
+      "step": "A/restart",
+      "cmd": "taskkill /PID <rootPid> /T /F 后同一 --user-data-dir + 同一 DSH_HOME + 新调试端口再起（脚本内自动完成）",
+      "env": "同上"
+    },
+    {
+      "step": "A/wizard",
+      "cmd": "node channel-a-wizard.ts --run-dir <evidence> --home <tmpA>\\home --user-data-dir <tmpW>\\udd --cdp-port 59349",
+      "env": "cwd=selftest/spike/264；运行前把 ui-settings-account 置回 step: credit / completion: null"
+    },
+    {
+      "step": "gates",
+      "cmd": "npx tsc -p selftest/tsconfig.json --noEmit；npx tsc -p selftest/spike/264/tsconfig.json --noEmit",
+      "env": "cwd=repo root"
+    }
+  ],
+  "channelB": {
+    "status": "PASS",
+    "summary": "临时 profile 起普通 DSH 宿主 + 系统 Chrome 裸 CDP：开更新面板、点「检查更新」、截图全通",
+    "startedAt": "2026-11-01T11:55:36.503Z",
+    "finishedAt": "2026-11-01T11:55:55.395Z",
+    "steps": [
+      {
+        "seq": 1,
+        "name": "env-probe",
+        "ok": true,
+        "ms": 175,
+        "startedAt": "2026-11-01T11:55:36.503Z",
+        "file": "01-env-probe.json"
+      },
+      {
+        "seq": 2,
+        "name": "seed-web-profile",
+        "ok": true,
+        "ms": 325,
+        "startedAt": "2026-11-01T11:55:36.679Z",
+        "file": "02-seed-web-profile.json"
+      },
+      {
+        "seq": 3,
+        "name": "install-integrator",
+        "ok": true,
+        "ms": 6847,
+        "startedAt": "2026-11-01T11:55:37.005Z",
+        "file": "03-install-integrator.json"
+      },
+      {
+        "seq": 4,
+        "name": "start-server",
+        "ok": true,
+        "ms": 2121,
+        "startedAt": "2026-11-01T11:55:43.853Z",
+        "file": "04-start-server.json"
+      },
+      {
+        "seq": 5,
+        "name": "launch-browser",
+        "ok": true,
+        "ms": 295,
+        "startedAt": "2026-11-01T11:55:45.984Z",
+        "file": "05-launch-browser.json"
+      },
+      {
+        "seq": 6,
+        "name": "attach-and-prepare-page",
+        "ok": true,
+        "ms": 2534,
+        "startedAt": "2026-11-01T11:55:46.285Z",
+        "file": "06-attach-and-prepare-page.json"
+      },
+      {
+        "seq": 7,
+        "name": "open-prompt-panel",
+        "ok": true,
+        "ms": 494,
+        "startedAt": "2026-11-01T11:55:48.820Z",
+        "file": "07-open-prompt-panel.json"
+      },
+      {
+        "seq": 8,
+        "name": "open-update-panel",
+        "ok": true,
+        "ms": 2252,
+        "startedAt": "2026-11-01T11:55:49.315Z",
+        "file": "08-open-update-panel.json"
+      },
+      {
+        "seq": 9,
+        "name": "click-panel-entry",
+        "ok": true,
+        "ms": 3828,
+        "startedAt": "2026-11-01T11:55:51.567Z",
+        "file": "09-click-panel-entry.json"
+      },
+      {
+        "seq": 10,
+        "name": "page-error-collector",
+        "ok": true,
+        "ms": 0,
+        "startedAt": "2026-11-01T11:55:55.395Z",
+        "file": "10-page-error-collector.json"
+      }
+    ],
+    "click": "raw/09-click-panel-entry.json",
+    "clickFacts": {
+      "pick": {
+        "action": "check",
+        "text": "检查更新",
+        "x": 467,
+        "y": 421.890625,
+        "title": "重新向官方源查询版本信息（只读，不安装）"
+      },
+      "immediate": {
+        "checkText": "正在查询版本信息…",
+        "checkDisabled": true
+      },
+      "panelText": "插件更新 / 更新档案 卷 / dsh-prompt / 使用范围 s263 profile / 已是最新，无需更新。 / 运行版 0.4.40 / 已安装 0.4.40 / 最新版 0.4.40 / 检查更新 / 安装更新 / 复制诊断 / 更新日志 更新说明（0.4.40 → 0.4.40）作者未提供更新说明 / 更新队列 当前无排队任务；同一使用范围同时仅安装一项 / 错误信息 暂无失败 / 请查看日志 <DSH_HOME>/logs/<derived>"
+    },
+    "installFacts": {
+      "file": "raw/03-install-integrator.json",
+      "commandLine": "D:\\DeepseekHarness\\resources\\runtime\\cli\\bin\\dsh.cmd plugin --profile s263 add dsh-prompt@0.4.40",
+      "stdoutHighlights": [
+        "Added 1 entry to minimumReleaseAgeExclude",
+        "Packages: +3",
+        "+ dsh-prompt 0.4.40",
+        "Done in 705ms using pnpm v11.28.5"
+      ],
+      "dependencies": {
+        "dsh-prompt": "0.4.40"
+      },
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-web-app",
+        "dsh-prompt"
+      ],
+      "installedVersion": "0.4.40"
+    },
+    "screenshots": [
+      "shots/b3-update-panel.png",
+      "shots/b3-update-panel-crop.png",
+      "shots/b4-after-panel-click.png"
+    ],
+    "tsSmoke": {
+      "command": "node channel-b.ts --run-dir D:\\dsh-plugin\\_wt263\\runtime\\t0-264-tscheck2\\run --workdir D:\\dsh-plugin\\_wt263\\runtime\\t0-264-tscheck2 --plugin dsh-prompt@0.4.40",
+      "exitCode": 0,
+      "result": "10 步全 [ok]，RESULT: OK，行为与 .mjs 版一致",
+      "stepsMs": {
+        "env-probe": 227,
+        "seed-web-profile": 205,
+        "install-integrator": 6758,
+        "start-server": 6141,
+        "launch-browser": 434,
+        "attach-and-prepare-page": 3244,
+        "open-prompt-panel": 483,
+        "open-update-panel": 2417,
+        "click-panel-entry": 3255,
+        "page-error-collector": 0
+      },
+      "cleanup": {
+        "file": "raw/51b-channel-b-ts-smoke-cleanup.json",
+        "server": {
+          "pid": 52800,
+          "port": 59079,
+          "exited": true,
+          "portFree": true
+        },
+        "browser": {
+          "pid": 50332,
+          "cdpPort": 62935,
+          "exited": true,
+          "cdpPortFree": true
+        }
+      },
+      "evidence": [
+        "raw/50-channel-b-ts-smoke.txt",
+        "raw/51-channel-b-ts-smoke-result.json",
+        "raw/51b-channel-b-ts-smoke-cleanup.json"
+      ]
+    }
+  },
+  "channelA": {
+    "status": "PASS",
+    "summary": "官方桌面版隔离第二实例：向导两层关闭 → taskkill 自己进程树 → 同 udd2/同隔离 home 换端口重启 → [data-dsh-prompt-entry] 出现 → 悬停面板 →「模板管理」→ 设置页 → 更新入口 scrollIntoView → .dsh-upd[data-mode=dialog] → 点「检查更新」→ 整窗 + 面板 crop 截图；13 步全过",
+    "resultFile": "raw/98a-result.json",
+    "startedAt": "2026-11-01T12:39:58.554Z",
+    "finishedAt": "2026-11-01T12:40:20.588Z",
+    "cdpPort": 59344,
+    "rootPid": 58804,
+    "home": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home",
+    "userDataDir": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\udd2",
+    "desktopExe": "D:\\DeepseekHarness\\DeepSeek Harness.exe",
+    "steps": [
+      {
+        "step": "preflight",
+        "file": "raw/30-channel-a-preflight.json",
+        "at": "2026-11-01T12:39:59.956Z"
+      },
+      {
+        "step": "launch",
+        "file": "raw/31-channel-a-launch.json",
+        "at": "2026-11-01T12:40:02.736Z"
+      },
+      {
+        "step": "attach",
+        "file": "raw/32-channel-a-attach.json",
+        "at": "2026-11-01T12:40:07.888Z"
+      },
+      {
+        "step": "wizard-skip",
+        "file": "raw/33-channel-a-wizard-skip.json",
+        "at": "2026-11-01T12:40:07.982Z"
+      },
+      {
+        "step": "entry",
+        "file": "raw/34-channel-a-entry.json",
+        "at": "2026-11-01T12:40:08.071Z"
+      },
+      {
+        "step": "prompt-panel",
+        "file": "raw/35-channel-a-prompt-panel.json",
+        "at": "2026-11-01T12:40:09.564Z"
+      },
+      {
+        "step": "settings-page",
+        "file": "raw/36-channel-a-settings-page.json",
+        "at": "2026-11-01T12:40:10.878Z"
+      },
+      {
+        "step": "update-entry",
+        "file": "raw/37-channel-a-update-entry.json",
+        "at": "2026-11-01T12:40:11.685Z"
+      },
+      {
+        "step": "update-entry-click",
+        "file": "raw/38-channel-a-update-entry-click.json",
+        "at": "2026-11-01T12:40:11.826Z"
+      },
+      {
+        "step": "update-panel",
+        "file": "raw/39-channel-a-update-panel.json",
+        "at": "2026-11-01T12:40:12.736Z"
+      },
+      {
+        "step": "click-check",
+        "file": "raw/40-channel-a-click-check.json",
+        "at": "2026-11-01T12:40:15.394Z"
+      },
+      {
+        "step": "console",
+        "file": "raw/41-channel-a-console.json",
+        "at": "2026-11-01T12:40:15.542Z"
+      },
+      {
+        "step": "cleanup",
+        "file": "raw/42-channel-a-cleanup.json",
+        "at": "2026-11-01T12:40:15.543Z"
+      }
+    ],
+    "deepLinkFacts": {
+      "restart": "启用后不即时生效；taskkill 自己实例进程树 → 同 --user-data-dir=udd2 + 同 DSH_HOME + 新调试端口重启 → 页面就绪后出现入口（raw/34，rect x=606.4 y=501.0，label=Prompt）",
+      "panelButtons": [
+        "全部",
+        "自定义",
+        "＋新增",
+        "展示预制模板",
+        "当前：悬浮触发",
+        "模板管理（title=设置 → 模板管理）",
+        "×"
+      ],
+      "noSettingsButton": "面板里没有「设置」按钮；正确深链是点「模板管理」→ 集成方 goSettings：settings.open + 点侧栏「提示词模板」",
+      "updateEntry": "raw/37：入口文案「已是最新 0.4.40」；首测 rect y=-152.57（视口外）→ scrollIntoView({block:'center'}) 后 y=120.0、inViewport=true、inside=true",
+      "updatePanel": "raw/39：.dsh-upd[data-mode=dialog] rect {x:339.14,y:46.02,w:601.14,h:729.1}；clip {x:331.14,y:38.02,w:617.14,h:745.1}；文本含 插件更新 / 更新档案 卷 / dsh-prompt / 使用范围 desktop profile / 已是最新，无需更新 / 运行版 0.4.40 / 已安装 0.4.40 / 最新版 未知",
+      "clickCheck": "raw/40：pick {action:check,text:检查更新,disabled:false,x:398.29,y:421.54} → immediate {checkText:正在查询版本信息…,disabled:true} → after 文本出现 最新版 0.4.40 / 更新说明（0.4.40 → 0.4.40）：作者未提供更新说明，安装不受影响"
+    },
+    "console": {
+      "file": "raw/41-channel-a-console.json",
+      "counts": {
+        "console": 0,
+        "exceptions": 0,
+        "logEntries": 6,
+        "pageErrors": 0
+      },
+      "note": "6 条均为 dsh-prompt 自身日志上报端点 404：dsh-app://app/_dsh/dsh-prompt/update/prompt.logAppend；不影响更新面板，记录备查"
+    },
+    "screenshots": [
+      "shots/a20-desktop-restarted.png",
+      "shots/a21-desktop-wizard-skipped.png",
+      "shots/a22-desktop-entry.png",
+      "shots/a23-desktop-prompt-panel.png",
+      "shots/a24-desktop-settings-entry.png",
+      "shots/a25-desktop-update-panel.png",
+      "shots/a25-desktop-update-panel-crop.png",
+      "shots/a26-desktop-after-check.png"
+    ],
+    "blockers": [],
+    "evidence": [
+      "raw/11-channel-a-launch-attempt1.txt",
+      "raw/12-channel-a-launch-attempt2.txt",
+      "raw/24-channel-a-install.json",
+      "raw/30-channel-a-preflight.json",
+      "raw/31-channel-a-launch.json",
+      "raw/32-channel-a-attach.json",
+      "raw/33-channel-a-wizard-skip.json",
+      "raw/34-channel-a-entry.json",
+      "raw/35-channel-a-prompt-panel.json",
+      "raw/36-channel-a-settings-page.json",
+      "raw/37-channel-a-update-entry.json",
+      "raw/38-channel-a-update-entry-click.json",
+      "raw/39-channel-a-update-panel.json",
+      "raw/40-channel-a-click-check.json",
+      "raw/41-channel-a-console.json",
+      "raw/42-channel-a-cleanup.json",
+      "raw/98a-result.json"
+    ]
+  },
+  "channelAWizard": {
+    "status": "PASS",
+    "purpose": "首启额度向导两层（跳过 → 我知道了）原始证据 + 复现条件",
+    "resultFile": "raw/98w-result.json",
+    "startedAt": "2026-11-01T13:08:07.915Z",
+    "finishedAt": "2026-11-01T13:08:23.778Z",
+    "cdpPort": 59349,
+    "rootPid": 51252,
+    "home": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home",
+    "userDataDir": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd",
+    "steps": [
+      {
+        "step": "preflight",
+        "file": "raw/60-channel-a-wizard-preflight.json",
+        "at": "2026-11-01T13:08:07.916Z"
+      },
+      {
+        "step": "launch",
+        "file": "raw/61-channel-a-wizard-launch.json",
+        "at": "2026-11-01T13:08:11.454Z"
+      },
+      {
+        "step": "attach",
+        "file": "raw/62-channel-a-wizard-attach.json",
+        "at": "2026-11-01T13:08:15.918Z"
+      },
+      {
+        "step": "wizard-skip",
+        "file": "raw/63-channel-a-wizard-wizard-skip.json",
+        "at": "2026-11-01T13:08:17.662Z"
+      },
+      {
+        "step": "cleanup",
+        "file": "raw/64-channel-a-wizard-cleanup.json",
+        "at": "2026-11-01T13:08:17.749Z"
+      }
+    ],
+    "layers": {
+      "layer1": {
+        "text": "跳过",
+        "rect": {
+          "x": 1140.8,
+          "y": 726.7
+        },
+        "inside": true,
+        "via": "cdp-mouse"
+      },
+      "confirmDialog": {
+        "text": "暂时跳过充值？ 没有可用额度时，DeepSeek Harness 将无法开始新的任务。…我知道了 前往充值",
+        "buttons": [
+          "我知道了",
+          "前往充值"
+        ]
+      },
+      "layer2": {
+        "text": "我知道了",
+        "via": "cdp-mouse"
+      },
+      "wizardGone": true,
+      "final": {
+        "wizard": false,
+        "dialogs": [],
+        "composer": true
+      }
+    },
+    "reproCondition": "onboarding 可见条件 visible = !done && signedIn && !unavailable（ui-settings-account/lib/client.js derive()，signedIn = account.status === 'credential-stored'）。全新隔离 home 不弹向导；预置 account 凭据的 rc.5 实例 Runtime.evaluate 超时。可行复现：已 signed-in 的隔离 home + cordis.patch.yml 置 step: credit / completion: null + 全新 --user-data-dir。",
+    "reproFile": "raw/65-channel-a-wizard-repro.json",
+    "screenshots": [
+      "shots/a30-desktop-wizard-credit.png",
+      "shots/a31-desktop-wizard-confirm.png",
+      "shots/a32-desktop-wizard-closed.png"
+    ],
+    "blockers": []
+  },
+  "threeExits": [
+    {
+      "exit": 1,
+      "name": "第三方 Desktop（desktopPnpm.runPlugin(参数数组, 范围目录, undefined)）",
+      "status": "不可达",
+      "knownRedCondition": "本机无第三方 Desktop 构建；T1 需先拿到第三方 Desktop 安装包再测",
+      "evidence": null
+    },
+    {
+      "exit": 2,
+      "name": "官方桌面 in-process（pluginManager.installBundle → ChangeResult）",
+      "status": "可达（真机成功）",
+      "evidence": [
+        "raw/24-channel-a-install.json",
+        "shots/a5-desktop-install-result.png"
+      ],
+      "facts": "经插件管理器 UI 装 dsh-prompt@0.4.40 成功，末态「已安装 dsh-prompt … 版本 0.4.40 查看安装详情 立即启用」"
+    },
+    {
+      "exit": 3,
+      "name": "普通 DSH spawn CLI（反查 process.argv[1] 起 CLI）",
+      "status": "可达（真机成功）",
+      "evidence": [
+        "raw/03-install-integrator.json"
+      ],
+      "facts": "隔离 profile dsh plugin add dsh-prompt@0.4.40 成功，installedVersion 0.4.40；注意 --profile desktop 在无载体普通 dsh 上必败（负例待 T1 覆盖）"
+    }
+  ],
+  "hostMatrixDecision": {
+    "authority": "规格 #263 原文：「既有 A–J 十组（单包主链、码面、三出口、超时取消、批量、队列锁、中枢、在册沉降、拓扑补偿、日志面板）加上新增的 UI 组 K」",
+    "groups": [
+      {
+        "group": "A",
+        "name": "单包主链",
+        "scenario": "单插件：面板打开 → 检查更新 → 结果态（dialog 根/卷/插件名/版本）",
+        "primaryHost": "B",
+        "backupHost": "A",
+        "status": "可达",
+        "evidence": [
+          "raw/07-open-prompt-panel.json",
+          "raw/08-open-update-panel.json",
+          "raw/09-click-panel-entry.json",
+          "shots/b1-b4",
+          "raw/34-channel-a-entry.json",
+          "raw/40-channel-a-click-check.json",
+          "shots/a22-a26"
+        ]
+      },
+      {
+        "group": "B",
+        "name": "码面",
+        "scenario": "失败码 / 人话格 / 手工命令 / 诊断复制",
+        "primaryHost": "B",
+        "backupHost": "A",
+        "status": "部分覆盖",
+        "evidence": [
+          "raw/09-click-panel-entry.json",
+          "raw/39-channel-a-update-panel.json"
+        ],
+        "note": "面板 DOM 有「错误信息 暂无失败」「复制诊断」与「请查看日志 <DSH_HOME>/logs/<derived>」；失败码注入未实测"
+      },
+      {
+        "group": "C",
+        "name": "三出口",
+        "scenario": "出口一/二/三 + remove→install 两步 + already-installed + 失败码/人话格/手工命令",
+        "primaryHost": "A（出口二）/ B（出口三）",
+        "backupHost": "A、B",
+        "status": "部分覆盖",
+        "evidence": [
+          "raw/24-channel-a-install.json",
+          "raw/03-install-integrator.json"
+        ],
+        "note": "出口二、出口三真机成功；出口一不可达；remove→install / already-installed 幂等未测"
+      },
+      {
+        "group": "D",
+        "name": "超时取消",
+        "scenario": "检查更新超时、取消/中止、超时人话",
+        "primaryHost": "B",
+        "backupHost": "A",
+        "status": "不可达（known-red）",
+        "knownRedCondition": "本票 check 均为即时返回，未注入网络延迟/断网",
+        "evidence": []
+      },
+      {
+        "group": "E",
+        "name": "批量",
+        "scenario": "多插件批量检查/安装/队列",
+        "primaryHost": "B",
+        "backupHost": "A",
+        "status": "不可达（known-red）",
+        "knownRedCondition": "本票只装 1 个插件（bundles 3 项），无批量宿主",
+        "evidence": [
+          "raw/03-install-integrator.json"
+        ]
+      },
+      {
+        "group": "F",
+        "name": "队列锁",
+        "scenario": "同一使用范围单任务、排队、并发冲突",
+        "primaryHost": "B",
+        "backupHost": "A",
+        "status": "部分覆盖",
+        "evidence": [
+          "raw/09-click-panel-entry.json",
+          "raw/39-channel-a-update-panel.json"
+        ],
+        "note": "面板文案有「更新队列 当前无排队任务；同一使用范围同时仅安装一项」；锁行为未并发触发"
+      },
+      {
+        "group": "G",
+        "name": "中枢",
+        "scenario": "中枢（多宿主/计划/租约）场景",
+        "primaryHost": "B",
+        "backupHost": "A",
+        "status": "不可达（known-red）",
+        "knownRedCondition": "本票无中枢环境",
+        "evidence": []
+      },
+      {
+        "group": "H",
+        "name": "在册沉降",
+        "scenario": "重启宿主后：插件是否注册 / 未注册 / 重启是否生效",
+        "primaryHost": "A",
+        "backupHost": "B",
+        "status": "可达",
+        "evidence": [
+          "raw/23-channel-a-click-enable-prompt.json",
+          "raw/34-channel-a-entry.json",
+          "shots/a22-desktop-entry.png",
+          "home/logs/dsh-prompt/2026-11-01.log (app.boot hasReact:true entryCount:8)"
+        ],
+        "note": "启用后不即时生效 → 重启隔离实例后入口出现（本票重点验证）"
+      },
+      {
+        "group": "I",
+        "name": "拓扑补偿",
+        "scenario": "拓扑变化/补偿（初版误归为「HMR/多插件守卫」）",
+        "primaryHost": "A（候选）",
+        "backupHost": "B",
+        "status": "不可达（known-red）",
+        "knownRedCondition": "未做 HMR/多插件拓扑场景；需 T1 在插件页 enable/disable 后看补偿",
+        "evidence": []
+      },
+      {
+        "group": "J",
+        "name": "日志面板",
+        "scenario": "日志面板 / 事件目录一致性 / 诊断日志",
+        "primaryHost": "B",
+        "backupHost": "A",
+        "status": "部分覆盖",
+        "evidence": [
+          "raw/41-channel-a-console.json",
+          "raw/10-page-error-collector.json",
+          "raw/server.out.log"
+        ],
+        "note": "已能同时拿浏览器 console 与宿主 stdout；产品「日志面板」UI 未打开；通道 B 未装 exceptionThrown 收集器（T1 补）"
+      },
+      {
+        "group": "K",
+        "name": "UI 组",
+        "scenario": "UI 驱动专项：选择器稳定性、视口滚动、挂载即自查、HMR 后重连",
+        "primaryHost": "B",
+        "backupHost": "A",
+        "status": "可达",
+        "evidence": [
+          "selftest/spike/264/lib/cdp.ts",
+          "selftest/spike/264/lib/proc.ts",
+          "raw/33",
+          "raw/37",
+          "raw/39",
+          "raw/40",
+          "raw/63"
+        ],
+        "note": "两条通道同一套裸 CDP 驱动；scrollIntoView、elementFromPoint 覆盖校验、截图在动作之前、check 先 disabled 等坑固化进脚本"
+      }
+    ],
+    "mappingFromDraft": {
+      "原 A 面板打开": "A",
+      "原 B 检查更新": "A（主链）",
+      "原 C 安装/回退": "C",
+      "原 D 失败态/诊断": "B（码面）+ C（失败码）",
+      "原 E 出口一": "C",
+      "原 F 出口二": "C",
+      "原 G 出口三": "C",
+      "原 H HMR/多插件守卫": "I（拓扑补偿）",
+      "原 I 重启提示": "H（在册沉降）",
+      "原 J 日志": "J",
+      "原 K UI 专项": "K"
+    },
+    "conclusion": "A 组 B 主 A 备；C 组出口二用 A、出口三用 B；H 组用 A（重启类）；K 组以 B 为主；B/F/J 部分覆盖；D/E/G/I 不可达（known-red 条件见 knownRed）。"
+  },
+  "knownRed": [
+    {
+      "id": 1,
+      "title": "ELECTRON_RUN_AS_NODE 让桌面 exe 退化成 Node CLI",
+      "detail": "起实例必须显式删除该变量，否则 bad option: --user-data-dir=...",
+      "evidence": "raw/11-channel-a-launch-attempt1.txt"
+    },
+    {
+      "id": 2,
+      "title": "继承的 DSH_* 变量会把隔离实例连回维护者宿主",
+      "detail": "launchEnv() 删除 DSH_HOME/DSH_PROFILE/DSH_PROFILE_DIR/DSH_SESSION_ID/DSH_SHELL/DSH_WEB_URL 后显式设回隔离 home",
+      "evidence": "raw/31-channel-a-launch.json（envRemoved 7 项）"
+    },
+    {
+      "id": 3,
+      "title": "首启额度向导是两层，且复现有前提",
+      "detail": "跳过 →「暂时跳过充值？」→ 我知道了（已实测可关）；全新 home 不弹向导，预置 account 凭据的 rc.5 实例 Runtime.evaluate 超时 ×2",
+      "evidence": "raw/63-channel-a-wizard-wizard-skip.json、raw/65-channel-a-wizard-repro.json、shots/a30-a32"
+    },
+    {
+      "id": 4,
+      "title": "「立即启用」不即时生效（需重启宿主/app）",
+      "detail": "已降级为场景 H 的注意点：重启后入口出现（raw/34 + app.boot entryCount:8）",
+      "evidence": "raw/34-channel-a-entry.json"
+    },
+    {
+      "id": 5,
+      "title": "更新入口在设置页头行、常在视口外",
+      "detail": "点击前必须 scrollIntoView({block:'center'}) + 重新取 rect + elementFromPoint 校验命中",
+      "evidence": "raw/37-channel-a-update-entry.json"
+    },
+    {
+      "id": 6,
+      "title": "面板挂载即自查（check 短暂 disabled）",
+      "detail": "轮询动作按钮时先只认真动作，约 18s 后才允许 fallback 到 copy-diag/close-view，否则会点到「复制诊断」误判",
+      "evidence": "raw/39-channel-a-update-panel.json、raw/40-channel-a-click-check.json"
+    },
+    {
+      "id": 7,
+      "title": "维护者 profile 的文件级差异已归因外部运行中的 DSH 桌面 app",
+      "detail": "package.json + pnpm-lock.yaml 于 11:53:56Z 改写（billion-context 0.1.209 → 0.1.211）；同期 Roaming\\@deepseek-ai\\dsh-desktop\\Local Storage\\leveldb 11:53:06Z 有写入；desktop profile .plugin-manager\\logs 在 11:45–12:10Z 无 operation-*（非经官方插件管理器）；本票安装只写隔离 home",
+      "evidence": "raw/52-desktop-profile-attribution.json、desktop-profile-before-after.json、desktop-profile-after.json"
+    },
+    {
+      "id": 8,
+      "title": "通道 A 深链依赖产品文案",
+      "detail": "面板里没有「设置」按钮，正确入口是 title 含「设置 → 模板管理」的按钮；T1 应换成 data-* 稳定选择器或等待条件",
+      "evidence": "raw/35-channel-a-prompt-panel.json、raw/36-channel-a-settings-page.json"
+    },
+    {
+      "id": 9,
+      "title": "不可达场景的 known-red 条件",
+      "detail": "D 超时取消（需注入网络延迟/断网）、E 批量（需 2+ 插件）、G 中枢（需中枢环境）、I 拓扑补偿（需 HMR/多插件拓扑）、出口一（需第三方 Desktop 构建）——T1 有环境后各补一条真机用例",
+      "evidence": "hostMatrixDecision.groups"
+    }
+  ],
+  "acChecklist": [
+    {
+      "ac": "至少一条通道完成点击+截图（截图能定位更新面板）",
+      "checked": true,
+      "evidence": [
+        "通道 B raw/09 + shots/b3/b3-crop/b4",
+        "通道 A raw/40 + shots/a25/a26（深链 PASS 13 步）"
+      ]
+    },
+    {
+      "ac": "另一条通道可用/不可用有原始证据",
+      "checked": true,
+      "evidence": [
+        "通道 A：raw/11、raw/12、raw/63、raw/34、raw/98a-result.json、raw/23、shots/a12",
+        "通道 B：raw/01–10"
+      ]
+    },
+    {
+      "ac": "宿主矩阵决策（每条安装出口的真机宿主、不可达出口 known-red 条件）",
+      "checked": true,
+      "evidence": [
+        "docs/research/20261101-issue-264-host-matrix.md §4 A–K 矩阵 / §5 三出口 / §6 known-red 9 条",
+        "run.json hostMatrixDecision + threeExits + knownRed"
+      ]
+    },
+    {
+      "ac": "维护者 profile 未被本票写入（隔离证据 + 前后指纹；全局文件级差异已归因外部运行中的 DSH 桌面 app）",
+      "checked": true,
+      "evidence": [
+        "desktop-profile-before-after.json（含 after2 稳定采样）",
+        "desktop-profile-after.json",
+        "raw/52-desktop-profile-attribution.json",
+        "raw/03 bundles=3",
+        "raw/26/42/64 隔离进程与端口证据"
+      ],
+      "rewrittenFrom": "维护者 profile 未被改动"
+    },
+    {
+      "ac": "产出不进产品包、不改产品代码",
+      "checked": true,
+      "evidence": [
+        "diff 仅 docs/research/ 与 selftest/；package.json files 白名单未动；src/ 零改动"
+      ]
+    }
+  ],
+  "profileAttribution": {
+    "profileDir": "C:\\Users\\辰辰洋洋\\.dsh\\profiles\\desktop",
+    "beforeAfterFile": "desktop-profile-before-after.json",
+    "afterFile": "desktop-profile-after.json",
+    "beforeCapturedAt": "2026-11-01T11:48:26.711Z",
+    "afterCapturedAt": "2026-11-01T12:07:32.789Z",
+    "after2CapturedAt": "2026-11-01T12:45:00.583Z",
+    "after2StableSince": "2026-11-01T12:07:32.789Z",
+    "diff": {
+      "packageJson": {
+        "shaChanged": true,
+        "shaBefore": "2e62654c…",
+        "shaAfter": "aa45f522c8169a025ac4b0053d556b9d62fea77cb209ee5b4c867920019b19d8",
+        "bytes": 1738,
+        "mtime": "2026-11-01T11:53:56.650Z",
+        "contentAttribution": "billion-context: 0.1.209 → 0.1.211"
+      },
+      "pnpmLockYaml": {
+        "shaChanged": true,
+        "bytesBefore": 119784,
+        "bytesAfter": 119764,
+        "mtime": "2026-11-01T11:53:56.653Z"
+      },
+      "unchangedFiles": [
+        "cordis.yml",
+        "cordis.patch.yml",
+        "pnpm-workspace.yaml"
+      ],
+      "afterVsAfter2": "完全一致（12:07:32Z 之后维护者 profile 未再变）"
+    },
+    "externalActivity": {
+      "leveldbDir": "C:\\Users\\辰辰洋洋\\AppData\\Roaming\\@deepseek-ai\\dsh-desktop\\Local Storage\\leveldb",
+      "lastWrite": "2026-11-01T12:44:53.229Z（003379.log），MANIFEST 12:36:53.238Z，003380.ldb 12:36:53.235Z，003378.ldb 12:20:53.232Z —— 运行中的官方桌面 app 持续写（UI 活动）",
+      "note": "11:53:06Z 同期有 leveldb 写入"
+    },
+    "pluginManagerWindowCheck": "desktop profile 的 .plugin-manager\\logs 共 379 条；2026-11-01 当天 12 个 operation-* 目录 mtime 全在 07:00:20.940Z–07:31:33.071Z；11:45–12:10Z 窗口 0 个 operation-* ⇒ 11:53:56Z 改写非经官方插件管理器",
+    "isolationEvidence": [
+      "raw/03-install-integrator.json（bundles=3）",
+      "raw/12/26/42/64（隔离进程、端口、维护者进程存活）",
+      "desktop-profile-before-after.json"
+    ],
+    "attributionFile": "raw/52-desktop-profile-attribution.json",
+    "verdict": "CLEAN-WITH-ATTRIBUTION",
+    "acRewrite": "本票未写入维护者 profile（隔离证据+前后指纹）；全局文件级差异已归因外部运行中的 DSH 桌面 app"
+  },
+  "tsConversion": {
+    "status": "完成",
+    "files": [
+      "channel-a.ts",
+      "channel-a-ui.ts",
+      "channel-a-install.ts",
+      "channel-a-panel.ts",
+      "channel-a-deeplink.ts",
+      "channel-a-wizard.ts",
+      "channel-b.ts",
+      "profile-fingerprint.ts",
+      "lib/cdp.ts",
+      "lib/proc.ts"
+    ],
+    "removedMjs": 9,
+    "tsconfig": "selftest/spike/264/tsconfig.json（ES2022 / Bundler / allowImportingTsExtensions / noCheck:true / types:[]）",
+    "shims": "selftest/spike/264/node-shims.d.ts（declare module 'node:*' + 全局 console/process/Buffer/fetch/AbortSignal/WebSocket/URL/定时器）",
+    "selftestTsconfigChange": "selftest/tsconfig.json 增加 exclude: [\"spike/**\"]（spike 有自己的口径，不污染既有门禁）",
+    "gates": [
+      {
+        "cmd": "npx tsc -p selftest/tsconfig.json --noEmit",
+        "exitCode": 0
+      },
+      {
+        "cmd": "npx tsc -p selftest/spike/264/tsconfig.json --noEmit",
+        "exitCode": 0
+      }
+    ],
+    "behaviorCheck": "通道 B 重跑 10 步全 ok（raw/50/51/51b）"
+  },
+  "cleanup": {
+    "files": [
+      "raw/99-cleanup.json",
+      "raw/26-channel-a-cleanup.txt",
+      "raw/42-channel-a-cleanup.json",
+      "raw/64-channel-a-wizard-cleanup.json"
+    ],
+    "channelB": "宿主/浏览器进程已退出、端口已释放（raw/99）",
+    "channelA": "隔离进程树 taskkill /T /F 后 isolatedAfter=[]、端口释放；维护者进程 17020/39812 存活；维护者 profile package.json SHA 前后均 aa45f522…（raw/42）",
+    "channelAWizard": "隔离实例 exited=true、portFree=true；维护者进程与 profile SHA 未变（raw/64；isolatedAfter 列出的是脚本自身 pwsh/node 进程，非桌面实例）"
+  },
+  "conclusions": [
+    "通道 B 可用：裸 CDP（Node 内置 WebSocket + 系统 Chrome）足以驱动真实宿主 UI，无需 Playwright；作为 #263 主驱动方式。",
+    "通道 A 可用（深链 PASS）：隔离 DSH_HOME + 独立 --user-data-dir + --remote-debugging-port 可起第二实例（需清 ELECTRON_RUN_AS_NODE 与全部 DSH_*）；向导两层可关；启用后需重启；重启后入口 → 面板 →「模板管理」→ 设置页 → 更新入口 → 更新面板 → 点「检查更新」全程可驱动并截图。",
+    "出口二（官方桌面 in-process）与出口三（普通 DSH spawn CLI）真机可用；出口一（第三方 Desktop）不可达（无第三方 Desktop 构建）。",
+    "维护者 profile 未被本票写入；其文件级差异已归因外部运行中的 DSH 桌面 app（verdict=CLEAN-WITH-ATTRIBUTION）。"
+  ],
+  "risks": [
+    "D 超时取消 / E 批量 / G 中枢 / I 拓扑补偿 / 出口一 五处不可达，需 T1 造环境后各补真机用例。",
+    "C 组 remove→install 两步、already-installed 幂等、失败码/人话格/手工命令 未测，需 T1 补。",
+    "通道 A 深链依赖产品文案（「模板管理」按钮 title）与头行入口位置；T1 应改用 data-* 稳定选择器。",
+    "通道 A 的 6 条 dsh-prompt 自身日志上报 404（dsh-app://app/_dsh/dsh-prompt/update/prompt.logAppend）记录备查，不影响面板。",
+    "通道 B 未装 exceptionThrown 收集器（raw/10 已注明），T1 补上以覆盖 J 组。"
+  ]
+}

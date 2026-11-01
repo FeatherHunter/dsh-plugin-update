@@ -1,0 +1,1020 @@
+{
+  "capturedAt": "2026-11-01T12:45:00.583Z",
+  "profileDir": "C:\\Users\\辰辰洋洋\\.dsh\\profiles\\desktop",
+  "profileDirExists": true,
+  "files": {
+    "package.json": {
+      "sha256": "aa45f522c8169a025ac4b0053d556b9d62fea77cb209ee5b4c867920019b19d8",
+      "bytes": 1738,
+      "mtime": "2026-11-01T11:53:56.650Z"
+    },
+    "cordis.yml": {
+      "sha256": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "bytes": 223,
+      "mtime": "2026-11-01T07:27:41.651Z"
+    },
+    "cordis.patch.yml": {
+      "sha256": "819e9d715674a3ab090552c69fba13c1fcf366c95b00b50710dc9a9aaf2a9f2f",
+      "bytes": 5335,
+      "mtime": "2026-11-01T09:56:10.603Z"
+    },
+    "pnpm-lock.yaml": {
+      "sha256": "0a3293d22eadd57628fe6ddfd42e066748b1affca8572c857825ee73fa612f35",
+      "bytes": 119764,
+      "mtime": "2026-11-01T11:53:56.653Z"
+    },
+    "pnpm-workspace.yaml": {
+      "sha256": "a75b147518363c64daf525519616c04874e4d9404207f7d6b3d22bb21db0b4ca",
+      "bytes": 2669,
+      "mtime": "2026-11-01T07:31:43.643Z"
+    }
+  },
+  "pluginManagerDir": {
+    "count": 1,
+    "entries": [
+      {
+        "name": "logs",
+        "kind": "dir"
+      }
+    ],
+    "digest": "4eda8b1b757a9842b29ab49b819c3dabb8aca5dfa99552bd568a464f215e4a1e"
+  },
+  "nodeModulesTop": {
+    "count": 243,
+    "entries": [
+      {
+        "name": ".bin",
+        "kind": "dir"
+      },
+      {
+        "name": ".ignored",
+        "kind": "dir"
+      },
+      {
+        "name": ".modules.yaml",
+        "kind": "file"
+      },
+      {
+        "name": ".pnpm",
+        "kind": "dir"
+      },
+      {
+        "name": ".pnpm-workspace-state-v1.json",
+        "kind": "file"
+      },
+      {
+        "name": "@anthropic-ai",
+        "kind": "dir"
+      },
+      {
+        "name": "@babel",
+        "kind": "dir"
+      },
+      {
+        "name": "@borewit",
+        "kind": "dir"
+      },
+      {
+        "name": "@codemirror",
+        "kind": "dir"
+      },
+      {
+        "name": "@deepseek-ai",
+        "kind": "dir"
+      },
+      {
+        "name": "@img",
+        "kind": "dir"
+      },
+      {
+        "name": "@jimp",
+        "kind": "dir"
+      },
+      {
+        "name": "@lezer",
+        "kind": "dir"
+      },
+      {
+        "name": "@linxin666",
+        "kind": "dir"
+      },
+      {
+        "name": "@marijn",
+        "kind": "dir"
+      },
+      {
+        "name": "@matrix-org",
+        "kind": "dir"
+      },
+      {
+        "name": "@pinojs",
+        "kind": "dir"
+      },
+      {
+        "name": "@puppeteer",
+        "kind": "dir"
+      },
+      {
+        "name": "@selderee",
+        "kind": "dir"
+      },
+      {
+        "name": "@stablelib",
+        "kind": "dir"
+      },
+      {
+        "name": "@standard-schema",
+        "kind": "dir"
+      },
+      {
+        "name": "@tencent-connect",
+        "kind": "dir"
+      },
+      {
+        "name": "@tencent-qqmail",
+        "kind": "dir"
+      },
+      {
+        "name": "@tokenizer",
+        "kind": "dir"
+      },
+      {
+        "name": "@types",
+        "kind": "dir"
+      },
+      {
+        "name": "@wecom",
+        "kind": "dir"
+      },
+      {
+        "name": "@xmanrui",
+        "kind": "dir"
+      },
+      {
+        "name": "@zone-eu",
+        "kind": "dir"
+      },
+      {
+        "name": "agent-base",
+        "kind": "dir"
+      },
+      {
+        "name": "ansi-regex",
+        "kind": "dir"
+      },
+      {
+        "name": "ansi-styles",
+        "kind": "dir"
+      },
+      {
+        "name": "any-base",
+        "kind": "dir"
+      },
+      {
+        "name": "argparse",
+        "kind": "dir"
+      },
+      {
+        "name": "asynckit",
+        "kind": "dir"
+      },
+      {
+        "name": "atomic-sleep",
+        "kind": "dir"
+      },
+      {
+        "name": "await-to-js",
+        "kind": "dir"
+      },
+      {
+        "name": "aws-ssl-profiles",
+        "kind": "dir"
+      },
+      {
+        "name": "axios",
+        "kind": "dir"
+      },
+      {
+        "name": "base-entries",
+        "kind": "dir"
+      },
+      {
+        "name": "base-link-core",
+        "kind": "dir"
+      },
+      {
+        "name": "base-paint",
+        "kind": "dir"
+      },
+      {
+        "name": "base64-js",
+        "kind": "dir"
+      },
+      {
+        "name": "billion-context",
+        "kind": "dir"
+      },
+      {
+        "name": "bmp-js",
+        "kind": "dir"
+      },
+      {
+        "name": "bmp-ts",
+        "kind": "dir"
+      },
+      {
+        "name": "buffer",
+        "kind": "dir"
+      },
+      {
+        "name": "buffer-equal",
+        "kind": "dir"
+      },
+      {
+        "name": "call-bind-apply-helpers",
+        "kind": "dir"
+      },
+      {
+        "name": "camelcase",
+        "kind": "dir"
+      },
+      {
+        "name": "centra",
+        "kind": "dir"
+      },
+      {
+        "name": "chromium-bidi",
+        "kind": "dir"
+      },
+      {
+        "name": "cliui",
+        "kind": "dir"
+      },
+      {
+        "name": "clsx",
+        "kind": "dir"
+      },
+      {
+        "name": "color-convert",
+        "kind": "dir"
+      },
+      {
+        "name": "color-name",
+        "kind": "dir"
+      },
+      {
+        "name": "combined-stream",
+        "kind": "dir"
+      },
+      {
+        "name": "crelt",
+        "kind": "dir"
+      },
+      {
+        "name": "debug",
+        "kind": "dir"
+      },
+      {
+        "name": "decamelize",
+        "kind": "dir"
+      },
+      {
+        "name": "deepmerge-ts",
+        "kind": "dir"
+      },
+      {
+        "name": "delayed-stream",
+        "kind": "dir"
+      },
+      {
+        "name": "detect-libc",
+        "kind": "dir"
+      },
+      {
+        "name": "devtools-protocol",
+        "kind": "dir"
+      },
+      {
+        "name": "dijkstrajs",
+        "kind": "dir"
+      },
+      {
+        "name": "dingtalk-stream",
+        "kind": "dir"
+      },
+      {
+        "name": "dom-serializer",
+        "kind": "dir"
+      },
+      {
+        "name": "dom-walk",
+        "kind": "dir"
+      },
+      {
+        "name": "domelementtype",
+        "kind": "dir"
+      },
+      {
+        "name": "domhandler",
+        "kind": "dir"
+      },
+      {
+        "name": "dompurify",
+        "kind": "dir"
+      },
+      {
+        "name": "domutils",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-bili-scroll",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-bill-ilife",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-calorie",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-chef",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-codinput",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-home-ilife",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-im-companion",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-life-pack",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-log",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-mattpocock-skills-deck",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-memo-ilife",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-opencode-go",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-opencode-palette",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-plugin-update",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-prompt",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-schedule-ilife",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-usage-statistics-panel",
+        "kind": "dir"
+      },
+      {
+        "name": "dsh-vision-router",
+        "kind": "dir"
+      },
+      {
+        "name": "dshmarket",
+        "kind": "dir"
+      },
+      {
+        "name": "dunder-proto",
+        "kind": "dir"
+      },
+      {
+        "name": "emoji-regex",
+        "kind": "dir"
+      },
+      {
+        "name": "encoding-japanese",
+        "kind": "dir"
+      },
+      {
+        "name": "entities",
+        "kind": "dir"
+      },
+      {
+        "name": "es-define-property",
+        "kind": "dir"
+      },
+      {
+        "name": "es-errors",
+        "kind": "dir"
+      },
+      {
+        "name": "es-object-atoms",
+        "kind": "dir"
+      },
+      {
+        "name": "es-set-tostringtag",
+        "kind": "dir"
+      },
+      {
+        "name": "escalade",
+        "kind": "dir"
+      },
+      {
+        "name": "eventemitter3",
+        "kind": "dir"
+      },
+      {
+        "name": "exif-parser",
+        "kind": "dir"
+      },
+      {
+        "name": "fast-sha256",
+        "kind": "dir"
+      },
+      {
+        "name": "file-type",
+        "kind": "dir"
+      },
+      {
+        "name": "find-up",
+        "kind": "dir"
+      },
+      {
+        "name": "follow-redirects",
+        "kind": "dir"
+      },
+      {
+        "name": "form-data",
+        "kind": "dir"
+      },
+      {
+        "name": "function-bind",
+        "kind": "dir"
+      },
+      {
+        "name": "generate-function",
+        "kind": "dir"
+      },
+      {
+        "name": "get-caller-file",
+        "kind": "dir"
+      },
+      {
+        "name": "get-east-asian-width",
+        "kind": "dir"
+      },
+      {
+        "name": "get-intrinsic",
+        "kind": "dir"
+      },
+      {
+        "name": "get-proto",
+        "kind": "dir"
+      },
+      {
+        "name": "gifwrap",
+        "kind": "dir"
+      },
+      {
+        "name": "global",
+        "kind": "dir"
+      },
+      {
+        "name": "gopd",
+        "kind": "dir"
+      },
+      {
+        "name": "has-symbols",
+        "kind": "dir"
+      },
+      {
+        "name": "has-tostringtag",
+        "kind": "dir"
+      },
+      {
+        "name": "hasown",
+        "kind": "dir"
+      },
+      {
+        "name": "he",
+        "kind": "dir"
+      },
+      {
+        "name": "html-to-text",
+        "kind": "dir"
+      },
+      {
+        "name": "htmlparser2",
+        "kind": "dir"
+      },
+      {
+        "name": "https-proxy-agent",
+        "kind": "dir"
+      },
+      {
+        "name": "iconv-lite",
+        "kind": "dir"
+      },
+      {
+        "name": "ieee754",
+        "kind": "dir"
+      },
+      {
+        "name": "image-q",
+        "kind": "dir"
+      },
+      {
+        "name": "imapflow",
+        "kind": "dir"
+      },
+      {
+        "name": "ip-address",
+        "kind": "dir"
+      },
+      {
+        "name": "is-fullwidth-code-point",
+        "kind": "dir"
+      },
+      {
+        "name": "is-function",
+        "kind": "dir"
+      },
+      {
+        "name": "is-property",
+        "kind": "dir"
+      },
+      {
+        "name": "jimp",
+        "kind": "dir"
+      },
+      {
+        "name": "jpeg-js",
+        "kind": "dir"
+      },
+      {
+        "name": "js-yaml",
+        "kind": "dir"
+      },
+      {
+        "name": "json-schema-to-ts",
+        "kind": "dir"
+      },
+      {
+        "name": "leac",
+        "kind": "dir"
+      },
+      {
+        "name": "libbase64",
+        "kind": "dir"
+      },
+      {
+        "name": "libmime",
+        "kind": "dir"
+      },
+      {
+        "name": "libqp",
+        "kind": "dir"
+      },
+      {
+        "name": "linkify-it",
+        "kind": "dir"
+      },
+      {
+        "name": "load-bmfont",
+        "kind": "dir"
+      },
+      {
+        "name": "locate-path",
+        "kind": "dir"
+      },
+      {
+        "name": "long",
+        "kind": "dir"
+      },
+      {
+        "name": "lru.min",
+        "kind": "dir"
+      },
+      {
+        "name": "lucide-react",
+        "kind": "dir"
+      },
+      {
+        "name": "mailparser",
+        "kind": "dir"
+      },
+      {
+        "name": "marked",
+        "kind": "dir"
+      },
+      {
+        "name": "math-intrinsics",
+        "kind": "dir"
+      },
+      {
+        "name": "mime",
+        "kind": "dir"
+      },
+      {
+        "name": "mime-db",
+        "kind": "dir"
+      },
+      {
+        "name": "mime-types",
+        "kind": "dir"
+      },
+      {
+        "name": "min-document",
+        "kind": "dir"
+      },
+      {
+        "name": "minimist",
+        "kind": "dir"
+      },
+      {
+        "name": "mitt",
+        "kind": "dir"
+      },
+      {
+        "name": "mkdirp",
+        "kind": "dir"
+      },
+      {
+        "name": "modern-tar",
+        "kind": "dir"
+      },
+      {
+        "name": "ms",
+        "kind": "dir"
+      },
+      {
+        "name": "mysql2",
+        "kind": "dir"
+      },
+      {
+        "name": "named-placeholders",
+        "kind": "dir"
+      },
+      {
+        "name": "nodemailer",
+        "kind": "dir"
+      },
+      {
+        "name": "omggif",
+        "kind": "dir"
+      },
+      {
+        "name": "on-exit-leak-free",
+        "kind": "dir"
+      },
+      {
+        "name": "openai",
+        "kind": "dir"
+      },
+      {
+        "name": "p-limit",
+        "kind": "dir"
+      },
+      {
+        "name": "p-locate",
+        "kind": "dir"
+      },
+      {
+        "name": "p-try",
+        "kind": "dir"
+      },
+      {
+        "name": "pako",
+        "kind": "dir"
+      },
+      {
+        "name": "parse-bmfont-ascii",
+        "kind": "dir"
+      },
+      {
+        "name": "parse-bmfont-binary",
+        "kind": "dir"
+      },
+      {
+        "name": "parse-bmfont-xml",
+        "kind": "dir"
+      },
+      {
+        "name": "parse-headers",
+        "kind": "dir"
+      },
+      {
+        "name": "parseley",
+        "kind": "dir"
+      },
+      {
+        "name": "path-exists",
+        "kind": "dir"
+      },
+      {
+        "name": "peberminta",
+        "kind": "dir"
+      },
+      {
+        "name": "phin",
+        "kind": "dir"
+      },
+      {
+        "name": "pino",
+        "kind": "dir"
+      },
+      {
+        "name": "pino-abstract-transport",
+        "kind": "dir"
+      },
+      {
+        "name": "pino-std-serializers",
+        "kind": "dir"
+      },
+      {
+        "name": "pixelmatch",
+        "kind": "dir"
+      },
+      {
+        "name": "pngjs",
+        "kind": "dir"
+      },
+      {
+        "name": "potrace",
+        "kind": "dir"
+      },
+      {
+        "name": "process",
+        "kind": "dir"
+      },
+      {
+        "name": "process-warning",
+        "kind": "dir"
+      },
+      {
+        "name": "proxy-from-env",
+        "kind": "dir"
+      },
+      {
+        "name": "punycode.js",
+        "kind": "dir"
+      },
+      {
+        "name": "puppeteer-core",
+        "kind": "dir"
+      },
+      {
+        "name": "qrcode",
+        "kind": "dir"
+      },
+      {
+        "name": "qrcode-terminal",
+        "kind": "dir"
+      },
+      {
+        "name": "quick-format-unescaped",
+        "kind": "dir"
+      },
+      {
+        "name": "real-require",
+        "kind": "dir"
+      },
+      {
+        "name": "regenerator-runtime",
+        "kind": "dir"
+      },
+      {
+        "name": "require-directory",
+        "kind": "dir"
+      },
+      {
+        "name": "require-main-filename",
+        "kind": "dir"
+      },
+      {
+        "name": "safe-stable-stringify",
+        "kind": "dir"
+      },
+      {
+        "name": "safer-buffer",
+        "kind": "dir"
+      },
+      {
+        "name": "sax",
+        "kind": "dir"
+      },
+      {
+        "name": "selderee",
+        "kind": "dir"
+      },
+      {
+        "name": "semver",
+        "kind": "dir"
+      },
+      {
+        "name": "set-blocking",
+        "kind": "dir"
+      },
+      {
+        "name": "sharp",
+        "kind": "dir"
+      },
+      {
+        "name": "simple-xml-to-json",
+        "kind": "dir"
+      },
+      {
+        "name": "skill-bill",
+        "kind": "dir"
+      },
+      {
+        "name": "skill-calorie",
+        "kind": "dir"
+      },
+      {
+        "name": "skill-chef",
+        "kind": "dir"
+      },
+      {
+        "name": "skill-home",
+        "kind": "dir"
+      },
+      {
+        "name": "skill-memo-ilife",
+        "kind": "dir"
+      },
+      {
+        "name": "skill-schedule",
+        "kind": "dir"
+      },
+      {
+        "name": "smart-buffer",
+        "kind": "dir"
+      },
+      {
+        "name": "socks",
+        "kind": "dir"
+      },
+      {
+        "name": "sonic-boom",
+        "kind": "dir"
+      },
+      {
+        "name": "split2",
+        "kind": "dir"
+      },
+      {
+        "name": "sql-escaper",
+        "kind": "dir"
+      },
+      {
+        "name": "standardwebhooks",
+        "kind": "dir"
+      },
+      {
+        "name": "string-width",
+        "kind": "dir"
+      },
+      {
+        "name": "strip-ansi",
+        "kind": "dir"
+      },
+      {
+        "name": "strtok3",
+        "kind": "dir"
+      },
+      {
+        "name": "style-mod",
+        "kind": "dir"
+      },
+      {
+        "name": "thread-stream",
+        "kind": "dir"
+      },
+      {
+        "name": "timm",
+        "kind": "dir"
+      },
+      {
+        "name": "tinycolor2",
+        "kind": "dir"
+      },
+      {
+        "name": "tlds",
+        "kind": "dir"
+      },
+      {
+        "name": "token-types",
+        "kind": "dir"
+      },
+      {
+        "name": "ts-algebra",
+        "kind": "dir"
+      },
+      {
+        "name": "typed-query-selector",
+        "kind": "dir"
+      },
+      {
+        "name": "uc.micro",
+        "kind": "dir"
+      },
+      {
+        "name": "uint8array-extras",
+        "kind": "dir"
+      },
+      {
+        "name": "undici",
+        "kind": "dir"
+      },
+      {
+        "name": "utif",
+        "kind": "dir"
+      },
+      {
+        "name": "utif2",
+        "kind": "dir"
+      },
+      {
+        "name": "w3c-keyname",
+        "kind": "dir"
+      },
+      {
+        "name": "webdriver-bidi-protocol",
+        "kind": "dir"
+      },
+      {
+        "name": "which-module",
+        "kind": "dir"
+      },
+      {
+        "name": "wrap-ansi",
+        "kind": "dir"
+      },
+      {
+        "name": "ws",
+        "kind": "dir"
+      },
+      {
+        "name": "xhr",
+        "kind": "dir"
+      },
+      {
+        "name": "xml-parse-from-string",
+        "kind": "dir"
+      },
+      {
+        "name": "xml2js",
+        "kind": "dir"
+      },
+      {
+        "name": "xmlbuilder",
+        "kind": "dir"
+      },
+      {
+        "name": "xtend",
+        "kind": "dir"
+      },
+      {
+        "name": "y18n",
+        "kind": "dir"
+      },
+      {
+        "name": "yaml",
+        "kind": "dir"
+      },
+      {
+        "name": "yargs",
+        "kind": "dir"
+      },
+      {
+        "name": "yargs-parser",
+        "kind": "dir"
+      },
+      {
+        "name": "zod",
+        "kind": "dir"
+      }
+    ],
+    "digest": "504359f60c660f55f7bc38418db49a5e321417505250363c3d30564bdff88a2c"
+  }
+}

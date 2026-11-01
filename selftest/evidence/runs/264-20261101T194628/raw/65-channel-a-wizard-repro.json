@@ -1,0 +1,27 @@
+{
+  "purpose": "补齐通道 A「首启额度向导两层关闭」的逐轮原始证据，并记录复现条件与已知坑",
+  "channel": "A",
+  "at": "2026-11-01T13:09:07.274Z",
+  "app": "官方桌面 DeepSeek Harness 0.2.1-rc.5（Electron 44.7.0 / Chrome 152.0.7977.130）",
+  "stateAtCapture": {
+    "home": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home",
+    "userDataDir": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd",
+    "cdpPort": 59349,
+    "patchPrecondition": "运行前把 profiles/desktop/cordis.patch.yml 的 ui-settings-account config 置为 {step: credit, completion: null}（等价初版 raw/23 的向导态）；跑完 app 写回 {step: done, completion: skipped}"
+  },
+  "whatWasCaptured": {
+    "shots/a30-desktop-wizard-credit.png": "点「跳过」之前的「准备可用额度」向导页（第一层）",
+    "shots/a31-desktop-wizard-confirm.png": "点「跳过」后弹出的二次确认「暂时跳过充值？」（第二层，按钮 我知道了 / 前往充值）",
+    "shots/a32-desktop-wizard-closed.png": "点「我知道了」后向导消失、回到会话页",
+    "raw/63-channel-a-wizard-wizard-skip.json": "两层点击的逐轮原始记录：layer1Skip {text:跳过, via:cdp-mouse, inside:true}、confirmDialog {text:暂时跳过充值？…, buttons:[我知道了,前往充值]}、layer2Confirm {text:我知道了, via:cdp-mouse}、wizardGone:true、final {wizard:false, dialogs:[], composer:true}"
+  },
+  "reproductionAttempts": [
+    "全新 DSH_HOME + 全新 --user-data-dir（2 次）：onboarding 不出现，直接进会话页（wizard=false welcome=false）",
+    "全新 home 预置 ui-settings-account step: credit（1 次）：仍不出现向导",
+    "全新 home 预置 account 凭据（deepseek-account-platform/*）+ step: credit（2 次）：渲染进程不响应 Runtime.evaluate（CDP 超时），无法取证",
+    "本票隔离 home（已 signed-in）+ step: credit + 全新 udd（1 次）：两层向导完整复现，PASS"
+  ],
+  "rootCause": "ui-settings-account client.js 的 derive() 里 onboarding 可见条件是 `visible = !done && signedIn && !unavailable`（signedIn = account.status === 'credential-stored'）。全新隔离 home 只自动生成 client-connection/browser-session 凭据，account 未 signed-in，所以首启不弹向导；本票隔离 home 在 11:58Z 由早前探索写入 deepseek-account-platform/device + /default 凭据后才 signed-in。",
+  "knownPitfall": "预置 account 凭据的全新 home 在 rc.5 下渲染进程不响应 CDP Runtime.evaluate（两次），疑凭据校验阻塞首屏；T1 若要自动化首启向导，建议复用已 signed-in 的隔离 home（或先完成 device grant 登录）后再置 step: credit。",
+  "conclusion": "向导两层关闭在真机可复现、可点击、可截图；本文件与 raw/63、shots/a30–a32 是该结论的原始证据。"
+}

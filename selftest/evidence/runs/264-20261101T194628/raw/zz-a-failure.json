@@ -1,0 +1,151 @@
+{
+  "label": "main",
+  "error": "Error: 找不到可点元素「设置」within=[data-dsh-prompt-panel-root]；最后={\"found\":false,\"candidates\":[\"全部\",\"自定义\",\"＋ 新增\",\"展示预制模板\",\"当前：悬浮触发\",\"模板管理\",\"×\"]}\n    at findClickable (file:///D:/dsh-plugin/_wt263/t0/selftest/spike/264/channel-a-deeplink.mjs:183:9)\n    at async clickWanted (file:///D:/dsh-plugin/_wt263/t0/selftest/spike/264/channel-a-deeplink.mjs:200:16)\n    at async hoverEntryOpenPanel (file:///D:/dsh-plugin/_wt263/t0/selftest/spike/264/channel-a-deeplink.mjs:581:27)\n    at async main (file:///D:/dsh-plugin/_wt263/t0/selftest/spike/264/channel-a-deeplink.mjs:759:22)\n    at async file:///D:/dsh-plugin/_wt263/t0/selftest/spike/264/channel-a-deeplink.mjs:827:3",
+  "at": "2026-11-01T12:36:20.221Z",
+  "dom": {
+    "href": "dsh-app://app/",
+    "title": "DeepSeek Harness",
+    "counts": {
+      "[data-dsh-prompt-entry]": 1,
+      "[data-dsh-prompt-panel-root]": 1,
+      "[data-dsh-prompt-update-entry]": 0,
+      ".dsh-upd": 0,
+      "[role=dialog]": 0
+    },
+    "text": "新会话 Ctrl + N 插件 自动化任务 更多 工作区 默认工作区 新会话 止息 新版本 探索未至之境 预览版 默认工作区 标准模式 描述你想要构建的内容, / 调用指令, @ 文件或对话 工作区内修改 Prompt DeepSeek-V4.1-Flash 1017 High 无匹配模板 全部 自定义 0 ＋ 新增 展示预制模板 当前：悬浮触发 模板管理 ×",
+    "buttons": [
+      {
+        "text": "",
+        "title": ""
+      },
+      {
+        "text": "",
+        "title": ""
+      },
+      {
+        "text": "新会话 Ctrl + N",
+        "title": ""
+      },
+      {
+        "text": "插件",
+        "title": ""
+      },
+      {
+        "text": "自动化任务",
+        "title": ""
+      },
+      {
+        "text": "更多",
+        "title": ""
+      },
+      {
+        "text": "",
+        "title": ""
+      },
+      {
+        "text": "",
+        "title": ""
+      },
+      {
+        "text": "",
+        "title": ""
+      },
+      {
+        "text": "",
+        "title": ""
+      },
+      {
+        "text": "",
+        "title": ""
+      },
+      {
+        "text": "止息",
+        "title": ""
+      },
+      {
+        "text": "新版本",
+        "title": ""
+      },
+      {
+        "text": "",
+        "title": ""
+      },
+      {
+        "text": "默认工作区",
+        "title": ""
+      },
+      {
+        "text": "标准模式",
+        "title": "选择新任务使用的 Agent 预设"
+      },
+      {
+        "text": "",
+        "title": ""
+      },
+      {
+        "text": "工作区内修改",
+        "title": ""
+      },
+      {
+        "text": "Prompt",
+        "title": "Prompt"
+      },
+      {
+        "text": "DeepSeek-V4.1-Flash 1017 High",
+        "title": "DeepSeek-V4.1-Flash · High"
+      },
+      {
+        "text": "",
+        "title": ""
+      },
+      {
+        "text": "",
+        "title": ""
+      },
+      {
+        "text": "",
+        "title": ""
+      },
+      {
+        "text": "",
+        "title": ""
+      },
+      {
+        "text": "",
+        "title": ""
+      },
+      {
+        "text": "全部",
+        "title": ""
+      },
+      {
+        "text": "自定义",
+        "title": ""
+      },
+      {
+        "text": "＋ 新增",
+        "title": "新增自定义模板"
+      },
+      {
+        "text": "展示预制模板",
+        "title": "展示预制模板"
+      },
+      {
+        "text": "当前：悬浮触发",
+        "title": "当前：悬浮触发，点击切换为点击触发"
+      },
+      {
+        "text": "模板管理",
+        "title": "设置 → 模板管理"
+      },
+      {
+        "text": "×",
+        "title": "关闭"
+      }
+    ]
+  },
+  "failShot": "shots/a99-fail.png",
+  "consoleTail": [],
+  "exceptions": [],
+  "logEntries": []
+}

@@ -1,0 +1,14 @@
+{
+  "at": "2026-11-01T13:07:35.612Z",
+  "message": "Error: 首启没有出现「准备可用额度」向导：welcome=false；text=新会话 Ctrl + N 插件 自动化任务 更多 工作区 默认工作区 新会话 止息 新版本 探索未至之境 预览版 默认工作区 标准模式 描述你想要构建的内容, / 调用指令, @ 文件或对话 工作区内修改 Prompt DeepSeek-V4.1-Flash 1017 High\n    at main (file:///D:/dsh-plugin/_wt263/t0/selftest/spike/264/channel-a-wizard.ts:447:25)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async file:///D:/dsh-plugin/_wt263/t0/selftest/spike/264/channel-a-wizard.ts:493:3",
+  "state": {
+    "href": "dsh-app://app/",
+    "title": "DeepSeek Harness",
+    "readyState": "complete",
+    "wizard": false,
+    "welcome": false,
+    "composer": true,
+    "dialogs": [],
+    "text": "新会话 Ctrl + N 插件 自动化任务 更多 工作区 默认工作区 新会话 止息 新版本 探索未至之境 预览版 默认工作区 标准模式 描述你想要构建的内容, / 调用指令, @ 文件或对话 工作区内修改 Prompt DeepSeek-V4.1-Flash 1017 High"
+  }
+}
