@@ -1,0 +1,12 @@
+[ok] env-probe (175ms)
+[ok] seed-web-profile (325ms)
+[ok] install-integrator (6847ms)
+[ok] start-server (2121ms)
+[ok] launch-browser (295ms)
+[ok] attach-and-prepare-page (2534ms)
+[ok] open-prompt-panel (494ms)
+[ok] open-update-panel (2252ms)
+[ok] click-panel-entry (3828ms)
+[ok] page-error-collector (0ms)
+[cleanup] {"at":"2026-11-01T11:55:55.400Z","server":{"pid":58500,"port":61925,"exited":true,"portFree":true,"killedPortOwner":null},"browser":{"pid":37068,"exited":true,"cdpPort":61945,"cdpPortFree":true},"tempKept":false}
+RESULT: OK 证据目录=D:\dsh-plugin\_wt263\t0\selftest\evidence\runs\264-20261101T194628

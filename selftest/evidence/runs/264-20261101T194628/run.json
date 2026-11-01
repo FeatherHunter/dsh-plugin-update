@@ -1,0 +1,176 @@
+{
+  "runId": "264-20261101T194628",
+  "ticket": "#264 T0 真机宿主矩阵与 UI 驱动可行性（spike）",
+  "branch": "impl/263-t0",
+  "base": "integration/spec-263 (0b782f4)",
+  "startedAt": "2026-11-01T19:46:28+08 (RUN 创建)",
+  "finishedAt": "2026-11-01T20:16+08 (证据落盘与提交)",
+  "machine": {
+    "os": "Windows 11 (10.0.26200)",
+    "node": "v24.19.0",
+    "npm": "10.9.2",
+    "pnpmStore": "D:\\\\.pnpm-store\\v11",
+    "chrome": "C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe",
+    "dshCli": "D:\\\\DeepseekHarness\\\\runtime\\\\cli\\\\bin\\\\dsh.cmd (0.2.1-rc.3)",
+    "desktop": "D:\\\\DeepseekHarness\\\\DeepSeek Harness.exe (Electron 44.7.0 / Chrome 152)",
+    "maintainerProfile": "C:\\\\Users\\\\辰辰洋洋\\\\.dsh\\\\profiles\\\\desktop"
+  },
+  "tempDirs": {
+    "channelB": "D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t0-264 (保留用于排障；内含隔离 DSH_HOME=home、profile s263、Chrome user-data-dir)",
+    "channelA": "D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t0-264-channelA (保留；内含隔离 home/profiles/desktop、--user-data-dir=udd2、stdout/stderr 日志)"
+  },
+  "commands": [
+    {
+      "step": "B/seed",
+      "cmd": "dsh --profile s263 --from-default-profile web --dump-config",
+      "env": "DSH_HOME=<tmp>\\home"
+    },
+    {
+      "step": "B/install",
+      "cmd": "dsh plugin --profile s263 add dsh-prompt@0.4.40",
+      "env": "DSH_HOME=<tmp>\\home"
+    },
+    {
+      "step": "B/serve",
+      "cmd": "dsh --profile s263 --port 0 --no-open",
+      "env": "DSH_HOME=<tmp>\\home"
+    },
+    {
+      "step": "B/browse",
+      "cmd": "chrome.exe --headless=new --remote-debugging-port=0 --user-data-dir=<tmp>\\udd <url>",
+      "env": "-"
+    },
+    {
+      "step": "A/launch",
+      "cmd": "$env:ELECTRON_RUN_AS_NODE=$null; DeepSeek Harness.exe --user-data-dir=<tmpA>\\udd2 --remote-debugging-port=59333",
+      "env": "DSH_HOME=<tmpA>\\home"
+    },
+    {
+      "step": "A/install",
+      "cmd": "CDP: 插件页 → 添加插件 → dsh-prompt@0.4.40 → 安装",
+      "env": "同上"
+    }
+  ],
+  "channelB": {
+    "status": "PASS",
+    "summary": "临时 profile 起普通 DSH 宿主 + 系统 Chrome 裸 CDP：开更新面板、点「检查更新」、截图全通",
+    "steps": [
+      {
+        "seq": 1,
+        "name": "env-probe",
+        "ok": true,
+        "ms": 175,
+        "startedAt": "2026-11-01T11:55:36.503Z",
+        "file": "01-env-probe.json"
+      },
+      {
+        "seq": 2,
+        "name": "seed-web-profile",
+        "ok": true,
+        "ms": 325,
+        "startedAt": "2026-11-01T11:55:36.679Z",
+        "file": "02-seed-web-profile.json"
+      },
+      {
+        "seq": 3,
+        "name": "install-integrator",
+        "ok": true,
+        "ms": 6847,
+        "startedAt": "2026-11-01T11:55:37.005Z",
+        "file": "03-install-integrator.json"
+      },
+      {
+        "seq": 4,
+        "name": "start-server",
+        "ok": true,
+        "ms": 2121,
+        "startedAt": "2026-11-01T11:55:43.853Z",
+        "file": "04-start-server.json"
+      },
+      {
+        "seq": 5,
+        "name": "launch-browser",
+        "ok": true,
+        "ms": 295,
+        "startedAt": "2026-11-01T11:55:45.984Z",
+        "file": "05-launch-browser.json"
+      },
+      {
+        "seq": 6,
+        "name": "attach-and-prepare-page",
+        "ok": true,
+        "ms": 2534,
+        "startedAt": "2026-11-01T11:55:46.285Z",
+        "file": "06-attach-and-prepare-page.json"
+      },
+      {
+        "seq": 7,
+        "name": "open-prompt-panel",
+        "ok": true,
+        "ms": 494,
+        "startedAt": "2026-11-01T11:55:48.820Z",
+        "file": "07-open-prompt-panel.json"
+      },
+      {
+        "seq": 8,
+        "name": "open-update-panel",
+        "ok": true,
+        "ms": 2252,
+        "startedAt": "2026-11-01T11:55:49.315Z",
+        "file": "08-open-update-panel.json"
+      },
+      {
+        "seq": 9,
+        "name": "click-panel-entry",
+        "ok": true,
+        "ms": 3828,
+        "startedAt": "2026-11-01T11:55:51.567Z",
+        "file": "09-click-panel-entry.json"
+      },
+      {
+        "seq": 10,
+        "name": "page-error-collector",
+        "ok": true,
+        "ms": 0,
+        "startedAt": "2026-11-01T11:55:55.395Z",
+        "file": "10-page-error-collector.json"
+      }
+    ],
+    "click": "raw/09-click-panel-entry.json",
+    "screenshots": [
+      "shots/b3-update-panel.png",
+      "shots/b3-update-panel-crop.png",
+      "shots/b4-after-panel-click.png"
+    ]
+  },
+  "channelA": {
+    "status": "PARTIAL",
+    "summary": "官方桌面版第二实例隔离启动 + CDP 可达 + 插件管理器 UI 可达 + 出口二安装成功；首启额度向导挡路、启用后未即时生效，更新面板深链未完成",
+    "evidence": [
+      "raw/11-channel-a-launch-attempt1.txt",
+      "raw/12-channel-a-launch-attempt2.txt",
+      "raw/23-channel-a*dump*.json",
+      "raw/24-channel-a-install.json"
+    ],
+    "screenshots": [
+      "shots/a1-desktop-plugins.png",
+      "shots/a2-desktop-add-plugin.png",
+      "shots/a5-desktop-install-result.png",
+      "shots/a11-desktop-after-enable.png"
+    ]
+  },
+  "cleanup": {
+    "file": "raw/99-cleanup.json",
+    "channelA": "raw/26-channel-a-cleanup.txt",
+    "result": "通道 B 宿主/浏览器进程已退出、端口已释放；通道 A 隔离进程树 taskkill /T /F 后 isolated_after=0，CDP 端口关闭；维护者宿主 pid 17020 未受影响"
+  },
+  "conclusions": [
+    "通道 B 可用：裸 CDP（Node 内置 WebSocket + 系统 Chrome）足以驱动真实宿主 UI，无需 Playwright；推荐作为 #263 的主驱动方式。",
+    "通道 A 部分可用：隔离 DSH_HOME + 独立 --user-data-dir + --remote-debugging-port 可起第二实例（需先清 ELECTRON_RUN_AS_NODE）；插件管理器 UI 与 installBundle 可用；首启向导与「启用后需重启」是深链的两处 known-red。",
+    "出口二（官方桌面 in-process 管理器）真机可用；出口三（普通 DSH spawn CLI）真机可用；出口一（第三方 Desktop）本票未测（无可用第三方 Desktop 构建）。"
+  ],
+  "risks": [
+    "维护者 profile 的 package.json 与 pnpm-lock.yaml 在 19:53:56 被改写，未归因到本票通道（本票写入均在隔离 home），需 Lead 复核；AC「维护者 profile 未被改动」不能声称满足。",
+    "通道 A 深链未完成，需要 T1 补：关首启向导的黑盒手段、启用后重启宿主的自动化。"
+  ]
+}

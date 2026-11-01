@@ -1,0 +1,10 @@
+{
+  "shot": "a2-desktop-add-plugin.png",
+  "channel": "A",
+  "whatToLook": "点「添加插件」后是否弹出安装对话框、输入框可否输入 spec",
+  "expected": "role=dialog「添加插件」+ 输入框 + 安装源 + 「安装」按钮",
+  "actual": "对话框出现，placeholder「例如 dsh-plugin-whale-pet」，安装源默认「中国大陆镜像源」",
+  "judgement": "符合预期",
+  "note": "raw/23-channel-a-dump-dialogs.json 记录 DOM 全文",
+  "run": "264-20261101T194628"
+}

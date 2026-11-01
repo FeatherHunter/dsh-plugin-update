@@ -1,0 +1,17 @@
+{
+  "at": "2026-11-01T11:55:55.400Z",
+  "server": {
+    "pid": 58500,
+    "port": 61925,
+    "exited": true,
+    "portFree": true,
+    "killedPortOwner": null
+  },
+  "browser": {
+    "pid": 37068,
+    "exited": true,
+    "cdpPort": 61945,
+    "cdpPortFree": true
+  },
+  "tempKept": false
+}

@@ -1,0 +1,16 @@
+DSH_HOME=D:\dsh-plugin\_wt263\runtime\t0-264-channelA\home
+started pid=76700
+cdp_ok=False
+alive=False exitcode=9
+--- new DeepSeek Harness processes ---
+
+ProcessId ParentProcessId cmd
+--------- --------------- ---
+    52916           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- D:\0Tools\powershell7.6\7\pwsh.exe -NoLogo -NoProfile -NonInteractive -Command "[Console]::OutputEncoding = [Sys
+
+
+--- stdout ---
+--- stderr ---
+D:\DeepseekHarness\DeepSeek Harness.exe: bad option: --user-data-dir=D:\dsh-plugin\_wt263\runtime\t0-264-channelA\udd
+D:\DeepseekHarness\DeepSeek Harness.exe: bad option: --remote-debugging-port=59333
+

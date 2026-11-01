@@ -1,0 +1,10 @@
+{
+  "shot": "b4-after-panel-click.png",
+  "channel": "B",
+  "whatToLook": "点击面板内「检查更新」后是否发生真实状态变化",
+  "expected": "点击后立即进入查询态：按钮禁用 + 文案「正在查询版本信息…」",
+  "actual": "同帧即见「正在查询版本信息…」且按钮 disabled（raw/09-click-panel-entry.json immediate）",
+  "judgement": "符合预期",
+  "note": "证明点击确实命中面板动作，而非仅截图",
+  "run": "264-20261101T194628"
+}

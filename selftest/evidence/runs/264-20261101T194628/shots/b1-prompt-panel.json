@@ -1,0 +1,9 @@
+{
+  "shot": "b1-prompt-panel.png",
+  "channel": "B",
+  "whatToLook": "悬停 [data-dsh-prompt-entry] 是否打开集成方面板",
+  "expected": "面板出现，底栏含设置/模板管理按钮",
+  "actual": "面板打开，底栏「模板管理」title=「设置 → 模板管理」",
+  "judgement": "符合预期",
+  "run": "264-20261101T194628"
+}
