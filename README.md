@@ -190,6 +190,10 @@ mountUpdatePanel(el, { pluginId: 'p', prefix: 'notes', call,
 
 三条约束：颜色只收 hex（`#rgb`／`#rrggbb`／`#rrggbbaa`）或英文名单词（含 `transparent`），`rgb()`／`color-mix()` 请自行换算成 hex；其余值走注入检查（分号引号括号等不许过，见 `sizing` 同口径）；未知键与非法值挂载即抛错，不静默吞掉。被覆盖的 token 不再跟随深色模式（内联值固定，调用方自己保证深浅可读，字号类同理：传了即固定值，不跟媒体查询走）。
 
+**面板宽度（固定契约）。** 面板宽度是“内容宽上限 560px”，不是固定 `width`：根元素 `.dsh-upd` 只声明 `max-width: 560px` 与左右内边距（根元素按 content-box 计，左右 `padding` 与 1px 边框加在 560 内容宽外侧），宽屏下档案卷主题（`padding: 16px 20px 14px`）外框 602px、默认主题（`padding: 12px 14px`）590px。`dialog` 形态由遮罩层居中，宽屏下不随窗口变宽；视口窄于外框时随视口收缩并贴边。`embedded` 形态与它共用同一个 `.dsh-upd` 基类，同样受 560px 内容宽上限约束。
+
+档案卷主题另有一条 `@media (max-width: 640px)`，窄屏只调整 `padding`（换成 `10px 12px`）与印章尺寸等呈递细节，不是第二个宽度档位，内容宽上限仍是 560px。`themeTokens` 的键表（见上表）与入口件的 `sizing` 都没有宽度旋钮：表里尺寸相关的 `entryFontSize`／`entryPadding`／`entryBorderRadius`／`entryScale` 只作用于更新入口件那颗按钮本体，不碰面板。要改面板宽度只能改本包 CSS（可另提需求）。560px 是有意设计值、不是回归，本包不承诺新增宽度 token。
+
 类型定义随包分发（`dsh-plugin-update/panel` 的 `.d.ts`），不用自编译；面板离线可读，与包版本绑定。
 
 整组件 HTTP 版（无 `host.call` 环境即跑：浏览器面板经 HTTP POST 直达宿主网关，只传三样）：
