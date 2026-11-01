@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#257 真机夹具独立源码目录 —— 布局原型（抛弃式）</title>
+<style>
+  :root{
+    --bg:#f3f0e9; --paper:#fffdf7; --ink:#221f1a; --dim:#6d675b; --line:#ddd5c5;
+    --accent:#8a4b16; --accent-bg:#f5e8d6; --ok:#2f6a3c; --ok-bg:#e7f1e6;
+    --warn:#8a5a10; --warn-bg:#f8efd8; --bad:#99372a; --bad-bg:#f8e4de;
+    --code:#efe9dc; --code-ink:#3a352c; --mono:"Cascadia Code","JetBrains Mono",Consolas,"Courier New",monospace;
+    --serif:"Noto Serif SC","Songti SC",Georgia,"Times New Roman",serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.7 -apple-system,"Segoe UI","Noto Sans SC",system-ui,sans-serif;}
+  a{color:var(--accent)}
+  code,kbd{font-family:var(--mono);font-size:.9em;background:var(--code);color:var(--code-ink);padding:.08em .35em;border-radius:3px;}
+  header.top{position:relative;max-width:1120px;margin:0 auto;padding:44px 32px 10px;}
+  .kicker{font:600 11px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--accent);}
+  h1{font:600 40px/1.15 var(--serif);margin:12px 0 8px;letter-spacing:-.01em;}
+  .sub{color:var(--dim);margin:0 0 20px;font-size:14px;}
+  .banner{background:var(--warn-bg);border:1px dashed #c9a75e;border-radius:6px;padding:10px 14px;font-size:13px;color:#5c470f;}
+  .pills{display:flex;gap:8px;margin:18px 0 0;position:sticky;top:0;z-index:9;background:linear-gradient(var(--bg) 70%,transparent);padding:10px 0;}
+  .pills button{font:600 13px var(--mono);border:1px solid var(--line);background:var(--paper);color:var(--dim);border-radius:99px;padding:8px 16px;cursor:pointer;}
+  .pills button.on{background:var(--ink);color:#fff8ea;border-color:var(--ink);}
+  main{max-width:1120px;margin:0 auto;padding:8px 32px 80px;}
+  section{padding:30px 0 6px;border-top:1px solid var(--line);margin-top:34px;}
+  section:first-of-type{border-top:0;margin-top:10px;}
+  h2{font:600 23px/1.3 var(--serif);margin:0 0 14px;}
+  h2 .no{font:600 12px var(--mono);color:var(--accent);letter-spacing:.14em;display:block;margin-bottom:6px;}
+  h3{font:600 15px/1.4 -apple-system,"Segoe UI","Noto Sans SC",sans-serif;margin:22px 0 8px;}
+  p{margin:8px 0 12px;}
+  .lede{font-size:17px;line-height:1.75;}
+  .lede b{background:linear-gradient(transparent 62%,var(--accent-bg) 62%);}
+  ul,ol{margin:8px 0 14px;padding-left:22px;}
+  li{margin:4px 0;}
+  .muted{color:var(--dim)}
+  .dim{color:var(--dim);font-size:13px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}
+  .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:14px 0}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:14px 16px;}
+  .card h4{margin:0 0 6px;font:600 13px var(--mono);letter-spacing:.02em;color:var(--accent);}
+  .card p{margin:4px 0;font-size:13.5px;}
+  .decide{background:var(--paper);border:1px solid #c9a75e;border-left:5px solid var(--accent);border-radius:8px;padding:14px 18px;margin:18px 0;}
+  .decide h4{margin:0 0 8px;font:600 14px var(--mono);letter-spacing:.05em;}
+  .decide .q{display:flex;gap:10px;align-items:baseline;margin:7px 0;font-size:14px;}
+  .q .tag{flex:none;font:600 11px var(--mono);background:var(--accent);color:#fff8ea;border-radius:99px;padding:2px 9px;}
+  .q .rec{color:var(--ok);font-weight:600}
+  table{border-collapse:collapse;width:100%;margin:12px 0 18px;background:var(--paper);font-size:13.5px;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--code);font:600 12px var(--mono);letter-spacing:.03em;}
+  tbody tr:nth-child(even){background:#faf7ef}
+  pre.tree,pre.code{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:15px 18px;overflow:auto;font:12.5px/1.62 var(--mono);color:var(--code-ink);margin:10px 0 16px;tab-size:2;}
+  pre .c{color:#8b8578}
+  pre .h{color:var(--accent);font-weight:700}
+  pre .n{color:#2f6a3c}
+  pre .w{color:#99372a}
+  .fig{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin:12px 0 16px;font:12.5px/1.7 var(--mono);color:var(--code-ink);overflow:auto;white-space:pre}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+  .flow .box{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px 12px;font:12.5px var(--mono);}
+  .flow .arr{color:var(--dim);font:16px var(--mono)}
+  .verdict{display:inline-block;font:600 11px var(--mono);letter-spacing:.06em;border-radius:4px;padding:2px 8px;vertical-align:2px;}
+  .v-ok{background:var(--ok-bg);color:var(--ok);border:1px solid #b8d3b6;}
+  .v-warn{background:var(--warn-bg);color:var(--warn);border:1px solid #d8c088;}
+  .v-bad{background:var(--bad-bg);color:var(--bad);border:1px solid #d8a99f;}
+  .only{display:none}
+  body[data-variant="A"] .only-A{display:block}
+  body[data-variant="B"] .only-B{display:block}
+  body[data-variant="C"] .only-C{display:block}
+  .proof{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0 4px}
+  .proof div{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12.5px}
+  .proof b{display:block;font:600 11px var(--mono);color:var(--accent);margin-bottom:3px}
+  .note{background:var(--ok-bg);border:1px solid #b8d3b6;border-radius:8px;padding:12px 16px;margin:14px 0;font-size:13.5px}
+  .warnbox{background:var(--warn-bg);border:1px solid #d8c088;border-radius:8px;padding:12px 16px;margin:14px 0;font-size:13.5px}
+  .badbox{background:var(--bad-bg);border:1px solid #d8a99f;border-radius:8px;padding:12px 16px;margin:14px 0;font-size:13.5px}
+  footer{max-width:1120px;margin:0 auto;padding:0 32px 60px;color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);padding-top:18px;}
+  @media(max-width:900px){.grid3,.grid2,.proof{grid-template-columns:1fr}h1{font-size:30px}}
+  @media print{.pills{display:none}body{background:#fff}section{break-inside:avoid}}
+</style>
+</head>
+<body data-variant="A">
+<header class="top">
+  <div class="kicker">wayfinder · prototype · 抛弃式</div>
+  <h1>真机夹具的独立源码目录</h1>
+  <p class="sub">#257「模板与薄包装布局」 · 地图 #256 · 2026-11-01 · 真人拍板用，不是实现</p>
+  <div class="banner">抛弃式：双击即开，刷新重置。拍板后只把「已批准版本」写回 #257 票面；本文件留在 <code>prototype/257-fixtures-layout</code> 分支（原型分支 = 过程物，见 <code>docs/maintainers.md:11</code>）。</div>
+  <div class="pills" role="tablist" aria-label="落点方案">
+    <button data-variant="A" class="on">方案 A · selftest/fixtures/（推荐）</button>
+    <button data-variant="B">方案 B · 仓根 fixtures/</button>
+    <button data-variant="C">方案 C · selftest 重构</button>
+  </div>
+</header>
+<main>
+
+<section id="s0">
+  <h2><span class="no">00 · 一句话</span>一张身份表 × 两份薄模板 → 生成三个可发布的自包含夹具包</h2>
+  <p class="lede">真机夹具（A 主集成方 / B 次集成方 / C 纯目标）必须<b>先作为「真实 npm 包」存在</b>——因为更新系统要读的是安装目录里的三件套文件、宿主加载的是真实插件。<br>
+  所以布局的核心不是「目录放哪」，而是<b>把每个包的身份（包名/版本/pluginId/电话前缀/目标列表）与代码彻底分开</b>：身份只在 1 份机器可读表里写一次；两份模板（集成方 / 纯目标）里 0 行身份字面量；生成器把模板 × 身份表展开成 3 个自包含包（不入库）；再一个夹具自己的发布脚本把 0.0.1 / 0.0.2 推到选定 registry。</p>
+  <div class="grid3">
+    <div class="card"><h4>① 身份表</h4><p><code>identity/fixtures.json</code> 是唯一真源：三角色、包名、版本序列、updateDep、电话前缀。</p></div>
+    <div class="card"><h4>② 两份模板</h4><p><code>template/integrator/</code>（A、B 共用，代码 0 差异）与 <code>template/target-only/</code>（C）。</p></div>
+    <div class="card"><h4>③ 生成物</h4><p><code>generated/{a,b,c}/</code> 每个都是可 <code>npm publish</code> 的完整包：三件套齐、自包含、gitignore。</p></div>
+  </div>
+  <div class="decide">
+    <h4>待你拍板 3 项（其余已由 #258/#262/#259 决议 + 本原型给默认值）</h4>
+    <div class="q"><span class="tag">Q1</span><span>夹具层落点：<span class="rec">A 推荐</span> <code>selftest/fixtures/</code>（成本：<code>selftest/tsconfig.json</code> 加 1 行 exclude）· B <code>fixtures/</code>（零碰存量）· C 重构 <code>selftest/{hermetic,real}/</code>（不推荐）</span></div>
+    <div class="q"><span class="tag">Q3</span><span>发布源策略：<span class="rec">a 推荐</span> 本地 verdaccio 为默认 + npmjs 只做门三 canary · b 只发 npmjs · c 只发本地</span></div>
+    <div class="q"><span class="tag">Q4</span><span>token 发布脚本位置：<span class="rec">a 推荐</span> 夹具自管 <code>selftest/fixtures/release/publish-fixtures.mjs</code> · b 根 <code>scripts/</code> 下新 ps1 · c 扩 <code>release.mjs --fixtures</code></span></div>
+  </div>
+  <p class="dim">不是问题、不需要拍板的：组合机制（单模板 + 薄身份包装 + 生成）已由 #258 Q3 定；三角色与 hub 席位由 #258 §6 定；目录内部的分层（identity/template/generator/generated/release/scenarios）是本原型的方案主体，可整段接受或整段打回。</p>
+</section>
+
+<section id="s1">
+  <h2><span class="no">01 · 第一性原理</span>为什么必须「真实包 + 身份表 + 薄模板」</h2>
+  <p>更新系统对「一个包」的判据全部落在安装目录的文件上，而不是内存对象：</p>
+  <table>
+    <thead><tr><th style="width:23%">硬约束</th><th style="width:47%">形态（必须真实满足，否则判定直接 overridden / invalid-installation）</th><th>真源</th></tr></thead>
+    <tbody>
+      <tr><td>包名形状</td><td><code>/^(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/</code>，全小写、无大写、无空格</td><td><code>src/shared/commands.ts:37</code></td></tr>
+      <tr><td>三件套</td><td>包目录里必须同时有真实文件：<code>main</code>、<code>exports["./client"]</code>、<code>dsh.bundle.patch</code>；缺任一 → <code>invalid-installation</code>（不是可选装饰）</td><td><code>src/core/reader.ts:192-220</code></td></tr>
+      <tr><td>版本形状</td><td>合法 release 版（不带 <code>+build</code>）；夹具版本与主包 0.18.x 解耦，走 <code>0.0.1 → 0.0.2</code></td><td><code>src/shared/commands.ts:41-63</code>；#262 决议</td></tr>
+      <tr><td>pluginId / 日志命名空间</td><td><code>/^[a-z0-9-]{1,32}$/</code>；它同时是日志目录名与面板身份</td><td><code>src/log/namespace.ts:20</code></td></tr>
+      <tr><td>七电话前缀</td><td>同一宿主里各目标的电话名前缀必须互不相同，否则串台；批量包另有 batch prefix</td><td><code>src/host-batch.ts:32-48</code></td></tr>
+      <tr><td>hub 目标</td><td>每个目标 <code>key</code> 唯一、scope（homeDir / profileDir / profileName）必填；A 要能自更新，B 只认 b/c，C 完全不接更新</td><td><code>src/core/hub/plan.ts:131-140</code>；#258 §6</td></tr>
+      <tr><td>客户端半产物</td><td>浏览器侧没有 node_modules：产物必须是 <code>window.__ModuleLoader__.load({id, factory})</code> 包壳；React 等由宿主提供（外置）</td><td><code>dsh-im-companion/tsdown.config.ts</code>（banner/footer/intro）、<code>lib/client.js</code> 首 3 行</td></tr>
+      <tr><td>装更新 = 两步</td><td>已安装的包必须先 <code>removeBundle</code> 再 <code>installBundle('包名@精确版')</code>；单 spec、不接受开关</td><td><code>docs/host-install-exits.md</code>；#258 §10.3(1)(3)</td></tr>
+    </tbody>
+  </table>
+  <p>推论：<b>夹具必须是真的 npm 包</b>（不是内存里的假 manifest），<b>每个身份值要在 4 处重复出现</b>（package.json、cordis.patch.yml、源码常量、README）——所以身份若不收敛到一张表，就必然出现「改了一个忘了一个」的漂移。布局的第一目标因此是：<b>身份只写一次，模板里 0 字面量身份，生成物自包含可发布</b>。</p>
+  <div class="note"><b>已查（先复用，不新开 /research）</b><br>
+  1. <code>docs/research/20261031-issue-258-夹具包数与hub席位.md</code> — 三角色与 hub 席位已定，并列了 6 条 P1 实现约束（含「最小三件套能否被宿主加载」= 最大不确定，须真机 spike）。<br>
+  2. <code>docs/research/20261101-selftest-release-standard.md</code> — 门一/门二/门三分层与七个评审交付物已定，§9 明确下一步就是本票布局。<br>
+  3. <code>selftest/README.md:12-16,18</code> — 现有 B 档金字塔已预留「真 registry e2e = 未来 C 档」，且约定「只增 selftest/、不动存量」。<br>
+  未新开 /research 的一句话理由：这里缺的是<b>本仓的设计拍板</b>（目录/模板怎么放），不是外部事实；上述三份材料已把约束与角色给全，布局由本原型直接给方案。</div>
+</section>
+
+<section id="s2">
+  <h2><span class="no">02 · 结构主轴</span>数据流：身份表 + 模板 → 生成 → 发布 → 真机场景</h2>
+  <div class="fig">identity/fixtures.json ──┐
+                        ├──► generator/plan.mjs（纯函数：模板 × 身份 → FileMap；同时断言合法性）
+template/integrator/  ──┤                                   │
+template/target-only/ ──┘                                   ▼
+                                        generated/{a,b,c}/（gitignore；各自 = package.json + lib/index.js
+                                                              + lib/client.js + cordis.patch.yml + README.md）
+                                                             │
+                        release/publish-fixtures.mjs ◄────────┘   （0.0.1 / 0.0.2 → registry → 可见性轮询 → 证词）
+                                                             │
+                        scenarios/real-wiring.md + run-real.mjs ◄┘（L3 真机：装 a@0.0.1 → 发 0.0.2 → 点面板 → 观测）
+</div>
+  <p>这一条流就是「薄包装」的落点：A 与 B 的差别<b>只有 identity 表里的 4 个值</b>（包名、pluginId、batch prefix、targets），生成出来的 <code>lib/index.js</code> 与 <code>lib/client.js</code> <b>逐字节相同</b>；package.json / cordis.patch.yml / README 由同一个模板按身份渲染。</p>
+</section>
+
+<section id="s3">
+  <h2><span class="no">03 · 落点三选一</span>夹具层放哪？内容布局三案相同，只差挂载点</h2>
+
+  <div class="only only-A">
+    <h3>方案 A · <code>selftest/fixtures/</code> <span class="verdict v-ok">推荐</span></h3>
+<pre class="tree">selftest/                          ← 自测总树（README 已写「只增 selftest/」）
+├─ README.md                       <span class="c"># B 档 hermetic 层说明（不动；新增一节指到 fixtures/）</span>
+├─ tsconfig.json                   <span class="c"># B 档独立类型检查（+1 行 exclude: ["./fixtures/**"]）</span>
+├─ .gitignore                      <span class="c"># 已含 generated/ ※ 生成物自动不入库</span>
+├─ target-definition/ …            <span class="c"># B 档：不动</span>
+├─ target-scaffold/ …              <span class="c"># B 档：不动</span>
+├─ scenario-harness/ …             <span class="c"># B 档：不动</span>
+├─ scenarios/ …                    <span class="c"># B 档：不动</span>
+└─ fixtures/                       <span class="h">← 新增：C 档真机夹具层</span>
+   ├─ README.md                    <span class="c"># 身份表/生成/发布/场景/门禁 五段 + 与 B 档纪律的边界声明</span>
+   ├─ identity/fixtures.json       <span class="c"># 唯一身份表（三角色）</span>
+   ├─ template/integrator/         <span class="c"># A、B 共用模板</span>
+   ├─ template/target-only/        <span class="c"># C 模板</span>
+   ├─ generator/                   <span class="c"># plan.mjs（纯函数+断言）/ plan.test.mjs / emit.mjs（薄 IO+构建）</span>
+   ├─ generated/                   <span class="c"># gitignore；a/ b/ c/ 三个可发布包</span>
+   ├─ release/publish-fixtures.mjs <span class="c"># Q4 推荐：夹具自管发布脚本</span>
+   └─ scenarios/                   <span class="c"># real-wiring.md（F/G/J 人审步骤）+ run-real.mjs（L3 驱动）</span>
+</pre>
+    <p><b>选 A 的理由</b>：<code>selftest/README.md:12-16</code> 的金字塔已经把「真 registry e2e（未来 C 档）」写在这棵树里，<code>:18</code> 明说「只增 <code>selftest/</code>」；研究笔记对 <code>selftest/target-*</code> 的路径引用全部继续成立；B 档 4 个目录与 <code>.gitignore</code> 一字不动；所有自测资产同树可查。</p>
+    <div class="warnbox"><b>A 的真实成本（不藏）</b>：<code>selftest/tsconfig.json</code> 的 <code>include: ["./**/*.ts"]</code> 会把模板 <code>.ts</code> 吸进 B 档类型检查（import 包名解析不到 → 变红），所以必须<b>改这一行现有文件</b>——加 <code>"exclude": ["./fixtures/**"]</code>；<code>fixtures/README.md</code> 还要写明「B 档零耦合纪律在 C 档有受控豁免（允许 type-only 读 <code>dist/</code> 的公开 d.ts）」。</div>
+  </div>
+
+  <div class="only only-B">
+    <h3>方案 B · 仓根 <code>fixtures/</code> <span class="verdict v-warn">次选</span></h3>
+<pre class="tree">fixtures/                         <span class="h">← 新增：与 selftest/ 平级的 C 档树</span>
+├─ README.md
+├─ identity/fixtures.json
+├─ template/integrator/
+├─ template/target-only/
+├─ generator/…
+├─ generated/                     <span class="c"># 需要自己的 .gitignore（仓根 .gitignore 目前不含它）</span>
+├─ release/publish-fixtures.mjs
+└─ scenarios/…
+selftest/                         <span class="c"># B 档整棵树一行不动（含 tsconfig 的 ./**/*.ts）</span>
+</pre>
+    <p><b>B 的优点</b>：对存量零触碰——<code>selftest/tsconfig.json</code> 的 <code>./**/*.ts</code> 天然扫不到，B 档门禁零风险；「这是另一档、别跟 hermetic 混」在目录名上就自明。</p>
+    <p><b>为什么是次选</b>：<code>selftest/README.md:12-16,18</code> 已经把 C 档写在 <code>selftest/</code> 里，另起一棵树意味着<b>推翻一条已落字的约定</b>；研究笔记/后续票里「自测资产」的路径会分裂成两处；C 档也要多维护一个 <code>.gitignore</code> 与独立 README，收益只是「不碰一行 tsconfig」，不划算。</p>
+  </div>
+
+  <div class="only only-C">
+    <h3>方案 C · 重构 <code>selftest/{hermetic,real}/</code> <span class="verdict v-bad">不推荐</span></h3>
+<pre class="tree">selftest/
+├─ hermetic/                     <span class="w">← 现有 4 个目录全部搬家（target-definition / scaffold / harness / scenarios）</span>
+├─ real/                         <span class="h">← 本票新增的 C 档</span>
+└─ README.md / tsconfig.json     <span class="w">← 同步改路径</span>
+</pre>
+    <p><b>唯一优点</b>：B/C 两档在目录名上一刀两断，纪律边界最清楚。</p>
+    <p><b>不推荐的原因</b>：① 搬家破坏所有研究笔记/票面对 <code>selftest/target-*</code> 路径的引用（<code>20261031-issue-258…md</code> 多处按路径引用）；② B 档刚被 #258/#261 收口，重排目录等于把已验收的东西再翻一遍，违反「不发散」；③ 收益只是命名清晰，而 A 只要在 README 加一句边界声明就能达到同样目的。</p>
+  </div>
+</section>
+
+<section id="s4">
+  <h2><span class="no">04 · 方案 A 细节</span>每个文件只干一件事</h2>
+  <div class="grid2">
+    <div class="card"><h4>identity/fixtures.json</h4><p>三角色 × 名字 / 版本序列 / pluginId / 电话前缀 / targets / 默认 registry / updateDep 注入规则。生成前由 <code>plan.mjs</code> 做合法性断言（包名正则、pluginId ≤32、前缀不撞、三件套路径齐）。</p></div>
+    <div class="card"><h4>template/integrator/</h4><p>A、B 共用：<code>src/index.ts</code>（宿主半：createMultiHostUpdate + 七电话注册 + 日志接线）、<code>src/channel.ts</code>（两侧共用身份常量，生成时唯一被身份表替换的文件）、<code>src/client.ts</code>（客户端半：设置页 section 外壳 + mountUpdateEntry/mountUpdateBatchEntry）、三份 <code>.tmpl</code>（package.json / cordis.patch.yml / README）。</p></div>
+    <div class="card"><h4>template/target-only/</h4><p>C 专用最小可加载插件：宿主半只 <code>name/inject=[]/apply()</code>，客户端半只做「已加载」探针，不 import 更新系统、不带 dsh-plugin-update 依赖。它测的是「与更新系统无关的普通包能否被安装/读取/加载」——独立变量。</p></div>
+    <div class="card"><h4>generator/</h4><p><code>plan.mjs</code> 纯函数（模板文件表 × 身份 → 内存 FileMap，含断言）+ <code>plan.test.mjs</code>（node --test，不需要真实宿主）+ <code>emit.mjs</code> 薄 IO（写 <code>generated/</code>、跑两次 esbuild：宿主 ESM / 客户端 CJS+包壳）。与 B 档 scaffold 同思想：纯函数 + 薄 IO。</p></div>
+    <div class="card"><h4>release/publish-fixtures.mjs</h4><p>只认 <code>dsh-plugin-update-selftest-*</code> 白名单、只认 0.0.x、只读 <code>NODE_AUTH_TOKEN</code>；<code>--dry-run</code> / <code>--registry</code> / <code>--allow-public</code>；发布后可见性轮询，出 stdout JSON 证词（包/版本/源/tarball shasum/updateDep）。</p></div>
+    <div class="card"><h4>scenarios/</h4><p><code>real-wiring.md</code>：F/G/J 三个真机场景的人审步骤（装 0.0.1、发 0.0.2、A 自更新时 hub 继续 B/C、无重复账本…）。<code>run-real.mjs</code>：L3 驱动，手工/夜间跑，不进 <code>npm run check</code>。</p></div>
+  </div>
+  <p class="dim">「一个文件只干一件事」沿用 B 档的 Ports &amp; Adapters 分工：identity = 数据（Factory 的输入）、template = 真实代码、generator = Builder、release = 发布适配器、scenarios = 用例数据。</p>
+</section>
+
+<section id="s5">
+  <h2><span class="no">05 · 身份表</span>三个包的具体值（都可改，但只在这一处改）</h2>
+  <table>
+    <thead><tr><th>槽</th><th>包名（= pluginId）</th><th>角色</th><th>目标电话前缀</th><th>hub 席位</th><th>版本</th></tr></thead>
+    <tbody>
+      <tr><td><b>a</b></td><td><code>dsh-plugin-update-selftest-a</code></td><td>主集成方 + 目标（自更新）</td><td><code>sa</code></td><td><code>prefix:'a'</code> <code>selfKey:'a'</code> <code>selfOrder:'first'</code> targets a,b,c</td><td>0.0.1 → 0.0.2</td></tr>
+      <tr><td><b>b</b></td><td><code>dsh-plugin-update-selftest-b</code></td><td>次集成方 + 目标</td><td><code>sb</code></td><td><code>prefix:'b'</code> <code>selfKey:'b'</code>（默认 last）targets b,c</td><td>0.0.1 → 0.0.2</td></tr>
+      <tr><td><b>c</b></td><td><code>dsh-plugin-update-selftest-c</code></td><td>纯目标（无更新接线、无 hub）</td><td><code>sc</code></td><td>—</td><td>0.0.1 → 0.0.2</td></tr>
+    </tbody>
+  </table>
+  <div class="proof">
+    <div><b>包名</b>28 字符，过 MANAGER_TARGET_RE（全小写/连字符）✓</div>
+    <div><b>pluginId</b>28 ≤ 32，过日志命名空间正则 ✓</div>
+    <div><b>前缀</b>sa/sb/sc 互异，且 ≠ batch prefix a/b ✓</div>
+    <div><b>版本</b>0.0.x 与主包 0.18.x 解耦（#262）✓</div>
+  </div>
+  <p class="muted">另有：每个集成方包自带 <code>route: "/api/selftest-a|b|c"</code>（自有 HTTP 桥名，与真实插件同构）；运行时依赖 <code>dsh-plugin-update</code> 用<b>精确版</b>（先例：<code>dsh-opencode-palette/package.json</code> 的 <code>"dsh-plugin-update": "0.18.38"</code>），生成时由 <code>--update-dep</code> 注入（默认取本仓 <code>package.json</code> 的 version），发布证词里记录实际值——这就是「夹具测的是哪一版更新系统」的耦合窗口。</p>
+  <div class="warnbox"><b>身份表里刻意不放的东西</b>：不写 <code>engines.dsh</code> 的猜测值（实现票按宿主实况填）；不写 token / registry 凭证；不写场景参数（场景是 <code>scenarios/</code> 的输入，不是包的身份）。</div>
+</section>
+
+<section id="s6">
+  <h2><span class="no">06 · 模板与薄包装</span>集成方模板（A、B 共用）长什么样</h2>
+  <p>模板代码里只出现 <code>IDENTITY.*</code>，不出现任何包名/版本字面量；<code>src/channel.ts</code> 是生成器唯一会替换的文件。以下为<b>示意</b>（非可运行终稿，API 细节留给实现票按 #259 决议落）：</p>
+<pre class="code"><span class="c">// template/integrator/src/index.ts —— 宿主半（示意）</span>
+import { createMultiHostUpdate } from 'dsh-plugin-update'
+import { IDENTITY } from './channel.js'
+
+export const name = IDENTITY.pluginId
+export const inject = ['connection']            <span class="c">// 宿主半走公开 /api 载体（ADR-0002）</span>
+
+export function apply(ctx, config = {}) {
+  const update = createMultiHostUpdate(
+    { ctx, logCtx },                            <span class="c">// 日志按 dsh-log 接线（复用 #259 骨架）</span>
+    {
+      prefix: IDENTITY.batchPrefix,             <span class="c">// 'a' / 'b'</span>
+      selfKey: IDENTITY.selfKey,                <span class="c">// A 含自己 → 自更新场景；B 默认 last</span>
+      selfOrder: IDENTITY.selfOrder,
+      targets: IDENTITY.targets,                <span class="c">// [{key, packageName, prefix}, …]</span>
+    },
+  )
+  <span class="c">// 七电话 + hubStatus 注册到本夹具自有桥（具体载体见 #259 决议；不调用宿主内部 API）</span>
+  for (const [phone, fn] of Object.entries(update.handlers)) register(IDENTITY.route, phone, fn)
+}
+
+<span class="c">// template/integrator/src/client.ts —— 客户端半（示意）：设置页 section 外壳 + 命令式面板</span>
+import { mountUpdateEntry } from 'dsh-plugin-update/entry'
+import { mountUpdateBatchEntry } from 'dsh-plugin-update/entry-batch'   <span class="c">// dist/entry-batch.d.ts 已确认导出</span>
+</pre>
+  <h3>客户端半的外部形态（宿主的加载合同，抄真实插件）</h3>
+<pre class="code">window.__ModuleLoader__.load({
+  id: "dsh-plugin-update-selftest-a",               <span class="c">// = pluginId</span>
+  factory: (require) =&gt; {
+    var module = { exports: {} }; var exports = module.exports;
+    <span class="c">/* esbuild --format=cjs --platform=browser 的产物：
+       react / react-dom / cordis / @deepseek-ai/dsh-client-* 外置（宿主提供），
+       dsh-plugin-update/entry 闭包打进 bundle（浏览器里没有 node_modules） */</span>
+    return module.exports;
+  }
+});</pre>
+  <p class="dim">出处：<code>dsh-im-companion/tsdown.config.ts</code> 的 <code>outputOptions.banner/footer/intro</code> 与 <code>CLIENT_EXTERNALS</code>；<code>lib/client.js</code> 首 3 行同形。<code>dsh-plugin-update/entry</code> 必须内联是 palette 构建脚本的既有结论（浏览器没有 node_modules）。</p>
+  <h3>纯目标模板（C）</h3>
+<pre class="code"><span class="c">// template/target-only/src/index.ts —— 最小可加载宿主半：与更新系统零关系</span>
+export const name = '{{packageName}}'
+export const inject = []
+export function apply(ctx) { ctx?.logger?.(name).info?.('fixture loaded') }</pre>
+  <p>C 的价值在于它是「独立变量」：它没有更新能力、没有 hub、不 import 更新系统，却仍然要被安装/读取/加载成功——这样 F/G/J 才能把「更新系统本身的行为」与「普通插件能否存活」分开。</p>
+</section>
+
+<section id="s7">
+  <h2><span class="no">07 · 生成物</span>三个自包含可发布包（gitignore，不入库）</h2>
+<pre class="tree">selftest/fixtures/generated/a/
+├─ package.json          <span class="c"># 三件套声明：main / exports["./client"] / dsh.bundle.patch 全指向真实文件</span>
+├─ lib/index.js          <span class="c"># esbuild --format=esm --platform=node；dsh-plugin-update、dsh-log 外置（运行时依赖）</span>
+├─ lib/client.js         <span class="c"># esbuild --format=cjs --platform=browser + __ModuleLoader__ 包壳；react 外置</span>
+├─ cordis.patch.yml      <span class="c"># - insert: [{id: &lt;pluginId&gt;, name: &lt;packageName&gt;, config: {}}]</span>
+└─ README.md             <span class="c"># 首行 ⚠ TEST FIXTURE — 仅自测用，请勿安装（防误装，对齐 README:58）</span>
+</pre>
+<pre class="code"><span class="c">// package.json.tmpl 渲染结果（关键字段）</span>
+{
+  "name": "{{packageName}}",
+  "version": "{{version}}",
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": { ".": "./lib/index.js", "./client": "./lib/client.js", "./package.json": "./package.json" },
+  "files": ["lib", "cordis.patch.yml", "README.md"],
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "dependencies": { "dsh-plugin-update": "{{updateDep}}", "dsh-log": "^0.3.4" },   <span class="c">// C 包无此依赖</span>
+  "description": "TEST FIXTURE — dsh-plugin-update 自测夹具，请勿安装",
+  "license": "MIT"
+}</pre>
+  <div class="grid2">
+    <div class="card"><h4>为什么 generated/ 不入库</h4><p>生成物是「构建产物」：模板改一行就应整体重生成，入库会制造双真源。已有 <code>selftest/.gitignore</code> 含 <code>generated/</code>，方案 A 下自动生效（方案 B 需自备 .gitignore）。</p></div>
+    <div class="card"><h4>为什么 A/B 生成结果逐字节同</h4><p>同一份模板 + 同一套代码；差异只进 4 处身份位置。<b>薄包装 = 差异被压到「数据层」，而不是复制三份代码。</b>维护成本 = 改一次模板，三个包同时变，不会漂移。</p></div>
+  </div>
+</section>
+
+<section id="s8">
+  <h2><span class="no">08 · 发布链路</span>夹具自己的发布脚本（Q4）+ registry 策略（Q3）</h2>
+  <div class="flow">
+    <span class="box">generate</span><span class="arr">→</span>
+    <span class="box">build</span><span class="arr">→</span>
+    <span class="box">npm pack --dry-run</span><span class="arr">→</span>
+    <span class="box">前置断言 + 白名单</span><span class="arr">→</span>
+    <span class="box">npm publish --registry</span><span class="arr">→</span>
+    <span class="box">可见性轮询</span><span class="arr">→</span>
+    <span class="box">stdout JSON 证词</span>
+  </div>
+<pre class="code"><span class="c"># 命令面（示意；--dry-run 只打印不发布，绝不假装成功）</span>
+node selftest/fixtures/release/publish-fixtures.mjs a --version 0.0.1 \
+  [--registry http://localhost:4873] [--dry-run] [--allow-public]
+
+<span class="c"># 前置断言（任一不过 → exit 1，且什么都不发）</span>
+<span class="c">#  1 包名 ∈ /^dsh-plugin-update-selftest-[abc]$/      2 版本 ∈ 0.0.x 序列</span>
+<span class="c">#  3 generated/a 里三件套文件真实存在              4 README 首行含 TEST FIXTURE</span>
+<span class="c">#  5 registry 在允许清单内；--allow-public 才能碰 npmjs</span>
+<span class="c">#  6 token 只从进程环境 NODE_AUTH_TOKEN 取（不落盘、不写 .npmrc）</span>
+<span class="c"># 证词：{package, version, registry, tarballShasum, publishedAt, updateDep}</span></pre>
+  <h3>Q3 · registry 策略</h3>
+  <table>
+    <thead><tr><th style="width:16%">策略</th><th>做法</th><th>优点</th><th>代价</th></tr></thead>
+    <tbody>
+      <tr><td><b>a 本地优先</b> <span class="verdict v-ok">推荐</span></td><td>默认发本机 verdaccio（如 <code>http://localhost:4873</code>）；npmjs 只在「门三 canary」时发一轮，且需显式 <code>--allow-public</code></td><td>几乎零公开污染；可离线重复；发错即删；宿主 <code>installBundle</code> 已带 registry 选项</td><td>与真 npmjs 差一层真实性（可见性/远端链路）→ 门三补；本机多一个 verdaccio 进程</td></tr>
+      <tr><td>b 只发 npmjs</td><td>三个包直接发公开源</td><td>最真；无需本地 registry</td><td><b>公开污染且不可撤回</b>（npm 撤回有 72h 窗口限制）；与真实用户仓库混在一起</td></tr>
+      <tr><td>c 只发本地</td><td>永不碰公开源</td><td>最干净</td><td>门三「真 registry 可见性」永远覆盖不到，F/G/J 部分结论只能降级</td></tr>
+    </tbody>
+  </table>
+  <p class="dim">#258 §10.3(3) 原文：「本地私有 registry 是可选的减污染中间层，是否采用留给 P1 决策」——Q3 就是回应这一条。</p>
+  <h3>Q4 · token 发布脚本放哪</h3>
+  <table>
+    <thead><tr><th style="width:20%">选项</th><th>位置</th><th>理由</th></tr></thead>
+    <tbody>
+      <tr><td><b>a 夹具自管</b> <span class="verdict v-ok">推荐</span></td><td><code>selftest/fixtures/release/publish-fixtures.mjs</code></td><td>与主包发布链零耦合；白名单只覆盖夹具包名，误发主包/误发 npmjs 双向不可能；失败不连累主包发布</td></tr>
+      <tr><td>b 根 scripts/</td><td><code>scripts/publish-fixtures.ps1</code>（与 publish-token.ps1 同层）</td><td>复用现有 token 习惯；但把测试夹具的发布风险搬进主发布目录</td></tr>
+      <tr><td>c 扩 release.mjs</td><td><code>release.mjs --fixtures</code></td><td>单入口；但主发布链要为测试包长分支，稀释 #262 的白名单/收口纪律</td></tr>
+    </tbody>
+  </table>
+  <p class="dim">发布顺序（必须按这个来，写进 fixtures/README）：① 更新系统发版 → ② 夹具按实际版本注入 <code>updateDep</code> 生成 → ③ 发 0.0.1 → ④ 发 0.0.2 → ⑤ 跑 F/G/J。这就是「夹具版本」与「被测更新系统版本」的耦合窗口。</p>
+</section>
+
+<section id="s9">
+  <h2><span class="no">09 · 门禁与复现标准</span>不拖慢每提交门禁；复现对象写死</h2>
+  <table>
+    <thead><tr><th style="width:12%">层级</th><th style="width:28%">跑什么</th><th>何时跑 / 归属</th></tr></thead>
+    <tbody>
+      <tr><td>L0–L1 hermetic</td><td><code>npm run check</code>、<code>npx tsc -p selftest/tsconfig.json --noEmit</code></td><td>每提交，<b>不变</b>（仅 A 案 +1 行 exclude）</td></tr>
+      <tr><td>L2 本地闭环（新增）</td><td><code>node selftest/fixtures/generator/emit.mjs --all</code>（生成+构建+<code>npm pack --dry-run</code>）<br><code>node selftest/fixtures/gate.mjs</code>（身份断言 + 生成 + 三件套预检；可选本地 registry 发/装）</td><td>改夹具/准备真机前手工跑；<b>不进</b> <code>npm run check</code>（#258 §10.3(6)）</td></tr>
+      <tr><td>L3 真机（新增）</td><td><code>selftest/fixtures/scenarios/run-real.mjs</code>：临时 profile 里装 a@0.0.1 → 发 0.0.2 → 点面板 → 观测；F/G/J 场景清单 + 人审步骤</td><td>手工/夜间；按 #261 记录证据级别</td></tr>
+    </tbody>
+  </table>
+  <h3>首日 spike（实现票的第一步，#258 §10.3(4) 的「最大不确定」）</h3>
+  <ol>
+    <li>生成 <b>C 包</b>（最小三件套）→ 在临时 profile 里 <code>dsh plugin add</code>（tgz 或 registry spec）。</li>
+    <li>观测四件事：install 退出是否 <code>applied / restart-required</code>；宿主是否真的起了 fiber；客户端 <code>__ModuleLoader__</code> 是否加载；<code>dsh plugin list</code> 是否在册。</li>
+    <li>失败就记录宿主报错原文，决定模板要补的最小面（client 注册面 / patch id / engines / 其它）。<b>这一步不通过，后续场景无意义</b>。</li>
+  </ol>
+  <h3>复现标准（spec / implementation 票要照这个验）</h3>
+  <div class="grid2">
+    <div class="card"><h4>复现对象</h4><p>本原型「批准清单」U1–U9（目录骨架、身份表字段与值、模板文件清单、生成物形态、命令面、发布白名单与顺序、门禁分层、spike 清单）。</p></div>
+    <div class="card"><h4>怎么算复现</h4><p>实现票产出与清单逐项一致；<b>允许等价替换</b>：构建器（esbuild ↔ tsdown）、包壳生成的内部实现、README 文案；<b>不允许偏离</b>：目录骨架、身份值、包名/版本序列、三件套形态、发布命令面与白名单、场景编号。</p></div>
+    <div class="card"><h4>谁评审</h4><p>本票批准人（FeatherHunter）。实现票完成时对照批准清单逐项签，签完才算复现通过。</p></div>
+    <div class="card"><h4>本票不产出的证据</h4><p>门一覆盖矩阵、门二实现、门三真机签名——这些是下游票的交付物；本票只交付「布局 + 批准清单 + 复现标准」。</p></div>
+  </div>
+</section>
+
+<section id="s10">
+  <h2><span class="no">10 · 留给实现票的未决</span>不阻塞本票拍板，列出来免得埋雷</h2>
+  <ul>
+    <li><b>客户端半的 UI 挂载面</b>：设置页 section（React 外壳）还是其它 slot？——spike 时定；模板文件清单不受影响（<code>src/client.ts</code> 一个文件承接）。</li>
+    <li><b>夹具模板的 typecheck 归属</b>：fixtures 自己的 gate 里用独立 tsconfig（paths → <code>dist/*.d.ts</code>）还是只靠 esbuild + 真机；<b>明确不并入根 gate</b>。</li>
+    <li><b>verdaccio 细节</b>：启动方式/端口/匿名 publish 配置/清理脚本（默认 <code>http://localhost:4873</code>）。</li>
+    <li><b>宿主桥注册的精确 API</b>：按 #259 决议与真实插件（palette / dsh-prompt）落，实现票不改契约。</li>
+    <li><b>npmjs 一旦发过的撤回策略</b>：门三决定「发不发、发哪几个」。</li>
+    <li><b>夹具 updateDep 耦合窗口</b>：写进 <code>fixtures/README.md</code>（发布顺序一节），发布证词留档。</li>
+  </ul>
+  <h3>批准清单（拍板后原样写进 #257 票面）</h3>
+  <ol>
+    <li><b>U1 落点</b>：<code>selftest/fixtures/</code>（A 案），<code>selftest/tsconfig.json</code> 仅 +1 行 exclude。</li>
+    <li><b>U2 分层</b>：<code>identity/ template/ generator/ generated/ release/ scenarios/</code> 六子目录，职责如上。</li>
+    <li><b>U3 身份表</b>：<code>identity/fixtures.json</code> 唯一真源；A/B/C 值见 05 节。</li>
+    <li><b>U4 模板</b>：两份（integrator / target-only）；模板内 0 身份字面量，身份只在 <code>src/channel.ts</code> 生成时替换。</li>
+    <li><b>U5 生成物</b>：<code>generated/{a,b,c}</code> 自包含可发布包（三件套齐、client 带 <code>__ModuleLoader__</code> 包壳），gitignore。</li>
+    <li><b>U6 工具链命令面</b>：<code>emit.mjs</code> / <code>gate.mjs</code> / <code>publish-fixtures.mjs</code> / <code>run-real.mjs</code> 四条命令。</li>
+    <li><b>U7 发布链路</b>：夹具自管发布脚本 + 前置断言白名单 + <code>--dry-run</code> + 可见性轮询 + stdout 证词；默认本地 registry，npmjs 需 <code>--allow-public</code>。</li>
+    <li><b>U8 门禁分层</b>：L0/L1 不变；L2 手工/批次；L3 真机人工/夜间；不进 <code>npm run check</code>。</li>
+    <li><b>U9 spike</b>：实现票第一步 = C 包最小三件套真机加载 spike。</li>
+  </ol>
+  <p class="dim">未选中的备选（明确不是已批准版本的一部分）：B 案仓根 <code>fixtures/</code>、C 案重构、只发 npmjs、根 scripts/ 下的夹具发布 ps1、扩 <code>release.mjs --fixtures</code>、把夹具层并入每提交门禁。</p>
+</section>
+
+<section id="s11">
+  <h2><span class="no">11 · 不做的事</span>本原型与本票的边界</h2>
+  <ul>
+    <li>不实现、不发 npm、不跑真机（那是实现票/门三的事；本票只到「拍板 + 复现标准」）。</li>
+    <li>不改 <code>src/</code>、<code>tests/</code>、<code>scripts/</code>、<code>package.json</code>、<code>files</code> 白名单、根 <code>build</code>/<code>check</code>。</li>
+    <li>不给 <code>selftest/</code> B 档引入运行时依赖；夹具生成物只依赖 <code>dsh-plugin-update</code>（+A/B 的 <code>dsh-log</code>）。</li>
+    <li>不改地图 #256 的 Destination 措辞（release-standard §8 的措辞修订是另一案）。</li>
+    <li>不复用存量 <code>tests/helpers/*.mjs</code>；不把 <code>selftest/</code> 并进根门禁（另起票再说）。</li>
+  </ul>
+</section>
+
+<section id="s12">
+  <h2><span class="no">12 · 证据索引</span>每条事实都能落到文件行</h2>
+  <table>
+    <thead><tr><th style="width:44%">文件 / 行</th><th>事实</th></tr></thead>
+    <tbody>
+      <tr><td><code>src/shared/commands.ts:37</code></td><td>MANAGER_TARGET_RE：宿主插件管理器可接受的包名形状</td></tr>
+      <tr><td><code>src/core/reader.ts:192-220</code></td><td>validPackage：三件套必须是包内真实文件，缺任一 → invalid-installation</td></tr>
+      <tr><td><code>src/shared/commands.ts:41-63</code></td><td>validVersion / validReleaseVersion（不含 +build）</td></tr>
+      <tr><td><code>src/log/namespace.ts:20</code></td><td>日志命名空间正则 <code>/^[a-z0-9-]{1,32}$/</code></td></tr>
+      <tr><td><code>src/host-batch.ts:32-48</code></td><td>MultiTargetSpec：key 唯一、每目标电话前缀、pluginId 缺省值</td></tr>
+      <tr><td><code>src/core/hub/plan.ts:131-140</code></td><td>hub 目标的 key 唯一 + scope 必填</td></tr>
+      <tr><td><code>dist/entry-batch.d.ts:1</code></td><td><code>mountUpdateBatchEntry</code> 确实由 <code>dsh-plugin-update/entry-batch</code> 导出</td></tr>
+      <tr><td><code>dsh-im-companion/tsdown.config.ts</code>（CLIENT_EXTERNALS / outputOptions）</td><td>客户端 bundle 的 <code>__ModuleLoader__.load({id, factory})</code> 包壳与宿主提供依赖清单</td></tr>
+      <tr><td><code>dsh-opencode-palette/package.json</code>（dependencies）</td><td>集成方对 <code>dsh-plugin-update</code> 用精确版（0.18.38）</td></tr>
+      <tr><td><code>dsh-prompt/src/update/host/index.ts:1-33</code></td><td>集成方把电话注册到自有 HTTP 桥；更新包对通道无感</td></tr>
+      <tr><td><code>docs/host-install-exits.md</code></td><td>installBundle 单 spec、registry 选项、已装需先 remove</td></tr>
+      <tr><td><code>docs/research/20261031-issue-258-夹具包数与hub席位.md</code> §6/§10.3</td><td>三角色与 hub 席位；6 条 P1 实现约束（含 spike = 最大不确定）</td></tr>
+      <tr><td><code>docs/research/20261101-selftest-release-standard.md</code> §3/§9</td><td>门一/二/三分层与七个交付物；下一步即本票布局</td></tr>
+      <tr><td><code>selftest/README.md:12-16,18,42,58-60</code></td><td>C 档写在金字塔第三层；「只增 selftest/」；B 档零耦合；夹具版本独立/包名带 TEST ONLY</td></tr>
+      <tr><td><code>docs/maintainers.md:11</code></td><td><code>prototype/*</code> 是过程分支；<code>master</code> 上没有的不算已发布</td></tr>
+      <tr><td><code>git branch prototype/224-naming</code>（commit 6bd6fcb）</td><td>原型按 <code>prototype/&lt;票号&gt;-&lt;名字&gt;</code> 分支存放、不进 main 的先例</td></tr>
+    </tbody>
+  </table>
+</section>
+
+</main>
+<footer>#257 · wayfinder prototype · 2026-11-01 · 本文件不承载实现，拍板结论回写票面 #257；地图 #256 的 Decisions so far 只追加一行指针。</footer>
+<script>
+(function(){
+  var btns = document.querySelectorAll('.pills button');
+  function set(v){
+    document.body.setAttribute('data-variant', v);
+    btns.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-variant') === v); });
+    try { history.replaceState(null, '', '#' + v); } catch (e) {}
+  }
+  btns.forEach(function(b){ b.addEventListener('click', function(){ set(b.getAttribute('data-variant')); }); });
+  var h = (location.hash || '').replace('#','').toUpperCase();
+  if (h === 'A' || h === 'B' || h === 'C') set(h);
+})();
+</script>
+</body>
+</html>
