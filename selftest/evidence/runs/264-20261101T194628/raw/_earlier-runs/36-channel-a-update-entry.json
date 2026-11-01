@@ -1,0 +1,33 @@
+{
+  "step": "update-entry",
+  "channel": "A",
+  "at": "2026-11-01T12:38:31.087Z",
+  "entryBeforeScroll": {
+    "text": "已是最新 0.4.40",
+    "rect": {
+      "x": 787.2053833007812,
+      "y": -152.57144165039062,
+      "width": 117.93750762939453,
+      "height": 29.937501907348633
+    },
+    "inViewport": false
+  },
+  "entryAfterScroll": {
+    "text": "已是最新 0.4.40",
+    "rect": {
+      "x": 787.2053833007812,
+      "y": 120.00000762939453,
+      "width": 117.93750762939453,
+      "height": 29.937501907348633,
+      "cx": 846.1741371154785,
+      "cy": 134.96875858306885
+    },
+    "inViewport": true,
+    "inside": true,
+    "topTag": "SPAN."
+  },
+  "clickVia": "cdp-mouse",
+  "route": {
+    "initial": "panel-模板管理"
+  }
+}

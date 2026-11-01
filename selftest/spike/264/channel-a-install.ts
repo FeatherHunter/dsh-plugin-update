@@ -1,11 +1,11 @@
 /** T0 spike 通道 A：在桌面壳「添加插件」里装 dsh-prompt（throwaway）。走的是出口二 in-process pluginManager。 */
 import fs from 'node:fs';
 import path from 'node:path';
-import { connect } from './lib/cdp.mjs';
+import { connect } from './lib/cdp.ts';
 
 const argv = process.argv.slice(2);
-function opt(n, d) { const i = argv.indexOf('--' + n); return i >= 0 ? argv[i + 1] : d; }
-const cdpPort = Number(opt('cdp-port', '0'));
+function opt(n: string, d: string): string { const i = argv.indexOf('--' + n); return i >= 0 ? argv[i + 1] : d; }
+const cdpPort: number = Number(opt('cdp-port', '0'));
 const runDir = opt('run-dir', '');
 const spec = opt('spec', 'dsh-prompt@0.4.40');
 const pollOnly = argv.includes('--poll-only');

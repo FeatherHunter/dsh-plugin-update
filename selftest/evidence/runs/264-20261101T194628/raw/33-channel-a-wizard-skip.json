@@ -1,0 +1,21 @@
+{
+  "step": "wizard-skip",
+  "channel": "A",
+  "at": "2026-11-01T12:40:07.982Z",
+  "rounds": [
+    {
+      "round": 0,
+      "action": "done",
+      "state": "新会话 Ctrl + N 插件 自动化任务 更多 工作区 默认工作区 新会话 止息 新版本 探索未至之境 预览版 默认工作区 标准模式 描述你想要构建的内容, / 调用指令, @ 文件或对话 工作区内修改 Prompt DeepSeek-V4.1-Flash 1017 High"
+    }
+  ],
+  "lastAction": "",
+  "final": {
+    "href": "dsh-app://app/",
+    "wizard": false,
+    "welcome": false,
+    "dialogs": [],
+    "composer": true,
+    "text": "新会话 Ctrl + N 插件 自动化任务 更多 工作区 默认工作区 新会话 止息 新版本 探索未至之境 预览版 默认工作区 标准模式 描述你想要构建的内容, / 调用指令, @ 文件或对话 工作区内修改 Prompt DeepSeek-V4.1-Flash 1017 High"
+  }
+}

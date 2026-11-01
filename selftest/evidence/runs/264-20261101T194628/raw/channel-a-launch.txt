@@ -1,0 +1,5 @@
+started pid=58804
+argv=["--user-data-dir=D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\udd2","--remote-debugging-port=59344"]
+cwd=D:\DeepseekHarness
+DSH_HOME=D:\dsh-plugin\_wt263\runtime\t0-264-channelA\home
+env_removed=["DSH_HOME","DSH_PROFILE","DSH_PROFILE_DIR","DSH_SESSION_ID","DSH_SHELL","DSH_WEB_URL","ELECTRON_RUN_AS_NODE"]

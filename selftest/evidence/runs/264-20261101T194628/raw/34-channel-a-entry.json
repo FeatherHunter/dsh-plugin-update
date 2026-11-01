@@ -1,0 +1,111 @@
+{
+  "step": "entry",
+  "channel": "A",
+  "at": "2026-11-01T12:40:08.071Z",
+  "ok": true,
+  "attempts": [
+    {
+      "stage": "after-chat",
+      "entry": {
+        "rect": {
+          "x": 606.4285888671875,
+          "y": 501.0000305175781,
+          "width": 81.85714721679688,
+          "height": 27.142858505249023,
+          "cx": 647.3571624755859,
+          "cy": 514.5714597702026
+        },
+        "label": "Prompt",
+        "panelState": "closed"
+      }
+    }
+  ],
+  "chat": {
+    "ok": true,
+    "attempts": [
+      {
+        "i": 0,
+        "action": "composer-present"
+      }
+    ],
+    "state": {
+      "href": "dsh-app://app/",
+      "title": "DeepSeek Harness",
+      "readyState": "complete",
+      "wizard": false,
+      "welcome": false,
+      "composer": true,
+      "dialogs": [],
+      "buttons": [
+        {
+          "text": "新会话 Ctrl + N",
+          "title": "",
+          "disabled": false
+        },
+        {
+          "text": "插件",
+          "title": "",
+          "disabled": false
+        },
+        {
+          "text": "自动化任务",
+          "title": "",
+          "disabled": false
+        },
+        {
+          "text": "更多",
+          "title": "",
+          "disabled": false
+        },
+        {
+          "text": "止息",
+          "title": "",
+          "disabled": false
+        },
+        {
+          "text": "新版本",
+          "title": "",
+          "disabled": false
+        },
+        {
+          "text": "默认工作区",
+          "title": "",
+          "disabled": false
+        },
+        {
+          "text": "标准模式",
+          "title": "选择新任务使用的 Agent 预设",
+          "disabled": false
+        },
+        {
+          "text": "工作区内修改",
+          "title": "",
+          "disabled": false
+        },
+        {
+          "text": "Prompt",
+          "title": "Prompt",
+          "disabled": false
+        },
+        {
+          "text": "DeepSeek-V4.1-Flash 1017 High",
+          "title": "DeepSeek-V4.1-Flash · High",
+          "disabled": false
+        }
+      ],
+      "text": "新会话 Ctrl + N 插件 自动化任务 更多 工作区 默认工作区 新会话 止息 新版本 探索未至之境 预览版 默认工作区 标准模式 描述你想要构建的内容, / 调用指令, @ 文件或对话 工作区内修改 Prompt DeepSeek-V4.1-Flash 1017 High"
+    }
+  },
+  "entry": {
+    "rect": {
+      "x": 606.4285888671875,
+      "y": 501.0000305175781,
+      "width": 81.85714721679688,
+      "height": 27.142858505249023,
+      "cx": 647.3571624755859,
+      "cy": 514.5714597702026
+    },
+    "label": "Prompt",
+    "panelState": "closed"
+  }
+}

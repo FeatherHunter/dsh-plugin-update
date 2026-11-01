@@ -1,0 +1,17 @@
+{
+  "shot": "a25-desktop-update-panel.png",
+  "channel": "A",
+  "whatToLook": "点更新入口后是否弹出产品更新面板（.dsh-upd[data-mode=dialog]）且能定位",
+  "expected": "整窗截图能定位面板：标题/版本/行动按钮可读",
+  "actual": "rect={\"x\":339.14288330078125,\"y\":46.017860412597656,\"width\":601.1428833007812,\"height\":729.107177734375}；actions=[{\"action\":\"check\",\"text\":\"正在查询版本信息…\",\"disabled\":true},{\"action\":\"install\",\"text\":\"安装更新\",\"disabled\":true},{\"action\":\"copy-diag\",\"text\":\"复制诊断\",\"disabled\":false},{\"action\":\"close-view\",\"text\":\"关闭\",\"disabled\":false}]；text=插件更新 更新档案 卷 dsh-prompt 使用范围 desktopprofile 定已是最新，无需更新。 运行版 0.4.40 已安装 0.4.40 最新版 未知 01 检查与安装 正在查询版本信息… 安装更新 复制诊断 02 更新日志 尚未查询到新版本；查询到后将显示更新日志。 03 更新队列 当前无排队任务；同一使用范围同时仅安装一项。 04 错误信息 暂无失败：此时复制诊断提供的是当前状态快照。 请查看日志：<DSH_HOME",
+  "judgement": "符合预期",
+  "note": "验收项「截图能定位更新面板」由本图 + crop 满足",
+  "run": "264-20261101T194628",
+  "capturedAt": "2026-11-01T12:40:12.879Z",
+  "viewport": {
+    "width": 1279,
+    "height": 821,
+    "dpr": 1.75
+  },
+  "clip": null
+}

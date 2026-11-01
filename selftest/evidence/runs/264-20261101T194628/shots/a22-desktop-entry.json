@@ -1,0 +1,17 @@
+{
+  "shot": "a22-desktop-entry.png",
+  "channel": "A",
+  "whatToLook": "会话页输入框左侧是否出现集成方入口 [data-dsh-prompt-entry]",
+  "expected": "重启宿主后入口出现（说明「立即启用」+ 重启生效）",
+  "actual": "entry rect={\"x\":606.4285888671875,\"y\":501.0000305175781,\"width\":81.85714721679688,\"height\":27.142858505249023,\"cx\":647.3571624755859,\"cy\":514.5714597702026}；label=Prompt",
+  "judgement": "符合预期",
+  "note": "初版卡点「启用不即时生效」由「重启后出现」闭环",
+  "run": "264-20261101T194628",
+  "capturedAt": "2026-11-01T12:40:08.149Z",
+  "viewport": {
+    "width": 1279,
+    "height": 821,
+    "dpr": 1.75
+  },
+  "clip": null
+}

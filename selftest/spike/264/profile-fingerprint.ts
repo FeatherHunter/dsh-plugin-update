@@ -4,17 +4,17 @@
  * 用途：证明本票前后「维护者当前 DSH profile 未被改动」。
  * 只读：open/stat/readdir，不写目标目录。
  *
- * 用法： node profile-fingerprint.mjs <profileDir> <out.json>
+ * 用法： node profile-fingerprint.ts <profileDir> <out.json>
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const profileDir = process.argv[2];
-const outPath = process.argv[3];
-if (!profileDir || !outPath) { console.error('用法：node profile-fingerprint.mjs <profileDir> <out.json>'); process.exit(2); }
+const profileDir: string | undefined = process.argv[2];
+const outPath: string | undefined = process.argv[3];
+if (!profileDir || !outPath) { console.error('用法：node profile-fingerprint.ts <profileDir> <out.json>'); process.exit(2); }
 
-function sha256File(file) {
+function sha256File(file: string) {
   try {
     return { sha256: crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'), bytes: fs.statSync(file).size, mtime: fs.statSync(file).mtime.toISOString() };
   } catch (e) {
@@ -22,7 +22,7 @@ function sha256File(file) {
   }
 }
 
-function listTop(dir) {
+function listTop(dir: string) {
   try {
     const names = fs.readdirSync(dir, { withFileTypes: true })
       .map((d) => ({ name: d.name, kind: d.isDirectory() ? 'dir' : 'file' }))

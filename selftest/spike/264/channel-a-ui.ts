@@ -1,19 +1,19 @@
 /**
  * T0 spike 通道 A 的 UI 驱动小工具（throwaway）：按文本点按钮 / 截图 / 导出 DOM 摘要，逐步记录。
- * 用法：node channel-a-ui.mjs --cdp-port 59333 --run-dir <证据目录> --step <名字> [--click-text 插件] [--shot a1.png] [--wait 1500]
+ * 用法：node channel-a-ui.ts --cdp-port 59333 --run-dir <证据目录> --step <名字> [--click-text 插件] [--shot a1.png] [--wait 1500]
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { connect } from './lib/cdp.mjs';
+import { connect } from './lib/cdp.ts';
 
 const argv = process.argv.slice(2);
-function opt(name, fallback) { const i = argv.indexOf('--' + name); return i >= 0 ? argv[i + 1] : fallback; }
-const cdpPort = Number(opt('cdp-port', '0'));
+function opt(name: string, fallback: string): string { const i = argv.indexOf('--' + name); return i >= 0 ? argv[i + 1] : fallback; }
+const cdpPort: number = Number(opt('cdp-port', '0'));
 const runDir = opt('run-dir', '');
 const stepName = opt('step', 'step');
 const clickText = opt('click-text', '');
 const shotName = opt('shot', '');
-const waitMs = Number(opt('wait', '1500'));
+const waitMs: number = Number(opt('wait', '1500'));
 if (!cdpPort || !runDir) { console.error('缺 --cdp-port / --run-dir'); process.exit(2); }
 const RAW = path.join(runDir, 'raw');
 const SHOTS = path.join(runDir, 'shots');

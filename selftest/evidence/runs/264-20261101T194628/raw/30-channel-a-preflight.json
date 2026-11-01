@@ -1,0 +1,42 @@
+{
+  "step": "preflight",
+  "channel": "A",
+  "at": "2026-11-01T12:39:59.956Z",
+  "cdpPort": 59344,
+  "portFree": true,
+  "portOwner": null,
+  "parentEnv": {
+    "ELECTRON_RUN_AS_NODE": "1",
+    "DSH_HOME": "C:\\Users\\辰辰洋洋\\.dsh",
+    "DSH_PROFILE": "desktop",
+    "DSH_SHELL": "1",
+    "DSH_WEB_URL": "http://127.0.0.1:54428"
+  },
+  "home": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home",
+  "homeProfilePackage": {
+    "name": "dsh-profile-desktop",
+    "private": true,
+    "dependencies": {
+      "dsh-prompt": "0.4.40"
+    },
+    "dsh": {
+      "profile": {
+        "bundles": [
+          "@deepseek-ai/dsh-base",
+          "@deepseek-ai/dsh-web-app",
+          "dsh-prompt"
+        ]
+      }
+    }
+  },
+  "pluginVersion": "0.4.40",
+  "userDataDir": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\udd2",
+  "userDataDirExists": true,
+  "isolatedProcs": [],
+  "maintainerProcs": [],
+  "maintainerProfilePkgSha": "aa45f522c8169a025ac4b0053d556b9d62fea77cb209ee5b4c867920019b19d8",
+  "previousCleanupEvidence": "isolated_before=88256,3352,67768,26696,88984\r\nmaintainer_host_alive_before=True\r\nroot_pid=88256\r\nSUCCESS: The process with PID 3352 (child process of PID 88256) has been terminated.\r\nSUCCESS: The process with PID 67768 (child process of PID 88256) has been terminated.\r\nSUCCESS: The process with PID 26696 (child process of PID 88256) has been terminated.\r\nSUCCESS: The process with PID 88984 (child process of PID 88256) has been terminated.\r\nSUCCESS: The process with PID 88256 (child process of PID 70380) has been terminated.\r\n\r\nisolated_after=0\r\ncdp_port_59333=closed\r\nmaintainer_host_alive_after=True\r\nmaintainer_profile_pkg_sha=aa45f522c8169a025ac4b0053d556b9d62fea77cb209ee5b4c867920019b19d8\r\n",
+  "desktopExe": "D:\\DeepseekHarness\\DeepSeek Harness.exe",
+  "node": "v24.19.0",
+  "startedAt": "2026-11-01T12:39:58.554Z"
+}

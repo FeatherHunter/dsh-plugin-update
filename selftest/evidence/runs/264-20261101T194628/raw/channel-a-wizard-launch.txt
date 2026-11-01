@@ -1,0 +1,4 @@
+started pid=51252
+argv=["--user-data-dir=D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd","--remote-debugging-port=59349"]
+DSH_HOME=D:\dsh-plugin\_wt263\runtime\t0-264-channelA\home
+env_removed=["DSH_HOME","DSH_PROFILE","DSH_PROFILE_DIR","DSH_SESSION_ID","DSH_SHELL","DSH_WEB_URL","ELECTRON_RUN_AS_NODE"]

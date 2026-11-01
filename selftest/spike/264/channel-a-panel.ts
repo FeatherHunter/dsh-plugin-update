@@ -1,14 +1,14 @@
 /** T0 spike 通道 A：在官方桌面版里打开集成方更新面板并点一个入口（throwaway）。逻辑与 channel-b 的 ⑥⑦⑧ 同构。 */
 import fs from 'node:fs';
 import path from 'node:path';
-import { connect } from './lib/cdp.mjs';
+import { connect } from './lib/cdp.ts';
 
 const argv = process.argv.slice(2);
-function opt(n, d) { const i = argv.indexOf('--' + n); return i >= 0 ? argv[i + 1] : d; }
+function opt(n: string, d: string): string { const i = argv.indexOf('--' + n); return i >= 0 ? argv[i + 1] : d; }
 const cdpPort = Number(opt('cdp-port', '0'));
 const runDir = opt('run-dir', '');
 const RAW = path.join(runDir, 'raw'); const SHOTS = path.join(runDir, 'shots');
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const client = await connect({ cdpPort });
 await client.send('Page.enable', {}); await client.send('Runtime.enable', {});
 const log = {};

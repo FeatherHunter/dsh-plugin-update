@@ -1,0 +1,22 @@
+{
+  "shot": "a25-desktop-update-panel-crop.png",
+  "channel": "A",
+  "whatToLook": "更新面板局部细节是否可读",
+  "expected": "行动按钮（检查更新/安装/关闭）与版本行清晰",
+  "actual": "clip={\"x\":331.14288330078125,\"y\":38.017860412597656,\"width\":617.1428833007812,\"height\":745.107177734375}；actions=[{\"action\":\"check\",\"text\":\"正在查询版本信息…\",\"disabled\":true},{\"action\":\"install\",\"text\":\"安装更新\",\"disabled\":true},{\"action\":\"copy-diag\",\"text\":\"复制诊断\",\"disabled\":false},{\"action\":\"close-view\",\"text\":\"关闭\",\"disabled\":false}]",
+  "judgement": "符合预期",
+  "note": "面板 crop 用 .dsh-upd 的 rect 加 8px 边距",
+  "run": "264-20261101T194628",
+  "capturedAt": "2026-11-01T12:40:13.055Z",
+  "viewport": {
+    "width": 1279,
+    "height": 821,
+    "dpr": 1.75
+  },
+  "clip": {
+    "x": 331.14288330078125,
+    "y": 38.017860412597656,
+    "width": 617.1428833007812,
+    "height": 745.107177734375
+  }
+}

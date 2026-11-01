@@ -1,7 +1,7 @@
 {
   "purpose": "证明维护者 desktop profile 在 #264 spike 前后是否被本票通道改动（本票所有写操作应只在隔离 DSH_HOME 内）",
   "target": "C:\\Users\\辰辰洋洋\\.dsh\\profiles\\desktop",
-  "method": "profile-fingerprint.mjs：5 个关键文件 SHA256 + .plugin-manager 顶层条目 + node_modules 顶层条目；before 采样 2026-11-01T11:48:26.711Z（UTC），after 采样 2026-11-01T12:07:32.789Z（UTC）。",
+  "method": "profile-fingerprint.ts：5 个关键文件 SHA256 + .plugin-manager 顶层条目 + node_modules 顶层条目；before 采样 2026-11-01T11:48:26.711Z（UTC），after 采样 2026-11-01T12:07:32.789Z（UTC），after2 采样 2026-11-01T12:45:00.583Z（UTC）。",
   "beforeFile": "desktop-profile-before.json",
   "afterFile": "desktop-profile-after.json",
   "comparison": {
@@ -71,12 +71,51 @@
       "afterDigest": "504359f60c660f55f7bc38418db49a5e321417505250363c3d30564bdff88a2c"
     }
   },
-  "verdict": "NOT PROVEN CLEAN",
+  "verdict": "CLEAN-WITH-ATTRIBUTION：本票未写入维护者 profile；全局文件级差异已归因外部运行中的 DSH 桌面 app",
   "notes": [
     "package.json 与 pnpm-lock.yaml 在两次采样之间被改写，mtime 均为 2026-11-01T11:53:56Z（+08 19:53:56）。其余 3 个文件（cordis.yml、cordis.patch.yml、pnpm-workspace.yaml）哈希未变；.plugin-manager 顶层 1 项（logs）、node_modules 顶层 243 项，digest 均未变。",
     "本票通道的所有写入都在隔离 home 内：通道 B 的安装命令为 dsh.cmd plugin --profile s263 add dsh-prompt@0.4.40（raw/03-install-integrator.json），装完该 profile 仅 3 个 bundles（@deepseek-ai/dsh-base、@deepseek-ai/dsh-web-app、dsh-prompt）；通道 A 的宿主子进程命令行里 profile 是 D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home\\profiles\\desktop（raw/12-channel-a-launch-attempt2.txt 内进程表）。",
-    "11:53:56Z 落在两次通道 B 运行之间，同期机器上还有维护者正在使用的官方桌面实例（宿主 pid 17020 全程存活）与主会话/Lead 的活动；该次改写未归因到具体进程，需 Lead 复核（是否有人在该时刻对 desktop profile 执行过 dsh plugin add / 插件更新）。",
     "改写后 package.json 仍为 21 个 dependencies、25 个 bundles，含 dsh-plugin-update 0.18.38 与 dsh-prompt 0.4.40，无 s263 相关条目；即内容上未看到本票的痕迹。",
-    "结论：没有找到本票改动维护者 profile 的证据，但也没有拿到「前后一致」的证据 —— AC「维护者当前 DSH profile 未被改动」不能声称满足，只能如实记录并上报。"
-  ]
+    "结论：没有找到本票改动维护者 profile 的证据，但也没有拿到「前后一致」的证据 —— AC「维护者当前 DSH profile 未被改动」不能声称满足，只能如实记录并上报。",
+    "Lead 已查清 11:53:56Z 的改写内容为 billion-context 0.1.209 → 0.1.211；归因与证据见 raw/52-desktop-profile-attribution.json。本票未回滚该外部变动（不动维护者 profile）。"
+  ],
+  "after2File": "desktop-profile-after.json",
+  "after2CapturedAt": "2026-11-01T12:45:00.583Z",
+  "after2StableSince": "2026-11-01T12:07:32.789Z",
+  "diff": {
+    "packageJson": {
+      "shaChanged": true,
+      "mtime": "2026-11-01T11:53:56.650Z",
+      "contentAttribution": "billion-context: 0.1.209 → 0.1.211",
+      "bytes": 1738
+    },
+    "pnpmLockYaml": {
+      "shaChanged": true,
+      "mtime": "2026-11-01T11:53:56.653Z",
+      "bytesBefore": 119784,
+      "bytesAfter": 119764,
+      "contentAttribution": "随 billion-context 0.1.209 → 0.1.211 同步改写的锁条目"
+    },
+    "unchangedFiles": [
+      "cordis.yml",
+      "cordis.patch.yml",
+      "pnpm-workspace.yaml"
+    ],
+    "unchangedCounts": [
+      ".plugin-manager 顶层 1 项（logs）digest 未变",
+      "node_modules 顶层 243 项 digest 未变"
+    ],
+    "afterVsAfter2": "desktop-profile-after.json（12:45:00.583Z）与 after（12:07:32.789Z）五个文件哈希、mtime、counts digest 全部一致 ⇒ 12:07 之后维护者 profile 未再变。"
+  },
+  "attribution": {
+    "verdict": "外部运行中的官方桌面 DSH app 自身活动导致，不是本票、不是官方插件管理器",
+    "evidence": "raw/52-desktop-profile-attribution.json",
+    "points": [
+      "改写窗口（11:53:56Z）同期 C:\\Users\\辰辰洋洋\\AppData\\Roaming\\@deepseek-ai\\dsh-desktop\\Local Storage\\leveldb 在 11:53:06Z 有写入，且 12:20/12:36/12:44Z 持续写入 —— 维护者运行中的桌面实例（宿主 pid 17020 全程存活）一直在做 UI 活动。",
+      "profile 的 .plugin-manager\\logs 在 11:45–12:10Z 窗口内 0 个 operation-* 目录（当天全部 12 个 operation-* 都在 07:00–07:32Z），排除官方插件管理器操作。",
+      "本票所有安装/启停只写隔离 DSH_HOME（raw/03 bundles=3；raw/12 进程命令行 profile 指向 runtime\\t0-264-channelA\\home\\profiles\\desktop；raw/26、raw/42 清理证据 maintainer profile pkg sha 前后均为 aa45f522…）。",
+      "当前 profile package.json 中 billion-context=0.1.211；dsh.profile.bundles 25 项，无任何 s263/本票相关条目。"
+    ]
+  },
+  "ac": "维护者当前 DSH profile 未被改动 → 本票未写入维护者 profile（隔离证据+前后指纹）；全局文件级差异已归因外部运行中的 DSH 桌面 app"
 }

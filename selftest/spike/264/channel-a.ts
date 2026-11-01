@@ -2,18 +2,18 @@
  * T0 spike 通道 A：官方桌面版 Electron 的 CDP 驱动（throwaway，T1 重写成正式 harness）。
  * 只做三件事：列 target、截整窗图、导出可视文本与按钮（判断桌面壳里能不能走到插件管理/更新面板）。
  *
- * 用法：node channel-a.mjs --cdp-port 59333 --run-dir <证据目录>
+ * 用法：node channel-a.ts --cdp-port 59333 --run-dir <证据目录>
  * 前置：桌面版必须以独立 --user-data-dir + --remote-debugging-port 启动，且启动前清掉 ELECTRON_RUN_AS_NODE。
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { listTargets, connect } from './lib/cdp.mjs';
+import { listTargets, connect } from './lib/cdp.ts';
 
 const argv = process.argv.slice(2);
-function opt(name, fallback) { const i = argv.indexOf('--' + name); return i >= 0 ? argv[i + 1] : fallback; }
-const cdpPort = Number(opt('cdp-port', '0'));
+function opt(name: string, fallback: string): string { const i = argv.indexOf('--' + name); return i >= 0 ? argv[i + 1] : fallback; }
+const cdpPort: number = Number(opt('cdp-port', '0'));
 const runDir = opt('run-dir', '');
-if (!cdpPort || !runDir) { console.error('用法：node channel-a.mjs --cdp-port <端口> --run-dir <证据目录>'); process.exit(2); }
+if (!cdpPort || !runDir) { console.error('用法：node channel-a.ts --cdp-port <端口> --run-dir <证据目录>'); process.exit(2); }
 const RAW = path.join(runDir, 'raw');
 const SHOTS = path.join(runDir, 'shots');
 fs.mkdirSync(RAW, { recursive: true }); fs.mkdirSync(SHOTS, { recursive: true });

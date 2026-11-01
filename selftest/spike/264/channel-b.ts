@@ -8,7 +8,7 @@
  *            T1 会把它重写成正式 harness（判定模型 / 证据协议 / 清理审计都还没做）。
  *
  * 用法：
- *   node selftest/spike/264/channel-b.mjs --run-dir <证据目录> [--plugin dsh-prompt@0.4.40]
+ *   node selftest/spike/264/channel-b.ts --run-dir <证据目录> [--plugin dsh-prompt@0.4.40]
  *        [--dsh-cli <path>] [--browser <chrome.exe>] [--workdir <临时根>] [--keep]
  *
  * 产物：<证据目录>/raw/*.json（每步原始命令/stdout/stderr/退出码/耗时）、
@@ -19,15 +19,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { IS_WIN, findPortOwner, killTree, redactUrl, runCommand, sleep, startLongRunning, waitForExit, waitForPortFree } from './lib/proc.mjs';
-import { connect } from './lib/cdp.mjs';
+import { IS_WIN, findPortOwner, killTree, redactUrl, runCommand, sleep, startLongRunning, waitForExit, waitForPortFree } from './lib/proc.ts';
+import { connect } from './lib/cdp.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_DSH = 'D:\\DeepseekHarness\\resources\\runtime\\cli\\bin\\dsh.cmd';
 const DEFAULT_CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const PROFILE = 's263';
 
-function parseArgs(argv) {
+function parseArgs(argv: string[]): Record<string, any> {
   const out = {};
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
@@ -73,7 +73,7 @@ function writeStepsIndex() {
   fs.writeFileSync(path.join(RAW_DIR, 'run-steps.json'), JSON.stringify({ startedAt, runDir: RUN_DIR, workRoot, homeDir, profileName: PROFILE, pluginSpec, dshCli, browser, steps }, null, 2));
 }
 
-async function step(name, fn) {
+async function step(name: string, fn: () => Promise<any>): Promise<any> {
   stepSeq += 1;
   const slug = String(name).replace(/[^\w.-]+/g, '-');
   const file = path.join(RAW_DIR, String(stepSeq).padStart(2, '0') + '-' + slug + '.json');

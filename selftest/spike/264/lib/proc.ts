@@ -7,7 +7,7 @@ import net from 'node:net';
 
 export const IS_WIN = process.platform === 'win32';
 
-export function quoteShellArg(arg) {
+export function quoteShellArg(arg: unknown): string {
   const s = String(arg);
   if (IS_WIN) {
     if (s === '') return '""';
@@ -16,11 +16,11 @@ export function quoteShellArg(arg) {
   return /[^\w@%+=:,./-]/.test(s) ? "'" + s.replace(/'/g, "'\\''") + "'" : s;
 }
 
-export function buildCommandLine(command, args = []) {
+export function buildCommandLine(command: string, args: string[] = []): string {
   return [command, ...args].map(quoteShellArg).join(' ');
 }
 
-function shellInvocation(line) {
+function shellInvocation(line: string): { file: string; args: string[]; windowsVerbatimArguments: boolean } {
   if (IS_WIN) {
     return {
       file: process.env.ComSpec || 'cmd.exe',
@@ -31,7 +31,7 @@ function shellInvocation(line) {
   return { file: '/bin/sh', args: ['-c', line], windowsVerbatimArguments: false };
 }
 
-export function runCommand(command, args = [], options = {}) {
+export function runCommand(command: string, args: string[] = [], options: { cwd?: string; env?: Record<string, string | undefined>; timeoutMs?: number } = {}) {
   const line = buildCommandLine(command, args);
   const inv = shellInvocation(line);
   const startedAt = Date.now();
@@ -56,7 +56,7 @@ export function runCommand(command, args = [], options = {}) {
   };
 }
 
-export function startLongRunning(command, args = [], options = {}) {
+export function startLongRunning(command: string, args: string[] = [], options: { cwd?: string; env?: Record<string, string | undefined>; stdio?: any } = {}) {
   const line = buildCommandLine(command, args);
   const inv = shellInvocation(line);
   return spawn(inv.file, inv.args, {
@@ -69,7 +69,7 @@ export function startLongRunning(command, args = [], options = {}) {
   });
 }
 
-export function killTree(pid) {
+export function killTree(pid: number | null | undefined): void {
   if (!pid) return;
   if (IS_WIN) {
     spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, encoding: 'utf8' });
@@ -78,7 +78,7 @@ export function killTree(pid) {
   try { process.kill(-pid, 'SIGKILL'); } catch { try { process.kill(pid, 'SIGKILL'); } catch { /* gone */ } }
 }
 
-export function waitForExit(child, timeoutMs = 20_000) {
+export function waitForExit(child: any, timeoutMs = 20_000): Promise<boolean> {
   return new Promise((resolve) => {
     if (!child || child.exitCode !== null || child.signalCode !== null) { resolve(true); return; }
     let done = false;
@@ -88,7 +88,7 @@ export function waitForExit(child, timeoutMs = 20_000) {
   });
 }
 
-export function isPortFree(port) {
+export function isPortFree(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = net.connect({ port, host: '127.0.0.1' });
     const done = (free) => { socket.removeAllListeners(); socket.destroy(); resolve(free); };
@@ -99,7 +99,7 @@ export function isPortFree(port) {
   });
 }
 
-export async function waitForPortFree(port, timeoutMs = 15_000) {
+export async function waitForPortFree(port: number, timeoutMs = 15_000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     if (await isPortFree(port)) return true;
@@ -108,7 +108,7 @@ export async function waitForPortFree(port, timeoutMs = 15_000) {
   }
 }
 
-export function findPortOwner(port) {
+export function findPortOwner(port: number): number | null {
   if (IS_WIN) {
     const r = runCommand('powershell.exe', ['-NoProfile', '-Command',
       '(Get-NetTCPConnection -LocalPort ' + Number(port) + ' -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess'], { timeoutMs: 30_000 });
@@ -120,8 +120,8 @@ export function findPortOwner(port) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-export function redactUrl(text) {
+export function redactUrl(text: unknown): string {
   return String(text ?? '').replace(/([?&]token=)[^\s"'&]+/g, '$1***');
 }
 
-export function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+export function sleep(ms: number): Promise<void> { return new Promise((resolve) => setTimeout(resolve, ms)); }

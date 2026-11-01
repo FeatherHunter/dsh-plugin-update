@@ -1,0 +1,61 @@
+{
+  "step": "wizard-skip",
+  "channel": "A",
+  "at": "2026-11-01T13:08:17.662Z",
+  "welcomeClicks": [],
+  "layer1Skip": {
+    "found": true,
+    "visible": true,
+    "text": "跳过",
+    "title": "",
+    "disabled": false,
+    "rect": {
+      "x": 1140.8125,
+      "y": 726.6607666015625,
+      "width": 32,
+      "height": 32,
+      "cx": 1156.8125,
+      "cy": 742.6607666015625
+    },
+    "inViewport": true,
+    "inside": true,
+    "topTag": "BUTTON.",
+    "via": "cdp-mouse"
+  },
+  "layer2Confirm": {
+    "found": true,
+    "visible": true,
+    "text": "我知道了",
+    "title": "",
+    "disabled": false,
+    "rect": {
+      "x": 628.5714721679688,
+      "y": 454.5714416503906,
+      "width": 85.14286041259766,
+      "height": 36,
+      "cx": 671.1429023742676,
+      "cy": 472.5714416503906
+    },
+    "inViewport": true,
+    "inside": true,
+    "topTag": "BUTTON._button_1rv3m_2 _outline_1rv3m_54 _md_1r",
+    "via": "cdp-mouse"
+  },
+  "confirmDialog": {
+    "text": "暂时跳过充值？ 没有可用额度时，DeepSeek Harness 将无法开始新的任务。你可以稍后前往 设置 → 账号与余额 进行充值。 我知道了 前往充值",
+    "buttons": [
+      "我知道了",
+      "前往充值"
+    ]
+  },
+  "wizardGone": true,
+  "final": {
+    "href": "dsh-app://app/",
+    "wizard": false,
+    "welcome": false,
+    "dialogs": [],
+    "composer": true,
+    "text": "新会话 Ctrl + N 插件 自动化任务 更多 工作区 默认工作区 新会话 止息 新版本 探索未至之境 预览版 默认工作区 标准模式 描述你想要构建的内容, / 调用指令, @ 文件或对话 工作区内修改 Prompt DeepSeek-V4.1-Flash 1017 High"
+  },
+  "note": "复现说明：本票通道 A 的隔离 home（t0-264-channelA/home，自 11:58Z 已 signed-in）运行前把 ui-settings-account config 临时置回 step: credit（等价初版 raw/23 的向导态），用全新 --user-data-dir 起官方桌面 0.2.1-rc.5；两层点击均经 elementFromPoint 覆盖校验 + CDP Input.dispatchMouseEvent 真实点击（via=cdp-mouse）。点「我知道了」后 app 把 step 写回 done / completion skipped。"
+}
