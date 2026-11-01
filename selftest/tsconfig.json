@@ -9,5 +9,6 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["./**/*.ts", "../src/shared/node-ambient.d.ts"]
+  "include": ["./**/*.ts", "../src/shared/node-ambient.d.ts"],
+  "exclude": ["./fixtures", "./real-machine", "./tooling"]
 }
