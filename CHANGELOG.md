@@ -24,7 +24,7 @@
 - **#276 口径统一**：README「孤儿接管/租约/activeInstall/进度坞」、CONTEXT.md 的「租约/孤儿接管」、ADR-0008 §1.1/§3/§4/§5/§7 与上文 #246 条目里「只动自己属主」「仅中枢启用时登记」的旧说法全部改成现状。
 
 ### Tests
-- **#276 新增**：`tests/hub-lease-store.test.mjs` 6 例（独占创建只有一个成功、带预期写拒绝代次不符、并发同预期只有一个成功、释放只认自己代次、操作后不留锁残留）；`tests/hub-single-writer.test.mjs` 12 例（长安装步 > 陈旧窗仍被心跳续活且不被接管、租约被删后心跳不复活、接管后旧代次不写账本、同案不重复写方案、FIFO 队头长期 queued 不饿死后来者、运行中取消不留幽灵任务、让位空档取消干净、`activeInstall` 取自更新目标 `pluginId` 且安装期间 `updateHubStatus` 报得出来、`activeInstall` 用注入的陈旧窗判定）；另有两进程（真实租约/账本/`global.lock` 文件 + 3s 慢安装步，`global.lock` 在安装步里真实持有并被父进程断言）的多进程测试、坏方案电话层/自愈/非法属主丢弃 + 别家未收尾孤儿由本实例接管装完（US31）测试、单目标失败与传输异常隔离测试（#246 的 12 项必测 partial 补齐；自更新端到端仍归 #263）。
+- **#276 新增**：`tests/hub-lease-store.test.mjs` 6 例（独占创建只有一个成功、带预期写拒绝代次不符、并发同预期只有一个成功、释放只认自己代次、操作后不留锁残留）；`tests/hub-single-writer.test.mjs` 9 例（长安装步 > 陈旧窗仍被心跳续活且不被接管、租约被删后心跳不复活、接管后旧代次不写账本、同案不重复写方案、FIFO 队头长期 queued 不饿死后来者、运行中取消不留幽灵任务、让位空档取消干净、`activeInstall` 取自更新目标 `pluginId` 且安装期间 `updateHubStatus` 报得出来、`activeInstall` 用注入的陈旧窗判定）；另有两进程（真实租约/账本/`global.lock` 文件 + 3s 慢安装步，`global.lock` 在安装步里真实持有并被父进程断言）的多进程测试、坏方案电话层/自愈/非法属主丢弃 + 别家未收尾孤儿由本实例接管装完（US31）测试、单目标失败与传输异常隔离测试（#246 的 12 项必测 partial 补齐；自更新端到端仍归 #263）。
 - **#276 改写**：`tests/hub-takeover.test.mjs` 第三例从「只接自己属主」改为「任一集成方接管别家方案并装完」；`tests/issue-253-hub-exception-boundary.test.mjs` 的租约写 seam 随独占创建端口改为 `createLease`；`tests/batch-e2e.test.mjs` 的 E3b 去掉负载敏感偶红（`restartRequired` 断言等快照稳定，不再靠重跑碰运气）；`tests/hub-bad-plan.test.mjs` 第 3 例从「非法属主空过」改为「不安全方案丢弃 + 别家未收尾孤儿由本实例接管装完（US31）」，与票面口径一致。
 
 ## [0.18.39] - 2026-10-24
