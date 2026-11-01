@@ -350,7 +350,12 @@ describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执
           },
         },
       },
-      { config: { installTimeoutMs: 4 }, installPollMs: 10 },
+      // 陈旧阈值与超时都按注入时钟算（buildBatch 的 now 每调一次 +1）。4 在全量并行负载下
+      // 对 B 自己也过紧：B 的收尾轮询可能先被判超时，账本随后按盘上事实纠成 done、却留着
+      // install-failed 痕迹（reconcileFailed 的有意口径），E3b 的 b.error 断言就偶红。
+      // 200 个注入时钟单位 ≈ 几十拍轮询的余量，B 正常收尾够用；对 A 仍是「卡死到点收失败」，
+      // 且 A 的 owner 会被 B 按同一陈旧窗（阈值=installTimeoutMs）回收，测试语义不变。
+      { config: { installTimeoutMs: 200 }, installPollMs: 10 },
     )
     const first = await host.handlers['life.batchInstall']({})
     assert.equal(first.ok, true)
