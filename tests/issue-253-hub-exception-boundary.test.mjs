@@ -63,13 +63,28 @@ function makeSeat({ owner, key, scope, install }) {
 }
 
 const TIMED_OUT = Symbol('timed-out')
-/** 「不悬挂」的可断言形式：等待超过 3 秒还没回话就是悬挂。先到先清表，别把定时器留到测试进程退出。 */
-function within(promise, ms = 3000) {
+/**
+ * 「不悬挂」的可断言形式：等待超过这个上限还没回话就是悬挂。先到先清表，别把定时器留到测试进程退出。
+ * 上限取 10s 而不是 3s：并发负载下（独立审查/压测时多个测试进程同时跑）CPU 抢占能把正常回包拖过 3s，
+ * 那是环境的慢，不是悬挂。真正的悬挂是无限等，10s 一样能钉出来。
+ */
+function within(promise, ms = 10_000) {
   let timer = null
   const timeout = new Promise((resolve) => {
     timer = setTimeout(() => resolve(TIMED_OUT), ms)
   })
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+}
+
+/**
+ * 把退避重试跑干净：每拍推进假时钟，同时给真实文件 I/O 一个事件循环刻度。
+ * 只推假时钟不做真实让步时，负载下的 fs 读写可能比一拍慢，泵会被误判成「没在重试」（独立审查复现）。
+ */
+async function drainRetries(clock, rounds = 100) {
+  for (let i = 0; i < rounds; i += 1) {
+    await clock.advance(10)
+    await new Promise((resolve) => setTimeout(resolve, 1))
+  }
 }
 
 const doneTransport = () => ({
@@ -158,9 +173,13 @@ test('任务边界：一个任务抛错不拖垮后续任务（泵在同一轮�
     assert.equal(await pendingB, 'queued', '后续任务先如实回「已排队」')
     releaseA()
     assert.equal(await pendingA, 'failed', '第一个任务抛错要给明确 failed')
-    for (let i = 0; i < 60; i += 1) {
-      await clock.flush()
-      if (phaseOf(seatB.sessionOf(), 'b') === 'done') break
+    // B 的续任 CAS 在并发负载下偶发写不进去（Windows rename 瞬时 EPERM → safeWriteLease 回
+    // false），中枢会让位并排 5ms 退避重试。等待要同时做两件事：推进假时钟（否则重试永远到
+    // 不了点）、让出真实事件循环（否则真实 fs 读写比一拍慢时会被误判成没在重试）。
+    const deadline = Date.now() + 3000
+    while (phaseOf(seatB.sessionOf(), 'b') !== 'done' && Date.now() < deadline) {
+      await clock.advance(10)
+      await new Promise((resolve) => setTimeout(resolve, 1))
     }
     assert.equal(phaseOf(seatB.sessionOf(), 'b'), 'done', '泵继续把后续任务推到收尾')
     await track.settle()
@@ -232,9 +251,9 @@ test('租约读取 seam：持续异常到达上限 → 任务明确 failed，不
     const first = await within(host.handlers['life.batchInstall']({}))
     assert.notEqual(first, TIMED_OUT)
     // 把退避定时器耗尽：到上限就判 failed，之后计数不再增长（不是无限空转）。
-    for (let i = 0; i < 50 && clock.pending() > 0; i += 1) await clock.advance(10)
+    await drainRetries(clock)
     const drained = reads
-    for (let i = 0; i < 5; i += 1) await clock.advance(10)
+    for (let i = 0; i < 10; i += 1) await clock.advance(10)
     assert.equal(reads, drained, '到上限后不再重试（没有残留的退避定时器）')
     assert.ok(drained >= HUB_MAX_LEASE_FAULTS && drained < 20, '重试有界，不是无限')
     assert.equal(clock.pending(), 0)
@@ -359,9 +378,9 @@ test('租约创建 seam：持续异常到达上限 → 任务明确 failed，不
   try {
     const first = await within(host.handlers['life.batchInstall']({}))
     assert.notEqual(first, TIMED_OUT)
-    for (let i = 0; i < 50 && clock.pending() > 0; i += 1) await clock.advance(10)
+    await drainRetries(clock)
     const drained = writes
-    for (let i = 0; i < 5; i += 1) await clock.advance(10)
+    for (let i = 0; i < 10; i += 1) await clock.advance(10)
     assert.equal(writes, drained, '到上限后不再重试（没有残留的退避定时器）')
     assert.ok(drained >= HUB_MAX_LEASE_FAULTS && drained < 20, '重试有界，不是无限')
     assert.equal(clock.pending(), 0)
@@ -389,9 +408,116 @@ test('租约写入 seam：端口正常返回 false（没写进去）仍按单进
     assert.notEqual(reply, TIMED_OUT)
     assert.equal(reply.ok, true)
     assert.equal(phaseOf(reply.session, 'a'), 'done', '正常的写失败不挡安装')
-    assert.equal(await readHubLease(hubPathsForUpdate(scope.homeDir, scope.profileDir)), null)
+    // 释放发生在泵的 finally 里、晚于等待者回包：有界等它落定再断言，别把「还没删」当「没删」。
+    const paths = hubPathsForUpdate(scope.homeDir, scope.profileDir)
+    const releaseDeadline = Date.now() + 2000
+    while ((await readHubLease(paths)) && Date.now() < releaseDeadline) {
+      await clock.flush()
+      await new Promise((resolve) => setTimeout(resolve, 1))
+    }
+    assert.equal(await readHubLease(paths), null)
     await track.settle()
     assert.deepEqual(track.seen, [])
+  } finally {
+    host.dispose()
+    track.stop()
+    unbindAll()
+  }
+})
+
+test('租约写入 seam：接管写租约抛一次异常 → 让位重排队，退避后照常接管并推完（不悬挂、不外抛）', async () => {
+  const { scope } = await mkScope('hub253-lease-cas-write-')
+  const clock = fakeClock()
+  const paths = hubPathsForUpdate(scope.homeDir, scope.profileDir)
+  // 盘上有一份死进程的活租约：新驾驶者走「接管 → 代次 +1 → 带预期写」这条 CAS 写路径。
+  await writeLeaseEventually(paths, {
+    version: HUB_LEASE_VERSION,
+    driverId: 'dead-driver',
+    pluginId: 'life',
+    pid: 999999,
+    generation: 1,
+    startedAt: clock.now(),
+    heartbeatAt: clock.now(),
+  })
+  let writes = 0
+  const io = {
+    ...DEFAULT_HUB_IO,
+    // #276：拿新驾驶位走独占创建，接管/续任才走 writeLease——这里的接管写必须走 writeLease。
+    writeLease: async (leasePaths, lease, expected) => {
+      writes += 1
+      if (writes === 1) throw new Error('lease cas write boom')
+      return await DEFAULT_HUB_IO.writeLease(leasePaths, lease, expected)
+    },
+  }
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, doneTransport(), { hubIo: io }), {
+    hub: true,
+    prefix: 'life',
+    targets: [mkTarget('a')],
+  })
+  const track = trackUnhandledRejections()
+  try {
+    const first = await within(host.handlers['life.batchInstall']({}))
+    assert.notEqual(first, TIMED_OUT, '等待者不许悬挂')
+    assert.equal(first.ok, true, '一次 I/O 异常不许升级成安装失败')
+    assert.equal(
+      phaseOf(first.session, 'a'),
+      'pending',
+      '异常按「让位重排队」收场：这一轮一步没走（行不会先变 ready）',
+    )
+    const done = await waitForPhase(clock, host, 'life.batchStatus', 'a', 'done')
+    assert.equal(phaseOf(done.session, 'a'), 'done', '退避重试后照常接管推完')
+    assert.ok(writes >= 2, '第一次抛异常被标记 fault，第二次真的把新一代租约写进盘')
+    await track.settle()
+    assert.deepEqual(track.seen, [], '进程不出现未处理 rejection')
+  } finally {
+    host.dispose()
+    track.stop()
+    unbindAll()
+  }
+})
+
+test('租约写入 seam：接管写租约持续异常到达上限 → 任务明确 failed，不再每秒空转', async () => {
+  const { scope } = await mkScope('hub253-lease-cas-write-hard-')
+  const clock = fakeClock()
+  const paths = hubPathsForUpdate(scope.homeDir, scope.profileDir)
+  await writeLeaseEventually(paths, {
+    version: HUB_LEASE_VERSION,
+    driverId: 'dead-driver',
+    pluginId: 'life',
+    pid: 999999,
+    generation: 1,
+    startedAt: clock.now(),
+    heartbeatAt: clock.now(),
+  })
+  let writes = 0
+  const io = {
+    ...DEFAULT_HUB_IO,
+    writeLease: async () => {
+      writes += 1
+      throw new Error('lease cas write boom')
+    },
+  }
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, doneTransport(), { hubIo: io }), {
+    hub: true,
+    prefix: 'life',
+    targets: [mkTarget('a')],
+  })
+  const track = trackUnhandledRejections()
+  try {
+    const first = await within(host.handlers['life.batchInstall']({}))
+    assert.notEqual(first, TIMED_OUT, '等待者不许悬挂')
+    assert.equal(first.ok, true, '故障计数到上限之前，回包仍按「已排队」收场')
+    // 不拿 clock.pending()===0 当止损：真实文件读写让泵可能处在「上一拍已过、下一拍还没排定时器」
+    // 的缝里（负载下会提前退出）。固定给足 100 拍并让出真实事件循环，等到第三次故障判 failed。
+    await drainRetries(clock)
+    const drained = writes
+    for (let i = 0; i < 10; i += 1) await clock.advance(10)
+    assert.equal(writes, drained, '到上限后不再重试（没有残留的退避定时器）')
+    assert.equal(drained, HUB_MAX_LEASE_FAULTS, '连续故障到上限就判 failed，不是无限重试')
+    assert.ok(drained < 20, '重试有界')
+    assert.equal(clock.pending(), 0)
+    await track.settle()
+    assert.deepEqual(track.seen, [], '进程不出现未处理 rejection')
   } finally {
     host.dispose()
     track.stop()

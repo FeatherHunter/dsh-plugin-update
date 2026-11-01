@@ -155,8 +155,9 @@ export interface MultiHostUpdate {
   lastRun: { stoppedBecause: BatchStoppedByBecause; steps: BatchRunStep[] } | null
   /**
    * 停掉 drain（接入方卸载时调）。**不是**中枢关停：进程级中枢在 fiber 卸载后仍要推进
-   * （ADR-0008 的核心承诺），宿主退出由中枢的 exit 钩子同步归还本代租约；协议换代等显式
-   * teardown 走内部 `shutdownHubScope()`。
+   * （ADR-0008 的核心承诺），宿主退出由中枢的 exit 钩子同步归还本代租约；显式宿主级 teardown
+   * （内部 `shutdownHubScope()`，目前无生产调用点，只留给宿主接线与测试模拟重启）才服务关停。
+   * 协议换代**不**走它：#254 把旧一代注册表按协议版本 Symbol 留着，旧泵排空后本代按盘上事实接管。
    */
   dispose(): void
 }
