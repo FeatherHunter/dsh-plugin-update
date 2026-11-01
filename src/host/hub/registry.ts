@@ -21,15 +21,26 @@ import { decideHubCycleVerdict, type HubCycleVerdict } from '../../core/hub/driv
 import {
   createHubLease,
   decideHubLease,
+  HUB_LEASE_HEARTBEAT_MS,
   HUB_LEASE_STALE_MS,
   isHubLeaseOwner,
   shouldHeartbeatHubLease,
   type HubLease,
 } from '../../core/hub/lease-policy.js'
-import { hubIoOf, safeReadLease, safeReleaseLease, safeWriteLease, safeWritePlan } from './boundary.js'
+import { planTargetOf, sameHubPlan } from '../../core/hub/plan.js'
+import {
+  hubIoOf,
+  safeCreateLease,
+  safeReadLease,
+  safeReadPlans,
+  safeReleaseLease,
+  safeRemovePlan,
+  safeWriteLease,
+  safeWritePlan,
+} from './boundary.js'
 import { HUB_REGISTRY_KEY, legacyHubBusyForKey } from './handoff.js'
 import { releaseHubLeaseSync } from './lease-store.js'
-import { hubPathsForUpdate, type HubPaths } from './plan-store.js'
+import { hubPathsForUpdate, removeHubPlan, type HubPaths } from './plan-store.js'
 import {
   HUB_MAX_LEASE_FAULTS,
   HUB_PROTOCOL_VERSION,
@@ -61,6 +72,8 @@ interface HubTask {
   selection: readonly string[] | null
   /** 结局等待者：done/failed/queued 都会被唤醒（queued = 让位，稍后泵会自己重试）。 */
   waiters: Array<(outcome: HubTaskOutcome) => void>
+  /** 被取消/清空批次撤销（revokeHubTask，US33）：不再驱动、不再写盘，排队中直接结算。 */
+  revoked: boolean
 }
 
 interface HubSlot {
@@ -79,6 +92,13 @@ interface HubSlot {
   legacyObservedAt: number | null
   retryTimer: unknown
   lease: HubLease | null
+  /**
+   * 盘上租约是否真的写成功并确认过（#276）。false = I/O 降级下的「本进程单飞」：
+   * 写账本不做代次栅栏（盘上没有租约可核对），但一旦盘上出现别人的租约就立刻停手。
+   */
+  leasePersisted: boolean
+  /** 当前驱动轮的租约保持者（#276）：关停/退出要能同步停掉它的心跳定时器。 */
+  keeper: { stop(): void } | null
   deps: HubRuntimeDeps
 }
 
@@ -149,6 +169,8 @@ function slotFor(scope: HubScope, deps: HubRuntimeDeps): HubSlot | null {
     legacyObservedAt: null,
     retryTimer: null,
     lease: null,
+    leasePersisted: false,
+    keeper: null,
     deps,
   }
   state.slots.set(key, slot)
@@ -295,7 +317,10 @@ async function submitHubTaskToSlot(
   // 方案先落盘（best-effort）：写不进去只影响「别人接手」，不影响本进程推进。
   // 但必须等这一笔 I/O 有结果：进程/插件在提交后立刻消失时，下一次装载只有盘上方案可依，
   // 不能把「方案还没写完」当成「没有方案」。
-  await safeWritePlan(hubIoOf(deps), slot.paths, seat.plan)
+  // #276（L101）：内容与盘上那份一致就不再重写——每次安装都整写一遍方案只是白抖 I/O。
+  const io = hubIoOf(deps)
+  const onDiskPlan = (await safeReadPlans(io, slot.paths)).find((plan) => plan.owner === seat.plan.owner) ?? null
+  if (!sameHubPlan(onDiskPlan, seat.plan)) await safeWritePlan(io, slot.paths, seat.plan)
   const id = taskIdOf(seat)
   const existing = slot.tasks.find((task) => task.state !== 'settled' && task.id === id)
   if (existing) {
@@ -326,6 +351,7 @@ async function submitHubTaskToSlot(
     leaseFaults: 0,
     selection: options.selection ?? null,
     waiters: [],
+    revoked: false,
   }
   slot.tasks.push(task)
   if (busyBefore) {
@@ -344,11 +370,25 @@ async function submitHubTaskToSlot(
 
 async function pumpSlot(slot: HubSlot): Promise<void> {
   try {
+    // FIFO 但公平（#276）：队头让位（租约不在手/队列被占/取消让位）时把它挪到队尾，
+    // 让后来者先试一次——否则长期 queued 的队头会把后来者饿死（报告 §5.4(3)）。
+    // 每轮最多走一圈任务表，避免「所有任务都立刻让位」时空转。
+    let attempts = 0
     while (!slot.closed) {
       const task = slot.tasks.find((one) => one.state === 'queued')
       if (!task) break
       const verdict = await runTaskGuarded(slot, task)
-      if (verdict === 'stop') break
+      if (verdict === 'stop') {
+        attempts += 1
+        const index = slot.tasks.indexOf(task)
+        if (index >= 0) {
+          slot.tasks.splice(index, 1)
+          slot.tasks.push(task)
+        }
+        if (attempts >= slot.tasks.filter((one) => one.state === 'queued').length) break
+        continue
+      }
+      attempts = 0
     }
   } catch {
     // 泵级兜底：任务边界已把每个任务收住，这里不该出现异常；真出现了也绝不外抛——
@@ -375,16 +415,23 @@ async function runTaskGuarded(slot: HubSlot, task: HubTask): Promise<RunVerdict>
 }
 
 async function runTask(slot: HubSlot, task: HubTask): Promise<RunVerdict> {
+  // 被取消/清空批次撤销（#276 / US33）：不驱动、不写盘；排队中的任务直接结算，运行中的置 revoked。
+  if (task.revoked) {
+    settleTaskAsQueued(task)
+    return 'stop'
+  }
   // 换代只观察（#254）：旧一代还有未结算任务时，本代先不驱动同一步——旧任务与旧等待者只认旧泵，
-  // 贸然接管会把同一步走两遍。让位退避等它排空；观察窗口到 HUB_LEASE_STALE_MS 还没排空，
+  // 贸然接管会把同一步走两遍。让位退避等它排空；观察窗口到陈旧窗口还没排空，
   // 说明旧一代可能已死/假死，此后不再只观察，交给租约仲裁（旧租约新鲜时 ensureLease 仍会让位）。
   if (legacyHubBusyForKey(slot.key)) {
     if (slot.legacyObservedAt === null) slot.legacyObservedAt = slot.deps.now()
-    if (slot.deps.now() - slot.legacyObservedAt < HUB_LEASE_STALE_MS) return requeueTask(slot, task)
+    if (slot.deps.now() - slot.legacyObservedAt < leaseStaleMsOf(slot.deps)) return requeueTask(slot, task)
   } else {
     slot.legacyObservedAt = null
   }
-  const attempt = await ensureLease(slot, task.owner)
+  // #276：租约里的插件身份取「方案的自更新目标」，这样 updateHubStatus 的 activeInstall 才能和
+  // 方案 targets 的 pluginId 对上（旧实现写的是 owner 前缀，快照里的身份判据永远不成立）。
+  const attempt = await ensureLease(slot, leasePluginIdOf(task.seat))
   if (attempt.kind === 'fault') {
     // 租约端口抛了未预期异常：这不是「等别家让位」，坏 I/O 等不来。记一次故障后让位；
     // 连续到上限就给明确 failed（绝不每秒重试到进程结束）。
@@ -415,13 +462,25 @@ async function runTask(slot: HubSlot, task: HubTask): Promise<RunVerdict> {
       await settleTask(slot, task, { outcome: 'done', stoppedBecause: 'finished', steps: [], session })
       return 'next'
     }
+    // #276：账本身份核验。取消/清空之后新开的批次（或空账本）不许被这张旧任务驱动，
+    // 否则就是「空转幽灵任务」；驱动别的会话也会把不属于它的行写进账本。
+    if (session.id !== task.seat.plan.sessionId) {
+      settleTaskAsQueued(task)
+      return 'next'
+    }
     // 旧一代排空/观察超时后真正由本代开推：补做「接手续跑」该做的落盘（重读最新账本再 resume、
     // 清上一任排队占位、记启动日志）。旧一代忙时这只席位是只读装的，不补就会带着中断相位开推、
     // 日志也缺续跑口径（#254 审查）。
     await task.seat.takeOver?.()
     const result = await driveTask(slot, task)
     // 让位：账本已逐步落盘，任务回队列等退避重试；等待者先拿到「已排队」。
-    if (result.kind === 'yield') return requeueTask(slot, task)
+    if (result.kind === 'yield') {
+      if (task.revoked) {
+        settleTaskAsQueued(task)
+        return 'stop'
+      }
+      return requeueTask(slot, task)
+    }
     await settleTask(slot, task, result.report)
     return 'next'
   } catch {
@@ -438,6 +497,14 @@ async function runTask(slot: HubSlot, task: HubTask): Promise<RunVerdict> {
 
 type DriveTaskResult = { kind: 'settled'; report: HubSettledReport } | { kind: 'yield' }
 
+/** 本任务这一轮已经失去驾驶位（被接管/租约被撤/取消）：见到它就让位，不再往账本写一个字。 */
+class HubLeaseLostError extends Error {
+  constructor() {
+    super('hub lease lost')
+    this.name = 'HubLeaseLostError'
+  }
+}
+
 /**
  * 一轮推进：每步复用 runBatch(maxSteps:1)，按 drive-policy 决定继续/让位/收尾/报错。
  *
@@ -445,77 +512,101 @@ type DriveTaskResult = { kind: 'settled'; report: HubSettledReport } | { kind: '
  *   1. 行级选择：只把选中行做成视图交给 runBatch，其余行按盘上现状原样保留；
  *   2. 每步重读账本再合并落盘：并发写入者（用户点重试/入队、另一个进程）不会被这一轮的陈旧快照覆盖；
  *   3. 队列让位（queued）不计入「无进展」看门狗——排队不是故障，等就是。
+ *
+ * #276 再补两条（真正单写者）：
+ *   4. 整轮驱动期间挂「租约保持者」：长安装步（> 陈旧窗口）期间心跳照样续活，不被别的进程误判假死接管；
+ *   5. 写账本前做代次栅栏：盘上租约不是这一代就一个字节都不写，直接让位（旧代次绝不覆盖新代次）。
  */
 async function driveTask(slot: HubSlot, task: HubTask): Promise<DriveTaskResult> {
   let session = await task.seat.readSession()
   let cycleSteps = 0
   let lastStoppedBecause: BatchStoppedByBecause = 'empty'
-  while (true) {
-    // 槽位已关停（宿主关停/协议换代）：这一步的成果已在盘上，剩下的留给下一个实例，别再推。
-    if (slot.closed) return { kind: 'yield' }
-    // 跨进程也算数：每一步前复核一次驾驶位（文件是最终裁判），丢了就让位——
-    // 避免两个进程都以为自己拿到了早已被接管的那一代租约、把同一步走两遍。
-    if (!(await stillOwnsLease(slot))) return { kind: 'yield' }
-    const before = progressSignature(session)
-    // 这一步的起草底稿：patch 只对「底稿里真变过的行」有发言权，其余行以盘上最新为准。
-    const baseline = stepView(session, task.selection)
-    const result = await runBatch(
-      baseline,
-      {
-        check: (key: string) => task.seat.check(key),
-        install: (key: string, requestId: string, version: string) => task.seat.install(key, requestId, version),
-        save: async (next: BatchSession) => {
-          // 先读回盘上最新（可能已被并发写入者改过），只把这一步真变过的行合并进去。
-          const fresh = await task.seat.readSession()
-          session = mergeBatchSessions(fresh, next, baseline)
-          await task.seat.saveSession(session)
-        },
-        now: () => slot.deps.now(),
-        ...(task.seat.logFor ? { logFor: task.seat.logFor } : {}),
-        indexOf: (key: string) => task.seat.indexOf(key),
-      },
-      { maxSteps: 1 },
-    )
-    // 以盘为准：runBatch 返回的是视图，合并后的完整会话语义在 save 里已经落盘。
-    session = await task.seat.readSession()
-    // 收尾口径跟着「这一任务的范围」走：行级选择的批次只关心选中的行；整批才关心全表。
-    const scoped = task.selection ? stepView(session, task.selection) : session
-    const scopeFinished = scoped.entries.length > 0 && isBatchFinished(scoped)
-    // 视图里的「收尾 / 失败即停」不算数：并发写者可能刚把某一行改回待装（审查报告 B3）。
-    // 以合并后的盘上会话为准——真收尾才保留原判定，否则按预算用完继续推。
-    const mergedStopped = (result.stoppedBecause === 'finished' || result.stoppedBecause === 'stopped-after-failure') && !scopeFinished ? 'max-steps' : result.stoppedBecause
-    lastStoppedBecause = mergedStopped
-    for (const step of result.steps) task.steps.push(step)
-    if (task.steps.length > 64) task.steps.splice(0, task.steps.length - 64)
-    cycleSteps += 1
-    // 排队让位不是「无进展」：把它算进看门狗会让「队列被别家占十秒」被误判成故障。
-    if (lastStoppedBecause !== 'queued') {
-      task.idleSteps = progressSignature(session) === before ? task.idleSteps + 1 : 0
-    }
-    const beat = await heartbeat(slot)
-    // 心跳时发现已经被换代接管：这一步的成果已经在盘上，留给新驾驶位合并；
-    // 自己退回队列走退避重试，不能拿旧代次继续判收尾/写盘。
-    if (beat === 'lost') return { kind: 'yield' }
-    const verdict: HubCycleVerdict = decideHubCycleVerdict({
-      sessionFinished: scopeFinished,
-      stoppedBecause: lastStoppedBecause,
-      stepsTaken: cycleSteps,
-      consecutiveNoProgress: task.idleSteps,
-    })
-    if (verdict === 'continue') continue
-    if (verdict === 'yield') return { kind: 'yield' }
-    if (verdict === 'fail') {
-      return {
-        kind: 'settled',
-        report: {
-          outcome: 'failed',
-          stoppedBecause: lastStoppedBecause === 'finished' || lastStoppedBecause === 'stopped-after-failure' ? lastStoppedBecause : 'error',
-          steps: task.steps.slice(),
-          session,
-        },
+  const keeper = startLeaseKeeper(slot)
+  slot.keeper = keeper
+  try {
+    while (true) {
+      // 槽位已关停（宿主关停/协议换代）：这一步的成果已在盘上，剩下的留给下一个实例，别再推。
+      if (slot.closed) return { kind: 'yield' }
+      // 取消/清空批次撤销（US33）：下一步之前停手，不能把取消后的账本该写。
+      if (task.revoked) return { kind: 'yield' }
+      // 跨进程也算数：每一步前复核一次驾驶位（文件是最终裁判），丢了就让位——
+      // 避免两个进程都以为自己拿到了早已被接管的那一代租约、把同一步走两遍。
+      if (keeper.lost() || !(await stillOwnsLease(slot))) return { kind: 'yield' }
+      const before = progressSignature(session)
+      // 这一步的起草底稿：patch 只对「底稿里真变过的行」有发言权，其余行以盘上最新为准。
+      const baseline = stepView(session, task.selection)
+      let result: Awaited<ReturnType<typeof runBatch>>
+      try {
+        result = await runBatch(
+          baseline,
+          {
+            check: (key: string) => task.seat.check(key),
+            install: (key: string, requestId: string, version: string) => task.seat.install(key, requestId, version),
+            save: async (next: BatchSession) => {
+              // #276 代次栅栏：写盘前以盘上租约为最终裁判；丢代次/被撤销就中止这一步，不写账本。
+              if (task.revoked) throw new HubLeaseLostError()
+              if (!(await assertLeaseForWrite(slot))) throw new HubLeaseLostError()
+              // 先读回盘上最新（可能已被并发写入者改过），只把这一步真变过的行合并进去。
+              const fresh = await task.seat.readSession()
+              session = mergeBatchSessions(fresh, next, baseline)
+              await task.seat.saveSession(session)
+            },
+            now: () => slot.deps.now(),
+            ...(task.seat.logFor ? { logFor: task.seat.logFor } : {}),
+            indexOf: (key: string) => task.seat.indexOf(key),
+          },
+          { maxSteps: 1 },
+        )
+      } catch (error) {
+        if (error instanceof HubLeaseLostError) return { kind: 'yield' }
+        throw error
       }
+      // 以盘为准：runBatch 返回的是视图，合并后的完整会话语义在 save 里已经落盘。
+      session = await task.seat.readSession()
+      // 收尾口径跟着「这一任务的范围」走：行级选择的批次只关心选中的行；整批才关心全表。
+      const scoped = task.selection ? stepView(session, task.selection) : session
+      const scopeFinished = scoped.entries.length > 0 && isBatchFinished(scoped)
+      // 视图里的「收尾 / 失败即停」不算数：并发写者可能刚把某一行改回待装（审查报告 B3）。
+      // 以合并后的盘上会话为准——真收尾才保留原判定，否则按预算用完继续推。
+      const mergedStopped = (result.stoppedBecause === 'finished' || result.stoppedBecause === 'stopped-after-failure') && !scopeFinished ? 'max-steps' : result.stoppedBecause
+      lastStoppedBecause = mergedStopped
+      for (const step of result.steps) task.steps.push(step)
+      if (task.steps.length > 64) task.steps.splice(0, task.steps.length - 64)
+      cycleSteps += 1
+      // 排队让位不是「无进展」：把它算进看门狗会让「队列被别家占十秒」被误判成故障。
+      if (lastStoppedBecause !== 'queued') {
+        task.idleSteps = progressSignature(session) === before ? task.idleSteps + 1 : 0
+      }
+      if (keeper.lost()) return { kind: 'yield' }
+      const beat = await heartbeat(slot)
+      // 心跳时发现已经被换代接管：这一步的成果已经在盘上，留给新驾驶位合并；
+      // 自己退回队列走退避重试，不能拿旧代次继续判收尾/写盘。
+      if (beat === 'lost') return { kind: 'yield' }
+      const verdict: HubCycleVerdict = decideHubCycleVerdict({
+        sessionFinished: scopeFinished,
+        stoppedBecause: lastStoppedBecause,
+        stepsTaken: cycleSteps,
+        consecutiveNoProgress: task.idleSteps,
+      })
+      if (verdict === 'continue') continue
+      if (verdict === 'yield') return { kind: 'yield' }
+      if (verdict === 'fail') {
+        return {
+          kind: 'settled',
+          report: {
+            outcome: 'failed',
+            stoppedBecause: lastStoppedBecause === 'finished' || lastStoppedBecause === 'stopped-after-failure' ? lastStoppedBecause : 'error',
+            steps: task.steps.slice(),
+            session,
+          },
+        }
+      }
+      return { kind: 'settled', report: { outcome: 'done', stoppedBecause: lastStoppedBecause, steps: task.steps.slice(), session } }
     }
-    return { kind: 'settled', report: { outcome: 'done', stoppedBecause: lastStoppedBecause, steps: task.steps.slice(), session } }
+  } finally {
+    // 长步骤已经结束：保持者必须停表，否则会留下一个到进程退出都还在的心跳定时器。
+    keeper.stop()
+    if (slot.keeper === keeper) slot.keeper = null
   }
 }
 
@@ -590,42 +681,157 @@ type LeaseAttempt =
   | { kind: 'wait' }
   | { kind: 'fault' }
 
+/** 租约陈旧窗口（#276 测试口子：多进程夹具要把 20s 缩到秒级才能压测长步骤与接管）。 */
+function leaseStaleMsOf(deps: HubRuntimeDeps): number {
+  const raw = deps.leaseStaleMs
+  return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : HUB_LEASE_STALE_MS
+}
+
+/** 心跳节拍（#276 测试口子；与 core/hub/lease-policy 的判据同一口径）。 */
+function heartbeatIntervalOf(deps: HubRuntimeDeps): number {
+  const raw = deps.heartbeatMs
+  return typeof raw === 'number' && Number.isFinite(raw) && raw >= 1_000 ? Math.floor(raw) : HUB_LEASE_HEARTBEAT_MS
+}
+
+/**
+ * 租约里的插件身份取「方案的自更新目标」（#276）：updateHubStatus 的 activeInstall 靠 lease.pluginId
+ * 与方案 targets[].pluginId 对上；旧实现写 owner 前缀，快照里的身份判据永远不成立（报告 §5.4(4)）。
+ */
+function leasePluginIdOf(seat: HubSeat): string {
+  const self = seat.plan.selfKey ? planTargetOf(seat.plan, seat.plan.selfKey) : null
+  return self?.pluginId ?? seat.plan.targets[0]?.pluginId ?? seat.owner
+}
+
+/**
+ * 长步骤期间的「租约保持者」（#276）：按心跳节拍续活，被换代/租约被撤就置 lost 并停表。
+ * 定时器走 deps.timers（测试用假时钟驱动）；后台定时器里的任何异常都吞掉，绝不外抛（#253 口径）。
+ */
+function startLeaseKeeper(slot: HubSlot): { lost(): boolean; stop(): void } {
+  let stopped = false
+  let lost = false
+  let timer: unknown = null
+  const schedule = () => {
+    if (stopped || lost || timer !== null) return
+    try {
+      timer = slot.deps.timers.setTimeout(tick, heartbeatIntervalOf(slot.deps))
+    } catch {
+      timer = null
+    }
+  }
+  const tick = () => {
+    timer = null
+    if (stopped || lost) return
+    void heartbeat(slot)
+      .then((beat) => {
+        if (beat === 'lost') lost = true
+      })
+      .catch(() => {
+        lost = true
+      })
+      .finally(() => {
+        if (!stopped && !lost) schedule()
+      })
+  }
+  schedule()
+  return {
+    lost: () => lost,
+    stop() {
+      stopped = true
+      if (timer !== null) {
+        try {
+          slot.deps.timers.clearTimeout(timer)
+        } catch {}
+        timer = null
+      }
+    },
+  }
+}
+
+/**
+ * 写账本前的代次栅栏（#276）：以盘上租约为最终裁判。
+ * - 本进程的租约是「写成功并确认过」的：盘上必须还是这一代，否则拒绝写；
+ * - 租约从来没写进去（I/O 降级下的本进程单飞）：盘上若已存在别人的租约就拒绝，否则放行（ADR best-effort）；
+ * - 读取异常一律拒绝：拿不到事实就不写盘——账本比一次安装更贵。
+ */
+async function assertLeaseForWrite(slot: HubSlot): Promise<boolean> {
+  const lease = slot.lease
+  if (!lease) return false
+  const read = await safeReadLease(hubIoOf(slot.deps), slot.paths)
+  if (read.fault) return false
+  if (!read.value) return !slot.leasePersisted
+  return isHubLeaseOwner(read.value, slot.driverId, lease.generation)
+}
+
 /**
  * 拿/续/接管驾驶位。三种结局都显式：拿不到是等（退避后重试），端口异常是 fault
  * （由任务边界计数，到上限判 failed——坏 I/O 不能靠等自愈）。
  * 写不进去仍退回「本进程单飞」（ADR-0008：租约一切 I/O best-effort，绝不挡安装）。
+ *
+ * #276：写入从「读 → 无条件整写」改成真 CAS——拿新位用独占创建，续任/接管带「盘上这一代」的预期；
+ * 写完再读回确认，确认不了就当没拿到（让位）。两个进程同抢时不会各写一份都自认驾驶位。
  */
 async function ensureLease(slot: HubSlot, pluginId: string): Promise<LeaseAttempt> {
   const deps = slot.deps
   const io = hubIoOf(deps)
   const now = deps.now()
+  const staleMs = leaseStaleMsOf(deps)
   const read = await safeReadLease(io, slot.paths)
   if (read.fault) return { kind: 'fault' }
   const current = read.value
   const processAlive = current && current.driverId !== slot.driverId ? isAlive(deps, current.pid) : null
-  const decision = decideHubLease({ current, driverId: slot.driverId, now, processAlive })
+  const decision = decideHubLease({ current, driverId: slot.driverId, now, processAlive, staleMs })
   if (decision.kind === 'wait') return { kind: 'wait' }
   const lease = createHubLease({ driverId: slot.driverId, pluginId, pid: deps.pid, now, generation: decision.generation })
-  const wrote = await safeWriteLease(io, slot.paths, lease)
-  // 端口**抛出**未预期异常：算 fault（让位/到上限 failed），不拿「写失败也能单飞」的旧口径吞掉——
-  // 那条口径说的是端口**返回 false**（正常的没写进去），不是故障。
+  if (decision.kind === 'acquire') {
+    // 盘上还没有租约：独占创建（原子发布；目标已存在即失败 = 别家先赢）。
+    const created = await safeCreateLease(io, slot.paths, lease)
+    if (created.fault) return { kind: 'fault' }
+    if (created.value) {
+      const confirmed = await safeReadLease(io, slot.paths)
+      if (confirmed.fault) return { kind: 'fault' }
+      if (!isHubLeaseOwner(confirmed.value, slot.driverId, lease.generation)) return { kind: 'wait' }
+      slot.lease = lease
+      slot.leasePersisted = true
+      return { kind: 'owned', lease }
+    }
+    // 没创建成功：重读一次再判——别家刚好先写了就等；盘上仍没有就是写不进去的降级环境。
+    const after = await safeReadLease(io, slot.paths)
+    if (after.fault) return { kind: 'fault' }
+    if (after.value) return { kind: 'wait' }
+    slot.lease = lease
+    slot.leasePersisted = false
+    return { kind: 'owned', lease }
+  }
+  // renew / takeover：带预期（盘上现在这一代）做 CAS；盘上不是预期就不写。
+  const expected = current
+    ? ({ kind: 'owner', driverId: current.driverId, generation: current.generation } as const)
+    : ({ kind: 'absent' } as const)
+  const wrote = await safeWriteLease(io, slot.paths, lease, expected)
   if (wrote.fault) return { kind: 'fault' }
   if (wrote.value) {
     // 写完再读回确认代次：同机多进程同抢时，以最后一次落盘为准（写不出就退回单进程内推进）。
     const confirmed = await safeReadLease(io, slot.paths)
     if (confirmed.fault) return { kind: 'fault' }
     if (!isHubLeaseOwner(confirmed.value, slot.driverId, lease.generation)) return { kind: 'wait' }
+    slot.lease = lease
+    slot.leasePersisted = true
+    return { kind: 'owned', lease }
   }
+  const after = await safeReadLease(io, slot.paths)
+  if (after.fault) return { kind: 'fault' }
+  if (after.value) return { kind: 'wait' }
+  // 盘上仍无租约：写不进去的降级环境，退回本进程单飞（ADR-0008 best-effort 口径不变）。
   slot.lease = lease
+  slot.leasePersisted = false
   return { kind: 'owned', lease }
 }
 
 /**
  * 每步前的驾驶位复核：文件是最终裁判。
- * - 没有租约（单飞模式）或盘上没有租约：说明这台机器上写不出租约（ensureLease 已确认过归属），
- *   退回单进程内推进；
- * - 读**异常**：拿不到事实就不盲推（否则一整轮 2000 步都可能在坏 I/O 上双驱动）——
- *   这一步让位，下一次 ensureLease 会把这次故障计数，到上限给明确 failed；
+ * - 盘上租约是「我这一代」：继续；
+ * - 盘上**没有**租约：只有「本进程从来没写进去过（单飞）」才算继续——租约曾被确认写成功，
+ *   现在文件没了，说明它被撤/被别人删了，绝不当成「还是我的」（#276：旧代码正是在这里复活旧代次）；
+ * - 读**异常**：拿不到事实就不盲推，这一步让位；
  * - 读到别人的代次：让位（yield），由退避重试重新排队，绝不和对方抢同一步。
  */
 async function stillOwnsLease(slot: HubSlot): Promise<boolean> {
@@ -633,36 +839,79 @@ async function stillOwnsLease(slot: HubSlot): Promise<boolean> {
   if (!lease) return true
   const read = await safeReadLease(hubIoOf(slot.deps), slot.paths)
   if (read.fault) return false
-  if (!read.value) return true
+  if (!read.value) return !slot.leasePersisted
   return isHubLeaseOwner(read.value, slot.driverId, lease.generation)
 }
 
 /**
- * 续心跳。返回 'lost' 表示盘上已经换成别人的代次——此时一个字都不写（lease-store 的口径：
- * 不是我的代次就不动），并清掉本地租约，让调用方让位重排队。
- * 读异常时这一轮不写（读不到事实就别拿旧代次覆盖盘上可能更新的租约）。
+ * 续心跳。返回 'lost' 表示盘上已经换成别人的代次（或租约文件已不在）——此时一个字都不写，
+ * 清掉本地租约，让调用方让位重排队。
+ *
+ * #276 三条硬口径：
+ *   1. 租约文件缺失 → 'lost'，**绝不**把旧代次写回去（旧实现会复活已删的租约）；
+ *   2. 写入带预期（driverId + generation）做 CAS，写完再读回确认；
+ *   3. 读/写出现未预期异常 → 'lost'（拿不到事实就不硬写旧代次）。
  */
 async function heartbeat(slot: HubSlot): Promise<'ok' | 'lost'> {
   const lease = slot.lease
   if (!lease) return 'ok'
-  const now = slot.deps.now()
-  if (!shouldHeartbeatHubLease(lease, now)) return 'ok'
-  const io = hubIoOf(slot.deps)
+  const deps = slot.deps
+  const now = deps.now()
+  if (!shouldHeartbeatHubLease(lease, now, heartbeatIntervalOf(deps))) return 'ok'
+  const io = hubIoOf(deps)
   const read = await safeReadLease(io, slot.paths)
   if (read.fault) {
-    // 读不到事实就不硬写旧代次（防「租约缺失时心跳复活旧代次」），并让位：
-    // 下一次 ensureLease 会把故障计数，绝不带着坏 I/O 继续盲推。
     slot.lease = null
+    slot.leasePersisted = false
     return 'lost'
   }
   const current = read.value
-  if (current && !isHubLeaseOwner(current, slot.driverId, lease.generation)) {
+  if (!current) {
+    // 租约文件缺失：这是「被撤/被删」的事实，不是「可以拿旧代次补一份」的许可。
     slot.lease = null
+    slot.leasePersisted = false
+    return 'lost'
+  }
+  if (!isHubLeaseOwner(current, slot.driverId, lease.generation)) {
+    slot.lease = null
+    slot.leasePersisted = false
     return 'lost'
   }
   const next: HubLease = { ...lease, heartbeatAt: now }
-  slot.lease = next
-  await safeWriteLease(io, slot.paths, next)
+  const wrote = await safeWriteLease(io, slot.paths, next, {
+    kind: 'owner',
+    driverId: slot.driverId,
+    generation: lease.generation,
+  })
+  if (wrote.fault) {
+    slot.lease = null
+    slot.leasePersisted = false
+    return 'lost'
+  }
+  if (wrote.value) {
+    const confirmed = await safeReadLease(io, slot.paths)
+    if (confirmed.fault) {
+      slot.lease = null
+      slot.leasePersisted = false
+      return 'lost'
+    }
+    if (!isHubLeaseOwner(confirmed.value, slot.driverId, lease.generation)) {
+      slot.lease = null
+      slot.leasePersisted = false
+      return 'lost'
+    }
+    slot.lease = next
+    slot.leasePersisted = true
+    return 'ok'
+  }
+  // 没写成（预期不符/没抢到锁）：重读——仍属我就当这一拍心跳不算数（下一拍会再写），否则让位。
+  const after = await safeReadLease(io, slot.paths)
+  if (after.fault || !after.value || !isHubLeaseOwner(after.value, slot.driverId, lease.generation)) {
+    slot.lease = null
+    slot.leasePersisted = false
+    return 'lost'
+  }
+  slot.lease = after.value
   return 'ok'
 }
 
@@ -671,6 +920,7 @@ async function releaseIfOwner(slot: HubSlot): Promise<void> {
   const lease = slot.lease
   if (!lease) return
   slot.lease = null
+  slot.leasePersisted = false
   await safeReleaseLease(hubIoOf(slot.deps), slot.paths, slot.driverId, lease.generation)
 }
 
@@ -702,6 +952,48 @@ export function hubBusyForScope(scope: HubScope): boolean {
 }
 
 /**
+ * 撤销一个属主的中枢任务（#276 / US33：取消/清空批次时由批量电话调用）。
+ *
+ * 排队的任务直接结算为 queued（不是失败：取消不是装失败）；运行中的置 revoked，让它在下一步/
+ * 写账本前停手，写盘前的代次栅栏也会拒绝取消后的账本被旧任务写回去。盘上方案一起撤掉
+ * （否则下一次装载会去接管一份已经没有账本的幽灵方案）；槽里若已无其它未结算任务，
+ * 同时停退避定时器并归还本代租约——不留空转的幽灵任务。
+ *
+ * 永不抛：取消是收尾旁路，不能反过来改写电话的结局。
+ */
+export async function revokeHubTask(scope: HubScope, owner: string): Promise<void> {
+  try {
+    const state = registry()
+    const key = slotKeyOf(scope)
+    const slot = state.slots.get(key)
+    const paths = hubPathsForUpdate(scope.homeDir, scope.profileDir)
+    if (slot) {
+      for (const task of slot.tasks) {
+        if (task.owner !== owner || task.state === 'settled') continue
+        task.revoked = true
+        if (task.state === 'queued') {
+          task.state = 'settled'
+          task.outcome = 'queued'
+          resolveWaiters(task, 'queued')
+        }
+      }
+      if (!slot.tasks.some((task) => task.state !== 'settled')) {
+        stopRetryTimer(slot)
+        await releaseIfOwner(slot)
+      }
+      pruneSettledTasks(slot)
+      if (paths) await safeRemovePlan(hubIoOf(slot.deps), paths, owner)
+      return
+    }
+    // 没有本代槽（别的进程/别的 fiber 拿着驾驶位）：至少把盘上方案撤掉，账本已由调用方清空；
+    // 那边的旧任务会在下一步发现账本身份不符/租约被撤而停手。
+    if (paths) await removeHubPlan(paths, owner)
+  } catch {
+    // 撤案是收尾旁路：任何失败都不外抛。
+  }
+}
+
+/**
  * 关停一处中枢槽（宿主关停、协议换代、测试模拟重启）：停掉所有退避定时器、
  * 给未结束任务的等待者一个诚实终态（queued＝这次没推完，盘上进度与方案留给下一个实例）、
  * 归还本代租约。幂等；关停后新实例用新槽，按盘上方案与账本重新接管。
@@ -724,6 +1016,8 @@ export async function shutdownHubScope(scope: HubScope): Promise<void> {
 function closeHubSlot(slot: HubSlot): void {
   slot.closed = true
   stopRetryTimer(slot)
+  // 驱动轮可能还在等一个长安装步：保持者的心跳定时器必须同步停掉（关停/退出后不留残留定时器）。
+  slot.keeper?.stop()
   for (const task of slot.tasks) settleTaskAsQueued(task)
 }
 
@@ -775,10 +1069,5 @@ export function __resetHubRegistryForTests(): void {
 export function hubSlotCountForTests(): number {
   return registry().slots.size
 }
-
-
-
-
-
 
 

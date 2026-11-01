@@ -18,13 +18,13 @@ import { createBatchSession, markBatchEntry } from '../dist/core/batch/model.js'
 import { createBatchOwnerPorts } from '../dist/core/disk.js'
 import { hash8 } from '../dist/shared/hash.js'
 import { hubPathsForUpdate, writeHubPlan } from '../dist/host/hub/plan-store.js'
-import { readHubLease, writeHubLease } from '../dist/host/hub/lease-store.js'
+import { readHubLease } from '../dist/host/hub/lease-store.js'
 import { HUB_LEASE_STALE_MS, HUB_LEASE_VERSION } from '../dist/core/hub/lease-policy.js'
 import { HUB_PROTOCOL_VERSION } from '../dist/host/hub/protocol.js'
 import { primeUpdateEventTable } from '../dist/log/manifest.js'
 import { __resetHubRegistryForTests, hubBusyForScope } from '../dist/host/hub/registry.js'
 import { bind, collector, mkScope, mkTarget, phaseOf, rowsOf, unbindAll } from './helpers/batch-log-harness.mjs'
-import { fakeClock, makeHubDeps, trackUnhandledRejections, waitForPhase } from './helpers/hub-harness.mjs'
+import { fakeClock, makeHubDeps, trackUnhandledRejections, waitForPhase, writeLeaseEventually } from './helpers/hub-harness.mjs'
 
 const LEGACY_REGISTRY_KEY = Symbol.for('dsh-plugin-update:update-hub:registry')
 const registryKeyFor = (version) => Symbol.for('dsh-plugin-update:update-hub:registry:v' + version)
@@ -158,7 +158,7 @@ test('旧泵持租约时只观察不驱动；旧泵退出后新实例按盘上�
   // 本用例先撞上的是「旧一代还忙」的观察闸；新鲜租约层面的仲裁另有用例（见下）。
   const oldTask = legacyTask({ state: 'running' })
   installLegacyHubState(scope, [oldTask])
-  await writeHubLease(paths, {
+  await writeLeaseEventually(paths, {
     version: HUB_LEASE_VERSION,
     driverId: 'legacy-driver',
     pluginId: 'life',
@@ -293,7 +293,7 @@ test('旧一代忙超观察窗但盘上租约仍新鲜时按租约让位，不�
   // 观察窗到点只是「不再只观察」，不能绕过租约仲裁：仲裁说别家新鲜持租 → 本代继续让位。
   const oldTask = legacyTask({ state: 'running' })
   installLegacyHubState(scope, [oldTask])
-  await writeHubLease(paths, {
+  await writeLeaseEventually(paths, {
     version: HUB_LEASE_VERSION,
     driverId: 'legacy-driver',
     pluginId: 'life',

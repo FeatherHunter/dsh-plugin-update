@@ -8,6 +8,7 @@ import type { BatchSession } from '../../core/batch/model.js'
 import type { BatchCheckOutcome, BatchInstallOutcome, BatchRunDeps, BatchRunStep, BatchStoppedByBecause } from '../../core/batch/run.js'
 import type { HubLease } from '../../core/hub/lease-policy.js'
 import type { HubPlan } from '../../core/hub/plan.js'
+import type { HubLeaseExpectation } from './lease-store.js'
 import type { HubPaths } from './plan-store.js'
 
 /**
@@ -100,10 +101,18 @@ export interface HubTimers {
  */
 export interface HubIo {
   readLease(paths: HubPaths): Promise<HubLease | null>
-  writeLease(paths: HubPaths, lease: HubLease): Promise<boolean>
+  /**
+   * 写租约。带 expected 时必须是 CAS：盘上状态符合预期才写，写完能读回确认（#276）。
+   * 返回 false 表示「这次没写进去」（预期不符/没抢到锁/降级），调用方会重读后决定让位还是单飞。
+   */
+  writeLease(paths: HubPaths, lease: HubLease, expected?: HubLeaseExpectation): Promise<boolean>
+  /** 独占创建一代驾驶位租约：盘上已有租约返回 false（#276 的 acquire 一侧）。 */
+  createLease(paths: HubPaths, lease: HubLease): Promise<boolean>
   releaseLease(paths: HubPaths, driverId: string, generation: number): Promise<void>
   readPlans(paths: HubPaths): Promise<HubPlan[]>
   writePlan(paths: HubPaths, plan: HubPlan | null | undefined): Promise<boolean>
+  /** 删一份属主方案（US33）；缺省实现见 boundary 的 DEFAULT_HUB_IO（注入假件可不实现）。 */
+  removePlan?(paths: HubPaths, owner: unknown): Promise<void>
 }
 
 /** 中枢运行期事实（时钟、编号、定时器、进程号）：全部由调用方给，注册表不读钟。 */
@@ -116,6 +125,14 @@ export interface HubRuntimeDeps {
   isProcessAlive?(pid: number): boolean
   /** 让位后重试间隔（缺省 HUB_RETRY_INTERVAL_MS；测试可调小）。 */
   retryMs?: number
+  /**
+   * 租约陈旧窗口（毫秒；缺省 HUB_LEASE_STALE_MS）。测试/多进程夹具可缩短以在秒级验证「长步骤不丢驾驶位」。
+   */
+  leaseStaleMs?: number
+  /**
+   * 心跳间隔（毫秒；缺省 HUB_LEASE_HEARTBEAT_MS）。长安装步期间由「租约保持者」按这个节拍续活（#276）。
+   */
+  heartbeatMs?: number
   /** 落盘端口（缺省真实文件系统；测试注入会抛异常的假端口验证异常边界）。生产不传。 */
   io?: HubIo
 }

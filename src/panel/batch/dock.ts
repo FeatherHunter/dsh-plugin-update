@@ -9,6 +9,8 @@
  *      坏输入按「什么都没发生」处理，永不抛），产出可单测的纯数据；不碰 DOM、不读全局。
  *   2. 挂载 `mountHubProgressDock`：只管生命周期——建骨架、注入样式（每 document 一次）、
  *      轮询、`document.hidden` 暂停、dispose 清理；把视图模型画进自己 append 进容器的那个根节点。
+ *      容器断开（`isConnected` 由 true 变 false，或宿主把根节点从容器摘走）与显式 dispose 走同一条
+ *      收尾：立即停表、摘监听、拿回根节点——宿主收掉 UI 后不再每隔一拍打空电话。
  *
  * 数据来源：宿主电话 `<批量前缀>.updateHubStatus` → `{ ok: true, snapshot }`
  *    （#250 只读全局进度，快照形状见 core/hub/snapshot.ts；接线见 host/batch/fan-out.ts）。
@@ -19,6 +21,7 @@
  *   - 本文件是叶子组件：只依赖 shared 语言/配置、i18n 文案与少量类型，不反向拉批量面板实现图。
  *   - 零中文字符串字面量（#56 文案门禁）：用户可见文案全部经 copyText 取既有 key，不新增 key。
  *   - 不写 document.body、不 append 容器以外的 DOM；样式只注入到 document.head（无 head 的极简宿主退回容器）。
+ *   - 停表线只读 DOM（isConnected/parentNode）做判断，不订阅全局事件、不往 body 挂任何观察器。
  *   - 浏览器安全：tsconfig types:[] 不带 DOM lib，这里用结构类型描述最小 DOM 面；
  *     Node 侧只用到全局 setTimeout/clearTimeout（node-ambient.d.ts 已有声明）。
  */
@@ -158,6 +161,11 @@ export interface HubDockContainer {
   appendChild(node: unknown): unknown
   removeChild(node: unknown): unknown
   readonly ownerDocument?: unknown
+  /**
+   * 真实 DOM 的连通标记：容器被移出文档后为 false（#251-3 断开即停）。
+   * 极简适配器可以不给；此时只靠「根节点是否还在容器里」判断宿主有没有收掉 UI。
+   */
+  readonly isConnected?: boolean
 }
 
 /** 传输函数：只负责把完整电话名（含前缀）转给宿主，不做前缀加工。 */
@@ -193,7 +201,7 @@ export interface HubDockController {
   update(): Promise<void>
   /** update 的同义名（票面写的 refresh）：接线方两种写法都认。 */
   refresh(): Promise<void>
-  /** 停表、摘监听、把根节点从容器拿走；幂等。 */
+  /** 停表、摘监听、把根节点从容器拿走；容器断开时也会自动走这条收尾；幂等。 */
   dispose(): void
 }
 
@@ -446,6 +454,8 @@ interface HubDockElement {
   className: string
   textContent: string
   readonly firstChild: HubDockElement | null
+  /** 真实 DOM 的父节点：挂载层据此判断根节点是否还被容器持有（只读，极简适配器可不给）。 */
+  readonly parentNode?: unknown
   readonly style: { width?: string }
   appendChild(node: HubDockElement): unknown
   removeChild(node: HubDockElement): unknown
@@ -490,13 +500,21 @@ interface DockChrome {
 /** 每个 document 只注入一次样式（多个 dock 共用一份；dispose 不摘，后来的挂载点还能直接用）。 */
 const styledDocuments = new WeakSet<HubDockDocument>()
 
-/** 类名前缀 `dsh-hub-dock-`；样式串只含 ASCII（#56 门禁：src 下不许新增中文字符串字面量）。 */
-const HUB_DOCK_CSS = [
+/**
+ * dock 样式串（类名全部 `dsh-hub-dock` 前缀，#251-4 有前缀断言）：挂载层每个 document 只注入一次。
+ * 从 `./panel-batch` 具名导出，集成方自绘/自注入时复用同一份；样式串只含 ASCII
+ * （#56 门禁：src 下不许新增中文字符串字面量）。
+ */
+export const HUB_DOCK_CSS = [
   '.dsh-hub-dock{position:fixed;z-index:1000;box-sizing:border-box;display:flex;flex-direction:column;gap:6px;width:260px;padding:10px 12px;border:1px solid var(--dsh-update-border,#d7dbe0);border-radius:10px;background:var(--dsh-update-bg,#fff);color:var(--dsh-update-text,#1f2937);font:12px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;box-shadow:0 6px 20px rgba(15,23,42,.16)}',
   '.dsh-hub-dock-mode-bottom-right{right:16px;bottom:16px}',
   '.dsh-hub-dock-mode-bottom-bar{left:0;right:0;bottom:0;width:auto;border-width:1px 0 0;border-radius:0}',
   '.dsh-hub-dock-mode-inline{position:static;width:100%;max-width:none;border-radius:8px;box-shadow:none}',
   '.dsh-hub-dock-idle{display:none}',
+  // 空壳（hideWhenIdle:false 且没有进度）：虚线占位表明「这里有个坞、现在没活」，不冒充进行中。
+  '.dsh-hub-dock-empty{min-height:1.8em;border-style:dashed;background:transparent;box-shadow:none}',
+  // 行级明细的失败行：标题走警示色；失败码本身由 -row-err 负责。
+  '.dsh-hub-dock-row-failed .dsh-hub-dock-row-title{color:var(--dsh-update-warn-border,#d97706)}',
   '.dsh-hub-dock-collapsed .dsh-hub-dock-track,.dsh-hub-dock-collapsed .dsh-hub-dock-rows{display:none}',
   '.dsh-hub-dock-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}',
   '.dsh-hub-dock-head:focus-visible{outline:2px solid var(--dsh-update-focus,#2563eb);outline-offset:2px}',
@@ -524,6 +542,8 @@ const HUB_DOCK_CSS = [
 /**
  * 挂载常驻进度 dock：在 container 里 append 一个自管根节点，按 pollMs 轮询自己那条
  * `<prefix>.updateHubStatus` 并重画；返回 update/dispose。
+ * 容器被宿主移出文档（isConnected true→false）或根节点被摘走时自动收尾（#251-3）：停表、摘监听、
+ * 拿回根节点，不再每隔一拍打空电话。
  *
  * 配置错误（缺 call、prefix 与 phone 都没给、pollMs 越界、mountAs 不认识、容器不可 append）在
  * 挂载期抛 Error（与批量面板 mount 同一口径：错误暴露在接线处，不拖成运行时静默）；数据错误不抛。
@@ -563,6 +583,51 @@ export function mountHubProgressDock(container: HubDockContainer, options: HubDo
   let inFlight: Promise<void> | null = null
   let rerun = false
   let lastView: HubDockViewModel | null = null
+  /** 容器是否「曾经」连通过文档：只有连通过再断开才算宿主收掉 UI（挂载时本就在文档外的容器照常轮询）。 */
+  let hostWasConnected = host.isConnected === true
+  /** 根节点是否「曾经」被容器拿着：在过又不在，说明宿主把容器清空/整体摘走了。 */
+  let rootWasAttached = parts.root.parentNode === host
+
+  /** 停表、摘监听、把根节点从容器拿走；显式 dispose 与容器断开共用这一条收尾（幂等）。 */
+  function stop(): void {
+    if (disposed) return
+    disposed = true
+    rerun = false
+    lastView = null
+    if (timer !== null) {
+      cancelTimer(timer)
+      timer = null
+    }
+    doc.removeEventListener?.('visibilitychange', onVisibilityChange)
+    parts.head.removeEventListener?.('click', onHeadClick)
+    parts.toggle.removeEventListener?.('click', onToggle)
+    try {
+      host.removeChild(parts.root)
+    } catch {
+      // 容器可能已被调用方整体清空：摘不掉就算了，状态已经停住。
+    }
+  }
+
+  /**
+   * 容器是否已经离开宿主：真实 DOM 看 isConnected 由 true 变 false；
+   * 极简适配器看根节点是否曾经在容器里、现在不在了（挂载时就不在的不算断开，等它先接通过）。
+   */
+  function containerGone(): boolean {
+    if (host.isConnected === true) hostWasConnected = true
+    else if (host.isConnected === false && hostWasConnected) return true
+    if (rootWasAttached && parts.root.parentNode !== host) return true
+    return false
+  }
+
+  /** 每一拍/每个事件先问一句：UI 还在宿主手里吗？不在就立即收尾，不再打下一通空电话。 */
+  function alive(): boolean {
+    if (disposed) return false
+    if (containerGone()) {
+      stop()
+      return false
+    }
+    return true
+  }
 
   /** 每次重解语言：切语言后下一次刷新即可生效，不用重挂载。 */
   function langNow(): AppLang {
@@ -579,7 +644,7 @@ export function mountHubProgressDock(container: HubDockContainer, options: HubDo
   }
 
   function update(): Promise<void> {
-    if (disposed) return Promise.resolve()
+    if (!alive()) return Promise.resolve()
     if (inFlight !== null) {
       rerun = true
       return inFlight
@@ -591,7 +656,7 @@ export function mountHubProgressDock(container: HubDockContainer, options: HubDo
       } catch {
         reply = null
       }
-      if (disposed) return
+      if (!alive()) return
       try {
         paintReply(reply)
       } catch {
@@ -600,7 +665,7 @@ export function mountHubProgressDock(container: HubDockContainer, options: HubDo
     })()
     return inFlight.then(() => {
       inFlight = null
-      if (rerun && !disposed) {
+      if (rerun && alive()) {
         rerun = false
         void update()
       }
@@ -608,7 +673,7 @@ export function mountHubProgressDock(container: HubDockContainer, options: HubDo
   }
 
   function schedule(): void {
-    if (disposed || timer !== null || doc.hidden === true) return
+    if (!alive() || timer !== null || doc.hidden === true) return
     timer = scheduleTimer(() => {
       timer = null
       void tick()
@@ -616,12 +681,14 @@ export function mountHubProgressDock(container: HubDockContainer, options: HubDo
   }
 
   async function tick(): Promise<void> {
+    if (!alive()) return
     await update()
+    if (!alive()) return
     schedule()
   }
 
   function onVisibilityChange(): void {
-    if (disposed) return
+    if (!alive()) return
     if (doc.hidden === true) {
       if (timer !== null) {
         cancelTimer(timer)
@@ -633,7 +700,7 @@ export function mountHubProgressDock(container: HubDockContainer, options: HubDo
   }
 
   const onHeadClick = (): void => {
-    if (disposed || onOpen === null) return
+    if (!alive() || onOpen === null) return
     try {
       onOpen()
     } catch {
@@ -643,7 +710,7 @@ export function mountHubProgressDock(container: HubDockContainer, options: HubDo
 
   /** 折叠是纯本地视图状态：不触发轮询、不写盘，重画一次即可。 */
   const onToggle = (): void => {
-    if (disposed) return
+    if (!alive()) return
     collapsed = !collapsed
     parts.toggle.textContent = collapsed ? '+' : '-'
     setAttribute(parts.toggle, 'aria-expanded', collapsed ? 'false' : 'true')
@@ -661,24 +728,7 @@ export function mountHubProgressDock(container: HubDockContainer, options: HubDo
   return {
     update,
     refresh: update,
-    dispose(): void {
-      if (disposed) return
-      disposed = true
-      rerun = false
-      lastView = null
-      if (timer !== null) {
-        cancelTimer(timer)
-        timer = null
-      }
-      doc.removeEventListener?.('visibilitychange', onVisibilityChange)
-      parts.head.removeEventListener?.('click', onHeadClick)
-      parts.toggle.removeEventListener?.('click', onToggle)
-      try {
-        host.removeChild(parts.root)
-      } catch {
-        // 容器可能已被调用方整体清空：摘不掉就算了，状态已经停住。
-      }
-    },
+    dispose: stop,
   }
 }
 

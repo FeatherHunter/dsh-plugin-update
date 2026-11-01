@@ -25,11 +25,17 @@ import type { MultiHostDeps, MultiHostOptions, MultiHostUpdate, MultiTargetSpec 
 import { homedir } from 'node:os'
 import { basename } from 'node:path'
 import { hash8 } from '../../shared/hash.js'
-import { createHubPlan, type HubPlan, type HubScopeRef } from '../../core/hub/plan.js'
+import { createHubPlan, type HubPlan, type HubScopeRef, type HubTargetSpec } from '../../core/hub/plan.js'
 import { emptyHubSnapshot } from '../../core/hub/snapshot.js'
 import { readHubStatus } from '../hub/aggregate.js'
 import { adoptOrphanHubTasks } from '../hub/adopt.js'
-import { hubBusyForScope, legacyHubBusyForScope, ownHubBusyForScope, submitHubTask } from '../hub/registry.js'
+import {
+  hubBusyForScope,
+  legacyHubBusyForScope,
+  ownHubBusyForScope,
+  revokeHubTask,
+  submitHubTask,
+} from '../hub/registry.js'
 import type { HubRuntimeDeps, HubScope, HubSeat } from '../hub/protocol.js'
 import {
   batchEntryOf,
@@ -67,6 +73,7 @@ import {
   normalizeBatchInventory,
   normalizeBatchPrefs,
   type BatchInventory,
+  type BatchOwnerPorts,
   type BatchPrefs,
 } from '../../core/disk.js'
 import { createUpdateQueuePorts } from '../../core/queue/ports.js'
@@ -237,6 +244,15 @@ export function createMultiHostUpdate(
     ...(typeof input.hubIsProcessAlive === 'function' ? { isProcessAlive: input.hubIsProcessAlive } : {}),
     // #253：落盘端口只在测试里注入（故障注入验证异常边界）；生产不传，走真实文件系统。
     ...(input.hubIo ? { io: input.hubIo } : {}),
+    // #276：租约陈旧窗口与心跳间隔由宿主侧给（缺省值仍在 core/hub/lease-policy，不在这里写死）。
+    ...(typeof input.hubLeaseStaleMs === 'number' && Number.isFinite(input.hubLeaseStaleMs) && input.hubLeaseStaleMs > 0
+      ? { leaseStaleMs: Math.floor(input.hubLeaseStaleMs) }
+      : {}),
+    ...(typeof input.hubHeartbeatMs === 'number' &&
+    Number.isFinite(input.hubHeartbeatMs) &&
+    input.hubHeartbeatMs >= 1000
+      ? { heartbeatMs: Math.floor(input.hubHeartbeatMs) }
+      : {}),
   }
 
   // 共享队列端口（#15 的同一份）：七个目标共用一套读写口与一把全局锁，不各建一套。
@@ -361,14 +377,14 @@ export function createMultiHostUpdate(
    * 和用户取消时都先扫掉自己的遗留意向；停下时不扫——留着的占位还要给面板显示位置、给「取消排队」用。
    * 只清 targetPluginIds 且 requestId 以 `batch-` 开头的 waiting 条目；owner 不碰（正在装的别家不受影响）。
    */
-  async function clearBatchQueueIntents(): Promise<void> {
+  async function clearBatchQueueIntents(pluginIds?: Iterable<string>): Promise<void> {
     try {
       const read = baseOverrides.readQueue ?? (queue ? () => queue.readQueue() : null)
       const write =
         baseOverrides.writeQueue ?? (queue ? (next: UpdateQueueState) => queue.writeQueue(next) : null)
       if (!read || !write) return
       const state = await read()
-      const ids = new Set(runtimes.map((rt) => rt.pluginId))
+      const ids = new Set(pluginIds ?? runtimes.map((rt) => rt.pluginId))
       const waiting = state.waiting.filter(
         (one) =>
           !(ids.has(one.pluginId) && typeof one.requestId === 'string' && one.requestId.startsWith('batch-')),
@@ -450,10 +466,17 @@ export function createMultiHostUpdate(
       const latest = await readSession()
       const current = batchEntryOf(latest, entry.key)
       if (!current || current.phase !== 'failed') return null
+      // #276（E3b 偶红挖出的实现缺口）：快照的 blockedReason 在「执行器超时收场、job 落成
+      // interrupted」时会降级成 recovery-required（service.ts buildSnapshot 里 job 中断优先），
+      // 于是「磁盘已是目标版、运行版还是旧的」这条真事实被漏掉，重启标记被写成 false 且只清不置。
+      // 事实判据补上 runningVersion 比较：磁盘版变了、运行版没跟上，就是还得重启。
+      const running = firstText(snapshot['runningVersion'])
+      const needsRestart =
+        snapshot['blockedReason'] === 'pending-restart' || (running !== null && running !== installed)
       const marked = markBatchEntry(
         latest,
         entry.key,
-        { phase: 'done', restartRequired: snapshot['blockedReason'] === 'pending-restart' },
+        { phase: 'done', restartRequired: needsRestart },
         now(),
       )
       if (!marked.changed) return null
@@ -590,9 +613,55 @@ export function createMultiHostUpdate(
     return await rt.check(key, rt.spec)
   }
 
+  /**
+   * 席位查一家（#276）：查结论先写进知识账本（best-effort，只做展示），再原样交给驱动器/中枢。
+   * 传输抛错也先把「查失败」落进知识行再把异常抛回——由 run.ts 的失败隔离折成该行的 failed，
+   * 整批不会因为一家的查传输异常被判失败。外来方案的席位用同一套逻辑，只是端口换成方案自己的账本。
+   */
+  async function checkRuntimeWithKnowledge(
+    rt: TargetRuntime,
+    ports: { readInventory: () => Promise<BatchInventory>; writeInventory: (inventory: BatchInventory) => Promise<void> },
+    key: string,
+  ): Promise<BatchCheckOutcome> {
+    const at = now()
+    let prev: BatchInventory = emptyBatchInventory()
+    try {
+      prev = await ports.readInventory()
+    } catch {
+      prev = emptyBatchInventory()
+    }
+    const entries: BatchInventory['entries'] = { ...prev.entries }
+    const persist = async (): Promise<void> => {
+      try {
+        await ports.writeInventory(normalizeBatchInventory({ version: 1, updatedAt: at, entries }, at))
+      } catch {
+        // 知识落盘失败不挡推进（与 checkPhone 同口径）。
+      }
+    }
+    try {
+      const outcome = await rt.check(key, rt.spec)
+      applyCheckToInventory(entries, rt, outcome, at)
+      await persist()
+      return outcome
+    } catch (error) {
+      applyCheckErrorToInventory(entries, rt, error, at)
+      await persist()
+      throw error
+    }
+  }
+
+  /** 本实例自己的席位查一家：知识账本跟着本属主的口走。 */
+  async function checkByKeyWithKnowledge(key: string): Promise<BatchCheckOutcome> {
+    return await checkRuntimeWithKnowledge(runtimeOf(key), { readInventory, writeInventory }, key)
+  }
+
   /** 装一家；回 queued（已占位、排队等轮到你）时把队列位置补进该行读数，面板据此显示「已排队 · 前方 N 个」。 */
-  async function installByKey(key: string, requestId: string, version: string): Promise<BatchInstallOutcome> {
-    const rt = runtimeOf(key)
+  async function installRuntime(
+    rt: TargetRuntime,
+    key: string,
+    requestId: string,
+    version: string,
+  ): Promise<BatchInstallOutcome> {
     const outcome = await rt.install(key, rt.spec, requestId, version)
     if (outcome.kind === 'queued') {
       const position =
@@ -600,6 +669,10 @@ export function createMultiHostUpdate(
       if (position !== null) rt.cache = { ...rt.cache, queue: { ...asRecord(rt.cache.queue), position } }
     }
     return outcome
+  }
+
+  async function installByKey(key: string, requestId: string, version: string): Promise<BatchInstallOutcome> {
+    return await installRuntime(runtimeOf(key), key, requestId, version)
   }
 
   /**
@@ -635,7 +708,7 @@ export function createMultiHostUpdate(
       plan,
       readSession,
       saveSession,
-      check: (key: string) => checkByKey(key),
+      check: (key: string) => checkByKeyWithKnowledge(key),
       install: (key: string, requestId: string, version: string) => installByKey(key, requestId, version),
       logFor: logPortFor,
       indexOf: (key: string) => order.indexOf(key),
@@ -650,6 +723,134 @@ export function createMultiHostUpdate(
         lastRun = { stoppedBecause: report.stoppedBecause, steps: [...report.steps] }
         // 收尾边沿（#209）：中枢替本实例把这一轮推完时，总账仍由本实例的日志接缝发（落点不变）。
         noteRunOutcome(report.session)
+      },
+    }
+  }
+
+  /**
+   * 外来方案的口（#276 / US31）：孤儿方案的属主不一定是活着的本实例——
+   * 读/写它的账本要用方案自己的属主 + 使用范围建端口，而不是本属主的口。
+   */
+  const planPortsCache = new Map<string, BatchOwnerPorts>()
+  function planOwnerPorts(plan: HubPlan): BatchOwnerPorts | null {
+    if (plan.owner === prefix) return ownerPorts
+    const { scope } = plan
+    if (!scope || typeof scope.homeDir !== 'string') return null
+    const profileDir = typeof scope.profileDir === 'string' ? scope.profileDir : ''
+    if (!profileDir) return null
+    const cacheKey = JSON.stringify([scope.homeDir, profileDir, plan.owner])
+    const cached = planPortsCache.get(cacheKey)
+    if (cached) return cached
+    const ports = createBatchOwnerPorts(scope.homeDir, profileDir, plan.owner)
+    planPortsCache.set(cacheKey, ports)
+    return ports
+  }
+
+  /**
+   * 外来方案里的目标（多半不在本实例的 targets 里）：按方案冻结的字段现造一份单插件宿主能力，
+   * 查/装仍用本实例注入的传输（自更新后活下来的实例本来就带着宿主能力）。
+   */
+  const planRuntimeCache = new Map<string, TargetRuntime>()
+  function planRuntimeOf(plan: HubPlan, target: HubTargetSpec): TargetRuntime {
+    const local = runtimeByKey.get(target.key)
+    if (local) return local
+    const cacheKey = JSON.stringify([plan.owner, target.key, target.pluginId, target.prefix])
+    const cached = planRuntimeCache.get(cacheKey)
+    if (cached) return cached
+    const config: UpdateConfigInput = {
+      ...configBase,
+      pluginId: target.pluginId,
+      prefix: target.prefix,
+      targetPackageName: target.packageName,
+    }
+    const resolved = resolveUpdateConfig(config)
+    const homeDir = firstText(target.homeDir) ?? batchHome
+    const profileDir = firstText(target.profileDir, batchProfile)
+    const spec: MultiTargetSpec = {
+      key: target.key,
+      title: target.title,
+      packageName: target.packageName,
+      prefix: target.prefix,
+      pluginId: target.pluginId,
+      homeDir,
+      ...(profileDir ? { profileDir } : {}),
+    }
+    let runtime: TargetRuntime
+    runtime = {
+      spec,
+      config,
+      resolved,
+      host: createHostUpdate(
+        {
+          ctx: input.ctx,
+          logCtx: input.logCtx ?? null,
+          desktopPnpm: input.desktopPnpm,
+          pluginManager: input.pluginManager,
+          readerOverrides: { ...baseOverrides },
+        },
+        config,
+      ),
+      pluginId: resolved.pluginId,
+      homeDir,
+      profileDir,
+      check: injectedCheck ?? (() => defaultCheck(runtime)),
+      install:
+        injectedInstall ??
+        ((key: string, one: MultiTargetSpec, requestId: string) => defaultInstall(runtime, key, one, requestId)),
+      skipPorts: profileDir ? createSkipDiskPorts(homeDir, resolved.pluginId, profileDir) : null,
+      cache: { ...EMPTY_CACHE },
+      receipt: null,
+      now,
+      pollMs,
+    }
+    planRuntimeCache.set(cacheKey, runtime)
+    return runtime
+  }
+
+  /** 外来方案的日志接缝：落点按方案自己的属主/目标判定（ADR-0006：不知道落点一行不发）。 */
+  const planLogCache = new Map<string, ReturnType<typeof createBatchLogSeams>>()
+  function planLogFor(plan: HubPlan): ReturnType<typeof createBatchLogSeams> {
+    const cacheKey = JSON.stringify([plan.owner, plan.sessionId])
+    const cached = planLogCache.get(cacheKey)
+    if (cached) return cached
+    const targets = new Map(plan.targets.map((target) => [target.key, target]))
+    const selfTarget = plan.selfKey ? targets.get(plan.selfKey) ?? null : null
+    const seams = createBatchLogSeams({
+      ownerPluginId: selfTarget ? selfTarget.pluginId : null,
+      ownerKey: plan.selfKey,
+      pluginIdOfTarget: (key: string) => targets.get(key)?.pluginId ?? null,
+      lastStoppedBecause: () => undefined,
+      now: () => now(),
+    })
+    planLogCache.set(cacheKey, seams)
+    return seams
+  }
+
+  /** 外来方案的执行席：属主/方案/账本端口都取方案自己的，只有宿主能力与中枢是本实例的。 */
+  function planSeatFor(plan: HubPlan, session: BatchSession): HubSeat | null {
+    const ports = planOwnerPorts(plan)
+    if (!ports) return null
+    const logSeams = planLogFor(plan)
+    const order = [...session.order]
+    return {
+      owner: plan.owner,
+      plan,
+      readSession: () => ports.readBatch(),
+      saveSession: (next) => ports.writeBatch(next),
+      check: (key: string) => {
+        const target = plan.targets.find((one) => one.key === key)
+        if (!target) throw batchFail('check-failed')
+        return checkRuntimeWithKnowledge(planRuntimeOf(plan, target), ports, key)
+      },
+      install: (key: string, requestId: string, version: string) => {
+        const target = plan.targets.find((one) => one.key === key)
+        if (!target) throw batchFail('check-failed')
+        return installRuntime(planRuntimeOf(plan, target), key, requestId, version)
+      },
+      logFor: (key: string) => logSeams.logPortFor(key),
+      indexOf: (key: string) => order.indexOf(key),
+      onSettled: async (report) => {
+        if (report.session) logSeams.noteRunOutcome(report.session)
       },
     }
   }
@@ -1088,8 +1289,8 @@ export function createMultiHostUpdate(
       // 专指「续跑」——继续上次未完成或自动续跑，entry 推旧账本仍算一次新推进，不算续跑）。
       // 没有这行，日志里只有入队与总账，中间隔着几小时没法看出这几步是哪一次点击推动的。
       noteRunStart(session, { trigger: 'entry', resumed: false })
-      // 两段式（#70）：先把选中 keys 全查成 ready 进会话，再串行装（装阶段复用 ready，不重查）。
-      session = await precheckSelectedToReady(session, selected)
+      // 席位判定在预查之前（#276）：中枢启用时不再两段式预查——查由中枢逐行驱动、席位自己写知识，
+      // 一家查传输异常也只落那一行（run.ts 的失败隔离），不会把整批拦在预查闸外。
       const seat = hubSeatFor(session)
       if (seat && hubScope) {
         // 中枢（ADR-0008）：装阶段交给进程级中枢——它拿执行席推进，本 fiber 结束/被替换也不断。
@@ -1101,6 +1302,8 @@ export function createMultiHostUpdate(
         if (outcome === 'failed') throw batchFail('install-failed')
         // 收尾总账由中枢触发 onSettled 发（同上一条纪律）；这里不再重复发。
       } else {
+        // 非中枢路径保持原口径（#70）：先把选中 keys 全查成 ready 进会话，再串行装（装阶段复用 ready，不重查）。
+        session = await precheckSelectedToReady(session, selected)
         driven = await driveLocked(session, selected, Number.POSITIVE_INFINITY)
         // 收尾总账（#209 起同时记「没跑完就停」的那一行）：面板只渲染不重发。
         noteRunOutcome(driven)
@@ -1172,6 +1375,9 @@ export function createMultiHostUpdate(
     // #217：用户取消也是一次「停下」，自己的排队占位一并撤掉。
     await clearBatchQueueIntents()
     await clearSession()
+    // #276（US33）：取消不只是清账本——中枢任务、方案文件、租约一并撤掉，
+    // 否则重启后任一存活实例会把这份「幽灵批次」接着装完。revokeHubTask 永不抛。
+    if (hubEnabled && hubScope) await revokeHubTask(hubScope, prefix)
     return await table(emptyBatchSession())
   }
 
@@ -1223,35 +1429,49 @@ export function createMultiHostUpdate(
   }
 
   /**
-   * T3 孤儿接管：装载时扫盘上属于本属主的方案，把「同一会话、未收尾」的批次交给中枢接着推。
+   * T3 孤儿接管：装载时扫盘上未收尾的方案，把「同一会话、未收尾」的批次交给中枢接着推。
    *
    * 第一性：自更新换掉的只是「发起方这段 fiber」，盘上的方案 + 账本是它留下的全部事实。
    * 任一活着的集成方（新 fiber / 新进程 / 另一个挂载了同一属主批量入口的插件）读到同一份方案，
-   * 就能用自己的宿主能力把剩下的步骤走完——不需要重开面板，也不需要重新点一次更新。
+   * 就能用自己的宿主能力把剩下的步骤走完——不需要重开面板，也不需要重新点一次更新（#276 / US31）。
    *
-   * 纪律：只动自己属主；会话必须对得上方案；已收尾不重装；有人在推就不抢（FIFO 由中枢管）。
+   * 纪律：会话必须对得上方案；已收尾不重装；自己属主已有任务在推就不抢（FIFO 由中枢管）；
+   * 外来方案只动方案自己的账本/知识/队列口，本属主的口一概不碰。
    * 异常边界在 hub/adopt.ts：这里抛出的任何异常都只放弃这一个方案，绝不外抛（#253）。
    */
   async function adoptOrphanPlan(plan: HubPlan): Promise<void> {
     if (!hubEnabled || !hubScope || !hubPlanScope || !ownerPorts || scopeError) return
-    if (plan.owner !== prefix) return
-    // 本代已有一份在推就交给 FIFO 去重；但旧一代忙不算——旧任务表归旧泵，本代仍要把
+    const own = plan.owner === prefix
+    // 本代已有一份（自己属主的）在推就交给 FIFO 去重；但旧一代忙不算——旧任务表归旧泵，本代仍要把
     // 盘上未收尾的会话装成席位提交进自己的队列，等旧泵排空后接着推（#254）。
-    if (ownHubBusyForScope(hubScope)) return
-    const legacyBusy = legacyHubBusyForScope(hubScope)
-    const disk = await readSession()
+    if (own && ownHubBusyForScope(hubScope)) return
+    const legacyBusy = own ? legacyHubBusyForScope(hubScope) : false
+    const ports = planOwnerPorts(plan)
+    if (!ports) return
+    const seams = own ? batchLog : planLogFor(plan)
+    const seatFor = (session: BatchSession): HubSeat | null => (own ? hubSeatFor(session) : planSeatFor(plan, session))
+    const readDisk = async (): Promise<BatchSession> => (own ? await readSession() : await ports.readBatch())
+    const saveDisk = async (session: BatchSession): Promise<void> => {
+      if (own) await saveSession(session)
+      else await ports.writeBatch(session)
+    }
+    const clearQueue = async (): Promise<void> => {
+      if (own) await clearBatchQueueIntents()
+      else await clearBatchQueueIntents(plan.targets.map((target) => target.pluginId))
+    }
+    const disk = await readDisk()
     if (disk.entries.length === 0 || isBatchFinished(disk)) return
     if (disk.id !== plan.sessionId) return
     // 旧一代还活着时只读装席位、先不写账本/队列（两代各写一遍只会互相覆盖）；
     // 真正拿到驾驶位后由泵调 takeOver 补做续跑收尾（#254）。
     const resumed = legacyBusy ? disk : resumeBatchSession(disk, now())
     if (!legacyBusy) {
-      if (resumed !== disk) await saveSession(resumed)
+      if (resumed !== disk) await saveDisk(resumed)
       // #217：上一任留下的排队占位先撤掉，这一任会重新逐家入队。
-      await clearBatchQueueIntents()
-      noteRunStart(resumed, { trigger: 'resume', resumed: true })
+      await clearQueue()
+      seams.noteRunStart(resumed, { trigger: 'resume', resumed: true })
     }
-    const seat = hubSeatFor(resumed)
+    const seat = seatFor(resumed)
     if (!seat) return
     if (legacyBusy) {
       let tookOver = false
@@ -1260,12 +1480,12 @@ export function createMultiHostUpdate(
       seat.takeOver = async () => {
         if (tookOver) return
         tookOver = true
-        const latest = await readSession()
+        const latest = await readDisk()
         if (latest.entries.length === 0 || isBatchFinished(latest)) return
         const next = resumeBatchSession(latest, now())
-        if (next !== latest) await saveSession(next)
-        await clearBatchQueueIntents()
-        noteRunStart(next, { trigger: 'resume', resumed: true })
+        if (next !== latest) await saveDisk(next)
+        await clearQueue()
+        seams.noteRunStart(next, { trigger: 'resume', resumed: true })
       }
     }
     await submitHubTask(hubScope, seat, hubDeps)

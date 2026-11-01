@@ -40,6 +40,8 @@ declare module 'node:fs/promises' {
     mode?: number
   ): Promise<{ writeFile(data: string): Promise<void>; close(): Promise<void> }>
   export function readFile(path: string, encoding?: string): Promise<string>
+  /** 目录删除（中枢租约临界区目录锁的清理，#276：mkdir 抢锁 / rm 放锁）。 */
+  export function rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>
   export function rename(oldPath: string, newPath: string): Promise<void>
   export function realpath(path: string): Promise<string>
   // 锁原子建（#181）：硬链接在目标已存在时回 EEXIST，是「要么没有、要么完整」的锁位判据。

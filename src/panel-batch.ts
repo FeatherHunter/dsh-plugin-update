@@ -206,7 +206,7 @@ export type { BatchPanelRenderInput } from './panel/batch/render.js'
 export { batchFailedManualText, renderBatchPanelHTML } from './panel/batch/render.js'
 export { UPDATE_BATCH_PANEL_ARCHIVE_CSS, UPDATE_BATCH_PANEL_CSS } from './panel/batch/styles.js'
 export { batchFailedDiagText, fallbackOutcomeOf, mountUpdateBatchPanel, singleInstallPhoneOf } from './panel/batch/mount.js'
-export { HUB_DOCK_MOUNT_MODES, HUB_DOCK_POLL, HUB_DOCK_ROWS, hubDockViewModel, mountHubProgressDock } from './panel/batch/dock.js'
+export { HUB_DOCK_CSS, HUB_DOCK_MOUNT_MODES, HUB_DOCK_POLL, HUB_DOCK_ROWS, hubDockViewModel, mountHubProgressDock } from './panel/batch/dock.js'
 export type {
   HubDockCall,
   HubDockContainer,

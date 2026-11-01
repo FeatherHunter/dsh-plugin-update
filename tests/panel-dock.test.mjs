@@ -14,6 +14,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { HUB_DOCK_POLL, hubDockViewModel, mountHubProgressDock } from '../dist/panel/batch/dock.js'
+import { HUB_DOCK_CSS } from '../dist/panel-batch.js'
 
 // ---------- 最小 DOM stub ----------
 
@@ -192,6 +193,25 @@ function withFakeTimers() {
       globalThis.clearTimeout = realClearTimeout
     },
   }
+}
+
+/** 让在等的那一拍到点：手动触发假定时器回调，再把回调里 await 出来的微任务全部跑完。 */
+async function fireNextTimer(timers) {
+  const first = timers.pending.entries().next()
+  assert.equal(first.done, false, '应该有一拍在等')
+  const [handle, entry] = first.value
+  timers.pending.delete(handle)
+  entry.callback()
+  await timers.flush()
+}
+
+/** 手控 promise：让传输函数悬在飞行中，用来验证「电话还没回来时容器被摘」也要停。 */
+function deferred() {
+  let resolve
+  const promise = new Promise((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
 }
 
 // ---------- 视图模型 ----------
@@ -709,6 +729,199 @@ describe('T5 验收补齐（#251）', () => {
       assert.match(root.text, /life/, '坏回包保持上一次画面')
     } finally {
       dock.dispose()
+    }
+  })
+})
+
+// ---------- #276 验收补齐：#251-3 容器移除即停 ----------
+
+describe('#276 / #251-3 容器移除即停', () => {
+  /** 装一个只数电话次数的 dock；pollMs 取最小档，便于假定时器一拍一拍地推。 */
+  function mountCounting(container, extra = {}) {
+    const state = { calls: 0 }
+    const dock = mountHubProgressDock(container, {
+      prefix: 'wf',
+      pollMs: HUB_DOCK_POLL.minMs,
+      call: async () => {
+        state.calls += 1
+        return { ok: true, snapshot: snapshotOf({ sessions: [sessionOf()] }) }
+      },
+      ...extra,
+    })
+    return { dock, state }
+  }
+
+  it('宿主把根节点从容器摘走：下一拍立即停表、不再打电话', async () => {
+    const timers = withFakeTimers()
+    try {
+      const { container } = fakeMountTarget()
+      const { dock, state } = mountCounting(container)
+      try {
+        await timers.flush()
+        assert.equal(state.calls, 1, '挂载后先拉一拍')
+        assert.equal(timers.pending.size, 1, '并排上下一拍')
+
+        container.removeChild(container.children[0])
+        await fireNextTimer(timers)
+        assert.equal(state.calls, 1, '容器里没有根节点后不许再打电话')
+        assert.equal(timers.pending.size, 0, '不许再排下一拍')
+
+        await dock.update()
+        assert.equal(state.calls, 1, '断开后手动 update 也短路')
+      } finally {
+        dock.dispose()
+      }
+    } finally {
+      timers.restore()
+    }
+  })
+
+  it('容器 isConnected 由 true 变 false（宿主把容器移出文档）：停表、摘根节点、不碰 body', async () => {
+    const timers = withFakeTimers()
+    try {
+      const { doc, container } = fakeMountTarget()
+      container.isConnected = true
+      const { dock, state } = mountCounting(container)
+      try {
+        await timers.flush()
+        assert.equal(state.calls, 1)
+        assert.equal(timers.pending.size, 1)
+
+        container.isConnected = false
+        await fireNextTimer(timers)
+        assert.equal(state.calls, 1, '容器断开后不许再打电话')
+        assert.equal(timers.pending.size, 0, '不许再排下一拍')
+        assert.equal(container.children.length, 0, '收尾时把自家根节点从容器拿走')
+        // 只往 document.head 注入那一份样式；这条路径不许往 body/别处写 DOM。
+        assert.equal(doc.head.children.filter((child) => child.tagName === 'style').length, 1)
+        assert.equal('body' in doc, false, '不写 document.body')
+      } finally {
+        dock.dispose()
+      }
+    } finally {
+      timers.restore()
+    }
+  })
+
+  it('挂载时容器本就在文档外不误停：先挂后插仍轮询，接通过再断开才停', async () => {
+    const timers = withFakeTimers()
+    try {
+      const { container } = fakeMountTarget()
+      container.isConnected = false // 构建期：容器还没进文档，稍后再 append
+      const { dock, state } = mountCounting(container)
+      try {
+        await timers.flush()
+        assert.equal(state.calls, 1, '还没接通过：照常轮询（不把「尚未挂载」当断开）')
+        assert.equal(timers.pending.size, 1)
+
+        container.isConnected = true
+        await fireNextTimer(timers)
+        assert.equal(state.calls, 2, '容器插进文档后继续轮询')
+
+        container.isConnected = false
+        await fireNextTimer(timers)
+        assert.equal(state.calls, 2, '接通过又断开：停表')
+        assert.equal(timers.pending.size, 0)
+      } finally {
+        dock.dispose()
+      }
+    } finally {
+      timers.restore()
+    }
+  })
+
+  it('电话还在飞行中时容器被摘：回来后不再续排下一拍', async () => {
+    const timers = withFakeTimers()
+    try {
+      const { container } = fakeMountTarget()
+      const gate = deferred()
+      const state = { calls: 0 }
+      const dock = mountHubProgressDock(container, {
+        prefix: 'wf',
+        pollMs: HUB_DOCK_POLL.minMs,
+        call: async () => {
+          state.calls += 1
+          return gate.promise
+        },
+      })
+      try {
+        await timers.flush()
+        assert.equal(state.calls, 1)
+        assert.equal(timers.pending.size, 0, '电话没回来之前不排下一拍')
+
+        container.removeChild(container.children[0])
+        gate.resolve({ ok: true, snapshot: snapshotOf({ sessions: [sessionOf()] }) })
+        await timers.flush()
+        assert.equal(timers.pending.size, 0, '断开后不再续排')
+        assert.equal(state.calls, 1)
+      } finally {
+        dock.dispose()
+      }
+    } finally {
+      timers.restore()
+    }
+  })
+
+  it('断开收尾幂等：再调一次 dispose 不抛、容器保持干净', async () => {
+    const timers = withFakeTimers()
+    try {
+      const { container } = fakeMountTarget()
+      container.isConnected = true
+      const { dock } = mountCounting(container)
+      await timers.flush()
+      container.isConnected = false
+      await fireNextTimer(timers)
+      assert.equal(container.children.length, 0)
+      dock.dispose()
+      assert.equal(container.children.length, 0)
+      assert.equal(timers.pending.size, 0)
+    } finally {
+      timers.restore()
+    }
+  })
+})
+
+// ---------- #276 验收补齐：#251-4 HUB_DOCK_CSS 导出与类名前缀 ----------
+
+describe('#276 / #251-4 HUB_DOCK_CSS 导出与类名前缀', () => {
+  it('从 ./panel-batch 具名导出 HUB_DOCK_CSS：是 string、类选择器全部 dsh-hub-dock 前缀', () => {
+    assert.equal(typeof HUB_DOCK_CSS, 'string')
+    assert.ok(HUB_DOCK_CSS.length > 1000, '样式串不该是空壳占位')
+    const names = [...HUB_DOCK_CSS.matchAll(/\.(-?[A-Za-z_][A-Za-z0-9_-]*)/g)].map((match) => match[1])
+    assert.ok(names.length >= 20, `类选择器数量异常（${names.length}）`)
+    for (const name of names) {
+      assert.equal(name.startsWith('dsh-hub-dock'), true, `类选择器 .${name} 不以 .dsh-hub-dock 开头`)
+    }
+    assert.equal(names.includes('dsh-hub-dock-empty'), true, '缺空壳规则 .dsh-hub-dock-empty')
+    assert.equal(names.includes('dsh-hub-dock-row-failed'), true, '缺失败行规则 .dsh-hub-dock-row-failed')
+    assert.equal(names.includes('dsh-hub-dock-idle'), true)
+    assert.equal(names.includes('dsh-hub-dock-collapsed'), true)
+    assert.equal(names.includes('dsh-hub-dock-head'), true)
+    assert.equal(names.includes('dsh-hub-dock-row'), true)
+  })
+
+  it('挂载注入的样式就是 HUB_DOCK_CSS 本身；空壳/失败行规则在串里', () => {
+    const timers = withFakeTimers()
+    try {
+      const { doc, container } = fakeMountTarget()
+      const dock = mountHubProgressDock(container, {
+        prefix: 'wf',
+        hideWhenIdle: false,
+        call: async () => ({ ok: true, snapshot: snapshotOf({ sessions: [] }) }),
+      })
+      try {
+        const styles = doc.head.children.filter((child) => child.tagName === 'style')
+        assert.equal(styles.length, 1, '每个 document 只注入一份')
+        assert.equal(styles[0].textContent, HUB_DOCK_CSS, '注入的样式串应与导出常量一致')
+        assert.equal(HUB_DOCK_CSS.includes('.dsh-hub-dock-empty{'), true)
+        assert.equal(HUB_DOCK_CSS.includes('.dsh-hub-dock-row-failed'), true)
+        const root = container.children[0]
+        assert.equal(root.className.includes('dsh-hub-dock-empty'), true, '空壳渲染真的用上该类')
+      } finally {
+        dock.dispose()
+      }
+    } finally {
+      timers.restore()
     }
   })
 })

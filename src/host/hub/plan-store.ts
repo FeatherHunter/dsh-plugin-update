@@ -7,7 +7,7 @@
 // 纪律：读坏当没写过（自愈）；写失败返回 false、绝不抛——方案写不进去只影响「别人接手」，
 // 不影响本次在本进程里推进（ADR-0008 §3：写失败不挡安装）。
 
-import { readdir } from 'node:fs/promises'
+import { readdir, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { HUB_PLANS_DIR_SEGMENT, hubPlanFileName, normalizeHubPlan, type HubPlan } from '../../core/hub/plan.js'
 import { queuePathsForUpdate } from '../../core/queue/ports.js'
@@ -64,6 +64,20 @@ export async function readHubPlans(paths: HubPaths): Promise<HubPlan[]> {
     if (plan) plans.push(plan)
   }
   return plans
+}
+
+/**
+ * 删一份属主方案（#276 / US33：取消或清空批次时方案必须一起撤掉，否则下一次装载会去接管一份
+ * 已经没有账本的幽灵方案）。只删该属主自己的文件；不存在/删不掉都不抛（旁路）。
+ */
+export async function removeHubPlan(paths: HubPaths, owner: unknown): Promise<void> {
+  const name = hubPlanFileName(owner)
+  if (!name) return
+  try {
+    await unlink(join(paths.plansDir, name))
+  } catch {
+    // 方案删除是收尾旁路：删不掉只会多留一份方案，由孤儿接管按「账本没了/会话不一致」跳过。
+  }
 }
 
 /** 写一份属主方案（原子整写）；写失败返回 false，从不抛。 */

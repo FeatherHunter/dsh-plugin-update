@@ -17,7 +17,7 @@ import { createMultiHostUpdate } from '../dist/host-batch.js'
 import { createHubPlan } from '../dist/core/hub/plan.js'
 import { createBatchSession, markBatchEntry } from '../dist/core/batch/model.js'
 import { hubPathsForUpdate } from '../dist/host/hub/plan-store.js'
-import { readHubLease, writeHubLease } from '../dist/host/hub/lease-store.js'
+import { readHubLease } from '../dist/host/hub/lease-store.js'
 import { HUB_LEASE_VERSION } from '../dist/core/hub/lease-policy.js'
 import { HUB_MAX_LEASE_FAULTS } from '../dist/host/hub/protocol.js'
 import { DEFAULT_HUB_IO } from '../dist/host/hub/boundary.js'
@@ -30,7 +30,7 @@ import {
   submitHubTask,
 } from '../dist/host/hub/registry.js'
 import { fakeTransport, mkScope, mkTarget, phaseOf, unbindAll } from './helpers/batch-log-harness.mjs'
-import { fakeClock, makeHubDeps, trackUnhandledRejections, waitForPhase } from './helpers/hub-harness.mjs'
+import { fakeClock, makeHubDeps, trackUnhandledRejections, waitForPhase, writeLeaseEventually } from './helpers/hub-harness.mjs'
 
 beforeEach(() => {
   __resetHubRegistryForTests()
@@ -88,7 +88,7 @@ test('任务边界：租约判定抛未预期异常 → 任务明确 failed，�
   const clock = fakeClock()
   const paths = hubPathsForUpdate(scope.homeDir, scope.profileDir)
   // 盘上有一份别家的活租约：中枢必须走「探测原驾驶者还活着吗」这条路。
-  await writeHubLease(paths, {
+  await writeLeaseEventually(paths, {
     version: HUB_LEASE_VERSION,
     driverId: 'other-driver',
     pluginId: 'life',
@@ -133,14 +133,17 @@ test('任务边界：一个任务抛错不拖垮后续任务（泵在同一轮�
     owner: 'life',
     key: 'a',
     scope,
-    install: async () => {
-      markAStarted()
-      await new Promise((resolve) => {
-        releaseA = resolve
-      })
-      throw new Error('transport boom')
-    },
+    install: async () => ({ kind: 'done', restartRequired: false }),
   })
+  // 任务边界盖的是「席位调用抛了未预期异常」。传输异常自 #276 起由 core/batch/run.ts 的
+  // 失败隔离收成单行 failed（US6），不再升级成整任务失败；这里改用 readSession 抛错来钉任务边界本身。
+  seatA.seat.readSession = async () => {
+    markAStarted()
+    await new Promise((resolve) => {
+      releaseA = resolve
+    })
+    throw new Error('session boom')
+  }
   const seatB = makeSeat({
     owner: 'other',
     key: 'b',
@@ -192,7 +195,11 @@ test('租约读取 seam：一次异常按让位收场，退避重试后继续推
     const first = await within(host.handlers['life.batchInstall']({}))
     assert.notEqual(first, TIMED_OUT, '等待者不许悬挂')
     assert.equal(first.ok, true, '一次 I/O 异常不许升级成安装失败')
-    assert.equal(phaseOf(first.session, 'a'), 'ready', '异常按「让位重排队」收场')
+    assert.equal(
+      phaseOf(first.session, 'a'),
+      'pending',
+      '异常按「让位重排队」收场：这一轮一步没走（#276 起中枢路径不再预查，行不会先变 ready）',
+    )
     const done = await waitForPhase(clock, host, 'life.batchStatus', 'a', 'done')
     assert.equal(phaseOf(done.session, 'a'), 'done', '退避重试后照常推完')
     await track.settle()
@@ -271,7 +278,11 @@ test('租约在驱动中被读坏：这一步让位重排队，不带着坏 I/O 
     const first = await within(host.handlers['life.batchInstall']({}))
     assert.notEqual(first, TIMED_OUT, '等待者不许悬挂')
     assert.equal(first.ok, true)
-    assert.equal(phaseOf(first.session, 'a'), 'ready', '读不到驾驶位事实就这一步让位')
+    assert.equal(
+      phaseOf(first.session, 'a'),
+      'pending',
+      '读不到驾驶位事实就这一步让位：先复核再动步，行停在 pending',
+    )
     // 之后的重试会继续撞坏 I/O：到上限判 failed，计数不再增长（不是盲推、也不是空转）。
     for (let i = 0; i < 50 && clock.pending() > 0; i += 1) await clock.advance(10)
     const drained = reads
@@ -289,16 +300,17 @@ test('租约在驱动中被读坏：这一步让位重排队，不带着坏 I/O 
   }
 })
 
-test('租约写入 seam：一次异常按让位收场，退避重试后继续推完（不悬挂、不外抛）', async () => {
+test('租约创建 seam：一次异常按让位收场，退避重试后继续推完（不悬挂、不外抛）', async () => {
   const { scope } = await mkScope('hub253-lease-write-')
   const clock = fakeClock()
   let writes = 0
   const io = {
     ...DEFAULT_HUB_IO,
-    writeLease: async (paths, lease) => {
+    // #276：拿新驾驶位走独占创建（CAS 的 absent 一侧），续任/接管/心跳才走 writeLease。
+    createLease: async (paths, lease) => {
       writes += 1
-      if (writes === 1) throw new Error('lease write boom')
-      return await DEFAULT_HUB_IO.writeLease(paths, lease)
+      if (writes === 1) throw new Error('lease create boom')
+      return await DEFAULT_HUB_IO.createLease(paths, lease)
     },
   }
   const host = createMultiHostUpdate(makeHubDeps(scope, clock, doneTransport(), { hubIo: io }), {
@@ -311,7 +323,11 @@ test('租约写入 seam：一次异常按让位收场，退避重试后继续推
     const first = await within(host.handlers['life.batchInstall']({}))
     assert.notEqual(first, TIMED_OUT, '等待者不许悬挂')
     assert.equal(first.ok, true, '一次 I/O 异常不许升级成安装失败')
-    assert.equal(phaseOf(first.session, 'a'), 'ready', '异常按「让位重排队」收场')
+    assert.equal(
+      phaseOf(first.session, 'a'),
+      'pending',
+      '异常按「让位重排队」收场：这一轮一步没走（#276 起中枢路径不再预查，行不会先变 ready）',
+    )
     const done = await waitForPhase(clock, host, 'life.batchStatus', 'a', 'done')
     assert.equal(phaseOf(done.session, 'a'), 'done', '退避重试后照常推完')
     await track.settle()
@@ -323,15 +339,15 @@ test('租约写入 seam：一次异常按让位收场，退避重试后继续推
   }
 })
 
-test('租约写入 seam：持续异常到达上限 → 任务明确 failed，不再每秒空转', async () => {
+test('租约创建 seam：持续异常到达上限 → 任务明确 failed，不再每秒空转', async () => {
   const { scope } = await mkScope('hub253-lease-write-hard-')
   const clock = fakeClock()
   let writes = 0
   const io = {
     ...DEFAULT_HUB_IO,
-    writeLease: async () => {
+    createLease: async () => {
       writes += 1
-      throw new Error('lease write boom')
+      throw new Error('lease create boom')
     },
   }
   const host = createMultiHostUpdate(makeHubDeps(scope, clock, doneTransport(), { hubIo: io }), {

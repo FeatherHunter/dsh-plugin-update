@@ -19,17 +19,25 @@
 
 import type { HubLease } from '../../core/hub/lease-policy.js'
 import type { HubPlan } from '../../core/hub/plan.js'
-import { readHubLease, releaseHubLease, writeHubLease } from './lease-store.js'
-import { readHubPlans, writeHubPlan, type HubPaths } from './plan-store.js'
+import {
+  createHubLeaseFile,
+  readHubLease,
+  releaseHubLease,
+  writeHubLease,
+  type HubLeaseExpectation,
+} from './lease-store.js'
+import { readHubPlans, removeHubPlan, writeHubPlan, type HubPaths } from './plan-store.js'
 import type { HubIo, HubRuntimeDeps } from './protocol.js'
 
 /** 真实落盘端口（生产唯一实现；测试可在它上面覆盖一两个方法注入故障）。 */
 export const DEFAULT_HUB_IO: HubIo = {
   readLease: readHubLease,
   writeLease: writeHubLease,
+  createLease: createHubLeaseFile,
   releaseLease: releaseHubLease,
   readPlans: readHubPlans,
   writePlan: writeHubPlan,
+  removePlan: removeHubPlan,
 }
 
 /** 取本次运行要用的端口：注入优先，缺省真实文件系统。 */
@@ -53,14 +61,29 @@ export async function safeReadLease(io: HubIo, paths: HubPaths): Promise<HubIoOu
 }
 
 /**
- * 写租约。两类失败要分清：
- *   - 端口**返回 false**：正常的「这次没写进去」——按 ADR-0008 退回本进程单飞，不挡安装；
+ * 写租约（CAS）。两类失败要分清：
+ *   - 端口**返回 false**：正常的「这次没写进去」（预期不符/没抢到锁）——按 ADR-0008 重读后
+ *     决定让位还是退回本进程单飞，不挡安装；
  *   - 端口**抛出异常**：未预期故障，标 fault；调用方按「拿不到驾驶位」让位重排队，
  *     连续到上限判 failed（#253：坏 I/O 不许被当成正常推进，也不许每秒空转）。
  */
-export async function safeWriteLease(io: HubIo, paths: HubPaths, lease: HubLease): Promise<HubIoOutcome<boolean>> {
+export async function safeWriteLease(
+  io: HubIo,
+  paths: HubPaths,
+  lease: HubLease,
+  expected?: HubLeaseExpectation,
+): Promise<HubIoOutcome<boolean>> {
   try {
-    return { value: await io.writeLease(paths, lease), fault: false }
+    return { value: await io.writeLease(paths, lease, expected), fault: false }
+  } catch {
+    return { value: false, fault: true }
+  }
+}
+
+/** 独占创建租约：异常标 fault（与读/写同一口径），返回 false 表示盘上已有租约。 */
+export async function safeCreateLease(io: HubIo, paths: HubPaths, lease: HubLease): Promise<HubIoOutcome<boolean>> {
+  try {
+    return { value: await io.createLease(paths, lease), fault: false }
   } catch {
     return { value: false, fault: true }
   }
@@ -95,5 +118,15 @@ export async function safeWritePlan(io: HubIo, paths: HubPaths, plan: HubPlan | 
     return await io.writePlan(paths, plan)
   } catch {
     return false
+  }
+}
+
+/** 删方案：异常 → 当没删掉（只多留一份方案，由孤儿接管按账本现状跳过）。 */
+export async function safeRemovePlan(io: HubIo, paths: HubPaths, owner: unknown): Promise<void> {
+  try {
+    const remove = io.removePlan ?? DEFAULT_HUB_IO.removePlan
+    if (remove) await remove(paths, owner)
+  } catch {
+    // 删除是收尾旁路：失败只影响「下一次装载会不会看到旧方案」，不改写任何结局。
   }
 }

@@ -12,6 +12,7 @@
  * trackUnhandledRejections：收后台未处理 rejection（DSH 会据此退出进程，测试要断言一个都没有）。
  */
 import { phaseOf } from './batch-log-harness.mjs'
+import { writeHubLease } from '../../dist/host/hub/lease-store.js'
 
 export function fakeClock(start = 1_000_000) {
   let current = start
@@ -70,9 +71,9 @@ export function makeHubDeps(scope, clock, transport, extra = {}) {
   }
 }
 
-/** 轮询电话直到某一行到目标相位（中枢自己推进的场景用）。 */
+/** 轮询电话直到某一行到目标相位（中枢自己推进的场景用；上限留足并行全量负载下的余量）。 */
 export async function waitForPhase(clock, host, phone, key, phase) {
-  for (let i = 0; i < 200; i += 1) {
+  for (let i = 0; i < 800; i += 1) {
     await clock.flush()
     await clock.advance(10)
     const reply = await host.handlers[phone]({})
@@ -96,4 +97,20 @@ export function trackUnhandledRejections() {
       process.off('unhandledRejection', onUnhandled)
     },
   }
+}
+
+/**
+ * 夹具写租约（预置一份别人的/过期的驾驶位、或在用例里模拟「另一个实例接管」）。
+ *
+ * 为什么不能直接 writeHubLease：Windows 上整写是「临时文件 + rename 顶替」，rename 偶发
+ * EPERM（扫描器/句柄短暂占用）时整写会如实回 false。夹具的成功前提是「这份租约确实落到盘上」，
+ * 所以这里对 false 做有界重试；用尽仍写不进就抛明确错误——绝不能让用例把「没接管成功」
+ * 当成「已接管」继续跑（那是假绿/假红）。
+ */
+export async function writeLeaseEventually(paths, lease, attempts = 20) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (await writeHubLease(paths, lease)) return
+    await new Promise((resolve) => setTimeout(resolve, 15))
+  }
+  throw new Error('夹具租约写不进去（' + attempts + ' 次整写都没落地）：' + paths.leaseFile)
 }

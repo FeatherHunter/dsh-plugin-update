@@ -14,12 +14,13 @@ import assert from 'node:assert/strict'
 import { readFile, writeFile } from 'node:fs/promises'
 import { createMultiHostUpdate } from '../dist/host-batch.js'
 import { batchPathsForOwner } from '../dist/core/disk.js'
+import { DEFAULT_HUB_IO } from '../dist/host/hub/boundary.js'
 import { hubPathsForUpdate, readHubPlan } from '../dist/host/hub/plan-store.js'
 import { readHubLease, writeHubLease } from '../dist/host/hub/lease-store.js'
 import { HUB_LEASE_HEARTBEAT_MS, HUB_LEASE_STALE_MS, HUB_LEASE_VERSION } from '../dist/core/hub/lease-policy.js'
 import { __resetHubRegistryForTests, hubSlotCountForTests } from '../dist/host/hub/registry.js'
 import { fakeTransport, mkScope, mkTarget, phaseOf, unbindAll } from './helpers/batch-log-harness.mjs'
-import { fakeClock, makeHubDeps, waitForPhase } from './helpers/hub-harness.mjs'
+import { fakeClock, makeHubDeps, waitForPhase, writeLeaseEventually } from './helpers/hub-harness.mjs'
 
 beforeEach(() => {
   __resetHubRegistryForTests()
@@ -172,7 +173,7 @@ test('接管：盘上租约记着活着但假死的进程（心跳过期），�
   const clock = fakeClock()
   const paths = hubPathsForUpdate(scope.homeDir, scope.profileDir)
   const now = clock.now()
-  await writeHubLease(paths, {
+  await writeLeaseEventually(paths, {
     version: HUB_LEASE_VERSION,
     driverId: 'hung-driver',
     pluginId: 'life',
@@ -212,31 +213,61 @@ test('换代期间的旧心跳不覆盖新驾驶位：被接管后旧驱动不�
   const { scope } = await mkScope('hub-proc-heartbeat-fence-')
   const clock = fakeClock()
   const paths = hubPathsForUpdate(scope.homeDir, scope.profileDir)
+  let installStarted = null
+  const started = new Promise((resolve) => {
+    installStarted = resolve
+  })
+  let releaseInstall = null
+  const stalled = new Promise((resolve) => {
+    releaseInstall = resolve
+  })
+  let takeoverWritten = null
+  const takeover = new Promise((resolve) => {
+    takeoverWritten = resolve
+  })
   const transport = {
     check: async () => ({ kind: 'update', version: '2.0.0' }),
     install: async () => {
-      // 安装期间另一个实例换代接管（模拟长步骤里发生的真接管）。
-      await clock.advance(HUB_LEASE_HEARTBEAT_MS + 1)
-      await writeHubLease(paths, {
-        version: HUB_LEASE_VERSION,
-        driverId: 'new-driver',
-        pluginId: 'life',
-        pid: 4242,
-        generation: 2,
-        startedAt: clock.now(),
-        heartbeatAt: clock.now(),
-      })
+      // 装到一半停住：让心跳保持者在「已经读过旧驾驶位、还没写回」的窗口里遇到换代（确定性，不靠赛跑）。
+      installStarted()
+      await stalled
       return { kind: 'done', restartRequired: false }
     },
   }
-  const host = createMultiHostUpdate(makeHubDeps(scope, clock, transport, { hubIsProcessAlive: () => true }), {
+  // 只在第一拍心跳的写入窗口里动手：把盘上换成别人的第 2 代（模拟另一实例真接管）。
+  // 老实现（读 → 无条件整写）会把旧代次写回去；现在的 CAS 应该识别出「盘上已不是预期代次」而不写。
+  const io = {
+    ...DEFAULT_HUB_IO,
+    writeLease: async (p, lease, expected) => {
+      if (expected && expected.kind === 'owner') {
+        await writeLeaseEventually(p, {
+          version: HUB_LEASE_VERSION,
+          driverId: 'new-driver',
+          pluginId: 'life',
+          pid: 4242,
+          generation: 2,
+          startedAt: clock.now(),
+          heartbeatAt: clock.now(),
+        })
+        takeoverWritten()
+      }
+      return await DEFAULT_HUB_IO.writeLease(p, lease, expected)
+    },
+  }
+  const host = createMultiHostUpdate(makeHubDeps(scope, clock, transport, { hubIsProcessAlive: () => true, hubIo: io }), {
     hub: true,
     prefix: 'life',
     targets: [mkTarget('a')],
   })
   try {
-    const reply = await host.handlers['life.batchInstall']({})
+    const pending = host.handlers['life.batchInstall']({})
+    await started
+    await clock.advance(HUB_LEASE_HEARTBEAT_MS + 1)
+    await takeover
+    releaseInstall()
+    const reply = await pending
     assert.equal(reply.ok, true)
+    await clock.flush()
     const lease = await readHubLease(paths)
     assert.ok(lease, '新驾驶位的租约应还在（旧驱动不许删/不许覆盖）')
     assert.equal(lease.driverId, 'new-driver')
@@ -251,7 +282,7 @@ test('接管：盘上租约记着死进程，活着的一方换代接过来推�
   const { scope } = await mkScope('hub-proc-takeover-')
   const clock = fakeClock()
   const paths = hubPathsForUpdate(scope.homeDir, scope.profileDir)
-  await writeHubLease(paths, {
+  await writeLeaseEventually(paths, {
     version: HUB_LEASE_VERSION,
     driverId: 'dead-driver',
     pluginId: 'life',

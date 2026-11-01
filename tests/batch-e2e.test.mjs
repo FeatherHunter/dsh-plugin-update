@@ -64,8 +64,13 @@ async function makeScope(names) {
   return { home, profile, dirs }
 }
 
-/** 诚实执行器唯一承诺的结果：目标版真落盘（入口三件一起写，validPackage 才过）。 */
+/**
+ * 诚实执行器唯一承诺的结果：目标版真落盘（入口三件一起写，validPackage 才过）。
+ * 入口三件先写、清单最后写：清单里的新版本号因此是「这一次装真的写完了」的观测点。
+ * 反过来先写清单，读的人会在半成品状态就把「版本已是目标版」当成落盘完成。
+ */
 async function writeVersion(dir, name, version) {
+  for (const file of ENTRIES) await writeFile(join(dir, file), entryBody(name, version, file))
   const manifestPath = join(dir, 'package.json')
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
   manifest.version = version
@@ -73,16 +78,16 @@ async function writeVersion(dir, name, version) {
   manifest.exports = { './client': './client.js' }
   manifest.dsh = { bundle: { patch: './patch.js' } }
   await writeFile(manifestPath, JSON.stringify(manifest, null, 2))
-  for (const file of ENTRIES) await writeFile(join(dir, file), entryBody(name, version, file))
 }
 
 async function readJson(file) {
   return JSON.parse(await readFile(file, 'utf8'))
 }
 
-/** 等条件成立（异步收尾不靠墙钟断言，只等它落定）。 */
-async function waitFor(check, label) {
-  for (let i = 0; i < 200; i += 1) {
+/** 等条件成立（异步收尾不靠墙钟断言，只等它落定；timeoutMs 只是护栏，不是判定依据）。 */
+async function waitFor(check, label, timeoutMs = 1000) {
+  const rounds = Math.max(1, Math.ceil(timeoutMs / 5))
+  for (let i = 0; i < rounds; i += 1) {
     if (await check()) return
     await new Promise((done) => setTimeout(done, 5))
   }
@@ -360,9 +365,15 @@ describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执
 
     // 卡住那家后来真收尾（解除阻塞）→ 再推一次：账本按事实把 failed 纠成 done（#27 ②）
     unblockA()
+    // 只等「这次装真的写完」这一个事实：writeVersion 先把入口三件写好、清单（package.json）最后写，
+    // 所以清单里出现目标版本号就是落盘完成。不等盘上 job 自己落成 restart-required——执行器超时
+    // 收场后那次装的收尾有时会被放弃（job 停在 interrupted），等它只会把测试变成看运气。
+    // restartRequired 由第二轮纠正按「盘上已是目标版 + 运行版仍旧」两个事实推（fan-out.ts
+    // reconcileFailed；#276 E3b 修的正是这里：job interrupted 优先判 recovery-required 曾把事实漏成 false）。
     await waitFor(
       async () => (await readJson(join(scope.dirs['pkg-a'], 'package.json'))).version === TARGET_VERSION,
-      'A 那次装真落盘',
+      'A 那次装真的写完（入口先写、清单最后写）',
+      2000,
     )
     const second = await host.handlers['life.batchInstall']({ keys: ['b'] })
     assert.equal(second.ok, true)
@@ -371,7 +382,10 @@ describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执
     assert.equal(phaseOf(second.session, 'a'), 'done', '账本按事实纠正：盘上已是目标版（#27 ②）')
     assert.equal(entryOf(second.session, 'a').error, 'install-failed', 'error 留着当痕迹（先失败、后来装上了）')
     assert.equal(entryOf(second.session, 'a').restartRequired, true, '运行版还是旧的 → 待重启')
-    assert.equal((await readJson(queueFile)).owner, null)
+    // 迟到的那次后台收尾还会往队列镜像里挂 owner，再在落终态时摘牌：摘牌可能比 job 文件晚一步。
+    // 断言的是「收尾后队列里没有 owner」这个终态事实，等它摘掉即可——等不到就是产品卫生缺陷，别放宽断言。
+    // 并行全量负载下摘牌可能慢一拍：给到 3 秒仍等终态事实，不放宽成「有 owner 也算过」。
+    await waitFor(async () => (await readJson(queueFile)).owner === null, '迟到收尾摘掉队列 owner', 3000)
     assert.equal(existsSync(lockFile), false)
     host.dispose()
   })

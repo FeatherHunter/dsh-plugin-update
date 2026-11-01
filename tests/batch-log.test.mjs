@@ -728,7 +728,9 @@ describe('#208 批量会话串联字段', () => {
     host.dispose()
   })
 
-  it('驱动异常时停止行的计数取最新账本：装好的家不会被算成没装', async () => {
+  // #276（US6）：传输异常只影响那一行——装失败的家落 failed/unknown，别的家继续装完，
+  // 整批按事实收尾（finished），不再整批判失败。
+  it('安装传输抛错只影响那一行：装好的家算 ok、抛错那家落 failed/unknown，整批按事实收尾', async () => {
     const { scope } = await mkScope()
     const transport = {
       check: async () => ({ kind: 'update', version: '2.0.0' }),
@@ -745,13 +747,17 @@ describe('#208 批量会话串联字段', () => {
     bind('plugin-self', owner.sink)
 
     const reply = await host.handlers['life.batchInstall']({})
-    assert.equal(reply.ok, false)
+    assert.equal(reply.ok, true, '异常已被收进失败行，整批继续推进')
+    assert.equal(phaseOf(reply.session, 'a'), 'done', '先装好的家不会被算成没装/失败')
+    assert.equal(phaseOf(reply.session, 'self'), 'failed', '抛错那家落 failed')
+    const selfEntry = reply.session.entries.find((one) => one.key === 'self')
+    assert.equal(selfEntry.error, 'unknown', '异常 message 不外泄：折成稳定码 unknown')
     const stopRows = rowsOf(owner, 'update.batch.summary')
-    assert.equal(stopRows.length, 1, '驱动异常一条停止行')
-    assert.equal(stopRows[0].fields.stoppedBecause, 'error')
+    assert.equal(stopRows.length, 1, '这一批收尾仍有一条总账')
+    assert.equal(stopRows[0].fields.stoppedBecause, 'finished', '全部行都到终态：为什么停是 finished')
     assert.equal(stopRows[0].fields.total, 2)
-    assert.equal(stopRows[0].fields.ok, 1, '先装好的那家已落盘：停止行的 ok 必须是 1 而不是 0')
-    assert.equal(stopRows[0].fields.failed, 0)
+    assert.equal(stopRows[0].fields.ok, 1, '装好的那家计进 ok')
+    assert.equal(stopRows[0].fields.failed, 1, '抛错那家计进 failed，不是 0')
     host.dispose()
   })
 

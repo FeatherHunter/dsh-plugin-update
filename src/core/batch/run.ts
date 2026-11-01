@@ -219,7 +219,14 @@ export async function runBatch(
     if (version === null) {
       // 1) 查：先记 checking（落盘），这样重载后知道这一家没查完
       await persist(markBatchEntry(current, key, { phase: 'checking', error: null }, deps.now()).session)
-      const checked = await deps.check(key)
+      // #276（US6 失败隔离）：传输抛异常只算这一家失败——异常原话可能带路径/URL，账本只记 unknown；
+      // 不把整批标 failed、不 reject（否则中枢/驱动会把「一家的网络问题」当整批判失败）。
+      let checked: BatchCheckOutcome
+      try {
+        checked = await deps.check(key)
+      } catch {
+        checked = { kind: 'failed', error: 'unknown', stage: 'check' }
+      }
       used += 1
 
       if (checked.kind === 'failed') {
@@ -264,7 +271,13 @@ export async function runBatch(
     // 3) 提交安装：编号用会话里那一份（恒等 ⇒ 幂等，重复提交不重复装）
     if (version === null) continue // 到不了：上面两条路都会给出版本；真到了就跳过这家，不猜版本
     await persist(markBatchEntry(current, key, { phase: 'installing' }, deps.now()).session)
-    const installed = await deps.install(key, entry.requestId, version)
+    // #276（US6）：同查路径——装电话抛异常只把这一家落 failed(unknown, stage=install)，其余照常推。
+    let installed: BatchInstallOutcome
+    try {
+      installed = await deps.install(key, entry.requestId, version)
+    } catch {
+      installed = { kind: 'failed', error: 'unknown', stage: 'install' }
+    }
     used += 1
 
     if (installed.kind === 'queued') {

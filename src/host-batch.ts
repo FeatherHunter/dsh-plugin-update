@@ -131,6 +131,16 @@ export interface MultiHostDeps {
    * 验证「后台泵碰到异常也不外抛」；生产不传，走真实文件系统。返回 null/false 的降级口径不变。
    */
   hubIo?: HubIo
+  /**
+   * 租约陈旧窗口（毫秒，缺省 HUB_LEASE_STALE_MS=20s；#276）。只给多进程/长安装验证与测试调小，
+   * 让「真实慢安装期间心跳续活、不被误接管」能在秒级断言；生产不传。
+   */
+  hubLeaseStaleMs?: number
+  /**
+   * 租约心跳间隔（毫秒，缺省 HUB_LEASE_HEARTBEAT_MS=5s；#276）。长安装步期间由中枢的
+   * 「租约保持者」按这个节拍续活；生产不传。
+   */
+  hubHeartbeatMs?: number
 }
 
 /** 批量宿主入口的返回面。 */

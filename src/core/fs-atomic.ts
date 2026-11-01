@@ -8,8 +8,13 @@
 
 import { rename } from 'node:fs/promises'
 
-/** 瞬时错误最多试几次（含第一次）。 */
-export const RENAME_RETRY_ATTEMPTS = 5
+/**
+ * 瞬时错误最多试几次（含第一次）。
+ * #276：中介租约/账本的整份替换在并行全量、杀毒扫描、宿主句柄频繁打开时，
+ * 200ms 预算不够（实测临时目录里 EPERM 可持续到半秒级）。这里给到 ~900ms，
+ * 仍只对 EPERM/EACCES/EBUSY 重试；真错误（ENOENT/ENOSPC/只读）第一次就抛。
+ */
+export const RENAME_RETRY_ATTEMPTS = 10
 /** 退避基数：第 n 次失败后等 BASE_MS * n（Windows 上扫描器通常几十毫秒内放手）。 */
 const RENAME_RETRY_BASE_MS = 20
 const RETRYABLE_CODES = new Set(['EPERM', 'EACCES', 'EBUSY'])
