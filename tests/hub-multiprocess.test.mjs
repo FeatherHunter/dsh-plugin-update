@@ -13,8 +13,9 @@
  *   (c) 两个调用方结果不矛盾：驾驶位 done，竞争进程不得到相反的 failed；
  *   (d) 长安装步期间租约心跳续活（heartbeatAt 前进）、不换代（driverId/generation 恒定）。
  *
- * hub 路径的真正互斥原语是 lease.json（global.lock 属于旧 legacy drive 路径，见 E3b/批次测试）；
- * 本文件走完整生产装配：真实 registry/boundary/plan-store/lease-store + 真实 batch.json 文件 + 真实定时器。
+ * 中枢路径的推进互斥原语是 lease.json；安装写盘的互斥仍是既有 queue.json + global.lock（ADR-0003 §4）——
+ * 驾驶位在慢安装步里按真安装路径真实持有 global.lock（真实文件，不是替身），两层互斥在真进程里同时工作。
+ * 本文件走完整生产装配：真实 registry/boundary/plan-store/lease-store + 真实 batch.json/global.lock 文件 + 真实定时器。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -24,6 +25,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { batchPathsForOwner } from '../dist/core/disk.js'
+import { queuePathsForUpdate } from '../dist/core/queue/ports.js'
 import { mkScope, phaseOf } from './helpers/batch-log-harness.mjs'
 
 const CHILD_FILE = fileURLToPath(new URL('./helpers/hub-multiprocess-child.mjs', import.meta.url))
@@ -96,7 +98,13 @@ test('真实双进程：同一批次只有一个驾驶位写账本，长安装�
   let contender = null
   try {
     // 等驾驶位进程真拿到租约、进安装步，再起竞争进程：竞争发生在一个活的驾驶位身上，不是空盘抢跑。
-    await waitEvent(driver, 'install-start', 10000, '驾驶位进程进入安装步')
+    const driverStart = await waitEvent(driver, 'install-start', 10000, '驾驶位进程进入安装步')
+    // 慢安装步里同时持有 queue 的全局锁（真实文件）：两层互斥在真进程里同时工作。
+    assert.equal(driverStart.globalLock, true, '驾驶位在慢安装步里真实持有 queue global.lock')
+    const queuePaths = queuePathsForUpdate(scope.homeDir, scope.profileDir)
+    const lockOnDisk = JSON.parse(await readFile(queuePaths.lock, 'utf8'))
+    assert.equal(lockOnDisk.pluginId, 'life', 'global.lock 记着安装方（真实文件，不是替身）')
+    assert.equal(lockOnDisk.pid, driver.child.pid, '持有 global.lock 的正是驾驶位子进程')
     contender = startChild('contender', env)
     const [driverExit, contenderExit] = await Promise.all([driver.exited, contender.exited])
     assert.equal(driverExit.code, 0, `驾驶位进程正常退出（stderr=${driverExit.stderr.slice(-1500)}）`)

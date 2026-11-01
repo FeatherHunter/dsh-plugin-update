@@ -16,10 +16,12 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { createMultiHostUpdate } from '../dist/host-batch.js'
+import { createBatchSession, markBatchEntry } from '../dist/core/batch/model.js'
+import { createBatchOwnerPorts } from '../dist/core/disk.js'
 import { hubPathsForUpdate, readHubPlan, readHubPlans } from '../dist/host/hub/plan-store.js'
 import { __resetHubRegistryForTests } from '../dist/host/hub/registry.js'
 import { mkScope, mkTarget, phaseOf, unbindAll } from './helpers/batch-log-harness.mjs'
-import { fakeClock, makeHubDeps } from './helpers/hub-harness.mjs'
+import { fakeClock, makeHubDeps, waitForPhase } from './helpers/hub-harness.mjs'
 
 beforeEach(() => {
   __resetHubRegistryForTests()
@@ -133,7 +135,7 @@ test('#8 坏方案自愈：坏掉的 life 方案当没写过，下一次 submit 
   }
 })
 
-test('#8 非法属主：不安全属主/不匹配属主的方案不被接管、不被当成有人正忙', async () => {
+test('#8 非法属主与孤儿方案：不安全方案丢弃；别家未收尾方案由本实例接管装完（US31），不误判自己忙碌', async () => {
   const { scope } = await mkScope('hub-bad-plan-owner-')
   const clock = fakeClock()
   // 文件名安全但内容属主不安全：normalize 读坏当没有。
@@ -142,30 +144,53 @@ test('#8 非法属主：不安全属主/不匹配属主的方案不被接管、�
     'bad-owner.json',
     JSON.stringify(planPayload({ owner: 'bad owner!', sessionId: 'ghost-session' })),
   )
-  // 合法方案但属主是别人（other）：不该被 life 的批量安装接管，也不该让 life 变忙。
-  const otherPlan = JSON.stringify(planPayload({ owner: 'other', sessionId: 'other-session' }), null, 2)
+  // 合法方案 + 对得上的未收尾账本：这是 US31 要接管的那一类（别的属主留下的孤儿）。
+  // 只放方案不放账本的话 adoptOrphanPlan 会提前 return，测不到接管，故这里把账本也种上。
+  const otherPlan = JSON.stringify(
+    planPayload({ owner: 'other', sessionId: 'other-session', scope: { ...scope, profileName: 'web' } }),
+    null,
+    2,
+  )
   await seedPlanFile(scope, 'other.json', otherPlan)
+  const otherPorts = createBatchOwnerPorts(scope.homeDir, scope.profileDir, 'other')
+  const otherSession = createBatchSession({
+    id: 'other-session',
+    keys: ['x'],
+    selfKey: null,
+    selfOrder: 'last',
+    stopOnFailure: false,
+    now: clock.now(),
+  })
+  // ready = 上一任已经查到有更新、还没装完就断了。
+  await otherPorts.writeBatch(markBatchEntry(otherSession, 'x', { phase: 'ready', targetVersion: '2.0.0' }, clock.now()).session)
 
   const plans = await readHubPlans(paths)
-  assert.deepEqual(
-    plans.map((plan) => plan.owner),
-    ['other'],
-    '不安全属主的方案被丢掉；别人家的合法方案留下（但不该被 life 接管）',
-  )
+  assert.deepEqual(plans.map((plan) => plan.owner), ['other'], '不安全属主的方案被丢掉；别家的合法方案留下')
   assert.equal(await readHubPlan(paths, 'life'), null, '没有可接管的 life 方案')
 
   const { transport, installs } = countingTransport()
   const host = installHost(scope, clock, transport)
   try {
+    // 装载时的孤儿接管：任一存活集成方都能接（US31），life 用自己的宿主能力把 other 留下的那一轮装完。
+    let onDisk = await otherPorts.readBatch()
+    for (let i = 0; i < 200 && !(onDisk.entries.length > 0 && onDisk.entries.every((entry) => entry.phase === 'done')); i += 1) {
+      await clock.flush()
+      await clock.advance(10)
+      onDisk = await otherPorts.readBatch()
+    }
+    assert.equal(phaseOf(onDisk, 'x'), 'done', '别家未收尾的孤儿方案被本实例接管装完（US31）')
+    assert.ok(installs.includes('x'), '接管用的是本实例注入的宿主能力/传输')
+
     const reply = await host.handlers['life.batchInstall']({})
     assert.equal(reply.ok, true)
-    assert.equal(phaseOf(reply.session, 'a'), 'done', '非法属主方案没让 life 被误判成忙碌（不排 queued、不干等）')
-    assert.deepEqual(installs, ['a'], '安装照常发生一次')
+    const done = await waitForPhase(clock, host, 'life.batchStatus', 'a', 'done')
+    assert.equal(phaseOf(done.session, 'a'), 'done', '接管别家方案没让 life 自己被误判成忙碌（FIFO 排队后照常装完）')
+    assert.ok(installs.includes('a'), '自己的目标照常装一次')
 
     const lifePlan = await readHubPlan(paths, 'life')
     assert.ok(lifePlan, 'life 自己的新方案写上了')
     assert.equal(lifePlan.owner, 'life')
-    // 别人家的方案原样保留（不接管、不改写）。
+    // 别人家的方案原样保留（接管靠账本与租约，不删不改别家方案文件）。
     assert.equal(await readFile(join(paths.plansDir, 'other.json'), 'utf8'), otherPlan, '别人的方案没被改写')
   } finally {
     host.dispose()

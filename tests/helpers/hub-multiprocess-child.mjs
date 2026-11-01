@@ -18,6 +18,7 @@
 import { createMultiHostUpdate } from '../../dist/host-batch.js'
 import { hubPathsForUpdate } from '../../dist/host/hub/plan-store.js'
 import { readHubLease } from '../../dist/host/hub/lease-store.js'
+import { createUpdateQueuePorts } from '../../dist/core/queue/ports.js'
 import { mkTarget, phaseOf } from './batch-log-harness.mjs'
 
 const role = process.env.MP_ROLE
@@ -30,6 +31,10 @@ const retryMs = Number(process.env.MP_RETRY_MS ?? 200)
 const pollMs = Number(process.env.MP_POLL_MS ?? 120)
 
 const paths = hubPathsForUpdate(homeDir, profileDir)
+// 真安装还要占 queue 的全局锁（ADR-0003 §4：谁写盘装包）。夹具里也照真路径拿一次真实 global.lock，
+// 证明「中枢租约 + 既有全局锁」两层在真进程里能同时工作，而不是把锁替换成替身。
+const queuePorts = createUpdateQueuePorts(homeDir, profileDir)
+const queueLockId = 'mp-' + String(role ?? 'x') + '-' + process.pid
 const samples = []
 const startedAt = Date.now()
 
@@ -66,9 +71,12 @@ const transport = {
     installs.push(key)
     if (role === 'driver') {
       // 装 3 秒：比注入的陈旧窗口（2.5 秒）长，只有心跳真的在安装步里续活，别的驾驶位才不该接管。
-      await emit('install-start')
+      // 同时按真安装路径占住 queue 的 global.lock（真实文件，不是替身），装完再放。
+      const globalLock = queuePorts.paths ? await queuePorts.tryAcquireGlobalLock(queueLockId, 'life', { timeoutMs: 5_000 }) : false
+      await emit('install-start', { globalLock })
       await sleep(installSleepMs)
       await emit('install-end')
+      if (globalLock) await queuePorts.releaseGlobalLock(queueLockId)
       return { kind: 'done', restartRequired: false }
     }
     // 竞争进程本不该拿到驾驶位：真被调用就留证据，父进程断言这里是 0 次。

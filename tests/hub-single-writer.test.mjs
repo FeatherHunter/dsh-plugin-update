@@ -341,10 +341,15 @@ test('activeInstall 身份：租约 pluginId 取方案自更新目标的插件�
   const clock = fakeClock()
   const paths = hubPathsForUpdate(scope.homeDir, scope.profileDir)
   let leaseDuringInstall = null
+  let activeInstallDuringInstall = null
+  let hostRef = null
   const transport = {
     check: async () => ({ kind: 'update', version: '2.0.0' }),
     install: async () => {
       leaseDuringInstall = await readHubLease(paths)
+      // US6 的对外一面：装的时候 updateHubStatus 必须把这一家报成 activeInstall，且身份是自更新目标的插件。
+      const status = await hostRef.handlers['life.updateHubStatus']({})
+      activeInstallDuringInstall = status?.snapshot?.activeInstall ?? null
       return { kind: 'done', restartRequired: false }
     },
   }
@@ -354,11 +359,52 @@ test('activeInstall 身份：租约 pluginId 取方案自更新目标的插件�
     selfKey: 'self',
     selfOrder: 'first',
   })
+  hostRef = host
   try {
     const reply = await host.handlers['life.batchInstall']({})
     assert.equal(reply.ok, true)
     assert.ok(leaseDuringInstall, '安装期间有驾驶位')
     assert.equal(leaseDuringInstall.pluginId, 'plugin-self', '租约记的是方案自更新目标的 pluginId，不是属主前缀')
+    assert.ok(activeInstallDuringInstall, 'updateHubStatus 在装的时候报出 activeInstall')
+    assert.equal(
+      activeInstallDuringInstall.pluginId,
+      'plugin-self',
+      'activeInstall 的身份与租约一致（自更新目标插件），面板据此认「正在装谁」',
+    )
+  } finally {
+    host.dispose()
+    unbindAll()
+  }
+})
+
+test('updateHubStatus.activeInstall 用注入的陈旧窗判定（与中枢同一口径，不读 20s 常量）', async () => {
+  const { scope } = await mkScope('hub-single-active-stale-')
+  const clock = fakeClock()
+  const paths = hubPathsForUpdate(scope.homeDir, scope.profileDir)
+  const leaseWith = (heartbeatAt) => ({
+    version: HUB_LEASE_VERSION,
+    driverId: 'other-driver',
+    pluginId: 'plugin-a',
+    pid: 999999,
+    generation: 1,
+    startedAt: clock.now(),
+    heartbeatAt,
+  })
+  // 新鲜租约：activeInstall 指到插件；超过注入的 1000ms 窗：按没人推处理。
+  await writeLeaseEventually(paths, leaseWith(clock.now()))
+  const host = installHost(
+    scope,
+    clock,
+    {},
+    { prefix: 'life', targets: [mkTarget('a')] },
+    { hubLeaseStaleMs: 1000 },
+  )
+  try {
+    const fresh = await host.handlers['life.updateHubStatus']({})
+    assert.equal(fresh?.snapshot?.activeInstall?.pluginId, 'plugin-a', '新鲜租约报成正在装')
+    await writeLeaseEventually(paths, leaseWith(clock.now() - 5000))
+    const stale = await host.handlers['life.updateHubStatus']({})
+    assert.equal(stale?.snapshot?.activeInstall, null, '心跳 5s 前、注入窗 1s：按没人推处理（不是按 20s 常量）')
   } finally {
     host.dispose()
     unbindAll()

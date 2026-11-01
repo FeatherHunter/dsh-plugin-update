@@ -371,7 +371,15 @@ describe('多目标真装 e2e（真队列 / 真锁 / 假 registry / 真写盘执
     // restartRequired 由第二轮纠正按「盘上已是目标版 + 运行版仍旧」两个事实推（fan-out.ts
     // reconcileFailed；#276 E3b 修的正是这里：job interrupted 优先判 recovery-required 曾把事实漏成 false）。
     await waitFor(
-      async () => (await readJson(join(scope.dirs['pkg-a'], 'package.json'))).version === TARGET_VERSION,
+      async () => {
+        // writeVersion 不是原子整写：轮询时可能读到「已被截断、还没写完」的空/半截清单。
+        // 解析失败只表示「这次还没写完」，继续下一拍；最终仍要求清单稳定出现目标版本。
+        try {
+          return (await readJson(join(scope.dirs['pkg-a'], 'package.json'))).version === TARGET_VERSION
+        } catch {
+          return false
+        }
+      },
       'A 那次装真的写完（入口先写、清单最后写）',
       2000,
     )

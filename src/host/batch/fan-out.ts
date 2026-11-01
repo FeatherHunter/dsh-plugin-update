@@ -844,7 +844,7 @@ export function createMultiHostUpdate(
       },
       install: (key: string, requestId: string, version: string) => {
         const target = plan.targets.find((one) => one.key === key)
-        if (!target) throw batchFail('check-failed')
+        if (!target) throw batchFail('install-failed')
         return installRuntime(planRuntimeOf(plan, target), key, requestId, version)
       },
       logFor: (key: string) => logSeams.logPortFor(key),
@@ -1276,9 +1276,11 @@ export function createMultiHostUpdate(
         await saveSession(session)
       }
       const retried = resetForRetry(session, selected, now())
-      if (retried !== session) {
+      const retriedChanged = retried !== session
+      if (retriedChanged) {
         session = retried
-        await saveSession(session)
+        // 中枢路径不在这里裸写账本：重试复位等真正拿到驾驶位后由 takeOver 落盘（#276 P0(e)）。
+        if (!(hubEnabled && hubScope)) await saveSession(session)
       }
       // 入队行在建/复用会话之后记（新建与复用都由它兜住，同一份会话只记一次）。
       noteEntryRequest(session)
@@ -1293,6 +1295,14 @@ export function createMultiHostUpdate(
       // 一家查传输异常也只落那一行（run.ts 的失败隔离），不会把整批拦在预查闸外。
       const seat = hubSeatFor(session)
       if (seat && hubScope) {
+        if (retriedChanged) {
+          // 驾驶位到手后才把「失败行复位成 pending」写进账本：没拿到驾驶位就不许改写会话。
+          seat.takeOver = async () => {
+            const latest = await readSession()
+            const reset = resetForRetry(latest, selected, now())
+            if (reset !== latest) await saveSession(reset)
+          }
+        }
         // 中枢（ADR-0008）：装阶段交给进程级中枢——它拿执行席推进，本 fiber 结束/被替换也不断。
         // 行级选择（keys）必须一起冻结进任务：否则中枢会把「只点这一家」当整批推进（B1）。
         const outcome = await submitHubTask(hubScope, seat, hubDeps, {
@@ -1330,7 +1340,9 @@ export function createMultiHostUpdate(
     const hadUnfinished = disk.entries.length > 0 && !isBatchFinished(disk)
     if (!hadUnfinished) return { ...(await table(disk)), resumed: false }
     const resumed = resumeBatchSession(disk, now())
-    if (resumed !== disk) await saveSession(resumed)
+    // 中枢路径不在这里裸写账本：续跑复位等真正拿到驾驶位后由 takeOver 落盘（#276 P0(e)）。
+    const deferResume = hubEnabled && hubScope
+    if (resumed !== disk && !deferResume) await saveSession(resumed)
     // #217：续跑也是「重新开跑」，先把上一轮留下的排队占位扫掉再推进。
     await clearBatchQueueIntents()
     try {
@@ -1338,6 +1350,16 @@ export function createMultiHostUpdate(
       noteRunStart(resumed, { trigger: 'resume', resumed: true })
       const seat = hubSeatFor(resumed)
       if (seat && hubScope) {
+        if (deferResume) {
+          seat.takeOver = async () => {
+            const latest = await readSession()
+            if (latest.entries.length === 0 || isBatchFinished(latest)) return
+            const next = resumeBatchSession(latest, now())
+            if (next !== latest) await saveSession(next)
+            await clearBatchQueueIntents()
+            noteRunStart(next, { trigger: 'resume', resumed: true })
+          }
+        }
         // 中枢（ADR-0008）：续跑也交给中枢，避免「面板关掉后续跑断在 fiber 里」。
         const outcome = await submitHubTask(hubScope, seat, hubDeps)
         const hubDriven = await readSession()
@@ -1462,31 +1484,21 @@ export function createMultiHostUpdate(
     const disk = await readDisk()
     if (disk.entries.length === 0 || isBatchFinished(disk)) return
     if (disk.id !== plan.sessionId) return
-    // 旧一代还活着时只读装席位、先不写账本/队列（两代各写一遍只会互相覆盖）；
-    // 真正拿到驾驶位后由泵调 takeOver 补做续跑收尾（#254）。
+    // 装载时一律只读：续跑复位/撤排队占位/启动日志都等真正拿到驾驶位后由 takeOver 补做
+    // （#254 的旧一代忙场景，#276 P0(e) 的双写窗口：提交中枢前不裸写账本）。
     const resumed = legacyBusy ? disk : resumeBatchSession(disk, now())
-    if (!legacyBusy) {
-      if (resumed !== disk) await saveDisk(resumed)
-      // #217：上一任留下的排队占位先撤掉，这一任会重新逐家入队。
-      await clearQueue()
-      seams.noteRunStart(resumed, { trigger: 'resume', resumed: true })
-    }
     const seat = seatFor(resumed)
     if (!seat) return
-    if (legacyBusy) {
-      let tookOver = false
-      // 旧泵刚排空/观察超时后本代才真正开推：这时才补做装载时跳过的续跑落盘。
-      // 重读最新账本（旧泵可能又写了几步），没东西可推就不留启动日志。
-      seat.takeOver = async () => {
-        if (tookOver) return
-        tookOver = true
-        const latest = await readDisk()
-        if (latest.entries.length === 0 || isBatchFinished(latest)) return
-        const next = resumeBatchSession(latest, now())
-        if (next !== latest) await saveDisk(next)
-        await clearQueue()
-        seams.noteRunStart(next, { trigger: 'resume', resumed: true })
-      }
+    let tookOver = false
+    seat.takeOver = async () => {
+      if (tookOver) return
+      tookOver = true
+      const latest = await readDisk()
+      if (latest.entries.length === 0 || isBatchFinished(latest)) return
+      const next = resumeBatchSession(latest, now())
+      if (next !== latest) await saveDisk(next)
+      await clearQueue()
+      seams.noteRunStart(next, { trigger: 'resume', resumed: true })
     }
     await submitHubTask(hubScope, seat, hubDeps)
   }
@@ -1497,7 +1509,10 @@ export function createMultiHostUpdate(
    */
   async function hubStatusPhone(): Promise<Record<string, unknown>> {
     if (!hubScope) return { ok: true, snapshot: emptyHubSnapshot(now()) }
-    const snapshot = await readHubStatus({ homeDir: hubScope.homeDir, profileDir: hubScope.profileDir }, { at: now() })
+    const snapshot = await readHubStatus(
+      { homeDir: hubScope.homeDir, profileDir: hubScope.profileDir },
+      { at: now(), leaseStaleMs: hubDeps.leaseStaleMs },
+    )
     return { ok: true, snapshot }
   }
 

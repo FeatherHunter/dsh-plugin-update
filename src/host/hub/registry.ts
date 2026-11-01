@@ -29,6 +29,7 @@ import {
 } from '../../core/hub/lease-policy.js'
 import { planTargetOf, sameHubPlan } from '../../core/hub/plan.js'
 import {
+  DEFAULT_HUB_IO,
   hubIoOf,
   safeCreateLease,
   safeReadLease,
@@ -40,7 +41,7 @@ import {
 } from './boundary.js'
 import { HUB_REGISTRY_KEY, legacyHubBusyForKey } from './handoff.js'
 import { releaseHubLeaseSync } from './lease-store.js'
-import { hubPathsForUpdate, removeHubPlan, type HubPaths } from './plan-store.js'
+import { hubPathsForUpdate, type HubPaths } from './plan-store.js'
 import {
   HUB_MAX_LEASE_FAULTS,
   HUB_PROTOCOL_VERSION,
@@ -687,10 +688,15 @@ function leaseStaleMsOf(deps: HubRuntimeDeps): number {
   return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : HUB_LEASE_STALE_MS
 }
 
-/** 心跳节拍（#276 测试口子；与 core/hub/lease-policy 的判据同一口径）。 */
-function heartbeatIntervalOf(deps: HubRuntimeDeps): number {
+/**
+ * 心跳节拍（#276 测试口子；与 core/hub/lease-policy 的判据同一口径）。
+ * 节拍必须明显短于陈旧窗口，否则「续活」也救不了自己，单写者会被静默破坏；
+ * 调用方配错（比如 hubHeartbeatMs 比 hubLeaseStaleMs 还长）时按陈旧窗的一半封顶。
+ */
+function heartbeatIntervalOf(deps: HubRuntimeDeps, staleMs: number): number {
   const raw = deps.heartbeatMs
-  return typeof raw === 'number' && Number.isFinite(raw) && raw >= 1_000 ? Math.floor(raw) : HUB_LEASE_HEARTBEAT_MS
+  const wanted = typeof raw === 'number' && Number.isFinite(raw) && raw >= 1_000 ? Math.floor(raw) : HUB_LEASE_HEARTBEAT_MS
+  return Math.min(wanted, Math.max(1_000, Math.floor(staleMs / 2)))
 }
 
 /**
@@ -713,7 +719,7 @@ function startLeaseKeeper(slot: HubSlot): { lost(): boolean; stop(): void } {
   const schedule = () => {
     if (stopped || lost || timer !== null) return
     try {
-      timer = slot.deps.timers.setTimeout(tick, heartbeatIntervalOf(slot.deps))
+      timer = slot.deps.timers.setTimeout(tick, heartbeatIntervalOf(slot.deps, leaseStaleMsOf(slot.deps)))
     } catch {
       timer = null
     }
@@ -857,7 +863,7 @@ async function heartbeat(slot: HubSlot): Promise<'ok' | 'lost'> {
   if (!lease) return 'ok'
   const deps = slot.deps
   const now = deps.now()
-  if (!shouldHeartbeatHubLease(lease, now, heartbeatIntervalOf(deps))) return 'ok'
+  if (!shouldHeartbeatHubLease(lease, now, heartbeatIntervalOf(deps, leaseStaleMsOf(deps)))) return 'ok'
   const io = hubIoOf(deps)
   const read = await safeReadLease(io, slot.paths)
   if (read.fault) {
@@ -987,7 +993,7 @@ export async function revokeHubTask(scope: HubScope, owner: string): Promise<voi
     }
     // 没有本代槽（别的进程/别的 fiber 拿着驾驶位）：至少把盘上方案撤掉，账本已由调用方清空；
     // 那边的旧任务会在下一步发现账本身份不符/租约被撤而停手。
-    if (paths) await removeHubPlan(paths, owner)
+    if (paths) await safeRemovePlan(DEFAULT_HUB_IO, paths, owner)
   } catch {
     // 撤案是收尾旁路：任何失败都不外抛。
   }

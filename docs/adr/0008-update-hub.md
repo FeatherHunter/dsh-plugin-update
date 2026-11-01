@@ -27,7 +27,7 @@
 ### 2. 执行席（Seat）：闭包与 ctx 解绑
 
 - 中枢续跑需要的一切宿主能力在**提交任务时**固化成普通闭包：插件管理器 / 子进程 / 桌面服务引用、使用范围身份、目标清单、执行器。宿主根服务不随某个 bundle 卸载而失效，所以 fiber 销毁后这些引用仍可调用。
-- 席位由 `src/host/hub/protocol.ts` 的 `HubSeat` 定型，实际装配点在 `src/host/batch/fan-out.ts` 的 `hubSeatFor(session)`；批量面板路径与孤儿接管路径共用这一套装配，不写两份。`HubSeat` 还带可选的 `takeOver` 钩子（#254，接手续跑前的补写，见 §1.1）。
+- 席位由 `src/host/hub/protocol.ts` 的 `HubSeat` 定型，实际装配点有两处、产出同一 `HubSeat` 契约：`src/host/batch/fan-out.ts` 的 `hubSeatFor(session)`（本属主，用本实例 targets）与 `planSeatFor(plan, session)`（外来属主方案：按方案 targets 现造单插件运行时，宿主能力仍取本实例、账本端口取方案属主目录；US31，#276）。孤儿接管不再要求「方案属主 = 本实例前缀」，所以必须能从方案反推一份席位；两处共用契约而不是共用代码路径。`HubSeat` 还带可选的 `takeOver` 钩子（#254，接手续跑前的补写，见 §1.1）。
 - `createHostUpdate` 在创建时就把 `ctx` 能取到的宿主服务引用塞进 `readerOverrides`，避免读取器在 fiber 死后才去 `ctxService` 现取。
 
 ### 3. 中枢方案（Plan）：可被任一存活集成方接手的持久任务书
@@ -38,7 +38,7 @@
 
 ### 4. 单写者：中枢租约 + 既有全局锁分工
 
-- 中枢租约 `<queueDir>/hub/lease.json`：`{version, driverId, pluginId, pid, startedAt, heartbeatAt, generation}`。驾驶期间心跳保持者按 `HUB_LEASE_HEARTBEAT_MS = 5s` 节拍续活（不再只在步与步之间写），单步安装长于 20s 也不会被判假死；心跳陈旧（`HUB_LEASE_STALE_MS = 20s`）或同机 pid 已死则允许接管，接管者把 `generation + 1`；释放只认自己的 `driverId + generation`，在进程内锁里读后删（#276）。写入是带预期的：首次抢位用独占创建（临时文件 + link，同一时刻只有一个进程成功），续约/接管用「读 → 校验 driverId + generation → 原子替换 → 读回确认」，确认不上即让位；心跳读到租约已消失或被别人接管只判 lost，**绝不把旧代次写回去复活**（#276）。账本写入（`seat.saveSession`）前再按盘上租约复核属主与代次，旧代次不写 `batch.json`——即便两进程短暂并存也不会互相覆盖（#276）。
+- 中枢租约 `<queueDir>/hub/lease.json`：`{version, driverId, pluginId, pid, startedAt, heartbeatAt, generation}`。驾驶期间心跳保持者按 `HUB_LEASE_HEARTBEAT_MS = 5s` 节拍续活（不再只在步与步之间写），单步安装长于 20s 也不会被判假死；心跳陈旧（`HUB_LEASE_STALE_MS = 20s`）或同机 pid 已死则允许接管，接管者把 `generation + 1`；释放只认自己的 `driverId + generation`，在同一把跨进程目录锁（`hub/lease.lock`，`mkdir` 独占；陈旧 2 秒可回收）里读后删（#276）；进程退出钩子 `releaseHubLeaseSync` 是唯一例外——退出路径不再抢锁，只做读-核-删，避免退出时等锁。写入是带预期的：首次抢位用独占创建（临时文件 + link，同一时刻只有一个进程成功），续约/接管用「读 → 校验 driverId + generation → 原子替换 → 读回确认」，确认不上即让位；心跳读到租约已消失或被别人接管只判 lost，**绝不把旧代次写回去复活**（#276）。账本写入（`seat.saveSession`）前再按盘上租约复核属主与代次，旧代次不写 `batch.json`——即便两进程短暂并存也不会互相覆盖（#276）。
 - 安装本身的互斥仍复用 `queue.json + global.lock`（同一使用范围一次只装一个，ADR-0003 §4 一个字不改）。两层职责不重叠：租约管「谁在推进会话」，全局锁管「谁在写盘装包」。
 - 同一进程内中枢天然串行（单泵 + 单 Job 队列）。
 - **异常边界（#253）**：泵/退避重试/孤儿接管都跑在插件 `apply()` 之外，而宿主（dsh-app-boot）把「脱离 `apply()` 的异步任务产生未处理 rejection」当致命错误并退出进程。所以中枢后台的每一种异常都必须在中枢边界收住：任务边界 → 该任务明确 failed、等待者拿终态、泵继续下一个；落盘边界（`src/host/hub/boundary.ts`）→ 租约/方案的读/写/释放按 best-effort 降级；租约端口**抛出**（不是返回 false）的意外异常额外标 fault，让位重排队并计数（坏 I/O 不许变成每秒空转：连续故障到上限就判 failed）；孤儿接管边界（`src/host/hub/adopt.ts`）→ 单个方案失败只放弃那一个。
@@ -50,15 +50,16 @@
 - 每个 tick：读最新会话 → `runBatch(maxSteps: 1)` → `save` → 按 `decideHubCycleVerdict` 决定「继续 / 让出并退避 / 收尾 / 置失败」。每步都落盘，全量复用既有驱动器与两段式语义（ADR-0004）。
 - 失败隔离：单个任务抛错只把该任务置 `failed`（会话原样保留、可再次续跑），泵继续下一个；单目标失败仍走既有 `stopOnFailure = false`「继续下一家」；单个目标的 check/install 抛传输异常只把该行落 `failed`（`error: 'unknown'`），不把整任务判 `failed`，成功后显式清零旧错误（#276，US6）；`queued` 不是失败，回 `ready` 让出队首并短退避，等待者拿到 `queued` 而不是挂死。
 - 看门狗：每周期总步数上限 `HUB_MAX_STEPS_PER_CYCLE = 2000`、连续无进展步数上限 `HUB_MAX_IDLE_STEPS = 10`，超限置 `failed` 并留一行既有日志口径的失败证据，绝不空转。
+- 取消（US33）：`batchCancel` 清会话后撤销**本进程注册表**里的任务，并撤本属主的方案与租约（#276）。驾驶位在别的进程时，取消只清本属主账本/方案，不跨进程遍历别人的任务表——对方在下一步按会话与租约事实收手（租约被换代/释放后自然让位），不会留下装幽灵批次的空转任务。
 
 ### 6. 只读电话 `<prefix>.updateHubStatus`
 
-- 每套集成更新系统都注册一通只读电话 `<prefix>.updateHubStatus`，回 `{ok: true, snapshot}`：批量宿主只要识别得出使用范围就登记（`hub: false` 也登记并从盘上答；识别不出范围才不登记）；单插件宿主始终登记（句柄 `HostUpdate.hubStatus`，与批量侧同语义）。快照由磁盘聚合（中枢方案 + 各属主 `batch.json` + `inventory.json` + 没写方案的旧批账本 + 活租约判定的正在安装者），纯函数生成；中枢不在也能如实回答，**任何还活着的集成插件都能回答「全部插件的更新进度」**。
+- 每套集成更新系统都注册一通只读电话 `<prefix>.updateHubStatus`，回 `{ok: true, snapshot}`：批量宿主只要识别得出使用范围就登记（`hub: false` 也登记并从盘上答；识别不出范围才不登记）；单插件宿主始终登记（句柄 `HostUpdate.hubStatus`，与批量侧同语义）。快照由磁盘聚合（中枢方案 + 各属主 `batch.json` + `inventory.json` + 没写方案的旧批账本 + 活租约判定的正在安装者；陈旧窗与中枢注入的 `leaseStaleMs` 同口径，缺省 20s），纯函数生成；中枢不在也能如实回答，**任何还活着的集成插件都能回答「全部插件的更新进度」**。
 - 单插件链路 Phase 1 不注册这通电话、也不迁入中枢；面板与常驻 UI 只读这通电话，不推导、不写账。
 
 ### 7. 常驻更新队列 UI（可选、位置由集成方决定）
 
-- `mountHubProgressDock(container, { call, prefix?, phone?, title?, pollMs?, mountAs?: 'bottom-right' | 'bottom-bar' | 'inline', hideWhenIdle?, collapsed?, maxRows?, lang?, onOpen? })`：轮询自己前缀的 `updateHubStatus`（缺省 1s，最小 250ms，页面隐藏时暂停），渲染行级明细（标题、版本箭头、相位、失败码、待重启汇总）与聚合百分比；`hideWhenIdle: false` 留空壳；`collapsed` 起步只留一行计数；`maxRows` 缺省 3、最多 20，超出折 `+K`；控制器 `refresh()` 与 `update()` 同义。只挂到调用方给的容器，不写 `document.body`、不占宿主未分配的槽；容器被移出文档（`isConnected` 由 true 变 false）或根节点被摘走时自动收尾（停表、摘监听），`dispose()` 只停轮询；样式串 `HUB_DOCK_CSS` 从 `./panel-batch` 具名导出，类名统一 `dsh-hub-dock` 前缀（#276）。
+- `mountHubProgressDock(container, { call, prefix?, phone?, title?, pollMs?, mountAs?: 'bottom-right' | 'bottom-bar' | 'inline', hideWhenIdle?, collapsed?, maxRows?, lang?, onOpen? })`：轮询自己前缀的 `updateHubStatus`（缺省 1s，最小 250ms，页面隐藏时暂停），渲染行级明细（标题、版本箭头、相位、失败码、待重启汇总）与聚合百分比；`hideWhenIdle: false` 留空壳；`collapsed` 起步只留一行计数；`maxRows` 缺省 3、最多 20，超出折 `+K`；控制器 `refresh()` 与 `update()` 同义。只挂到调用方给的容器，不写 `document.body`、不占宿主未分配的槽；容器被移出文档（`isConnected` 由 true 变 false）或根节点被摘走时自动收尾（停表、摘监听），`dispose()` 只停轮询；样式串 `HUB_DOCK_CSS` 从 `./panel-batch` 具名导出，类名统一 `dsh-hub-dock` 前缀（#276）；这是既有子路径上的新增具名导出，不新增 package 子路径（与不变量一致）。
 - 位置由集成方宿主的槽位决定（`shell.overlay` / `shell.bottom` / 任意容器）；本包给 `bottom-right` 的 CSS 形态。插件方不采用不影响别的插件采用——任一集成插件挂上即看全量。
 
 ### 8. 自更新顺序语义一个字不改

@@ -50,6 +50,9 @@ export async function writeJsonFileAtomic(file: string, value: unknown): Promise
   }
 }
 
+/** link 在目标已存在之外、还可能因为「这个文件系统根本不支持硬链接」失败；只有这些才允许退化直写。 */
+const LINK_UNSUPPORTED_CODES = new Set(['EPERM', 'EXDEV', 'ENOSYS', 'ENOTSUP', 'EOPNOTSUPP'])
+
 /**
  * 独占发布一份 JSON（CAS 的「目标必须不存在」一侧）：成功 true；目标已存在 false；其它错误照抛。
  *
@@ -71,7 +74,8 @@ export async function createJsonFileExclusive(file: string, value: unknown): Pro
     } catch (error) {
       const code = (error as { code?: string } | null)?.code
       if (code === 'EEXIST') return false
-      // 不支持硬链接：退化为独占整写（目标已存在仍是 EEXIST）。
+      // 只有「文件系统不支持硬链接」这几种错才退化；磁盘满/只读等真错误照抛，不许静默降级。
+      if (code !== undefined && !LINK_UNSUPPORTED_CODES.has(code)) throw error
       try {
         await writeFile(file, body, { mode: 0o600, flag: 'wx' })
         return true

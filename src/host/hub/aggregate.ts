@@ -44,6 +44,8 @@ export interface HubStatusScope {
 export interface ReadHubStatusOptions {
   /** 生成时刻（纯读取，不读钟）。 */
   at: number
+  /** 租约陈旧窗口（毫秒；缺省 HUB_LEASE_STALE_MS）。与注册表注入的 leaseStaleMs 同一口径，activeInstall 才判得准。 */
+  leaseStaleMs?: number
   limits?: HubSnapshotLimits
 }
 
@@ -75,7 +77,7 @@ export async function readHubStatus(scope: HubStatusScope, options: ReadHubStatu
     return projectHubSnapshot({
       at,
       sources,
-      activeInstall: activeInstallOf(lease, at),
+      activeInstall: activeInstallOf(lease, at, options.leaseStaleMs),
       ...(options.limits ? { limits: options.limits } : {}),
     })
   } catch {
@@ -129,8 +131,12 @@ async function readInventory(file: string): Promise<BatchInventory | null> {
 }
 
 /** 租约活着才算「正在装」；陈旧租约按「没人推」处理（回收是中枢的活，这里不越权）。 */
-function activeInstallOf(lease: HubLease | null | undefined, at: number): HubActiveInstallSnapshot | null {
+function activeInstallOf(
+  lease: HubLease | null | undefined,
+  at: number,
+  leaseStaleMs = HUB_LEASE_STALE_MS,
+): HubActiveInstallSnapshot | null {
   if (!lease) return null
-  if (!(at - lease.heartbeatAt <= HUB_LEASE_STALE_MS)) return null
+  if (!(at - lease.heartbeatAt <= leaseStaleMs)) return null
   return { pluginId: lease.pluginId, startedAt: lease.startedAt }
 }
