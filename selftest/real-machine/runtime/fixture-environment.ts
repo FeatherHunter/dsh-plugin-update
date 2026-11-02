@@ -9,7 +9,7 @@
  */
 import { join } from 'node:path'
 import type { RunLayout } from './run-layout.ts'
-import type { FixtureSlotKey, FixtureSutDependency } from '../../fixtures/identity/fixture-slots.ts'
+import type { FixtureSlotKey, FixtureSutDependency, FixtureVariantEffect } from '../../fixtures/identity/fixture-slots.ts'
 import type { LocalRegistry } from '../../fixtures/release/local-registry.ts'
 import { startLocalRegistry } from '../../fixtures/release/local-registry.ts'
 import type { SutPin } from '../../fixtures/release/sut-pin.ts'
@@ -39,7 +39,7 @@ export interface FixtureEnvironment {
   /** 已发布过的夹具版本（键：席位@版本；重复调用复用，不重复发布——verdaccio 不允许同名版本覆盖）。 */
   published(): PublishedFixture[]
   /** 发布夹具版本；options.staleContentVersion 用于 can-red 故障注入（版本号新、内容旧），不进缓存。 */
-  publish(slotKey: FixtureSlotKey, version: string, options?: { readonly staleContentVersion?: string }): Promise<PublishedFixture>
+  publish(slotKey: FixtureSlotKey, version: string, options?: { readonly staleContentVersion?: string; readonly effect?: FixtureVariantEffect }): Promise<PublishedFixture>
   /** registry 原始输出（raw 证据）。 */
   registryOutput(): { stdout: string; stderr: string }
   stop(): Promise<void>
@@ -62,8 +62,14 @@ export async function createFixtureEnvironment(options: FixtureEnvironmentOption
       npmrcPath: registry.npmrcPath,
     })
     const published: PublishedFixture[] = []
-    const publish = async (slotKey: FixtureSlotKey, version: string, publishOptions?: { readonly staleContentVersion?: string }): Promise<PublishedFixture> => {
-      const existing = published.find((item) => item.plan.slot.key === slotKey && item.plan.version === version)
+    const effectSignature = (effect: FixtureVariantEffect | undefined): string => (effect ? JSON.stringify(effect) : 'legacy')
+    const publish = async (
+      slotKey: FixtureSlotKey,
+      version: string,
+      publishOptions?: { readonly staleContentVersion?: string; readonly effect?: FixtureVariantEffect },
+    ): Promise<PublishedFixture> => {
+      const signature = effectSignature(publishOptions ? publishOptions.effect : undefined)
+      const existing = published.find((item) => item.plan.slot.key === slotKey && item.plan.version === version && effectSignature(item.plan.effect) === signature)
       if (existing && !publishOptions) return existing
       const result = await publishFixtureVersion({
         slotKey,
@@ -75,6 +81,7 @@ export async function createFixtureEnvironment(options: FixtureEnvironmentOption
         registryUrl: registry.baseUrl,
         npmrcPath: registry.npmrcPath,
         staleContentVersion: publishOptions ? publishOptions.staleContentVersion : undefined,
+        effect: publishOptions ? publishOptions.effect : undefined,
       })
       if (!publishOptions) published.push(result)
       return result

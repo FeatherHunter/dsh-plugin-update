@@ -1,0 +1,8 @@
+{
+  "reached": true,
+  "versions": {
+    "dsh-plugin-update-fixture-a": "0.0.2",
+    "dsh-plugin-update-fixture-b": "0.0.2",
+    "dsh-plugin-update-fixture-c": "0.0.2"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "看什么": "发布 0.0.2 后重新读页面：A/B 批量面板仍在（还未点检查），C 卡片依旧没有任何 .dsh-upd",
+  "步骤": "发布变体后：两席面板仍在、C 仍无更新 UI",
+  "expected": "A panels rows=a/b/c、B rows=b/c、C .dsh-upd=0",
+  "actual": "页面 batchPanels=2",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\27-shot.png"
+}

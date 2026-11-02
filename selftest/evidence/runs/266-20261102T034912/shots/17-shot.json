@@ -1,0 +1,9 @@
+{
+  "看什么": "官方桌面窗口：A 批量面板三行（b 目标未安装行也在）、C 徽标右下/左下且没有任何更新 UI",
+  "步骤": "初始：A 批量面板 + C 纯目标（无更新 UI）",
+  "expected": "A rows=a/b/c；C 无 .dsh-upd；batchPanels=1",
+  "actual": "A rows=[a,b,c]；batchPanels=1；fixtures=[c,a]",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\17-shot.png"
+}

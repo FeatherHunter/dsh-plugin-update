@@ -8,7 +8,7 @@
  */
 import { join } from 'node:path'
 import type { ManagedProcess } from '../../tooling/process.ts'
-import { startProcess, formatError } from '../../tooling/process.ts'
+import { killProcessTree, runCommand, startProcess, formatError } from '../../tooling/process.ts'
 import { findFreePort, waitForPortFree } from '../../tooling/ports.ts'
 import { ensureDir } from '../../tooling/fs-utils.ts'
 import type { CdpClient, CdpTarget } from '../cdp/cdp-client.ts'
@@ -50,6 +50,70 @@ export function desktopLaunchEnv(homeDir: string, extraEnv: Record<string, strin
     else env[key] = value
   }
   return env
+}
+
+/** 某调试端口上正在监听的 PID（Windows netstat -ano；用于清理桌面管理器自动重启出来的实例）。 */
+export function listeningPidsOfPort(port: number): number[] {
+  if (process.platform !== 'win32') return []
+  const result = runCommand('netstat', ['-ano', '-p', 'TCP'])
+  const pids: number[] = []
+  for (const line of result.stdout.split(/\r?\n/)) {
+    if (line.indexOf('LISTENING') < 0) continue
+    const parts = line.trim().split(/\s+/)
+    if (parts.length < 5) continue
+    const local = parts[1] || ''
+    if (!local.endsWith(':' + port)) continue
+    const pid = Number(parts[4])
+    if (Number.isFinite(pid) && pid > 0 && pids.indexOf(pid) < 0) pids.push(pid)
+  }
+  return pids
+}
+
+/**
+ * 批量安装时官方桌面会自行重启（desktop-manager 装完插件后 relaunch，复用同一调试端口），
+ * 旧的 ManagedProcess 句柄会失效、新实例也不再被它托管。按调试端口找出新实例并杀整棵树，
+ * 再正常 launchDesktopApp 起一个被托管的新实例——只杀我们自己隔离实例占用的端口。
+ */
+export async function stopDesktopByPort(port: number): Promise<number[]> {
+  const pids = listeningPidsOfPort(port)
+  for (const pid of pids) killProcessTree(pid)
+  if (pids.length > 0) {
+    const released = await waitForPortFree(port, 30000)
+    if (!released) throw new Error('[desktop] 按调试端口停止桌面实例后端口仍在监听：' + port)
+  }
+  return pids
+}
+
+/** 把一段 PowerShell 脚本以 -EncodedCommand 方式执行（避免 Windows 命令行引号转义问题）。 */
+function runPowerShell(script: string, timeoutMs: number): string {
+  const encoded = Buffer.from(script, 'utf16le').toString('base64')
+  const result = runCommand('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], { timeoutMs })
+  return result.stdout
+}
+
+/**
+ * 按隔离实例的 --user-data-dir 找「DeepSeek Harness.exe」进程并杀整棵树。
+ * 为什么需要它：desktop-manager 装完插件后会 relaunch 官方桌面；新实例可能换调试端口（或旧实例已退出），
+ * 只按调试端口找会漏。user-data-dir 是本 run 独有的路径（D:\dsh-plugin\_wt263\runtime\...），不会误伤别的实例。
+ */
+export async function stopDesktopByUserDataDir(userDataDir: string): Promise<number[]> {
+  if (process.platform !== 'win32') return []
+  const pattern = userDataDir.replace(/'/g, "''")
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    "Get-CimInstance Win32_Process -Filter \"Name='DeepSeek Harness.exe'\" |" +
+      " Where-Object { $_.CommandLine -like '*" + pattern + "*' } |" +
+      ' ForEach-Object { $_.ProcessId }',
+  ].join('\n')
+  const stdout = runPowerShell(script, 30000)
+  const pids: number[] = []
+  for (const line of stdout.split(/\r?\n/)) {
+    const pid = Number(line.trim())
+    if (Number.isFinite(pid) && pid > 0 && pids.indexOf(pid) < 0) pids.push(pid)
+  }
+  for (const pid of pids) killProcessTree(pid)
+  if (pids.length > 0) await new Promise<void>((resolve) => setTimeout(() => resolve(), 1000))
+  return pids
 }
 
 /** 起官方桌面（隔离 home + 独立 user-data-dir + 调试端口），等页面目标并连 CDP。 */

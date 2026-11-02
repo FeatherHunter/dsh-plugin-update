@@ -5,7 +5,7 @@
  * 只发本地 registry（调用方必须传 registryUrl；本文件没有任何「默认 npmjs」的分支）。
  */
 import { join } from 'node:path'
-import type { FixtureSlotKey, FixtureSutDependency } from '../identity/fixture-slots.ts'
+import type { FixtureSlotKey, FixtureSutDependency, FixtureVariantEffect } from '../identity/fixture-slots.ts'
 import { assertFixtureVersion, fixtureSlotOf } from '../identity/fixture-slots.ts'
 import type { FixturePackagePlan } from '../generator/fixture-package-plan.ts'
 import { planFixturePackage } from '../generator/fixture-package-plan.ts'
@@ -29,6 +29,8 @@ export interface PublishFixtureInput {
   readonly npmrcPath: string
   /** can-red 故障注入：用这个旧版本的内容构建，但按 version 发布（版本号变了、内容没变）。 */
   readonly staleContentVersion?: string
+  /** 版本变体效果（场景声明提供；缺省 = T1 单面板效果）。 */
+  readonly effect?: FixtureVariantEffect
 }
 
 /** 发布成功的夹具版本。 */
@@ -42,7 +44,7 @@ export interface PublishedFixture {
 export async function publishFixtureVersion(input: PublishFixtureInput): Promise<PublishedFixture> {
   const slot = fixtureSlotOf(input.slotKey)
   const version = assertFixtureVersion(slot, input.version)
-  const plan = planFixturePackage(slot, version, input.sut)
+  const plan = planFixturePackage(slot, version, input.sut, input.effect)
   // can-red：内容用旧版本的（构建标记/标题都是旧的），清单版本号仍是新版本 —— 用来验证
   // 「重启后确实换上了新版内容」这类断言真的会红，而不是只看版本号字符串。
   const contentPlan = input.staleContentVersion ? planFixturePackage(slot, assertFixtureVersion(slot, input.staleContentVersion), input.sut) : null

@@ -1,0 +1,9 @@
+{
+  "看什么": "A 批量面板三行状态 done|current、版本条 0.0.2；同屏 B 面板（尚未检查）与 C 卡片（旧内容）",
+  "步骤": "A 批量更新完成（三目标都到 0.0.2）",
+  "expected": "A rows 全部 done/current/0.0.2",
+  "actual": "a=done[0.0.2]; b=done[0.0.2]; c=current[0.0.1]",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\39-shot.png"
+}
