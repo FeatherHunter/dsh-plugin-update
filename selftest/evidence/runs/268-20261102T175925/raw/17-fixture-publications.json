@@ -1,0 +1,158 @@
+{
+  "canRed": false,
+  "publishesC": false,
+  "variants": [
+    {
+      "slotKey": "b",
+      "version": "0.0.2",
+      "published": true,
+      "plan": {
+        "slot": {
+          "key": "b",
+          "role": "integrator",
+          "packageName": "dsh-plugin-update-fixture-b",
+          "pluginId": "dsh-plugin-update-fixture-b",
+          "batch": {
+            "prefix": "fxb",
+            "selfKey": "b",
+            "selfOrder": "last",
+            "targets": [
+              {
+                "key": "b",
+                "title": "夹具 B 本体",
+                "packageName": "dsh-plugin-update-fixture-b",
+                "prefix": "fxb-b"
+              },
+              {
+                "key": "c",
+                "title": "夹具 C",
+                "packageName": "dsh-plugin-update-fixture-c",
+                "prefix": "fxb-c"
+              }
+            ]
+          },
+          "selfTargetPrefix": "fxb-b",
+          "description": "批量集成方（本体 + 一家目标；本体 last）",
+          "versions": [
+            "0.0.1",
+            "0.0.2"
+          ],
+          "overlay": {
+            "left": 16,
+            "top": 72,
+            "width": 520
+          }
+        },
+        "version": "0.0.2",
+        "packageName": "dsh-plugin-update-fixture-b",
+        "dirName": "dsh-plugin-update-fixture-b-0.0.2",
+        "manifest": {
+          "name": "dsh-plugin-update-fixture-b",
+          "version": "0.0.2",
+          "private": false,
+          "type": "module",
+          "description": "批量集成方（本体 + 一家目标；本体 last） [TEST ONLY sed: selftest fixture for dsh-plugin-update]",
+          "license": "MIT",
+          "main": "./lib/index.js",
+          "exports": {
+            ".": "./lib/index.js",
+            "./client": "./lib/client.js",
+            "./package.json": "./package.json"
+          },
+          "files": [
+            "lib",
+            "cordis.patch.yml"
+          ],
+          "engines": {
+            "dsh": ">=0.2.0-rc.2 <0.3.0-0"
+          },
+          "dependencies": {
+            "dsh-plugin-update": "0.18.39"
+          },
+          "dsh": {
+            "client": {
+              "platform": "web",
+              "inject": []
+            },
+            "bundle": {
+              "patch": "./cordis.patch.yml"
+            }
+          }
+        },
+        "sourceFiles": [
+          {
+            "path": "package.json",
+            "content": "{\n  \"name\": \"dsh-plugin-update-fixture-b\",\n  \"version\": \"0.0.2\",\n  \"private\": false,\n  \"type\": \"module\",\n  \"description\": \"批量集成方（本体 + 一家目标；本体 last） [TEST ONLY sed: selftest fixture for dsh-plugin-update]\",\n  \"license\": \"MIT\",\n  \"main\": \"./lib/index.js\",\n  \"exports\": {\n    \".\": \"./lib/index.js\",\n    \"./client\": \"./lib/client.js\",\n    \"./package.json\": \"./package.json\"\n  },\n  \"files\": [\n    \"lib\",\n    \"cordis.patch.yml\"\n  ],\n  \"engines\": {\n    \"dsh\": \">=0.2.0-rc.2 <0.3.0-0\"\n  },\n  \"dependencies\": {\n    \"dsh-plugin-update\": \"0.18.39\"\n  },\n  \"dsh\": {\n    \"client\": {\n      \"platform\": \"web\",\n      \"inject\": []\n    },\n    \"bundle\": {\n      \"patch\": \"./cordis.patch.yml\"\n    }\n  }\n}\n",
+            "role": "manifest"
+          },
+          {
+            "path": "cordis.patch.yml",
+            "content": "# [TEST ONLY] selftest fixture（#265）：顶层必须是数组，否则 dsh 安装会被拒并回滚。\n- insert:\n    - id: dsh-plugin-update-fixture-b\n      name: dsh-plugin-update-fixture-b\n      config: {}\n",
+            "role": "cordis-patch"
+          },
+          {
+            "path": "src/index.ts",
+            "content": "// [TEST ONLY] 夹具 host half（#266 生成产物，勿手改；源模板 = selftest/fixtures/templates/integrator）\nimport { createMultiHostUpdate } from 'dsh-plugin-update/batch'\n\nexport const name = 'dsh-plugin-update-fixture-b'\nexport const inject = ['webServer']\nexport const BUILD_TAG = 'host v0.0.2'\nexport const ROUTE = '/_dsh/selftest-fixture-b'\nconst BUILD_TAG_PHONE = 'dsh-plugin-update-fixture-b.buildTag'\nexport const HOST_BEHAVIOR = 't4-settlement:20261102T175925'\n// 批量席位声明（变体版的 host 侧也能自证：我这一席负责哪些目标）。\nexport const TARGET_KEYS = 'b/c'\n\ntype Json = Record<string, unknown>\ntype PhoneHandler = (args?: Json) => Promise<unknown>\n\nfunction readJsonBody(req: any): Promise<unknown> {\n  return new Promise((resolve, reject) => {\n    let text = ''\n    req.on('data', (chunk: unknown) => { text += String(chunk) })\n    req.on('end', () => { try { resolve(text ? JSON.parse(text) : null) } catch (error) { reject(error) } })\n    req.on('error', (error: unknown) => { reject(error) })\n  })\n}\n\nfunction writeJson(res: any, status: number, body: Json): void {\n  res.statusCode = status\n  res.setHeader('content-type', 'application/json; charset=utf-8')\n  res.end(JSON.stringify(body))\n}\n\nfunction registryUrlOf(config: Json): string | undefined {\n  const configured = (config as { registryUrl?: unknown }).registryUrl\n  if (typeof configured === 'string' && configured.length > 0) return configured\n  const fromEnv = process.env['DSH_SELFTEST_REGISTRY']\n  return typeof fromEnv === 'string' && fromEnv.length > 0 ? fromEnv : undefined\n}\n\n/** 安装时限（毫秒）：显式配置优先，其次环境变量；非正数/非数字一律不传（产品缺省接管）。 */\nfunction installTimeoutMsOf(config: Json): number | undefined {\n  const configured = (config as { installTimeoutMs?: unknown }).installTimeoutMs\n  if (typeof configured === 'number' && Number.isFinite(configured) && configured > 0) return configured\n  const fromEnv = Number(process.env['DSH_SELFTEST_INSTALL_TIMEOUT_MS'])\n  return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : undefined\n}\n\nexport function apply(ctx: any, config: Json = {}): void {\n  const registryUrl = registryUrlOf(config)\n  const installTimeoutMs = installTimeoutMsOf(config)\n  const deps: Json = { ctx, logCtx: null }\n  const depsConfig: Json = {}\n  if (registryUrl) depsConfig['registryUrl'] = registryUrl\n  if (installTimeoutMs !== undefined) depsConfig['installTimeoutMs'] = installTimeoutMs\n  if (Object.keys(depsConfig).length > 0) deps[\"config\"] = depsConfig\n  const multi = createMultiHostUpdate(deps as any, {\n    prefix: 'fxb',\n    selfKey: 'b',\n    selfOrder: 'last',\n    drain: false,\n    targets: [\n      { key: 'b', title: '夹具 B 本体', packageName: 'dsh-plugin-update-fixture-b', prefix: 'fxb-b' },\n      { key: 'c', title: '夹具 C', packageName: 'dsh-plugin-update-fixture-c', prefix: 'fxb-c' },\n    ],\n  })\n  const handlers: Record<string, PhoneHandler> = {}\n  for (const phone of Object.keys(multi.handlers)) {\n    handlers[phone] = multi.handlers[phone] as PhoneHandler\n  }\n  handlers[BUILD_TAG_PHONE] = async () => ({\n    buildTag: BUILD_TAG,\n    role: 'integrator',\n    packageName: name,\n    behavior: HOST_BEHAVIOR,\n    targetKeys: TARGET_KEYS,\n  })\n  const bridge = async (req: any, res: any): Promise<void> => {\n    if (req.method !== 'POST') { writeJson(res, 405, { ok: false, error: 'method-not-allowed' }); return }\n    let body: Json | null = null\n    try { body = (await readJsonBody(req)) as Json | null } catch (error) { writeJson(res, 400, { ok: false, error: 'bad-json' }); return }\n    const phone = body && typeof body['phone'] === 'string' ? String(body['phone']) : ''\n    const handler = handlers[phone]\n    if (typeof handler !== 'function') { writeJson(res, 404, { ok: false, error: 'unknown-phone' }); return }\n    const args = body && typeof body['args'] === 'object' && body['args'] !== null ? (body['args'] as Json) : {}\n    try { writeJson(res, 200, { ok: true, reply: await handler(args) }) }\n    catch (error) { writeJson(res, 200, { ok: false, error: String((error as any)?.message ?? error) }) }\n  }\n  ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: ROUTE, handler: bridge }), 'dsh-plugin-update-fixture-b: phone bridge')\n}\n",
+            "role": "host-source"
+          },
+          {
+            "path": "src/client.ts",
+            "content": "// [TEST ONLY] 夹具 client half（#266 生成产物，勿手改；源模板 = selftest/fixtures/templates/integrator）\ndeclare function require(id: string): any\ndeclare const document: any\ndeclare const exports: any\n\nconst React = require('react')\nconst { mountUpdateBatchPanel, mountHubProgressDock } = require('dsh-plugin-update/panel-batch')\nconst { mountUpdateBatchEntry } = require('dsh-plugin-update/entry-batch')\n\nconst PLUGIN_ID = 'dsh-plugin-update-fixture-b'\nconst PREFIX = 'fxb-b'\nconst BATCH_PREFIX = 'fxb'\nconst ROUTE = '/_dsh/selftest-fixture-b'\nconst BUILD_TAG_PHONE = 'dsh-plugin-update-fixture-b.buildTag'\nconst BUILD_TAG = 'client v0.0.2'\nconst CARD_TITLE = '夹具 B · 更新演示（批量新版）'\nconst FIXTURE_KEY = 'b'\nconst UI_MODE = 'batch'\nconst SEAT_LINE = 'T4 组 D 注入 20261102T175925'\nconst HOST_BEHAVIOR_TEXT = '宿主行为 t4-settlement:20261102T175925'\nconst HUB_DOCK = true\n\nasync function call(phone: string, args: any): Promise<any> {\n  const response = await fetch(ROUTE, {\n    method: 'POST',\n    headers: { 'content-type': 'application/json' },\n    body: JSON.stringify({ phone, args: args || {} }),\n  })\n  const body = await response.json().catch(() => null)\n  if (!body || body.ok !== true) throw new Error((body && body.error) || 'fixture bridge failed')\n  return body.reply\n}\n\nfunction FixtureCard() {\n  const hostRef = React.useRef(null)\n  const [hostTag, setHostTag] = React.useState('host ?')\n  const [behavior, setBehavior] = React.useState(null)\n  React.useEffect(() => {\n    const element = hostRef.current\n    if (!element) return undefined\n    const entryHost = document.createElement('div')\n    const panelHost = document.createElement('div')\n    const dockHost = document.createElement('div')\n    dockHost.setAttribute('data-fixture-dock', HUB_DOCK ? 'hub-dock' : 'none')\n    element.append(entryHost, panelHost, dockHost)\n    const entry = mountUpdateBatchEntry(entryHost, { prefix: BATCH_PREFIX, call, variant: 'button', openOn: 'always', autoCheck: 'never' })\n    const panel = mountUpdateBatchPanel(panelHost, { prefix: BATCH_PREFIX, call, mode: 'embedded', autoCheck: false, pollMs: 2000 })\n    const dock = HUB_DOCK ? mountHubProgressDock(dockHost, { prefix: BATCH_PREFIX, call, title: '更新进度', mountAs: 'inline', hideWhenIdle: false, pollMs: 1500 }) : null\n    let alive = true\n    call(BUILD_TAG_PHONE, {}).then((reply: any) => {\n      if (alive && reply && typeof reply.buildTag === 'string') setHostTag(reply.buildTag)\n      if (alive && reply && 'behavior' in reply) setBehavior(typeof reply.behavior === 'string' ? reply.behavior : null)\n    }).catch(() => {})\n    return () => {\n      alive = false\n      try { entry.unmount() } catch (error) {}\n      try { panel.unmount() } catch (error) {}\n      if (dock) { try { dock.unmount() } catch (error) {} }\n      element.innerHTML = ''\n    }\n  }, [])\n  const children = [\n    React.createElement('div', { key: 'title', 'data-fixture-section': 'title', style: { fontSize: 12, fontWeight: 600, margin: '0 0 2px 2px' } }, CARD_TITLE),\n    React.createElement('div', { key: 'build', 'data-fixture-build-tag': BUILD_TAG, style: { fontSize: 11, opacity: 0.7, margin: '0 0 2px 2px' } }, BUILD_TAG),\n    React.createElement('div', { key: 'host', 'data-fixture-host-tag': hostTag, style: { fontSize: 11, opacity: 0.7, margin: '0 0 2px 2px' } }, hostTag),\n    React.createElement('div', {\n      key: 'seat',\n      'data-fixture-seat-line': SEAT_LINE === null ? 'none' : SEAT_LINE,\n      style: { fontSize: 11, opacity: 0.75, margin: '0 0 2px 2px' },\n    }, SEAT_LINE === null ? '单席位集成方（无批量席位行）' : SEAT_LINE),\n    React.createElement('div', {\n      key: 'behavior',\n      'data-fixture-behavior': behavior === null ? 'none' : behavior,\n      'data-fixture-behavior-text': HOST_BEHAVIOR_TEXT,\n      style: { fontSize: 11, opacity: 0.75, margin: '0 0 8px 2px' },\n    }, HOST_BEHAVIOR_TEXT),\n    React.createElement('div', { key: 'hostref', ref: hostRef }),\n  ]\n  return React.createElement('div', {\n    className: 'dsh-fixture-card',\n    'data-fixture': FIXTURE_KEY,\n    'data-fixture-ui': UI_MODE,\n    'data-build-tag': BUILD_TAG,\n    style: { position: 'fixed', left: 16, top: 72, width: 520, zIndex: 2147483000, pointerEvents: 'auto', background: '#fffbe8', color: '#1f1a0a', border: '1px solid rgba(160,120,32,.45)', borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,.28)', padding: 10, maxHeight: '84vh', overflow: 'auto' },\n  }, children)\n}\n\nfunction apply(ctx: any): void {\n  ctx.slots.inject('shell.overlay', () => ctx.slots.register({\n    name: 'shell.overlay',\n    id: PLUGIN_ID + '-overlay',\n    label: () => PLUGIN_ID,\n  }, () => React.createElement(FixtureCard)))\n}\n\nconst inject = ['slots']\nexports.apply = apply\nexports.inject = inject\n",
+            "role": "client-source"
+          }
+        ],
+        "buildSteps": [
+          {
+            "target": "host",
+            "entry": "src/index.ts",
+            "outfile": "lib/index.js"
+          },
+          {
+            "target": "client",
+            "entry": "src/client.ts",
+            "outfile": "lib/client.js",
+            "bundleId": "dsh-plugin-update-fixture-b"
+          }
+        ],
+        "expectedArtifacts": [
+          "package.json",
+          "cordis.patch.yml",
+          "lib/index.js",
+          "lib/client.js"
+        ],
+        "effect": {
+          "ui": "batch",
+          "titleSuffix": "（批量新版）",
+          "hubDock": true,
+          "hostBehavior": "t4-settlement:20261102T175925",
+          "seatLine": "T4 组 D 注入 20261102T175925"
+        }
+      },
+      "staleContentVersion": null,
+      "builtDir": "D:\\dsh-plugin\\_wt263\\runtime\\t4-268\\268-20261102T175925\\fixtures\\dsh-plugin-update-fixture-b-0.0.2",
+      "publish": {
+        "exitCode": 0
+      }
+    },
+    {
+      "slotKey": "c",
+      "version": null,
+      "published": false,
+      "plan": null,
+      "builtDir": null,
+      "publish": null
+    }
+  ],
+  "hashes": {
+    "oldB": {
+      "client": "fb45379759000e9f28a542c4bd1321b57f66d9dc6914fcf43a1f2a9831a9481e",
+      "host": "3b96a7414d552893e5d7f87cf5915b071eaa8ff7601f693839b042f1db321f9e"
+    },
+    "newB": {
+      "client": "fb3cc1a3170b34849de1d4304ed8542c925bd080c3480f7f46220df68bbaf53c",
+      "host": "237e1f151ca3b7e9804f87f3b61d20159942deb21e317d8702430794b0ebfe48"
+    },
+    "oldC": null,
+    "newC": null
+  }
+}

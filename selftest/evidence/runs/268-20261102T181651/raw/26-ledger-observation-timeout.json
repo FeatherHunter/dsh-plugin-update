@@ -1,0 +1,31 @@
+{
+  "observed": [
+    "missing",
+    "installing",
+    "failed"
+  ],
+  "failed": {
+    "file": "D:\\dsh-plugin\\_wt263\\runtime\\t4-268\\268-20261102T181651\\home\\updates\\fxa-b\\31108b8999edd0502e443dae\\state.json",
+    "state": {
+      "id": "11106f84-0a20-4dc1-aba9-59d610ff7b7d",
+      "state": "failed",
+      "targetVersion": "0.0.2",
+      "message": "install-failed: 安装已被取消；目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装 (dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-b@0.0.2 --registry=http://127.0.0.1:53852)",
+      "requestId": "batch-mvz3x0mf-1csn59nix2-b-66c72b19",
+      "previousVersion": "0.0.1"
+    }
+  },
+  "all": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t4-268\\268-20261102T181651\\home\\updates\\fxa-b\\31108b8999edd0502e443dae\\state.json",
+      "state": {
+        "id": "11106f84-0a20-4dc1-aba9-59d610ff7b7d",
+        "state": "failed",
+        "targetVersion": "0.0.2",
+        "message": "install-failed: 安装已被取消；目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装 (dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-b@0.0.2 --registry=http://127.0.0.1:53852)",
+        "requestId": "batch-mvz3x0mf-1csn59nix2-b-66c72b19",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "attempts": [
+    {
+      "attempt": 1,
+      "check": {
+        "route": "/_dsh/selftest-fixture-b",
+        "envelopeOk": true,
+        "reply": {
+          "ok": true,
+          "snapshot": {
+            "runningVersion": "0.0.1",
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "blockedReason": null,
+            "job": null,
+            "identity": "update",
+            "registered": true
+          },
+          "manual": "dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-c@0.0.2 --registry=http://127.0.0.1:50386",
+          "receipt": {
+            "checkId": "ba6b3263-b624-413c-af8f-813ac1a2aba1",
+            "checkedAt": 1793613127305,
+            "expiresAt": 1793613727305
+          },
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "env": {
+            "profileName": "desktop",
+            "environmentKind": "desktop-manager",
+            "registered": true,
+            "updaterVersion": "0.18.39",
+            "updaterCopyLevel": "profile"
+          }
+        },
+        "error": null
+      },
+      "install": {
+        "route": "/_dsh/selftest-fixture-b",
+        "envelopeOk": true,
+        "reply": {
+          "ok": true,
+          "snapshot": {
+            "runningVersion": "0.0.1",
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": false,
+            "blockedReason": null,
+            "job": {
+              "id": "5171375d-787d-4368-bf88-2d3c26e55f8b",
+              "state": "installing",
+              "targetVersion": "0.0.2",
+              "message": null,
+              "requestId": "g2-occupier-20261102T174922-1",
+              "previousVersion": "0.0.1"
+            },
+            "identity": "update",
+            "registered": true
+          },
+          "manual": "dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-c@0.0.2 --registry=http://127.0.0.1:50386",
+          "receipt": null
+        },
+        "error": null
+      },
+      "accepted": true
+    }
+  ],
+  "attemptCount": 1,
+  "accepted": true
+}

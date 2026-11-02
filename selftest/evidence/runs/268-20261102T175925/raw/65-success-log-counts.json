@@ -1,0 +1,249 @@
+{
+  "successExec": [
+    {
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "desktop-manager",
+        "ok": false,
+        "exitCode": 1,
+        "durationMs": 2279,
+        "pluginId": "fxa-b",
+        "traceId": "63adacb5befb0dd9",
+        "spanId": "d3ba0f4a",
+        "seq": 4
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 83
+    },
+    {
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "desktop-manager",
+        "ok": true,
+        "exitCode": 0,
+        "durationMs": 1820,
+        "pluginId": "fxa-b",
+        "traceId": "403d002dc97886ac",
+        "spanId": "f9806a24",
+        "seq": 4
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 185
+    }
+  ],
+  "successFail": [
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "exec",
+        "reason": "nonzero-exit",
+        "code": "install-failed",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": 1,
+        "observedVersion": null,
+        "intentHash": "8f2281c2",
+        "traceId": "63adacb5befb0dd9",
+        "spanId": "d3ba0f4a",
+        "seq": 6
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 85
+    },
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "check-expired",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "cf6932cb",
+        "traceId": "f8736752f58c8c5c",
+        "spanId": "a1da0b6d",
+        "seq": 1
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 171
+    }
+  ],
+  "successRequests": [
+    {
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "batch",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 28,
+        "intentHash": "8f2281c2",
+        "traceId": "63adacb5befb0dd9",
+        "spanId": "d3ba0f4a",
+        "seq": 1
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 76
+    },
+    {
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "batch",
+        "latest": "0.0.2",
+        "checkAgeMs": 11,
+        "intentHash": "cf6932cb",
+        "traceId": "403d002dc97886ac",
+        "spanId": "f9806a24",
+        "seq": 1
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 178
+    }
+  ],
+  "okCount": 1,
+  "completedStates": [
+    {
+      "event": "update.check.done",
+      "level": "info",
+      "fields": {
+        "ok": true,
+        "current": "0.0.2",
+        "latest": "0.0.2",
+        "channel": "stable",
+        "source": "custom",
+        "blockedReason": "none",
+        "fallback": false,
+        "dataSource": "npm-version",
+        "pendingRestart": false,
+        "jobState": "completed",
+        "latencyMs": 59,
+        "traceId": "6807043fe9305bd7",
+        "spanId": "dea6a427",
+        "seq": 1
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 196
+    }
+  ],
+  "installedAfterRows": [
+    {
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": "0.0.2",
+        "runningVersion": null,
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "up-to-date",
+        "blockedReason": "pending-restart",
+        "unknownCause": "running-version-unknown",
+        "traceId": "98c4a8956b3db9c6",
+        "spanId": "423a0424",
+        "seq": 0
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 188
+    },
+    {
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "98c4a8956b3db9c6",
+        "spanId": "423a0424",
+        "seq": 1
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 189
+    },
+    {
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2489c95629c032c7",
+        "spanId": "badd80f2",
+        "seq": 0
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 191
+    },
+    {
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "8a3d6eb0f426f0ff",
+        "spanId": "a9276e01",
+        "seq": 0
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 194
+    },
+    {
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "up-to-date",
+        "latest": "0.0.2",
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "up-to-date",
+        "blockedReason": "none",
+        "traceId": "6807043fe9305bd7",
+        "spanId": "dea6a427",
+        "seq": 0
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 195
+    },
+    {
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2098904cd0350356",
+        "spanId": "1396b346",
+        "seq": 0
+      },
+      "source": "fxb-b/2026-11-02.log",
+      "line": 74
+    }
+  ]
+}
