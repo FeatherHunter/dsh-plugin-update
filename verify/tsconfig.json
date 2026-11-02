@@ -1,0 +1,15 @@
+{
+  // verify/ 是开发期真机验证层，不参与 npm 发布（不在 package.json files 白名单里）。
+  // 它被仓根 tsconfig.json 排除在外，所以单独一份：只做类型检查，不产出 JS。
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["profile.ts"]
+}
