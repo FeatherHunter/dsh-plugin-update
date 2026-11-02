@@ -12,6 +12,14 @@
 | 266-20261102T034912 | c-pure-target-no-wiring | desktop-official | pass | 0 | 纯目标无接线正式证据（A@0.0.1 + C@0.0.1 → A 批量把 C 推到 0.0.2） | 24 条断言 / 4 张截图；C 页 `wiring=none`、无 `.dsh-upd` 面板/入口、manifest `dependencies={}`、日志无 `fxc*` 命名空间 |
 | 266-20261102T080334 | b-batch-two-integrators | desktop-official | fail | 1 | can-red 故障注入（`--fault skip-variant:c`：不发布 C@0.0.2） | 预期失败；恰好 `47/49/50/59-assert` 红（A/B 面板 C 行 0.0.1、C 徽标仍旧、installC=false），其余 34 条仍 pass；注入点见 `raw/22-can-red-fault.json` |
 | 266-20261102T081101 | c-pure-target-no-wiring | desktop-official | fail | 1 | can-red 故障注入（`--fault stale-variant:c`：发 0.0.2 但内容取 0.0.1） | 预期失败；恰好 `22/33-assert` 红（C 内容哈希未变、重启后徽标仍旧），其余 22 条仍 pass；注入点见 `raw/20-can-red-fault.json` |
+| 267-20261102T094226 | d1-desktop-manager-update-success | desktop-official | pass | 0 | 出口二（官方桌面 in-process 插件管理器）成功格正式证据：A@0.0.1 → A@0.0.2 | 17 条断言 / 4 张截图；窗口内恰好 2 个非空 operation（先 remove 0.0.1、后 add 0.0.2，pnpm.log 原文见 raw/24、25）；already-installed 守卫处理后无第三次 pnpm；exec `route=desktop-manager ok=true exitCode=0`；重启后 client/host v0.0.2；台账 completed |
+| 267-20261102T110749 | d2-desktop-manager-update-failure | desktop-official | pass | 0 | 出口二失败格正式证据：check 后删 registry tarball → 管理器移除步成功、重装 pnpm 404 → 诚实失败 + 手工命令可执行 | 18 条断言 / 3 张截图；`29/30` exec+fail 八格（stage=exec/reason=nonzero-exit/exitCode=1）；`33` operation 2 个（remove 0.0.1 + add 404）；面板随目标包移除而消失（页面回桌面 home，不伪造 DOM）；`35` 人话格含「目标包已被宿主移除」+ 载体命令；`41` 手工命令真机 exit0 并装回 0.0.2；重启后 v0.0.2 |
+| 267-20261102T111047 | e1-cli-host-update-success | dsh-web | pass | 0 | 出口三（普通 DSH 宿主 spawn CLI 子进程）成功格正式证据 | 22 条断言 / 20 raw / 0 截图；`29` hostKind=cli 且 exec `route=cli-process`；`32` 磁盘 0.0.2；`33` exec ok=true exitCode=0 durationMs=979；`34` 电话回包 42ms < exec 979ms（异步语义）；`39` 重启后 buildTag=host v0.0.2；通道 B 无窗口，UI 证据为 DOM/文本原文（见 index.md 备注） |
+| 267-20261102T111127 | e2-cli-host-update-failure | dsh-web | pass | 0 | 出口三失败格正式证据：check 后删 tarball → CLI 子进程 pnpm 404 非零退出 → 失败面不给载体命令，回包 manual 可执行 | 25 条断言 / 22 raw；`33` job.message=install-failed + `ERR_PNPM_FETCH_404 … 404` 原话；`34` 无载体命令；`35/36` exec+fail 八格；`37` 磁盘仍 0.0.1；`42` 手工命令真机 exit0 装到 0.0.2；`44` 重启 buildTag=host v0.0.2 |
+| 267-20261102T112503 | e3-cli-host-install-timeout | dsh-web | pass | 0 | 出口三超时格正式证据：宿主 registry 指向延迟代理 + 夹具 `installTimeoutMs=4000` → 产品到点终止 CLI 子进程 | 22 条断言 / 20 raw；`33` job.message=「安装超时，已终止子进程」；`34` exec route=cli-process ok=false exitCode=1 durationMs=4111（预算 4000 + 3s 宽限内）；`35` fail 八格 reason=timeout；`36` 磁盘 0.0.1；`39` 重启仍 host v0.0.1；`42` 宿主/代理全停、端口释放 |
+| 267-20261102T113042 | f1-third-party-desktop-probe | desktop-official | known-red | 0 | 出口一（第三方 Desktop / desktopProfiles）能力探测与不可达兜底 | 10 条断言 = 8 pass + 2 known-red / 1 张截图 / 15 raw；三份探测原文（文件系统/卸载表/服务）+ 结构判据分类（第三方 0，nearMiss 25 条单列）；`24` 本机唯一桌面宿主 hostKind=desktop-manager（desktopProfiles 为空的反证）；`25/26` 出口一真机更新成功/失败格 known-red，note 写「需第三方 Desktop 宿主 + desktopProfiles 服务」复现条件 |
+| 267-20261102T113218 | d1-desktop-manager-update-success | desktop-official | fail | 1 | can-red 故障注入（`--mode can-red`，stale-variant：发 A@0.0.2 但内容仍是 0.0.1） | 预期失败；恰好 `16/37-assert` 红（内容哈希未变、重启后 client/host 仍 v0.0.1 标题未变），其余 15 条（真 UI 安装、两步 operation、exec、磁盘 0.0.2、台账 completed）仍 pass；注入点见 `raw/can-red-fault-injection.json` |
+| 267-20261102T113629 | e1-cli-host-update-success | dsh-web | fail | 1 | can-red 故障注入（`--mode can-red`，stale-variant：发 A@0.0.2 但内容是 0.0.1） | 预期失败；恰好 `40-assert` 红（重启后 buildTag=host v0.0.1，而 runningVersion 已是 0.0.2），其余 21 条仍 pass；注入点见 `raw/can-red-fault-injection.json` |
 
 ## 复核入口
 
@@ -24,4 +32,4 @@
 
 ## 复跑
 
-见 `../README.md` §10（主链与 can-red 两条命令）与 `docs/research/20261101-issue-265-single-package-main-chain.md` §9。
+见 `../README.md` §10（主链与 can-red 两条命令）、`docs/research/20261101-issue-265-single-package-main-chain.md` §9，以及 #267 三出口矩阵的 `docs/research/20261101-issue-267-three-install-exits.md` §4（run-d/run-e/run-f 与 can-red 命令）。
