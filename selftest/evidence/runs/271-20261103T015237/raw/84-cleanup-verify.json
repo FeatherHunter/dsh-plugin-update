@@ -1,0 +1,40 @@
+{
+  "startedHosts": [
+    {
+      "label": "host1",
+      "pid": 85392,
+      "port": 59931,
+      "closed": true
+    },
+    {
+      "label": "host2",
+      "pid": 71556,
+      "port": 57482,
+      "closed": true
+    },
+    {
+      "label": "host3",
+      "pid": 90780,
+      "port": 52521,
+      "closed": true
+    }
+  ],
+  "remainingPids": [],
+  "portChecks": [
+    {
+      "label": "host1",
+      "port": 59931,
+      "free": true
+    },
+    {
+      "label": "host2",
+      "port": 57482,
+      "free": true
+    },
+    {
+      "label": "host3",
+      "port": 52521,
+      "free": true
+    }
+  ]
+}

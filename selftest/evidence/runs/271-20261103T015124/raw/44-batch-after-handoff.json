@@ -1,0 +1,746 @@
+{
+  "batch": {
+    "version": 1,
+    "id": "mvzk2y8h-zeuz50e76f",
+    "selfKey": "a",
+    "stopOnFailure": false,
+    "order": [
+      "a",
+      "b",
+      "c"
+    ],
+    "entries": [
+      {
+        "key": "a",
+        "phase": "done",
+        "requestId": "batch:mvzk2y8h-zeuz50e76f:a",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793641911167
+      },
+      {
+        "key": "b",
+        "phase": "done",
+        "requestId": "batch:mvzk2y8h-zeuz50e76f:b",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793641947530
+      },
+      {
+        "key": "c",
+        "phase": "done",
+        "requestId": "batch:mvzk2y8h-zeuz50e76f:c",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793641949633
+      }
+    ],
+    "createdAt": 1793641908690,
+    "updatedAt": 1793641949633
+  },
+  "elapsedMs": 35109,
+  "samples": [
+    {
+      "t": 1793641914711,
+      "phases": {
+        "a": "done",
+        "b": "pending",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      }
+    },
+    {
+      "t": 1793641915212,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641915713,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641916213,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641916718,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641917219,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641917722,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641918223,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641918728,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641919229,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641919729,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641920230,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641920731,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641921232,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641921733,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641922233,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 54096,
+        "generation": 1,
+        "driverId": "dsh-hub:54096:xx98mwzy8c",
+        "heartbeatAt": 1793641922197
+      }
+    },
+    {
+      "t": 1793641922735,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641923236,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641923737,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641924237,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641924738,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641925241,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641925742,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641926248,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641926749,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641927250,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641927752,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641928253,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641928754,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641929255,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641929755,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641930257,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641930759,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641931261,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641931762,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641932263,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641932767,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 54096,
+        "generation": 1,
+        "driverId": "dsh-hub:54096:xx98mwzy8c",
+        "heartbeatAt": 1793641932718
+      }
+    },
+    {
+      "t": 1793641933268,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641933768,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641934276,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641934777,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641935277,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641935778,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641936280,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641936781,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641937282,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641937783,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641938286,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641938787,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641939289,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641939792,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641940294,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641940795,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641941296,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641941797,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641942298,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641942799,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641943303,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 54096,
+        "generation": 1,
+        "driverId": "dsh-hub:54096:xx98mwzy8c",
+        "heartbeatAt": 1793641943285
+      }
+    },
+    {
+      "t": 1793641943803,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641944306,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641944808,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641945309,
+      "phases": {
+        "a": "done",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": null
+    },
+    {
+      "t": 1793641945811,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 54096,
+        "generation": 1,
+        "driverId": "dsh-hub:54096:xx98mwzy8c",
+        "heartbeatAt": 1793641945371
+      }
+    },
+    {
+      "t": 1793641946312,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 54096,
+        "generation": 1,
+        "driverId": "dsh-hub:54096:xx98mwzy8c",
+        "heartbeatAt": 1793641945371
+      }
+    },
+    {
+      "t": 1793641946813,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 54096,
+        "generation": 1,
+        "driverId": "dsh-hub:54096:xx98mwzy8c",
+        "heartbeatAt": 1793641945371
+      }
+    },
+    {
+      "t": 1793641947314,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 54096,
+        "generation": 1,
+        "driverId": "dsh-hub:54096:xx98mwzy8c",
+        "heartbeatAt": 1793641945371
+      }
+    },
+    {
+      "t": 1793641947815,
+      "phases": {
+        "a": "done",
+        "b": "done",
+        "c": "installing"
+      },
+      "lease": {
+        "pid": 54096,
+        "generation": 1,
+        "driverId": "dsh-hub:54096:xx98mwzy8c",
+        "heartbeatAt": 1793641945371
+      }
+    },
+    {
+      "t": 1793641948316,
+      "phases": {
+        "a": "done",
+        "b": "done",
+        "c": "installing"
+      },
+      "lease": {
+        "pid": 54096,
+        "generation": 1,
+        "driverId": "dsh-hub:54096:xx98mwzy8c",
+        "heartbeatAt": 1793641945371
+      }
+    },
+    {
+      "t": 1793641948817,
+      "phases": {
+        "a": "done",
+        "b": "done",
+        "c": "installing"
+      },
+      "lease": {
+        "pid": 54096,
+        "generation": 1,
+        "driverId": "dsh-hub:54096:xx98mwzy8c",
+        "heartbeatAt": 1793641945371
+      }
+    },
+    {
+      "t": 1793641949318,
+      "phases": {
+        "a": "done",
+        "b": "done",
+        "c": "installing"
+      },
+      "lease": {
+        "pid": 54096,
+        "generation": 1,
+        "driverId": "dsh-hub:54096:xx98mwzy8c",
+        "heartbeatAt": 1793641945371
+      }
+    },
+    {
+      "t": 1793641949819,
+      "phases": {
+        "a": "done",
+        "b": "done",
+        "c": "done"
+      },
+      "lease": null
+    }
+  ]
+}

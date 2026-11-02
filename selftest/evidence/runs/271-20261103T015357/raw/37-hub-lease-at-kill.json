@@ -1,0 +1,56 @@
+{
+  "lease": {
+    "version": 1,
+    "driverId": "dsh-hub:95900:en8jvtq9zd",
+    "pluginId": "fxa",
+    "pid": 95900,
+    "startedAt": 1793642060079,
+    "heartbeatAt": 1793642060079,
+    "generation": 1
+  },
+  "plan": {
+    "version": 1,
+    "sessionId": "mvzk670t-51nurbhq9z",
+    "owner": "fxa",
+    "selfKey": "a",
+    "selfOrder": "first",
+    "stopOnFailure": false,
+    "targets": [
+      {
+        "key": "a",
+        "title": "夹具 A 本体",
+        "packageName": "dsh-plugin-update-fixture-a",
+        "pluginId": "fxa-a",
+        "prefix": "fxa-a",
+        "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015357\\os-home\\.dsh",
+        "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015357\\os-home\\.dsh\\profiles\\t7hub"
+      },
+      {
+        "key": "b",
+        "title": "夹具 B",
+        "packageName": "dsh-plugin-update-fixture-b",
+        "pluginId": "fxa-b",
+        "prefix": "fxa-b",
+        "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015357\\os-home\\.dsh",
+        "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015357\\os-home\\.dsh\\profiles\\t7hub"
+      },
+      {
+        "key": "c",
+        "title": "夹具 C",
+        "packageName": "dsh-plugin-update-fixture-c",
+        "pluginId": "fxa-c",
+        "prefix": "fxa-c",
+        "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015357\\os-home\\.dsh",
+        "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015357\\os-home\\.dsh\\profiles\\t7hub"
+      }
+    ],
+    "scope": {
+      "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015357\\os-home\\.dsh",
+      "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015357\\os-home\\.dsh\\profiles\\t7hub",
+      "profileName": "t7hub",
+      "registryUrl": "http://127.0.0.1:50187"
+    },
+    "createdAt": 1793642060077,
+    "updatedAt": 1793642060077
+  }
+}
