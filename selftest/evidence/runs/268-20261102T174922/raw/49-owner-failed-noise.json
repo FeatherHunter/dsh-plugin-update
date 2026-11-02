@@ -1,0 +1,19 @@
+{
+  "observed": [
+    "failed"
+  ],
+  "entry": {
+    "file": "D:\\dsh-plugin\\_wt263\\runtime\\t4-268\\268-20261102T174922\\home\\updates\\fxb-c\\3fa834a7715fea4219cbe846\\state.json",
+    "state": {
+      "id": "5171375d-787d-4368-bf88-2d3c26e55f8b",
+      "state": "failed",
+      "targetVersion": "0.0.2",
+      "message": "install-failed: 安装已被取消；目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装 (dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-c@0.0.2 --registry=http://127.0.0.1:50386)",
+      "requestId": "g2-occupier-20261102T174922-1",
+      "previousVersion": "0.0.1"
+    }
+  },
+  "startedAt": 1793613127290,
+  "finishedAt": 1793613195424,
+  "elapsedMs": 68134
+}

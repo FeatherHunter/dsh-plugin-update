@@ -257,6 +257,123 @@ export const SCENARIO_F1_THIRD_PARTY_DESKTOP_PROBE: ScenarioDeclaration = {
   ],
 }
 
+/**
+ * T4（#268）组 D：超时、取消与已了结的失败。
+ *
+ * 拓扑固定为 A（批量集成方，常驻观察者，永不更新）+ B（批量集成方，被更新目标）+ C（纯目标，
+ * 用来制造「第二个安装进队列」），三席基版同装。A 自己的面板在 B 被移除/失败/重启后仍在，
+ * 是唯一能连续观察 B 行状态的真 UI；C 没有面板，只能从 A 的批量行观察。
+ *
+ * 四条真机格共用同一套基版/变体声明，差别只在故障注入（延迟代理 / 删 tarball / 队列占用），
+ * 这样格与格之间的变量只有故障本身。G5 是能力探测格（官方宿主有 cancelInstall ⇒ 无能力宿主
+ * 真机不可造），照 f1 先例记 known-red，不伪造真机结果。
+ */
+const SETTLEMENT_INSTALL: readonly ScenarioInstallStep[] = [
+  { slotKey: 'a', version: '0.0.1', effect: batchEffectOf(FIXTURE_SLOT_A, false) },
+  { slotKey: 'b', version: '0.0.1', effect: batchEffectOf(FIXTURE_SLOT_B, false) },
+  { slotKey: 'c', version: '0.0.1', effect: targetEffectOf('0.0.1') },
+]
+/** 超时/失败/重试三格只发布 B（宏按钮只装 B），C 保持 0.0.1 作对照。 */
+const SETTLEMENT_VARIANTS: readonly FixtureVariantDeclaration[] = [
+  { slotKey: 'b', version: '0.0.2', changeClasses: ['ui', 'behavior', 'metadata'], effect: batchEffectOf(FIXTURE_SLOT_B, true) },
+]
+/** 取消格只发布 C：B 面板宏安装 C 的慢安装先占住执行锁；A 面板宏安装轮到 C 时被排队门挡下，进 waiting 后可取消。 */
+const SETTLEMENT_VARIANTS_QUEUED: readonly FixtureVariantDeclaration[] = [
+  { slotKey: 'c', version: '0.0.2', changeClasses: ['behavior', 'metadata'], effect: targetEffectOf('0.0.2') },
+]
+
+/** G1 出口二超时格：延迟代理挂住 pnpm 拉包，installTimeoutMs 到点收局。 */
+export const SCENARIO_G1_DESKTOP_MANAGER_TIMEOUT: ScenarioDeclaration = {
+  id: 'g1-desktop-manager-install-timeout',
+  ticket: '268',
+  hostChannel: 'desktop-official',
+  summary: '出口二超时：延迟代理把 0.0.2 tarball 请求挂住，installTimeoutMs=12s；B 行安装以失败收局，超时人话格与宿主取消能力一致，日志/台账/磁盘自洽，重启后台账仍 failed 且 UI 不谎称更新中/成功',
+  install: SETTLEMENT_INSTALL,
+  variants: SETTLEMENT_VARIANTS,
+  expected: [
+    '安装电话先 ok:true 受理（异步）；最终 B 的 job.state=failed、targetVersion=0.0.2',
+    'update.install.exec route=desktop-manager ok=false，durationMs 达到安装预算',
+    '超时文案与宿主取消能力一致：有 cancelInstall 时不许出现「未提供取消能力」；取消成功/太晚按宿主真实结局记录',
+    '磁盘保持 0.0.1（超时不假装成功）',
+    '重启后台账仍 failed；UI 不谎称更新中/成功（管理器移除 B 后批量行按磁盘真相显示「未安装/可装 0.0.2」，属 #152 既有语义）',
+  ],
+}
+
+/**
+ * G2 批量取消格（真实语义：丢弃未完成项，不是终止在飞安装）。
+ *
+ * 真实产品语义（真机实测后修正）：同一个批量会话内部是**串行**的（runBatch 等到一家收尾才推下一家），
+ * 所以「宏按钮一次提交两家」不会自然产生 waiting；waiting 只在「已经有别的安装占着执行锁时，
+ * 另一个宿主再提交安装」时才出现。真机做法：B 运行时的单插件安装电话（夹具桥）先起 C 的慢安装
+ * （queue owner=fxb-c），再在 A 面板点宏安装——轮到 C 时被公平门挡下（stage=gate/code=update-busy），
+ * A 会话记 queued。产品唯一的终态取消入口是「丢弃本批未完成的更新」两步确认（confirmCancel）；
+ * 行内「取消排队」只撤单次 waiting 占位、中枢 1s 退避还会重推，所以行取消只验证诚实文案，
+ * 随后用「丢弃本批」收口。产品没有终止在飞安装的入口（渲染层明说「正在安装的项无法停止」），不谎称终止。
+ */
+export const SCENARIO_G2_BATCH_QUEUED_CANCEL: ScenarioDeclaration = {
+  id: 'g2-batch-queued-cancel',
+  ticket: '268',
+  hostChannel: 'desktop-official',
+  summary: '批量取消：B 运行时的慢安装（C@0.0.2，延迟代理挂 pnpm）先占住全局执行锁；A 面板点宏「全部更新」，轮到 C 时被公平门挡下进等待队列（不开始装）；行「取消排队」回执如实（只撤占位、本批仍会继续、不终止在飞），再用真 UI「丢弃本批」两步确认清掉会话；丢弃后不再排队、C 不被安装、无虚假终态',
+  install: SETTLEMENT_INSTALL,
+  variants: SETTLEMENT_VARIANTS_QUEUED,
+  expected: [
+    '前一个慢安装确实占住全局锁（queue.json 的 owner.pluginId=fxb-c，原始证据）；排队窗内它不被误判 interrupted',
+    'A 面板宏安装让 C 进等待队列（data-queued=1、出现「取消排队」按钮、queue.json waiting 含 fxa-c 的 requestId）',
+    '行取消排队回执诚实：含「已取消排队」+ 本批仍会继续尝试安装，不含「不再等待/已终止/已请求终止」；实测记录中枢重推时间线',
+    '真 UI「丢弃本批未完成的更新」两步确认后：A 会话从磁盘清空、后续队列采样不再出现 fxa-c 占位、C 行不排队/不安装',
+    'A 的 C 没有安装 exec、没有失败/成功台账、磁盘保持 0.0.1（丢弃既不假装成功也不假装失败，更不谎称终止在飞安装）',
+  ],
+}
+
+/** G3 已失败不重试格：check 后删 tarball 让安装落定失败，静置观察无第二次尝试，重启后仍 failed。 */
+export const SCENARIO_G3_DESKTOP_MANAGER_FAILED_NO_RETRY: ScenarioDeclaration = {
+  id: 'g3-desktop-manager-failed-no-retry',
+  ticket: '268',
+  hostChannel: 'desktop-official',
+  summary: '已了结的失败：check 后删 0.0.2 tarball（元数据不动），B 安装落定 failed；静置 ≥15s 无自动重试（exec/fail 计数不增），UI 如实显示失败，重启后台账仍 failed 且不谎称更新中',
+  install: SETTLEMENT_INSTALL,
+  variants: SETTLEMENT_VARIANTS,
+  expected: [
+    '失败落定：B 的 job.state=failed、message 以 install-failed 开头；update.install.fail stage=exec',
+    '静置 ≥15s 后 update.install.exec / update.install.fail 计数不增，无第二次安装请求（已失败不自动重试）',
+    'UI 如实显示失败（稳定码/宿主原话；手工命令按产品真实能力，不伪造 DOM）',
+    '磁盘保持 0.0.1',
+    '重启后台账仍 failed（重启不改写、不自动重试）；UI 不谎称「更新中」或成功（批量行按磁盘现状投影）',
+  ],
+}
+
+/** G4 补一次成功格：G3 失败后恢复 registry，再用真 UI 重试，成功终态只留一条。 */
+export const SCENARIO_G4_DESKTOP_MANAGER_RETRY_SINGLE_SUCCESS: ScenarioDeclaration = {
+  id: 'g4-desktop-manager-retry-single-success',
+  ticket: '268',
+  hostChannel: 'desktop-official',
+  summary: '补一次成功：失败落定后恢复 registry tarball，用 A 面板真 UI 重试安装 B → 成功；重启后台账/历史对 B 恰一条成功终态、无重复成功记录，UI 与磁盘一致',
+  install: SETTLEMENT_INSTALL,
+  variants: SETTLEMENT_VARIANTS,
+  expected: [
+    '失败后重试安装成功（产品路径，非手工 CLI），B 的 job.state∈{completed,restart-required}、targetVersion=0.0.2',
+    '台账/历史对 B 恰一条成功终态，没有第二条成功记录（失败记录可作为历史保留，但不得冒充成功）',
+    '重启后 A 面板 B 行显示已更新，磁盘 dependencies/包内版本都是 0.0.2',
+    '成功终态只有一个，目击证据要能排除「旧状态未刷新」/「重复成功」两种假象',
+  ],
+}
+
+/** G5 能力探测格：官方桌面宿主是否提供取消能力 + 无能力措辞的库内证据。 */
+export const SCENARIO_G5_DESKTOP_MANAGER_NO_CANCEL_PROBE: ScenarioDeclaration = {
+  id: 'g5-desktop-manager-no-cancel-probe',
+  ticket: '268',
+  hostChannel: 'desktop-official',
+  summary: '能力探测：官方桌面 0.2.1-rc.5 的 pluginManager 有 cancelInstall（运行时/asar 原始探测），「无终止能力」宿主真机不可造；库内无 cancel 措辞测试作 L0 证据，真机无能力断言记 known-red',
+  install: SETTLEMENT_INSTALL,
+  variants: [],
+  expected: [
+    '官方宿主 pluginManager 的 cancelInstall 能力有原始探测证据（运行时回包/asar 二进制命中）',
+    '无取消能力时的诚实措辞由库内定向测试（tests/issue-184-timeout-honesty.test.mjs）原始输出钉住',
+    '真机「无 cancel 宿主」断言记 known-red，写明可复现条件（换无 cancelInstall 的宿主版本），不伪造真机结果',
+  ],
+}
+
 /** 全部场景声明（矩阵行 id 一一对应）。 */
 export const SCENARIOS: readonly ScenarioDeclaration[] = [
   SCENARIO_A_SINGLE_PACKAGE,
@@ -268,6 +385,11 @@ export const SCENARIOS: readonly ScenarioDeclaration[] = [
   SCENARIO_E2_CLI_HOST_FAILURE,
   SCENARIO_E3_CLI_HOST_TIMEOUT,
   SCENARIO_F1_THIRD_PARTY_DESKTOP_PROBE,
+  SCENARIO_G1_DESKTOP_MANAGER_TIMEOUT,
+  SCENARIO_G2_BATCH_QUEUED_CANCEL,
+  SCENARIO_G3_DESKTOP_MANAGER_FAILED_NO_RETRY,
+  SCENARIO_G4_DESKTOP_MANAGER_RETRY_SINGLE_SUCCESS,
+  SCENARIO_G5_DESKTOP_MANAGER_NO_CANCEL_PROBE,
 ]
 
 /** 按 id 取场景（未知 id 立刻抛，避免证据跑错场景却记为另一个）。 */

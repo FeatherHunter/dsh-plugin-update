@@ -44,6 +44,8 @@ export interface T3RunOptions {
   readonly maintainerHome?: string
   /** 不需要夹具环境的场景（出口一探测）传 false：跳过 registry/SUT 钉版/基版发布。 */
   readonly withFixtures?: boolean
+  /** 证据 run 的 ticket 前缀（缺省 '267' 保持 T3 证据/复跑不变；组 D 传 '268'）。 */
+  readonly ticket?: string
 }
 
 /** 一次 T3 run 的共用上下文。 */
@@ -72,7 +74,7 @@ export interface T3Run {
 
 /** 开一个 T3 run：建目录/记录器/夹具环境/SUT 钉版/基版发布，返回共用上下文。 */
 export async function openT3Run(options: T3RunOptions): Promise<T3Run> {
-  const layout = await createRunLayout({ baseDir: options.runBaseDir, ticket: '267', stamp: options.stamp })
+  const layout = await createRunLayout({ baseDir: options.runBaseDir, ticket: options.ticket ?? '267', stamp: options.stamp })
   const environment = collectEnvironmentFacts(options.worktree, options.hostChannel)
   const recorder = new EvidenceRecorder({ layout, scenarioId: options.scenarioId, environment })
   const scenario = scenarioOf(options.scenarioId)

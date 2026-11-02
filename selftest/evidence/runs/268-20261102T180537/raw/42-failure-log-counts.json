@@ -1,0 +1,61 @@
+{
+  "execRows": [
+    {
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "desktop-manager",
+        "ok": false,
+        "exitCode": 1,
+        "durationMs": 2637,
+        "pluginId": "fxa-b",
+        "traceId": "9249004942ad3f24",
+        "spanId": "3fa74ead",
+        "seq": 4
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 90
+    }
+  ],
+  "failRows": [
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "check-expired",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "6d4fadcb",
+        "traceId": "44c835b83357d63f",
+        "spanId": "20a4407b",
+        "seq": 1
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 75
+    },
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "exec",
+        "reason": "nonzero-exit",
+        "code": "install-failed",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": 1,
+        "observedVersion": null,
+        "intentHash": "6d4fadcb",
+        "traceId": "9249004942ad3f24",
+        "spanId": "3fa74ead",
+        "seq": 6
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 92
+    }
+  ],
+  "okCount": 0
+}

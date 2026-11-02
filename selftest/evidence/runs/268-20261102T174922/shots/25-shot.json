@@ -1,0 +1,9 @@
+{
+  "看什么": "A 批量面板 C 行已显示可更新到 0.0.2（B 仍基版）",
+  "步骤": "真 UI 检查更新",
+  "expected": "C 行 0.0.2",
+  "actual": "versionNew B=null C=0.0.2",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\25-shot.png"
+}

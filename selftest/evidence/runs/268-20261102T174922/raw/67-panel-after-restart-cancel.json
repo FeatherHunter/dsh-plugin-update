@@ -1,0 +1,123 @@
+{
+  "seat": {
+    "slotKey": "a",
+    "card": {
+      "present": true,
+      "key": "a",
+      "ui": "batch",
+      "title": "夹具 A · 更新演示",
+      "clientTag": "client v0.0.1",
+      "hostTag": "host v0.0.1",
+      "seatLine": {
+        "attr": "批量席位 fxa · 自键 a · 目标 a/b/c",
+        "text": "批量席位 fxa · 自键 a · 目标 a/b/c"
+      },
+      "behavior": {
+        "attr": "none",
+        "text": "宿主行为 无（v1）"
+      },
+      "dockHost": "none"
+    },
+    "panel": {
+      "present": true,
+      "mode": "embedded",
+      "seal": "总账",
+      "rows": [
+        {
+          "key": "a",
+          "phase": "pending",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 A 本体",
+          "status": "已是最新，无需操作。",
+          "versionCur": "0.0.1",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        },
+        {
+          "key": "b",
+          "phase": "pending",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 B",
+          "status": "已是最新，无需操作。",
+          "versionCur": "0.0.1",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        },
+        {
+          "key": "c",
+          "phase": "pending",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 C",
+          "status": "有新版本 0.0.2",
+          "versionCur": "0.0.1",
+          "versionNew": "0.0.2",
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        }
+      ],
+      "check": {
+        "text": "检查更新",
+        "disabled": false
+      },
+      "install": {
+        "text": "全部更新",
+        "disabled": false
+      },
+      "ledger": "正在按最新版本重新检查…",
+      "summary": "1 个可更新；请选择「全部更新」一次安装完成，也可逐项选择「安装此插件」。",
+      "notice": null
+    },
+    "entry": {
+      "present": true,
+      "text": "检查更新",
+      "variant": null
+    },
+    "dock": null,
+    "dshUpdCount": 1
+  },
+  "pageTextTail": "新会话\nCtrl\n+\nN\n插件\n自动化任务\n更多\n工作区\n默认工作区\n新会话\n更多\n探索未至之境\n预览版\n默认工作区\n描述你想要构建的内容, / 调用指令, @ 文件或对话\n工作区内修改\n请选择模型\n夹具 A · 更新演示\nclient v0.0.1\nhost v0.0.1\n批量席位 fxa · 自键 a · 目标 a/b/c\n宿主行为 无（v1）\n检查更新\n更新档案 · 总账\n检查更新\n全部更新\n1 个可更新；请选择「全部更新」一次安装完成，也可逐项选择「安装此插件」。\n夹具 A 本体\n0.0.1\n已是最新，无需操作。\n详情\n夹具 B\n0.0.1\n已是最新，无需操作。\n详情\n夹具 C\n未安装 → 0.0.2\n有新版本 0.0.2\n详情\n1 个可更新 · 2 个已是最新\n[x] 打开面板时自动检查更新\n夹具 B · 更新演示\nclient v0.0.1\nhost v0.0.1\n批量席位 fxb · 自键 b · 目标 b/c\n宿主行为 无（v1）\n检查更新\n更新档案 · 总账\n检查更新\n全部更新\n1 个可更新；请选择「全部更新」一次安装完成，也可逐项选择「安装此插件」。\n夹具 C\n未安装 → 0.0.2\n有新版本 0.0.2\n详情\n夹具 B 本体\n0.0.1\n已是最新，无需操作。\n详情\n1 个可更新 · 1 个已是最新\n[x] 打开面板时自动检查更新",
+  "disk": {
+    "versions": {
+      "dsh-plugin-update-fixture-a": "0.0.1",
+      "dsh-plugin-update-fixture-b": "0.0.1",
+      "dsh-plugin-update-fixture-c": null
+    },
+    "dependencies": {
+      "dsh-plugin-update-fixture-a": "0.0.1",
+      "dsh-plugin-update-fixture-b": "0.0.1",
+      "dsh-plugin-update-fixture-c": null
+    },
+    "manifest": {
+      "name": "dsh-profile-desktop",
+      "private": true,
+      "dependencies": {
+        "dsh-plugin-update-fixture-a": "0.0.1",
+        "dsh-plugin-update-fixture-b": "0.0.1"
+      },
+      "dsh": {
+        "profile": {
+          "bundles": [
+            "@deepseek-ai/dsh-base",
+            "@deepseek-ai/dsh-web-app",
+            "dsh-plugin-update-fixture-a",
+            "dsh-plugin-update-fixture-b"
+          ]
+        }
+      }
+    }
+  }
+}

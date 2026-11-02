@@ -1,0 +1,7 @@
+{
+  "upstreamBaseUrl": "http://127.0.0.1:58828",
+  "baseUrl": "http://127.0.0.1:50386",
+  "port": 50386,
+  "delayMs": 60000,
+  "installTimeoutMs": 40000
+}

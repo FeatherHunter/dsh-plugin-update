@@ -1,0 +1,9 @@
+{
+  "看什么": "重启后 A 面板 C 行未在排队/安装，C 目标卡不谎称已到 0.0.2",
+  "步骤": "D2 重启后如实展示",
+  "expected": "C 行不排队、不安装；C 卡不显示 v0.0.2",
+  "actual": "{\"rowC\":{\"key\":\"c\",\"phase\":\"pending\",\"queued\":false,\"busy\":false,\"title\":\"夹具 C\",\"status\":\"有新版本 0.0.2\",\"versionCur\":\"0.0.1\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"toggle-details\"],\"fail\":null},\"cardC\":{\"present\":false,\"key\":null,\"ui\":null,\"wiring\":null,\"clientTag\":null,\"badgeText\":null,\"dshUpdCount\":0,\"dockCount\":0,\"entryCount\":0}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\69-shot.png"
+}
