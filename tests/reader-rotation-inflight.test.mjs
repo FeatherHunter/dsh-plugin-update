@@ -7,6 +7,10 @@
  * interrupted/recovery-required；批量的 settleInstall 读到这一瞬就把该家记 failed，尽管 exec 随后完成。
  * 修法：同一使用范围（缓存键除 runningVersion 外全同）且旧实例仍握着在飞任务时，先复用旧实例。
  *
+ * #268 真机补充（同一根因的第二条路径，run 268-20261102T153751）：缓存槽只有一个，**别的目标**的电话一来就会
+ * 把在飞实例挤出槽；该目标下一条 status 电话于是只能新建实例 → 同样的 healJob 误判。修法按「除运行版本外的
+ * 身份」保留最近实例：命中且仍握着在飞任务时复用（下面第二个用例）。
+ *
  * 断言口径：
  *  1) 换包瞬间（在飞）再取 reader：必须是旧实例、job 仍是 installing，绝不出现 interrupted/recovery-required。
  *  2) 任务收尾后：换代恢复（拿到新实例，runningVersion 用新的），job 是 completed/restart-required，不是 interrupted。
@@ -193,6 +197,48 @@ describe('#266：读取器单例换代不误判同进程在飞任务', () => {
       settled.job.state === 'restart-required' || settled.job.state === 'completed',
       `旧实例收尾后应是 restart-required/completed，实际 ${settled.job.state}`
     )
+  })
+
+  it('#268：别的目标的电话挤掉缓存槽后，该目标的在飞任务仍不得被误判 interrupted', async () => {
+    const scope = await makeScope()
+    const store = memoryJobStore()
+    const refs = { installedVersion: '1.0.0' }
+    const gate = deferred()
+    const configA = resolveUpdateConfig({ pluginId: 'fixture-a', prefix: 'fxa', targetPackageName: TARGET })
+    const configB = resolveUpdateConfig({ pluginId: 'fixture-b', prefix: 'fxb', targetPackageName: TARGET })
+
+    const readerA = await getSharedReader('fixture-a', configA, readerOverrides(scope, store, refs, gate, '1.0.0'))
+    const checked = await readerA.check()
+    assert.equal(checked.snapshot.canInstall, true, '先决条件：check 后可装')
+    const started = await readerA.install({ checkId: checked.receipt.checkId, requestId: 'req-inflight-a', from: 'panel' })
+    assert.equal(started.job.state, 'installing', '先决条件：安装已起、任务在飞')
+
+    // 真机形态：批量驱动 / 另一个目标面板的电话（fixture-b）插进来，把 fixture-a 的在飞实例挤出单例槽。
+    const readerB = await getSharedReader('fixture-b', configB, readerOverrides(scope, store, refs, gate, '1.0.0'))
+    assert.notEqual(readerB, readerA, '先决条件：B 的电话确实换了槽（否则本用例不覆盖被挤掉路径）')
+
+    // exec 换包：磁盘清单到 2.0.0（进程仍跑 1.0.0）；此刻 A 的 settleInstall 再来取 reader。
+    refs.installedVersion = RELEASE_VERSION
+    const readerA2 = await getSharedReader('fixture-a', configA, readerOverrides(scope, store, refs, gate, RELEASE_VERSION))
+    assert.equal(readerA2, readerA, '在飞期间必须按身份找回旧实例（槽被别的目标挤掉也不得丢 activeJobId）')
+    const during = await readerA2.status()
+    assert.equal(during.job.state, 'installing', '同进程在飞任务不得被合成 interrupted')
+    assert.notEqual(during.job.message, 'recovery-required', '不得误报「上一次进程异常中断」')
+    assert.equal(store.peek().state, 'installing', '磁盘上仍是在飞事实（不是 interrupted）')
+
+    gate.resolve()
+    const settled = await waitFor(async () => {
+      const snap = await readerA.status()
+      return snap.job && snap.job.state !== 'installing' && snap.job.state !== 'verifying' ? snap : null
+    }, '任务收尾')
+    assert.ok(
+      settled.job.state === 'completed' || settled.job.state === 'restart-required',
+      `旧实例收尾后应是 completed/restart-required，实际 ${settled.job.state}`
+    )
+
+    const readerA3 = await getSharedReader('fixture-a', configA, readerOverrides(scope, store, refs, gate, RELEASE_VERSION))
+    assert.notEqual(readerA3, readerA, '收尾后应恢复换代（按新运行版本建实例）')
+    assert.notEqual((await readerA3.status()).job.state, 'interrupted', '已真实完成的任务不得报中断')
   })
 
   it('反向不回归：真·进程重启后，遗留 installing 任务仍诚实报 interrupted/recovery-required', async () => {
