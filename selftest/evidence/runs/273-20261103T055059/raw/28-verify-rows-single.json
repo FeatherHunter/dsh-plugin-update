@@ -1,0 +1,14 @@
+[
+  {
+    "ts": 1793656275026,
+    "ns": "fxa-a",
+    "fields": {
+      "result": "restart-required",
+      "installedVersion": "0.0.2",
+      "pendingRestart": true,
+      "traceId": "3faeb6850be014e4",
+      "spanId": "646ea297",
+      "seq": 6
+    }
+  }
+]

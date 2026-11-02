@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:57055/?token=zkeDAHWn-w3Ug5BNG8fdDL3xzflpngF_1VVEsGQjvgc",
+  "port": 57055,
+  "bootMs": 1668,
+  "profileName": "t9j1c",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t9-273\\273-20261103T054614\\os-home\\.dsh",
+  "pid": 91928,
+  "stdoutTail": "dsh web: http://127.0.0.1:57055/?token=zkeDAHWn-w3Ug5BNG8fdDL3xzflpngF_1VVEsGQjvgc\n",
+  "stderrTail": ""
+}
