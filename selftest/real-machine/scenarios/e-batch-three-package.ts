@@ -445,6 +445,31 @@ export async function runEBatchScenario(options: EBatchScenarioOptions): Promise
 
   const readDisk = async (): Promise<DiskSnapshot> => readDiskSnapshot({ homeDir, profileName: PROFILE_NAME, packageNames })
 
+  /**
+   * 基版安装对隔离 registry 的上游瞬态做有界重试（harness 侧网络抖动，不是被测行为）。
+   * 2026-11-02 两次 unknown（269-20261102T212948 / 269-20261102T215839）都是 verdaccio
+   * uplink 拉 dsh-log 先 503、pnpm 自己重试约 60s 后落 404；命令本身幂等，同一个
+   * pnpm add 重跑会重新解析并补齐缺失依赖。最多 3 次、间隔 5s/15s，每次失败留 raw，
+   * 让证据里看得见抖动来源，而不是静默吞掉。
+   */
+  const installBaselineResilient = async (): Promise<void> => {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        await run.installBaseline({ homeDir, profileName: PROFILE_NAME, registryUrl })
+        if (attempt > 1) note('基版安装第 ' + String(attempt) + ' 次成功（前 ' + String(attempt - 1) + ' 次为 registry 上游瞬态）')
+        return
+      } catch (error) {
+        const text = messageOf(error)
+        const transient = /ERR_PNPM_FETCH_(404|50\d)|dsh-log|ECONNRESET|ETIMEDOUT/i.test(text)
+        if (attempt >= 3 || !transient) throw error
+        const delayMs = attempt === 1 ? 5000 : 15000
+        note('基版安装第 ' + String(attempt) + ' 次遇到 registry 上游瞬态，' + String(delayMs / 1000) + 's 后重试：' + text.slice(0, 300))
+        await run.raw('baseline-install-retry-' + String(attempt), { attempt, transient: true, delayMs, message: text.slice(0, 4000) })
+        await sleep(delayMs)
+      }
+    }
+  }
+
   /** 等 A 面板恢复（三行 + 卡片在位）；自重启实例会换 CDP 端口，故每次停/起后重等。 */
   const waitPanel = async (tag: string, timeoutMs = 180000): Promise<BatchSeatState> => {
     const live = requireSession()
@@ -548,7 +573,7 @@ export async function runEBatchScenario(options: EBatchScenarioOptions): Promise
     await run.raw('desktop-first-launch', { port: requireSession().port, pageText: (await requireSession().cdp.pageText()).slice(0, 3000) })
     await stopDesktop('bootstrap')
 
-    await run.installBaseline({ homeDir, profileName: PROFILE_NAME, registryUrl })
+    await installBaselineResilient()
     await verifySutInstalled(run, { homeDir, profileName: PROFILE_NAME, packageName: packageA })
 
     session = await launchDesktop('main')
