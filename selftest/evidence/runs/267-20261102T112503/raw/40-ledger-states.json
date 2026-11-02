@@ -1,0 +1,13 @@
+[
+  {
+    "file": "D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T112503\\os-home\\.dsh\\updates\\fxa-a\\3f504d0377009359b7ce686f\\state.json",
+    "state": {
+      "id": "f07f27d0-0319-4fc7-a8b8-efab3275dd38",
+      "state": "failed",
+      "targetVersion": "0.0.2",
+      "message": "install-failed: 安装超时，已终止子进程",
+      "requestId": "t3e-timeout-1793589917860",
+      "previousVersion": "0.0.1"
+    }
+  }
+]

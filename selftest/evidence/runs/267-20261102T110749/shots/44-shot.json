@@ -1,0 +1,9 @@
+{
+  "看什么": "执行人话格命令并重启后的面板：卡片 client/host 构建标记都是 v0.0.2",
+  "步骤": "手工命令后重启的新版面板",
+  "expected": "client v0.0.2 / host v0.0.2",
+  "actual": "clientTag=client v0.0.2；hostTag=host v0.0.2",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\44-shot.png"
+}

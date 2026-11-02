@@ -1,0 +1,57 @@
+{
+  "polls": 5,
+  "elapsedMs": 4060,
+  "status": 200,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.1",
+        "installed": true,
+        "installedVersion": "0.0.1",
+        "latestVersion": "0.0.2",
+        "canInstall": true,
+        "blockedReason": null,
+        "job": {
+          "id": "f07f27d0-0319-4fc7-a8b8-efab3275dd38",
+          "state": "failed",
+          "targetVersion": "0.0.2",
+          "message": "install-failed: 安装超时，已终止子进程",
+          "requestId": "t3e-timeout-1793589917860",
+          "previousVersion": "0.0.1"
+        },
+        "identity": "update",
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t3cli add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:54969",
+      "receipt": null,
+      "logContract": {
+        "state": "ok",
+        "file": "event-list.update.json",
+        "events": 29,
+        "unvalidated": 0
+      },
+      "logHealth": {
+        "sink": "self",
+        "dirHash": "7e8fa75d",
+        "switchEnabled": false,
+        "droppedSinceStart": 0,
+        "lastEventAt": 1793589922001,
+        "contract": "ok",
+        "external": null,
+        "reason": null
+      },
+      "diag": {
+        "v": 1,
+        "stage": "exec",
+        "detail": "安装超时，已终止子进程",
+        "targetPackageName": "dsh-plugin-update-fixture-a",
+        "runningVersion": "0.0.1",
+        "requestId": "t3e-timeout-1793589917860",
+        "intentHash": "2416730b",
+        "action": "contact"
+      }
+    }
+  }
+}

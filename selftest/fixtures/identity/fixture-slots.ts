@@ -252,6 +252,13 @@ export function fixtureBuildTagPhoneOf(slot: FixtureSlot): string {
 /** 本地 registry 地址的环境变量名（host half 从它读；由真机 harness 注入到被测宿主进程）。 */
 export const FIXTURE_REGISTRY_ENV = 'DSH_SELFTEST_REGISTRY'
 
+/**
+ * 安装时限的环境变量名（毫秒；host half 透传成 deps.config.installTimeoutMs）。
+ *
+ * 真机 harness 用它把「安装超时」格缩到可观测的秒级：不设即产品缺省（120s），行为一字不变。
+ */
+export const FIXTURE_INSTALL_TIMEOUT_ENV = 'DSH_SELFTEST_INSTALL_TIMEOUT_MS'
+
 /** 被测系统（SUT）依赖：夹具依赖它，才能把更新链锻在自己身上。 */
 export interface FixtureSutDependency {
   readonly name: string

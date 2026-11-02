@@ -1,0 +1,5 @@
+{
+  "source": "D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T111127\\os-home\\.dsh\\logs\\fxa-c\\2026-11-02.log",
+  "content": "{\"v\":3,\"ts\":1793589100224,\"level\":\"info\",\"event\":\"host.start\",\"fields\":{\"pid\":71020,\"startedAt\":\"2026-11-02T03:11:40.221Z\",\"dir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t3-267\\\\267-20261102T111127\\\\os-home\\\\.dsh\\\\logs\",\"pluginVersion\":\"0.18.39\",\"os\":\"win32\"}}\n{\"v\":3,\"ts\":1793589100224,\"level\":\"info\",\"event\":\"update.wire.ready\",\"fields\":{\"logSink\":\"self\",\"logDirHash\":\"f0e6157f\",\"updaterVersion\":\"0.18.39\",\"copyLevel\":\"profile\",\"hostKind\":\"cli\"}}\n",
+  "truncated": false
+}

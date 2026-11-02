@@ -1,0 +1,13 @@
+[
+  {
+    "file": "D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T113629\\os-home\\.dsh\\updates\\fxa-a\\6e913e6e8fa46411494c48dc\\state.json",
+    "state": {
+      "requestId": "t3e-can-red-1793590600803",
+      "message": null,
+      "id": "0f3898d7-517d-40f0-a2ac-dcd8dbf6c20c",
+      "state": "completed",
+      "targetVersion": "0.0.2",
+      "previousVersion": "0.0.1"
+    }
+  }
+]

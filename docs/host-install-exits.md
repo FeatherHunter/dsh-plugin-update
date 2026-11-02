@@ -152,7 +152,9 @@
   `D:\DeepseekHarness\resources\runtime\cli\bin\dsh.cmd`，它用 `ELECTRON_RUN_AS_NODE=1` 调
   `…\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-desktop-host\lib\cli.js`（`runDesktopCli`，
   内部 `runCli({ manageDesktopProfile: true, … })`），所以 `plugin` 子命令的 `rejectElectronProfile` 守卫**不触发**。
-  实测：`dsh --version` = `0.2.1-rc.2`；`dsh plugin --profile desktop add --help` → 打印 pnpm 11.28.5 帮助、无拒绝；
+  实测：`dsh --version` = `0.2.1-rc.2`（2026-11-02 #267 采集机已是 `0.2.1-rc.5`：卸载表 `DisplayVersion` 与
+  `dsh desktop-host` 载体版本随发行更新而漂移，只影响版本号、不影响本节契约；真机记录见文末「真机验证记录」）；
+  `dsh plugin --profile desktop add --help` → 打印 pnpm 11.28.5 帮助、无拒绝；
   `dsh plugin --profile desktop list --depth 0` → 正确列出 profile 直接依赖。
   ⇒ 本包 `manualCommand`（`src/shared/commands.ts:256-288`）生成的那条
   `dsh plugin --profile desktop add --save-exact <包名>@<版本> --registry=…` 在这台机器上**可执行**；
@@ -185,10 +187,19 @@
 ## 不确定与待现场确认
 
 - 上面所有 `asar:` 行号是档案内文件的行号，磁盘上没有可比对的同名文件。
-- 官方桌面版这条路由**尚未在真机点过一次「装上」**（本次修复只到库内测试与本地提交）。
-- **2026-10-17 补**：「先移除再装」这两步同样**尚未在真机点过**——真机只观测到拒绝那一步（票 #167）。
-  含本修复的版本发到真机后，验收点是：同一个 `dsh-opencode-palette` 2.0.28 → 2.1.0 的更新能走完，
-  且诊断摘要不再是 `already-installed`。
+- 官方桌面版这条路由**已在真机走过「装上」**（2026-11-02，#267 T3，d1 run `267-20261102T094226`）：
+  官方桌面（采集机 0.2.1-rc.5）把已装夹具 `dsh-plugin-update-fixture-a@0.0.1` 更新到 `0.0.2`，
+  `update.install.exec` 记录 `route=desktop-manager ok=true exitCode=0 durationMs=2587`；重启后 client/host
+  构建标记与磁盘版本都是 0.0.2，诊断摘要不再是 `already-installed`（17 条断言全 pass）。
+- **2026-10-17 补的「先移除再装」两步也已在真机点过**：同一 run 的 `.plugin-manager/logs` 在
+  `update.install.request → update.install.exec` 窗口内**恰好 2 个非空 operation**——先 `pnpm remove`
+  （日志含 `- dsh-plugin-update-fixture-a 0.0.1`）、后 `pnpm add`（含 `+ dsh-plugin-update-fixture-a 0.0.2`
+  与 `Done in`），原文在 `selftest/evidence/runs/267-20261102T094226/raw/24-*`、`25-*`；
+  `already-installed` 守卫把首次 `installBundle` 毫秒挡下后没有起第三次 pnpm（`27-assert`）。
+  失败格同样真机走过：d2 run `267-20261102T110749` 在 check 后只删 registry tarball（元数据不动）→
+  移除步成功、重装 pnpm 404 → `update.install.fail` = `stage:exec / reason:nonzero-exit / code:install-failed`；
+  目标包已被宿主移除时面板随包消失（页面回桌面 home，不伪造 UI），台账 job.message 带「目标包已被宿主移除」
+  与载体命令，恢复 tarball 后这条手工命令真机执行 exit 0 装回 0.0.2（见文末「真机验证记录」）。
 - **2026-10-17 实测的残留风险（2026-10-18 已修，票 #168）**：移除成功、第二次装又失败时，抛出的详情曾在
   第二次宿主原话之外**没有**「目标包已经被摘掉」这句话。现在（`0.18.15` 起）详情会在原话之后补
   「目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装（附可执行的桌面 CLI
@@ -196,11 +207,75 @@
 - **推断（只有代码阅读依据，未实测）**：`removeBundle` 先 deselect + reload（`:2144-2146`）、`pnpm remove`
   之后还 `publishAndReload()`（`:2159`），`installBundle` 在 HMR 下同样以 `publishAndReload` 收尾
   （`:2094`）⇒「移除再装」之后 bundle 在选择表里的相对次序可能变化，配置优先级随之变化。
-  发到真机后值得核一次 `dsh.profile.bundles` 的次序。
+  2026-11-02 d1 run 只记录了更新后的 `dsh.profile.bundles`（`[@deepseek-ai/dsh-base,
+  @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]`，raw/34-profile-manifest-after-update），
+  **没有与更新前逐位对比**；次序风险仍未实测验证。
 - 命令行兜底在官方桌面版下是否可执行：**2026-10-17 已现场实测，结论是可执行**（见出口二末条）；
-  此前「待现场确认」的说法作废。仍未验证的是「用这条命令真的把某个已装包更新上去」这一步（只做了
-  `--help`/`list` 只读探针，未写盘）。
+  「用这条命令真的把某个已装包更新上去」这一步 **2026-11-02 也已真机执行成功**：d2 失败格把面板
+  `.dsh-upd-manual code` 给出的 `dsh plugin --profile desktop add --save-exact
+  dsh-plugin-update-fixture-a@0.0.2 --registry=…` 原样执行，exit 0、磁盘 0.0.2、重启后 UI v0.0.2
+  （d2 `41-assert`）；出口三 e2 对回包 `manual` 做同样执行（`42-assert`，exit 0 / 0.0.2 / 重启 buildTag
+  v0.0.2）。注意：CLI 进程没有 HMR，写入后仍要重启宿主才生效。
 - **2026-10-17 对抗式审查新增（未修，另见票）**：管理器路失败时详情常常只剩宿主裸码（
   `not-removable` / `bundle-in-use` / `management-required` / `stale-approval` / `incompatible-version` 等），
   宿主自己的 next-step 表（`lib/types/tools.js` 的 `ERROR_STEPS` / `FAILURE_STEPS`）没有转述；
   降级宿主（没有 `removeBundle`）上 `already-installed` 的观感与本轮修复前一致。
+
+## 真机验证记录（#267 T3，2026-11-02）
+
+采集机：Windows / node v24.19.0；官方桌面在 `D:\DeepseekHarness`（2026-11-02 卸载表 `DisplayVersion` 已是
+`0.2.1-rc.5`；`dsh --version` 探针先后见 rc.2 / rc.3 / rc.5，随发行漂移，只影响版本号）。SUT = 工作树
+`dsh-plugin-update@0.18.39` 的 `npm run build` 产物（dist 聚合指纹 `efddad08…`，`distFiles=208`）。
+全部 run 在仓库外隔离 runtime 执行（隔离 `DSH_HOME` + `--user-data-dir` + run 内独立 verdaccio），
+维护者真实 `~/.dsh` 前后指纹一致；证据包在 `selftest/evidence/runs/`。
+
+路由判定回顾（`src/host/environment.ts:109-129`）：有 `desktopProfiles` 服务 → `desktop`（出口一）；
+否则 `pluginManager.installBundle` 且使用范围名恰为 `desktop`（大小写不敏感）→ `desktop-manager`（出口二）；
+其余 → `cli`（出口三）。真机观测与之一致：d1/d2 日志 `hostKind=desktop-manager`；e1/e2/e3
+`hostKind=cli` 且 `update.install.exec route=cli-process`；f1 本机唯一桌面宿主 `hostKind=desktop-manager`。
+
+### 出口一：第三方 Desktop（`desktopProfiles`）——本机不可达，登记 known-red
+
+- 能力探测（f1 run `267-20261102T113042`，known-red / 退出码 0）：文件系统（Program Files / AppData /
+  盘根，名字含 dsh|deepseek|harness）+ 注册表卸载表同族条目 + 服务同族条目，三份原始输出在 raw/；
+  分类按「Electron 发行结构（`resources/app.asar` 或 `resources/app`）+ 同族 exe」结构判据，
+  本机第三方 Desktop = **0**（25 个名字同族的 nearMiss 单列：用户数据目录、临时探针目录、单文件
+  `dshvm-ui` 等，避免假阳性）。
+- 负向证据：本机唯一桌面宿主启动后 `update.wire.ready hostKind=desktop-manager`（`24-assert`）——
+  即 `desktopProfiles` 服务为空，路由不可能落出口一。
+- 两格 released known-red：`25-assert`（出口一成功格：真机走 `desktopProfiles.runPlugin` 更新并核对
+  UI/磁盘/日志）与 `26-assert`（失败格：宿主失败码/人话格/手工命令）均为 known-red，note 与
+  `selftest/evidence/known-red.md` 的 `t3-267-exit-one` 写明可复现条件（需第三方 Desktop 宿主 +
+  `desktopProfiles` 服务）。不伪造：没有第三方宿主就没有截图/日志，只记探测原文与条件。
+
+### 出口二：官方桌面 in-process 插件管理器（`pluginManager`）
+
+| 结果 | runId | 关键断言 | 真机事实 |
+| --- | --- | --- | --- |
+| 成功更新（0.0.1→0.0.2） | `runs/267-20261102T094226`（pass / 0） | `26/27/31/32/36/41-assert` | already-installed 守卫挡下首次 installBundle 后走 remove→install 两步：窗口内恰好 2 个非空 operation（先 `- … 0.0.1`、后 `+ … 0.0.2`）；exec `route=desktop-manager ok=true exitCode=0 durationMs=2587`；无 fail；重启后 client/host v0.0.2 |
+| 失败（registry tarball 404） | `runs/267-20261102T110749`（pass / 0） | `25/29/30/33/35/37/41/43-assert` | check 后只删 tarball（元数据/integrity 不动）：移除步成功、重装 pnpm 404 → exec `route=desktop-manager ok=false exitCode=1`、fail `stage:exec/reason:nonzero-exit/code:install-failed`；目标包被移除后面板随包消失（页面回桌面 home，不伪造 DOM）；台账 message 带「目标包已被宿主移除」+ 载体命令；恢复 tarball 后手工命令真机 exit 0 装回 0.0.2 |
+| can-red（stale-variant） | `runs/267-20261102T113218`（fail / 1，预期） | `16-assert`、`37-assert` 红 | 发 0.0.2 但构建内容仍是 0.0.1：重启后 clientTag/hostTag 仍 v0.0.1，证明「重启后新版 UI」断言非永真；其余 15 条（真 UI 安装、两步 operation、exec、磁盘、台账）仍 pass |
+
+真机不可控、仍未真机覆盖的失败码（按库内测试与 known-red 口径处理，不硬造）：`not-removable`、
+`bundle-in-use`、`pendingBuilds` 批准流程、以及「移除步之后第二次安装失败」以外的管理器内部失败。
+库内覆盖见 `tests/desktop-manager.test.mjs`、`tests/desktop-manager-hmr.test.mjs`、
+`tests/issue-194-pending-builds.test.mjs`、`tests/issue-236-manager-remove-failure-restore.test.mjs`。
+
+### 出口三：普通 DSH 宿主 spawn CLI 子进程
+
+| 结果 | runId | 关键断言 | 真机事实 |
+| --- | --- | --- | --- |
+| 成功更新 | `runs/267-20261102T111047`（pass / 0） | `29/32/33/34/39-assert` | 宿主 `--profile t3cli --port 0 --no-open`（普通 DSH web，非 desktop）：exec `route=cli-process ok=true exitCode=0 durationMs=979`；磁盘 0.0.2；电话回包 42ms ≪ exec 979ms；重启后 buildTag=host v0.0.2 |
+| 失败（tarball 404） | `runs/267-20261102T111127`（pass / 0） | `33/34/35/36/37/42/44-assert` | check 后删 tarball：CLI 子进程 pnpm 404 非零退出 → job.message 以 install-failed 开头且含 `ERR_PNPM_FETCH_404 … 404` 原话、**不含载体命令**；exec ok=false exitCode=1；fail `stage:exec/reason:nonzero-exit`；磁盘仍 0.0.1；回包 manual 真机执行 exit 0 装到 0.0.2；重启 buildTag=host v0.0.2 |
+| 超时 | `runs/267-20261102T112503`（pass / 0） | `33/34/35/36/39/42-assert` | 宿主 registry 指向延迟代理挂住 pnpm + 夹具 `installTimeoutMs=4000`：到点终止 CLI 子进程，job.message=「安装超时，已终止子进程」，exec durationMs=4111（预算 + 3s 宽限内），fail `reason=timeout`；磁盘仍 0.0.1；重启仍 host v0.0.1；宿主/代理全停 |
+| can-red（stale-variant） | `runs/267-20261102T113629`（fail / 1，预期） | `40-assert` 红 | 发 0.0.2 但内容仍是 0.0.1：重启后 buildTag=host v0.0.1，而 runningVersion 已是 0.0.2，证明「运行代码真的换了版」断言非永真；其余 21 条仍 pass |
+
+出口三的隔离口径（真机关键事实，写测试的人必须知道）：产品 spawn 的 CLI 子进程走
+`@deepseek-ai/dsh-subprocess` 的 `scrubbedParentEnv()`，会剥掉全部 `DSH_*`（大小写不敏感）与匹配
+`/KEY|PASSWORD|SECRET|TOKEN/i` 的环境名；子进程按 `homedir()/.dsh` 解析 home。⇒ 隔离宿主时
+`DSH_HOME` 必须与 `USERPROFILE` 对齐（宿主 `homeDir = <run>/os-home/.dsh`，`USERPROFILE=<run>/os-home`），
+否则 CLI 子进程会装到默认 home、产品 verify 报 version-mismatch。这是测试隔离口径，不是产品缺陷：
+普通用户没有覆盖 home 时两者天然一致。
+
+通道 B 是无窗口 CLI 宿主：e1/e2/e3 的 UI 证据是 DOM/pageText 原文（电话回包、页面状态、产品日志），
+没有 PNG 截图；窗口截图证据由出口二的 d1/d2 与 T10 UI 组承担（三个 run 的 `index.md` 备注同样写明）。

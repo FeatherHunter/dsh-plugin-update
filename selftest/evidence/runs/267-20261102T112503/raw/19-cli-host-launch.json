@@ -1,0 +1,8 @@
+{
+  "url": "http://127.0.0.1:58427/?token=udgIg1_nStbuHLNu_DWQes3gnCEToMnhmk93Rlr1ERE",
+  "port": 58427,
+  "bootMs": 2276,
+  "profileName": "t3cli",
+  "stdoutTail": "dsh web: http://127.0.0.1:58427/?token=udgIg1_nStbuHLNu_DWQes3gnCEToMnhmk93Rlr1ERE\n",
+  "stderrTail": ""
+}

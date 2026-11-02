@@ -1,0 +1,5 @@
+{
+  "source": "D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T094226\\home\\logs\\fxa-b\\2026-11-02.log",
+  "content": "{\"v\":3,\"ts\":1793583763311,\"level\":\"info\",\"event\":\"host.start\",\"fields\":{\"pid\":71860,\"startedAt\":\"2026-11-02T01:42:43.309Z\",\"dir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t3-267\\\\267-20261102T094226\\\\home\\\\logs\",\"pluginVersion\":\"0.18.39\",\"os\":\"win32\"}}\n{\"v\":3,\"ts\":1793583763311,\"level\":\"info\",\"event\":\"update.wire.ready\",\"fields\":{\"logSink\":\"self\",\"logDirHash\":\"3c2bca34\",\"updaterVersion\":\"0.18.39\",\"copyLevel\":\"profile\",\"hostKind\":\"desktop-manager\"}}\n{\"v\":3,\"ts\":1793583832484,\"level\":\"info\",\"event\":\"update.wire.ready\",\"fields\":{\"logSink\":\"self\",\"logDirHash\":\"3c2bca34\",\"updaterVersion\":\"0.18.39\",\"copyLevel\":\"profile\",\"hostKind\":\"desktop-manager\"}}\n",
+  "truncated": false
+}

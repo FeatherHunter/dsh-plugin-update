@@ -1,0 +1,233 @@
+{
+  "roots": [
+    {
+      "root": "C:\\Program Files",
+      "maxDepth": 2
+    },
+    {
+      "root": "C:\\Program Files (x86)",
+      "maxDepth": 2
+    },
+    {
+      "root": "C:\\Users\\辰辰洋洋\\AppData\\Local",
+      "maxDepth": 2
+    },
+    {
+      "root": "C:\\Users\\辰辰洋洋\\AppData\\Roaming",
+      "maxDepth": 2
+    },
+    {
+      "root": "C:\\",
+      "maxDepth": 1
+    },
+    {
+      "root": "D:\\",
+      "maxDepth": 1
+    }
+  ],
+  "scans": [
+    {
+      "root": "C:\\Program Files",
+      "maxDepth": 2,
+      "scannedDirs": 84,
+      "errors": [
+        {
+          "path": "C:\\Program Files\\WindowsApps",
+          "error": "EPERM: operation not permitted, scandir 'C:\\Program Files\\WindowsApps'"
+        }
+      ],
+      "matches": []
+    },
+    {
+      "root": "C:\\Program Files (x86)",
+      "maxDepth": 2,
+      "scannedDirs": 96,
+      "errors": [],
+      "matches": []
+    },
+    {
+      "root": "C:\\Users\\辰辰洋洋\\AppData\\Local",
+      "maxDepth": 2,
+      "scannedDirs": 220,
+      "errors": [],
+      "matches": [
+        {
+          "path": "C:\\Users\\辰辰洋洋\\AppData\\Local\\@deepseek-aidsh-desktop-updater",
+          "name": "@deepseek-aidsh-desktop-updater",
+          "exeNames": [
+            "installer.exe"
+          ]
+        },
+        {
+          "path": "C:\\Users\\辰辰洋洋\\AppData\\Local\\so.dsh.dshvm-ui",
+          "name": "so.dsh.dshvm-ui",
+          "exeNames": []
+        },
+        {
+          "path": "C:\\Users\\辰辰洋洋\\AppData\\Local\\Temp\\dsh-1504-session",
+          "name": "dsh-1504-session",
+          "exeNames": []
+        },
+        {
+          "path": "C:\\Users\\辰辰洋洋\\AppData\\Local\\Temp\\dsh-asar",
+          "name": "dsh-asar",
+          "exeNames": []
+        },
+        {
+          "path": "C:\\Users\\辰辰洋洋\\AppData\\Local\\Temp\\dsh-tickets",
+          "name": "dsh-tickets",
+          "exeNames": []
+        },
+        {
+          "path": "C:\\Users\\辰辰洋洋\\AppData\\Local\\Temp\\dsh1348",
+          "name": "dsh1348",
+          "exeNames": []
+        }
+      ]
+    },
+    {
+      "root": "C:\\Users\\辰辰洋洋\\AppData\\Roaming",
+      "maxDepth": 2,
+      "scannedDirs": 568,
+      "errors": [],
+      "matches": [
+        {
+          "path": "C:\\Users\\辰辰洋洋\\AppData\\Roaming\\@deepseek-ai",
+          "name": "@deepseek-ai",
+          "exeNames": []
+        },
+        {
+          "path": "C:\\Users\\辰辰洋洋\\AppData\\Roaming\\@deepseek-ai\\dsh-desktop",
+          "name": "dsh-desktop",
+          "exeNames": []
+        },
+        {
+          "path": "C:\\Users\\辰辰洋洋\\AppData\\Roaming\\dsh-desktop",
+          "name": "dsh-desktop",
+          "exeNames": []
+        },
+        {
+          "path": "C:\\Users\\辰辰洋洋\\AppData\\Roaming\\dsh-harness-desktop",
+          "name": "dsh-harness-desktop",
+          "exeNames": []
+        }
+      ]
+    },
+    {
+      "root": "C:\\",
+      "maxDepth": 1,
+      "scannedDirs": 22,
+      "errors": [
+        {
+          "path": "C:\\PerfLogs",
+          "error": "EPERM: operation not permitted, scandir 'C:\\PerfLogs'"
+        },
+        {
+          "path": "C:\\System Volume Information",
+          "error": "EPERM: operation not permitted, scandir 'C:\\System Volume Information'"
+        }
+      ],
+      "matches": [
+        {
+          "path": "C:\\dsh-pu-probe",
+          "name": "dsh-pu-probe",
+          "exeNames": []
+        }
+      ]
+    },
+    {
+      "root": "D:\\",
+      "maxDepth": 1,
+      "scannedDirs": 90,
+      "errors": [
+        {
+          "path": "D:\\System Volume Information",
+          "error": "EPERM: operation not permitted, scandir 'D:\\System Volume Information'"
+        }
+      ],
+      "matches": [
+        {
+          "path": "D:\\.dsh",
+          "name": ".dsh",
+          "exeNames": []
+        },
+        {
+          "path": "D:\\3DeepSeekHarness",
+          "name": "3DeepSeekHarness",
+          "exeNames": []
+        },
+        {
+          "path": "D:\\DeepseekHarness",
+          "name": "DeepseekHarness",
+          "exeNames": [
+            "DeepSeek Harness.exe",
+            "Uninstall DeepSeek Harness.exe"
+          ]
+        },
+        {
+          "path": "D:\\dsh-acl-recovery",
+          "name": "dsh-acl-recovery",
+          "exeNames": []
+        },
+        {
+          "path": "D:\\dsh-i58-verify",
+          "name": "dsh-i58-verify",
+          "exeNames": []
+        },
+        {
+          "path": "D:\\dsh-plugin",
+          "name": "dsh-plugin",
+          "exeNames": []
+        },
+        {
+          "path": "D:\\dsh-rd39-bak",
+          "name": "dsh-rd39-bak",
+          "exeNames": []
+        },
+        {
+          "path": "D:\\dsh-session-inspect-e359663a",
+          "name": "dsh-session-inspect-e359663a",
+          "exeNames": []
+        },
+        {
+          "path": "D:\\dsh-tmp-1023-freshclone",
+          "name": "dsh-tmp-1023-freshclone",
+          "exeNames": []
+        },
+        {
+          "path": "D:\\dsh-unc-probe",
+          "name": "dsh-unc-probe",
+          "exeNames": []
+        },
+        {
+          "path": "D:\\dsh-work",
+          "name": "dsh-work",
+          "exeNames": []
+        },
+        {
+          "path": "D:\\dshvm",
+          "name": "dshvm",
+          "exeNames": [
+            "dshvm-ui.exe"
+          ]
+        },
+        {
+          "path": "D:\\tmp-dsh-commit",
+          "name": "tmp-dsh-commit",
+          "exeNames": []
+        },
+        {
+          "path": "D:\\tmp-dsh-probe",
+          "name": "tmp-dsh-probe",
+          "exeNames": []
+        },
+        {
+          "path": "D:\\tmp-dsh-width-probe",
+          "name": "tmp-dsh-width-probe",
+          "exeNames": []
+        }
+      ]
+    }
+  ],
+  "scannedAt": "2026-11-02T03:30:50.628Z"
+}

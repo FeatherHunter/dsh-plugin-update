@@ -1,0 +1,26 @@
+{
+  "script": "$ErrorActionPreference = 'SilentlyContinue'\n$paths = @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',\n  'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',\n  'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*')\n$items = Get-ItemProperty $paths | Where-Object { $_.DisplayName -match 'dsh|deepseek|harness' } |\n  Select-Object DisplayName, DisplayVersion, InstallLocation, Publisher\nif ($null -eq $items) { \"[]\" } else { ConvertTo-Json -InputObject @($items) -Compress }",
+  "exitCode": 0,
+  "stdout": "[{\"DisplayName\":\"dshvm-ui\",\"DisplayVersion\":\"0.1.3\",\"InstallLocation\":\"D:\\\\dshvm\\\\\",\"Publisher\":\"dsh\"},{\"DisplayName\":\"DeepSeek Harness 0.2.1-rc.5\",\"DisplayVersion\":\"0.2.1-rc.5\",\"InstallLocation\":\"D:\\\\DeepseekHarness\",\"Publisher\":null},{\"DisplayName\":\"DeepSeek Harness\",\"DisplayVersion\":\"1.0\",\"InstallLocation\":null,\"Publisher\":\"Google\\\\Chrome\"}]\r\n",
+  "stderr": "#< CLIXML\r\n<Objs Version=\"1.1.0.1\" xmlns=\"http://schemas.microsoft.com/powershell/2004/04\"><Obj S=\"progress\" RefId=\"0\"><TN RefId=\"0\"><T>System.Management.Automation.PSCustomObject</T><T>System.Object</T></TN><MS><I64 N=\"SourceId\">1</I64><PR N=\"Record\"><AV>����׼���״�ʹ��ģ�顣</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj><Obj S=\"progress\" RefId=\"1\"><TNRef RefId=\"0\" /><MS><I64 N=\"SourceId\">1</I64><PR N=\"Record\"><AV>����׼���״�ʹ��ģ�顣</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj></Objs>",
+  "entries": [
+    {
+      "DisplayName": "dshvm-ui",
+      "DisplayVersion": "0.1.3",
+      "InstallLocation": "D:\\dshvm\\",
+      "Publisher": "dsh"
+    },
+    {
+      "DisplayName": "DeepSeek Harness 0.2.1-rc.5",
+      "DisplayVersion": "0.2.1-rc.5",
+      "InstallLocation": "D:\\DeepseekHarness",
+      "Publisher": null
+    },
+    {
+      "DisplayName": "DeepSeek Harness",
+      "DisplayVersion": "1.0",
+      "InstallLocation": null,
+      "Publisher": "Google\\Chrome"
+    }
+  ]
+}

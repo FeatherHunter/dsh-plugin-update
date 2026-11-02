@@ -1,0 +1,13 @@
+{
+  "dirName": "operation-u3waWq",
+  "logsDir": "D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T110749\\home\\profiles\\desktop\\.plugin-manager\\logs",
+  "pnpmLogFile": "D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T110749\\home\\profiles\\desktop\\.plugin-manager\\logs\\operation-u3waWq\\pnpm.log",
+  "createdAt": "2026-11-02T03:09:13.789Z",
+  "modifiedAt": "2026-11-02T03:09:13.789Z",
+  "pnpmLogBytes": 910,
+  "pnpmLog": "[WARN] The store at C:\\Users\\辰辰洋洋\\AppData\\Local\\pnpm\\store\\v11 is not used because packages cannot be hard linked from it into this project. Using the store at D:\\.pnpm-store\\v11 instead. Set storeDir to choose the store.\n✓ Lockfile passes supply-chain policies (verified 1s ago)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nAdded 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt):\n  dsh-plugin-update-fixture-a@0.0.2\nPackages: +3\n+++\nPackages are hard linked from the content-addressable store to the virtual store.\n  Content-addressable store is at: D:\\.pnpm-store\\v11\n  Virtual store is at:             node_modules/.pnpm\n[ERR_PNPM_FETCH_404] GET http://127.0.0.1:51665/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz: Not Found - 404\n\nNo authorization header was set for the request.\n",
+  "removed": [],
+  "added": [],
+  "doneIn": null,
+  "empty": false
+}

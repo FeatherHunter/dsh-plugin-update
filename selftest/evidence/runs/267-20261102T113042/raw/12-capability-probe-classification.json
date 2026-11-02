@@ -1,0 +1,375 @@
+{
+  "officialDir": "D:\\DeepseekHarness",
+  "officialMatches": [
+    {
+      "path": "D:\\DeepseekHarness",
+      "name": "DeepseekHarness",
+      "exeNames": [
+        "DeepSeek Harness.exe",
+        "Uninstall DeepSeek Harness.exe"
+      ],
+      "artifacts": {
+        "hasResourcesAppAsar": true,
+        "hasResourcesAppDir": false,
+        "exeNames": [
+          "DeepSeek Harness.exe",
+          "Uninstall DeepSeek Harness.exe"
+        ],
+        "hasFamilyExe": true,
+        "desktopLike": true
+      }
+    }
+  ],
+  "thirdPartyMatches": [],
+  "nearMissMatches": [
+    {
+      "path": "C:\\Users\\辰辰洋洋\\AppData\\Local\\@deepseek-aidsh-desktop-updater",
+      "name": "@deepseek-aidsh-desktop-updater",
+      "exeNames": [
+        "installer.exe"
+      ],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [
+          "installer.exe"
+        ],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "C:\\Users\\辰辰洋洋\\AppData\\Local\\so.dsh.dshvm-ui",
+      "name": "so.dsh.dshvm-ui",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "C:\\Users\\辰辰洋洋\\AppData\\Local\\Temp\\dsh-1504-session",
+      "name": "dsh-1504-session",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "C:\\Users\\辰辰洋洋\\AppData\\Local\\Temp\\dsh-asar",
+      "name": "dsh-asar",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "C:\\Users\\辰辰洋洋\\AppData\\Local\\Temp\\dsh-tickets",
+      "name": "dsh-tickets",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "C:\\Users\\辰辰洋洋\\AppData\\Local\\Temp\\dsh1348",
+      "name": "dsh1348",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "C:\\Users\\辰辰洋洋\\AppData\\Roaming\\@deepseek-ai",
+      "name": "@deepseek-ai",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "C:\\Users\\辰辰洋洋\\AppData\\Roaming\\@deepseek-ai\\dsh-desktop",
+      "name": "dsh-desktop",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "C:\\Users\\辰辰洋洋\\AppData\\Roaming\\dsh-desktop",
+      "name": "dsh-desktop",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "C:\\Users\\辰辰洋洋\\AppData\\Roaming\\dsh-harness-desktop",
+      "name": "dsh-harness-desktop",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "C:\\dsh-pu-probe",
+      "name": "dsh-pu-probe",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "D:\\.dsh",
+      "name": ".dsh",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "D:\\3DeepSeekHarness",
+      "name": "3DeepSeekHarness",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "D:\\dsh-acl-recovery",
+      "name": "dsh-acl-recovery",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "D:\\dsh-i58-verify",
+      "name": "dsh-i58-verify",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "D:\\dsh-plugin",
+      "name": "dsh-plugin",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "D:\\dsh-rd39-bak",
+      "name": "dsh-rd39-bak",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "D:\\dsh-session-inspect-e359663a",
+      "name": "dsh-session-inspect-e359663a",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "D:\\dsh-tmp-1023-freshclone",
+      "name": "dsh-tmp-1023-freshclone",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "D:\\dsh-unc-probe",
+      "name": "dsh-unc-probe",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "D:\\dsh-work",
+      "name": "dsh-work",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "D:\\dshvm",
+      "name": "dshvm",
+      "exeNames": [
+        "dshvm-ui.exe"
+      ],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [
+          "dshvm-ui.exe"
+        ],
+        "hasFamilyExe": true,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "D:\\tmp-dsh-commit",
+      "name": "tmp-dsh-commit",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "D:\\tmp-dsh-probe",
+      "name": "tmp-dsh-probe",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    },
+    {
+      "path": "D:\\tmp-dsh-width-probe",
+      "name": "tmp-dsh-width-probe",
+      "exeNames": [],
+      "artifacts": {
+        "hasResourcesAppAsar": false,
+        "hasResourcesAppDir": false,
+        "exeNames": [],
+        "hasFamilyExe": false,
+        "desktopLike": false
+      },
+      "reason": "名字同族，但目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    }
+  ],
+  "thirdPartyUninstall": [],
+  "nearMissUninstall": [
+    {
+      "entry": {
+        "DisplayName": "dshvm-ui",
+        "DisplayVersion": "0.1.3",
+        "InstallLocation": "D:\\dshvm\\",
+        "Publisher": "dsh"
+      },
+      "location": "D:\\dshvm\\",
+      "reason": "安装目录不是 Electron 桌面发行结构（无 resources/app.asar 或 resources/app）或没有同族 exe"
+    }
+  ],
+  "thirdPartyServices": [],
+  "criterion": "第三方 Desktop 判据：①目录名同族（dsh|deepseek|harness）、不在官方安装根下，并且该目录是 Electron 桌面发行结构（resources/app.asar 或 resources/app）且第一层有同族 exe；②卸载表同族 DisplayName 且 InstallLocation 指向这样的发行目录；③服务表同族名字。三者任一非空才视为「可能有第三方桌面宿主」。仅名字同族但没有桌面发行结构的目录（工具/缓存/项目/用户数据）不算宿主，原文记在 nearMiss 里，供人工复核。",
+  "probedAt": "2026-11-02T03:30:50.637Z"
+}

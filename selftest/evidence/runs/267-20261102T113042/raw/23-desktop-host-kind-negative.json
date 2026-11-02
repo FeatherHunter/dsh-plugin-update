@@ -1,0 +1,43 @@
+{
+  "wireRows": [
+    {
+      "event": "update.wire.ready",
+      "fields": {
+        "logSink": "self",
+        "logDirHash": "1d131f2d",
+        "updaterVersion": "0.18.39",
+        "copyLevel": "profile",
+        "hostKind": "desktop-manager"
+      },
+      "source": "fxa-a/2026-11-02.log"
+    },
+    {
+      "event": "update.wire.ready",
+      "fields": {
+        "logSink": "self",
+        "logDirHash": "0bff3d5e",
+        "updaterVersion": "0.18.39",
+        "copyLevel": "profile",
+        "hostKind": "desktop-manager"
+      },
+      "source": "fxa-b/2026-11-02.log"
+    },
+    {
+      "event": "update.wire.ready",
+      "fields": {
+        "logSink": "self",
+        "logDirHash": "43ac0487",
+        "updaterVersion": "0.18.39",
+        "copyLevel": "profile",
+        "hostKind": "desktop-manager"
+      },
+      "source": "fxa-c/2026-11-02.log"
+    }
+  ],
+  "hostKinds": [
+    "desktop-manager",
+    "desktop-manager",
+    "desktop-manager"
+  ],
+  "criterion": "src/host/environment.ts:109-115：有 desktopProfiles 服务→desktop；否则 pluginManager.installBundle 且 profile 名恰为 desktop→desktop-manager；其余→cli。本机唯一桌面宿主报 desktop-manager，说明 desktopProfiles 服务不存在；本机又没有别的桌面宿主，故出口一不可达。"
+}

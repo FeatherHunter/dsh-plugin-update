@@ -132,6 +132,46 @@ export async function waitForRegistryVersion(options: {
   )
 }
 
+/**
+ * 下架一个已发布版本（故障注入：check 之后让目标版本从源上消失，后续 pnpm 解析必失败）。
+ * 只对本 run 的本地 registry 用；--force 是 npm 对已发布版本下架的硬要求。
+ */
+export function unpublishVersion(options: {
+  baseUrl: string
+  packageName: string
+  version: string
+  npmrcPath: string
+  cwd?: string
+}): NpmRunResult {
+  return runNpm(
+    [
+      'unpublish',
+      options.packageName + '@' + options.version,
+      '--force',
+      '--registry=' + options.baseUrl + '/',
+      '--userconfig=' + options.npmrcPath,
+    ],
+    { cwd: options.cwd || dirname(options.npmrcPath) },
+  )
+}
+
+/** 等某个版本从本地 registry 消失（下架生效的判定；超时抛错并带包名版本）。 */
+export async function waitForRegistryVersionGone(options: {
+  baseUrl: string
+  packageName: string
+  version: string
+  timeoutMs?: number
+}): Promise<void> {
+  await waitFor(
+    'registry 版本已下架：' + options.packageName + '@' + options.version,
+    async () => {
+      const versions = await fetchPublishedVersions(options.baseUrl, options.packageName)
+      return versions && versions.indexOf(options.version) < 0 ? versions : null
+    },
+    { timeoutMs: options.timeoutMs || 30000, intervalMs: 300 },
+  )
+}
+
 /** 发布失败的统一错误（含原始命令与输出，直接进 raw 证据）。 */
 export function publishFailure(result: NpmRunResult): Error {
   return new Error(
