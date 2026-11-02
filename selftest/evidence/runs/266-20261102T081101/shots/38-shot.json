@@ -1,0 +1,9 @@
+{
+  "看什么": "C 徽标文本是新版内容，卡片上 data-update-wiring=none、无 .dsh-upd：被更新了但自己不接更新系统",
+  "步骤": "重启后 C 特写（新版内容 + data-update-wiring=none）",
+  "expected": "badgeText 含 client v0.0.2（新版）；C wiring=none、dshUpd=0",
+  "actual": "badgeText=夹具 C · client v0.0.1；wiring=none；dshUpd=0",
+  "判定": "fail",
+  "备注": null,
+  "截图": "shots\\38-shot.png"
+}

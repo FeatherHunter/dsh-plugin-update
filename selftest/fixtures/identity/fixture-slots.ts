@@ -68,6 +68,15 @@ export interface FixtureBatchBinding {
   readonly targets: readonly FixtureTargetBinding[]
 }
 
+/** 卡片在宿主窗口里的摆放位置（三个夹具同窗口时互不遮挡；真机截图要能同时看见）。 */
+export interface FixtureOverlayPlacement {
+  readonly right?: number
+  readonly left?: number
+  readonly top?: number
+  readonly bottom?: number
+  readonly width: number
+}
+
 /** 一个夹具席位。 */
 export interface FixtureSlot {
   readonly key: FixtureSlotKey
@@ -80,6 +89,8 @@ export interface FixtureSlot {
   readonly selfTargetPrefix: string | null
   readonly description: string
   readonly versions: readonly FixtureVersion[]
+  /** 夹具卡片在窗口里的摆放位置。 */
+  readonly overlay: FixtureOverlayPlacement
 }
 
 /** A：批量集成方（targets a,b,c；自家排第一）。#265 主链本体。 */
@@ -101,6 +112,8 @@ export const FIXTURE_SLOT_A: FixtureSlot = {
   selfTargetPrefix: 'fxa-a',
   description: '批量集成方（本体 + 两家目标；本体 first）',
   versions: FIXTURE_VERSION_SEQUENCE,
+  // 右下角：T1 单包主链留下的位置，A 的批量卡片仍在这里。
+  overlay: { right: 16, bottom: 16, width: 520 },
 }
 
 /** B：批量集成方（targets b,c；自家排最后）。本轮只要求声明 + 能生成。 */
@@ -121,6 +134,8 @@ export const FIXTURE_SLOT_B: FixtureSlot = {
   selfTargetPrefix: 'fxb-b',
   description: '批量集成方（本体 + 一家目标；本体 last）',
   versions: FIXTURE_VERSION_SEQUENCE,
+  // 左上：与 A（右下）、C（左下）分开，同一张真机截图能同时读到两席面板。
+  overlay: { left: 16, top: 72, width: 520 },
 }
 
 /** C：纯目标（无更新接线，只被 A/B 更新）。本轮只要求声明 + 能生成。 */
@@ -133,6 +148,8 @@ export const FIXTURE_SLOT_C: FixtureSlot = {
   selfTargetPrefix: null,
   description: '纯目标（无更新接线，只被批量集成方更新）',
   versions: FIXTURE_VERSION_SEQUENCE,
+  // 左下角：只有一枚徽标。
+  overlay: { left: 16, bottom: 16, width: 220 },
 }
 
 /** 全部席位（顺序即文档顺序，不是执行顺序）。 */
@@ -168,18 +185,56 @@ export interface FixtureBuildTags {
   readonly clientTag: string
   /** host half 构建期烧进去的标记，形如 'host v0.0.1'；由 buildTag 电话回报，重启后 UI 才变。 */
   readonly hostTag: string
-  /** 卡片标题（变体版追加「（新版）」，纯 client 侧可见变化）。 */
+  /** 卡片标题（变体版按 effect.titleSuffix 追加后缀，纯 client 侧可见变化）。 */
   readonly cardTitle: string
   /** 根节点 data-fixture 值（= 席位键）。 */
   readonly fixtureKey: FixtureSlotKey
 }
 
+/** 变更类别（场景声明用；证据里按类别说明「为什么这次更新看得见/验得着」）。 */
+export type FixtureChangeClass = 'ui' | 'behavior' | 'metadata'
+
+/**
+ * 一个「版本变体」的效果（#266 T2 场景声明机制的核心数据）。
+ *
+ * 单一真源：发布器按它渲染夹具包内容，场景 runner 按它写预期，矩阵/单测按它核对。
+ * 加一个新变体 = 在 scenario-declarations.ts 里加一条 {slotKey, version, changeClasses, effect}，
+ * 模板/生成器/发布器/场景代码都不用改。
+ */
+export interface FixtureVariantEffect {
+  /** 卡片形态：'single' = T1 单面板布局（默认，兼容 T1 场景复跑）；'batch' = 批量面板布局。 */
+  readonly ui: 'single' | 'batch'
+  /** 卡片标题后缀（'' = 与基版同标题；非空 = 可见变化）。 */
+  readonly titleSuffix: string
+  /** client 里是否多挂一枚中枢进度坞（新 UI 元素 + 轮询 hub 状态的行为变化）。 */
+  readonly hubDock: boolean
+  /**
+   * host 桥回复里多出的行为字段（null = 基版没有这个字段）。
+   * client 把它渲染成 [data-fixture-behavior]，所以「host 行为变了」是从真 host 回复里读出来的，不是编译期文案。
+   */
+  readonly hostBehavior: string | null
+  /** 卡片上是否显示批量席位行（'' = 不显示）。 */
+  readonly seatLine: string
+}
+
+/** T1 默认效果：单面板、变体版标题加「（新版）」（保持 T1 场景 A 复跑行为不变）。 */
+export function fixtureLegacyEffectOf(version: FixtureVersion): FixtureVariantEffect {
+  return {
+    ui: 'single',
+    titleSuffix: version === FIXTURE_VARIANT_VERSION ? '（新版）' : '',
+    hubDock: false,
+    hostBehavior: null,
+    seatLine: '',
+  }
+}
+
 /** 一个席位 × 一个版本的可见变化标记（唯一真源；不许在别处拼 'client v'）。 */
-export function fixtureBuildTagsOf(slot: FixtureSlot, version: FixtureVersion): FixtureBuildTags {
+export function fixtureBuildTagsOf(slot: FixtureSlot, version: FixtureVersion, effect?: FixtureVariantEffect): FixtureBuildTags {
+  const resolved = effect ?? fixtureLegacyEffectOf(version)
   return {
     clientTag: 'client v' + version,
     hostTag: 'host v' + version,
-    cardTitle: '夹具 ' + slot.key.toUpperCase() + ' · 更新演示' + (version === FIXTURE_VARIANT_VERSION ? '（新版）' : ''),
+    cardTitle: '夹具 ' + slot.key.toUpperCase() + ' · 更新演示' + resolved.titleSuffix,
     fixtureKey: slot.key,
   }
 }

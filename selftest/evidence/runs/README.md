@@ -8,6 +8,10 @@
 | 265-20261101T215128 | a-single-package-main-chain | desktop-official | pass | 0 | 主链正式证据（A@0.0.1 → A@0.0.2，官方桌面真机） | 13 条断言 / 4 张截图；in-process 安装出口由日志 `hostKind=desktop-manager` 证明；维护者 profile 指纹不变 |
 | 265-20261101T214716 | a-single-package-main-chain | desktop-official | fail | 1 | can-red 故障注入（`--fault stale-variant`：发布 0.0.2 但内容是 0.0.1） | 预期失败；失败点 `15-assert`（内容哈希未变）与 `26-assert`（重启后 client/host 仍是 v0.0.1）；其余断言仍 pass，说明红的是被测断言本身 |
 | 264-20261101T194628 | 宿主矩阵 spike（#264，T0） | desktop-official + dsh-web | 混合（A 部分通、B 全通） | — | #264 官方桌面通道可行性研究，为 #265 主链铺路 | 非 #265 场景行；保留原始 A/B 双通道探测证据（向导、插件管理器、CDP、清理），主链选通道 A 的依据之一 |
+| 266-20261102T034002 | b-batch-two-integrators | desktop-official | pass | 0 | 三插件真身份 + 两集成方真 UI 批量更新正式证据（A/B/C@0.0.1 → A/B@0.0.2，C 由 A 推到 0.0.2） | 38 条断言 / 7 张截图；A 批量跨官方桌面自重启续跑，B 独立批量预查判 current；两席账本/中枢按属主隔离；维护者 profile 指纹不变 |
+| 266-20261102T034912 | c-pure-target-no-wiring | desktop-official | pass | 0 | 纯目标无接线正式证据（A@0.0.1 + C@0.0.1 → A 批量把 C 推到 0.0.2） | 24 条断言 / 4 张截图；C 页 `wiring=none`、无 `.dsh-upd` 面板/入口、manifest `dependencies={}`、日志无 `fxc*` 命名空间 |
+| 266-20261102T080334 | b-batch-two-integrators | desktop-official | fail | 1 | can-red 故障注入（`--fault skip-variant:c`：不发布 C@0.0.2） | 预期失败；恰好 `47/49/50/59-assert` 红（A/B 面板 C 行 0.0.1、C 徽标仍旧、installC=false），其余 34 条仍 pass；注入点见 `raw/22-can-red-fault.json` |
+| 266-20261102T081101 | c-pure-target-no-wiring | desktop-official | fail | 1 | can-red 故障注入（`--fault stale-variant:c`：发 0.0.2 但内容取 0.0.1） | 预期失败；恰好 `22/33-assert` 红（C 内容哈希未变、重启后徽标仍旧），其余 22 条仍 pass；注入点见 `raw/20-can-red-fault.json` |
 
 ## 复核入口
 

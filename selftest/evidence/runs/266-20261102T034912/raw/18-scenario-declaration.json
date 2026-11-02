@@ -1,0 +1,17 @@
+{
+  "id": "c-pure-target-no-wiring",
+  "ticket": "266",
+  "install": [
+    "a@0.0.1",
+    "c@0.0.1"
+  ],
+  "variants": [
+    "c@0.0.2[behavior+metadata]"
+  ],
+  "expected": [
+    "C 被 A 的批量动作推到 0.0.2（磁盘 + C 徽标 + A 面板行）",
+    "C 的卡片/页面没有 .dsh-upd 面板、没有更新入口",
+    "C 的包清单不依赖 dsh-plugin-update（无更新接线的最强证据）",
+    "A 自己保持 0.0.1（只推纯目标，不把「顺序里没更新的行」也动掉）"
+  ]
+}

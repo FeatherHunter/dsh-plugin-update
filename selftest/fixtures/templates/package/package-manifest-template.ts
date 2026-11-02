@@ -54,7 +54,9 @@ export function renderPackageManifest(
     },
     files: ['lib', 'cordis.patch.yml'],
     engines: { dsh: FIXTURE_DSH_ENGINE_RANGE },
-    dependencies: { [sut.name]: sut.version },
+    // #266 纯目标 C 不接更新链：清单里不依赖被测更新系统（场景 c 按这个字段断言「无更新接线」）。
+    // 集成方 A/B 必须依赖它，才装得上更新内核并发起批量。
+    dependencies: slot.role === 'integrator' ? { [sut.name]: sut.version } : {},
     dsh: {
       client: { platform: 'web', inject: [] },
       bundle: { patch: './cordis.patch.yml' },
