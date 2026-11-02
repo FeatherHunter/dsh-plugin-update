@@ -548,8 +548,8 @@
       "draft": true
     },
     "batch.toast.cancel-ok": {
-      "en": "Queue cancelled: this plugin will not wait.",
-      "zh": "已取消排队：此插件将不再等待。",
+      "en": "Queue entry cancelled: this waiting spot is removed; the batch will keep trying to install (nothing already running is terminated).",
+      "zh": "已取消排队：本次等待占位已撤掉，本批仍会继续尝试安装（不会终止正在安装的项）。",
       "draft": true
     },
     "batch.toast.cancel-unavailable": {

@@ -840,7 +840,9 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'batch.toast.unskipped-all': { en: 'Skip reminder restored.', zh: '已恢复跳过提醒。', draft: true },
   'batch.toast.cancel-unavailable': { en: 'This row carries no phone or ID to cancel the queue; try again after the next refresh.', zh: '此行缺少取消排队所需的信息，暂无法取消；请待下次刷新后重试。', draft: true },
   'batch.toast.compliant-installed': { en: 'Requested {a} compliant build(s) (not the latest: it is still age-gated); {b} did not go through.', zh: '已请求安装 {a} 个合规版（不是最新版：最新版仍被年龄门挡着）；{b} 个没装成。', draft: true },
-  'batch.toast.cancel-ok': { en: 'Queue cancelled: this plugin will not wait.', zh: '已取消排队：此插件将不再等待。', draft: true },
+  // #268：行取消只撤本次 waiting 占位；中枢驱动的批量会话会按 1s 退避继续重推，也不会终止在飞安装。
+  // 旧文案「此插件将不再等待」在真机上是假话（run 268-20261102T162053：撤销后 692ms 又入队），故如实改写。
+  'batch.toast.cancel-ok': { en: 'Queue entry cancelled: this waiting spot is removed; the batch will keep trying to install (nothing already running is terminated).', zh: '已取消排队：本次等待占位已撤掉，本批仍会继续尝试安装（不会终止正在安装的项）。', draft: true },
   'batch.toast.cancel-fail': { en: 'Could not cancel the queue (it may have started installing); see the latest state below.', zh: '取消排队失败（可能已开始安装）：请查看下方最新状态。', draft: true },
   'batch.toast.copy-manual-ok': { en: 'Manual command copied; paste the full line into the terminal to run it.', zh: '手工命令已复制，请粘贴至终端整行执行。', draft: true },
   'batch.toast.copy-diag-ok': { en: 'Diagnostics copied; paste it to the plugin author (already redacted).', zh: '诊断信息已复制，请提交至插件作者（已脱敏）。', draft: true },
