@@ -985,45 +985,55 @@ export async function runSettlementScenario(options: SettlementScenarioOptions):
       const bC = prefixFor('b', 'c')
 
       // 1) 占锁方：B 的夹具桥先确认 C 可更新，再发单插件安装电话起慢安装（电话先回、exec 后完）。
-      const occupierCheck = await callBridgePhone(requireSession(), 'b', bC + '.updateCheck', { includeEnv: true, includeQueue: true })
-      const checkReceipt = recordOf(occupierCheck.reply['receipt'])
-      const occupierCheckId = textOf(checkReceipt ? checkReceipt['checkId'] : null)
-      const occupierRequestId = 'g2-occupier-' + run.layout.stamp
+      // 时序坑（真机 run 268-20261102T170333）：check 与 install 之间若别的目标的状态电话把单例读取器槽换掉，
+      // install 会拿到新读取器、没有 check 凭证，回包 {ok:false,error:'check-expired'}（src/core/service.ts:1064；
+      // 同文件 :136 明说「确认时已是新读取器、槽是空的」）。这是产品设计内的诚实拒绝，不是占位安装失败：
+      // 产品自己的批量电话就按「重查重提一次」处理同码（src/host/batch/phones.ts:388-419），这里按同一口径重试，
+      // 并把每次完整回包（含 error/errorKind/message）写进 raw —— 首次失败时只有选字段，评审看不出是哪一类。
+      const occupierRequestBase = 'g2-occupier-' + run.layout.stamp
       const occupierStartedAt = Date.now()
-      const occupierInstall = await callBridgePhone(requireSession(), 'b', bC + '.updateInstall', {
-        checkId: occupierCheckId,
-        requestId: occupierRequestId,
-        from: 'panel',
-      })
-      const occupierSnapshot = recordOf(occupierInstall.reply['snapshot'])
-      const occupierAccepted =
-        occupierCheck.ok && occupierCheck.reply['ok'] === true && occupierCheckId !== null && occupierInstall.ok && occupierInstall.reply['ok'] === true
-      await run.raw('occupier-phone-replies', {
-        check: { route: occupierCheck.route, envelopeOk: occupierCheck.ok, replyOk: occupierCheck.reply['ok'] ?? null, receipt: checkReceipt, error: occupierCheck.error },
-        install: {
-          route: occupierInstall.route,
-          envelopeOk: occupierInstall.ok,
-          replyOk: occupierInstall.reply['ok'] ?? null,
-          error: occupierInstall.error,
-          job: occupierSnapshot ? occupierSnapshot['job'] ?? null : null,
-          queue: recordOf(occupierInstall.reply['queue']),
-        },
-      })
+      const occupierAttempts: Array<Record<string, unknown>> = []
+      let occupierAccepted = false
+      let occupierCheckId: string | null = null
+      let occupierRequestId = occupierRequestBase
+      for (let attempt = 1; attempt <= 5 && !occupierAccepted; attempt += 1) {
+        const check = await callBridgePhone(requireSession(), 'b', bC + '.updateCheck', { includeEnv: true, includeQueue: true })
+        const receipt = recordOf(check.reply['receipt'])
+        const checkId = textOf(receipt ? receipt['checkId'] : null)
+        const requestId = occupierRequestBase + '-' + String(attempt)
+        const install = await callBridgePhone(requireSession(), 'b', bC + '.updateInstall', { checkId, requestId, from: 'panel' })
+        const attemptOk = check.ok && check.reply['ok'] === true && checkId !== null && install.ok && install.reply['ok'] === true
+        occupierAttempts.push({
+          attempt,
+          check: { route: check.route, envelopeOk: check.ok, reply: check.reply, error: check.error },
+          install: { route: install.route, envelopeOk: install.ok, reply: install.reply, error: install.error },
+          accepted: attemptOk,
+        })
+        if (attemptOk) {
+          occupierAccepted = true
+          occupierCheckId = checkId
+          occupierRequestId = requestId
+        } else if (attempt < 5) {
+          await sleep(200)
+        }
+      }
+      await run.raw('occupier-phone-replies', { attempts: occupierAttempts, attemptCount: occupierAttempts.length, accepted: occupierAccepted })
       run.record({
         step: 'D2 占锁方受理',
-        what: 'B 的夹具桥打单插件电话 fxb-c.updateCheck/updateInstall：拿到 checkId、安装电话受理（电话先回，慢安装 exec 在后台跑）',
-        expected: 'check 回包 reply.ok=true 且有 receipt.checkId；install 回包 reply.ok=true',
+        what: 'B 的夹具桥打单插件电话 fxb-c.updateCheck/updateInstall：拿到 checkId、安装电话受理（电话先回，慢安装 exec 在后台跑）；check-expired 按产品批量电话口径重查重提',
+        expected: 'check 回包 reply.ok=true 且有 receipt.checkId；install 回包 reply.ok=true（最多 5 次，同一次 read 内 check 后立即 install）',
         actual: jsonText({
-          checkEnvelopeOk: occupierCheck.ok,
-          checkReplyOk: occupierCheck.reply['ok'] ?? null,
+          accepted: occupierAccepted,
+          attemptCount: occupierAttempts.length,
           checkId: occupierCheckId,
-          installEnvelopeOk: occupierInstall.ok,
-          installReplyOk: occupierInstall.reply['ok'] ?? null,
-          installError: occupierInstall.error,
-          installJob: occupierSnapshot ? occupierSnapshot['job'] ?? null : null,
+          requestId: occupierRequestId,
+          lastAttempt: occupierAttempts.length > 0 ? occupierAttempts[occupierAttempts.length - 1] ?? null : null,
         }),
         verdict: occupierAccepted ? 'pass' : 'fail',
       })
+      if (!occupierAccepted) {
+        throw new Error('D2 前置失败：占锁方 install 电话连续 5 次未被受理（每次都 check 后立即 install）；完整回包见 raw/occupier-phone-replies')
+      }
 
       // 2) 等全局执行锁真被占住（queue.json 的 owner 是 B 运行时里的 C 目标 fxb-c）。
       let queueBefore: QueueFacts = queueFactsOf(null)
