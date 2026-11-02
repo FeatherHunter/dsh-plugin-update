@@ -1,0 +1,26 @@
+{
+  "expectedNamespaces": [
+    "fxa-a",
+    "fxa-b",
+    "fxa-c",
+    "fxb-b",
+    "fxb-c"
+  ],
+  "actualNamespaces": [
+    "fxa-a",
+    "fxa-b",
+    "fxa-c",
+    "fxb-b",
+    "fxb-c"
+  ],
+  "nsCounts": {
+    "fxa-a": 22,
+    "fxa-b": 31,
+    "fxa-c": 32,
+    "fxb-b": 2,
+    "fxb-c": 2
+  },
+  "execOwnership": [],
+  "overBudget": [],
+  "parseFailures": []
+}

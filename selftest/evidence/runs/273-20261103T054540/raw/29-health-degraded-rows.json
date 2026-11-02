@@ -1,0 +1,13 @@
+{
+  "degraded": [],
+  "renderFail": [],
+  "health": {
+    "text": "日志：落点=self（本包自建落点）；目录指纹=150c0975；按需信息开关=关；启动以来丢弃 0 行；最近事件=11/3 05:45；事件契约=正常",
+    "sink": "self",
+    "dirHash": "150c0975",
+    "switchText": "关",
+    "dropped": 0,
+    "lastEventText": "11/3 05:45",
+    "contract": "正常"
+  }
+}

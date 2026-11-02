@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:57296/?token=ZoqBZvDIqErl6QpwFa_ZdKj1F5boB_JC50kM9yPzFcQ",
+  "port": 57296,
+  "bootMs": 1660,
+  "profileName": "t9j3",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t9-273\\273-20261103T054540\\os-home\\.dsh",
+  "pid": 55284,
+  "stdoutTail": "dsh web: http://127.0.0.1:57296/?token=ZoqBZvDIqErl6QpwFa_ZdKj1F5boB_JC50kM9yPzFcQ\n",
+  "stderrTail": ""
+}

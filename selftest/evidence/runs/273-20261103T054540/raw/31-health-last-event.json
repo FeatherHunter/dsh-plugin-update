@@ -1,0 +1,26 @@
+{
+  "lastEventText": "11/3 05:45",
+  "parsedLast": 1793655900000,
+  "newestTs": 1793655956615,
+  "deltaMs": 56615,
+  "newestRow": [
+    {
+      "ts": 1793655956615,
+      "event": "host.call",
+      "level": "info",
+      "fields": {
+        "method": "fxa-a.updateStatus",
+        "latencyMs": 13,
+        "ok": true,
+        "kind": "update-status",
+        "pluginId": "fxa-a",
+        "traceId": "9fb8943a16833a4c",
+        "spanId": "ad2d586c",
+        "seq": 0
+      },
+      "source": "fxa-a/2026-11-03.log",
+      "ns": "fxa-a",
+      "line": 11
+    }
+  ]
+}

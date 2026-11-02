@@ -645,6 +645,63 @@ export const SCENARIO_I3_TOPOLOGY_COMPENSATION: ScenarioDeclaration = {
   ],
 }
 
+/** J 单包格的安装/变体声明（J2/J3 用：只装 A@0.0.1，只发 A@0.0.2）。 */
+const J_SINGLE_INSTALL = [{ slotKey: 'a', version: '0.0.1', effect: legacySingleEffectOf('0.0.1') }] as const
+const J_SINGLE_VARIANTS = [{ slotKey: 'a', version: '0.0.2', changeClasses: ['ui', 'metadata'] as const, effect: legacySingleEffectOf('0.0.2') }] as const
+
+/** J1 日志契约覆盖：真安装 + 真批量失败之后，逐事件对契约（四关）并查落点/预算。 */
+export const SCENARIO_J1_LOG_CONTRACT_COVERAGE: ScenarioDeclaration = {
+  id: 'j1-log-contract-coverage',
+  ticket: '273',
+  hostChannel: 'dsh-web',
+  summary: '通道 B 真机：A 单包真安装 0.0.1→0.0.2 + 三包真批量（故障注入：对已装 B 的 lib/index.js 持独占文件锁 + 安装预算压到 6s → B 的 remove 超时真失败；整轮批量继续推进 C，C 因 B 半删级联失败）之后，把 <home>/logs 全部命名空间目录逐行读回，按 event-list.update.json 校验事件名/level/字段/枚举四关，并断言必备常驻事件覆盖、失败事件面（exec ok=false + install.fail stage=exec reason=timeout）、批量 summary 事实、命名空间落点合法、每命名空间行数在预算内、按需事件零行',
+  install: EBATCH_INSTALL,
+  variants: EBATCH_VARIANTS,
+  expected: [
+    '单包安装恰一次真实执行：update.install.exec 恰 1 行 route=cli-process ok=true exitCode=0；安装瞬间 verify 行 result=restart-required/pendingRestart=true（通道 B 不热换）',
+    'B 的失败是执行层真失败：B exec ok=false 恰 1、durationMs≈安装预算 6s、install.fail stage=exec reason=timeout code=install-failed、verify result=failed',
+    '批量 summary 如实记失败行：存在 update.batch.summary 行、failed≥1、total≥1（失败不冒充全绿）',
+    '契约四关：日志事件名 ⊆ event-list.update.json（未知事件=0）、level 与清单一致、字段名 ⊆ 声明字段（除 traceId/spanId/seq）、fieldEnums 枚举值合法',
+    '必备常驻事件覆盖 ≥1（wire.ready/check.done/status.changed/install.request/install.exec/install.verify/install.fail/batch.run.start/batch.entry.request/batch.entry.fail/batch.summary）；按需事件（kind=ondemand）零行；本格不应出现的降级/失败面零行',
+    '落点：命名空间集合 = 夹具身份派生（fxa-a/fxa-b/fxa-c + fxb-b/fxb-c）、属主事件不串目录、无解析失败行、每命名空间 ≤500 行',
+    '台账逐包真相：A 恰一条成功终态（target 0.0.2 / previous 0.0.1）；B failed 恰一条；C 无成功记录（B 半删的级联失败如实记账）；每插件台账 ≤1 条无重复',
+  ],
+}
+
+/** J2 噪声预算：真 UI 双面板轮询静置 ≥100 次零新增；状态变化恰一条边沿事件、不重复。 */
+export const SCENARIO_J2_NOISE_BUDGET: ScenarioDeclaration = {
+  id: 'j2-noise-budget',
+  ticket: '273',
+  hostChannel: 'dsh-web',
+  summary: '通道 B 真机：两个 Playwright 页面同时开着真 UI 面板（每页 5s 一次 updateStatus 轮询），静置窗口内 ≥100 次真实轮询，常驻日志零新增（轮询静默不刷屏）；随后在面板点「检查更新」让状态真变化，断言恰一条 update.status.changed（update-available/latest=0.0.2），再等 ≥20 次轮询同指纹不重复（边沿触发）；面板文本如实显示「有新版本 0.0.2」，每命名空间行数在预算内',
+  install: J_SINGLE_INSTALL,
+  variants: J_SINGLE_VARIANTS,
+  expected: [
+    '静置窗口 ≥100 次真实 updateStatus 轮询（两页各 ≥50），窗口内新增日志行=0（常驻事件=0，轮询不刷屏）',
+    '真 UI 点「检查更新」→ 状态从 unknown 变为 update-available：恰一条 update.status.changed（kind=update-available、latest=0.0.2）',
+    '状态不变时再等 ≥20 次轮询：同指纹（kind,latest）事件仍恰 1 条，不重复落行',
+    '真 UI 面板文本含「有新版本」与 0.0.2（UI 与日志同一事实）',
+    '每命名空间 ≤500 行、无解析失败行（长期常驻产物的行预算）',
+  ],
+}
+
+/** J3 命名空间/白名单：面板日志健康读数 ↔ 磁盘对账；客户端事件白名单正向 + 伪造负向。 */
+export const SCENARIO_J3_NAMESPACE_WHITELIST: ScenarioDeclaration = {
+  id: 'j3-namespace-whitelist',
+  ticket: '273',
+  hostChannel: 'dsh-web',
+  summary: '通道 B 真机：真 UI 面板日志健康读数（落点=self / 8 位目录指纹 / 按需开关=关 / 启动以来丢弃=0 / 最近事件 / 事件契约=正常）与磁盘日志逐项对账（指纹=update.wire.ready 的 logDirHash、最近事件同窗、无降级行）；客户端事件只落属主命名空间且事件名全在 6 值白名单内；最后直接向属主 logAppend 电话伪造 update.install.exec，断言协议拒收（accepted=0/dropped=1）且磁盘无伪造行、exec 行数不变',
+  install: J_SINGLE_INSTALL,
+  variants: J_SINGLE_VARIANTS,
+  expected: [
+    '真 UI 面板渲染日志健康读数，六项（落点/目录指纹/按需开关/丢弃数/最近事件/事件契约）都能解析',
+    'UI ↔ 磁盘同源：落点=self 且目录指纹=update.wire.ready 的 logDirHash；最近事件与磁盘最新一行同窗（≤120s）',
+    '按需开关=关、启动以来丢弃=0、事件契约=正常，且磁盘无 update.log.degraded / update.panel.render.fail 降级行',
+    '客户端事件（panel.mount/action 等）只出现在属主 fxa-a 命名空间，事件名全在 CLIENT_LOG_EVENTS 6 值白名单内',
+    '白名单负向真机：logAppend 送伪造 update.install.exec 被拒收（accepted=0/dropped=1），磁盘无伪造行、exec 行数不变',
+    '截图留证：真 UI 面板日志路牌 + 健康读数（六字段 sidecar）',
+  ],
+}
 /** 全部场景声明（矩阵行 id 一一对应）。 */
 export const SCENARIOS: readonly ScenarioDeclaration[] = [
   SCENARIO_A_SINGLE_PACKAGE,
@@ -672,6 +729,9 @@ export const SCENARIOS: readonly ScenarioDeclaration[] = [
   SCENARIO_I1_RESTART_ENROLLMENT_TRUTH,
   SCENARIO_I2_UNREGISTERED_HONESTY,
   SCENARIO_I3_TOPOLOGY_COMPENSATION,
+  SCENARIO_J1_LOG_CONTRACT_COVERAGE,
+  SCENARIO_J2_NOISE_BUDGET,
+  SCENARIO_J3_NAMESPACE_WHITELIST,
 ]
 
 /** 按 id 取场景（未知 id 立刻抛，避免证据跑错场景却记为另一个）。 */
