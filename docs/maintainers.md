@@ -188,6 +188,28 @@ node selftest/real-machine/tools/run-base-verify.ts `
 `verify/` 仅开发期用，不进 `package.json` 的 `files` 白名单；`verify/browser.mjs` 不新增任何依赖。来龙去脉见
 [docs/research/20261103-base-real-machine-verification-integration.md](research/20261103-base-real-machine-verification-integration.md)。
 
+### 真机快速通道：base `run` 场景（#263）
+
+除了上面的预检命令，还可以让 base 直接跑本仓写的场景（`verify/scenarios/*.ts`）：隔离 home 里起一个真宿主，
+场景用 `launch` 起、`custom` 断言、`stop` 收，几秒就能拿到一次可复核的 UI 真机证据，适合 T9/T10 的日常验证。
+
+```powershell
+node selftest/real-machine/tools/run-base-verify.ts `
+  --home <只读源 home> --profile web --out <证据目录> `
+  --scenario verify/scenarios/web-ui-smoke.ts --json
+```
+
+- 退出码与预检同口径：`0`=pass（skip 允许）；`1`=fail（含证据身份链不一致、截图 sidecar 缺失）；`2`=blocked/工具错。
+  blocked 一律记 unknown，不算通过。
+- 证据：`<out>/base-scenario-summary.json` + `<out>/raw/base-verify/run/`（run.json 的 sha256 侧车先重算再整目录拷）+
+  `<out>/shots/<id>.png` 与同名 `.json`（六字段：看什么/步骤/expected/actual/判定/备注）。缺 sidecar 或缺字段按 fail 记，
+  不接受「没图也算过」。tokenUrl 在 summary/instance 副本里已脱敏。
+- auth 坑：base 的 PageHandle 没有 `goto`；必须拿实例记录里的 `tokenUrl` 自己 `goto`，否则停在
+  `dsh web authentication required` 空壳页。`web-ui.ts` 已封装 `openAuthenticatedPage` / `captureShot`。
+- driver：截图走 `DSH_VERIFY_PLAYWRIGHT` 指向的已装 playwright，不装进 package.json；UI 场景别加 `--no-screenshots`。
+- 真机证明（2026-11-03）：web 宿主 3794ms ready、整条 run 7.1s、截图 104015 字节（1280×900），渲染出插件面板与夹具 A 卡；
+  细节见 [docs/research/20261103-base-scenario-lane.md](research/20261103-base-scenario-lane.md)。
+
 ### 双语门禁（#56）
 
 用户可见文案的双语化（英文在前中文在后）另有一道防倒退门禁，**改文案、改面板/入口/诊断渲染时必跑**；
