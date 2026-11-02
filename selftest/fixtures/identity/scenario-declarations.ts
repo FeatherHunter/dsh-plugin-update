@@ -528,6 +528,55 @@ export const SCENARIO_H2_QUEUE_LOCK_STALE_RECLAIM: ScenarioDeclaration = {
   ],
 }
 
+/**
+ * T7 / #271（G 组：更新中枢不断链）：通道 B（web 宿主）上同一 profile 的三包批量更新中，
+ * A（批量发起者/中枢属主）自身先被替换——第一代宿主进程在 A 安装完成、B/C 尚未终态时被杀，
+ * 第二代宿主以同一 home/profile 重新加载，从盘上的 hub plan / batch session 恢复并继续推进。
+ *
+ * 入口选择：web 宿主没有「应用自重启」，所以换手注入=杀第一代 + 起第二代（同 home/profile/版本），
+ * 与官方桌面 relaunch 的等价性与差别写进研究笔记；断言只看「A 换了之后 B/C 是否无需人工继续完成」。
+ * can-red 复用 g6（换手窗口删 hub plan 使中枢无方案可接管）。
+ */
+/** G6 换手主格：A 自更新后第一代宿主被杀，第二代接管把 B/C 推完（无需人工续跑）。 */
+export const SCENARIO_G6_HUB_SELF_REPLACEMENT: ScenarioDeclaration = {
+  id: 'g6-hub-survives-self-replacement',
+  ticket: '271',
+  hostChannel: 'dsh-web',
+  summary:
+    '三包批量（A 自键排第一）在通道 B web 宿主上推进：A@0.0.2 装完、B/C 未终态时第一代宿主进程被杀，' +
+    '第二代宿主同 home+profile 启动——从盘上的 hub plan / batch session 恢复，B/C 无需人工续跑自动完成 0.0.2；' +
+    'batch 三行终态无 failed、hubStatus finished done3 failed0、台账三条成功、磁盘三包一致、租约始终单一属主',
+  install: EBATCH_INSTALL,
+  variants: EBATCH_VARIANTS,
+  expected: [
+    '基版 A/B/C@0.0.1 在盘；批量检查电话三行都列出可更新 0.0.2（A 自键排在第一位，先换 A）',
+    '换手窗口成立：A 行已 done、B/C 尚未终态时第一代宿主进程被杀；hub lease/plan 与 batch.json 原文留证',
+    'B/C 无需人工续跑即自动完成：第二代宿主启动后场景只发只读查询，B/C 的 update.install.exec 时间戳都晚于第二代 host.start',
+    'batch 三行终态全 done、failed=0；hubStatus state=finished、progress done3 failed0、activeInstall=null；plan 仍是同一 sessionId',
+    '台账三包各恰一条成功终态（completed/restart-required、target 0.0.2、previous 0.0.1），磁盘三包 0.0.2；收尾无进程/端口残留',
+  ],
+}
+
+/** G7 页面重开恢复：换手完成后再关宿主、重新打开，面板数据与台账/磁盘一致，刷新不是断线或假绿。 */
+export const SCENARIO_G7_HUB_HANDOFF_EVIDENCE: ScenarioDeclaration = {
+  id: 'g7-hub-handoff-evidence',
+  ticket: '271',
+  hostChannel: 'dsh-web',
+  summary:
+    'g1 换手完成后关闭第二代宿主、以同一 home+profile 重新起宿主（= 关页面再重开），重新取面板批量状态/中枢状态/' +
+    'A 自身状态：三行 current/done、中枢 finished done3 failed0、无进行中/失败残留；同一会话内再取一次（刷新）结果一致；' +
+    '面板数据与台账、磁盘三包一致，不是断线或假绿',
+  install: EBATCH_INSTALL,
+  variants: EBATCH_VARIANTS,
+  expected: [
+    'g1 换手后 batch 三行 done、failed=0；台账三条成功；磁盘三包 0.0.2',
+    '关闭第二代宿主、同 home+profile 重新打开：面板批量状态三行仍 done、progress finished、failed=0，无 installing/queued 残留',
+    '面板中枢状态 state=finished、done3 failed0、activeInstall=null；plan 同一 sessionId 仍在盘上',
+    'A 自身状态回包 installedVersion/runningVersion=0.0.2、canInstall=false；同一会话再取一次（刷新）面板数据与首次一致',
+    '面板数据与台账/磁盘一致：台账仍三条成功（无重复无丢行）、磁盘三包 0.0.2；收尾无进程/端口残留',
+  ],
+}
+
 /** 全部场景声明（矩阵行 id 一一对应）。 */
 export const SCENARIOS: readonly ScenarioDeclaration[] = [
   SCENARIO_A_SINGLE_PACKAGE,
@@ -550,6 +599,8 @@ export const SCENARIOS: readonly ScenarioDeclaration[] = [
   SCENARIO_H1_QUEUE_LOCK_CONCURRENT,
   SCENARIO_H1B_QUEUE_LOCK_SIMULTANEOUS,
   SCENARIO_H2_QUEUE_LOCK_STALE_RECLAIM,
+  SCENARIO_G6_HUB_SELF_REPLACEMENT,
+  SCENARIO_G7_HUB_HANDOFF_EVIDENCE,
 ]
 
 /** 按 id 取场景（未知 id 立刻抛，避免证据跑错场景却记为另一个）。 */
