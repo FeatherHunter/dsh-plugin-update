@@ -1,0 +1,10 @@
+{
+  "files": [
+    "fxa-a/2026-11-02.log",
+    "fxa-b/2026-11-02.log",
+    "fxa-c/2026-11-02.log"
+  ],
+  "execRows": 1,
+  "failRows": 1,
+  "unparsedLines": 0
+}

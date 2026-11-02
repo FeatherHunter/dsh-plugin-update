@@ -1,0 +1,13 @@
+[
+  {
+    "file": "D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T111127\\os-home\\.dsh\\updates\\fxa-a\\ee3a982e4502e06b1d1d9cc7\\state.json",
+    "state": {
+      "id": "339f8a29-ef73-45da-84ab-83e9fe23de85",
+      "state": "failed",
+      "targetVersion": "0.0.2",
+      "message": "install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [ERR_PNPM_FETCH_404] GET http://127.0.0.1:64943/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz: Not Found - 404 No authorization header…",
+      "requestId": "t3e-failure-1793589101152",
+      "previousVersion": "0.0.1"
+    }
+  }
+]

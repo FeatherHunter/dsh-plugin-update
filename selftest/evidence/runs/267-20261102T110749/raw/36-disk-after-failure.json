@@ -1,0 +1,16 @@
+{
+  "diskVersion": null,
+  "dependency": null,
+  "manifest": {
+    "name": "dsh-profile-desktop",
+    "private": true,
+    "dsh": {
+      "profile": {
+        "bundles": [
+          "@deepseek-ai/dsh-base",
+          "@deepseek-ai/dsh-web-app"
+        ]
+      }
+    }
+  }
+}

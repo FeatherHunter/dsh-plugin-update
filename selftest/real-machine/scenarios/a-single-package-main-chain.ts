@@ -58,6 +58,8 @@ export interface PanelState {
   readonly updater: string | null
   readonly banner: string | null
   readonly error: string | null
+  /** 失败人话格里的可执行手工命令（.dsh-upd-manual code；无则为 null）。 */
+  readonly manual: string | null
   readonly progressText: string | null
   readonly logText: string | null
   readonly card: { clientTag: string | null; title: string | null; hostTag: string | null } | null
@@ -88,6 +90,7 @@ const PANEL_STATE_EXPRESSION = [
   '    updater: (document.querySelector(".dsh-upd-updater-id") || {}).textContent || null,',
   '    banner: (document.querySelector(".dsh-upd .dsh-upd-banner") || {}).textContent || null,',
   '    error: (document.querySelector(".dsh-upd .dsh-upd-err") || {}).textContent || null,',
+  '    manual: (document.querySelector(".dsh-upd-manual code") || {}).textContent || null,',
   '    progressText: (document.querySelector(".dsh-upd .dsh-upd-progtxt") || {}).textContent || null,',
   '    logText: (document.querySelector(".dsh-upd .dsh-upd-log") || {}).textContent || null,',
   '    card: card ? { clientTag: card.getAttribute("data-build-tag"), title: (card.querySelector("[data-fixture-section=title]") || {}).textContent || null, hostTag: (card.querySelector("[data-fixture-host-tag]") || {}).textContent || null } : null,',
@@ -109,8 +112,8 @@ export async function clickPanelAction(session: DesktopSession, action: string):
   await session.cdp.clickSelector(selector)
 }
 
-/** 等面板就绪（夹具卡片 + 面板都在，且状态已从占位「…」变成真实版本）。 */
-async function waitForFixtureLoaded(session: DesktopSession, timeoutMs: number): Promise<PanelState> {
+/** 等面板就绪（夹具卡片 + 面板都在，且状态已从占位「…」变成真实版本）；T3 场景复用。 */
+export async function waitForFixtureLoaded(session: DesktopSession, timeoutMs: number): Promise<PanelState> {
   await session.cdp.waitForExpression('!!document.querySelector(".dsh-fixture-card") && !!document.querySelector(".dsh-upd")', {
     timeoutMs,
     label: '夹具卡片与更新面板加载完成',

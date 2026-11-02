@@ -1,0 +1,8 @@
+{
+  "url": "http://127.0.0.1:62818/?token=8rAo_-qavBL6jH3ZbnzeH6c5J9DBdIC8I1HK_m-3V8Q",
+  "port": 62818,
+  "bootMs": 1905,
+  "profileName": "t3cli",
+  "stdoutTail": "dsh web: http://127.0.0.1:62818/?token=8rAo_-qavBL6jH3ZbnzeH6c5J9DBdIC8I1HK_m-3V8Q\n",
+  "stderrTail": ""
+}

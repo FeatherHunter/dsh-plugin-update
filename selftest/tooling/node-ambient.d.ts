@@ -26,6 +26,8 @@ declare module 'node:fs' {
   export interface Stats {
     size: number
     mtimeMs: number
+    ctimeMs: number
+    birthtimeMs: number
     isFile(): boolean
     isDirectory(): boolean
   }
@@ -90,18 +92,53 @@ declare module 'node:url' {
 }
 
 declare module 'node:http' {
+  export type Headers = Record<string, string | string[] | undefined>
   export interface IncomingMessage {
     statusCode?: number
+    method?: string
+    url?: string
+    headers: Headers
+    headersSent?: boolean
+    on(event: string, listener: (...args: any[]) => void): void
+    pipe<T>(destination: T): T
+  }
+  export interface ServerResponse {
+    statusCode: number
+    headersSent: boolean
+    writeHead(statusCode: number, headers?: Headers): void
+    setHeader(name: string, value: string): void
+    end(data?: string): void
     on(event: string, listener: (...args: any[]) => void): void
   }
+  export interface Server {
+    on(event: string, listener: (...args: any[]) => void): void
+    once(event: string, listener: (...args: any[]) => void): void
+    listen(port: number, host: string, callback?: () => void): void
+    close(callback?: () => void): void
+    address(): { port: number } | null
+  }
+  export interface ClientRequest {
+    on(event: string, listener: (...args: any[]) => void): void
+    write(data: string): void
+    end(): void
+  }
+  export function createServer(handler?: (incoming: IncomingMessage, outgoing: ServerResponse) => void): Server
   export function request(
     url: string,
-    options: { method?: string; headers?: Record<string, string> },
+    options: { method?: string; headers?: Headers },
     callback: (res: IncomingMessage) => void
-  ): { on(event: string, listener: (...args: any[]) => void): void; write(data: string): void; end(): void }
+  ): ClientRequest
+  export function request(
+    options: { host?: string; port?: number; method?: string; path?: string; headers?: Headers },
+    callback: (res: IncomingMessage) => void
+  ): ClientRequest
 }
 
 declare module 'node:net' {
+  export interface Socket {
+    on(event: string, listener: (...args: any[]) => void): void
+    destroy(): void
+  }
   export function createServer(): {
     once(event: string, listener: (...args: any[]) => void): void
     listen(port: number, host: string, callback?: () => void): void
@@ -159,9 +196,22 @@ declare function clearTimeout(handle: unknown): void
 declare function setInterval(callback: () => void, ms: number): unknown
 declare function clearInterval(handle: unknown): void
 
+declare class URL {
+  constructor(url: string, base?: string)
+  readonly href: string
+  readonly protocol: string
+  readonly host: string
+  readonly hostname: string
+  readonly port: string
+  readonly pathname: string
+  readonly search: string
+  readonly origin: string
+  readonly searchParams: { get(name: string): string | null }
+}
+
 declare const fetch: (
   url: string,
-  init?: { method?: string; headers?: Record<string, string>; body?: string }
+  init?: { method?: string; headers?: Record<string, string>; body?: string; redirect?: 'follow' | 'manual' | 'error' }
 ) => Promise<{
   ok: boolean
   status: number

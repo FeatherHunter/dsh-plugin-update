@@ -10,7 +10,7 @@
  * 判定四态：pass / fail / known-red / unknown。unknown（没观测到、观测不了）不算通过。
  * 退出码：0=全 pass（known-red 视为已登记的红，不影响出口）；1=有 fail 或 unknown；2=blocked/tool error。
  */
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { RunLayout } from './run-layout.ts'
 
@@ -344,6 +344,143 @@ export function renderRunIndex(manifest: RunManifest): string {
   lines.push('命令写在本场景的决策笔记（docs/research）与 selftest/evidence/README.md；本 run 的原始命令见 raw/。')
   lines.push('')
   return lines.join('\n')
+}
+
+/** 官方桌面插件管理器的一次 operation（.plugin-manager/logs/operation-* 目录）。 */
+export interface PluginManagerOperationFacts {
+  readonly dirName: string
+  /** 目录创建时间（ISO；birthtime 不可用时退回 ctime）。 */
+  readonly createdAt: string
+  readonly modifiedAt: string
+  readonly pnpmLogBytes: number
+  /** pnpm.log 原文（可能为空；空文件是宿主建了 operation 但没起 pnpm 的证据）。 */
+  readonly pnpmLog: string
+  readonly removed: readonly { name: string; version: string }[]
+  readonly added: readonly { name: string; version: string }[]
+  readonly doneIn: string | null
+  readonly empty: boolean
+}
+
+/** 时间窗内 .plugin-manager 的操作序列事实（出口二 remove→install 两步的硬证据）。 */
+export interface PluginManagerOperationsFacts {
+  readonly profileName: string
+  readonly logsDir: string
+  readonly window: { readonly fromIso: string; readonly toIso: string }
+  readonly operations: readonly PluginManagerOperationFacts[]
+  readonly count: number
+  readonly nonEmptyCount: number
+  readonly order: 'remove-then-add' | 'add-only' | 'remove-only' | 'other'
+  readonly copiedFiles: readonly string[]
+}
+
+/** 抓一条 pnpm.log 里的依赖变更行（pnpm 输出形状：'- 包名 版本' / '+ 包名 版本'）。 */
+function parsePnpmLog(text: string): { removed: { name: string; version: string }[]; added: { name: string; version: string }[]; doneIn: string | null } {
+  const removed: { name: string; version: string }[] = []
+  const added: { name: string; version: string }[] = []
+  for (const match of text.matchAll(/^- (\S+) (\S+)$/gm)) removed.push({ name: match[1], version: match[2] })
+  for (const match of text.matchAll(/^\+ (\S+) (\S+)$/gm)) added.push({ name: match[1], version: match[2] })
+  const done = /Done in (.+)$/m.exec(text)
+  return { removed, added, doneIn: done ? done[1].trim() : null }
+}
+
+/**
+ * 抓官方桌面插件管理器在 [fromMs,toMs] 时间窗内落下的 operation-* 目录（每个目录一份 pnpm.log）。
+ *
+ * 判据（T1 真机实测）：成功更新 = 窗口内恰两个非空 operation，先 remove 命中旧版本、后 add 命中新版本；
+ * 空 operation 目录是宿主建了 operation 但没起 pnpm（例如 CLI 装基版），窗口过滤后按 empty 记。
+ * 每个 pnpm.log 原文经 recorder.raw 落盘，证据包自足。
+ */
+export async function capturePluginManagerOperations(options: {
+  recorder: EvidenceRecorder
+  homeDir: string
+  profileName: string
+  window: { fromMs: number; toMs: number }
+}): Promise<PluginManagerOperationsFacts> {
+  const logsDir = join(options.homeDir, 'profiles', options.profileName, '.plugin-manager', 'logs')
+  const slackMs = 3000
+  const entries: PluginManagerOperationFacts[] = []
+  try {
+    const dirEntries = await readdir(logsDir, { withFileTypes: true })
+    for (const entry of dirEntries) {
+      if (!entry.isDirectory() || !entry.name.startsWith('operation-')) continue
+      const dir = join(logsDir, entry.name)
+      let info
+      try {
+        info = await stat(dir)
+      } catch (error) {
+        continue
+      }
+      const createdMs = info.birthtimeMs > 0 ? info.birthtimeMs : info.ctimeMs
+      const modifiedMs = info.mtimeMs
+      if (createdMs > options.window.toMs + slackMs || modifiedMs < options.window.fromMs - slackMs) continue
+      let pnpmLog = ''
+      let pnpmLogBytes = 0
+      try {
+        const buffer = await readFile(join(dir, 'pnpm.log'))
+        pnpmLogBytes = buffer.byteLength
+        pnpmLog = Buffer.from(buffer).toString('utf8')
+      } catch (error) {
+        pnpmLog = ''
+        pnpmLogBytes = 0
+      }
+      const parsed = parsePnpmLog(pnpmLog)
+      entries.push({
+        dirName: entry.name,
+        createdAt: new Date(createdMs).toISOString(),
+        modifiedAt: new Date(modifiedMs).toISOString(),
+        pnpmLogBytes,
+        pnpmLog,
+        removed: parsed.removed,
+        added: parsed.added,
+        doneIn: parsed.doneIn,
+        empty: pnpmLogBytes === 0,
+      })
+    }
+  } catch (error) {
+    // logs 目录不存在 = 该宿主没走插件管理器（例如 CLI 出口）；返回空事实，由场景断言判。
+  }
+  entries.sort((left, right) => (left.createdAt === right.createdAt ? left.dirName.localeCompare(right.dirName) : left.createdAt.localeCompare(right.createdAt)))
+  const copiedFiles: string[] = []
+  for (const operation of entries) {
+    copiedFiles.push(
+      await options.recorder.raw('plugin-manager-operation-' + operation.dirName, {
+        dirName: operation.dirName,
+        logsDir,
+        pnpmLogFile: join(logsDir, operation.dirName, 'pnpm.log'),
+        createdAt: operation.createdAt,
+        modifiedAt: operation.modifiedAt,
+        pnpmLogBytes: operation.pnpmLogBytes,
+        pnpmLog: operation.pnpmLog,
+        removed: operation.removed,
+        added: operation.added,
+        doneIn: operation.doneIn,
+        empty: operation.empty,
+      }),
+    )
+  }
+  const nonEmpty = entries.filter((operation) => !operation.empty)
+  const firstRemove = nonEmpty.findIndex((operation) => operation.removed.length > 0)
+  const firstAdd = nonEmpty.findIndex((operation) => operation.added.length > 0)
+  const order: PluginManagerOperationsFacts['order'] =
+    firstRemove >= 0 && firstAdd >= 0
+      ? firstRemove < firstAdd
+        ? 'remove-then-add'
+        : 'other'
+      : firstAdd >= 0
+        ? 'add-only'
+        : firstRemove >= 0
+          ? 'remove-only'
+          : 'other'
+  return {
+    profileName: options.profileName,
+    logsDir,
+    window: { fromIso: new Date(options.window.fromMs).toISOString(), toIso: new Date(options.window.toMs).toISOString() },
+    operations: entries,
+    count: entries.length,
+    nonEmptyCount: nonEmpty.length,
+    order,
+    copiedFiles,
+  }
 }
 
 /** Markdown 表格单元格转义（管道符/换行）。 */

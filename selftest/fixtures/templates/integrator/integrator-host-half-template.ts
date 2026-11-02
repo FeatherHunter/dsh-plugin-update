@@ -8,7 +8,7 @@
  *   3. 构建标记电话：把 host 侧版本 + 行为字段回报给 client（重启后 UI 上能看出 host 代码真的换了）。
  */
 import type { FixtureBuildTags, FixtureSlot, FixtureVariantEffect } from '../../identity/fixture-slots.ts'
-import { FIXTURE_REGISTRY_ENV, fixtureBridgeRouteOf, fixtureBuildTagPhoneOf } from '../../identity/fixture-slots.ts'
+import { FIXTURE_INSTALL_TIMEOUT_ENV, FIXTURE_REGISTRY_ENV, fixtureBridgeRouteOf, fixtureBuildTagPhoneOf } from '../../identity/fixture-slots.ts'
 
 /** 集成方 host half 的渲染入参。 */
 export interface IntegratorHostHalfInputs {
@@ -88,10 +88,22 @@ export function renderIntegratorHostHalf(inputs: IntegratorHostHalfInputs): stri
     "  return typeof fromEnv === 'string' && fromEnv.length > 0 ? fromEnv : undefined",
     '}',
     '',
+    '/** 安装时限（毫秒）：显式配置优先，其次环境变量；非正数/非数字一律不传（产品缺省接管）。 */',
+    'function installTimeoutMsOf(config: Json): number | undefined {',
+    '  const configured = (config as { installTimeoutMs?: unknown }).installTimeoutMs',
+    "  if (typeof configured === 'number' && Number.isFinite(configured) && configured > 0) return configured",
+    '  const fromEnv = Number(process.env[' + quote(FIXTURE_INSTALL_TIMEOUT_ENV) + '])',
+    '  return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : undefined',
+    '}',
+    '',
     'export function apply(ctx: any, config: Json = {}): void {',
     '  const registryUrl = registryUrlOf(config)',
+    '  const installTimeoutMs = installTimeoutMsOf(config)',
     '  const deps: Json = { ctx, logCtx: null }',
-    "  if (registryUrl) deps['config'] = { registryUrl }",
+    '  const depsConfig: Json = {}',
+    "  if (registryUrl) depsConfig['registryUrl'] = registryUrl",
+    "  if (installTimeoutMs !== undefined) depsConfig['installTimeoutMs'] = installTimeoutMs",
+    '  if (Object.keys(depsConfig).length > 0) deps["config"] = depsConfig',
     '  const multi = createMultiHostUpdate(deps as any, {',
     '    prefix: ' + quote(batch.prefix) + ',',
     '    selfKey: ' + quote(batch.selfKey) + ',',

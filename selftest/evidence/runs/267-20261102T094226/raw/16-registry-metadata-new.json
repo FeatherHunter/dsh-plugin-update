@@ -1,0 +1,103 @@
+{
+  "name": "dsh-plugin-update-fixture-a",
+  "versions": {
+    "0.0.1": {
+      "name": "dsh-plugin-update-fixture-a",
+      "version": "0.0.1",
+      "private": false,
+      "type": "module",
+      "description": "批量集成方（本体 + 两家目标；本体 first） [TEST ONLY sed: selftest fixture for dsh-plugin-update]",
+      "license": "MIT",
+      "main": "./lib/index.js",
+      "exports": {
+        ".": "./lib/index.js",
+        "./client": "./lib/client.js",
+        "./package.json": "./package.json"
+      },
+      "files": [
+        "lib",
+        "cordis.patch.yml"
+      ],
+      "engines": {
+        "dsh": ">=0.2.0-rc.2 <0.3.0-0"
+      },
+      "dependencies": {
+        "dsh-plugin-update": "0.18.39"
+      },
+      "dsh": {
+        "client": {
+          "platform": "web",
+          "inject": []
+        },
+        "bundle": {
+          "patch": "./cordis.patch.yml"
+        }
+      },
+      "_id": "dsh-plugin-update-fixture-a@0.0.1",
+      "_nodeVersion": "24.19.0",
+      "_npmVersion": "10.9.2",
+      "dist": {
+        "integrity": "sha512-B9Btt78ptdZCYL7t/CH7+HXP+nZIZPB6fxyYHy+jzgIU0jKPRgLNYgO9/JXOR7BoPxylleIIr1Kg+iouahJnIw==",
+        "shasum": "f4594ba0630eb95b00ddc7ee2cc4cd385feb6e72",
+        "tarball": "http://127.0.0.1:61743/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.1.tgz"
+      },
+      "contributors": []
+    },
+    "0.0.2": {
+      "name": "dsh-plugin-update-fixture-a",
+      "version": "0.0.2",
+      "private": false,
+      "type": "module",
+      "description": "批量集成方（本体 + 两家目标；本体 first） [TEST ONLY sed: selftest fixture for dsh-plugin-update]",
+      "license": "MIT",
+      "main": "./lib/index.js",
+      "exports": {
+        ".": "./lib/index.js",
+        "./client": "./lib/client.js",
+        "./package.json": "./package.json"
+      },
+      "files": [
+        "lib",
+        "cordis.patch.yml"
+      ],
+      "engines": {
+        "dsh": ">=0.2.0-rc.2 <0.3.0-0"
+      },
+      "dependencies": {
+        "dsh-plugin-update": "0.18.39"
+      },
+      "dsh": {
+        "client": {
+          "platform": "web",
+          "inject": []
+        },
+        "bundle": {
+          "patch": "./cordis.patch.yml"
+        }
+      },
+      "_id": "dsh-plugin-update-fixture-a@0.0.2",
+      "_nodeVersion": "24.19.0",
+      "_npmVersion": "10.9.2",
+      "dist": {
+        "integrity": "sha512-7kBSQUPH8+Sr/R480ZJ+zymlLF4rTQgCwpdOgPWZK9afnBmbkdze0lH/iMsdMvxfRBVByORXLzjonkQRtftTHQ==",
+        "shasum": "e5f803168963eb05f2c25630ff516511e0a891fd",
+        "tarball": "http://127.0.0.1:61743/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz"
+      },
+      "contributors": []
+    }
+  },
+  "time": {
+    "modified": "2026-11-02T01:43:46.856Z",
+    "created": "2026-11-02T01:42:33.252Z",
+    "0.0.1": "2026-11-02T01:42:33.252Z",
+    "0.0.2": "2026-11-02T01:43:46.856Z"
+  },
+  "users": {},
+  "dist-tags": {
+    "latest": "0.0.2"
+  },
+  "_rev": "6-5b1e0b90de393b84",
+  "_id": "dsh-plugin-update-fixture-a",
+  "readme": "ERROR: No README data found!",
+  "_attachments": {}
+}
