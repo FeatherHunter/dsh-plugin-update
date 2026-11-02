@@ -1,0 +1,41 @@
+{
+  "ledgerA": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t5-269\\269-20261102T224810\\home\\updates\\fxa-a\\55f6214ca431493c6bcdef52\\state.json",
+      "state": {
+        "requestId": "batch-mvzdmtac-qm9qg18d3s-a-b2c5f951",
+        "message": null,
+        "id": "fb657d52-ddc5-4b3f-9c4a-58074159fe88",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ],
+  "ledgerB": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t5-269\\269-20261102T224810\\home\\updates\\fxa-b\\55f6214ca431493c6bcdef52\\state.json",
+      "state": {
+        "id": "24b2138a-7c83-4938-88a1-d3a18629a018",
+        "state": "failed",
+        "targetVersion": "0.0.2",
+        "message": "install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [WARN]；目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装 (dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-b@0.0.2 --registry=http://127.0.0.1:55771)",
+        "requestId": "batch-mvzdmtac-qm9qg18d3s-b-b2c5f952",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ],
+  "ledgerC": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t5-269\\269-20261102T224810\\home\\updates\\fxa-c\\55f6214ca431493c6bcdef52\\state.json",
+      "state": {
+        "requestId": "batch-mvzdmtac-qm9qg18d3s-c-b2c5f953",
+        "message": null,
+        "id": "2a0a321e-af9c-4ed8-a42d-43476e7165ad",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ]
+}
