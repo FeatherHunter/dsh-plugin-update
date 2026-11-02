@@ -342,7 +342,12 @@ export async function runEBatchScenario(options: EBatchScenarioOptions): Promise
     return session
   }
 
-  /** 停止当前桌面：先关 CDP 会话，再按端口清自重启实例、按 user-data-dir 兜底。 */
+  /**
+   * 停止当前桌面：先关 CDP 会话，再按端口清自重启实例、按 user-data-dir 兜底。
+   * 宿主重载后的新实例可能「旧进程已退、新进程还没起来/还没监听端口」，单次扫描会漏杀，
+   * 于是下一次 launch 会和它抢同一 user-data-dir（单实例锁）——这里改成短窗轮询：
+   * 连续两轮扫不到实例才算停干净（最多约 12 秒）。
+   */
   const stopDesktop = async (tag: string): Promise<number[]> => {
     const current = session
     session = null
@@ -354,17 +359,27 @@ export async function runEBatchScenario(options: EBatchScenarioOptions): Promise
     } catch (error) {
       note('关闭桌面会话失败（' + tag + '）：' + messageOf(error))
     }
-    try {
-      const relaunched = await stopDesktopByPort(port)
-      for (const pid of relaunched) killed.push(pid)
-    } catch (error) {
-      note('按端口清理桌面实例失败（' + tag + '）：' + messageOf(error))
-    }
-    try {
-      const byUserData = await stopDesktopByUserDataDir(userDataDir)
-      for (const pid of byUserData) killed.push(pid)
-    } catch (error) {
-      note('按 user-data-dir 清理桌面实例失败（' + tag + '）：' + messageOf(error))
+    let emptyRounds = 0
+    for (let round = 1; round <= 8; round += 1) {
+      let roundKilled: number[] = []
+      try {
+        roundKilled = roundKilled.concat(await stopDesktopByPort(port))
+      } catch (error) {
+        note('按端口清理桌面实例失败（' + tag + '）：' + messageOf(error))
+      }
+      try {
+        roundKilled = roundKilled.concat(await stopDesktopByUserDataDir(userDataDir))
+      } catch (error) {
+        note('按 user-data-dir 清理桌面实例失败（' + tag + '）：' + messageOf(error))
+      }
+      for (const pid of roundKilled) killed.push(pid)
+      if (roundKilled.length === 0) {
+        emptyRounds += 1
+        if (emptyRounds >= 2) break
+      } else {
+        emptyRounds = 0
+      }
+      await sleep(1500)
     }
     for (const pid of killed) run.registerProcess('desktop-relaunched-' + tag, pid)
     await run.raw('desktop-stop-' + tag, { port, killedPids: killed, userDataDir })
@@ -372,18 +387,39 @@ export async function runEBatchScenario(options: EBatchScenarioOptions): Promise
     return killed
   }
 
-  /** 起一个托管官方桌面实例（自重启清场 + 最多 3 次重试；每次终止过程登记 pid）。 */
+  /**
+   * 起一个托管官方桌面实例（自重启清场 + 最多 3 次重试；每次终止过程登记 pid）。
+   * 每次成功 launch 后先等页面真能读（document.body 有内容）：宿主重载留下的旧实例可能还占着
+   * user-data-dir，新进程会连上 CDP 却随即被单实例锁顶掉——不等页面可读就返回，后面的断言会全记 null。
+   * 失败重试前先按 user-data-dir 清场，避免新实例一直和残留实例抢锁。
+   */
   const launchDesktop = async (tag: string): Promise<DesktopSession> => {
     let lastError: unknown = null
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
+        if (attempt > 1) {
+          try {
+            const stale = await stopDesktopByUserDataDir(userDataDir)
+            for (const pid of stale) run.registerProcess('desktop-stale-' + tag, pid)
+          } catch (error) {
+            note('重试前清理残留桌面实例失败（' + tag + '）：' + messageOf(error))
+          }
+          await sleep(1000)
+        }
         const opened = await launchDesktopApp({ homeDir, userDataDir, extraEnv: { DSH_SELFTEST_REGISTRY: registryUrl } })
         session = opened
         const pid = opened.process.pid()
         if (typeof pid === 'number') run.registerProcess('desktop-' + tag + (attempt > 1 ? '-attempt' + String(attempt) : ''), pid)
+        await opened.cdp.waitForExpression('document.body && document.body.innerText.length > 100', { timeoutMs: 90000, label: '桌面页面可读（' + tag + '）' })
         return opened
       } catch (error) {
         lastError = error
+        try {
+          if (session) await session.close()
+        } catch {
+          // 清理失败不覆盖真实原因
+        }
+        session = null
         await sleep(2000)
       }
     }
@@ -644,9 +680,11 @@ export async function runEBatchScenario(options: EBatchScenarioOptions): Promise
             ? 'pass'
             : 'fail',
       })
-      const ledgerA = ledgerOf(await readLedgerStates(homeDir), pluginA)
-      const ledgerB = ledgerOf(await readLedgerStates(homeDir), pluginB)
-      const ledgerC = ledgerOf(await readLedgerStates(homeDir), pluginC)
+      // 台账要等每行走到终态再读：最后一个包装完后 background verify 才把 restart-required 收成 completed，
+      // 早读会把「正在收尾」误判成丢行（partial 试错 run 210134 的 #29 就是这么红的）。超时仍返回最后观测，断言照实判。
+      const ledgerA = await waitLedgerTerminal(pluginA, 90000)
+      const ledgerB = await waitLedgerTerminal(pluginB, 90000)
+      const ledgerC = await waitLedgerTerminal(pluginC, 90000)
       await run.raw('ledger-after-batch', { ledgerA, ledgerB, ledgerC })
       const successOf = (entries: readonly LedgerEntry[]): LedgerEntry[] => entries.filter((entry) => SUCCESS_STATES.indexOf(ledgerStateOf(entry)) >= 0)
       const ledgerOk =
@@ -683,8 +721,9 @@ export async function runEBatchScenario(options: EBatchScenarioOptions): Promise
         actual: jsonText({ count: partial.ledgerB.length, states: partial.ledgerB.map(ledgerStateOf), target: partial.ledgerB.length > 0 ? partial.ledgerB[0]!.state['targetVersion'] : null, failureCode, message: ledgerMessageOf(partial.ledgerB).slice(0, 400) }),
         verdict: partial.ledgerB.length === 1 && ledgerStateOf(partial.ledgerB[0]!) === 'failed' && textOf(partial.ledgerB[0]!.state['targetVersion']) === TARGET_VERSION && failureCode === 'install-failed' ? 'pass' : 'fail',
       })
-      const ledgerA = ledgerOf(await readLedgerStates(homeDir), pluginA)
-      const ledgerC = ledgerOf(await readLedgerStates(homeDir), pluginC)
+      // 好行的收尾同样要等终态（见 ledger-after-batch 注释），否则会误读成 installing。
+      const ledgerA = await waitLedgerTerminal(pluginA, 90000)
+      const ledgerC = await waitLedgerTerminal(pluginC, 90000)
       await run.raw('ledger-partial-failure', { ledgerA, ledgerB: partial.ledgerB, ledgerC })
       run.record({
         step: '好行台账不受坏行影响（A/C 各一条成功）',
@@ -796,9 +835,9 @@ export async function runEBatchScenario(options: EBatchScenarioOptions): Promise
       }
       const seatC = await readTargetSeat(requireSession(), 'c').catch(() => null)
       const finalDisk = await readDisk()
-      const ledgerA = ledgerOf(await readLedgerStates(homeDir), pluginA)
-      const ledgerB = ledgerOf(await readLedgerStates(homeDir), pluginB)
-      const ledgerC = ledgerOf(await readLedgerStates(homeDir), pluginC)
+      const ledgerA = await waitLedgerTerminal(pluginA, 90000)
+      const ledgerB = await waitLedgerTerminal(pluginB, 90000)
+      const ledgerC = await waitLedgerTerminal(pluginC, 90000)
       await run.raw('final-state', { seatA: finalSeat, cardA, cardB, seatC, finalDisk, ledgerA, ledgerB, ledgerC })
       const cardsOk =
         cardA.card.clientTag === tagsA.clientTag && cardA.card.hostTag === tagsA.hostTag &&
@@ -929,9 +968,9 @@ export async function runEBatchScenario(options: EBatchScenarioOptions): Promise
       }
       const seatC = await readTargetSeat(requireSession(), 'c').catch(() => null)
       const finalDisk = await readDisk()
-      const ledgerA = ledgerOf(await readLedgerStates(homeDir), pluginA)
-      const ledgerB = ledgerOf(await readLedgerStates(homeDir), pluginB)
-      const ledgerC = ledgerOf(await readLedgerStates(homeDir), pluginC)
+      const ledgerA = await waitLedgerTerminal(pluginA, 90000)
+      const ledgerB = await waitLedgerTerminal(pluginB, 90000)
+      const ledgerC = await waitLedgerTerminal(pluginC, 90000)
       await run.raw('final-state-retry', { seatA: finalSeat, cardA, cardB, seatC, finalDisk, ledgerA, ledgerB, ledgerC })
       const cardsOk =
         cardA.card.clientTag === tagsA.clientTag && cardA.card.hostTag === tagsA.hostTag &&
