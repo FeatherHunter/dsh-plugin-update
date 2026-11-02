@@ -1,0 +1,28 @@
+{
+  "a": {
+    "requestId": "h1-a-1793638115501",
+    "ok": true,
+    "error": null,
+    "job": {
+      "id": "07b64a9f-75d3-41be-9a99-998e9af452cc",
+      "state": "installing",
+      "targetVersion": "0.0.2",
+      "message": null,
+      "requestId": "h1-a-1793638115501",
+      "previousVersion": "0.0.1"
+    },
+    "status": 200,
+    "durationMs": 404
+  },
+  "b": {
+    "requestId": "h1-b-1793638115501",
+    "ok": false,
+    "error": "update-busy",
+    "job": null,
+    "status": 200,
+    "durationMs": 49
+  },
+  "admitted": [
+    "a"
+  ]
+}

@@ -1,0 +1,153 @@
+{
+  "pollIntervalMs": 10,
+  "samples": [
+    {
+      "t": 1793638175586,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": null,
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    },
+    {
+      "t": 1793638175600,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-red-a-1793638175584\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793638175589\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-red-a-1793638175584"
+      ]
+    },
+    {
+      "t": 1793638175609,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"2efae2f6-a795-4434-a6c7-bdb32475e383\",\"pluginId\":\"fxa-a\",\"pid\":68072,\"startedAt\":1793638175600}",
+      "lockId": "2efae2f6-a795-4434-a6c7-bdb32475e383",
+      "lockPid": 68072,
+      "lockStartedAt": 1793638175600,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-red-a-1793638175584\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793638175589\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-red-a-1793638175584"
+      ]
+    },
+    {
+      "t": 1793638175639,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"2efae2f6-a795-4434-a6c7-bdb32475e383\",\"pluginId\":\"fxa-a\",\"pid\":68072,\"startedAt\":1793638175600}",
+      "lockId": "2efae2f6-a795-4434-a6c7-bdb32475e383",
+      "lockPid": 68072,
+      "lockStartedAt": 1793638175600,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": {\n    \"pluginId\": \"fxa-a\",\n    \"jobId\": \"2efae2f6-a795-4434-a6c7-bdb32475e383\",\n    \"requestId\": \"h1-red-a-1793638175584\",\n    \"targetVersion\": \"0.0.2\",\n    \"startedAt\": 1793638175626\n  },\n  \"waiting\": []\n}\n",
+      "queueOwnerPluginId": "fxa-a",
+      "queueOwnerJobId": "2efae2f6-a795-4434-a6c7-bdb32475e383",
+      "queueOwnerRequestId": "h1-red-a-1793638175584",
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    },
+    {
+      "t": 1793638175682,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    },
+    {
+      "t": 1793638175694,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"72e4ba24-a18c-4f6b-9c3d-933d72880147\",\"pluginId\":\"fxa-a\",\"pid\":62536,\"startedAt\":1793638175686}",
+      "lockId": "72e4ba24-a18c-4f6b-9c3d-933d72880147",
+      "lockPid": 62536,
+      "lockStartedAt": 1793638175686,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-red-b-1793638175584\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793638175681\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-red-b-1793638175584"
+      ]
+    },
+    {
+      "t": 1793638175708,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"72e4ba24-a18c-4f6b-9c3d-933d72880147\",\"pluginId\":\"fxa-a\",\"pid\":62536,\"startedAt\":1793638175686}",
+      "lockId": "72e4ba24-a18c-4f6b-9c3d-933d72880147",
+      "lockPid": 62536,
+      "lockStartedAt": 1793638175686,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": {\n    \"pluginId\": \"fxa-a\",\n    \"jobId\": \"72e4ba24-a18c-4f6b-9c3d-933d72880147\",\n    \"requestId\": \"h1-red-b-1793638175584\",\n    \"targetVersion\": \"0.0.2\",\n    \"startedAt\": 1793638175699\n  },\n  \"waiting\": []\n}\n",
+      "queueOwnerPluginId": "fxa-a",
+      "queueOwnerJobId": "72e4ba24-a18c-4f6b-9c3d-933d72880147",
+      "queueOwnerRequestId": "h1-red-b-1793638175584",
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    },
+    {
+      "t": 1793638178383,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    }
+  ],
+  "lockIds": [
+    "2efae2f6-a795-4434-a6c7-bdb32475e383",
+    "72e4ba24-a18c-4f6b-9c3d-933d72880147"
+  ],
+  "lockIntervals": [
+    {
+      "from": 1793638175609,
+      "to": 1793638175682,
+      "ids": [
+        "2efae2f6-a795-4434-a6c7-bdb32475e383"
+      ]
+    },
+    {
+      "from": 1793638175694,
+      "to": 1793638178383,
+      "ids": [
+        "72e4ba24-a18c-4f6b-9c3d-933d72880147"
+      ]
+    }
+  ],
+  "finalQueueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+  "finalLockRaw": null
+}

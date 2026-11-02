@@ -1,0 +1,374 @@
+{
+  "schemaVersion": 1,
+  "runId": "270-20261103T004847",
+  "ticket": "270",
+  "scenarioId": "h2-queue-lock-stale-reclaim",
+  "hostChannel": "dsh-web",
+  "startedAt": "2026-11-02T16:48:47.239Z",
+  "finishedAt": "2026-11-02T16:49:14.819Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:\\dsh-plugin\\_wt263\\t6",
+    "branch": "impl/263-t6",
+    "head": "025e50a2549a862bb1a197264529a02633f88031",
+    "hostChannel": "dsh-web"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004847\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "80cbd584d05efe8dd1a14cfc01dcb9149a3bc29e0d8592cff33d8f5896436312",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:52117",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 80cbd584d05efe8d…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "08-assert",
+      "step": "隔离口径（两宿主同 home = 同一 USERPROFILE/.dsh）",
+      "what": "两个通道 B 宿主用同一个 USERPROFILE/osHomeDir 与同一个 homeDir（= osHomeDir/.dsh），profile 名不是 desktop（P1 探针证明 desktop 被官方桌面独占）",
+      "expected": "homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004847\\os-home\\.dsh；profileName=t6lock",
+      "actual": "osHomeDir=D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004847\\os-home；homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004847\\os-home\\.dsh；profileName=t6lock",
+      "verdict": "pass"
+    },
+    {
+      "id": "10-assert",
+      "step": "建普通 profile（CLI 入口）",
+      "what": "用官方发行 CLI 在隔离 home 建普通 DSH 使用范围 t6lock；profileDir 决定 update-queue 的短哈希目录名",
+      "expected": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004847\\os-home\\.dsh\\profiles\\t6lock",
+      "actual": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004847\\os-home\\.dsh\\profiles\\t6lock",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "15-assert",
+      "step": "更新前基版在盘",
+      "what": "隔离 profile 的 node_modules 里是场景声明的基版 0.0.1（更新前状态）",
+      "expected": "磁盘版本=0.0.1",
+      "actual": "磁盘版本=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "18-assert",
+      "step": "变体版发布（更新目标）",
+      "what": "按场景声明发布变体 dsh-plugin-update-fixture-a@0.0.2（UI/行为随版本变，重启后可自证）",
+      "expected": "本地 registry 可见版本含 0.0.2",
+      "actual": "registry 版本=[\"0.0.1\",\"0.0.2\"]",
+      "verdict": "pass"
+    },
+    {
+      "id": "21-assert",
+      "step": "预写陈旧 global.lock",
+      "what": "按产品 payload 形状 {id,pluginId,pid,startedAt} 预写一把锁：pid 用必然不存在的 999999、startedAt 取 60s 前；宿主安装预算压到 4s",
+      "expected": "锁文件存在且内容是合法 JSON；pid 不存活；age≈60000ms > 安装预算 4000ms",
+      "actual": "pidAlive=false；inspect={\"id\":\"selftest-stale-20261103T004847\",\"pluginId\":\"fxa-a\",\"pid\":999999,\"startedAt\":1793638085212}",
+      "verdict": "pass"
+    },
+    {
+      "id": "24-assert",
+      "step": "入口 a check 电话（发现新版）",
+      "what": "宿主里的电话入口 updateCheck 返回快照：运行版=0.0.1、最新版=0.0.2、可安装，并给候选凭证 checkId",
+      "expected": "ok=true；runningVersion=0.0.1；latestVersion=0.0.2；canInstall=true；receipt.checkId 非空",
+      "actual": "ok=true；runningVersion=0.0.1；latestVersion=0.0.2；canInstall=true；checkId=\"7fc63c68-c9b3-4fb8-97a7-f6f09d87ec71\"",
+      "verdict": "pass"
+    },
+    {
+      "id": "26-assert",
+      "step": "陈旧锁格安装受理",
+      "what": "带候选凭证的 updateInstall 应受理（先回收陈旧锁再安装）",
+      "expected": "ok=true；job.state ∈ {installing, verifying}",
+      "actual": "install: ok=true；job.state=installing；error=null；http=200；durationMs=329",
+      "verdict": "pass"
+    },
+    {
+      "id": "28-assert",
+      "step": "陈旧锁回收后安装到终态",
+      "what": "回收陈旧锁后继续安装，作业应进入成功终态（restart-required，进程未重启）",
+      "expected": "job.state ∈ {restart-required, completed}",
+      "actual": "job.state=completed；timedOut=false",
+      "verdict": "pass"
+    },
+    {
+      "id": "37-assert",
+      "step": "陈旧锁判定：stale-owner 且 ownerHash/age 对得上",
+      "what": "抢锁路径二次核对后判陈旧：应恰 1 条 lock.anomaly(kind=stale-owner)，ageMs≈60000、ownerHash 为预写锁 payload 的 hash8；不应出现 busy-owner（把陈旧锁误判为新鲜）",
+      "expected": "stale-owner=1；ageMs≥59000；ownerHash=b9ae1254；busy-owner=0",
+      "actual": "stale-owner=1；ageMs=64339；ownerHash=b9ae1254；busy-owner=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "38-assert",
+      "step": "队列跃迁 reclaimed 且回收后继续安装",
+      "what": "回收成功应记 1 条 update.queue.transition(phase=reclaimed)，holderHash=hash8(pluginId)；随后安装照常完成",
+      "expected": "reclaimed=1；holderHash=0f7833d2；exec=1 且 ok/exit0",
+      "actual": "reclaimed=1；holderHash=0f7833d2；exec=1；execOk=true；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "39-assert",
+      "step": "锁时间线：旧 id 被换掉、最终释放",
+      "what": "预写的陈旧锁 id 与安装期间的新锁 id 都应在时间线里出现（旧 id 不会被旧 id 释放，新锁覆盖后最终 absent）",
+      "expected": "锁 id 数=2（selftest-stale-20261103T004847 + 新 id）；末次采样 lockPresent=false",
+      "actual": "锁 id=[\"selftest-stale-20261103T004847\",\"a58cb93c-f0d3-4cf5-be99-ec0f89fab914\"]；区间数=2；末次 lockPresent=false",
+      "verdict": "pass"
+    },
+    {
+      "id": "41-assert",
+      "step": "队列跃迁完整（queued/reclaimed/running/done）",
+      "what": "陈旧锁格应看到排队、回收、运行、完成四类跃迁，且 reclaimed 恰好一条",
+      "expected": "queued≥1；reclaimed=1；running≥1；done≥1",
+      "actual": "{\"queued\":1,\"reclaimed\":1,\"running\":1,\"done\":1}",
+      "verdict": "pass"
+    },
+    {
+      "id": "43-assert",
+      "step": "profile 未损坏（after-stale-reclaim）",
+      "what": "更新后 profile 的 package.json 可解析、dependencies 与 node_modules 磁盘版本都是 0.0.2、bundles 仍含该包（无半写/无双装）",
+      "expected": "dependencies=0.0.2；磁盘版本=0.0.2；bundles 含 dsh-plugin-update-fixture-a",
+      "actual": "dependencies=0.0.2；磁盘版本=0.0.2；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；package.json 可解析=true",
+      "verdict": "pass"
+    },
+    {
+      "id": "45-assert",
+      "step": "台账恰一条成功终态（after-stale-reclaim）",
+      "what": "每个 profile 一份 update 台账（<home>/updates/<pluginId>/<shortHash(profileDir)>/state.json）：恰一条 targetVersion=0.0.2 的成功终态，无重复成功、无丢单",
+      "expected": "target 台账=1 条；state ∈ {completed, restart-required}；requestId=h2-stale-1793638149507",
+      "actual": "target 台账=1；成功终态=1；requestIds=[\"h2-stale-1793638149507\"]；全部台账=[{\"file\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t6-270\\\\270-20261103T004847\\\\os-home\\\\.dsh\\\\updates\\\\fxa-a\\\\c67c3b8de223ccc769e3d588\\\\state.json\",\"state\":\"completed\",\"target\":\"0.0.2\"}]",
+      "verdict": "pass"
+    },
+    {
+      "id": "47-assert",
+      "step": "队列收尾：owner=null、无残留占位",
+      "what": "单意图陈旧锁格：唯一意图被 owner 消费，完成后释放 owner；收尾 queue.json 应为空队列",
+      "expected": "owner=null；waiting=[]",
+      "actual": "owner=null；waiting 条数=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "49-assert",
+      "step": "收尾（无宿主残留、端口释放）",
+      "what": "两个入口宿主（以及重启校验宿主）都已停止，进程不存在、端口已释放",
+      "expected": "所有宿主 pid 不再存活；所有宿主端口空闲",
+      "actual": "进程=[{\"label\":\"cli-host-a\",\"pid\":59620,\"aliveAfterStop\":false}]；端口=[{\"label\":\"cli-host-a-port\",\"port\":51826,\"free\":true}]",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\07-isolation-facts.json"
+    },
+    {
+      "id": "09-profile-create",
+      "name": "profile-create",
+      "file": "raw\\09-profile-create.json"
+    },
+    {
+      "id": "11-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\11-install-baseline.json"
+    },
+    {
+      "id": "13-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\13-sut-installed-dist.json"
+    },
+    {
+      "id": "16-queue-lock-paths",
+      "name": "queue-lock-paths",
+      "file": "raw\\16-queue-lock-paths.json"
+    },
+    {
+      "id": "17-fixture-published-variant",
+      "name": "fixture-published-variant",
+      "file": "raw\\17-fixture-published-variant.json"
+    },
+    {
+      "id": "19-stale-install-timeout-config",
+      "name": "stale-install-timeout-config",
+      "file": "raw\\19-stale-install-timeout-config.json"
+    },
+    {
+      "id": "20-stale-lock-precreated",
+      "name": "stale-lock-precreated",
+      "file": "raw\\20-stale-lock-precreated.json"
+    },
+    {
+      "id": "22-cli-host-launch-a",
+      "name": "cli-host-launch-a",
+      "file": "raw\\22-cli-host-launch-a.json"
+    },
+    {
+      "id": "23-phone-update-check-a",
+      "name": "phone-update-check-a",
+      "file": "raw\\23-phone-update-check-a.json"
+    },
+    {
+      "id": "25-phone-update-install-a",
+      "name": "phone-update-install-a",
+      "file": "raw\\25-phone-update-install-a.json"
+    },
+    {
+      "id": "27-phone-status-terminal",
+      "name": "phone-status-terminal",
+      "file": "raw\\27-phone-status-terminal.json"
+    },
+    {
+      "id": "29-lock-absent-after-install",
+      "name": "lock-absent-after-install",
+      "file": "raw\\29-lock-absent-after-install.json"
+    },
+    {
+      "id": "30-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\30-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "31-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\31-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "32-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\32-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "33-logs-after-stale-reclaim",
+      "name": "logs-after-stale-reclaim",
+      "file": "raw\\33-logs-after-stale-reclaim.json"
+    },
+    {
+      "id": "34-lock-queue-timeline",
+      "name": "lock-queue-timeline",
+      "file": "raw\\34-lock-queue-timeline.json"
+    },
+    {
+      "id": "35-exec-windows",
+      "name": "exec-windows",
+      "file": "raw\\35-exec-windows.json"
+    },
+    {
+      "id": "36-stale-reclaim-events",
+      "name": "stale-reclaim-events",
+      "file": "raw\\36-stale-reclaim-events.json"
+    },
+    {
+      "id": "40-queue-transitions",
+      "name": "queue-transitions",
+      "file": "raw\\40-queue-transitions.json"
+    },
+    {
+      "id": "42-disk-after-after-stale-reclaim",
+      "name": "disk-after-after-stale-reclaim",
+      "file": "raw\\42-disk-after-after-stale-reclaim.json"
+    },
+    {
+      "id": "44-ledger-states",
+      "name": "ledger-states",
+      "file": "raw\\44-ledger-states.json"
+    },
+    {
+      "id": "46-queue-final",
+      "name": "queue-final",
+      "file": "raw\\46-queue-final.json"
+    },
+    {
+      "id": "48-cleanup-facts",
+      "name": "cleanup-facts",
+      "file": "raw\\48-cleanup-facts.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "cli-host-a",
+        "pid": 59620,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "cli-host-a-port",
+        "port": 51826,
+        "released": true
+      },
+      {
+        "label": "registry",
+        "port": 52117,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:52117（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "两个宿主共享同一 home/profile 是为了共享同一把 global.lock；sessions/storages 等其它状态串台不在本组断言范围。",
+      "安装窗口用 update.install.exec 的 ts 与 durationMs 还原（[ts-durationMs, ts]），锁/队列用 10ms 轮询时间线判定，不用 UI。"
+    ]
+  },
+  "maintainerProfile": null,
+  "notes": [
+    "本地 registry：http://127.0.0.1:52117（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "两个宿主共享同一 home/profile 是为了共享同一把 global.lock；sessions/storages 等其它状态串台不在本组断言范围。",
+    "安装窗口用 update.install.exec 的 ts 与 durationMs 还原（[ts-durationMs, ts]），锁/队列用 10ms 轮询时间线判定，不用 UI。"
+  ]
+}
