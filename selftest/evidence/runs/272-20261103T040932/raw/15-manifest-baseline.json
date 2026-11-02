@@ -1,0 +1,14 @@
+{
+  "path": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040932\\os-home\\.dsh\\profiles\\t8i2\\package.json",
+  "text": "{\n  \"name\": \"dsh-profile-t8i2\",\n  \"private\": true,\n  \"dependencies\": {\n    \"dsh-plugin-update-fixture-a\": \"0.0.1\"\n  },\n  \"dsh\": {\n    \"profile\": {\n      \"bundles\": [\n        \"@deepseek-ai/dsh-base\",\n        \"@deepseek-ai/dsh-web-app\",\n        \"dsh-plugin-update-fixture-a\"\n      ]\n    }\n  }\n}\n",
+  "dependencies": {
+    "dsh-plugin-update-fixture-a": "0.0.1"
+  },
+  "bundles": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-web-app",
+    "dsh-plugin-update-fixture-a"
+  ],
+  "enrollmentMode": "bundles",
+  "packageName": "dsh-plugin-update-fixture-a"
+}

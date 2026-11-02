@@ -1,0 +1,18 @@
+{
+  "elapsedMs": 6,
+  "entries": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040926\\home\\updates\\fxa-a\\1f0577b69ccbb7ad735a6b79\\state.json",
+      "pluginId": "fxa-a",
+      "state": {
+        "id": "18e7b096-8b95-4bfa-b734-3adb0ea7eb79",
+        "state": "restart-required",
+        "targetVersion": "0.0.2",
+        "message": null,
+        "requestId": "rmvzp2bpj1vt6a",
+        "previousVersion": "0.0.1"
+      },
+      "corrupt": false
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "status": 200,
+  "durationMs": 41,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.1",
+        "installed": true,
+        "installedVersion": "0.0.1",
+        "latestVersion": "0.0.2",
+        "canInstall": true,
+        "blockedReason": null,
+        "job": null,
+        "identity": "update",
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t8i2 add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:52830",
+      "receipt": {
+        "checkId": "201323b6-fafe-45fa-979d-a40104424c42",
+        "checkedAt": 1793650197341,
+        "expiresAt": 1793650797341
+      }
+    }
+  }
+}
