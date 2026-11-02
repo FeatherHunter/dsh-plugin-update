@@ -1,0 +1,12 @@
+{
+  "installedSutDist": "D:\\dsh-plugin\\_wt263\\runtime\\t9-273\\273-20261103T054531\\os-home\\.dsh\\profiles\\t9j2\\node_modules\\dsh-plugin-update\\dist",
+  "installedDist": {
+    "digest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "files": 208
+  },
+  "workspaceDist": {
+    "digest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "files": 208
+  },
+  "match": true
+}

@@ -1,0 +1,18 @@
+{
+  "names": [
+    "update.check.start",
+    "update.registry.fetch",
+    "update.channel.decide",
+    "update.poll",
+    "update.lang.applied",
+    "update.panel.state"
+  ],
+  "counts": {
+    "update.check.start": 0,
+    "update.registry.fetch": 0,
+    "update.channel.decide": 0,
+    "update.poll": 0,
+    "update.lang.applied": 0,
+    "update.panel.state": 0
+  }
+}

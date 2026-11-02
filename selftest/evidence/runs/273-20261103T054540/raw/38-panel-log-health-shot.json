@@ -1,0 +1,11 @@
+{
+  "id": "37-panel-log-health",
+  "what": "web GUI 更新面板第 4 章的日志路牌 + 日志健康读数（落点=self / 目录指纹 / 丢弃数 / 最近事件 / 事件契约）",
+  "step": "装好 SUT + 夹具 A → 起通道 B 宿主 → Playwright 打开页面 → 点「检查更新」→ 截面板日志区",
+  "expected": "面板出现日志健康行，读数与磁盘日志逐项一致",
+  "actual": "日志：落点=self（本包自建落点）；目录指纹=150c0975；按需信息开关=关；启动以来丢弃 0 行；最近事件=11/3 05:45；事件契约=正常",
+  "verdict": "pass",
+  "note": "J 组口径：web GUI 没有独立插件日志查看器；此处取证的是面板内日志路牌与健康读数，磁盘事件面另有断言。",
+  "png": "shots\\37-panel-log-health.png",
+  "sidecar": "shots\\37-panel-log-health.json"
+}

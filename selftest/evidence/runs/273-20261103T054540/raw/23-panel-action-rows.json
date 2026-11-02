@@ -1,0 +1,51 @@
+{
+  "clicked": {
+    "clicked": true,
+    "text": "检查更新",
+    "candidates": [
+      "新会话 Ctrl + Alt + N",
+      "插件",
+      "自动化任务",
+      "更多",
+      "更多",
+      "默认工作区",
+      "标准模式",
+      "工作区内修改",
+      "请选择模型",
+      "检查更新"
+    ]
+  },
+  "matched": true,
+  "checkDone": [
+    {
+      "ts": 1793655953233,
+      "fields": {
+        "ok": true,
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "channel": "stable",
+        "source": "custom",
+        "blockedReason": "none",
+        "fallback": false,
+        "dataSource": "npm-version",
+        "pendingRestart": false,
+        "jobState": "none",
+        "latencyMs": 51,
+        "traceId": "6cd1343351ea6559",
+        "spanId": "9def15fe",
+        "seq": 1
+      }
+    }
+  ],
+  "actionRows": [
+    {
+      "ts": 1793655954159,
+      "fields": {
+        "action": "check",
+        "ok": true,
+        "errorKind": null,
+        "durationMs": 90
+      }
+    }
+  ]
+}

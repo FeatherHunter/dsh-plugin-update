@@ -1,0 +1,10 @@
+{
+  "nsCounts": {
+    "fxa-a": 16,
+    "fxa-b": 2,
+    "fxa-c": 2
+  },
+  "totalRows": 20,
+  "parseFailures": 0,
+  "overBudget": []
+}
