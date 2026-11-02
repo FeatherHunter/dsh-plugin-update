@@ -1,0 +1,354 @@
+{
+  "seatA": {
+    "slotKey": "a",
+    "card": {
+      "present": true,
+      "key": "a",
+      "ui": "batch",
+      "title": "夹具 A · 更新演示（批量新版）",
+      "clientTag": "client v0.0.2",
+      "hostTag": "host v0.0.2",
+      "seatLine": {
+        "attr": "批量席位 fxa · 自键 a · 目标 a/b/c",
+        "text": "批量席位 fxa · 自键 a · 目标 a/b/c"
+      },
+      "behavior": {
+        "attr": "seat-aware-v2",
+        "text": "宿主行为 seat-aware-v2"
+      },
+      "dockHost": "hub-dock"
+    },
+    "panel": {
+      "present": true,
+      "mode": "embedded",
+      "seal": "总账",
+      "rows": [
+        {
+          "key": "a",
+          "phase": "done",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 A 本体",
+          "status": "正在查询版本信息，请稍候。",
+          "versionCur": "0.0.2",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        },
+        {
+          "key": "b",
+          "phase": "done",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 B",
+          "status": "正在查询版本信息，请稍候。",
+          "versionCur": "0.0.2",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        },
+        {
+          "key": "c",
+          "phase": "done",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 C",
+          "status": "正在查询版本信息，请稍候。",
+          "versionCur": "0.0.2",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        }
+      ],
+      "check": {
+        "text": "检查更新",
+        "disabled": false
+      },
+      "install": {
+        "text": "全部更新",
+        "disabled": false
+      },
+      "ledger": "正在按最新版本重新检查…",
+      "summary": "已全部为最新，无需操作。",
+      "notice": null
+    },
+    "entry": {
+      "present": true,
+      "text": "检查更新",
+      "variant": null
+    },
+    "dock": {
+      "present": true,
+      "title": "",
+      "rows": 0,
+      "meta": ""
+    },
+    "dshUpdCount": 1
+  },
+  "cardA": {
+    "slotKey": "a",
+    "card": {
+      "present": true,
+      "key": "a",
+      "ui": "batch",
+      "title": "夹具 A · 更新演示（批量新版）",
+      "clientTag": "client v0.0.2",
+      "hostTag": "host v0.0.2",
+      "seatLine": {
+        "attr": "批量席位 fxa · 自键 a · 目标 a/b/c",
+        "text": "批量席位 fxa · 自键 a · 目标 a/b/c"
+      },
+      "behavior": {
+        "attr": "seat-aware-v2",
+        "text": "宿主行为 seat-aware-v2"
+      },
+      "dockHost": "hub-dock"
+    },
+    "panel": {
+      "present": true,
+      "mode": "embedded",
+      "seal": "总账",
+      "rows": [
+        {
+          "key": "a",
+          "phase": "done",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 A 本体",
+          "status": "正在查询版本信息，请稍候。",
+          "versionCur": "0.0.2",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        },
+        {
+          "key": "b",
+          "phase": "done",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 B",
+          "status": "正在查询版本信息，请稍候。",
+          "versionCur": "0.0.2",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        },
+        {
+          "key": "c",
+          "phase": "done",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 C",
+          "status": "正在查询版本信息，请稍候。",
+          "versionCur": "0.0.2",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        }
+      ],
+      "check": {
+        "text": "检查更新",
+        "disabled": false
+      },
+      "install": {
+        "text": "全部更新",
+        "disabled": false
+      },
+      "ledger": "正在按最新版本重新检查…",
+      "summary": "已全部为最新，无需操作。",
+      "notice": null
+    },
+    "entry": {
+      "present": true,
+      "text": "检查更新",
+      "variant": null
+    },
+    "dock": {
+      "present": true,
+      "title": "",
+      "rows": 0,
+      "meta": ""
+    },
+    "dshUpdCount": 1
+  },
+  "cardB": {
+    "slotKey": "b",
+    "card": {
+      "present": true,
+      "key": "b",
+      "ui": "batch",
+      "title": "夹具 B · 更新演示（批量新版）",
+      "clientTag": "client v0.0.2",
+      "hostTag": "host v0.0.2",
+      "seatLine": {
+        "attr": "批量席位 fxb · 自键 b · 目标 b/c",
+        "text": "批量席位 fxb · 自键 b · 目标 b/c"
+      },
+      "behavior": {
+        "attr": "seat-aware-v2",
+        "text": "宿主行为 seat-aware-v2"
+      },
+      "dockHost": "hub-dock"
+    },
+    "panel": {
+      "present": true,
+      "mode": "embedded",
+      "seal": "总账",
+      "rows": [
+        {
+          "key": "c",
+          "phase": "pending",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 C",
+          "status": "有新版本 0.0.2",
+          "versionCur": "0.0.2",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        },
+        {
+          "key": "b",
+          "phase": "pending",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 B 本体",
+          "status": "已是最新，无需操作。",
+          "versionCur": "0.0.2",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        }
+      ],
+      "check": {
+        "text": "检查更新",
+        "disabled": false
+      },
+      "install": {
+        "text": "全部更新",
+        "disabled": false
+      },
+      "ledger": "正在按最新版本重新检查…",
+      "summary": "1 个可更新；请选择「全部更新」一次安装完成，也可逐项选择「安装此插件」。",
+      "notice": null
+    },
+    "entry": {
+      "present": true,
+      "text": "检查更新",
+      "variant": null
+    },
+    "dock": {
+      "present": true,
+      "title": "",
+      "rows": 0,
+      "meta": ""
+    },
+    "dshUpdCount": 1
+  },
+  "seatC": {
+    "present": true,
+    "key": "c",
+    "ui": "none",
+    "wiring": "none",
+    "clientTag": "client v0.0.1",
+    "badgeText": "夹具 C · client v0.0.1",
+    "dshUpdCount": 0,
+    "dockCount": 0,
+    "entryCount": 0
+  },
+  "finalDisk": {
+    "versions": {
+      "dsh-plugin-update-fixture-a": "0.0.2",
+      "dsh-plugin-update-fixture-b": "0.0.2",
+      "dsh-plugin-update-fixture-c": "0.0.2"
+    },
+    "dependencies": {
+      "dsh-plugin-update-fixture-a": "0.0.2",
+      "dsh-plugin-update-fixture-b": "0.0.2",
+      "dsh-plugin-update-fixture-c": "0.0.2"
+    },
+    "manifest": {
+      "name": "dsh-profile-desktop",
+      "private": true,
+      "dependencies": {
+        "dsh-plugin-update-fixture-a": "0.0.2",
+        "dsh-plugin-update-fixture-b": "0.0.2",
+        "dsh-plugin-update-fixture-c": "0.0.2"
+      },
+      "dsh": {
+        "profile": {
+          "bundles": [
+            "@deepseek-ai/dsh-base",
+            "@deepseek-ai/dsh-web-app",
+            "dsh-plugin-update-fixture-a",
+            "dsh-plugin-update-fixture-b",
+            "dsh-plugin-update-fixture-c"
+          ]
+        }
+      }
+    }
+  },
+  "ledgerA": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t5-269\\269-20261102T230056\\home\\updates\\fxa-a\\883d489c50485314d4599e5d\\state.json",
+      "state": {
+        "requestId": "batch-mvze2xg2-gxcrzp13ea-a-cc559d56",
+        "message": null,
+        "id": "415acf55-60ba-48ca-89ec-121d7a167d39",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ],
+  "ledgerB": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t5-269\\269-20261102T230056\\home\\updates\\fxa-b\\883d489c50485314d4599e5d\\state.json",
+      "state": {
+        "requestId": "batch-mvze2xg2-gxcrzp13ea-b-cc559d57",
+        "message": null,
+        "id": "335422a8-a2d5-48e6-80c8-c2245b40e878",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ],
+  "ledgerC": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t5-269\\269-20261102T230056\\home\\updates\\fxa-c\\883d489c50485314d4599e5d\\state.json",
+      "state": {
+        "requestId": "batch-mvze2xg2-gxcrzp13ea-c-cc559d58",
+        "message": null,
+        "id": "f0dc82c1-eb7e-44cc-be02-60304bc63651",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "mode": "three-package-upgrade",
+  "all": {
+    "reached": true,
+    "disk": {
+      "versions": {
+        "dsh-plugin-update-fixture-a": "0.0.2",
+        "dsh-plugin-update-fixture-b": "0.0.2",
+        "dsh-plugin-update-fixture-c": "0.0.2"
+      },
+      "dependencies": {
+        "dsh-plugin-update-fixture-a": "0.0.2",
+        "dsh-plugin-update-fixture-b": "0.0.2",
+        "dsh-plugin-update-fixture-c": "0.0.2"
+      },
+      "manifest": {
+        "name": "dsh-profile-desktop",
+        "private": true,
+        "dependencies": {
+          "dsh-plugin-update-fixture-a": "0.0.2",
+          "dsh-plugin-update-fixture-b": "0.0.2",
+          "dsh-plugin-update-fixture-c": "0.0.2"
+        },
+        "dsh": {
+          "profile": {
+            "bundles": [
+              "@deepseek-ai/dsh-base",
+              "@deepseek-ai/dsh-web-app",
+              "dsh-plugin-update-fixture-a",
+              "dsh-plugin-update-fixture-b"
+            ]
+          }
+        }
+      }
+    },
+    "observed": [
+      "a=0.0.1,b=0.0.1,c=0.0.1",
+      "a=null,b=0.0.1,c=0.0.1",
+      "a=0.0.2,b=0.0.1,c=0.0.1",
+      "a=0.0.2,b=null,c=0.0.1",
+      "a=0.0.2,b=0.0.2,c=0.0.1",
+      "a=0.0.2,b=0.0.2,c=0.0.2"
+    ]
+  },
+  "partial": null,
+  "corruptionSha": null
+}

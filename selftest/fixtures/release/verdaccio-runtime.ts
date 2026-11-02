@@ -22,6 +22,8 @@ export interface VerdaccioOptions {
   readonly runDir: string
   /** 指定端口；省略则自动选空闲端口。 */
   readonly port?: number
+  /** 不吃 npmjs 上游的本地包（缺省 = SUT 与夹具；npmjs 镜像的依赖包需追加）。 */
+  readonly localOnlyPackages?: readonly string[]
 }
 
 /** 起好的本地 registry。 */
@@ -37,10 +39,39 @@ export interface VerdaccioHandle {
   stop(): Promise<void>
 }
 
+/** 默认「不吃上游」的本地包规则（SUT 与夹具；npmjs 镜像包由调用方追加）。 */
+export const DEFAULT_LOCAL_ONLY_PACKAGES: readonly string[] = ['dsh-plugin-update', 'dsh-plugin-update-fixture-*']
+
+/** 规整 localOnlyPackages：去空白、去重（保持给定顺序）。 */
+export function normalizeLocalOnlyPackages(packages: readonly string[] | undefined): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const item of packages || DEFAULT_LOCAL_ONLY_PACKAGES) {
+    const name = String(item).trim()
+    if (name.length === 0 || seen.has(name)) continue
+    seen.add(name)
+    result.push(name)
+  }
+  return result
+}
+
 /** 渲染 verdaccio config.yaml（最小可用面：本地 storage + htpasswd + npmjs 上游 + 全开放包权限）。 */
-export function renderVerdaccioConfig(options: { storageDir: string; htpasswdFile: string }): string {
+export function renderVerdaccioConfig(options: {
+  storageDir: string
+  htpasswdFile: string
+  /** 不吃 npmjs 上游的包名/通配（缺省 = SUT 与夹具；镜像的依赖包也走这里，避免上游 409）。 */
+  localOnlyPackages?: readonly string[]
+}): string {
   const storage = options.storageDir.split('\\').join('/')
   const htpasswd = options.htpasswdFile.split('\\').join('/')
+  const localOnly = normalizeLocalOnlyPackages(options.localOnlyPackages)
+  const packageRules: string[] = []
+  // SUT、夹具、npmjs 镜像包用「不吃上游」的专用规则：同名同版本在 npmjs 上已存在，
+  // 若走 proxy 规则，verdaccio 会认为该版本已被上游占用而回 409（this package is already present），
+  // 我们就永远无法把当前工作树构建/镜像 tarball 钉成本地版本。
+  for (const name of localOnly) {
+    packageRules.push("  '" + name + "':", '    access: $all', '    publish: $all', '    unpublish: $all')
+  }
   return [
     '# [TEST ONLY] #265 本地 registry 配置（生成物，勿手改）',
     'storage: ' + JSON.stringify(storage),
@@ -53,17 +84,7 @@ export function renderVerdaccioConfig(options: { storageDir: string; htpasswdFil
     '    url: https://registry.npmjs.org/',
     '    timeout: 60s',
     'packages:',
-    // SUT 与夹具用「不吃上游」的专用规则：dsh-plugin-update 同名同版本在 npmjs 上已存在，
-    // 若走 proxy 规则，verdaccio 会认为该版本已被上游占用而回 409（this package is already present），
-    // 我们就永远无法把当前工作树构建钉成本地版本。夹具包名同理（避免将来与上游撞名）。
-    "  'dsh-plugin-update':",
-    '    access: $all',
-    '    publish: $all',
-    '    unpublish: $all',
-    "  'dsh-plugin-update-fixture-*':",
-    '    access: $all',
-    '    publish: $all',
-    '    unpublish: $all',
+    ...packageRules,
     "  '**':",
     '    access: $all',
     '    publish: $all',
@@ -97,7 +118,7 @@ export async function startVerdaccio(options: VerdaccioOptions): Promise<Verdacc
   await ensureDir(storageDir)
   await ensureDir(join(runDir, 'verdaccio'))
   await writeFile(htpasswdFile, '')
-  await writeFile(configPath, renderVerdaccioConfig({ storageDir, htpasswdFile }))
+  await writeFile(configPath, renderVerdaccioConfig({ storageDir, htpasswdFile, localOnlyPackages: options.localOnlyPackages }))
   const process_ = startProcess(process.execPath, [binPath, '--config', configPath, '--listen', '127.0.0.1:' + port], {
     cwd: runDir,
   })

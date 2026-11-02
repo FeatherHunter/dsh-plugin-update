@@ -186,6 +186,16 @@ export async function openT3Run(options: T3RunOptions): Promise<T3Run> {
     }
     recorder.setSut(sutFacts)
     await raw('sut-pin', { sut: sutFacts, pack: { exitCode: sut.pack.exitCode, stdout: sut.pack.stdout, stderr: sut.pack.stderr } })
+    // npmjs 镜像：本次 run 的 registry 已发布 SUT 的运行时依赖确切版本，后续夹具安装不再回源 npmjs。
+    await raw('dependency-mirror', fixtureEnv.npmjsMirror)
+    notes.push(
+      'npmjs 依赖镜像：' +
+        fixtureEnv.npmjsMirror.dependencies
+          .map((dependency) => dependency.name + '@' + dependency.version + '（' + dependency.resolvedFrom + '）')
+          .join(', ') +
+        '；缓存 ' +
+        fixtureEnv.npmjsMirror.cacheDir,
+    )
     record({
       step: 'SUT 钉版',
       what: '被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本',

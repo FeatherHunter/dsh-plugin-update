@@ -1,0 +1,9 @@
+{
+  "看什么": "can-red 现场：C 卡片 buildTag 应是旧版（本条预期 fail）",
+  "步骤": "can-red 三包成功诚实性（预期红）",
+  "expected": "client v0.0.2",
+  "actual": "{\"cardA\":\"client v0.0.2\",\"cardB\":\"client v0.0.2\",\"seatC\":\"client v0.0.1\"}",
+  "判定": "fail",
+  "备注": null,
+  "截图": "shots\\39-shot.png"
+}

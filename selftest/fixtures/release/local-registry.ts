@@ -19,6 +19,8 @@ export interface LocalRegistryOptions {
   readonly user?: string
   readonly password?: string
   readonly email?: string
+  /** 不吃 npmjs 上游的本地包（缺省 = SUT 与夹具；npmjs 镜像的依赖包需追加）。 */
+  readonly localOnlyPackages?: readonly string[]
 }
 
 /** 起好的本地 registry（可直接用于发布与安装）。 */
@@ -39,7 +41,11 @@ export async function startLocalRegistry(options: LocalRegistryOptions): Promise
   const user = options.user || 'fixture-publisher'
   const password = options.password || 'fixture-publisher-password'
   const email = options.email || 'fixture-publisher@selftest.invalid'
-  const verdaccio = await startVerdaccio({ installDir: options.installDir, runDir: options.runDir })
+  const verdaccio = await startVerdaccio({
+    installDir: options.installDir,
+    runDir: options.runDir,
+    localOnlyPackages: options.localOnlyPackages,
+  })
   let account: RegistryAccount | null = null
   try {
     account = await createRegistryUser({ baseUrl: verdaccio.baseUrl, user, password, email })

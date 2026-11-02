@@ -38,6 +38,7 @@ declare module 'node:fs' {
   export function mkdirSync(path: string, options?: { recursive?: boolean }): string | undefined
   export function readdirSync(path: string, options: { withFileTypes: true }): Dirent[]
   export function readdirSync(path: string): string[]
+  export function mkdtempSync(prefix: string): string
   export function statSync(path: string): Stats
   export function rmSync(path: string, options?: { recursive?: boolean; force?: boolean }): void
   export function copyFileSync(from: string, to: string): void
