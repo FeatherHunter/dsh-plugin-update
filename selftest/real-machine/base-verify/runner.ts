@@ -94,8 +94,11 @@ export function collectBlockedReasons(report: BaseRunReport | undefined): BaseBl
   return reasons
 }
 
+/** classifyExit 只读退出码/信号/耗时，单独提出来便于纯函数单测。 */
+export type ExitFacts = Pick<CommandResult, 'exitCode' | 'signal' | 'durationMs'>
+
 /** 退出码 + 报告 → 我们的判定（四态映射的唯一实现处）。 */
-function classifyExit(result: CommandResult, report: BaseRunReport | undefined, parseError: string | undefined): {
+export function classifyExit(result: ExitFacts, report: BaseRunReport | undefined, parseError: string | undefined): {
   verdict: BaseCommandVerdict
   detail: string
   toolError?: string

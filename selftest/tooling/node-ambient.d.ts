@@ -87,6 +87,11 @@ declare module 'node:crypto' {
   export function randomUUID(): string
 }
 
+/** 可复用 UI driver（base-verify/web-ui.ts）按目录加载 playwright：只读装置，不进仓依赖。 */
+declare module 'node:module' {
+  export function createRequire(filename: string | URL): (specifier: string) => unknown
+}
+
 declare module 'node:url' {
   export function fileURLToPath(url: string): string
   export function pathToFileURL(path: string): { href: string }
