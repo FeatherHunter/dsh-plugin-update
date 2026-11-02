@@ -374,6 +374,80 @@ export const SCENARIO_G5_DESKTOP_MANAGER_NO_CANCEL_PROBE: ScenarioDeclaration = 
   ],
 }
 
+/**
+ * T5（#269）组 E：三包批量更新 / 部分失败隔离 / 重试续跑。
+ *
+ * 拓扑沿用 b（同一个 profile：A/B 两个批量集成方 + C 纯目标），差别在验收面：
+ *   - 三包**全部**被批量更新（A 自己也在批量范围内），UI/台账/磁盘/重启四处一致；
+ *   - 部分失败隔离：只把 B@0.0.2 的 tarball 字节改坏（元数据/integrity 一字不动 ⇒ check 能过、
+ *     install 必因 pnpm integrity 校验失败），A/C 照常完成；
+ *   - 恢复后重试/续跑：A/C 不重复安装、B 恰一次成功、总账三条成功无重复/丢行。
+ * 三条声明共用同一套基版/变体（唯一变量是故障注入与重试步骤）；can-red 复用 upgrade 声明
+ * （stale-variant C：版本号新、内容旧，成功诚实性断言应真红）。
+ */
+const EBATCH_INSTALL: readonly ScenarioInstallStep[] = [
+  { slotKey: 'a', version: '0.0.1', effect: batchEffectOf(FIXTURE_SLOT_A, false) },
+  { slotKey: 'b', version: '0.0.1', effect: batchEffectOf(FIXTURE_SLOT_B, false) },
+  { slotKey: 'c', version: '0.0.1', effect: targetEffectOf('0.0.1') },
+]
+/** 三包都更新到 0.0.2：A/B 走批量变体效果（新版 UI + 中枢坞 + host behavior），C 走目标效果。 */
+const EBATCH_VARIANTS: readonly FixtureVariantDeclaration[] = [
+  { slotKey: 'a', version: '0.0.2', changeClasses: ['ui', 'behavior', 'metadata'], effect: batchEffectOf(FIXTURE_SLOT_A, true) },
+  { slotKey: 'b', version: '0.0.2', changeClasses: ['ui', 'behavior', 'metadata'], effect: batchEffectOf(FIXTURE_SLOT_B, true) },
+  { slotKey: 'c', version: '0.0.2', changeClasses: ['behavior', 'metadata'], effect: targetEffectOf('0.0.2') },
+]
+
+/** E1 三包全成：A 面板真 UI 检查 → 宏「全部更新」→ A/B/C 全部 0.0.2，UI/台账/磁盘/重启一致。 */
+export const SCENARIO_E_BATCH_THREE_PACKAGE_UPGRADE: ScenarioDeclaration = {
+  id: 'e-batch-three-package-upgrade',
+  ticket: '269',
+  hostChannel: 'desktop-official',
+  summary: '三包批量全成：A/B/C@0.0.1 同 profile，A 面板真 UI「检查更新」后宏「全部更新」，三包都被推到 0.0.2；面板三行、三个台账、磁盘三处、重启后三卡片一致，无全批假成功',
+  install: EBATCH_INSTALL,
+  variants: EBATCH_VARIANTS,
+  expected: [
+    'A 面板「检查更新」后三行都显示可更新 0.0.2（0.0.1→0.0.2）',
+    '真 UI 宏「全部更新」后 A/B/C 三包都到 0.0.2：磁盘 dependencies/包内版本、台账、UI 行三处一致',
+    '台账逐行真相：三个插件各恰一条成功终态（state∈{completed,restart-required}、target 0.0.2、previous 0.0.1），无失败/无丢行',
+    '重启后三卡片 buildTag=新版（client/host v0.0.2）、A 批量面板三行 current，无假成功',
+    '批量账本按属主 fxa 记三键；日志 install.request 覆盖 a/b/c，无意外失败',
+  ],
+}
+
+/** E2 部分失败隔离：只改坏 B 的 tarball 字节（元数据不动），A/C 完成、B 失败、无全批假成功。 */
+export const SCENARIO_E_BATCH_PARTIAL_FAILURE: ScenarioDeclaration = {
+  id: 'e-batch-partial-failure',
+  ticket: '269',
+  hostChannel: 'desktop-official',
+  summary: '部分失败隔离：B@0.0.2 tarball 字节被改坏（元数据/integrity 不动，check 能过），宏批量后 A/C 照常完成 0.0.2、B 落定 install-failed；台账逐行真相、UI 如实、重启后按磁盘真相投影，坏行不拖垮好行',
+  install: EBATCH_INSTALL,
+  variants: EBATCH_VARIANTS,
+  expected: [
+    'B@0.0.2 tarball 字节被改坏但元数据/integrity 一字不动：check 仍列出 0.0.2（候选门能过），改坏前后 tarball 都是 200 且大小不变',
+    '宏批量后 A/C 到 0.0.2、B 落定失败；坏行失败不拖垮好行（无全批假成功）',
+    '台账逐行真相：fxa-b 恰一条 failed（install-failed），fxa-a/fxa-c 成功；磁盘 B 未到 0.0.2',
+    'UI 行如实显示失败（不谎称更新中/成功），重启后台账仍 failed、UI 按磁盘真相投影',
+    '日志 B 恰一次 exec 失败且无自动重试，A/C 无 exec 失败',
+  ],
+}
+
+/** E3 恢复后重试/续跑：恢复 B tarball → 真 UI 重试 → B 成功；A/C 不重复、B 恰一次成功、总账三条无重复/丢行。 */
+export const SCENARIO_E_BATCH_RESUME_RETRY: ScenarioDeclaration = {
+  id: 'e-batch-resume-retry',
+  ticket: '269',
+  hostChannel: 'desktop-official',
+  summary: '重试/续跑：部分失败后恢复 B@0.0.2 tarball（字节哈希复原、元数据不变），用 A 面板真 UI 重试 B；A/C 不重复安装、B 恰一次成功、总账三条成功无重复无丢行，重启后 UI/台账/磁盘一致',
+  install: EBATCH_INSTALL,
+  variants: EBATCH_VARIANTS,
+  expected: [
+    '恢复 B@0.0.2 tarball：GET 200、字节哈希复原、版本文档不变',
+    '真 UI 重试后 B 到 0.0.2，B 恰一次成功（失败一次 + 重试成功一次，成功终态只有一条）',
+    'A/C 不重复安装：重试前后 A/C 的安装请求/执行日志计数不变，台账各仍恰一条成功',
+    '总账 3 条成功、无重复无丢行：三个插件各恰一条成功终态，target 0.0.2',
+    '重启后三包 0.0.2、三卡片新版、行 current，UI/台账/磁盘一致',
+  ],
+}
+
 /** 全部场景声明（矩阵行 id 一一对应）。 */
 export const SCENARIOS: readonly ScenarioDeclaration[] = [
   SCENARIO_A_SINGLE_PACKAGE,
@@ -390,6 +464,9 @@ export const SCENARIOS: readonly ScenarioDeclaration[] = [
   SCENARIO_G3_DESKTOP_MANAGER_FAILED_NO_RETRY,
   SCENARIO_G4_DESKTOP_MANAGER_RETRY_SINGLE_SUCCESS,
   SCENARIO_G5_DESKTOP_MANAGER_NO_CANCEL_PROBE,
+  SCENARIO_E_BATCH_THREE_PACKAGE_UPGRADE,
+  SCENARIO_E_BATCH_PARTIAL_FAILURE,
+  SCENARIO_E_BATCH_RESUME_RETRY,
 ]
 
 /** 按 id 取场景（未知 id 立刻抛，避免证据跑错场景却记为另一个）。 */

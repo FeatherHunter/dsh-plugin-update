@@ -13,7 +13,8 @@
  * 证据纪律：删之前先备份 tarball、记「删前 200 / 删后 404 / 版本文档一字不差」三件事；
  * 恢复后再用同一 URL 探一次 200，保证后续「真机执行手工命令」不是拿坏源跑的。
  */
-import { cp, readFile, rm, stat } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { cp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import type { LocalRegistry } from '../../fixtures/release/local-registry.ts'
 import { ensureDir, fileExists } from '../../tooling/fs-utils.ts'
@@ -171,6 +172,135 @@ export async function warmRegistryTarball(options: {
   const url = options.registry.baseUrl + '/' + options.packageName + '/-/' + options.packageName + '-' + options.version + '.tgz'
   const probe = await get(url)
   return { url, status: probe.status, bytes: probe.bytes }
+}
+
+/** 改坏 tarball 字节故障的完整事实（元数据/integrity 一字不动，只让 pnpm 下载校验失败）。 */
+export interface TarballCorruptionFault {
+  readonly packageName: string
+  readonly version: string
+  readonly tarballUrl: string
+  readonly tarballPath: string
+  readonly backupPath: string
+  /** tarball 原始字节数（改坏只翻同一段字节，文件大小不变）。 */
+  readonly sizeBytes: number
+  readonly sha256Before: string
+  readonly sha256After: string
+  /** 被改坏的字节偏移与长度（取自 tarball 中点，避开 gzip 头；sha 必变 ⇒ pnpm integrity 校验必失败）。 */
+  readonly corruptedOffset: number
+  readonly corruptedLength: number
+  readonly versionDocBefore: string
+  readonly versionDocAfter: string
+  readonly versionDocUnchanged: boolean
+  /** 改坏前后 GET tarballUrl 的状态码与响应字节数（都应 200，大小不变 ⇒ 不是 404 型故障）。 */
+  readonly servedBeforeStatus: number
+  readonly servedBeforeBytes: number
+  readonly servedAfterStatus: number
+  readonly servedAfterBytes: number
+}
+
+/** 恢复改坏 tarball 的结果。 */
+export interface TarballCorruptionRestore {
+  readonly restoredStatus: number
+  readonly restoredSha256: string
+  /** 恢复后的字节哈希是否等于改坏前（true 才证明后续安装不是拿坏源跑的）。 */
+  readonly shaMatches: boolean
+  readonly versionDocUnchanged: boolean
+}
+
+function sha256Of(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex')
+}
+
+/**
+ * 故障注入第二步（部分失败隔离格）：**元数据不动、只把已发布 tarball 的字节改坏**。
+ *
+ * 与「删 tarball」的区别：删掉是 404（pnpm 报包不存在，产品可能落 recovery-required/install-failed），
+ * 改坏字节是 **200 + integrity 不匹配**（pnpm 报 ERR_PNPM_TARBALL_INTEGRITY），更贴近「版本存在但内容坏了」。
+ * 关键纪律不变：版本文档（含 dist.integrity）一字不动，所以候选门能过、check 正常显示可更新，
+ * 失败只会落在 install 这一步——这正是票面「坏版本不影响其他行」要观察的失败面。
+ */
+export async function corruptPublishedTarball(options: {
+  registry: LocalRegistry
+  backupDir: string
+  packageName: string
+  version: string
+  /** 改坏多少字节（默认 64；从 tarball 中点开始翻位，保证命中压缩体而不仅是头部）。 */
+  corruptLength?: number
+}): Promise<TarballCorruptionFault> {
+  const { registry, packageName, version } = options
+  const baseUrl = registry.baseUrl
+  const metadataBefore = await fetchMetadata(baseUrl, packageName)
+  const versionDoc = (metadataBefore.body.versions || {})[version]
+  if (!versionDoc) throw new Error('[faults] 元数据里没有 ' + packageName + '@' + version)
+  const tarballUrl = tarballUrlOf(versionDoc, baseUrl, packageName, version)
+  const tarballPath = tarballStoragePath(registry, packageName, version)
+  if (!(await fileExists(tarballPath))) throw new Error('[faults] registry storage 里没有 tarball：' + tarballPath)
+  const servedBefore = await get(tarballUrl)
+  const original = await readFile(tarballPath)
+  const sha256Before = sha256Of(original)
+  const sizeBytes = original.length
+  const length = Math.min(options.corruptLength ?? 64, 64)
+  if (sizeBytes < length + 128) throw new Error('[faults] tarball 太小，无法安全改坏：' + String(sizeBytes) + ' 字节')
+  const corruptedOffset = Math.floor(sizeBytes / 2)
+  const mutated = Buffer.from(original)
+  for (let index = 0; index < length; index += 1) mutated[corruptedOffset + index] = mutated[corruptedOffset + index]! ^ 0xff
+  await ensureDir(options.backupDir)
+  const backupPath = join(options.backupDir, basename(tarballPath))
+  await cp(tarballPath, backupPath)
+  await writeFile(tarballPath, mutated)
+  const servedAfter = await get(tarballUrl)
+  const metadataAfter = await fetchMetadata(baseUrl, packageName)
+  const versionDocBefore = versionDocJson(metadataBefore.body, version)
+  const versionDocAfter = versionDocJson(metadataAfter.body, version)
+  return {
+    packageName,
+    version,
+    tarballUrl,
+    tarballPath,
+    backupPath,
+    sizeBytes,
+    sha256Before,
+    sha256After: sha256Of(mutated),
+    corruptedOffset,
+    corruptedLength: length,
+    versionDocBefore,
+    versionDocAfter,
+    versionDocUnchanged: versionDocBefore === versionDocAfter,
+    servedBeforeStatus: servedBefore.status,
+    servedBeforeBytes: servedBefore.bytes,
+    servedAfterStatus: servedAfter.status,
+    servedAfterBytes: servedAfter.bytes,
+  }
+}
+
+/** 故障注入收尾：把原始 tarball 拷回 storage，等同一 URL 重新 200、字节哈希复原、版本文档不变。 */
+export async function restoreCorruptedTarball(options: {
+  registry: LocalRegistry
+  fault: TarballCorruptionFault
+  timeoutMs?: number
+}): Promise<TarballCorruptionRestore> {
+  const { registry, fault } = options
+  await ensureDir(join(registry.verdaccio.storageDir, fault.packageName))
+  await cp(fault.backupPath, fault.tarballPath)
+  const deadline = Date.now() + (options.timeoutMs || 30000)
+  let restoredStatus = 0
+  while (Date.now() < deadline) {
+    const probe = await get(fault.tarballUrl)
+    if (probe.status === 200) {
+      const current = await readFile(fault.tarballPath)
+      const restoredSha256 = sha256Of(current)
+      const metadataAfter = await fetchMetadata(registry.baseUrl, fault.packageName)
+      return {
+        restoredStatus: probe.status,
+        restoredSha256,
+        shaMatches: restoredSha256 === fault.sha256Before,
+        versionDocUnchanged: versionDocJson(metadataAfter.body, fault.version) === fault.versionDocBefore,
+      }
+    }
+    restoredStatus = probe.status
+    await new Promise<void>((resolve) => setTimeout(() => resolve(), 300))
+  }
+  return { restoredStatus, restoredSha256: '', shaMatches: false, versionDocUnchanged: false }
 }
 
 /** 读一份已落盘的 tarball 备份的字节数（证据复核用）。 */
