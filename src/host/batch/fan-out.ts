@@ -60,6 +60,7 @@ import { createBatchLogSeams, pluginLogPort } from './log.js'
 import { createHostUpdate } from '../../host/factory.js'
 import type { ReaderOverrides } from '../../host/capabilities.js'
 import { defaultHomeDir } from '../../core/reader.js'
+import { profileIdentityFromContext, profileIdentityFromEnv } from '../environment.js'
 import {
   createBatchOwnerPorts,
   createSkipDiskPorts,
@@ -178,10 +179,29 @@ export function createMultiHostUpdate(
       : DEFAULT_INSTALL_POLL_MS
 
   // 使用范围：批量一份（同一 (homeDir, profileDir) 才共用队列与账本）。
+  // #266：没有显式 scope/readerOverrides.profileDir 时按单插件侧同一优先级反推（ctx 权威身份 → env），
+  // 否则 README 里「只给 { ctx, logCtx }」的真机接入会拿不到使用范围：会话退化成内存账本、中枢写不出方案。
   const env = (input.readerOverrides && input.readerOverrides.env) || process.env
   const batchHome =
     firstText(input.scope?.homeDir, input.readerOverrides?.homeDir, input.config?.homeDir) ?? defaultHomeDir(env, homedir())
-  const batchProfile = firstText(input.scope?.profileDir, input.readerOverrides?.profileDir)
+  const identityOverrides = {
+    ...(input.readerOverrides ?? {}),
+    ctx: input.readerOverrides?.ctx ?? input.ctx,
+  }
+  const contextIdentity = profileIdentityFromContext(identityOverrides)
+  const envIdentity = profileIdentityFromEnv(identityOverrides)
+  const batchProfile = firstText(
+    input.scope?.profileDir,
+    input.readerOverrides?.profileDir,
+    contextIdentity?.dir,
+    envIdentity?.dir,
+  )
+  const profileNameInput = firstText(
+    input.scope?.profileName,
+    input.readerOverrides?.profileName,
+    contextIdentity?.name,
+    envIdentity?.name,
+  )
   const perTargetOverrides = (spec: MultiTargetSpec): ReaderOverrides =>
     (input.readerOverridesFor ? input.readerOverridesFor(spec) : undefined) ?? {}
   const scopeOf = (spec: MultiTargetSpec): TargetScope => {
@@ -207,9 +227,7 @@ export function createMultiHostUpdate(
       ? {
           homeDir: batchScope.homeDir,
           profileDir: batchScope.profileDir,
-          profileName:
-            firstText(input.scope?.profileName, input.readerOverrides?.profileName, basename(batchScope.profileDir)) ??
-            basename(batchScope.profileDir),
+          profileName: profileNameInput ?? basename(batchScope.profileDir),
         }
       : null
   const hubPlanScope: HubScopeRef | null = hubScope

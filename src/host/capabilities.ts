@@ -192,6 +192,20 @@ export async function getSharedReader(pluginId: string, config: ReturnType<typeo
   const registryUrl = overrides.registryUrl ?? config.registryUrl
   const key = `${pluginId}\0${config.prefix}\0${runningVersion}\0${dshVersion}\0${profileDirInput}\0${profileNameInput ?? ''}\0${homeDirInput}\0${overrides.runInstall ? 'exec' : ''}\0${environmentKind}\0${targetPackageName}\0${explicitTargetDir}\0${releaseChannel}`
   if (sharedReader && sharedReaderKey === key) return sharedReader
+  // #266 真机暴露（产品 BUG）：安装执行器换包那一瞬，目标包清单版本变化 → 本函数按 runningVersion 缓存
+  // 会新建 reader；同进程仍在 installing/verifying 的任务因此在旧实例的 activeJobId 之外，被 healJob 误判成
+  // 「上一个进程世代遗留」，合成 interrupted/recovery-required。批量的 settleInstall 读到这一瞬间就把该家记失败——
+  // 尽管 exec 随后照常完成（真机 run 266-20261102T021151 日志：verify interrupted → entry.fail(recovery-required/settle)
+  // → 1.2s 后 exec ok + verify restart-required）。中断的语义属于进程世代，不是读取器实例：
+  // 同一使用范围（缓存键除 runningVersion 外全同）且旧实例仍握着在飞任务时，先复用旧实例；
+  // 等任务收尾后再按新键换代（此时新实例读到的是 restart-required/completed 的终态，不会误判中断）。
+  if (sharedReader && sameReaderExceptRunningVersion(sharedReaderKey, key)) {
+    const busy = await sharedReader
+      .status()
+      .then((snap) => snap.job?.state === 'installing' || snap.job?.state === 'verifying')
+      .catch(() => false)
+    if (busy) return sharedReader
+  }
   // 绑好插件标识的发射口（#124）：中立文件不 import node、也不认识插件标识，端口一律在宿主侧绑好再递进去。
   // 磁盘侧就是本插件这一家；队列与全局锁是**跨插件共享**的，所以给一个「按当次动作方取口」的工厂——
   // 一次跃迁记在谁头上，行就落谁自己的目录（路由表按标识寻址，别的插件没接线就只能没有落点，不猜）。
@@ -430,6 +444,17 @@ function emitInstallLog(level: string, event: string, fields: Record<string, unk
   emitUpdateLog(level, event, fields)
 }
 
+/**
+ * 缓存键除「运行版本」外是否全同（#266）：安装换包的一瞬间只有版本位会变，其余身份位不变。
+ * 键的形状见 getSharedReader（字段顺序固定；第 3 段是 runningVersion）。
+ */
+function sameReaderExceptRunningVersion(a: string, b: string): boolean {
+  const left = a.split('\0')
+  const right = b.split('\0')
+  if (a === '' || left.length !== right.length) return false
+  for (let i = 0; i < left.length; i += 1) if (i !== 2 && left[i] !== right[i]) return false
+  return true
+}
 /** 单例复位（测试与门禁口，规格 #591 第 6 条保留）：只清本模块的单例缓存。 */
 export function resetSharedUpdateReaderState(): void {
   sharedReader = null
