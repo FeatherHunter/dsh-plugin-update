@@ -1,0 +1,36 @@
+{
+  "processes": [
+    {
+      "label": "cli-host-a",
+      "pid": 69620,
+      "aliveAfterStop": false
+    },
+    {
+      "label": "cli-host-b",
+      "pid": 68860,
+      "aliveAfterStop": false
+    },
+    {
+      "label": "cli-host-c",
+      "pid": 98700,
+      "aliveAfterStop": false
+    }
+  ],
+  "ports": [
+    {
+      "label": "cli-host-a-port",
+      "port": 52960,
+      "free": true
+    },
+    {
+      "label": "cli-host-b-port",
+      "port": 64172,
+      "free": true
+    },
+    {
+      "label": "cli-host-c-port",
+      "port": 61388,
+      "free": true
+    }
+  ]
+}

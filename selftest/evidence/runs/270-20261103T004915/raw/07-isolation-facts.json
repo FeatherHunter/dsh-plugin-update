@@ -1,0 +1,7 @@
+{
+  "osHomeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004915\\os-home",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004915\\os-home\\.dsh",
+  "profileName": "t6lock",
+  "why": "产品 spawn 的 CLI 子进程会剥掉 DSH_* 并按 USERPROFILE 解析 homedir()/.dsh；宿主 homeDir 必须正好是 USERPROFILE/.dsh，否则安装落到默认 home，两个入口也就抢不到同一把锁",
+  "maintainerHomeUntouched": true
+}

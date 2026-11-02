@@ -1,0 +1,49 @@
+{
+  "winner": "a",
+  "polls": 5,
+  "elapsedMs": 2105,
+  "timedOut": false,
+  "status": 200,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.2",
+        "installed": true,
+        "installedVersion": "0.0.2",
+        "latestVersion": null,
+        "canInstall": false,
+        "blockedReason": null,
+        "job": {
+          "requestId": "h1-a-1793638115501",
+          "message": null,
+          "id": "07b64a9f-75d3-41be-9a99-998e9af452cc",
+          "state": "completed",
+          "targetVersion": "0.0.2",
+          "previousVersion": "0.0.1"
+        },
+        "identity": null,
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t6lock add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:62679",
+      "receipt": null,
+      "logContract": {
+        "state": "ok",
+        "file": "event-list.update.json",
+        "events": 29,
+        "unvalidated": 0
+      },
+      "logHealth": {
+        "sink": "self",
+        "dirHash": "c79f8c1c",
+        "switchEnabled": false,
+        "droppedSinceStart": 0,
+        "lastEventAt": 1793638118005,
+        "contract": "ok",
+        "external": null,
+        "reason": null
+      }
+    }
+  }
+}

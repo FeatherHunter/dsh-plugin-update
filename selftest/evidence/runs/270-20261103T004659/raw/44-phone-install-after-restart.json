@@ -1,0 +1,26 @@
+{
+  "checkId": "",
+  "requestId": "h1-retry-restart-1793638086053",
+  "status": 200,
+  "durationMs": 15,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": false,
+      "error": "check-expired",
+      "errorKind": "check-expired",
+      "diag": {
+        "v": 1,
+        "stage": "preflight",
+        "route": "disk",
+        "method": "fs",
+        "latencyMs": 8,
+        "detail": "查询凭证过期，安装请求被拒绝",
+        "targetPackageName": "dsh-plugin-update-fixture-a",
+        "requestId": "h1-retry-restart-1793638086053",
+        "intentHash": "3ecf872b",
+        "action": "manual"
+      }
+    }
+  }
+}

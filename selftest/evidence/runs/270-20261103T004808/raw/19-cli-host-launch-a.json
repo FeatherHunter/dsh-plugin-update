@@ -1,0 +1,9 @@
+{
+  "url": "http://127.0.0.1:54419/?token=Dbp6VqfCC8zw_yBDHEAjV4Xd7fcBxPUa6iJKxeXgdT0",
+  "port": 54419,
+  "bootMs": 5235,
+  "profileName": "t6lock",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004808\\os-home\\.dsh",
+  "stdoutTail": "dsh web: http://127.0.0.1:54419/?token=Dbp6VqfCC8zw_yBDHEAjV4Xd7fcBxPUa6iJKxeXgdT0\n",
+  "stderrTail": ""
+}

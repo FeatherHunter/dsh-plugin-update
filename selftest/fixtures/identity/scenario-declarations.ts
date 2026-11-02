@@ -448,6 +448,86 @@ export const SCENARIO_E_BATCH_RESUME_RETRY: ScenarioDeclaration = {
   ],
 }
 
+/**
+ * T6 / #270（F 组：队列与锁）：两个独立 DSH web 宿主进程共享同一 home + 同一 profile，
+ * 两个入口（各自宿主里的电话入口）同时更新同一个 target —— 真跨进程抢同一把
+ * <home>/update-queue/<profileDir 短哈希>/global.lock，并用 queue.json 观测排队/释放。
+ *
+ * 场景 id 用 h 前缀：矩阵里的 f1 已被 267 的 f1-third-party-desktop-probe 占用，
+ * f2 也被历史票用掉，f1/f2 复名会撞矩阵行（fixture-package-plan.test 反向校验），
+ * 故本票用 h1/h2（h = #270 的 F 组；研究笔记里写明理由）。
+ * 三条声明共用同一套基版/变体（唯一变量是「两个入口的触发时序」与锁/队列观测）：h1 = 入口 1 先受理、
+ * 锁出现后入口 2 立刻发（锁窗内到达）；h1b = 两入口几乎同一刻（Promise.all）发；h2 = 陈旧锁回收。
+ * can-red 复用 h1（同一场景、同一组断言被破坏）。
+ */
+const QUEUE_LOCK_INSTALL: readonly ScenarioInstallStep[] = [
+  { slotKey: 'a', version: '0.0.1', effect: legacySingleEffectOf('0.0.1') },
+]
+const QUEUE_LOCK_VARIANTS: readonly FixtureVariantDeclaration[] = [
+  { slotKey: 'a', version: '0.0.2', changeClasses: ['ui', 'metadata'], effect: legacySingleEffectOf('0.0.2') },
+]
+
+/** H1 顺序抢锁：入口 1 先受理进入安装，锁窗内（global.lock 出现后）入口 2 立刻对同一 target 发安装电话。 */
+export const SCENARIO_H1_QUEUE_LOCK_CONCURRENT: ScenarioDeclaration = {
+  id: 'h1-queue-lock-concurrent',
+  ticket: '270',
+  hostChannel: 'dsh-web',
+  summary:
+    '两个独立 DSH web 宿主进程共享同一 home+profile（各自有电话入口）：入口 1 先受理安装、' +
+    '轮询到 global.lock 出现后入口 2 在锁窗内对同一 target=A@0.0.2 发 updateInstall —— 恰一个 exec 真跑、' +
+    '另一个被 update-busy 稳定拒绝，两安装窗不重叠、profile 不损坏、台账恰一条成功终态、失败方重试收敛，' +
+    '队列 owner 任意时刻至多一个',
+  install: QUEUE_LOCK_INSTALL,
+  variants: QUEUE_LOCK_VARIANTS,
+  expected: [
+    '两个独立宿主进程解析到同一 profileDir，因而抢同一 <home>/update-queue/<shortHash(profileDir)>/global.lock（跨进程真锁竞争）',
+    '恰一个 update.install.exec 真跑（route=cli-process、ok=true、exitCode=0）；两入口的安装窗不重叠（任一时刻至多一个 pnpm 安装）',
+    '另一入口得到稳定拒绝/排队（update-busy；日志有 lock.anomaly busy-owner 或 fair-gate gate-refused），不得两个都跑',
+    'profile 未损坏：package.json 可解析无半写、dependencies/node_modules=0.0.2 无双装；台账恰一条成功终态（target 0.0.2/previous 0.0.1）',
+    '失败方重试收敛：fresh check 报已是最新；同名意图重试诚实拒绝且不产生第二次安装；期间队列 owner 任意时刻至多一个，收尾 owner=null（未消费的失败占位按 30s TTL 如实记录，不要求 waiting=[]）',
+  ],
+}
+
+/** H1b 同时刻抢锁：两入口几乎同一刻（Promise.all、不 await 完成）对同一 target 发安装电话。 */
+export const SCENARIO_H1B_QUEUE_LOCK_SIMULTANEOUS: ScenarioDeclaration = {
+  id: 'h1b-queue-lock-simultaneous',
+  ticket: '270',
+  hostChannel: 'dsh-web',
+  summary:
+    '两个独立 DSH web 宿主进程共享同一 home+profile（各自有电话入口），几乎同一刻（Promise.all、不 await 完成）' +
+    '对同一 target=A@0.0.2 各发一次 updateInstall：恰一个 exec 真跑、另一个被 update-busy 稳定拒绝，' +
+    '两安装窗不重叠、profile 不损坏、台账恰一条成功终态、失败方重试收敛，队列 owner 任意时刻至多一个',
+  install: QUEUE_LOCK_INSTALL,
+  variants: QUEUE_LOCK_VARIANTS,
+  expected: [
+    '两个独立宿主进程解析到同一 profileDir，因而抢同一 <home>/update-queue/<shortHash(profileDir)>/global.lock（跨进程真锁竞争）',
+    '同一时刻两入口都发出安装电话时恰一个 update.install.exec 真跑（route=cli-process、ok=true、exitCode=0）；两安装窗不重叠',
+    '另一入口得到稳定拒绝/排队（update-busy；日志有 lock.anomaly busy-owner 或公平门 gate-refused），不得两个都跑',
+    'profile 未损坏：package.json 可解析无半写、dependencies/node_modules=0.0.2 无双装；台账恰一条成功终态（target 0.0.2/previous 0.0.1）',
+    '失败方重试收敛：fresh check 报已是最新；同名意图重试诚实拒绝且不产生第二次安装；期间队列 owner 任意时刻至多一个，收尾 owner=null（未消费的失败占位按 30s TTL 如实记录，不要求 waiting=[]）',
+  ],
+}
+
+/** H2 陈旧锁回收：预写 pid 已死/startedAt 过期的 global.lock，触发更新看二阶核对后的回收与继续安装。 */
+export const SCENARIO_H2_QUEUE_LOCK_STALE_RECLAIM: ScenarioDeclaration = {
+  id: 'h2-queue-lock-stale-reclaim',
+  ticket: '270',
+  hostChannel: 'dsh-web',
+  summary:
+    '预写陈旧 global.lock（pid 已死、startedAt 60s 前）并把宿主安装预算压到 4s，再触发 A@0.0.2 更新：' +
+    '抢锁路径经二次核对判定陈旧锁 → lock.anomaly(stale-owner) + queue.transition(reclaimed) → 继续安装成功，' +
+    '锁最终释放、队列收尾干净，无 busy-owner 误判',
+  install: QUEUE_LOCK_INSTALL,
+  variants: QUEUE_LOCK_VARIANTS,
+  expected: [
+    '预写锁 payload 为 {id,pluginId,pid:死 pid,startedAt:60s 前}，旧 pid 真机核实已不存在；宿主安装预算=4000ms',
+    '恰 1 条 update.lock.anomaly(kind=stale-owner)：ageMs≥60000、ownerHash 为 8 位十六进制；无 busy-owner（新鲜误判）',
+    '恰 1 条 update.queue.transition(phase=reclaimed)（holderHash 8 位十六进制）后安装继续，无 reclaim 失败/重复回收',
+    '安装成功：exec route=cli-process ok/exit0；磁盘 dependencies 与 node_modules=0.0.2；台账恰一条 completed/restart-required',
+    '锁时间线：陈旧锁 id 不会被旧 id 释放，新锁 id 覆盖后最终释放（末次 absent）；queue.json 收尾 owner=null/waiting=[]',
+  ],
+}
+
 /** 全部场景声明（矩阵行 id 一一对应）。 */
 export const SCENARIOS: readonly ScenarioDeclaration[] = [
   SCENARIO_A_SINGLE_PACKAGE,
@@ -467,6 +547,9 @@ export const SCENARIOS: readonly ScenarioDeclaration[] = [
   SCENARIO_E_BATCH_THREE_PACKAGE_UPGRADE,
   SCENARIO_E_BATCH_PARTIAL_FAILURE,
   SCENARIO_E_BATCH_RESUME_RETRY,
+  SCENARIO_H1_QUEUE_LOCK_CONCURRENT,
+  SCENARIO_H1B_QUEUE_LOCK_SIMULTANEOUS,
+  SCENARIO_H2_QUEUE_LOCK_STALE_RECLAIM,
 ]
 
 /** 按 id 取场景（未知 id 立刻抛，避免证据跑错场景却记为另一个）。 */

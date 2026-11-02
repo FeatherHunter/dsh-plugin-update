@@ -1,0 +1,31 @@
+{
+  "deletedAt": 1793638175671,
+  "a": {
+    "requestId": "h1-red-a-1793638175584",
+    "ok": true,
+    "error": null,
+    "job": {
+      "id": "2efae2f6-a795-4434-a6c7-bdb32475e383",
+      "state": "installing",
+      "targetVersion": "0.0.2",
+      "message": null,
+      "requestId": "h1-red-a-1793638175584",
+      "previousVersion": "0.0.1"
+    }
+  },
+  "b": {
+    "requestId": "h1-red-b-1793638175584",
+    "ok": true,
+    "error": null,
+    "job": {
+      "id": "72e4ba24-a18c-4f6b-9c3d-933d72880147",
+      "state": "installing",
+      "targetVersion": "0.0.2",
+      "message": null,
+      "requestId": "h1-red-b-1793638175584",
+      "previousVersion": "0.0.1"
+    }
+  },
+  "admittedA": true,
+  "admittedB": true
+}

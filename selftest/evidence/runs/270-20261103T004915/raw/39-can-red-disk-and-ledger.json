@@ -1,0 +1,36 @@
+{
+  "ledger": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004915\\os-home\\.dsh\\updates\\fxa-a\\8b54f86a0eae2b7ec4afed01\\state.json",
+      "state": {
+        "requestId": "h1-red-b-1793638175584",
+        "message": null,
+        "id": "72e4ba24-a18c-4f6b-9c3d-933d72880147",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ],
+  "profileManifest": {
+    "name": "dsh-profile-t6lock",
+    "private": true,
+    "dependencies": {
+      "dsh-plugin-update-fixture-a": "0.0.2"
+    },
+    "dsh": {
+      "profile": {
+        "bundles": [
+          "@deepseek-ai/dsh-base",
+          "@deepseek-ai/dsh-web-app",
+          "dsh-plugin-update-fixture-a"
+        ]
+      }
+    }
+  },
+  "lockIds": [
+    "2efae2f6-a795-4434-a6c7-bdb32475e383",
+    "72e4ba24-a18c-4f6b-9c3d-933d72880147"
+  ],
+  "finalQueueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n"
+}
