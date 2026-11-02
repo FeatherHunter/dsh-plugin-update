@@ -1,0 +1,168 @@
+{
+  "samples": [
+    {
+      "t": 1793650197444,
+      "elapsedMs": 21,
+      "http": 200,
+      "ok": true,
+      "error": null,
+      "jobState": "installing",
+      "targetVersion": "0.0.2",
+      "installedVersion": "0.0.1",
+      "runningVersion": "0.0.1",
+      "latestVersion": "0.0.2",
+      "blockedReason": null,
+      "canInstall": false,
+      "registered": true
+    },
+    {
+      "t": 1793650197781,
+      "elapsedMs": 358,
+      "http": 200,
+      "ok": true,
+      "error": null,
+      "jobState": "installing",
+      "targetVersion": "0.0.2",
+      "installedVersion": "0.0.1",
+      "runningVersion": "0.0.1",
+      "latestVersion": "0.0.2",
+      "blockedReason": null,
+      "canInstall": false,
+      "registered": true
+    },
+    {
+      "t": 1793650198213,
+      "elapsedMs": 790,
+      "http": 200,
+      "ok": true,
+      "error": null,
+      "jobState": "installing",
+      "targetVersion": "0.0.2",
+      "installedVersion": "0.0.1",
+      "runningVersion": "0.0.1",
+      "latestVersion": "0.0.2",
+      "blockedReason": null,
+      "canInstall": false,
+      "registered": true
+    },
+    {
+      "t": 1793650198544,
+      "elapsedMs": 1121,
+      "http": 200,
+      "ok": true,
+      "error": null,
+      "jobState": "installing",
+      "targetVersion": "0.0.2",
+      "installedVersion": "0.0.1",
+      "runningVersion": "0.0.1",
+      "latestVersion": "0.0.2",
+      "blockedReason": null,
+      "canInstall": false,
+      "registered": true
+    },
+    {
+      "t": 1793650198868,
+      "elapsedMs": 1445,
+      "http": 200,
+      "ok": true,
+      "error": null,
+      "jobState": "installing",
+      "targetVersion": "0.0.2",
+      "installedVersion": "0.0.1",
+      "runningVersion": "0.0.1",
+      "latestVersion": "0.0.2",
+      "blockedReason": null,
+      "canInstall": false,
+      "registered": true
+    },
+    {
+      "t": 1793650199195,
+      "elapsedMs": 1772,
+      "http": 200,
+      "ok": true,
+      "error": null,
+      "jobState": "installing",
+      "targetVersion": "0.0.2",
+      "installedVersion": "0.0.1",
+      "runningVersion": "0.0.1",
+      "latestVersion": "0.0.2",
+      "blockedReason": null,
+      "canInstall": false,
+      "registered": true
+    },
+    {
+      "t": 1793650199524,
+      "elapsedMs": 2101,
+      "http": 200,
+      "ok": true,
+      "error": null,
+      "jobState": "installing",
+      "targetVersion": "0.0.2",
+      "installedVersion": "0.0.1",
+      "runningVersion": "0.0.1",
+      "latestVersion": "0.0.2",
+      "blockedReason": null,
+      "canInstall": false,
+      "registered": true
+    },
+    {
+      "t": 1793650199882,
+      "elapsedMs": 2459,
+      "http": 200,
+      "ok": true,
+      "error": null,
+      "jobState": "completed",
+      "targetVersion": "0.0.2",
+      "installedVersion": "0.0.2",
+      "runningVersion": "0.0.2",
+      "latestVersion": null,
+      "blockedReason": null,
+      "canInstall": false,
+      "registered": true
+    }
+  ],
+  "terminalBody": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.2",
+        "installed": true,
+        "installedVersion": "0.0.2",
+        "latestVersion": null,
+        "canInstall": false,
+        "blockedReason": null,
+        "job": {
+          "requestId": "i2-install-1793650197346",
+          "message": null,
+          "id": "82c4e8e0-688a-405b-a5c0-b48945a9ba4d",
+          "state": "completed",
+          "targetVersion": "0.0.2",
+          "previousVersion": "0.0.1"
+        },
+        "identity": null,
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t8i2 add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:52830",
+      "receipt": null,
+      "logContract": {
+        "state": "ok",
+        "file": "event-list.update.json",
+        "events": 29,
+        "unvalidated": 0
+      },
+      "logHealth": {
+        "sink": "self",
+        "dirHash": "b7ecda32",
+        "switchEnabled": false,
+        "droppedSinceStart": 0,
+        "lastEventAt": 1793650199880,
+        "contract": "ok",
+        "external": null,
+        "reason": null
+      }
+    }
+  },
+  "timedOut": false,
+  "pollMs": 300
+}

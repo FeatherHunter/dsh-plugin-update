@@ -1,0 +1,15 @@
+{
+  "hostChannel": "dsh-web",
+  "osHomeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040932\\os-home",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040932\\os-home\\.dsh",
+  "profileName": "t8i2",
+  "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040932\\os-home\\.dsh\\profiles\\t8i2",
+  "route": "/_dsh/selftest-fixture-a",
+  "phones": {
+    "checkPhone": "fxa-a.updateCheck",
+    "installPhone": "fxa-a.updateInstall",
+    "statusPhone": "fxa-a.updateStatus",
+    "buildTagPhone": "dsh-plugin-update-fixture-a.buildTag"
+  },
+  "why": "通道 B 宿主是普通 DSH web 进程：它 spawn 的 CLI 子进程会剥掉 DSH_* 并按 USERPROFILE 解析 homedir()/.dsh，所以 homeDir 必须正好是 USERPROFILE/.dsh；profile 名不能用 desktop（P1 探针实测 CLI 拒绝）。"
+}

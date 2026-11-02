@@ -1,0 +1,20 @@
+{
+  "entries": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040932\\os-home\\.dsh\\updates\\fxa-a\\aeea534cd20cbb2911bdd406\\state.json",
+      "pluginId": "fxa-a",
+      "state": {
+        "requestId": "i2-install-1793650197346",
+        "message": null,
+        "id": "82c4e8e0-688a-405b-a5c0-b48945a9ba4d",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      },
+      "corrupt": false
+    }
+  ],
+  "targetVersion": "0.0.2",
+  "targetEntries": 1,
+  "successEntries": 1
+}

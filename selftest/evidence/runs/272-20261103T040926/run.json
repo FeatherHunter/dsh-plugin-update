@@ -1,0 +1,467 @@
+{
+  "schemaVersion": 1,
+  "runId": "272-20261103T040926",
+  "ticket": "272",
+  "scenarioId": "i1-restart-enrollment-truth",
+  "hostChannel": "desktop-official",
+  "startedAt": "2026-11-02T20:09:26.704Z",
+  "finishedAt": "2026-11-02T20:13:39.222Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:\\dsh-plugin\\_wt263\\t8",
+    "branch": "impl/263-t8",
+    "head": "43f61497bd3cb94443d392d3cb3166e222163e66",
+    "hostChannel": "desktop-official"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040926\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "3502f4da6b9116c24b0e67a15a3b8dd96584b24d8a68afbaa273c1681d201efc",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:50590",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 3502f4da6b9116c2…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "08-assert",
+      "step": "隔离口径",
+      "what": "官方桌面实例使用仓库外隔离 home + 独立 --user-data-dir；registry 为本 run 本地 verdaccio",
+      "expected": "homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040926\\home；userDataDir=D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040926\\user-data-dir；profile=desktop",
+      "actual": "homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040926\\home；userDataDir=D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040926\\user-data-dir；profile=desktop",
+      "verdict": "pass"
+    },
+    {
+      "id": "10-assert",
+      "step": "首启桌面建隔离 profile",
+      "what": "launchDesktopApp 起来后等 profiles/desktop 目录出现",
+      "expected": "profiles/desktop 出现；实例 pid 可记",
+      "actual": "profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040926\\home\\profiles\\desktop；pid=65540",
+      "verdict": "pass"
+    },
+    {
+      "id": "13-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "15-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "17-assert",
+      "step": "更新前基版在盘且在册",
+      "what": "CLI 装 dsh-plugin-update-fixture-a@0.0.1 后读磁盘版本与 profile 清单（dependencies + dsh.profile.bundles）",
+      "expected": "磁盘=0.0.1；dependencies 有该包=0.0.1；bundles 含该包",
+      "actual": "磁盘=0.0.1；dependencies={\"dsh-plugin-update-fixture-a\":\"0.0.1\"}；bundles=[\"@deepseek-ai/dsh-base\",\"@deepseek-ai/dsh-web-app\",\"dsh-plugin-update-fixture-a\"]",
+      "verdict": "pass"
+    },
+    {
+      "id": "19-assert",
+      "step": "变体版本已发布",
+      "what": "本地 verdaccio 发布 dsh-plugin-update-fixture-a@0.0.2",
+      "expected": "dsh-plugin-update-fixture-a@0.0.2",
+      "actual": "dsh-plugin-update-fixture-a@0.0.2；injected=[]",
+      "verdict": "pass"
+    },
+    {
+      "id": "22-assert",
+      "step": "主实例面板加载基版",
+      "what": "等夹具卡片 + 更新面板从占位渲染成真实版本",
+      "expected": "panel.present=true；card.clientTag=client v0.0.1；card.hostTag=host v0.0.1",
+      "actual": "present=true；clientTag=client v0.0.1；hostTag=host v0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "25-assert",
+      "step": "真 UI 检查更新",
+      "what": "点面板「检查更新」后等版本条到 0.0.2 且安装按钮可点",
+      "expected": "versions[2]=0.0.2；install.disabled=false",
+      "actual": "versions=[\"0.0.1\",\"0.0.1\",\"0.0.2\"]；install={\"text\":\"安装版本 0.0.2\",\"disabled\":false}",
+      "verdict": "pass"
+    },
+    {
+      "id": "28-assert",
+      "step": "安装完成（磁盘版本）",
+      "what": "点真 UI「安装」后只轮询磁盘 node_modules 版本（安装窗内不依赖 UI）",
+      "expected": "磁盘版本=0.0.2",
+      "actual": "磁盘=0.0.2；耗时≈3555ms",
+      "verdict": "pass"
+    },
+    {
+      "id": "31-assert",
+      "step": "安装完成后面板如实反映「已生效」（不是写盘假绿）",
+      "what": "桌面管理器装完但用户没有手动重启：面板说「已是最新」时，页面运行标记必须真的是 0.0.2（client+host 两半都换）",
+      "expected": "banner 含「已是最新」；card.clientTag=client v0.0.2；card.hostTag=host v0.0.2；versions[0]=0.0.2",
+      "actual": "hit=已是最新；banner=\n定已是最新，无需更新。\n；clientTag=client v0.0.2；hostTag=host v0.0.2；versions=[\"0.0.2\",\"0.0.2\",\"未知\"]",
+      "verdict": "pass"
+    },
+    {
+      "id": "34-assert",
+      "step": "安装完成后面板没有假的「等重启」文案",
+      "what": "桌面管理器是 in-process 热换：装完后同一进程内已生效，横幅不应再说「重启宿主后生效」",
+      "expected": "banner 不含「重启宿主后生效」",
+      "actual": "banner=\n定已是最新，无需更新。\n",
+      "verdict": "pass"
+    },
+    {
+      "id": "43-assert",
+      "step": "安装执行恰一次（desktop-manager / 成功 / exit0）",
+      "what": "安装窗内 update.install.exec 行数、route、退出码、目标插件",
+      "expected": "exec 行数=1；route=desktop-manager；ok=true；exitCode=0；pluginId=fxa-a",
+      "actual": "exec=[{\"route\":\"desktop-manager\",\"ok\":true,\"exitCode\":0,\"durationMs\":3433,\"pluginId\":\"fxa-a\",\"ts\":1793650281041}]",
+      "verdict": "pass"
+    },
+    {
+      "id": "44-assert",
+      "step": "安装窗内没有进程级重启（无 host.start）",
+      "what": "用法：若宿主在安装时自重启，安装窗内会出现新的 host.start 行；没有就是同一进程热换",
+      "expected": "host.start 落在安装窗内的行数=0",
+      "actual": "count=0；全部 host.start ts=[1793650210005,1793650210006,1793650210007]",
+      "verdict": "pass"
+    },
+    {
+      "id": "46-assert",
+      "step": "台账恰一条成功终态（无重复/丢单）",
+      "what": "读 <home>/updates 下各级 state.json，按目标版本筛终态成功条目",
+      "expected": "targetVersion=0.0.2 的成功终态条目恰 1 条；previousVersion=0.0.1",
+      "actual": "条目数=1；[{\"id\":\"18e7b096-8b95-4bfa-b734-3adb0ea7eb79\",\"state\":\"restart-required\",\"targetVersion\":\"0.0.2\",\"message\":null,\"requestId\":\"rmvzp2bpj1vt6a\",\"previousVersion\":\"0.0.1\"}]",
+      "verdict": "pass"
+    },
+    {
+      "id": "49-assert",
+      "step": "真重启后仍是新版本（不是装成说生效、重启回退）",
+      "what": "停掉主实例、起全新宿主实例后读面板运行标记",
+      "expected": "card.clientTag=client v0.0.2；card.hostTag=host v0.0.2；versions[0]=0.0.2",
+      "actual": "clientTag=client v0.0.2；hostTag=host v0.0.2；versions=[\"0.0.2\",\"0.0.2\",\"未知\"]",
+      "verdict": "pass"
+    },
+    {
+      "id": "52-assert",
+      "step": "三面一致（清单 / 磁盘 / 运行）",
+      "what": "重启后 profile 清单 dependencies+在册名单、磁盘包版本、页面运行标记三处同版本",
+      "expected": "dependencies[dsh-plugin-update-fixture-a]=0.0.2；bundles 含该包；磁盘=0.0.2；运行=0.0.2",
+      "actual": "{\"manifestPath\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t8-272\\\\272-20261103T040926\\\\home\\\\profiles\\\\desktop\\\\package.json\",\"dependencies\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\"},\"bundles\":[\"@deepseek-ai/dsh-base\",\"@deepseek-ai/dsh-web-app\",\"dsh-plugin-update-fixture-a\"],\"diskVersion\":\"0.0.2\",\"runningClientTag\":\"client v0.0.2\",\"runningHostTag\":\"host v0.0.2\",\"runningVersion\":\"0.0.2\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "55-assert",
+      "step": "收尾清理（进程/端口无残留）",
+      "what": "停掉本 run 起过的桌面实例后按 pid 复核存活、按端口复核已释放",
+      "expected": "存活 pid 数=0；主实例端口已释放",
+      "actual": "alive=[]；ports=[{\"label\":\"desktop-main-port\",\"port\":50879,\"released\":true}]",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [
+    {
+      "id": "23-shot",
+      "step": "panel-old",
+      "what": "安装前官方桌面夹具卡片与更新面板（基版 0.0.1）",
+      "expected": "卡片显示 client v0.0.1 / host v0.0.1",
+      "actual": "visible",
+      "verdict": "pass",
+      "png": "shots\\23-shot.png",
+      "sidecar": "shots\\23-shot.json"
+    },
+    {
+      "id": "26-shot",
+      "step": "panel-checked",
+      "what": "检查更新后的官方桌面面板（可安装 0.0.2）",
+      "expected": "版本条显示 0.0.2 且安装按钮可点",
+      "actual": "visible",
+      "verdict": "pass",
+      "png": "shots\\26-shot.png",
+      "sidecar": "shots\\26-shot.json"
+    },
+    {
+      "id": "32-shot",
+      "step": "panel-after-install",
+      "what": "安装完成（未手动重启）时的官方桌面面板：\n定已是最新，无需更新。\n",
+      "expected": "已是最新，且卡片运行标记 client/host = 0.0.2",
+      "actual": "visible",
+      "verdict": "pass",
+      "png": "shots\\32-shot.png",
+      "sidecar": "shots\\32-shot.json"
+    },
+    {
+      "id": "50-shot",
+      "step": "panel-after-restart",
+      "what": "真重启后的官方桌面面板（0.0.2 仍生效）",
+      "expected": "卡片 client/host = 0.0.2",
+      "actual": "visible",
+      "verdict": "pass",
+      "png": "shots\\50-shot.png",
+      "sidecar": "shots\\50-shot.json"
+    }
+  ],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\07-isolation-facts.json"
+    },
+    {
+      "id": "09-desktop-first-launch",
+      "name": "desktop-first-launch",
+      "file": "raw\\09-desktop-first-launch.json"
+    },
+    {
+      "id": "11-desktop-stop-bootstrap",
+      "name": "desktop-stop-bootstrap",
+      "file": "raw\\11-desktop-stop-bootstrap.json"
+    },
+    {
+      "id": "12-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\12-install-baseline.json"
+    },
+    {
+      "id": "14-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\14-sut-installed-dist.json"
+    },
+    {
+      "id": "16-manifest-before",
+      "name": "manifest-before",
+      "file": "raw\\16-manifest-before.json"
+    },
+    {
+      "id": "18-fixture-published-variant",
+      "name": "fixture-published-variant",
+      "file": "raw\\18-fixture-published-variant.json"
+    },
+    {
+      "id": "20-desktop-main-launch",
+      "name": "desktop-main-launch",
+      "file": "raw\\20-desktop-main-launch.json"
+    },
+    {
+      "id": "21-panel-old",
+      "name": "panel-old",
+      "file": "raw\\21-panel-old.json"
+    },
+    {
+      "id": "24-panel-after-check",
+      "name": "panel-after-check",
+      "file": "raw\\24-panel-after-check.json"
+    },
+    {
+      "id": "27-disk-after-install",
+      "name": "disk-after-install",
+      "file": "raw\\27-disk-after-install.json"
+    },
+    {
+      "id": "29-ledger-terminal",
+      "name": "ledger-terminal",
+      "file": "raw\\29-ledger-terminal.json"
+    },
+    {
+      "id": "30-panel-banner-timeline",
+      "name": "panel-banner-timeline",
+      "file": "raw\\30-panel-banner-timeline.json"
+    },
+    {
+      "id": "33-manifest-after-install",
+      "name": "manifest-after-install",
+      "file": "raw\\33-manifest-after-install.json"
+    },
+    {
+      "id": "35-desktop-stop-main",
+      "name": "desktop-stop-main",
+      "file": "raw\\35-desktop-stop-main.json"
+    },
+    {
+      "id": "36-plugin-manager-operation-operation-kNd4kw",
+      "name": "plugin-manager-operation-operation-kNd4kw",
+      "file": "raw\\36-plugin-manager-operation-operation-kNd4kw.json"
+    },
+    {
+      "id": "37-plugin-manager-operation-operation-ROjbVE",
+      "name": "plugin-manager-operation-operation-ROjbVE",
+      "file": "raw\\37-plugin-manager-operation-operation-ROjbVE.json"
+    },
+    {
+      "id": "38-plugin-manager-operations",
+      "name": "plugin-manager-operations",
+      "file": "raw\\38-plugin-manager-operations.json"
+    },
+    {
+      "id": "39-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\39-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "40-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\40-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "41-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\41-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "42-no-restart-proof",
+      "name": "no-restart-proof",
+      "file": "raw\\42-no-restart-proof.json"
+    },
+    {
+      "id": "45-ledger-facts",
+      "name": "ledger-facts",
+      "file": "raw\\45-ledger-facts.json"
+    },
+    {
+      "id": "47-desktop-restart-launch",
+      "name": "desktop-restart-launch",
+      "file": "raw\\47-desktop-restart-launch.json"
+    },
+    {
+      "id": "48-panel-after-restart",
+      "name": "panel-after-restart",
+      "file": "raw\\48-panel-after-restart.json"
+    },
+    {
+      "id": "51-three-face-after-restart",
+      "name": "three-face-after-restart",
+      "file": "raw\\51-three-face-after-restart.json"
+    },
+    {
+      "id": "53-desktop-stop-restart",
+      "name": "desktop-stop-restart",
+      "file": "raw\\53-desktop-stop-restart.json"
+    },
+    {
+      "id": "54-cleanup-verify",
+      "name": "cleanup-verify",
+      "file": "raw\\54-cleanup-verify.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "desktop-bootstrap",
+        "pid": 65540,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-bootstrap-relaunched-65540",
+        "pid": 65540,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-bootstrap-relaunched-63804",
+        "pid": 63804,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-bootstrap-relaunched-68688",
+        "pid": 68688,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-bootstrap-relaunched-60536",
+        "pid": 60536,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-bootstrap-relaunched-81128",
+        "pid": 81128,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-main",
+        "pid": 87928,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-main",
+        "pid": 87928,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-restart",
+        "pid": 39236,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-restart",
+        "pid": 39236,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "desktop-main-port",
+        "port": 50879,
+        "released": true
+      },
+      {
+        "label": "registry",
+        "port": 50590,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:50590（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "本场景走官方桌面通道（in-process pluginManager）；面板/在册事实只有桌面宿主有。",
+      "i1 结论口径：desktop-manager 单插件安装是 in-process 热换（安装完成即同一宿主进程内 client+host 两半换到新版本，无 restart-required）；因此本格证明的是「面板说已是最新时运行标记真的是新版，且真重启后不回退」，不是「写盘等重启」。"
+    ]
+  },
+  "maintainerProfile": null,
+  "notes": [
+    "本地 registry：http://127.0.0.1:50590（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "本场景走官方桌面通道（in-process pluginManager）；面板/在册事实只有桌面宿主有。",
+    "i1 结论口径：desktop-manager 单插件安装是 in-process 热换（安装完成即同一宿主进程内 client+host 两半换到新版本，无 restart-required）；因此本格证明的是「面板说已是最新时运行标记真的是新版，且真重启后不回退」，不是「写盘等重启」。"
+  ]
+}

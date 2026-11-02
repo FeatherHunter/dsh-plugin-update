@@ -1,0 +1,18 @@
+{
+  "elapsedMs": 1018,
+  "entries": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T041611\\home\\updates\\fxa-a\\66c550a7ada49cf581190caf\\state.json",
+      "pluginId": "fxa-a",
+      "state": {
+        "requestId": "rmvzpao9570pjb",
+        "message": null,
+        "id": "14609145-bdfe-48dd-82d1-365cb4ce555c",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      },
+      "corrupt": false
+    }
+  ]
+}

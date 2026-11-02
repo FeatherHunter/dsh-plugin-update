@@ -1,0 +1,35 @@
+{
+  "execFacts": [
+    {
+      "route": "desktop-manager",
+      "ok": false,
+      "exitCode": null,
+      "durationMs": 13124,
+      "pluginId": "fxa-a",
+      "ts": 1793650526293
+    }
+  ],
+  "failFacts": [
+    {
+      "stage": "exec",
+      "reason": "timeout",
+      "code": "install-failed",
+      "ts": 1793650526296
+    }
+  ],
+  "timeoutFails": [
+    {
+      "stage": "exec",
+      "reason": "timeout",
+      "code": "install-failed",
+      "hostCodeHash": "none",
+      "check": "none",
+      "exitCode": null,
+      "observedVersion": null,
+      "intentHash": "a0ebce6c",
+      "traceId": "85545a8e470ddf17",
+      "spanId": "74c7aece",
+      "seq": 6
+    }
+  ]
+}
