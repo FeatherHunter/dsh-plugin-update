@@ -146,6 +146,49 @@ for (const scenario of SCENARIOS) {
   }
 }
 
+// 8.5) #274 K 组（全 UI 状态）的产物守护：CHANGELOG.md 真源、安装按钮、额外目标面板、autoResume。
+const k1 = SCENARIOS.find((scenario) => scenario.id === 'k-single-panel-happy')
+const k2 = SCENARIOS.find((scenario) => scenario.id === 'k-single-panel-failure')
+const k4 = SCENARIOS.find((scenario) => scenario.id === 'k-batch-resume')
+assert(k1 !== undefined && k2 !== undefined && k4 !== undefined, '#274 四条 K 场景声明都在 SCENARIOS 里')
+if (k1 === undefined || k2 === undefined || k4 === undefined) throw new Error('unreachable')
+const k1Variant = k1.variants.find((variant) => variant.slotKey === 'a')
+const k2Base = k2.install.find((step) => step.slotKey === 'a')
+if (k1Variant === undefined || k2Base === undefined) throw new Error('[fixtures 单测失败] K1 变体 / K2 基版缺失')
+const k1Plan = planFixturePackage(FIXTURE_SLOT_A, '0.0.2', SUT, k1Variant.effect)
+const changelogFile = sourceFileOf(k1Plan, 'changelog')
+assertEqual(changelogFile.path, 'CHANGELOG.md', 'K1 变体计划带 CHANGELOG.md 源文件')
+assert(changelogFile.content.includes('## [0.0.2] - 2026-11-03 [YANKED]'), 'CHANGELOG 标题含版本与 [YANKED] 标记')
+assert(changelogFile.content.includes('**BREAKING**'), 'CHANGELOG 含 BREAKING 条目（加粗前缀也要被识别）')
+assert(changelogFile.content.includes('https://example.com/changelog'), 'CHANGELOG 含裸 URL')
+assert(changelogFile.content.includes('`updateCheck`'), 'CHANGELOG 含行内 code')
+const kVersionHeadings = changelogFile.content.split('\n').filter((line) => line.startsWith('## [')).length
+assertEqual(kVersionHeadings, 107, 'CHANGELOG 有 107 个版本节（0.0.2 + 106 占位），越过 100 条版本节上限')
+assert(changelogFile.content.length < 64 * 1024, 'CHANGELOG 文本小于 64 KiB（真机取数不会被字节墙先截掉，版本节截断必可达）')
+assert(k1Plan.manifest.files.includes('CHANGELOG.md'), 'CHANGELOG.md 进了 package.json files 白名单')
+assert(k1Plan.expectedArtifacts.includes('CHANGELOG.md'), 'CHANGELOG.md 进了期望产物清单')
+const k1Client = sourceFileOf(k1Plan, 'client-source').content
+assert(k1Client.includes("require('dsh-plugin-update/install-button')"), 'K1 client 引入安装按钮挂件')
+assert(k1Client.includes('mountInstallButton'), 'K1 client 挂安装按钮')
+assert(k1Client.includes("const EXTRA_PLUGIN_ID = '" + FIXTURE_SLOT_C.packageName + "'"), 'K1 client 额外面板绑 C 的包名')
+assert(k1Client.includes('const EXTRA_PREFIX = ' + "'fxa-c'"), 'K1 client 额外面板用 fxa-c 前缀')
+const k2Plan = planFixturePackage(FIXTURE_SLOT_A, '0.0.1', SUT, k2Base.effect)
+const k2Client = sourceFileOf(k2Plan, 'client-source').content
+assert(k2Client.includes('mountInstallButton'), 'K2 client 也挂安装按钮（失败面需要按钮入口）')
+assert(!k2Client.includes('EXTRA_PLUGIN_ID'), 'K2 不挂额外目标面板（避免无关状态污染失败面）')
+const k4Variant = k4.variants.find((variant) => variant.slotKey === 'a')
+if (k4Variant === undefined) throw new Error('[fixtures 单测失败] K4 A 变体缺失')
+const k4Client = sourceFileOf(planFixturePackage(FIXTURE_SLOT_A, '0.0.2', SUT, k4Variant.effect), 'client-source').content
+assert(k4Client.includes('autoResume: false'), 'K4 A 变体的批量面板冻结自动续跑（autoResume: false）')
+const k4Base = k4.install.find((step) => step.slotKey === 'a')
+if (k4Base === undefined) throw new Error('[fixtures 单测失败] K4 A 基版缺失')
+const k4BaseClient = sourceFileOf(planFixturePackage(FIXTURE_SLOT_A, '0.0.1', SUT, k4Base.effect), 'client-source').content
+assert(k4BaseClient.includes('autoResume: false'), 'K4 A 基版也冻结自动续跑（换手时若 A 未更新，第二代加载的基版 client 同样不许自动续跑）')
+const k4Host = sourceFileOf(planFixturePackage(FIXTURE_SLOT_A, '0.0.2', SUT, k4Variant.effect), 'host-source').content
+assert(k4Host.includes('hub: false'), 'K4 A 变体 host half 关闭中枢孤儿接管（hub: false；否则第二代宿主装载即自动续跑，抢跑「继续」按钮）')
+const k4BaseHost = sourceFileOf(planFixturePackage(FIXTURE_SLOT_A, '0.0.1', SUT, k4Base.effect), 'host-source').content
+assert(!k4BaseHost.includes('hub: false'), 'K4 A 基版 host half 保持中枢缺省开（第一代由它发起批量并落下中枢方案）')
+
 // 9) 声明 ↔ 矩阵行不许脱节：每条场景 id 在 coverage-matrix.md 里都有一行（新增场景=加声明+加矩阵行）。
 const matrixPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'evidence', 'coverage-matrix.md')
 const matrix = readFileSync(matrixPath, 'utf8')

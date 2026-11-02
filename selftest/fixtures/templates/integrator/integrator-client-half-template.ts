@@ -51,6 +51,16 @@ export function renderIntegratorClientHalf(inputs: IntegratorClientHalfInputs): 
   const seatLineLiteral = effect.seatLine === '' ? 'null' : quote(effect.seatLine)
   const behaviorText = effect.hostBehavior === null ? '宿主行为 无（v1）' : '宿主行为 ' + effect.hostBehavior
   const batchMode = effect.ui === 'batch'
+  // #274 K 组：可选挂载分支（字段缺省时生成代码与旧产物一致，旧场景复跑不漂移）。
+  const extraTarget =
+    effect.extraSinglePanelTargetKey === undefined || slot.batch === null
+      ? null
+      : slot.batch.targets.find((target) => target.key === effect.extraSinglePanelTargetKey) ?? null
+  if (effect.extraSinglePanelTargetKey !== undefined && extraTarget === null) {
+    throw new Error('[fixtures] 席位 ' + slot.key + ' 的批量目标表里没有 ' + JSON.stringify(effect.extraSinglePanelTargetKey))
+  }
+  if (effect.installButton === true && batchMode) throw new Error('[fixtures] installButton 只支持 single 布局（#274）')
+  if (extraTarget !== null && batchMode) throw new Error('[fixtures] extraSinglePanelTargetKey 只支持 single 布局（#274）')
   const requires = batchMode
     ? [
         "const { mountUpdateBatchPanel, mountHubProgressDock } = require('dsh-plugin-update/panel-batch')",
@@ -59,22 +69,62 @@ export function renderIntegratorClientHalf(inputs: IntegratorClientHalfInputs): 
     : [
         "const { mountUpdatePanel } = require('dsh-plugin-update/panel')",
         "const { mountUpdateEntry } = require('dsh-plugin-update/entry')",
+        ...(effect.installButton === true ? ["const { mountInstallButton } = require('dsh-plugin-update/install-button')"] : []),
       ]
+  const buildTagEffectLines = [
+    '    let alive = true',
+    "    call(BUILD_TAG_PHONE, {}).then((reply: any) => {",
+    "      if (alive && reply && typeof reply.buildTag === 'string') setHostTag(reply.buildTag)",
+    "      if (alive && reply && 'behavior' in reply) setBehavior(typeof reply.behavior === 'string' ? reply.behavior : null)",
+    '    }).catch(() => {})',
+  ]
+  const batchPanelOptions =
+    "{ prefix: BATCH_PREFIX, call, mode: 'embedded', autoCheck: false, pollMs: 2000" +
+    (effect.batchAutoResume === undefined ? '' : ', autoResume: ' + (effect.batchAutoResume ? 'true' : 'false')) +
+    ' }'
+  const singleHostLines: string[] = [
+    "    const entryHost = document.createElement('div')",
+    "    const panelHost = document.createElement('div')",
+  ]
+  if (effect.installButton === true) singleHostLines.push("    const buttonHost = document.createElement('div')")
+  if (extraTarget !== null) singleHostLines.push("    const extraPanelHost = document.createElement('div')")
+  const appendedHosts = ['entryHost', 'panelHost']
+  if (effect.installButton === true) appendedHosts.push('buttonHost')
+  if (extraTarget !== null) appendedHosts.push('extraPanelHost')
+  singleHostLines.push(
+    '    element.append(' + appendedHosts.join(', ') + ')',
+    "    const entry = mountUpdateEntry(entryHost, { pluginId: PLUGIN_ID, prefix: PREFIX, call, variant: 'badge', openOn: 'always', autoCheck: 'never' })",
+    "    const panel = mountUpdatePanel(panelHost, { pluginId: PLUGIN_ID, prefix: PREFIX, call, mode: 'embedded', autoCheck: false, pollMs: 5000 })",
+  )
+  if (effect.installButton === true) {
+    singleHostLines.push("    const installButton = mountInstallButton(buttonHost, { pluginId: PLUGIN_ID, prefix: PREFIX, call, autoCheck: 'never', pollMs: 5000 })")
+  }
+  if (extraTarget !== null) {
+    singleHostLines.push(
+      '    const extraPanel = mountUpdatePanel(extraPanelHost, { pluginId: ' + quote(extraTarget.packageName) + ', prefix: ' + quote(extraTarget.prefix) + ", call, mode: 'embedded', autoCheck: false, pollMs: 5000 })",
+    )
+  }
+  singleHostLines.push(
+    ...buildTagEffectLines,
+    '    return () => {',
+    '      alive = false',
+    '      try { entry.unmount() } catch (error) {}',
+    '      try { panel.unmount() } catch (error) {}',
+  )
+  if (effect.installButton === true) singleHostLines.push('      try { installButton.unmount() } catch (error) {}')
+  if (extraTarget !== null) singleHostLines.push('      try { extraPanel.unmount() } catch (error) {}')
+  singleHostLines.push("      element.innerHTML = ''", '    }')
   const bodyLines = batchMode
     ? [
-        '    const entryHost = document.createElement(\'div\')',
-        '    const panelHost = document.createElement(\'div\')',
-        '    const dockHost = document.createElement(\'div\')',
-        '    dockHost.setAttribute(\'data-fixture-dock\', HUB_DOCK ? \'hub-dock\' : \'none\')',
+        "    const entryHost = document.createElement('div')",
+        "    const panelHost = document.createElement('div')",
+        "    const dockHost = document.createElement('div')",
+        "    dockHost.setAttribute('data-fixture-dock', HUB_DOCK ? 'hub-dock' : 'none')",
         '    element.append(entryHost, panelHost, dockHost)',
         "    const entry = mountUpdateBatchEntry(entryHost, { prefix: BATCH_PREFIX, call, variant: 'button', openOn: 'always', autoCheck: 'never' })",
-        "    const panel = mountUpdateBatchPanel(panelHost, { prefix: BATCH_PREFIX, call, mode: 'embedded', autoCheck: false, pollMs: 2000 })",
-        '    const dock = HUB_DOCK ? mountHubProgressDock(dockHost, { prefix: BATCH_PREFIX, call, title: \'更新进度\', mountAs: \'inline\', hideWhenIdle: false, pollMs: 1500 }) : null',
-        '    let alive = true',
-        '    call(BUILD_TAG_PHONE, {}).then((reply: any) => {',
-        "      if (alive && reply && typeof reply.buildTag === 'string') setHostTag(reply.buildTag)",
-        "      if (alive && reply && 'behavior' in reply) setBehavior(typeof reply.behavior === 'string' ? reply.behavior : null)",
-        '    }).catch(() => {})',
+        '    const panel = mountUpdateBatchPanel(panelHost, ' + batchPanelOptions + ')',
+        "    const dock = HUB_DOCK ? mountHubProgressDock(dockHost, { prefix: BATCH_PREFIX, call, title: '更新进度', mountAs: 'inline', hideWhenIdle: false, pollMs: 1500 }) : null",
+        ...buildTagEffectLines,
         '    return () => {',
         '      alive = false',
         '      try { entry.unmount() } catch (error) {}',
@@ -83,24 +133,7 @@ export function renderIntegratorClientHalf(inputs: IntegratorClientHalfInputs): 
         "      element.innerHTML = ''",
         '    }',
       ]
-    : [
-        '    const entryHost = document.createElement(\'div\')',
-        '    const panelHost = document.createElement(\'div\')',
-        '    element.append(entryHost, panelHost)',
-        "    const entry = mountUpdateEntry(entryHost, { pluginId: PLUGIN_ID, prefix: PREFIX, call, variant: 'badge', openOn: 'always', autoCheck: 'never' })",
-        "    const panel = mountUpdatePanel(panelHost, { pluginId: PLUGIN_ID, prefix: PREFIX, call, mode: 'embedded', autoCheck: false, pollMs: 5000 })",
-        '    let alive = true',
-        '    call(BUILD_TAG_PHONE, {}).then((reply: any) => {',
-        "      if (alive && reply && typeof reply.buildTag === 'string') setHostTag(reply.buildTag)",
-        "      if (alive && reply && 'behavior' in reply) setBehavior(typeof reply.behavior === 'string' ? reply.behavior : null)",
-        '    }).catch(() => {})',
-        '    return () => {',
-        '      alive = false',
-        '      try { entry.unmount() } catch (error) {}',
-        '      try { panel.unmount() } catch (error) {}',
-        "      element.innerHTML = ''",
-        '    }',
-      ]
+    : singleHostLines
   return [
     '// [TEST ONLY] 夹具 client half（#266 生成产物，勿手改；源模板 = selftest/fixtures/templates/integrator）',
     'declare function require(id: string): any',
@@ -122,6 +155,10 @@ export function renderIntegratorClientHalf(inputs: IntegratorClientHalfInputs): 
     'const SEAT_LINE = ' + seatLineLiteral,
     'const HOST_BEHAVIOR_TEXT = ' + quote(behaviorText),
     'const HUB_DOCK = ' + (effect.hubDock ? 'true' : 'false'),
+    ...(extraTarget === null ? [] : [
+      'const EXTRA_PLUGIN_ID = ' + quote(extraTarget.packageName),
+      'const EXTRA_PREFIX = ' + quote(extraTarget.prefix),
+    ]),
     '',
     'async function call(phone: string, args: any): Promise<any> {',
     '  const response = await fetch(ROUTE, {',

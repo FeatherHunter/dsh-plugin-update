@@ -215,6 +215,32 @@ export interface FixtureVariantEffect {
   readonly hostBehavior: string | null
   /** 卡片上是否显示批量席位行（'' = 不显示）。 */
   readonly seatLine: string
+  /**
+   * #274 K 组：single 布局下是否在面板同前缀再挂一颗「安装」按钮（mountInstallButton）。
+   * 缺省 false = 旧场景产物逐字不变。
+   */
+  readonly installButton?: boolean
+  /**
+   * #274 K 组：single 布局下额外挂一个单包面板，绑批量目标表里的这个 key（K1 的「未安装」面板）。
+   * 只对集成方且 ui='single' 有意义；缺省不挂。
+   */
+  readonly extraSinglePanelTargetKey?: string
+  /**
+   * #274 K 组：batch 布局把 autoResume 传给 mountUpdateBatchPanel（K4 传 false 冻结自动续跑，
+   * 让「继续上次未完成的更新」按钮稳定可拍）。缺省不传 = 产品缺省行为。
+   */
+  readonly batchAutoResume?: boolean
+  /**
+   * #274 K 组：batch 布局的 host half 是否给 createMultiHostUpdate 传 hub:false（K4 第二代传 false）。
+   * 关掉中枢的「装载即孤儿接管」——否则宿主一启动就自动续跑，面板「继续上次未完成的更新」按钮被抢跑，
+   * 续跑 UI 态不可拍、也不证明用户点击驱动。缺省不传 = 产品缺省（中枢开）。
+   */
+  readonly batchHub?: boolean
+  /**
+   * #274 K 组：非空时生成夹具包的 CHANGELOG.md，并列入 manifest.files（K1 changelog 态真源）。
+   * 缺省 undefined = 不生成该文件（旧场景产物逐字不变）。
+   */
+  readonly changelogMarkdown?: string
 }
 
 /** T1 默认效果：单面板、变体版标题加「（新版）」（保持 T1 场景 A 复跑行为不变）。 */

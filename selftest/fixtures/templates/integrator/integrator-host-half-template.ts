@@ -109,6 +109,7 @@ export function renderIntegratorHostHalf(inputs: IntegratorHostHalfInputs): stri
     '    selfKey: ' + quote(batch.selfKey) + ',',
     '    selfOrder: ' + quote(batch.selfOrder) + ',',
     '    drain: false,',
+    ...(effect.batchHub === undefined ? [] : ['    hub: ' + (effect.batchHub ? 'true' : 'false') + ',']),
     '    targets: [',
     targetLines,
     '    ],',
