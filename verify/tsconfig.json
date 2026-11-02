@@ -9,7 +9,15 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": []
+    "types": [],
+    // 场景文件要被 base 的 run 直接 import（Node 原生跑 .ts），所以 import 里带 .ts 扩展名。
+    "allowImportingTsExtensions": true
   },
-  "include": ["profile.ts"]
+  // 场景复用 selftest/real-machine/base-verify 的 UI driver；ambient 声明跟着一起编。
+  "include": [
+    "profile.ts",
+    "scenarios/**/*.ts",
+    "../selftest/tooling/node-ambient.d.ts",
+    "../selftest/real-machine/base-verify/node-ambient.d.ts"
+  ]
 }
