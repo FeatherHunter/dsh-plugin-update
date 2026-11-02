@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:57482/?token=lhdrRlBT5i0c8EW26DK3LkS-v57PZbsFkhRZ_IraN8o",
+  "port": 57482,
+  "pid": 71556,
+  "bootMs": 3054,
+  "profileName": "t7hub",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015237\\os-home\\.dsh",
+  "stdoutTail": "dsh web: http://127.0.0.1:57482/?token=lhdrRlBT5i0c8EW26DK3LkS-v57PZbsFkhRZ_IraN8o\n",
+  "stderrTail": ""
+}

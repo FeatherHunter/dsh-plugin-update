@@ -1,0 +1,22 @@
+{
+  "tag": "after-handoff",
+  "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015124\\os-home\\.dsh\\profiles\\t7hub",
+  "manifestParseError": null,
+  "dependencies": {
+    "a": "0.0.2",
+    "b": "0.0.2",
+    "c": "0.0.2"
+  },
+  "nodeModules": {
+    "a": "0.0.2",
+    "b": "0.0.2",
+    "c": "0.0.2"
+  },
+  "bundles": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-web-app",
+    "dsh-plugin-update-fixture-a",
+    "dsh-plugin-update-fixture-b",
+    "dsh-plugin-update-fixture-c"
+  ]
+}

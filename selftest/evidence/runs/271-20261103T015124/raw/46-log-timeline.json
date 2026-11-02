@@ -1,0 +1,129 @@
+{
+  "eventCounts": {
+    "host.start": 10,
+    "update.wire.ready": 10,
+    "update.status.changed": 17,
+    "update.check.done": 22,
+    "host.call": 51,
+    "update.batch.entry.request": 1,
+    "update.batch.run.start": 2,
+    "update.queue.transition": 20,
+    "update.install.fail": 31,
+    "host.call.fail": 31,
+    "update.install.request": 4,
+    "update.install.retry": 3,
+    "update.install.exec": 3,
+    "update.install.verify": 4,
+    "update.lock.anomaly": 3
+  },
+  "hostStartRows": [
+    {
+      "ts": 1793641908143,
+      "pid": 71848,
+      "hostKind": null
+    },
+    {
+      "ts": 1793641908146,
+      "pid": 71848,
+      "hostKind": null
+    },
+    {
+      "ts": 1793641908147,
+      "pid": 71848,
+      "hostKind": null
+    },
+    {
+      "ts": 1793641908147,
+      "pid": 71848,
+      "hostKind": null
+    },
+    {
+      "ts": 1793641908147,
+      "pid": 71848,
+      "hostKind": null
+    },
+    {
+      "ts": 1793641914345,
+      "pid": 54096,
+      "hostKind": null
+    },
+    {
+      "ts": 1793641914347,
+      "pid": 54096,
+      "hostKind": null
+    },
+    {
+      "ts": 1793641914348,
+      "pid": 54096,
+      "hostKind": null
+    },
+    {
+      "ts": 1793641914348,
+      "pid": 54096,
+      "hostKind": null
+    },
+    {
+      "ts": 1793641914348,
+      "pid": 54096,
+      "hostKind": null
+    }
+  ],
+  "host2StartTs": 1793641914345,
+  "batchRunStart": [
+    {
+      "ts": 1793641908692,
+      "trigger": "entry",
+      "resumed": false,
+      "total": 3
+    },
+    {
+      "ts": 1793641914710,
+      "trigger": "resume",
+      "resumed": true,
+      "total": 3
+    }
+  ],
+  "gateRefusedCount": 31,
+  "gateRefusedFirst": {
+    "ts": 1793641908754,
+    "stage": "gate",
+    "code": "check-expired"
+  },
+  "gateRefusedLast": {
+    "ts": 1793641944354,
+    "stage": "gate",
+    "code": "update-busy"
+  },
+  "execFailures": [],
+  "execA": [
+    {
+      "ts": 1793641910667,
+      "pluginId": "fxa-a",
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 1567
+    }
+  ],
+  "execB": [
+    {
+      "ts": 1793641947379,
+      "pluginId": "fxa-b",
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 1951
+    }
+  ],
+  "execC": [
+    {
+      "ts": 1793641949128,
+      "pluginId": "fxa-c",
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 1553
+    }
+  ],
+  "parseNote": "raw 行保留 ts；readLogEvents 丢 ts，但 raw 拷回原文可解析。"
+}

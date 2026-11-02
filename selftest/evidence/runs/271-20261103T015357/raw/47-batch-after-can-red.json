@@ -1,0 +1,1307 @@
+{
+  "batch": {
+    "version": 1,
+    "id": "mvzk670t-51nurbhq9z",
+    "selfKey": "a",
+    "stopOnFailure": false,
+    "order": [
+      "a",
+      "b",
+      "c"
+    ],
+    "entries": [
+      {
+        "key": "a",
+        "phase": "done",
+        "requestId": "batch:mvzk670t-51nurbhq9z:a",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793642062610
+      },
+      {
+        "key": "b",
+        "phase": "installing",
+        "requestId": "batch:mvzk670t-51nurbhq9z:b",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793642062619
+      },
+      {
+        "key": "c",
+        "phase": "ready",
+        "requestId": "batch:mvzk670t-51nurbhq9z:c",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793642060076
+      }
+    ],
+    "createdAt": 1793642060045,
+    "updatedAt": 1793642062619
+  },
+  "elapsedMs": 45134,
+  "samples": [
+    {
+      "t": 1793642066013,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642066515,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642067015,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642067517,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642068017,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642068519,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642069019,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642069520,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642070021,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642070522,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642071022,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642071522,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642072023,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642072524,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642073024,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642073526,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642074026,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642074529,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642075029,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642075530,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642076031,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642076532,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642077032,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642077533,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642078034,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642078535,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642079036,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642079539,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642080039,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642080540,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642081041,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642081543,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642082045,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642082545,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642083050,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642083551,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642084052,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642084553,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642085054,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642085555,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642086056,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642086565,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642087078,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642087581,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642088083,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642088583,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642089085,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642089585,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642090086,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642090588,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642091090,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642091593,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642092094,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642092595,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642093096,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642093597,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642094098,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642094600,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642095102,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642095604,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642096105,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642096605,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642097106,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642097607,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642098108,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642098611,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642099112,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642099613,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642100114,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642100617,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642101118,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642101618,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642102119,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642102620,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642103121,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642103621,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642104122,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642104625,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642105126,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642105627,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642106127,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642106630,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642107131,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642107631,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642108134,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642108635,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642109138,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642109642,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642110143,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    },
+    {
+      "t": 1793642110644,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 95900,
+        "generation": 1,
+        "driverId": "dsh-hub:95900:en8jvtq9zd",
+        "heartbeatAt": 1793642060079
+      }
+    }
+  ]
+}
