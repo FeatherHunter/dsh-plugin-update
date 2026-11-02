@@ -9,9 +9,20 @@
  *   - 变体效果确实改变产物（UI/行为），不是只改版本号；
  *   - 每条场景 id 在 coverage-matrix.md 里都有对应的矩阵行（加场景=加声明+加矩阵行，两边不许脱节）。
  */
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { DEFAULT_LOCAL_ONLY_PACKAGES, normalizeLocalOnlyPackages, renderVerdaccioConfig } from '../release/verdaccio-runtime.ts'
+import {
+  compareVersionStrings,
+  defaultMirrorCacheDir,
+  highestVersion,
+  mirrorCacheFileName,
+  parseNpmViewVersion,
+  readResolvedCache,
+  writeResolvedCacheEntry,
+} from '../release/npmjs-mirror.ts'
 import { FIXTURE_SLOT_A, FIXTURE_SLOT_B, FIXTURE_SLOT_C, FIXTURE_SLOT_PACKAGE_NAMES } from '../identity/fixture-slots.ts'
 import { SCENARIOS } from '../identity/scenario-declarations.ts'
 import { planFixturePackage, sourceFileOf } from './fixture-package-plan.ts'
@@ -144,6 +155,73 @@ for (const scenario of SCENARIOS) {
 // 反向：b/c 两行属于本票（矩阵行的 id 必须出现在声明里，防止矩阵写了场景但没实现声明）。
 for (const id of ['b-batch-two-integrators', 'c-pure-target-no-wiring']) {
   assert(SCENARIOS.some((scenario) => scenario.id === id), '矩阵行 ' + id + ' 有对应场景声明')
+}
+
+// 10) npmjs 运行时依赖镜像（#269 环境非确定性修复）的纯函数口径：
+//     SUT 依赖包在 run 的 verdaccio 里必须「不吃上游」，缓存解析要能容错。
+const storageDir = join('D:', 'runtime', 'x', 'verdaccio', 'storage')
+const htpasswdFile = join('D:', 'runtime', 'x', 'verdaccio', 'htpasswd')
+const baseConfig = renderVerdaccioConfig({ storageDir, htpasswdFile })
+assert(baseConfig.includes("'dsh-plugin-update':"), '缺省配置含 SUT 本地规则')
+assert(baseConfig.includes("'dsh-plugin-update-fixture-*':"), '缺省配置含夹具本地规则')
+assert(baseConfig.includes('proxy: npmjs'), '缺省配置对通配包保留 npmjs 上游')
+assert(!baseConfig.includes("'dsh-log':"), '缺省配置不含镜像依赖规则（由调用方追加）')
+assertEqual(JSON.stringify(normalizeLocalOnlyPackages(undefined)), JSON.stringify(DEFAULT_LOCAL_ONLY_PACKAGES), '缺省本地规则列表稳定')
+
+const mirrorConfig = renderVerdaccioConfig({
+  storageDir,
+  htpasswdFile,
+  localOnlyPackages: ['dsh-plugin-update', 'dsh-plugin-update-fixture-*', 'dsh-log', 'dsh-log'],
+})
+assertEqual((mirrorConfig.match(/'dsh-log':/g) || []).length, 1, '镜像包规则去重')
+const dshLogRule = mirrorConfig.slice(mirrorConfig.indexOf("'dsh-log':"), mirrorConfig.indexOf("'**':"))
+assert(!dshLogRule.includes('proxy'), '镜像包规则不吃 npmjs 上游（避免同名同版本 409）')
+assert(dshLogRule.includes('publish: $all'), '镜像包规则允许本地发布')
+// 注意 YAML 形状：包名被引号包住，冒号在引号外（"'<包名>':"）。
+const ruleOrder = ['dsh-plugin-update', 'dsh-plugin-update-fixture-*', 'dsh-log', '**'].map((key) => mirrorConfig.indexOf("'" + key + "':"))
+assert(ruleOrder[0] >= 0 && ruleOrder[0] < ruleOrder[1] && ruleOrder[1] < ruleOrder[2] && ruleOrder[2] < ruleOrder[3], '本地规则在通配规则之前且保持给定顺序')
+
+assertEqual(parseNpmViewVersion('"0.3.5"'), '0.3.5', 'npm view 单版本')
+assertEqual(parseNpmViewVersion('["0.3.4", "0.3.10", "0.3.5"]'), '0.3.10', 'npm view 多版本取最高（按数字比较，不是字典序）')
+assertEqual(highestVersion(['0.3.4', '0.3.10', '0.3.5']), '0.3.10', 'highestVersion 按数字比较')
+assert(compareVersionStrings('0.3.5', '0.3.10') < 0, '0.3.5 < 0.3.10')
+assert(compareVersionStrings('1.0.0-beta.1', '1.0.0') < 0, '预发布版本低于正式版')
+let npmViewParseThrew = false
+try {
+  parseNpmViewVersion('not-json')
+} catch (error) {
+  npmViewParseThrew = true
+}
+assert(npmViewParseThrew, 'npm view 输出不是 JSON 时抛错（错误留在环境层，不静默）')
+assertEqual(mirrorCacheFileName('dsh-log', '0.3.5'), 'dsh-log-0.3.5.tgz', '普通包缓存文件名')
+assertEqual(mirrorCacheFileName('@scope/pkg', '1.2.3'), 'scope__pkg-1.2.3.tgz', '作用域包缓存文件名展平')
+assertEqual(defaultMirrorCacheDir(join('D:', 'runtime', 'tools', 'verdaccio')), join('D:', 'runtime', 'tools', 'npmjs-mirror'), '镜像缓存目录与 verdaccio 安装目录同级')
+
+const cacheTmpDir = mkdtempSync(join(tmpdir(), 'dsh-npmjs-mirror-test-'))
+try {
+  const resolvedFile = join(cacheTmpDir, 'resolved.json')
+  assertEqual(Object.keys(await readResolvedCache(resolvedFile)).length, 0, 'resolved.json 缺失当空缓存')
+  writeFileSync(resolvedFile, '{ not valid json')
+  assertEqual(Object.keys(await readResolvedCache(resolvedFile)).length, 0, 'resolved.json 坏 JSON 当空缓存（重新联网解析）')
+  writeFileSync(
+    resolvedFile,
+    JSON.stringify({
+      'dsh-log': { version: '0.3.5', range: '^0.3.4', sha256: 'abc' },
+      bad: { version: 3 },
+      num: 1,
+    }),
+  )
+  const cache = await readResolvedCache(resolvedFile)
+  const dshLogEntry = cache['dsh-log']
+  assertEqual(dshLogEntry ? dshLogEntry.version : null, '0.3.5', 'resolved.json 有效条目可读')
+  assertEqual(cache['bad'], undefined, '形状不对的条目被丢弃')
+  assertEqual(cache['num'], undefined, '非对象条目被丢弃')
+  await writeResolvedCacheEntry(resolvedFile, 'x', { version: '1.0.0', range: '^1.0.0' })
+  const merged = JSON.parse(readFileSync(resolvedFile, 'utf8')) as Record<string, { version?: string }>
+  assertEqual(merged['dsh-log'] ? merged['dsh-log'].version : null, '0.3.5', '写缓存时保留已有条目')
+  assertEqual(merged['x'] ? merged['x'].version : null, '1.0.0', '写缓存时并入新条目')
+} finally {
+  rmSync(cacheTmpDir, { recursive: true, force: true })
 }
 
 console.log('fixture-package-plan.test: OK（' + checked + ' 条断言）')

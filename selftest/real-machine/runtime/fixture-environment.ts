@@ -16,6 +16,9 @@ import type { SutPin } from '../../fixtures/release/sut-pin.ts'
 import { pinSutForRegistry } from '../../fixtures/release/sut-pin.ts'
 import type { PublishedFixture } from '../../fixtures/release/fixture-publisher.ts'
 import { publishFixtureVersion } from '../../fixtures/release/fixture-publisher.ts'
+import type { NpmjsMirrorFacts, NpmjsMirrorPlan } from '../../fixtures/release/npmjs-mirror.ts'
+import { defaultMirrorCacheDir, publishNpmjsMirror, resolveNpmjsMirror } from '../../fixtures/release/npmjs-mirror.ts'
+import { DEFAULT_LOCAL_ONLY_PACKAGES } from '../../fixtures/release/verdaccio-runtime.ts'
 import type { CommandResult } from '../../tooling/process.ts'
 
 /** 起环境入参。 */
@@ -27,6 +30,8 @@ export interface FixtureEnvironmentOptions {
   readonly sutRoot: string
   /** esbuild 平台二进制路径。 */
   readonly esbuildPath: string
+  /** npmjs 依赖镜像缓存目录（缺省：与 verdaccio 共享安装目录同级，即 runtime/tools/npmjs-mirror）。 */
+  readonly mirrorCacheDir?: string
 }
 
 /** 已就绪的夹具环境。 */
@@ -36,6 +41,8 @@ export interface FixtureEnvironment {
   readonly sut: SutPin
   /** SUT 依赖声明（夹具 package.json 里钉的版本）。 */
   readonly sutDependency: FixtureSutDependency
+  /** npmjs 运行时依赖镜像事实（本次 run 的 registry 里已发布，装夹具不再回源 npmjs）。 */
+  readonly npmjsMirror: NpmjsMirrorFacts
   /** 已发布过的夹具版本（键：席位@版本；重复调用复用，不重复发布——verdaccio 不允许同名版本覆盖）。 */
   published(): PublishedFixture[]
   /** 发布夹具版本；options.staleContentVersion 用于 can-red 故障注入（版本号新、内容旧），不进缓存。 */
@@ -45,19 +52,32 @@ export interface FixtureEnvironment {
   stop(): Promise<void>
 }
 
-/** 起 registry → 钉 SUT（不预发夹具；夹具按场景需要再发）。 */
+/**
+ * 起 registry → 钉 SUT → 发布 npmjs 依赖镜像（不预发夹具；夹具按场景需要再发）。
+ *
+ * 镜像顺序有依赖：必须先解析镜像包名（决定 verdaccio 哪些包「不吃上游」），再起 registry；
+ * 而镜像发布要等 registry 起来、且在 SUT 钉版之后、任何夹具发布/安装之前完成。
+ */
 export async function createFixtureEnvironment(options: FixtureEnvironmentOptions): Promise<FixtureEnvironment> {
+  const mirrorCacheDir = options.mirrorCacheDir || defaultMirrorCacheDir(options.verdaccioInstallDir)
+  const mirrorPlan: NpmjsMirrorPlan = await resolveNpmjsMirror({ sutRoot: options.sutRoot, cacheDir: mirrorCacheDir })
   const registry = await startLocalRegistry({
     installDir: options.verdaccioInstallDir,
     runDir: options.layout.registryDir,
     user: 'selftest-publisher',
     password: 'selftest-publisher-password',
     email: 'selftest-publisher@selftest.invalid',
+    localOnlyPackages: [...DEFAULT_LOCAL_ONLY_PACKAGES, ...mirrorPlan.dependencies.map((dependency) => dependency.name)],
   })
   try {
     const sut = await pinSutForRegistry({
       sutRoot: options.sutRoot,
       packDir: options.layout.packDir,
+      registryUrl: registry.baseUrl,
+      npmrcPath: registry.npmrcPath,
+    })
+    const npmjsMirror = await publishNpmjsMirror({
+      plan: mirrorPlan,
       registryUrl: registry.baseUrl,
       npmrcPath: registry.npmrcPath,
     })
@@ -91,6 +111,7 @@ export async function createFixtureEnvironment(options: FixtureEnvironmentOption
       registry,
       sut,
       sutDependency: { name: sut.name, version: sut.version },
+      npmjsMirror,
       published: () => published.slice(),
       publish,
       registryOutput: () => ({ stdout: registry.stdout(), stderr: registry.stderr() }),

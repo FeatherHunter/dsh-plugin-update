@@ -93,15 +93,16 @@ export function publishPackageDirectory(options: {
   )
 }
 
-/** 发布一个已有 tarball（SUT 钉版用）。 */
+/** 发布一个已有 tarball（SUT 钉版 / npmjs 镜像用）。extraArgs 用它传 --ignore-scripts 等附加参数。 */
 export function publishTarball(options: {
   tarball: string
   cwd: string
   registryUrl: string
   npmrcPath: string
+  readonly extraArgs?: readonly string[]
 }): NpmRunResult {
   return runNpm(
-    ['publish', options.tarball, '--registry=' + options.registryUrl + '/', '--userconfig=' + options.npmrcPath],
+    ['publish', options.tarball, ...(options.extraArgs || []), '--registry=' + options.registryUrl + '/', '--userconfig=' + options.npmrcPath],
     { cwd: options.cwd },
   )
 }
