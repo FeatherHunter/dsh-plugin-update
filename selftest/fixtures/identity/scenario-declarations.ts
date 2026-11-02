@@ -577,6 +577,74 @@ export const SCENARIO_G7_HUB_HANDOFF_EVIDENCE: ScenarioDeclaration = {
   ],
 }
 
+/**
+ * T8（#272）组 H/I：在册沉降与拓扑补偿。
+ *
+ * 三条声明共用同一套基版/变体（A@0.0.1 → A@0.0.2，单面板效果）；差别只在观测面与故障注入：
+ *   - i1：更新装成后「未重启」与「重启后」两侧的在册事实（manifest.dsh.profile.bundles）、磁盘版本、
+ *     运行中 DOM 三面必须一致（restart-required 不能说成已生效，也不能谎报未在册）；
+ *   - i2：装成但把插件从在册名单里摘掉 → 面板必须说「重启也不会加载」并给出下一步；真正重启后
+ *     确实不加载（不是假绿），按文案在宿主插件页重新选中/等价路径恢复登记后重启才加载；
+ *   - i3：桌面管理器 remove→install 两步里，把已装包文件加独占锁并压 installTimeoutMs → 移除步超时，
+ *     三档补偿文案（已恢复在册 / 恢复未成功 / 无法确认）必须与 manifest 真实在册事实一致。
+ * can-red 复用 i1（stale-variant：版本号新、内容旧，重启后运行内容仍旧版应真红）。
+ */
+const I_ENROLLMENT_INSTALL: readonly ScenarioInstallStep[] = [{ slotKey: 'a', version: '0.0.1', effect: legacySingleEffectOf('0.0.1') }]
+const I_ENROLLMENT_VARIANTS: readonly FixtureVariantDeclaration[] = [
+  { slotKey: 'a', version: '0.0.2', changeClasses: ['ui', 'metadata'], effect: legacySingleEffectOf('0.0.2') },
+]
+
+/** I1 重启在册真话：官方桌面 in-process 热换（装完即同进程生效、无 host.start），真重启后不回退。 */
+export const SCENARIO_I1_RESTART_ENROLLMENT_TRUTH: ScenarioDeclaration = {
+  id: 'i1-restart-enrollment-truth',
+  ticket: '272',
+  hostChannel: 'desktop-official',
+  summary: '官方桌面把 A@0.0.1 更新到 0.0.2：desktop-manager 是 in-process 热换——装完即同一宿主进程内加载 0.0.2（面板「已是最新」、卡片 client/host v0.0.2），安装窗内无 host.start；再真重启（关宿主起新实例）断言不回退，磁盘/profile 清单（dependencies+在册名单）/DOM 三面一致，台账恰一条成功',
+  install: I_ENROLLMENT_INSTALL,
+  variants: I_ENROLLMENT_VARIANTS,
+  expected: [
+    '装完未手动重启即生效：面板 banner 命中「已是最新」、卡片 clientTag/hostTag=client/host v0.0.2、版本条 0.0.2（in-process 热换，不假说「重启后生效」）',
+    '安装窗内无进程级重启：update.install.exec 恰 1 行 route=desktop-manager ok=true exitCode=0；同一窗口 host.start 行数=0',
+    '真重启后不回退：新实例仍 client/host v0.0.2、版本条 0.0.2；磁盘包版本 0.0.2 且 profile 清单 dependencies/在册名单都含夹具 A',
+    '台账恰一条成功终态（target 0.0.2/previous 0.0.1），无重复成功、无第二条 0.0.2 安装',
+    '截图留证：旧版面板/检查后可更新/安装后已是最新/重启后仍新版，每图同六字段 sidecar',
+  ],
+}
+
+/** I2 未在册诚实（A-prime，通道 B）：真安装后未重启不假称生效 → 摘出使用范围后真重启确实不加载 → 写回后真重启才加载。 */
+export const SCENARIO_I2_UNREGISTERED_HONESTY: ScenarioDeclaration = {
+  id: 'i2-unregistered-honesty',
+  ticket: '272',
+  hostChannel: 'dsh-web',
+  summary: '通道 B（普通 DSH web 宿主；官方桌面独占 desktop profile 故用非 desktop profile）真安装 A@0.0.1→0.0.2：安装瞬间 verify 行报 restart-required/pendingRestart=true，未重启时磁盘 0.0.2 而宿主进程 buildTag 仍基版（不热换）；把 A 摘出使用范围清单后真重启确实不加载（buildTag 电话不可达），写回清单后真重启才加载 0.0.2；台账恰一条成功',
+  install: I_ENROLLMENT_INSTALL,
+  variants: I_ENROLLMENT_VARIANTS,
+  expected: [
+    '真安装恰一次走 cli-process 出口：update.install.exec 恰 1 行 route=cli-process ok=true exitCode=0；安装瞬间 update.install.verify 行 result=restart-required/pendingRestart=true（不假称已生效）',
+    '未重启：磁盘=0.0.2 而宿主进程 buildTag 仍 host v0.0.1（不热换）；updateStatus 若按磁盘解析宣称 completed 则如实记为产品真相边界（known-red，需集成方注入 ReaderOverrides.runningVersion）',
+    '摘出使用范围清单后真重启：夹具 buildTag 电话不可达（确实不加载），宿主页面仍正常 200；清单前后原文入 raw',
+    '写回清单后真重启：buildTag=host v0.0.2、磁盘 0.0.2、runningVersion=0.0.2 三面一致；fresh updateCheck canInstall=false',
+    '台账恰一条成功终态（target 0.0.2/previous 0.0.1），profile 清单可解析无半写',
+  ],
+}
+
+/** I3 拓扑补偿：桌面管理器移除步超时（文件被独占锁）→ 三档补偿文案必须与在册事实一致。 */
+export const SCENARIO_I3_TOPOLOGY_COMPENSATION: ScenarioDeclaration = {
+  id: 'i3-topology-compensation',
+  ticket: '272',
+  hostChannel: 'desktop-official',
+  summary: '官方桌面更新 A@0.0.1→0.0.2 时对已装包文件加独占锁并把宿主安装预算压到 4s：管理器移除步超时，台账/面板的失败人话格必须给出移除超时事实 + 三档补偿之一（已恢复在册/恢复未成功/无法确认），且文案与 manifest 真实在册事实一致，不谎报已恢复',
+  install: I_ENROLLMENT_INSTALL,
+  variants: I_ENROLLMENT_VARIANTS,
+  expected: [
+    '安装失败定局：台账 state=failed、message 含「移除已装包超时，未继续安装」+ 载体命令；exec route=desktop-manager ok=false；fail stage=exec reason=timeout',
+    '补偿文案恰命中三档之一（「本次已恢复在册」/「恢复在册未成功」/「无法确认…也未能恢复在册」），且「已恢复在册」⇔ manifest.dsh.profile.bundles 实际含夹具 A',
+    '失败后面板与既有事实对齐：面板若随提供者消失则如实记录页面原文/present=false，不伪造 DOM；磁盘包目录存在性、dependencies、在册名单逐项记录',
+    '失败后释放锁并按人话格载体命令真机重装，重启后运行 0.0.2、在册名单含夹具 A、磁盘一致（可恢复性）',
+    '截图留证：锁注入前/安装失败后台账或面板/释放锁重装后重启加载 0.0.2，每图同六字段 sidecar',
+  ],
+}
+
 /** 全部场景声明（矩阵行 id 一一对应）。 */
 export const SCENARIOS: readonly ScenarioDeclaration[] = [
   SCENARIO_A_SINGLE_PACKAGE,
@@ -601,6 +669,9 @@ export const SCENARIOS: readonly ScenarioDeclaration[] = [
   SCENARIO_H2_QUEUE_LOCK_STALE_RECLAIM,
   SCENARIO_G6_HUB_SELF_REPLACEMENT,
   SCENARIO_G7_HUB_HANDOFF_EVIDENCE,
+  SCENARIO_I1_RESTART_ENROLLMENT_TRUTH,
+  SCENARIO_I2_UNREGISTERED_HONESTY,
+  SCENARIO_I3_TOPOLOGY_COMPENSATION,
 ]
 
 /** 按 id 取场景（未知 id 立刻抛，避免证据跑错场景却记为另一个）。 */
