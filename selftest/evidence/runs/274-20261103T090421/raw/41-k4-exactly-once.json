@@ -1,0 +1,144 @@
+{
+  "exec": {
+    "a": [
+      {
+        "event": "update.install.exec",
+        "level": "info",
+        "fields": {
+          "route": "cli-process",
+          "ok": true,
+          "exitCode": 0,
+          "durationMs": 16125,
+          "pluginId": "fxa-a",
+          "traceId": "6a7c817d305b7e98",
+          "spanId": "f3c09747",
+          "seq": 4
+        },
+        "source": "fxa-a/2026-11-03.log",
+        "line": 18
+      }
+    ],
+    "b": [
+      {
+        "event": "update.install.exec",
+        "level": "info",
+        "fields": {
+          "route": "cli-process",
+          "ok": true,
+          "exitCode": 0,
+          "durationMs": 7117,
+          "pluginId": "fxa-b",
+          "traceId": "3837c88b4ec118dd",
+          "spanId": "81a5ab8a",
+          "seq": 4
+        },
+        "source": "fxa-b/2026-11-03.log",
+        "line": 23
+      }
+    ],
+    "c": [
+      {
+        "event": "update.install.exec",
+        "level": "info",
+        "fields": {
+          "route": "cli-process",
+          "ok": false,
+          "exitCode": 1,
+          "durationMs": 83110,
+          "pluginId": "fxa-c",
+          "traceId": "220a981e0cc8b59f",
+          "spanId": "6a849069",
+          "seq": 4
+        },
+        "source": "fxa-c/2026-11-03.log",
+        "line": 21
+      },
+      {
+        "event": "update.install.exec",
+        "level": "info",
+        "fields": {
+          "route": "cli-process",
+          "ok": true,
+          "exitCode": 0,
+          "durationMs": 1068,
+          "pluginId": "fxa-c",
+          "traceId": "37283e40d517563f",
+          "spanId": "65461756",
+          "seq": 4
+        },
+        "source": "fxa-c/2026-11-03.log",
+        "line": 59
+      }
+    ]
+  },
+  "req": {
+    "a": 1,
+    "b": 1,
+    "c": 2
+  },
+  "failsC": [
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "exec",
+        "reason": "nonzero-exit",
+        "code": "install-failed",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": 1,
+        "observedVersion": null,
+        "intentHash": "3cf8fe42",
+        "traceId": "220a981e0cc8b59f",
+        "spanId": "6a849069",
+        "seq": 6
+      },
+      "source": "fxa-c/2026-11-03.log",
+      "line": 23
+    }
+  ],
+  "audit": {
+    "failCount": 4,
+    "retryCount": 4,
+    "nonCheckExpired": 1,
+    "unretried": 0,
+    "queuedCount": 0,
+    "namespaces": [
+      "fxa-b",
+      "fxa-c"
+    ]
+  },
+  "ledgerA": {
+    "beforeKill": {
+      "file": "fxa-a/29f9a4c12edb219711e767b2/state.json",
+      "mtimeMs": 1793667895563.5276,
+      "id": "ecff8556-ed04-4b87-97b4-69b2f9cd262f",
+      "state": "completed",
+      "targetVersion": "0.0.2"
+    },
+    "afterResume": {
+      "file": "fxa-a/29f9a4c12edb219711e767b2/state.json",
+      "mtimeMs": 1793667895563.5276,
+      "id": "ecff8556-ed04-4b87-97b4-69b2f9cd262f",
+      "state": "completed",
+      "targetVersion": "0.0.2"
+    }
+  },
+  "ledgerB": {
+    "beforeKill": {
+      "file": "fxa-b/29f9a4c12edb219711e767b2/state.json",
+      "mtimeMs": 1793667903288.788,
+      "id": "6d5995e7-232a-4511-89a1-10a9380b4b62",
+      "state": "completed",
+      "targetVersion": "0.0.2"
+    },
+    "afterResume": {
+      "file": "fxa-b/29f9a4c12edb219711e767b2/state.json",
+      "mtimeMs": 1793667903288.788,
+      "id": "6d5995e7-232a-4511-89a1-10a9380b4b62",
+      "state": "completed",
+      "targetVersion": "0.0.2"
+    }
+  },
+  "aExecSwallowed": false
+}

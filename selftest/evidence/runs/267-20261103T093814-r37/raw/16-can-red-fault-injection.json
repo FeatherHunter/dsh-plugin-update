@@ -1,0 +1,9 @@
+{
+  "fault": {
+    "kind": "stale-variant",
+    "slotKey": "a",
+    "description": "can-red：发布 0.0.2 但构建内容仍是 0.0.1（host 构建标记不变），预期重启后「运行代码真的换了版」断言真红"
+  },
+  "spec": "dsh-plugin-update-fixture-a@0.0.2",
+  "why": "can-red 故障注入：清单版本是 0.0.2，但 tarball 内容仍是 0.0.1 的构建（stale-variant）；用来证明「重启后运行代码真的换了版」断言不是永真"
+}

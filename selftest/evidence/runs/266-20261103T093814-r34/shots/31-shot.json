@@ -1,0 +1,9 @@
+{
+  "看什么": "A 批量面板三行都显示 当前 0.0.1 → 最新 0.0.2，行状态 ready；B 面板同屏可见但尚未检查",
+  "步骤": "A 面板检查更新后（三行 0.0.1→0.0.2）",
+  "expected": "A rows 全部 ready 且 versionNew=0.0.2",
+  "actual": "a=pending[0.0.1→0.0.2]; b=pending[0.0.1→0.0.2]; c=pending[0.0.1]",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\31-shot.png"
+}

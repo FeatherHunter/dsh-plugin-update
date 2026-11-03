@@ -1,0 +1,13 @@
+{
+  "label": "l3-gen2",
+  "urlMasked": "http://127.0.0.1:61553/?token=***",
+  "port": 61553,
+  "bootMs": 1951,
+  "registryUrl": "https://127.0.0.1:65143",
+  "tlsFrontPort": 65143,
+  "certSha256": "c0f4211fc70fb29cc5b9ddeb91d158a5dbc5da838ed8a32e65d0702ab46aae64",
+  "delayMs": null,
+  "requestsFrom": 9,
+  "stdoutTail": "dsh web: http://127.0.0.1:61553/?token=HpJf803pm0YdS_p40kSn1CV_2srxCBdNIQ6wVhMpfM8\n",
+  "stderrTail": ""
+}

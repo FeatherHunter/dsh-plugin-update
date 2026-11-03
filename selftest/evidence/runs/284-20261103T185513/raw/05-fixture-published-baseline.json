@@ -1,0 +1,9 @@
+{
+  "scenario": "f2-exit-one-third-party-success",
+  "baseline": [
+    {
+      "slotKey": "a",
+      "spec": "dsh-plugin-update-fixture-a@0.0.1"
+    }
+  ]
+}

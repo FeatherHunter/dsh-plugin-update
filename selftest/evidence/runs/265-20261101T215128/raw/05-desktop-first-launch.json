@@ -1,0 +1,5 @@
+{
+  "text": "新会话\nCtrl\n+\nN\n插件\n自动化任务\n更多\n工作区\n默认工作区\n新会话\n更多\n新版本\n探索未至之境\n预览版\n默认工作区\n描述你想要构建的内容, / 调用指令, @ 文件或对话\n工作区内修改\n请选择模型",
+  "stdout": "\r\nChecking for update\nGenerated new staging user ID: 438253e3-b082-5573-8479-6693c36e3ad4\nFound version 0.2.1-rc.5 (url: https://download.deepseek.com/dsh-desk/bin/win-x64/deepseek-harness-0.2.1-rc.5-win-x64.exe)\ndsh web: http://127.0.0.1:56093/?token=24wXOr0Hqu6TSm3zGhBoKEgb3sX64kBrZ5_3Oc5s1fE\n",
+  "stderr": "\r\nDevTools listening on ws://127.0.0.1:53956/devtools/browser/8de81df7-20ab-4361-8dd8-ac24c0e2654a\r\n"
+}

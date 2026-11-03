@@ -1,0 +1,69 @@
+{
+  "status": 200,
+  "durationMs": 12,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "version": 1,
+        "at": 1793642028703,
+        "sessions": [
+          {
+            "sessionId": "mvzk4ita-cg7d2hef8r",
+            "owner": "fxa",
+            "selfKey": "a",
+            "state": "finished",
+            "updatedAt": 1793642022343,
+            "progress": {
+              "total": 3,
+              "done": 3,
+              "failed": 0,
+              "skipped": 0,
+              "current": 0,
+              "pending": 0,
+              "finished": true
+            },
+            "rows": [
+              {
+                "key": "a",
+                "title": "夹具 A 本体",
+                "phase": "done",
+                "targetVersion": "0.0.2",
+                "installedVersion": "0.0.1",
+                "latestVersion": "0.0.2",
+                "restartRequired": false,
+                "error": null
+              },
+              {
+                "key": "b",
+                "title": "夹具 B",
+                "phase": "done",
+                "targetVersion": "0.0.2",
+                "installedVersion": "0.0.1",
+                "latestVersion": "0.0.2",
+                "restartRequired": false,
+                "error": null
+              },
+              {
+                "key": "c",
+                "title": "夹具 C",
+                "phase": "done",
+                "targetVersion": "0.0.2",
+                "installedVersion": "0.0.1",
+                "latestVersion": "0.0.2",
+                "restartRequired": false,
+                "error": null
+              }
+            ],
+            "rowsTotal": 3,
+            "rowsTruncated": false
+          }
+        ],
+        "sessionsTotal": 1,
+        "sessionsTruncated": false,
+        "activeInstall": null
+      }
+    }
+  }
+}

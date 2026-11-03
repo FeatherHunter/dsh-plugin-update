@@ -1,0 +1,511 @@
+{
+  "schemaVersion": 1,
+  "runId": "284-20261103T203000",
+  "ticket": "284",
+  "scenarioId": "l5-host-killed-mid-install-recovery",
+  "hostChannel": "dsh-web",
+  "startedAt": "2026-11-03T11:21:49.892Z",
+  "finishedAt": "2026-11-03T11:22:40.403Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:\\dsh-plugin\\_wt263\\t13",
+    "branch": "impl/284-boundary-gaps",
+    "head": "fac03dd754cdc990bd2b7c86f7fa482825e032a7",
+    "hostChannel": "dsh-web"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T203000\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "0261815ccdf01683e6194b0b53c70dac7a282bf001740b3242da55e8ae3b9755",
+    "distDigest": "e280a81080925fdcc76eda4f9edf2559e8ae81b7fce01f326fe301220e119117",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:63745",
+    "installedDistDigest": "e280a81080925fdcc76eda4f9edf2559e8ae81b7fce01f326fe301220e119117",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 0261815ccdf01683…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "10-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e280a81080925fdcc76eda4f9edf2559e8ae81b7fce01f326fe301220e119117",
+      "actual": "e280a81080925fdcc76eda4f9edf2559e8ae81b7fce01f326fe301220e119117（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "13-assert",
+      "step": "setup-sut",
+      "what": "通道 B profile 里装的 SUT 与工作树构建一致",
+      "expected": "installed distDigest === worktree distDigest",
+      "actual": "true",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "setup-base-disk",
+      "what": "基版安装后磁盘版本与声明一致",
+      "expected": "{\"dsh-plugin-update-fixture-a\":\"0.0.1\"}",
+      "actual": "dsh-plugin-update-fixture-a=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "18-assert",
+      "step": "l5a-in-flight",
+      "what": "taskkill 前安装确在飞（不是空窗杀宿主）",
+      "expected": "面板 busy/进度非空且宿主 PID>0",
+      "actual": "{\"busyObserved\":true,\"banner\":{\"kind\":\"busy\",\"title\":\"正在安装 0.0.2…关闭面板不会中断。\",\"sub\":\"进度将自动轮询刷新；重新打开面板将在 1 秒内恢复显示。\"},\"progress\":\"正在安装新版本…\",\"pid\":57744}",
+      "verdict": "pass"
+    },
+    {
+      "id": "21-assert",
+      "step": "l5-01-killed-during-install",
+      "what": "安装窗内杀掉整个宿主进程树：taskkill 成功、磁盘仍基版、台账非成功",
+      "expected": "taskkill exit=0 且磁盘 A=0.0.1 且台账不为成功",
+      "actual": "{\"pid\":57744,\"taskkillExit\":0,\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.1\"},\"ledgerState\":\"installing\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "25-assert",
+      "step": "l5-02-restart-truthful",
+      "what": "被杀重启后如实展示：不谎称「已是最新」/完成，台账非成功、磁盘仍基版",
+      "expected": "横幅 kind≠done 且文案不含已最新/成功；台账非成功；磁盘基版",
+      "actual": "{\"bannerKind\":\"failed\",\"title\":\"更新失败（recovery-required）：上次安装异常中断，存在未完成任务。\",\"sub\":\"重新执行安装；若持续，请按第 6 节排错\",\"errCode\":\"recovery-required\",\"ledgerState\":\"interrupted\",\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.1\"}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "26-assert",
+      "step": "l5-03-residual-evidence",
+      "what": "残留锁/中断可审计：raw 留 lock/queue 原文与台账 state，且面板不伪装完成",
+      "expected": "杀时或重启后存在 queue/lock 文件，或台账为 interrupted；面板非 done",
+      "actual": "{\"killQueueFiles\":[\"1a089baafd2442ab17f9ac25/global.lock\",\"1a089baafd2442ab17f9ac25/queue.json\"],\"restartQueueFiles\":[\"1a089baafd2442ab17f9ac25/global.lock\",\"1a089baafd2442ab17f9ac25/queue.json\"],\"lockTail\":\"1a089baafd2442ab17f9ac25/global.lock\\n{\\\"id\\\":\\\"32124fb0-91ab-4841-ab8d-a3be9c77e41f\\\",\\\"pluginId\\\":\\\"fxa-a\\\",\\\"pid\\\":57744,\\\"startedAt\\\":1793704923027}\",\"ledgerState\":\"interrupted\",\"bannerKind\":\"failed\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "29-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "31-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e280a81080925fdcc76eda4f9edf2559e8ae81b7fce01f326fe301220e119117",
+      "actual": "e280a81080925fdcc76eda4f9edf2559e8ae81b7fce01f326fe301220e119117（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "33-assert",
+      "step": "l5-second-home",
+      "what": "L5b 第二套隔离 home 建好且 SUT 构建一致",
+      "expected": "sutOk=true 且基版已装",
+      "actual": "{\"homeDir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t13-284\\\\runs\\\\284-20261103T203000\\\\os-home-l5b\\\\.dsh\",\"sutOk\":true}",
+      "verdict": "pass"
+    },
+    {
+      "id": "37-assert",
+      "step": "l5b-killed-in-window",
+      "what": "短阈值宿主安装窗内被杀（杀前安装确在飞）",
+      "expected": "busy/进度非空且 taskkill exit=0",
+      "actual": "{\"busyObserved\":true,\"taskkillExit\":0,\"panelBeforeKill\":{\"present\":true,\"plugin\":\"dsh-plugin-update-fixture-a\",\"banner\":{\"kind\":\"busy\",\"title\":\"正在安装 0.0.2…关闭面板不会中断。\",\"sub\":\"进度将自动轮询刷新；重新打开面板将在 1 秒内恢复显示。\"},\"errCode\":null,\"settled\":\"\",\"lastResort\":null,\"manual\":{\"present\":true,\"heading\":\"当前没有可用的手工命令。\",\"code\":null,\"neutral\":\"当前没有可用的手工命令。\"},\"strip\":[\"0.0.1\",\"0.0.1\",\"0.0.2\"],\"actions\":[{\"action\":\"check\",\"text\":\"检查更新\",\"disabled\":true},{\"action\":\"install\",\"text\":\"正在安装…\",\"disabled\":true},{\"action\":\"copy-diag\",\"text\":\"复制诊断\",\"disabled\":false},{\"action\":\"toggle-queue\",\"text\":\"显示其他插件\",\"disabled\":false}],\"progress\":\"正在安装新版本…\"}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "39-assert",
+      "step": "l5-04-stale-window",
+      "what": "短阈值下被杀安装留下的陈旧锁：过阈值后仍无假成功、磁盘未变（锁留待回收）",
+      "expected": "等 >12000ms 后磁盘 A=0.0.1、台账非成功；lock age 或 elapsed 超阈值",
+      "actual": "{\"elapsedSinceKillMs\":26356,\"lockAgeMs\":null,\"lockFile\":\"73dfb4db7487fd0abe5b8137/global.lock\",\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.1\"},\"ledgerState\":\"installing\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "42-assert",
+      "step": "l5b-interrupted-honest",
+      "what": "被杀重启如实展示中断历史（不谎称更新中/已完成）",
+      "expected": "kind=failed 且标题含「更新失败」",
+      "actual": "{\"banner\":{\"kind\":\"failed\",\"title\":\"更新失败（recovery-required）：上次安装异常中断，存在未完成任务。\",\"sub\":\"重新执行安装；若持续，请按第 6 节排错\"},\"errCode\":\"recovery-required\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "44-assert",
+      "step": "l5-05-stale-lock-reclaimed",
+      "what": "陈旧锁被产品自行回收（未人工删锁）：重试真装成",
+      "expected": "重试成功：磁盘 0.0.2 + 台账成功终态，且全程未手工清理锁",
+      "actual": "{\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\"},\"ledgerState\":\"completed\",\"banner\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "47-assert",
+      "step": "l5-06-exactly-once-success",
+      "what": "被杀后恢复只留一条成功终态、无重复成功记录（恰一次成功）",
+      "expected": "成功台账恰 1 份、before.json 恰 1 份、至少一次成功 exec、磁盘 0.0.2",
+      "actual": "{\"successJobs\":1,\"beforeFiles\":1,\"okExecs\":1,\"requests\":2,\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\"}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "49-assert",
+      "step": "l5b-07a-restart-honest-unknown",
+      "what": "L5b 再次重启后 A 面板首屏：新进程首屏没查过最新版时不得谎称已是最新",
+      "expected": "横幅 kind=idle/unknown、文案含「版本信息未知」、不含「已是最新」，并提供检查更新动作",
+      "actual": "{\"kind\":\"idle\",\"title\":\"版本信息未知，请检查更新。\",\"sub\":\"检查更新\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "51-assert",
+      "step": "l5-07-three-faces-consistent",
+      "what": "恢复成功后重启：UI/磁盘/台账三面一致、无重复成功记录",
+      "expected": "面板已了结、build tags 0.0.2、台账恰 1 份成功",
+      "actual": "{\"banner\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"},\"tags\":{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\"},\"successJobs\":1,\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\"}}",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [
+    {
+      "id": "17-shot",
+      "step": "l5a-10-in-flight-before-kill",
+      "what": "真 UI 点安装后安装正在进行（延迟代理拉长安装窗），即将 taskkill 本 run 宿主（外部手段，不改产品代码）",
+      "expected": "观测到 busy/进度非空；宿主 PID 可读",
+      "actual": "{\"busyObserved\":true,\"panel\":{\"present\":true,\"plugin\":\"dsh-plugin-update-fixture-a\",\"banner\":{\"kind\":\"busy\",\"title\":\"正在安装 0.0.2…关闭面板不会中断。\",\"sub\":\"进度将自动轮询刷新；重新打开面板将在 1 秒内恢复显示。\"},\"errCode\":null,\"settled\":\"\",\"lastResort\":null,\"manual\":{\"present\":true,\"heading\":\"当前没有可用的手工命令。\",\"code\":null,\"neutral\":\"当前没有可用的手工命令。\"},\"strip\":[\"0.0.1\",\"0.0.1\",\"0.0.2\"],\"actions\":[{\"action\":\"check\",\"text\":\"检查更新\",\"disabled\":true},{\"action\":\"install\",\"text\":\"正在安装…\",\"disabled\":true},{\"action\":\"copy-diag\",\"text\":\"复制诊断\",\"disabled\":false},{\"action\":\"toggle-queue\",\"text\":\"显示其他插件\",\"disabled\":false}],\"progress\":\"正在安装新版本…\"},\"pid\":57744}",
+      "verdict": "pass",
+      "png": "shots\\17-shot.png",
+      "sidecar": "shots\\17-shot.json"
+    },
+    {
+      "id": "24-shot",
+      "step": "l5a-20-restart-after-kill",
+      "what": "被杀后重启：面板如实反映中断（不得谎称「已是最新」/完成），磁盘仍基版、台账非成功；残留锁考虑见 raw",
+      "expected": "横幅 kind≠done 且文案不含已最新/更新成功；磁盘 A=0.0.1；台账非成功",
+      "actual": "{\"banner\":{\"kind\":\"failed\",\"title\":\"更新失败（recovery-required）：上次安装异常中断，存在未完成任务。\",\"sub\":\"重新执行安装；若持续，请按第 6 节排错\"},\"errCode\":\"recovery-required\",\"lastResort\":null,\"manual\":{\"present\":true,\"heading\":\"手工备用命令（请复制整行执行）：\",\"code\":\"dsh plugin --profile t13b add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=https://127.0.0.1:54352\",\"neutral\":\"\"},\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.1\"},\"ledgerState\":\"interrupted\",\"queueFiles\":[\"1a089baafd2442ab17f9ac25/global.lock\",\"1a089baafd2442ab17f9ac25/queue.json\"],\"lockTail\":\"1a089baafd2442ab17f9ac25/global.lock\\n{\\\"id\\\":\\\"32124fb0-91ab-4841-ab8d-a3be9c77e41f\\\",\\\"pluginId\\\":\\\"fxa-a\\\",\\\"pid\\\":57744,\\\"startedAt\\\":1793704923027}\"}",
+      "verdict": "pass",
+      "png": "shots\\24-shot.png",
+      "sidecar": "shots\\24-shot.json"
+    },
+    {
+      "id": "41-shot",
+      "step": "l5b-25-restart-interrupted-honest",
+      "what": "短阈值格被杀重启后首屏：如实显示上次安装中断（failed/recovery-required），不谎称更新中/已最新",
+      "expected": "横幅 kind=failed、标题含「更新失败」",
+      "actual": "{\"banner\":{\"kind\":\"failed\",\"title\":\"更新失败（recovery-required）：上次安装异常中断，存在未完成任务。\",\"sub\":\"重新执行安装；若持续，请按第 6 节排错\"},\"errCode\":\"recovery-required\"}",
+      "verdict": "pass",
+      "png": "shots\\41-shot.png",
+      "sidecar": "shots\\41-shot.json"
+    },
+    {
+      "id": "43-shot",
+      "step": "l5b-30-recovered-success",
+      "what": "短阈值格：被杀后重启、陈旧锁由产品自行回收（全程未手工删锁/改文件）后重试安装真装成 0.0.2",
+      "expected": "面板已了结、磁盘 0.0.2、台账成功终态",
+      "actual": "{\"banner\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"},\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\"},\"ledgerState\":\"completed\"}",
+      "verdict": "pass",
+      "png": "shots\\43-shot.png",
+      "sidecar": "shots\\43-shot.json"
+    },
+    {
+      "id": "50-shot",
+      "step": "l5b-40-restart-truthful",
+      "what": "恢复成功后再次重启：首屏版本未知（见 l5b-07a）→ 真 UI 检查更新后三面一致（面板已了结 / 运行构建 0.0.2 / 台账恰一条成功），无重复成功记录",
+      "expected": "横幅「已是最新，无需更新。」、clientTag/hostTag=0.0.2、台账恰 1 份成功",
+      "actual": "{\"banner\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"},\"tags\":{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\"},\"ledgerJobs\":[\"completed\"]}",
+      "verdict": "pass",
+      "png": "shots\\50-shot.png",
+      "sidecar": "shots\\50-shot.json"
+    }
+  ],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-tls-registry-front",
+      "name": "tls-registry-front",
+      "file": "raw\\07-tls-registry-front.json"
+    },
+    {
+      "id": "08-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\08-isolation-facts.json"
+    },
+    {
+      "id": "09-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\09-install-baseline.json"
+    },
+    {
+      "id": "11-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\11-sut-installed-dist.json"
+    },
+    {
+      "id": "15-fixture-publication",
+      "name": "fixture-publication",
+      "file": "raw\\15-fixture-publication.json"
+    },
+    {
+      "id": "16-host-launch-l5a-gen1",
+      "name": "host-launch-l5a-gen1",
+      "file": "raw\\16-host-launch-l5a-gen1.json"
+    },
+    {
+      "id": "19-host-kill-l5a",
+      "name": "host-kill-l5a",
+      "file": "raw\\19-host-kill-l5a.json"
+    },
+    {
+      "id": "20-l5a-after-kill-facts",
+      "name": "l5a-after-kill-facts",
+      "file": "raw\\20-l5a-after-kill-facts.json"
+    },
+    {
+      "id": "22-host-launch-l5a-gen2",
+      "name": "host-launch-l5a-gen2",
+      "file": "raw\\22-host-launch-l5a-gen2.json"
+    },
+    {
+      "id": "23-l5a-restart-facts",
+      "name": "l5a-restart-facts",
+      "file": "raw\\23-l5a-restart-facts.json"
+    },
+    {
+      "id": "27-host-stop-1",
+      "name": "host-stop-1",
+      "file": "raw\\27-host-stop-1.json"
+    },
+    {
+      "id": "28-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\28-install-baseline.json"
+    },
+    {
+      "id": "30-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\30-sut-installed-dist.json"
+    },
+    {
+      "id": "32-l5-second-home",
+      "name": "l5-second-home",
+      "file": "raw\\32-l5-second-home.json"
+    },
+    {
+      "id": "34-host-launch-l5b-gen1",
+      "name": "host-launch-l5b-gen1",
+      "file": "raw\\34-host-launch-l5b-gen1.json"
+    },
+    {
+      "id": "35-host-kill-l5b",
+      "name": "host-kill-l5b",
+      "file": "raw\\35-host-kill-l5b.json"
+    },
+    {
+      "id": "36-l5b-kill-facts",
+      "name": "l5b-kill-facts",
+      "file": "raw\\36-l5b-kill-facts.json"
+    },
+    {
+      "id": "38-l5b-stale-window",
+      "name": "l5b-stale-window",
+      "file": "raw\\38-l5b-stale-window.json"
+    },
+    {
+      "id": "40-host-launch-l5b-gen2",
+      "name": "host-launch-l5b-gen2",
+      "file": "raw\\40-host-launch-l5b-gen2.json"
+    },
+    {
+      "id": "45-host-stop-1",
+      "name": "host-stop-1",
+      "file": "raw\\45-host-stop-1.json"
+    },
+    {
+      "id": "46-l5b-facts",
+      "name": "l5b-facts",
+      "file": "raw\\46-l5b-facts.json"
+    },
+    {
+      "id": "48-host-launch-l5b-gen3",
+      "name": "host-launch-l5b-gen3",
+      "file": "raw\\48-host-launch-l5b-gen3.json"
+    },
+    {
+      "id": "52-host-stop-2",
+      "name": "host-stop-2",
+      "file": "raw\\52-host-stop-2.json"
+    },
+    {
+      "id": "53-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\53-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "54-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\54-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "55-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\55-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "56-cleanup-log-files",
+      "name": "cleanup-log-files",
+      "file": "raw\\56-cleanup-log-files.json"
+    },
+    {
+      "id": "57-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\57-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "58-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\58-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "59-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\59-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "60-cleanup-log-files",
+      "name": "cleanup-log-files",
+      "file": "raw\\60-cleanup-log-files.json"
+    },
+    {
+      "id": "61-tls-front-stop",
+      "name": "tls-front-stop",
+      "file": "raw\\61-tls-front-stop.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "l5a-gen1-host",
+        "pid": 57744,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "l5a-gen2-host",
+        "pid": 99036,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "l5b-gen1-host",
+        "pid": 58456,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "l5b-gen2-host",
+        "pid": 70808,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "l5b-gen3-host",
+        "pid": 103096,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "tls-registry-front",
+        "port": 54352,
+        "released": false
+      },
+      {
+        "label": "l5a-gen1-host-port",
+        "port": 50584,
+        "released": false
+      },
+      {
+        "label": "l5a-gen2-host-port",
+        "port": 52786,
+        "released": false
+      },
+      {
+        "label": "l5b-gen1-host-port",
+        "port": 58689,
+        "released": false
+      },
+      {
+        "label": "l5b-gen2-host-port",
+        "port": 55390,
+        "released": false
+      },
+      {
+        "label": "l5b-gen3-host-port",
+        "port": 60649,
+        "released": false
+      },
+      {
+        "label": "registry",
+        "port": 63745,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:63745（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "宿主 l5a-gen1 已起：port=50584，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:54352）",
+      "宿主 l5a-gen2 已起：port=52786，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:54352）",
+      "宿主 l5b-gen1 已起：port=58689，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:54352）",
+      "宿主 l5b-gen2 已起：port=55390，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:54352）",
+      "宿主 l5b-gen3 已起：port=60649，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:54352）"
+    ]
+  },
+  "maintainerProfile": null,
+  "notes": [
+    "本地 registry：http://127.0.0.1:63745（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "宿主 l5a-gen1 已起：port=50584，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:54352）",
+    "宿主 l5a-gen2 已起：port=52786，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:54352）",
+    "宿主 l5b-gen1 已起：port=58689，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:54352）",
+    "宿主 l5b-gen2 已起：port=55390，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:54352）",
+    "宿主 l5b-gen3 已起：port=60649，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:54352）"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "shot": "a5-desktop-install-result.png",
+  "channel": "A",
+  "whatToLook": "通过插件管理器 UI 安装 dsh-prompt@0.4.40 的结果",
+  "expected": "「已安装 dsh-prompt … 版本 0.4.40」并出现「立即启用」",
+  "actual": "「已安装 dsh-prompt … 版本 0.4.40 查看安装详情 立即启用」",
+  "judgement": "符合预期",
+  "note": "出口二 in-process pluginManager.installBundle 真机可用（raw/24-channel-a-install.json）",
+  "run": "264-20261101T194628"
+}

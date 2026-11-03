@@ -1,0 +1,32 @@
+{
+  "checkId": "39a2e7a6-296a-43a9-810b-6dbe4df5ece3",
+  "requestId": "j1-single-1793670108175",
+  "status": 200,
+  "durationMs": 44,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.1",
+        "installed": true,
+        "installedVersion": "0.0.1",
+        "latestVersion": "0.0.2",
+        "canInstall": false,
+        "blockedReason": null,
+        "job": {
+          "id": "64a642d1-f3ca-4166-afe3-590a1c8840ea",
+          "state": "installing",
+          "targetVersion": "0.0.2",
+          "message": null,
+          "requestId": "j1-single-1793670108175",
+          "previousVersion": "0.0.1"
+        },
+        "identity": "update",
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t9j1 add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:59342",
+      "receipt": null
+    }
+  }
+}

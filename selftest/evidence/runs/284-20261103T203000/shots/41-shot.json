@@ -1,0 +1,9 @@
+{
+  "看什么": "短阈值格被杀重启后首屏：如实显示上次安装中断（failed/recovery-required），不谎称更新中/已最新",
+  "步骤": "l5b-25-restart-interrupted-honest",
+  "expected": "横幅 kind=failed、标题含「更新失败」",
+  "actual": "{\"banner\":{\"kind\":\"failed\",\"title\":\"更新失败（recovery-required）：上次安装异常中断，存在未完成任务。\",\"sub\":\"重新执行安装；若持续，请按第 6 节排错\"},\"errCode\":\"recovery-required\"}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\41-shot.png"
+}

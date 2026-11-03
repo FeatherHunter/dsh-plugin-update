@@ -1,0 +1,85 @@
+{
+  "exitCode": 0,
+  "steps": [
+    {
+      "seq": 1,
+      "name": "env-probe",
+      "ok": true,
+      "ms": 175,
+      "error": null,
+      "file": "01-env-probe.json"
+    },
+    {
+      "seq": 2,
+      "name": "seed-web-profile",
+      "ok": true,
+      "ms": 325,
+      "error": null,
+      "file": "02-seed-web-profile.json"
+    },
+    {
+      "seq": 3,
+      "name": "install-integrator",
+      "ok": true,
+      "ms": 6847,
+      "error": null,
+      "file": "03-install-integrator.json"
+    },
+    {
+      "seq": 4,
+      "name": "start-server",
+      "ok": true,
+      "ms": 2121,
+      "error": null,
+      "file": "04-start-server.json"
+    },
+    {
+      "seq": 5,
+      "name": "launch-browser",
+      "ok": true,
+      "ms": 295,
+      "error": null,
+      "file": "05-launch-browser.json"
+    },
+    {
+      "seq": 6,
+      "name": "attach-and-prepare-page",
+      "ok": true,
+      "ms": 2534,
+      "error": null,
+      "file": "06-attach-and-prepare-page.json"
+    },
+    {
+      "seq": 7,
+      "name": "open-prompt-panel",
+      "ok": true,
+      "ms": 494,
+      "error": null,
+      "file": "07-open-prompt-panel.json"
+    },
+    {
+      "seq": 8,
+      "name": "open-update-panel",
+      "ok": true,
+      "ms": 2252,
+      "error": null,
+      "file": "08-open-update-panel.json"
+    },
+    {
+      "seq": 9,
+      "name": "click-panel-entry",
+      "ok": true,
+      "ms": 3828,
+      "error": null,
+      "file": "09-click-panel-entry.json"
+    },
+    {
+      "seq": 10,
+      "name": "page-error-collector",
+      "ok": true,
+      "ms": 0,
+      "error": null,
+      "file": "10-page-error-collector.json"
+    }
+  ]
+}

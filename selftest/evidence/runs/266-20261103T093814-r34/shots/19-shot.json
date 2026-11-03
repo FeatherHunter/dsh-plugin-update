@@ -1,0 +1,9 @@
+{
+  "看什么": "官方桌面窗口里同时看到：A 批量面板（三行 a/b/c，右下）、B 批量面板（两行 b/c，左上）、C 纯目标徽标（左下，没有任何更新 UI）",
+  "步骤": "初始：三包同装（两席批量面板 + C 纯目标）",
+  "expected": "A rows=a/b/c、B rows=b/c，C 无面板",
+  "actual": "A rows=[a,b,c]；B rows=[c,b]；页面 batchPanels=2；fixtures=[c,a,b]",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\19-shot.png"
+}

@@ -1,0 +1,8 @@
+{
+  "baseUrl": "http://127.0.0.1:54969",
+  "port": 54969,
+  "upstream": "http://127.0.0.1:49544",
+  "delayMs": 15000,
+  "match": "pnpm-user-agent",
+  "hostInstallTimeoutMs": 4000
+}

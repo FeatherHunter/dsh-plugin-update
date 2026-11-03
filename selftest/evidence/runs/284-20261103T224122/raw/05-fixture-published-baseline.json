@@ -1,0 +1,13 @@
+{
+  "scenario": "m2-hub-orphan-only-owner-b-returns",
+  "baseline": [
+    {
+      "slotKey": "a",
+      "spec": "dsh-plugin-update-fixture-a@0.0.1"
+    },
+    {
+      "slotKey": "b",
+      "spec": "dsh-plugin-update-fixture-b@0.0.1"
+    }
+  ]
+}

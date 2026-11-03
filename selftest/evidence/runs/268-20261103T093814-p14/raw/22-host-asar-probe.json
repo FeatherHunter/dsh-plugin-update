@@ -1,0 +1,15 @@
+{
+  "asarPath": "D:/DeepseekHarness/resources/app.asar",
+  "asarBytes": 182766714,
+  "counts": {
+    "pluginManager": 724,
+    "installBundle": 98,
+    "cancelInstall": 66,
+    "setBundleEnabled": 95
+  },
+  "fragments": {
+    "cancelInstall": "n...//#region ../../boot/plugin-manager/lib/typert.remote-client.js...let _deepseek_ai_dsh_plugin_manager_pluginManager_cancelInstall_parameter_0$schema$value;...const _deepseek_ai_dsh_plugin_manager_pluginManager_cancelInstall_parameter_0$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager",
+    "pluginManager": "...//#endregion...//#region ../../boot/plugin-manager/lib/typert.remote-client.js...let _deepseek_ai_dsh_plugin_manager_pluginManager_cancelInstall_parameter_0$schema$value;...const _deepseek_ai_dsh_plugin_manager_pluginManager_cancelInstall_parameter_0$schema = () => _deepseek_ai_dsh_plugin_manager",
+    "pluginManagerVersion": "@deepseek-ai/dsh-plugin-manager\",.      \"version\": \"0.2.1-rc.5\",.      \"path\": \"node_modules/@deepseek-ai/dsh-plugin-man"
+  }
+}

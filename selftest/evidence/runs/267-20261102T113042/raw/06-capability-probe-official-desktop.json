@@ -1,0 +1,18 @@
+{
+  "exePath": "D:\\DeepseekHarness\\DeepSeek Harness.exe",
+  "cliJsPath": "D:\\DeepseekHarness\\resources\\app.asar\\dsh\\node_modules\\@deepseek-ai\\dsh-desktop-host\\lib\\cli.js",
+  "officialDir": "D:\\DeepseekHarness",
+  "exeExists": true,
+  "cliJsProbe": {
+    "exists": true,
+    "size": 5607,
+    "error": null,
+    "scriptPath": "D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T113042\\probe-asar-path.js",
+    "script": "const fs = require('node:fs')\nconst target = process.argv[2]\nlet exists = false\nlet size = null\nlet error = null\ntry {\n  exists = fs.existsSync(target)\n  if (exists) size = fs.statSync(target).size\n} catch (caught) {\n  error = String((caught && caught.message) || caught)\n}\nprocess.stdout.write(JSON.stringify({ target, exists, size, error }))",
+    "exitCode": 0,
+    "stdout": "{\"target\":\"D:\\\\DeepseekHarness\\\\resources\\\\app.asar\\\\dsh\\\\node_modules\\\\@deepseek-ai\\\\dsh-desktop-host\\\\lib\\\\cli.js\",\"exists\":true,\"size\":5607,\"error\":null}",
+    "stderr": ""
+  },
+  "probeMethod": "ELECTRON_RUN_AS_NODE=1 + exe + 脚本（普通 node 看不到 app.asar 虚拟路径）",
+  "probedAt": "2026-11-02T03:30:49.311Z"
+}

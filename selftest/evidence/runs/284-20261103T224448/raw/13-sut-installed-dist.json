@@ -1,0 +1,12 @@
+{
+  "installedSutDist": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224448\\os-home\\.dsh\\profiles\\t14hub\\node_modules\\dsh-plugin-update\\dist",
+  "installedDist": {
+    "digest": "ff0a6b1aea9773eced40869b73a2d3a837a9b3e98afd9c900e81d4b158e62b76",
+    "files": 208
+  },
+  "workspaceDist": {
+    "digest": "ff0a6b1aea9773eced40869b73a2d3a837a9b3e98afd9c900e81d4b158e62b76",
+    "files": 208
+  },
+  "match": true
+}

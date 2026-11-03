@@ -812,6 +812,8 @@ export function createUpdateCore(ports: UpdatePorts): UpdateCore {
           releaseChannel,
           // 批准构建名单（#194）：只在这次安装带过批准时出现；老调用形状一字不动。
           ...(approvedBuilds && approvedBuilds.length > 0 ? { approvedBuilds } : {}),
+          // 装前版本（#284）：只在动手前读到过版本时出现；老调用形状一字不动。
+          ...(typeof job.previousVersion === 'string' && job.previousVersion ? { previousVersion: job.previousVersion } : {}),
         })
       // 字面量不另存一份真源：`satisfies UpdateErrorCode` 把它钉在 src/shared/codes.ts 的类型上，
       // 真源删/改这个码这里立刻 typecheck 报错；而本文件「零（运行时）导入」的契约不受影响。

@@ -1,0 +1,38 @@
+exe_exists=True
+--- running DeepSeek Harness processes (before) ---
+
+ProcessId ParentProcessId cmd
+--------- --------------- ---
+    39812           11808 "D:\DeepseekHarness\DeepSeek Harness.exe" 
+    10308           39812 "D:\DeepseekHarness\DeepSeek Harness.exe" --type=gpu-process --user-data-dir="C:\Users\辰辰洋洋\AppData\Roaming\@deepseek-ai/dsh-desktop" --gpu-preferences=WAAAAAAAAADgAAAEAAAAAAAAAAAAAGAAQAAAAAAAAAADAAAAAAAAADgAAAAAAAAAAAAA
+    33964           39812 "D:\DeepseekHarness\DeepSeek Harness.exe" --type=utility --utility-sub-type=network.mojom.NetworkService --lang=zh-CN --service-sandbox-type=none --user-data-dir="C:\Users\辰辰洋洋\AppData\Roaming\@deepseek-ai/dsh-desktop" -
+    77052           39812 "D:\DeepseekHarness\DeepSeek Harness.exe" --type=renderer --user-data-dir="C:\Users\辰辰洋洋\AppData\Roaming\@deepseek-ai/dsh-desktop" --standard-schemes=dsh-app --secure-schemes=dsh-app --cors-schemes=dsh-app --fetch-scheme
+    17020           39812 "D:\DeepseekHarness\DeepSeek Harness.exe" --expose-internals D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-desktop-host\lib\index.js D:\DeepseekHarness\resources\app.asar\dsh C:\Users\辰辰洋洋\.dsh\
+    82836           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- D:\0Tools\powershell7.6\7\pwsh.exe -NoLogo -NoProfile -NonInteractive -C
+    34644           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- D:\0Tools\powershell7.6\7\pwsh.exe -NoLogo -NoProfile -NonInteractive -C
+    64004           27088 "D:/DeepseekHarness/DeepSeek Harness.exe" --expose-internals D:/DeepseekHarness/resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js --profile web --port 0 --no-open
+    87720           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- D:\0Tools\powershell7.6\7\pwsh.exe -NoLogo -NoProfile -NonInteractive -C
+    47800           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\De
+    55364           47800 "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-ptc-runtime-node\lib\process.js 134217728
+    12856           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\De
+    82816           12856 "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-ptc-runtime-node\lib\process.js 134217728
+    36760           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\De
+    74228           36760 "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-ptc-runtime-node\lib\process.js 134217728
+    44644           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\De
+    56080           44644 "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-ptc-runtime-node\lib\process.js 134217728
+     2956           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\De
+    86628            2956 "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-ptc-runtime-node\lib\process.js 134217728
+    63388           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- D:\0Tools\powershell7.6\7\pwsh.exe -NoLogo -NoProfile -NonInteractive -C
+    75576           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\De
+    80752           75576 "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-ptc-runtime-node\lib\process.js 134217728
+    70988           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- D:\0Tools\powershell7.6\7\pwsh.exe -NoLogo -NoProfile -NonInteractive -C
+    34936           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\De
+    47896           34936 "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-ptc-runtime-node\lib\process.js 134217728
+    52284           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- gh api graphql -f "query=query($owner:String!,$name:String!,$first:Int!,
+    17128           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\De
+    46272           17128 "D:\DeepseekHarness\DeepSeek Harness.exe" --max-old-space-size=512 D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-ptc-runtime-node\lib\process.js 134217728
+    43964           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- D:\0Tools\powershell7.6\7\pwsh.exe -NoLogo -NoProfile -NonInteractive -C
+    83556           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- gh issue view 1784 --repo FeatherHunter/dsh-mattpocock-skills-deck --jso
+    15244           17020 "D:\DeepseekHarness\DeepSeek Harness.exe" D:\DeepseekHarness\resources\app.asar\dsh\node_modules\@deepseek-ai\dsh-subprocess-local\lib\runner.js -- gh api graphql -f "query=query($owner:String!,$name:String!,$first:Int!,
+
+

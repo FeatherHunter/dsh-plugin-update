@@ -1,0 +1,13 @@
+{
+  "dirName": "operation-tEkXAx",
+  "logsDir": "D:\\dsh-plugin\\_wt263\\runtime\\t4-268\\268-20261102T181651\\home\\profiles\\desktop\\.plugin-manager\\logs",
+  "pnpmLogFile": "D:\\dsh-plugin\\_wt263\\runtime\\t4-268\\268-20261102T181651\\home\\profiles\\desktop\\.plugin-manager\\logs\\operation-tEkXAx\\pnpm.log",
+  "createdAt": "2026-11-02T10:19:19.663Z",
+  "modifiedAt": "2026-11-02T10:19:19.663Z",
+  "pnpmLogBytes": 296,
+  "pnpmLog": "[WARN] The store at C:\\Users\\辰辰洋洋\\AppData\\Local\\pnpm\\store\\v11 is not used because packages cannot be hard linked from it into this project. Using the store at D:\\.pnpm-store\\v11 instead. Set storeDir to choose the store.\n? Verifying lockfile against supply-chain policies (4 entries)...\n",
+  "removed": [],
+  "added": [],
+  "doneIn": null,
+  "empty": false
+}

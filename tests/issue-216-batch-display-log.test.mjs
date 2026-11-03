@@ -16,6 +16,8 @@
  *   C. 日志：一批一条 `update.batch.run.start`（trigger/resumed/total/pending/sessionHash）；
  *      总账 durationMs 是本次推进活跃时长、sessionAgeMs 单独如实给、resumed 有值；
  *      批量里首次提交 check-expired（ADR-0004 §3 A 案设计内）留一条 `update.install.retry`；
+ *      #284 修后读取器按完整键保留、每目标凭证不再被别的目标挤掉——本文件改为钉住「不再
+ *      发生设计内重提」，重提留行由 tests/batch-check-expired-backoff.test.mjs 继续钉住；
  *      客户端丢弃上浮行带被丢事件名（`update.log.degraded.event`）。
  */
 import { describe, it, beforeEach, afterEach } from 'node:test'
@@ -317,13 +319,14 @@ describe('#216 日志：一批有开始行、总账分开活跃时长与会话�
 })
 
 describe('#216 日志：批量里 check-expired 当场重查重提留一行', () => {
-  it('两家以上批量首批提交凭证过期 → update.install.retry 如实记录，随后正常装完', async () => {
+  it('两家以上批量首批提交不再被挤压凭证（#284 读取器按目标保留）→ 无设计内重提，两家都装完', async () => {
     const { dir, scope } = await mkScope()
     const sideOf = (spec) => {
       const side = realSide(dir, spec.packageName)
       if (spec.key !== 'self') return side
-      // 测试确定性：读取器单槽「最后建的那家留下凭证」是既有行为，但两家检查谁先完成受机器负载影响。
-      // 让 self 的检查拖后完成 → 安装 a 时其凭证必然已被挤掉，check-expired 重查重提是必然而不是撞时序。
+      // 两家检查并发完成先后受机器负载影响；给 self 的检查加一点延迟，保持本用例的并发形状。
+      // #284 修后读取器按完整键保留（src/host/capabilities.ts），「最后建的那家留下凭证」的单槽
+      // 挤压行为已不存在——这里不再靠它制造 check-expired，而是钉住新行为（见下方断言）。
       return {
         ...side,
         fetchImpl: async (...args) => {
@@ -346,15 +349,12 @@ describe('#216 日志：批量里 check-expired 当场重查重提留一行', ()
     assert.equal(phaseOf(reply.session, 'a'), 'done', '重提之后正常装完')
     assert.equal(phaseOf(reply.session, 'self'), 'done')
 
-    // 读取器单槽最后停在哪一家受并发调度影响（哪家最后创建谁留下凭证），但「至少一家的凭证会被挤掉」
-    // 是确定的：装完第一家后读取器换成第二家，第二家的旧凭证必然过期。两家的行都收，避免撞时序。
+    // #284 修后：共享读取器按完整缓存键保留（src/host/capabilities.ts），两个目标各自留着
+    // 自己的 check 凭证，驱动串行安装时不再需要「当场重查重提」。本批若真发生 check-expired，
+    // 重提仍会留 update.install.retry 行——该契约由 tests/batch-check-expired-backoff.test.mjs
+    // 用注入电话钉住（attempt=2/3）；这里钉住新行为：无设计内重提、无失败行、两家都装完。
     const retried = [...rowsOf(a, 'update.install.retry'), ...rowsOf(self, 'update.install.retry')]
-    assert.ok(retried.length >= 1, '凭证过期后自动重查重提要留一行（不是静默）')
-    const fields = retried[0].fields
-    assert.deepEqual(Object.keys(fields).sort(), ['attempt', 'reason', 'requestHash'])
-    assert.equal(fields.reason, 'check-expired')
-    assert.equal(fields.attempt, 2, '第二次提交')
-    assert.match(fields.requestHash, /^[0-9a-f]{8}$/, '请求编号只落指纹')
+    assert.equal(retried.length, 0, '#284 后读取器按目标保留，首次提交不再凭证过期（不是静默，是不再发生）')
     // 设计内动作不是故障：真正的失败行不该有。
     assert.equal(rowsOf(a, 'update.batch.entry.fail').length + rowsOf(self, 'update.batch.entry.fail').length, 0)
     host.dispose()

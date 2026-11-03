@@ -1,0 +1,17 @@
+{
+  "fault": {
+    "kind": "stale-variant",
+    "slotKey": "c"
+  },
+  "expected": "C 版本号到 0.0.2 但内容是 0.0.1：内容哈希/新标记、重启后徽标仍是 v0.0.1 两条应红；其余断言仍 pass（断言编号见 run.json 失败清单）",
+  "injected": [
+    {
+      "slotKey": "c",
+      "kind": "stale-variant",
+      "spec": "dsh-plugin-update-fixture-c@0.0.2"
+    }
+  ],
+  "publishedSpecs": [
+    "dsh-plugin-update-fixture-c@0.0.2"
+  ]
+}

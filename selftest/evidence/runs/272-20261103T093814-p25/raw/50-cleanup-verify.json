@@ -1,0 +1,36 @@
+{
+  "ports": [
+    {
+      "label": "desktop-main-port",
+      "port": 62624,
+      "released": true
+    }
+  ],
+  "leftoverPids": [
+    {
+      "label": "desktop-bootstrap",
+      "pid": 100436,
+      "alive": false
+    },
+    {
+      "label": "desktop-bootstrap",
+      "pid": 100436,
+      "alive": false
+    },
+    {
+      "label": "desktop-main",
+      "pid": 88564,
+      "alive": false
+    },
+    {
+      "label": "file-lock-i3",
+      "pid": 79468,
+      "alive": false
+    },
+    {
+      "label": "desktop-main",
+      "pid": 88564,
+      "alive": false
+    }
+  ]
+}

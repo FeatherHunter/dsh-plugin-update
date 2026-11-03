@@ -1,0 +1,9 @@
+{
+  "scenario": "j3-namespace-whitelist",
+  "baseline": [
+    {
+      "slotKey": "a",
+      "spec": "dsh-plugin-update-fixture-a@0.0.1"
+    }
+  ]
+}

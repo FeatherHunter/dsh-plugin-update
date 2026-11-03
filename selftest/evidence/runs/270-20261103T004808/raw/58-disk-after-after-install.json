@@ -1,0 +1,27 @@
+{
+  "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004808\\os-home\\.dsh\\profiles\\t6lock",
+  "manifest": {
+    "name": "dsh-profile-t6lock",
+    "private": true,
+    "dependencies": {
+      "dsh-plugin-update-fixture-a": "0.0.2"
+    },
+    "dsh": {
+      "profile": {
+        "bundles": [
+          "@deepseek-ai/dsh-base",
+          "@deepseek-ai/dsh-web-app",
+          "dsh-plugin-update-fixture-a"
+        ]
+      }
+    }
+  },
+  "dependencyVersion": "0.0.2",
+  "diskVersion": "0.0.2",
+  "bundles": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-web-app",
+    "dsh-plugin-update-fixture-a"
+  ],
+  "packageJsonParsed": true
+}

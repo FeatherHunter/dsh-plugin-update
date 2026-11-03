@@ -1,0 +1,5 @@
+{
+  "storeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t4-268\\268-20261102T180537\\pnpm-store",
+  "inheritedFromBeforeBootstrap": true,
+  "reason": "can-red stale 内容跨 run 同字节；私有 store 防缓存命中让删 tarball 注入失效（须覆盖 CLI 基版安装，防 ERR_PNPM_UNEXPECTED_STORE）"
+}

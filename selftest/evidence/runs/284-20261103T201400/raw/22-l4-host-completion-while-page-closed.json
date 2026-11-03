@@ -1,0 +1,24 @@
+{
+  "closedAt": "2026-11-03T11:15:59.623Z",
+  "completedAt": "2026-11-03T11:16:40.462Z",
+  "closedBeforeCompleted": true,
+  "hostCompleted": true,
+  "disk": {
+    "dsh-plugin-update-fixture-a": "0.0.2"
+  },
+  "ledger": {
+    "file": "fxa-a/521500d512eaa23c8be043b4/state.json",
+    "state": {
+      "id": "c4088eda-99cf-40de-879f-095f1e55852b",
+      "state": "restart-required",
+      "targetVersion": "0.0.2",
+      "message": null,
+      "requestId": "rmw0ldrpv820wm",
+      "previousVersion": "0.0.1"
+    },
+    "mtimeMs": 1793704600395.2617
+  },
+  "delayedProxyRequests": 5,
+  "proxyRequests": 9,
+  "note": "关页面期间宿主侧真装成（磁盘+台账为真），完成时刻晚于关页面时刻"
+}

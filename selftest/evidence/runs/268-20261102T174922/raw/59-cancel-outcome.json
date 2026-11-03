@@ -1,0 +1,132 @@
+{
+  "aC": "fxa-c",
+  "bC": "fxb-c",
+  "aExec": [],
+  "aFail": [
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "check-expired",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "a18a71f1",
+        "traceId": "bc994d557f5e58c0",
+        "spanId": "942d17dc",
+        "seq": 1
+      },
+      "source": "fxa-c/2026-11-02.log",
+      "line": 77
+    },
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "update-busy",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "a18a71f1",
+        "traceId": "6b9829699dac9e87",
+        "spanId": "0d3062aa",
+        "seq": 3
+      },
+      "source": "fxa-c/2026-11-02.log",
+      "line": 86
+    },
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "update-busy",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "a18a71f1",
+        "traceId": "5da6ebb65e50f767",
+        "spanId": "448d6cc7",
+        "seq": 1
+      },
+      "source": "fxa-c/2026-11-02.log",
+      "line": 99
+    },
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "update-busy",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "a18a71f1",
+        "traceId": "da0e6e11c9d414f6",
+        "spanId": "668001ff",
+        "seq": 2
+      },
+      "source": "fxa-c/2026-11-02.log",
+      "line": 111
+    }
+  ],
+  "bExec": [
+    {
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "desktop-manager",
+        "ok": false,
+        "exitCode": null,
+        "durationMs": 40391,
+        "pluginId": "fxb-c",
+        "traceId": "a65fd57879c53c8e",
+        "spanId": "d42a0df3",
+        "seq": 4
+      },
+      "source": "fxb-c/2026-11-02.log",
+      "line": 78
+    }
+  ],
+  "aLedger": [],
+  "diskAfterCancel": {
+    "versions": {
+      "dsh-plugin-update-fixture-a": "0.0.1",
+      "dsh-plugin-update-fixture-b": "0.0.1",
+      "dsh-plugin-update-fixture-c": null
+    },
+    "dependencies": {
+      "dsh-plugin-update-fixture-a": "0.0.1",
+      "dsh-plugin-update-fixture-b": "0.0.1",
+      "dsh-plugin-update-fixture-c": null
+    },
+    "manifest": {
+      "name": "dsh-profile-desktop",
+      "private": true,
+      "dependencies": {
+        "dsh-plugin-update-fixture-a": "0.0.1",
+        "dsh-plugin-update-fixture-b": "0.0.1"
+      },
+      "dsh": {
+        "profile": {
+          "bundles": [
+            "@deepseek-ai/dsh-base",
+            "@deepseek-ai/dsh-web-app",
+            "dsh-plugin-update-fixture-a",
+            "dsh-plugin-update-fixture-b"
+          ]
+        }
+      }
+    }
+  }
+}

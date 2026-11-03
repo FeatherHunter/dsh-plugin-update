@@ -1,0 +1,12 @@
+{
+  "installedSutDist": "D:\\dsh-plugin\\_wt263\\runtime\\t1-265\\265-20261101T215128\\home\\profiles\\desktop\\node_modules\\dsh-plugin-update\\dist",
+  "installedDist": {
+    "digest": "44ffc4bbde2f942dcaf3991a2be602f617814f88271db32b916b40df1cfaabb9",
+    "files": 208
+  },
+  "workspaceDist": {
+    "digest": "44ffc4bbde2f942dcaf3991a2be602f617814f88271db32b916b40df1cfaabb9",
+    "files": 208
+  },
+  "match": true
+}

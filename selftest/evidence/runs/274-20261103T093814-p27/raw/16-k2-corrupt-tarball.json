@@ -1,0 +1,19 @@
+{
+  "packageName": "dsh-plugin-update-fixture-a",
+  "version": "0.0.2",
+  "tarballUrl": "http://127.0.0.1:60395/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz",
+  "tarballPath": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p27\\registry\\verdaccio\\storage\\dsh-plugin-update-fixture-a\\dsh-plugin-update-fixture-a-0.0.2.tgz",
+  "backupPath": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p27\\raw\\k2-corrupt-a\\dsh-plugin-update-fixture-a-0.0.2.tgz",
+  "sizeBytes": 108345,
+  "sha256Before": "dc0bb9bd54dcb2926d9fbe41d12e14b31dde541cc19e9076b40e5ef563d05d09",
+  "sha256After": "42a3b6e5b9fb4a118781c9193324855a6175157a0934852a981b4c0450d15e10",
+  "corruptedOffset": 54172,
+  "corruptedLength": 64,
+  "versionDocBefore": "{\"name\":\"dsh-plugin-update-fixture-a\",\"version\":\"0.0.2\",\"private\":false,\"type\":\"module\",\"description\":\"批量集成方（本体 + 两家目标；本体 first） [TEST ONLY sed: selftest fixture for dsh-plugin-update]\",\"license\":\"MIT\",\"main\":\"./lib/index.js\",\"exports\":{\".\":\"./lib/index.js\",\"./client\":\"./lib/client.js\",\"./package.json\":\"./package.json\"},\"files\":[\"lib\",\"cordis.patch.yml\"],\"engines\":{\"dsh\":\">=0.2.0-rc.2 <0.3.0-0\"},\"dependencies\":{\"dsh-plugin-update\":\"0.18.39\"},\"dsh\":{\"client\":{\"platform\":\"web\",\"inject\":[]},\"bundle\":{\"patch\":\"./cordis.patch.yml\"}},\"_id\":\"dsh-plugin-update-fixture-a@0.0.2\",\"_nodeVersion\":\"24.19.0\",\"_npmVersion\":\"10.9.2\",\"dist\":{\"integrity\":\"sha512-5oVduB5em8JrkfR1Z5nqu2ZYJwVeUPv/MDJ+LEgTQbNlfBXT4o5gb+nN0fqkXqUAgrJDyKniB1ab0L6EiTJsBg==\",\"shasum\":\"3eebd5c9f856456008c074996678ce6d4dc57341\",\"tarball\":\"http://127.0.0.1:60395/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz\"},\"contributors\":[]}",
+  "versionDocAfter": "{\"name\":\"dsh-plugin-update-fixture-a\",\"version\":\"0.0.2\",\"private\":false,\"type\":\"module\",\"description\":\"批量集成方（本体 + 两家目标；本体 first） [TEST ONLY sed: selftest fixture for dsh-plugin-update]\",\"license\":\"MIT\",\"main\":\"./lib/index.js\",\"exports\":{\".\":\"./lib/index.js\",\"./client\":\"./lib/client.js\",\"./package.json\":\"./package.json\"},\"files\":[\"lib\",\"cordis.patch.yml\"],\"engines\":{\"dsh\":\">=0.2.0-rc.2 <0.3.0-0\"},\"dependencies\":{\"dsh-plugin-update\":\"0.18.39\"},\"dsh\":{\"client\":{\"platform\":\"web\",\"inject\":[]},\"bundle\":{\"patch\":\"./cordis.patch.yml\"}},\"_id\":\"dsh-plugin-update-fixture-a@0.0.2\",\"_nodeVersion\":\"24.19.0\",\"_npmVersion\":\"10.9.2\",\"dist\":{\"integrity\":\"sha512-5oVduB5em8JrkfR1Z5nqu2ZYJwVeUPv/MDJ+LEgTQbNlfBXT4o5gb+nN0fqkXqUAgrJDyKniB1ab0L6EiTJsBg==\",\"shasum\":\"3eebd5c9f856456008c074996678ce6d4dc57341\",\"tarball\":\"http://127.0.0.1:60395/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz\"},\"contributors\":[]}",
+  "versionDocUnchanged": true,
+  "servedBeforeStatus": 200,
+  "servedBeforeBytes": 102504,
+  "servedAfterStatus": 200,
+  "servedAfterBytes": 102504
+}

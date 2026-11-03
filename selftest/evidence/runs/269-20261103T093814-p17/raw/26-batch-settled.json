@@ -1,0 +1,61 @@
+{
+  "mode": "resume-retry",
+  "all": null,
+  "partial": {
+    "disk": {
+      "versions": {
+        "dsh-plugin-update-fixture-a": "0.0.2",
+        "dsh-plugin-update-fixture-b": null,
+        "dsh-plugin-update-fixture-c": "0.0.2"
+      },
+      "dependencies": {
+        "dsh-plugin-update-fixture-a": "0.0.2",
+        "dsh-plugin-update-fixture-b": null,
+        "dsh-plugin-update-fixture-c": "0.0.2"
+      },
+      "manifest": {
+        "name": "dsh-profile-desktop",
+        "private": true,
+        "dependencies": {
+          "dsh-plugin-update-fixture-a": "0.0.2",
+          "dsh-plugin-update-fixture-c": "0.0.2"
+        },
+        "dsh": {
+          "profile": {
+            "bundles": [
+              "@deepseek-ai/dsh-base",
+              "@deepseek-ai/dsh-web-app",
+              "dsh-plugin-update-fixture-a",
+              "dsh-plugin-update-fixture-c"
+            ]
+          }
+        }
+      }
+    },
+    "ledgerB": [
+      {
+        "file": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p17\\home\\updates\\fxa-b\\7190a1f3aafb43f2eb885be6\\state.json",
+        "state": {
+          "id": "0066adc3-b19b-4b43-80aa-9ed71a4b689d",
+          "state": "failed",
+          "targetVersion": "0.0.2",
+          "message": "install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [WARN]；目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装 (dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-b@0.0.2 --registry=http://127.0.0.1:55010)",
+          "requestId": "batch-mw02s9hs-zzicd9usqh-b-bf44f4d5",
+          "previousVersion": "0.0.1"
+        }
+      }
+    ],
+    "observed": [
+      "a=0.0.1,b=0.0.1,c=0.0.1,bLedger=missing",
+      "a=null,b=0.0.1,c=0.0.1,bLedger=missing",
+      "a=0.0.2,b=0.0.1,c=0.0.1,bLedger=installing",
+      "a=0.0.2,b=null,c=0.0.1,bLedger=installing",
+      "a=0.0.2,b=null,c=0.0.1,bLedger=failed",
+      "a=0.0.2,b=null,c=0.0.2,bLedger=failed"
+    ],
+    "aOk": true,
+    "cOk": true,
+    "bFailed": true
+  },
+  "corruptionSha": "c01ec570bb412f30098642e9e810d310a47c806f3beaef98a9eef85ebd147c08"
+}

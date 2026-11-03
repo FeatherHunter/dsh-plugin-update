@@ -1,0 +1,16 @@
+{
+  "baselineSpec": "dsh-plugin-update-fixture-a@0.0.1",
+  "variantSpec": "dsh-plugin-update-fixture-a@0.0.2",
+  "injected": [
+    {
+      "slotKey": "a",
+      "kind": "stale-variant",
+      "spec": "dsh-plugin-update-fixture-a@0.0.2"
+    }
+  ],
+  "fault": {
+    "kind": "stale-variant",
+    "slotKey": "a",
+    "description": "发布 dsh-plugin-update-fixture-a@0.0.2 但内容固化在 0.0.1（验证「重启后运行=新版本」断言真会红）"
+  }
+}

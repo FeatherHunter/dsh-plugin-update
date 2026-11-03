@@ -1,0 +1,37 @@
+{
+  "step": "cleanup",
+  "channel": "A",
+  "at": "2026-11-01T12:40:15.543Z",
+  "isolatedBefore": [
+    {
+      "pid": 58804,
+      "parentPid": 86668
+    },
+    {
+      "pid": 51944,
+      "parentPid": 58804
+    },
+    {
+      "pid": 26816,
+      "parentPid": 58804
+    },
+    {
+      "pid": 45768,
+      "parentPid": 58804
+    }
+  ],
+  "portFreeBefore": false,
+  "maintainerBefore": [],
+  "maintainerProfilePkgShaBefore": "aa45f522c8169a025ac4b0053d556b9d62fea77cb209ee5b4c867920019b19d8",
+  "exited": true,
+  "portFree": true,
+  "portOwnerAfter": null,
+  "isolatedAfter": [],
+  "maintainerAfter": [],
+  "maintainerProfilePkgShaAfter": "aa45f522c8169a025ac4b0053d556b9d62fea77cb209ee5b4c867920019b19d8",
+  "dshPromptLog": {
+    "dir": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home\\logs\\dsh-prompt",
+    "file": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home\\logs\\dsh-prompt\\2026-11-01.log",
+    "tail": "At\":\"2026-11-01T12:04:53.742Z\",\"dir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t0-264-channelA\\\\home\\\\logs\",\"pluginVersion\":\"0.4.40\",\"os\":\"win32\"}}\n{\"v\":3,\"ts\":1793534695215,\"level\":\"info\",\"event\":\"app.boot\",\"fields\":{\"hasReact\":true,\"lang\":\"zh\",\"entryCount\":8}}\n{\"v\":3,\"ts\":1793534695215,\"level\":\"info\",\"event\":\"settings.log.reconcile\",\"fields\":{\"ok\":true,\"on\":false}}\n{\"v\":3,\"ts\":1793534695215,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":77}}\n{\"v\":3,\"ts\":1793534695215,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":77}}\n{\"v\":3,\"ts\":1793536308824,\"level\":\"info\",\"event\":\"host.start\",\"fields\":{\"pid\":67332,\"startedAt\":\"2026-11-01T12:31:48.739Z\",\"dir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t0-264-channelA\\\\home\\\\logs\",\"pluginVersion\":\"0.4.40\",\"os\":\"win32\"}}\n{\"v\":3,\"ts\":1793536310888,\"level\":\"info\",\"event\":\"app.boot\",\"fields\":{\"hasReact\":true,\"lang\":\"zh\",\"entryCount\":8}}\n{\"v\":3,\"ts\":1793536310888,\"level\":\"info\",\"event\":\"settings.log.reconcile\",\"fields\":{\"ok\":true,\"on\":false}}\n{\"v\":3,\"ts\":1793536310888,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":254}}\n{\"v\":3,\"ts\":1793536310888,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":254}}\n{\"v\":3,\"ts\":1793536549386,\"level\":\"info\",\"event\":\"host.start\",\"fields\":{\"pid\":57416,\"startedAt\":\"2026-11-01T12:35:49.235Z\",\"dir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t0-264-channelA\\\\home\\\\logs\",\"pluginVersion\":\"0.4.40\",\"os\":\"win32\"}}\n{\"v\":3,\"ts\":1793536551786,\"level\":\"info\",\"event\":\"app.boot\",\"fields\":{\"hasReact\":true,\"lang\":\"zh\",\"entryCount\":8}}\n{\"v\":3,\"ts\":1793536551786,\"level\":\"info\",\"event\":\"settings.log.reconcile\",\"fields\":{\"ok\":true,\"on\":false}}\n{\"v\":3,\"ts\":1793536551786,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":325}}\n{\"v\":3,\"ts\":1793536551786,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":324}}\n{\"v\":3,\"ts\":1793536572307,\"level\":\"info\",\"event\":\"panel.open\",\"fields\":{\"mode\":\"compact\",\"rows\":24}}\n{\"v\":3,\"ts\":1793536682222,\"level\":\"info\",\"event\":\"host.start\",\"fields\":{\"pid\":15064,\"startedAt\":\"2026-11-01T12:38:02.087Z\",\"dir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t0-264-channelA\\\\home\\\\logs\",\"pluginVersion\":\"0.4.40\",\"os\":\"win32\"}}\n{\"v\":3,\"ts\":1793536685493,\"level\":\"info\",\"event\":\"app.boot\",\"fields\":{\"hasReact\":true,\"lang\":\"zh\",\"entryCount\":8}}\n{\"v\":3,\"ts\":1793536686721,\"level\":\"info\",\"event\":\"settings.log.reconcile\",\"fields\":{\"ok\":true,\"on\":false}}\n{\"v\":3,\"ts\":1793536686721,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":1417}}\n{\"v\":3,\"ts\":1793536686721,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":1417}}\n{\"v\":3,\"ts\":1793536699307,\"level\":\"info\",\"event\":\"panel.open\",\"fields\":{\"mode\":\"compact\",\"rows\":24}}\n{\"v\":3,\"ts\":1793536706308,\"level\":\"info\",\"event\":\"panel.open\",\"fields\":{\"mode\":\"full\",\"rows\":24}}\n{\"v\":3,\"ts\":1793536706308,\"level\":\"info\",\"event\":\"system.orientation.get\",\"fields\":{\"ok\":true,\"orientation\":\"landscape\"}}\n{\"v\":3,\"ts\":1793536713164,\"level\":\"info\",\"event\":\"host.call\",\"fields\":{\"method\":\"prompt.updateCheck\",\"latencyMs\":2062,\"ok\":true,\"kind\":\"update-check\",\"pluginId\":\"dsh-prompt\"}}\n{\"v\":3,\"ts\":1793536713320,\"level\":\"info\",\"event\":\"host.call\",\"fields\":{\"method\":\"prompt.updateStatus\",\"latencyMs\":11,\"ok\":true,\"kind\":\"update-status\",\"pluginId\":\"dsh-prompt\"}}\n{\"v\":3,\"ts\":1793536804647,\"level\":\"info\",\"event\":\"host.start\",\"fields\":{\"pid\":84748,\"startedAt\":\"2026-11-01T12:40:04.517Z\",\"dir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t0-264-channelA\\\\home\\\\logs\",\"pluginVersion\":\"0.4.40\",\"os\":\"win32\"}}\n{\"v\":3,\"ts\":1793536807180,\"level\":\"info\",\"event\":\"app.boot\",\"fields\":{\"hasReact\":true,\"lang\":\"zh\",\"entryCount\":8}}\n{\"v\":3,\"ts\":1793536807180,\"level\":\"info\",\"event\":\"settings.log.reconcile\",\"fields\":{\"ok\":true,\"on\":false}}\n{\"v\":3,\"ts\":1793536807180,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":269}}\n{\"v\":3,\"ts\":1793536807180,\"level\":\"info\",\"event\":\"store.snapshot.ok\",\"fields\":{\"customs\":0,\"pinned\":0,\"latencyMs\":269}}\n{\"v\":3,\"ts\":1793536809365,\"level\":\"info\",\"event\":\"panel.open\",\"fields\":{\"mode\":\"compact\",\"rows\":24}}\n{\"v\":3,\"ts\":1793536811080,\"level\":\"info\",\"event\":\"panel.open\",\"fields\":{\"mode\":\"full\",\"rows\":24}}\n{\"v\":3,\"ts\":1793536811080,\"level\":\"info\",\"event\":\"system.orientation.get\",\"fields\":{\"ok\":true,\"orientation\":\"landscape\"}}\n{\"v\":3,\"ts\":1793536814885,\"level\":\"info\",\"event\":\"host.call\",\"fields\":{\"method\":\"prompt.updateCheck\",\"latencyMs\":3047,\"ok\":true,\"kind\":\"update-check\",\"pluginId\":\"dsh-prompt\"}}\n{\"v\":3,\"ts\":1793536815651,\"level\":\"info\",\"event\":\"host.call\",\"fields\":{\"method\":\"prompt.updateCheck\",\"latencyMs\":465,\"ok\":true,\"kind\":\"update-check\",\"pluginId\":\"dsh-prompt\"}}\n{\"v\":3,\"ts\":1793536815800,\"level\":\"info\",\"event\":\"host.call\",\"fields\":{\"method\":\"prompt.updateStatus\",\"latencyMs\":10,\"ok\":true,\"kind\":\"update-status\",\"pluginId\":\"dsh-prompt\"}}\n"
+  }
+}

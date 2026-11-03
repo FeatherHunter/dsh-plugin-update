@@ -1,0 +1,10 @@
+{
+  "reason": "after-restart",
+  "gen": 1,
+  "kind": "desktop",
+  "port": 62382,
+  "pid": 4040,
+  "equivalentSpecPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185708/equivalent-host-specs/exit-one-restarted.json",
+  "stdoutTail": "dsh web: http://127.0.0.1:62382/?token=e2U_MpkNUp1zufDUOxBdCNFAnNdYzvtMtRkMMqCHAio\n",
+  "stderrTail": ""
+}

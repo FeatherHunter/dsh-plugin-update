@@ -1,0 +1,32 @@
+{
+  "checkId": "201323b6-fafe-45fa-979d-a40104424c42",
+  "requestId": "i2-install-1793650197346",
+  "status": 200,
+  "durationMs": 75,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.1",
+        "installed": true,
+        "installedVersion": "0.0.1",
+        "latestVersion": "0.0.2",
+        "canInstall": false,
+        "blockedReason": null,
+        "job": {
+          "id": "82c4e8e0-688a-405b-a5c0-b48945a9ba4d",
+          "state": "installing",
+          "targetVersion": "0.0.2",
+          "message": null,
+          "requestId": "i2-install-1793650197346",
+          "previousVersion": "0.0.1"
+        },
+        "identity": "update",
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t8i2 add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:52830",
+      "receipt": null
+    }
+  }
+}

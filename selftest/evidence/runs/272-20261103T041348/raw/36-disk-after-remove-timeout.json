@@ -1,0 +1,12 @@
+{
+  "manifestPath": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T041348\\home\\profiles\\desktop\\package.json",
+  "manifestText": "{\n  \"name\": \"dsh-profile-desktop\",\n  \"private\": true,\n  \"dsh\": {\n    \"profile\": {\n      \"bundles\": [\n        \"@deepseek-ai/dsh-base\",\n        \"@deepseek-ai/dsh-web-app\"\n      ]\n    }\n  }\n}\n",
+  "dependencies": null,
+  "bundles": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-web-app"
+  ],
+  "diskVersion": null,
+  "packageDir": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T041348\\home\\profiles\\desktop\\node_modules\\dsh-plugin-update-fixture-a",
+  "packageDirExists": false
+}

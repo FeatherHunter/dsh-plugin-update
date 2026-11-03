@@ -1,0 +1,83 @@
+{
+  "pollIntervalMs": 10,
+  "samples": [
+    {
+      "t": 1793669925618,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"selftest-stale-20261103T093814-p20\",\"pluginId\":\"fxa-a\",\"pid\":999999,\"startedAt\":1793669865600}",
+      "lockId": "selftest-stale-20261103T093814-p20",
+      "lockPid": 999999,
+      "lockStartedAt": 1793669865600,
+      "lockPluginId": "fxa-a",
+      "queueRaw": null,
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    },
+    {
+      "t": 1793669928238,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"5114e4ea-f454-49dc-b6d7-add6d3e9d95b\",\"pluginId\":\"fxa-a\",\"pid\":2792,\"startedAt\":1793669928229}",
+      "lockId": "5114e4ea-f454-49dc-b6d7-add6d3e9d95b",
+      "lockPid": 2792,
+      "lockStartedAt": 1793669928229,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h2-stale-1793669928205\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793669928225\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h2-stale-1793669928205"
+      ]
+    },
+    {
+      "t": 1793669928252,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"5114e4ea-f454-49dc-b6d7-add6d3e9d95b\",\"pluginId\":\"fxa-a\",\"pid\":2792,\"startedAt\":1793669928229}",
+      "lockId": "5114e4ea-f454-49dc-b6d7-add6d3e9d95b",
+      "lockPid": 2792,
+      "lockStartedAt": 1793669928229,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": {\n    \"pluginId\": \"fxa-a\",\n    \"jobId\": \"5114e4ea-f454-49dc-b6d7-add6d3e9d95b\",\n    \"requestId\": \"h2-stale-1793669928205\",\n    \"targetVersion\": \"0.0.2\",\n    \"startedAt\": 1793669928239\n  },\n  \"waiting\": []\n}\n",
+      "queueOwnerPluginId": "fxa-a",
+      "queueOwnerJobId": "5114e4ea-f454-49dc-b6d7-add6d3e9d95b",
+      "queueOwnerRequestId": "h2-stale-1793669928205",
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    },
+    {
+      "t": 1793669929369,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    }
+  ],
+  "lockIds": [
+    "selftest-stale-20261103T093814-p20",
+    "5114e4ea-f454-49dc-b6d7-add6d3e9d95b"
+  ],
+  "lockIntervals": [
+    {
+      "from": 1793669925618,
+      "to": 1793669929369,
+      "ids": [
+        "selftest-stale-20261103T093814-p20",
+        "5114e4ea-f454-49dc-b6d7-add6d3e9d95b"
+      ]
+    }
+  ],
+  "finalQueueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+  "finalLockRaw": null
+}

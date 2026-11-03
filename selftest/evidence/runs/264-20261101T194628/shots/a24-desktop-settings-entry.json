@@ -1,0 +1,17 @@
+{
+  "shot": "a24-desktop-settings-entry.png",
+  "channel": "A",
+  "whatToLook": "设置页里的更新入口 [data-dsh-prompt-update-entry] 是否可见可点（截图在点击之前）",
+  "expected": "scrollIntoView({block:center}) 后入口在视口内、rect 非零、未被遮挡",
+  "actual": "text=已是最新 0.4.40；rect={\"x\":787.2053833007812,\"y\":120.00000762939453,\"width\":117.93750762939453,\"height\":29.937501907348633,\"cx\":846.1741371154785,\"cy\":134.96875858306885}；inViewport=true；inside=true",
+  "judgement": "符合预期",
+  "note": "初版坑：不 scrollIntoView 直接点会点空；入口文案是「已是最新 0.4.40」（autoCheck=mount 已查过）",
+  "run": "264-20261101T194628",
+  "capturedAt": "2026-11-01T12:40:11.777Z",
+  "viewport": {
+    "width": 1279,
+    "height": 821,
+    "dpr": 1.75
+  },
+  "clip": null
+}

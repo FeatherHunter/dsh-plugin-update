@@ -1,0 +1,10 @@
+{
+  "reason": "after-timeout-install",
+  "gen": 0,
+  "kind": "desktop-manager",
+  "port": 59386,
+  "pid": 57548,
+  "equivalentSpecPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185608/equivalent-host-specs/manager-no-cancel.json",
+  "stdoutTail": "dsh web: http://127.0.0.1:59386/?token=JVqGxiZfkYHwTwIRap1F9pVH48b4r5FDZ2oY19OtoHs\n",
+  "stderrTail": ""
+}

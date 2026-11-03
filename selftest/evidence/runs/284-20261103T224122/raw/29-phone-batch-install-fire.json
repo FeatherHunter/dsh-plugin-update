@@ -1,0 +1,7 @@
+{
+  "at": 1793716900352,
+  "phones": [
+    "fxa.batchInstall"
+  ],
+  "note": "只发 A；B 的 batchInstall 在窗口里 A 自键 done 后立即发，fxb 方案落盘即硬杀宿主（与 M1 同编排，避免双批次对 b/c 互抢）。"
+}

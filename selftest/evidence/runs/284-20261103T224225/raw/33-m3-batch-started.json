@@ -1,0 +1,45 @@
+{
+  "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224225\\os-home\\.dsh\\update-queue\\cc6ce59c078ff915e3c9380b\\fxa\\batch.json",
+  "batch": {
+    "version": 1,
+    "id": "mw0srtis-274sja1vqm",
+    "selfKey": "a",
+    "stopOnFailure": false,
+    "order": [
+      "a",
+      "b",
+      "c"
+    ],
+    "entries": [
+      {
+        "key": "a",
+        "phase": "installing",
+        "requestId": "batch:mw0srtis-274sja1vqm:a",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793716972136
+      },
+      {
+        "key": "b",
+        "phase": "ready",
+        "requestId": "batch:mw0srtis-274sja1vqm:b",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793716972119
+      },
+      {
+        "key": "c",
+        "phase": "ready",
+        "requestId": "batch:mw0srtis-274sja1vqm:c",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793716972120
+      }
+    ],
+    "createdAt": 1793716972084,
+    "updatedAt": 1793716972136
+  }
+}

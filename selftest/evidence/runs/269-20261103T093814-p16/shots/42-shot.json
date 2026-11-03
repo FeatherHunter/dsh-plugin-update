@@ -1,0 +1,9 @@
+{
+  "看什么": "部分失败后重启：A/C 已新版、B 未完成且 UI 不谎称成功/在飞",
+  "步骤": "重启后如实展示（部分失败）",
+  "expected": "B 行不显示完成/安装中；页面无「正在安装」",
+  "actual": "{\"rowB\":{\"key\":\"b\",\"phase\":\"failed\",\"queued\":false,\"busy\":false,\"title\":\"夹具 B\",\"status\":\"安装失败，请选择「重试」。\",\"versionCur\":\"未安装\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"row-install\",\"toggle-details\"],\"fail\":\"失败 install-failed：安装执行失败，详情见诊断摘要\"},\"cardB\":{\"present\":false,\"key\":null,\"ui\":null,\"title\":null,\"clientTag\":null,\"hostTag\":null,\"seatLine\":null,\"behavior\":null,\"dockHost\":null}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\42-shot.png"
+}

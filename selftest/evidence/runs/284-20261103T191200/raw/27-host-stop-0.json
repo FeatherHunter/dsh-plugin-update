@@ -1,0 +1,10 @@
+{
+  "reason": "l1-after-settle",
+  "gen": 0,
+  "port": 49609,
+  "pid": 105568,
+  "registryUrl": "https://127.0.0.1:52603",
+  "delayMs": null,
+  "proxyRequests": 19,
+  "delayedRequests": 0
+}

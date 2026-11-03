@@ -1,0 +1,10 @@
+{
+  "reason": "l3-after-success",
+  "gen": 1,
+  "port": 61553,
+  "pid": 78864,
+  "registryUrl": "https://127.0.0.1:65143",
+  "delayMs": null,
+  "proxyRequests": 6,
+  "delayedRequests": 0
+}

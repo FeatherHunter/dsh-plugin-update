@@ -1,0 +1,345 @@
+{
+  "schemaVersion": 1,
+  "runId": "267-20261102T112503",
+  "ticket": "267",
+  "scenarioId": "e3-cli-host-install-timeout",
+  "hostChannel": "dsh-web",
+  "startedAt": "2026-11-02T03:25:03.810Z",
+  "finishedAt": "2026-11-02T03:25:23.337Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:/dsh-plugin/_wt263/t3",
+    "branch": "impl/263-t3",
+    "head": "cc140e7a90b552ae1dd59c06f44c9092204edf7f",
+    "hostChannel": "dsh-web"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T112503\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "d1ed0c40042770cc90f942210464e5d52dad077947354ab8c42ff0f926f4298b",
+    "distDigest": "efddad08a87b049384552da9120af2628d192ede1053ce8b3e7790e9ae4c5cd1",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:49544",
+    "installedDistDigest": "efddad08a87b049384552da9120af2628d192ede1053ce8b3e7790e9ae4c5cd1",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "03-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 d1ed0c40042770cc…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "05-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "07-assert",
+      "step": "出口三隔离口径（宿主 home = USERPROFILE/.dsh）",
+      "what": "通道 B 宿主与它 spawn 的 CLI 子进程落在同一个 run 内隔离 home：宿主用 DSH_HOME=homeDir，子进程 DSH_* 被剥离后按 USERPROFILE/.dsh 解析",
+      "expected": "homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T112503\\os-home\\.dsh；profileName=t3cli（≠ desktop）",
+      "actual": "osHomeDir=D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T112503\\os-home；homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T112503\\os-home\\.dsh；profileName=t3cli",
+      "verdict": "pass"
+    },
+    {
+      "id": "09-assert",
+      "step": "通道 B 建普通 profile（CLI 入口）",
+      "what": "用官方发行里的 CLI（dsh --profile <名> --from-default-profile web --dump-config）在隔离 home 建一个普通 DSH 使用范围；范围名不是 desktop，路由才会落到 cli 出口",
+      "expected": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T112503\\os-home\\.dsh\\profiles\\t3cli",
+      "actual": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T112503\\os-home\\.dsh\\profiles\\t3cli",
+      "verdict": "pass"
+    },
+    {
+      "id": "11-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "13-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "efddad08a87b049384552da9120af2628d192ede1053ce8b3e7790e9ae4c5cd1",
+      "actual": "efddad08a87b049384552da9120af2628d192ede1053ce8b3e7790e9ae4c5cd1（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "出口三基版在盘（更新前状态）",
+      "what": "更新前隔离 profile 的 node_modules 里装的是场景声明的基版 0.0.1",
+      "expected": "磁盘版本=0.0.1",
+      "actual": "磁盘版本=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "16-assert",
+      "step": "变体版发布（更新目标）",
+      "what": "按场景声明发布变体 dsh-plugin-update-fixture-a@0.0.2（UI/行为都随版本变，重启后能自证）",
+      "expected": "本地 registry 可见版本含 0.0.2",
+      "actual": "registry 版本=[\"0.0.1\",\"0.0.2\"]",
+      "verdict": "pass"
+    },
+    {
+      "id": "18-assert",
+      "step": "超时格故障注入（延迟代理 + 4s 安装预算）",
+      "what": "在 verdaccio 前面挂延迟代理：只有 pnpm 的请求被挂起 15000ms（产品自己的 check 不受影响）；宿主通过 DSH_SELFTEST_REGISTRY 指向代理、通过 DSH_SELFTEST_INSTALL_TIMEOUT_MS 把安装预算降到 4000ms",
+      "expected": "代理端口=54969；upstream=http://127.0.0.1:49544",
+      "actual": "代理 baseUrl=http://127.0.0.1:54969；delayMs=15000",
+      "verdict": "pass"
+    },
+    {
+      "id": "20-assert",
+      "step": "通道 B 宿主启动（普通 dsh web）",
+      "what": "用官方发行 CLI 起一个普通 DSH web 宿主（--profile t3cli --port 0 --no-open），等它打印 web 地址并 HTTP 探活；这是「普通 DSH 宿主」的真机形态",
+      "expected": "打印 http://127.0.0.1:<port>/?token=… 且探活 status<400",
+      "actual": "url=http://127.0.0.1:58427/?token=udgIg1_nStbuHLNu_DWQes3gnCEToMnhmk93Rlr1ERE；bootMs=2276",
+      "verdict": "pass"
+    },
+    {
+      "id": "22-assert",
+      "step": "出口三 check 电话（发现新版）",
+      "what": "夹具电话 updateCheck 从宿主拿到快照：运行版=0.0.1、最新版=0.0.2、可安装",
+      "expected": "ok=true；runningVersion=0.0.1；latestVersion=0.0.2；canInstall=true",
+      "actual": "{\"runningVersion\":\"0.0.1\",\"installed\":true,\"installedVersion\":\"0.0.1\",\"latestVersion\":\"0.0.2\",\"canInstall\":true,\"blockedReason\":null,\"job\":null,\"identity\":\"update\",\"registered\":true}",
+      "verdict": "pass"
+    },
+    {
+      "id": "23-assert",
+      "step": "check 凭证（checkId）",
+      "what": "安装电话必须带上 check 回包给的候选凭证 checkId（不自己编）",
+      "expected": "receipt.checkId 非空",
+      "actual": "checkId=\"6bd8610a-acfa-4cff-8c64-b276bbd32859\"；receipt={\"checkId\":\"6bd8610a-acfa-4cff-8c64-b276bbd32859\",\"checkedAt\":1793589917854,\"expiresAt\":1793590517854}",
+      "verdict": "pass"
+    },
+    {
+      "id": "25-assert",
+      "step": "安装电话受理（异步：电话先回、exec 后完）",
+      "what": "安装电话只把任务接进来就回 ok:true（job.state=installing），真正的安装由宿主 spawn 的 CLI 子进程异步执行；所以完成判据必须用磁盘与日志，不能拿电话回包当完成",
+      "expected": "ok=true；job.state∈{installing,verifying}；回包时长远小于真实安装耗时",
+      "actual": "ok=true；job.state=installing；回包时长=116ms",
+      "verdict": "pass"
+    },
+    {
+      "id": "32-assert",
+      "step": "出口三路由判定（hostKind=cli / exec route=cli-process）",
+      "what": "产品日志证明本宿主走的是「普通 DSH 宿主 spawn CLI 子进程」出口：update.wire.ready hostKind=cli，update.install.exec route=cli-process",
+      "expected": "hostKind=cli；exec.route=cli-process",
+      "actual": "hostKind=[\"cli\",\"cli\",\"cli\"]；exec.route=\"cli-process\"",
+      "verdict": "pass"
+    },
+    {
+      "id": "33-assert",
+      "step": "出口三超时：作业失败 + 超时原话",
+      "what": "安装预算 4000ms 到点后产品按超时定局，人话（job.message）给超时原话；允许宿主未提供终止能力时的 no-terminate 变体",
+      "expected": "job.state=failed；message 含「安装超时，已终止子进程」或「安装超时；宿主未提供终止能力，这次安装可能仍在后台继续」",
+      "actual": "job.state=failed；job.message=\"install-failed: 安装超时，已终止子进程\"",
+      "verdict": "pass"
+    },
+    {
+      "id": "34-assert",
+      "step": "出口三超时：exec durationMs 落在预算+宽限内（配置透传生效）",
+      "what": "update.install.exec 的 durationMs 证明宿主真的用了 4s 预算（产品默认预算远大于它）：到点终止子进程，再给最多 3s 宽限",
+      "expected": "durationMs∈[4000, 12000)",
+      "actual": "durationMs=4111；fields={\"route\":\"cli-process\",\"ok\":false,\"exitCode\":1,\"durationMs\":4111,\"pluginId\":\"fxa-a\",\"traceId\":\"cd4c2f12ec7b2e0d\",\"spanId\":\"da14e1cf\",\"seq\":4}",
+      "verdict": "pass"
+    },
+    {
+      "id": "35-assert",
+      "step": "出口三超时：install.fail（reason=timeout / code=install-failed）",
+      "what": "失败事件按契约落 reason=timeout、code=install-failed",
+      "expected": "reason=timeout；code=install-failed",
+      "actual": "{\"stage\":\"exec\",\"reason\":\"timeout\",\"code\":\"install-failed\",\"hostCodeHash\":\"none\",\"check\":\"none\",\"exitCode\":1,\"observedVersion\":null,\"intentHash\":\"2416730b\",\"traceId\":\"cd4c2f12ec7b2e0d\",\"spanId\":\"da14e1cf\",\"seq\":6}",
+      "verdict": "pass"
+    },
+    {
+      "id": "36-assert",
+      "step": "出口三超时：磁盘不变（无虚假成功）",
+      "what": "超时终止后 profile 里的包仍是基版 0.0.1",
+      "expected": "磁盘版本=0.0.1",
+      "actual": "磁盘版本=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "38-assert",
+      "step": "出口三超时：故障注入真的挂住了 pnpm（原始请求日志）",
+      "what": "延迟代理请求日志证明：pnpm 的 registry 请求被挂起（delayMs=15000），而产品自己的 check 请求没被延迟（所以 check 能正常发现新版）",
+      "expected": "被延迟的 pnpm 请求 ≥1；未被延迟、命中包名的 check 请求 ≥1",
+      "actual": "总请求=3；被延迟的 pnpm 请求=1；未延迟的包名请求=2",
+      "verdict": "pass"
+    },
+    {
+      "id": "39-assert",
+      "step": "出口三超时：运行代码没变（同宿主自证）",
+      "what": "超时后同一个宿主进程里的夹具 host half 仍报基版构建标记（磁盘没换、进程也没重载）",
+      "expected": "buildTag=host v0.0.1",
+      "actual": "buildTag=\"host v0.0.1\"",
+      "verdict": "pass"
+    },
+    {
+      "id": "41-assert",
+      "step": "出口三台账（作业状态）",
+      "what": "更新器落盘的作业状态记录本次更新：目标版本 0.0.2、前版本 0.0.1、状态=failed",
+      "expected": "存在 state.json 且 targetVersion=0.0.2、previousVersion=0.0.1、state∈{failed}",
+      "actual": "{\"id\":\"f07f27d0-0319-4fc7-a8b8-efab3275dd38\",\"state\":\"failed\",\"targetVersion\":\"0.0.2\",\"message\":\"install-failed: 安装超时，已终止子进程\",\"requestId\":\"t3e-timeout-1793589917860\",\"previousVersion\":\"0.0.1\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "42-assert",
+      "step": "收尾（进程与端口）",
+      "what": "所有通道 B 宿主进程都已停止、延迟代理端口已释放（真机一次只起一个宿主；不留孤儿进程）",
+      "expected": "host pids 全部不在；代理端口空闲",
+      "actual": "hostPids=[{\"label\":\"cli-host-main\",\"pid\":17168}]；仍存活=[]；代理端口=54969，空闲=true",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "04-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\04-fixture-published-baseline.json"
+    },
+    {
+      "id": "06-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\06-isolation-facts.json"
+    },
+    {
+      "id": "08-profile-create",
+      "name": "profile-create",
+      "file": "raw\\08-profile-create.json"
+    },
+    {
+      "id": "10-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\10-install-baseline.json"
+    },
+    {
+      "id": "12-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\12-sut-installed-dist.json"
+    },
+    {
+      "id": "15-fixture-published-variant",
+      "name": "fixture-published-variant",
+      "file": "raw\\15-fixture-published-variant.json"
+    },
+    {
+      "id": "17-delaying-proxy-launch",
+      "name": "delaying-proxy-launch",
+      "file": "raw\\17-delaying-proxy-launch.json"
+    },
+    {
+      "id": "19-cli-host-launch",
+      "name": "cli-host-launch",
+      "file": "raw\\19-cli-host-launch.json"
+    },
+    {
+      "id": "21-phone-update-check",
+      "name": "phone-update-check",
+      "file": "raw\\21-phone-update-check.json"
+    },
+    {
+      "id": "24-phone-update-install",
+      "name": "phone-update-install",
+      "file": "raw\\24-phone-update-install.json"
+    },
+    {
+      "id": "26-phone-status-terminal",
+      "name": "phone-status-terminal",
+      "file": "raw\\26-phone-status-terminal.json"
+    },
+    {
+      "id": "27-phone-build-tag-after-timeout",
+      "name": "phone-build-tag-after-timeout",
+      "file": "raw\\27-phone-build-tag-after-timeout.json"
+    },
+    {
+      "id": "28-logs-before-stop",
+      "name": "logs-before-stop",
+      "file": "raw\\28-logs-before-stop.json"
+    },
+    {
+      "id": "29-log-fxa-a-2026-11-02",
+      "name": "log-fxa-a-2026-11-02",
+      "file": "raw\\29-log-fxa-a-2026-11-02.json"
+    },
+    {
+      "id": "30-log-fxa-b-2026-11-02",
+      "name": "log-fxa-b-2026-11-02",
+      "file": "raw\\30-log-fxa-b-2026-11-02.json"
+    },
+    {
+      "id": "31-log-fxa-c-2026-11-02",
+      "name": "log-fxa-c-2026-11-02",
+      "file": "raw\\31-log-fxa-c-2026-11-02.json"
+    },
+    {
+      "id": "37-delaying-proxy-requests",
+      "name": "delaying-proxy-requests",
+      "file": "raw\\37-delaying-proxy-requests.json"
+    },
+    {
+      "id": "40-ledger-states",
+      "name": "ledger-states",
+      "file": "raw\\40-ledger-states.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "cli-host-main",
+        "pid": 17168,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "cli-host-main",
+        "pid": 17168,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "delaying-proxy",
+        "port": 54969,
+        "released": true
+      },
+      {
+        "label": "registry",
+        "port": 49544,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:49544（仓库外 verdaccio，run 内独立 storage）"
+    ]
+  },
+  "maintainerProfile": null,
+  "notes": [
+    "本地 registry：http://127.0.0.1:49544（仓库外 verdaccio，run 内独立 storage）",
+    "通道 B 是无窗口 CLI 宿主：本场景的 UI 证据是 DOM/pageText 原文（电话回包、页面状态、产品日志摘录），没有 PNG 截图；官方桌面的窗口截图证据由 d1/d2（出口二）与 T10 UI 组承担。"
+  ]
+}

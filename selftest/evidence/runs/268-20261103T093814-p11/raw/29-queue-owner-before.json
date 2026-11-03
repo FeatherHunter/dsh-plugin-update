@@ -1,0 +1,24 @@
+{
+  "queueBefore": {
+    "present": true,
+    "owner": {
+      "pluginId": "fxb-c",
+      "jobId": "f7a60d8a-ab87-49f9-b242-55fa889b5fd7",
+      "requestId": "g2-occupier-20261103T093814-p11-1",
+      "targetVersion": "0.0.2",
+      "startedAt": 1793677005317
+    },
+    "waiting": [],
+    "raw": {
+      "version": 1,
+      "owner": {
+        "pluginId": "fxb-c",
+        "jobId": "f7a60d8a-ab87-49f9-b242-55fa889b5fd7",
+        "requestId": "g2-occupier-20261103T093814-p11-1",
+        "targetVersion": "0.0.2",
+        "startedAt": 1793677005317
+      },
+      "waiting": []
+    }
+  }
+}

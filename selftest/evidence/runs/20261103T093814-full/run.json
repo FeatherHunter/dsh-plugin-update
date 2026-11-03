@@ -1,0 +1,2210 @@
+{
+  "schemaVersion": 1,
+  "kind": "full-matrix-suite",
+  "runId": "20261103T093814-full",
+  "ticket": "275",
+  "title": "spec #263 全量真机矩阵回归（A–K 主链 + can-red 期望失败）",
+  "status": "finished",
+  "startedAt": "2026-11-03T03:25:25.206Z",
+  "finishedAt": "2026-11-03T03:56:35.596Z",
+  "verdict": "known-red",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:/dsh-plugin/_wt263/t11",
+    "branch": "impl/263-t11",
+    "head": "bd39b57baa10f3c9f128dfd05f66b286d8828045",
+    "dirtyFiles": 48,
+    "hostChannel": "mixed",
+    "concurrency": {
+      "desktop": 1,
+      "web": 3
+    },
+    "pnpmCacheMode": "per-run-private",
+    "maintainerHome": "C:/Users/辰辰洋洋/.dsh",
+    "runBaseDir": "D:/dsh-plugin/_wt263/runtime/t11-275"
+  },
+  "isolationFacts": {
+    "pnpmCacheRoot": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\_pkgcache",
+    "perScenarioRegistry": "每个场景子进程自起本地 verdaccio（动态端口），suite 不复用 registry",
+    "pnpmCacheNote": "T10 坑：共享 D:/caches/pnpm 的缓存键含 registry origin+端口，复用会命中旧 packument → ERR_PNPM_TARBALL_INTEGRITY 假红；本 suite 每个 run 独立 pnpm_config_cache_dir/npm_config_cache/npm_config_store_dir",
+    "playwrightDir": "D:/dsh-plugin/dsh-mattpocock-skills-deck/node_modules/playwright",
+    "playwrightNote": "k/j 组 UI 场景通过子进程环境 DSH_VERIFY_PLAYWRIGHT=D:/dsh-plugin/dsh-mattpocock-skills-deck/node_modules/playwright 加载（仓库外已装，不进 package.json）",
+    "suitePrebuild": {
+      "ok": true,
+      "digest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "files": 208,
+      "durationMs": 2781,
+      "note": "SUT dist：suite 起跑前在 worktree 统一 npm run build 一次（聚合指纹 e8cef960ed4baca3…，208 文件），所有 run 子进程带 npm_config_ignore_scripts=true，SUT pin 的 npm pack 不再并发触发 prepack 重建 dist/（避免并发写同一个 dist 造成指纹漂移）。"
+    }
+  },
+  "scenarios": [
+    {
+      "key": "a-single-package-main-chain",
+      "kind": "pass",
+      "scenarioId": "a-single-package-main-chain",
+      "ticket": "265",
+      "hostChannel": "desktop-official",
+      "summary": "单包主链：A@0.0.1 → 真 UI 检查/安装 → A@0.0.2 重启后可见变化",
+      "tool": "run-a-main-chain",
+      "mode": null,
+      "fault": null,
+      "order": 1,
+      "stamp": "20261103T093814-p01",
+      "runId": "265-20261103T093814-p01",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\265-20261103T093814-p01",
+      "evidencePath": "selftest/evidence/runs/265-20261103T093814-p01",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "265-20261103T093814-p01",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:38:15.385Z",
+      "finishedAt": "2026-11-03T01:40:20.954Z",
+      "durationMs": 125569,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 13,
+        "pass": 13,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/265-20261103T093814-p01/run.json 与编排 raw/a-single-package-main-chain.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "b-batch-two-integrators",
+      "kind": "pass",
+      "scenarioId": "b-batch-two-integrators",
+      "ticket": "266",
+      "hostChannel": "desktop-official",
+      "summary": "A/B 两个批量集成方 + C 纯目标同装：A 发起批量更新，两席视图正确、三目标推到 0.0.2、无跨 scope 污染",
+      "tool": "run-b-batch",
+      "mode": null,
+      "fault": null,
+      "order": 2,
+      "stamp": "20261103T093814-p02",
+      "runId": "266-20261103T093814-p02",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\266-20261103T093814-p02",
+      "evidencePath": "selftest/evidence/runs/266-20261103T093814-p02",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "266-20261103T093814-p02",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:46:09.649Z",
+      "finishedAt": "2026-11-03T01:50:56.363Z",
+      "durationMs": 286714,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 38,
+        "pass": 38,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/266-20261103T093814-p02/run.json 与编排 raw/b-batch-two-integrators.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "c-pure-target-no-wiring",
+      "kind": "pass",
+      "scenarioId": "c-pure-target-no-wiring",
+      "ticket": "266",
+      "hostChannel": "desktop-official",
+      "summary": "A@0.0.1 + C（纯目标）@0.0.1：A 批量把 C 推到 0.0.2，C 页面没有 .dsh-upd 面板/入口",
+      "tool": "run-c-pure-target",
+      "mode": null,
+      "fault": null,
+      "order": 3,
+      "stamp": "20261103T093814-p03",
+      "runId": "266-20261103T093814-p03",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\266-20261103T093814-p03",
+      "evidencePath": "selftest/evidence/runs/266-20261103T093814-p03",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "266-20261103T093814-p03",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:52:41.332Z",
+      "finishedAt": "2026-11-03T01:56:08.400Z",
+      "durationMs": 207068,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 24,
+        "pass": 24,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/266-20261103T093814-p03/run.json 与编排 raw/c-pure-target-no-wiring.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "d1-desktop-manager-update-success",
+      "kind": "pass",
+      "scenarioId": "d1-desktop-manager-update-success",
+      "ticket": "267",
+      "hostChannel": "desktop-official",
+      "summary": "出口二成功：官方桌面 in-process 插件管理器把 A@0.0.1 更新到 A@0.0.2（remove→install 两步）",
+      "tool": "run-d-desktop-manager",
+      "mode": "success",
+      "fault": null,
+      "order": 4,
+      "stamp": "20261103T093814-p04",
+      "runId": "267-20261103T093814-p04",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p04",
+      "evidencePath": "selftest/evidence/runs/267-20261103T093814-p04",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "267-20261103T093814-p04",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:56:09.291Z",
+      "finishedAt": "2026-11-03T01:59:41.897Z",
+      "durationMs": 212606,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 17,
+        "pass": 17,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/267-20261103T093814-p04/run.json 与编排 raw/d1-desktop-manager-update-success.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "d2-desktop-manager-update-failure",
+      "kind": "pass",
+      "scenarioId": "d2-desktop-manager-update-failure",
+      "ticket": "267",
+      "hostChannel": "desktop-official",
+      "summary": "出口二失败：check 正常；安装时 registry 里 0.0.2 的 tarball 被删（元数据/integrity 不动），管理器移除步成功、重装失败；产品稳定码 install-failed + 宿主原话 + 可执行手工命令",
+      "tool": "run-d-desktop-manager",
+      "mode": "failure",
+      "fault": null,
+      "order": 5,
+      "stamp": "20261103T093814-p05",
+      "runId": "267-20261103T093814-p05",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p05",
+      "evidencePath": "selftest/evidence/runs/267-20261103T093814-p05",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "267-20261103T093814-p05",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:59:42.730Z",
+      "finishedAt": "2026-11-03T02:02:18.777Z",
+      "durationMs": 156047,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 18,
+        "pass": 18,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/267-20261103T093814-p05/run.json 与编排 raw/d2-desktop-manager-update-failure.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "e1-cli-host-update-success",
+      "kind": "pass",
+      "scenarioId": "e1-cli-host-update-success",
+      "ticket": "267",
+      "hostChannel": "dsh-web",
+      "summary": "出口三成功：普通 DSH 宿主（非 desktop profile）spawn CLI 子进程更新 A@0.0.1→A@0.0.2",
+      "tool": "run-e-cli-host",
+      "mode": "success",
+      "fault": null,
+      "order": 6,
+      "stamp": "20261103T093814-p06",
+      "runId": "267-20261103T093814-p06",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p06",
+      "evidencePath": "selftest/evidence/runs/267-20261103T093814-p06",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "267-20261103T093814-p06",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:38:15.398Z",
+      "finishedAt": "2026-11-03T01:38:33.603Z",
+      "durationMs": 18205,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 22,
+        "pass": 22,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/267-20261103T093814-p06/run.json 与编排 raw/e1-cli-host-update-success.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "e2-cli-host-update-failure",
+      "kind": "pass",
+      "scenarioId": "e2-cli-host-update-failure",
+      "ticket": "267",
+      "hostChannel": "dsh-web",
+      "summary": "出口三失败：check 正常；安装时删 registry 里 0.0.2 的 tarball（元数据不动），载体 CLI 子进程 pnpm 404 非零退出；稳定码 install-failed + 原话，磁盘不变",
+      "tool": "run-e-cli-host",
+      "mode": "failure",
+      "fault": null,
+      "order": 7,
+      "stamp": "20261103T093814-p07",
+      "runId": "267-20261103T093814-p07",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p07",
+      "evidencePath": "selftest/evidence/runs/267-20261103T093814-p07",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "267-20261103T093814-p07",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:38:15.403Z",
+      "finishedAt": "2026-11-03T01:38:34.396Z",
+      "durationMs": 18993,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 25,
+        "pass": 25,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/267-20261103T093814-p07/run.json 与编排 raw/e2-cli-host-update-failure.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "e3-cli-host-install-timeout",
+      "kind": "pass",
+      "scenarioId": "e3-cli-host-install-timeout",
+      "ticket": "267",
+      "hostChannel": "dsh-web",
+      "summary": "出口三超时：installTimeoutMs=4s，安装请求被挂起，产品超时终止 CLI 子进程并给超时原话",
+      "tool": "run-e-cli-host",
+      "mode": "timeout",
+      "fault": null,
+      "order": 8,
+      "stamp": "20261103T093814-p08",
+      "runId": "267-20261103T093814-p08",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p08",
+      "evidencePath": "selftest/evidence/runs/267-20261103T093814-p08",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "267-20261103T093814-p08",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:38:15.402Z",
+      "finishedAt": "2026-11-03T01:38:32.528Z",
+      "durationMs": 17126,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 22,
+        "pass": 22,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/267-20261103T093814-p08/run.json 与编排 raw/e3-cli-host-install-timeout.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "f1-third-party-desktop-probe",
+      "kind": "pass",
+      "scenarioId": "f1-third-party-desktop-probe",
+      "ticket": "267",
+      "hostChannel": "desktop-official",
+      "summary": "出口一探测：本机只有官方桌面（无第三方 Desktop / desktopProfiles 服务），留原始探测证据并判 known-red",
+      "tool": "run-f-desktop-probe",
+      "mode": null,
+      "fault": null,
+      "order": 9,
+      "stamp": "20261103T093814-p09",
+      "runId": "267-20261103T093814-p09",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p09",
+      "evidencePath": "selftest/evidence/runs/267-20261103T093814-p09",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "267-20261103T093814-p09",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T02:02:19.929Z",
+      "finishedAt": "2026-11-03T02:03:42.106Z",
+      "durationMs": 82177,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "known-red",
+      "exitCode": 0,
+      "assertions": {
+        "total": 10,
+        "pass": 8,
+        "fail": 0,
+        "knownRed": 2,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [
+        "26-assert",
+        "27-assert"
+      ],
+      "expectedVerdict": [
+        "pass",
+        "known-red"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "known-red",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/267-20261103T093814-p09/run.json 与编排 raw/f1-third-party-desktop-probe.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "g1-desktop-manager-install-timeout",
+      "kind": "pass",
+      "scenarioId": "g1-desktop-manager-install-timeout",
+      "ticket": "268",
+      "hostChannel": "desktop-official",
+      "summary": "出口二超时：延迟代理把 0.0.2 tarball 请求挂住，installTimeoutMs=12s；B 行安装以失败收局，超时人话格与宿主取消能力一致，日志/台账/磁盘自洽，重启后台账仍 failed 且 UI 不谎称更新中/成功",
+      "tool": "run-g-settlement",
+      "mode": "timeout",
+      "fault": null,
+      "order": 10,
+      "stamp": "20261103T093814-p10",
+      "runId": "268-20261103T093814-p10",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\268-20261103T093814-p10",
+      "evidencePath": "selftest/evidence/runs/268-20261103T093814-p10",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "268-20261103T093814-p10",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T02:03:43.038Z",
+      "finishedAt": "2026-11-03T02:07:50.848Z",
+      "durationMs": 247810,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 19,
+        "pass": 19,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/268-20261103T093814-p10/run.json 与编排 raw/g1-desktop-manager-install-timeout.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "g2-batch-queued-cancel",
+      "kind": "pass",
+      "scenarioId": "g2-batch-queued-cancel",
+      "ticket": "268",
+      "hostChannel": "desktop-official",
+      "summary": "批量取消：B 运行时的慢安装（C@0.0.2，延迟代理挂 pnpm）先占住全局执行锁；A 面板点宏「全部更新」，轮到 C 时被公平门挡下进等待队列（不开始装）；行「取消排队」回执如实（只撤占位、本批仍会继续、不终止在飞），再用真 UI「丢弃本批」两步确认清掉会话；丢弃后不再排队、C 不被安装、无虚假终态",
+      "tool": "run-g-settlement",
+      "mode": "queued-cancel",
+      "fault": null,
+      "order": 11,
+      "stamp": "20261103T093814-p11",
+      "runId": "268-20261103T093814-p11",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\268-20261103T093814-p11",
+      "evidencePath": "selftest/evidence/runs/268-20261103T093814-p11",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "268-20261102T174922",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T03:34:25.168Z",
+      "finishedAt": "2026-11-03T03:39:54.844Z",
+      "durationMs": 329676,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 28,
+        "pass": 28,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": []
+    },
+    {
+      "key": "g3-desktop-manager-failed-no-retry",
+      "kind": "pass",
+      "scenarioId": "g3-desktop-manager-failed-no-retry",
+      "ticket": "268",
+      "hostChannel": "desktop-official",
+      "summary": "已了结的失败：check 后删 0.0.2 tarball（元数据不动），B 安装落定 failed；静置 ≥15s 无自动重试（exec/fail 计数不增），UI 如实显示失败，重启后台账仍 failed 且不谎称更新中",
+      "tool": "run-g-settlement",
+      "mode": "failed-no-retry",
+      "fault": null,
+      "order": 12,
+      "stamp": "20261103T093814-p12",
+      "runId": "268-20261103T093814-p12",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\268-20261103T093814-p12",
+      "evidencePath": "selftest/evidence/runs/268-20261103T093814-p12",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "268-20261103T093814-p12",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T02:11:42.371Z",
+      "finishedAt": "2026-11-03T02:16:36.477Z",
+      "durationMs": 294106,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 19,
+        "pass": 19,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/268-20261103T093814-p12/run.json 与编排 raw/g3-desktop-manager-failed-no-retry.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "g4-desktop-manager-retry-single-success",
+      "kind": "pass",
+      "scenarioId": "g4-desktop-manager-retry-single-success",
+      "ticket": "268",
+      "hostChannel": "desktop-official",
+      "summary": "补一次成功：失败落定后恢复 registry tarball，用 A 面板真 UI 重试安装 B → 成功；重启后台账/历史对 B 恰一条成功终态、无重复成功记录，UI 与磁盘一致",
+      "tool": "run-g-settlement",
+      "mode": "retry-single-success",
+      "fault": null,
+      "order": 13,
+      "stamp": "20261103T093814-p13",
+      "runId": "268-20261103T093814-p13",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\268-20261103T093814-p13",
+      "evidencePath": "selftest/evidence/runs/268-20261103T093814-p13",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "268-20261103T093814-p13",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T02:16:37.236Z",
+      "finishedAt": "2026-11-03T02:22:42.026Z",
+      "durationMs": 364790,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 25,
+        "pass": 25,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/268-20261103T093814-p13/run.json 与编排 raw/g4-desktop-manager-retry-single-success.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "g5-desktop-manager-no-cancel-probe",
+      "kind": "pass",
+      "scenarioId": "g5-desktop-manager-no-cancel-probe",
+      "ticket": "268",
+      "hostChannel": "desktop-official",
+      "summary": "能力探测：官方桌面 0.2.1-rc.5 的 pluginManager 有 cancelInstall（运行时/asar 原始探测），「无终止能力」宿主真机不可造；库内无 cancel 措辞测试作 L0 证据，真机无能力断言记 known-red",
+      "tool": "run-g-settlement",
+      "mode": "no-cancel-probe",
+      "fault": null,
+      "order": 14,
+      "stamp": "20261103T093814-p14",
+      "runId": "268-20261103T093814-p14",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\268-20261103T093814-p14",
+      "evidencePath": "selftest/evidence/runs/268-20261103T093814-p14",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "268-20261103T093814-p14",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T02:22:42.703Z",
+      "finishedAt": "2026-11-03T02:25:13.572Z",
+      "durationMs": 150869,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "known-red",
+      "exitCode": 0,
+      "assertions": {
+        "total": 12,
+        "pass": 11,
+        "fail": 0,
+        "knownRed": 1,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [
+        "27-assert"
+      ],
+      "expectedVerdict": [
+        "pass",
+        "known-red"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "known-red",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/268-20261103T093814-p14/run.json 与编排 raw/g5-desktop-manager-no-cancel-probe.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "e-batch-three-package-upgrade",
+      "kind": "pass",
+      "scenarioId": "e-batch-three-package-upgrade",
+      "ticket": "269",
+      "hostChannel": "desktop-official",
+      "summary": "三包批量全成：A/B/C@0.0.1 同 profile，A 面板真 UI「检查更新」后宏「全部更新」，三包都被推到 0.0.2；面板三行、三个台账、磁盘三处、重启后三卡片一致，无全批假成功",
+      "tool": "run-e-batch",
+      "mode": "three-package-upgrade",
+      "fault": null,
+      "order": 15,
+      "stamp": "20261103T093814-p15",
+      "runId": "269-20261103T093814-p15",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p15",
+      "evidencePath": "selftest/evidence/runs/269-20261103T093814-p15",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "269-20261103T093814-p15",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T02:25:14.394Z",
+      "finishedAt": "2026-11-03T02:28:01.297Z",
+      "durationMs": 166903,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 16,
+        "pass": 16,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/269-20261103T093814-p15/run.json 与编排 raw/e-batch-three-package-upgrade.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "e-batch-partial-failure",
+      "kind": "pass",
+      "scenarioId": "e-batch-partial-failure",
+      "ticket": "269",
+      "hostChannel": "desktop-official",
+      "summary": "部分失败隔离：B@0.0.2 tarball 字节被改坏（元数据/integrity 不动，check 能过），宏批量后 A/C 照常完成 0.0.2、B 落定 install-failed；台账逐行真相、UI 如实、重启后按磁盘真相投影，坏行不拖垮好行",
+      "tool": "run-e-batch",
+      "mode": "partial-failure",
+      "fault": null,
+      "order": 16,
+      "stamp": "20261103T093814-p16",
+      "runId": "269-20261103T093814-p16",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p16",
+      "evidencePath": "selftest/evidence/runs/269-20261103T093814-p16",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "269-20261103T093814-p16",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T02:28:01.997Z",
+      "finishedAt": "2026-11-03T02:32:58.351Z",
+      "durationMs": 296354,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 17,
+        "pass": 17,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/269-20261103T093814-p16/run.json 与编排 raw/e-batch-partial-failure.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "e-batch-resume-retry",
+      "kind": "pass",
+      "scenarioId": "e-batch-resume-retry",
+      "ticket": "269",
+      "hostChannel": "desktop-official",
+      "summary": "重试/续跑：部分失败后恢复 B@0.0.2 tarball（字节哈希复原、元数据不变），用 A 面板真 UI 重试 B；A/C 不重复安装、B 恰一次成功、总账三条成功无重复无丢行，重启后 UI/台账/磁盘一致",
+      "tool": "run-e-batch",
+      "mode": "resume-retry",
+      "fault": null,
+      "order": 17,
+      "stamp": "20261103T093814-p17",
+      "runId": "269-20261103T093814-p17",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p17",
+      "evidencePath": "selftest/evidence/runs/269-20261103T093814-p17",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "269-20261103T093814-p17",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T02:32:59.061Z",
+      "finishedAt": "2026-11-03T02:38:17.012Z",
+      "durationMs": 317951,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 22,
+        "pass": 22,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/269-20261103T093814-p17/run.json 与编排 raw/e-batch-resume-retry.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "h1-queue-lock-concurrent",
+      "kind": "pass",
+      "scenarioId": "h1-queue-lock-concurrent",
+      "ticket": "270",
+      "hostChannel": "dsh-web",
+      "summary": "两个独立 DSH web 宿主进程共享同一 home+profile（各自有电话入口）：入口 1 先受理安装、轮询到 global.lock 出现后入口 2 在锁窗内对同一 target=A@0.0.2 发 updateInstall —— 恰一个 exec 真跑、另一个被 update-busy 稳定拒绝，两安装窗不重叠、profile 不损坏、台账恰一条成功终态、失败方重试收敛，队列 owner 任意时刻至多一个",
+      "tool": "run-h-queue-lock",
+      "mode": "concurrent-lock-window",
+      "fault": null,
+      "order": 18,
+      "stamp": "20261103T093814-p18",
+      "runId": "270-20261103T093814-p18",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-p18",
+      "evidencePath": "selftest/evidence/runs/270-20261103T093814-p18",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "270-20261103T093814-p18",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:38:32.769Z",
+      "finishedAt": "2026-11-03T01:38:55.282Z",
+      "durationMs": 22513,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 25,
+        "pass": 25,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/270-20261103T093814-p18/run.json 与编排 raw/h1-queue-lock-concurrent.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "h1b-queue-lock-simultaneous",
+      "kind": "pass",
+      "scenarioId": "h1b-queue-lock-simultaneous",
+      "ticket": "270",
+      "hostChannel": "dsh-web",
+      "summary": "两个独立 DSH web 宿主进程共享同一 home+profile（各自有电话入口），几乎同一刻（Promise.all、不 await 完成）对同一 target=A@0.0.2 各发一次 updateInstall：恰一个 exec 真跑、另一个被 update-busy 稳定拒绝，两安装窗不重叠、profile 不损坏、台账恰一条成功终态、失败方重试收敛，队列 owner 任意时刻至多一个",
+      "tool": "run-h-queue-lock",
+      "mode": "concurrent-simultaneous",
+      "fault": null,
+      "order": 19,
+      "stamp": "20261103T093814-p19",
+      "runId": "270-20261103T093814-p19",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-p19",
+      "evidencePath": "selftest/evidence/runs/270-20261103T093814-p19",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "270-20261103T093814-p19",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:38:33.838Z",
+      "finishedAt": "2026-11-03T01:38:56.518Z",
+      "durationMs": 22680,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 25,
+        "pass": 25,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/270-20261103T093814-p19/run.json 与编排 raw/h1b-queue-lock-simultaneous.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "h2-queue-lock-stale-reclaim",
+      "kind": "pass",
+      "scenarioId": "h2-queue-lock-stale-reclaim",
+      "ticket": "270",
+      "hostChannel": "dsh-web",
+      "summary": "预写陈旧 global.lock（pid 已死、startedAt 60s 前）并把宿主安装预算压到 4s，再触发 A@0.0.2 更新：抢锁路径经二次核对判定陈旧锁 → lock.anomaly(stale-owner) + queue.transition(reclaimed) → 继续安装成功，锁最终释放、队列收尾干净，无 busy-owner 误判",
+      "tool": "run-h-queue-lock",
+      "mode": "stale-reclaim",
+      "fault": null,
+      "order": 20,
+      "stamp": "20261103T093814-p20",
+      "runId": "270-20261103T093814-p20",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-p20",
+      "evidencePath": "selftest/evidence/runs/270-20261103T093814-p20",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "270-20261103T093814-p20",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:38:34.613Z",
+      "finishedAt": "2026-11-03T01:38:51.291Z",
+      "durationMs": 16678,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 20,
+        "pass": 20,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/270-20261103T093814-p20/run.json 与编排 raw/h2-queue-lock-stale-reclaim.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "g6-hub-survives-self-replacement",
+      "kind": "pass",
+      "scenarioId": "g6-hub-survives-self-replacement",
+      "ticket": "271",
+      "hostChannel": "dsh-web",
+      "summary": "三包批量（A 自键排第一）在通道 B web 宿主上推进：A@0.0.2 装完、B/C 未终态时第一代宿主进程被杀，第二代宿主同 home+profile 启动——从盘上的 hub plan / batch session 恢复，B/C 无需人工续跑自动完成 0.0.2；batch 三行终态无 failed、hubStatus finished done3 failed0、台账三条成功、磁盘三包一致、租约始终单一属主",
+      "tool": "run-g-hub",
+      "mode": "handoff",
+      "fault": null,
+      "order": 21,
+      "stamp": "20261103T093814-p21",
+      "runId": "271-20261103T093814-p21",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-p21",
+      "evidencePath": "selftest/evidence/runs/271-20261103T093814-p21",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "271-20261103T093814-p21",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:38:51.536Z",
+      "finishedAt": "2026-11-03T01:39:47.960Z",
+      "durationMs": 56424,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 32,
+        "pass": 32,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/271-20261103T093814-p21/run.json 与编排 raw/g6-hub-survives-self-replacement.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "g7-hub-handoff-evidence",
+      "kind": "pass",
+      "scenarioId": "g7-hub-handoff-evidence",
+      "ticket": "271",
+      "hostChannel": "dsh-web",
+      "summary": "g1 换手完成后关闭第二代宿主、以同一 home+profile 重新起宿主（= 关页面再重开），重新取面板批量状态/中枢状态/A 自身状态：三行 current/done、中枢 finished done3 failed0、无进行中/失败残留；同一会话内再取一次（刷新）结果一致；面板数据与台账、磁盘三包一致，不是断线或假绿",
+      "tool": "run-g-hub",
+      "mode": "page-recovery",
+      "fault": null,
+      "order": 22,
+      "stamp": "20261103T093814-p22",
+      "runId": "271-20261103T093814-p22",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-p22",
+      "evidencePath": "selftest/evidence/runs/271-20261103T093814-p22",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "271-20261103T093814-p22",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:38:55.532Z",
+      "finishedAt": "2026-11-03T01:39:56.456Z",
+      "durationMs": 60924,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 39,
+        "pass": 39,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/271-20261103T093814-p22/run.json 与编排 raw/g7-hub-handoff-evidence.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "i1-restart-enrollment-truth",
+      "kind": "pass",
+      "scenarioId": "i1-restart-enrollment-truth",
+      "ticket": "272",
+      "hostChannel": "desktop-official",
+      "summary": "官方桌面把 A@0.0.1 更新到 0.0.2：desktop-manager 是 in-process 热换——装完即同一宿主进程内加载 0.0.2（面板「已是最新」、卡片 client/host v0.0.2），安装窗内无 host.start；再真重启（关宿主起新实例）断言不回退，磁盘/profile 清单（dependencies+在册名单）/DOM 三面一致，台账恰一条成功",
+      "tool": "run-i-enrollment",
+      "mode": "restart-truth",
+      "fault": null,
+      "order": 23,
+      "stamp": "20261103T093814-p23",
+      "runId": "272-20261103T093814-p23",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\272-20261103T093814-p23",
+      "evidencePath": "selftest/evidence/runs/272-20261103T093814-p23",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "272-20261103T093814-p23",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T02:38:17.807Z",
+      "finishedAt": "2026-11-03T02:42:01.868Z",
+      "durationMs": 224061,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 19,
+        "pass": 19,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass",
+        "known-red"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/272-20261103T093814-p23/run.json 与编排 raw/i1-restart-enrollment-truth.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "i2-unregistered-honesty",
+      "kind": "pass",
+      "scenarioId": "i2-unregistered-honesty",
+      "ticket": "272",
+      "hostChannel": "dsh-web",
+      "summary": "通道 B（普通 DSH web 宿主；官方桌面独占 desktop profile 故用非 desktop profile）真安装 A@0.0.1→0.0.2：安装瞬间 verify 行报 restart-required/pendingRestart=true，未重启时磁盘 0.0.2 而宿主进程 buildTag 仍基版（不热换）；把 A 摘出使用范围清单后真重启确实不加载（buildTag 电话不可达），写回清单后真重启才加载 0.0.2；台账恰一条成功",
+      "tool": "run-i-enrollment",
+      "mode": "unregistered-honesty",
+      "fault": null,
+      "order": 24,
+      "stamp": "20261103T093814-p24",
+      "runId": "272-20261103T093814-p24",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\272-20261103T093814-p24",
+      "evidencePath": "selftest/evidence/runs/272-20261103T093814-p24",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "272-20261103T093814-p24",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:38:56.987Z",
+      "finishedAt": "2026-11-03T01:39:19.454Z",
+      "durationMs": 22467,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "known-red",
+      "exitCode": 0,
+      "assertions": {
+        "total": 25,
+        "pass": 24,
+        "fail": 0,
+        "knownRed": 1,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [
+        "37-assert"
+      ],
+      "expectedVerdict": [
+        "pass",
+        "known-red"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "known-red",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/272-20261103T093814-p24/run.json 与编排 raw/i2-unregistered-honesty.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "i3-topology-compensation",
+      "kind": "pass",
+      "scenarioId": "i3-topology-compensation",
+      "ticket": "272",
+      "hostChannel": "desktop-official",
+      "summary": "官方桌面更新 A@0.0.1→0.0.2 时对已装包文件加独占锁并把宿主安装预算压到 4s：管理器移除步超时，台账/面板的失败人话格必须给出移除超时事实 + 三档补偿之一（已恢复在册/恢复未成功/无法确认），且文案与 manifest 真实在册事实一致，不谎报已恢复",
+      "tool": "run-i-compensation",
+      "mode": "lock-remove-timeout",
+      "fault": null,
+      "order": 25,
+      "stamp": "20261103T093814-p25",
+      "runId": "272-20261103T093814-p25",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\272-20261103T093814-p25",
+      "evidencePath": "selftest/evidence/runs/272-20261103T093814-p25",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "272-20261103T093814-p25",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T02:42:02.735Z",
+      "finishedAt": "2026-11-03T02:44:15.714Z",
+      "durationMs": 132979,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 19,
+        "pass": 19,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/272-20261103T093814-p25/run.json 与编排 raw/i3-topology-compensation.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "k-single-panel-happy",
+      "kind": "pass",
+      "scenarioId": "k-single-panel-happy",
+      "ticket": "274",
+      "hostChannel": "dsh-web",
+      "summary": "通道 B 真页面（Playwright）：A@0.0.1 在装（单包面板 + 入口 + 安装按钮），另挂一块绑定未安装 C 的面板覆盖「未安装」态；发布 A@0.0.2（带 CHANGELOG.md）→ A 面板「可更新」banner + changelog 行内 markdown/裸 URL/BREAKING/yanked/截断提示（版本节 100 上限）；真 UI 点安装 → 更新中状态 → 已了结「已是最新」；重启后状态不回退；入口/安装按钮/额外面板与产品文案真源一致",
+      "tool": "run-k-ui",
+      "mode": "k1",
+      "fault": null,
+      "order": 26,
+      "stamp": "20261103T093814-p26",
+      "runId": "274-20261103T093814-p26",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p26",
+      "evidencePath": "selftest/evidence/runs/274-20261103T093814-p26",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "274-20261103T093814-p26",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:39:19.707Z",
+      "finishedAt": "2026-11-03T01:40:09.064Z",
+      "durationMs": 49357,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 38,
+        "pass": 38,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/274-20261103T093814-p26/run.json 与编排 raw/k-single-panel-happy.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "k-single-panel-failure",
+      "kind": "pass",
+      "scenarioId": "k-single-panel-failure",
+      "ticket": "274",
+      "hostChannel": "dsh-web",
+      "summary": "通道 B 真页面：A@0.0.1 在装、发布 A@0.0.2 后改坏 tarball 字节（元数据/integrity 不动，check 仍列出 0.0.2）→ 真 UI 点安装 → pnpm 校验失败 → 面板失败面 data-kind=failed/.dsh-upd-err 文案与产品失败码一致；记录最后手段区（data-last-resort）与手工命令原文 → 恢复 tarball → harness 真执行面板给出的手工命令 → 重启后已生效 0.0.2",
+      "tool": "run-k-ui",
+      "mode": "k2",
+      "fault": null,
+      "order": 27,
+      "stamp": "20261103T093814-p27",
+      "runId": "274-20261103T093814-p27",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p27",
+      "evidencePath": "selftest/evidence/runs/274-20261103T093814-p27",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "274-20261103T093814-p27",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:46:09.858Z",
+      "finishedAt": "2026-11-03T01:47:50.681Z",
+      "durationMs": 100823,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 23,
+        "pass": 23,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/274-20261103T093814-p27/run.json 与编排 raw/k-single-panel-failure.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "k-batch-panel-states",
+      "kind": "pass",
+      "scenarioId": "k-batch-panel-states",
+      "ticket": "274",
+      "hostChannel": "dsh-web",
+      "summary": "通道 B 真页面：A/B/C@0.0.1 在装，发布三包 0.0.2 后改坏最后一行 C 的 tarball 字节（元数据/integrity 不动）→ 真 UI 点「全部更新」→ 安装窗拍 installing/queued → A/B 成功、C 失败（1 个失败横幅 + 行内最后手段可重试）→ 停宿主读日志/台账（好行不受影响、无全批假成功）→ 复原 tarball 并清 run 私有 pnpm store → 第二代宿主批量面板续跑（默认自动续跑，冻结时真 UI 点续跑）→ C 成功落定、三行 done/current → 停宿主读 exactly-once（A/B 各 1 次、C 1 失败 1 成功）→ 第三代宿主重启后三行 current、台账三包 completed、构建标记 v0.0.2",
+      "tool": "run-k-ui",
+      "mode": "k3",
+      "fault": null,
+      "order": 28,
+      "stamp": "20261103T093814-p28",
+      "runId": "274-20261103T093814-p28",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p28",
+      "evidencePath": "selftest/evidence/runs/274-20261103T093814-p28",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "274-20261103T093814-p28",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:52:41.400Z",
+      "finishedAt": "2026-11-03T01:56:45.435Z",
+      "durationMs": 244035,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 38,
+        "pass": 38,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/274-20261103T093814-p28/run.json 与编排 raw/k-batch-panel-states.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "k-batch-resume",
+      "kind": "pass",
+      "scenarioId": "k-batch-resume",
+      "ticket": "274",
+      "hostChannel": "dsh-web",
+      "summary": "通道 B 三代宿主：批量「全部更新」中改坏 C tarball → 部分失败隔离（A/B 完成、C failed、总账不假称全批成功）→ 杀第一代宿主（taskkill 整树；此刻三行终态、无在飞安装）→ 复原 tarball + 清 run 私有 store → 第二代宿主加载 A@0.0.2（autoResume:false 关面板自动续跑 + batchHub:false 关宿主孤儿接管）→ 面板自动检查把失败行对账成 ready → 出现「继续上次未完成的更新（剩余 1 个）」→ 静置 8 秒冻结（无自动续跑、无 tarball 请求）→ 真 UI 点继续 → C 装到 0.0.2、A/B 不重复安装、台账每包恰一条成功 → 重启后三行 current",
+      "tool": "run-k-ui",
+      "mode": "k4",
+      "fault": null,
+      "order": 29,
+      "stamp": "20261103T093814-p29",
+      "runId": "274-20261103T093814-p29",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p29",
+      "evidencePath": "selftest/evidence/runs/274-20261103T093814-p29",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "274-20261103T093814-p29",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:52:41.405Z",
+      "finishedAt": "2026-11-03T01:55:25.713Z",
+      "durationMs": 164308,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 24,
+        "pass": 24,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/274-20261103T093814-p29/run.json 与编排 raw/k-batch-resume.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "j1-log-contract-coverage",
+      "kind": "pass",
+      "scenarioId": "j1-log-contract-coverage",
+      "ticket": "273",
+      "hostChannel": "dsh-web",
+      "summary": "通道 B 真机：A 单包真安装 0.0.1→0.0.2 + 三包真批量（故障注入：对已装 B 的 lib/index.js 持独占文件锁 + 安装预算压到 6s → B 的 remove 超时真失败；整轮批量继续推进 C，C 因 B 半删级联失败）之后，把 <home>/logs 全部命名空间目录逐行读回，按 event-list.update.json 校验事件名/level/字段/枚举四关，并断言必备常驻事件覆盖、失败事件面（exec ok=false + install.fail stage=exec reason=timeout）、批量 summary 事实、命名空间落点合法、每命名空间行数在预算内、按需事件零行",
+      "tool": "run-j-log",
+      "mode": "contract-coverage",
+      "fault": null,
+      "order": 30,
+      "stamp": "20261103T093814-p30",
+      "runId": "273-20261103T093814-p30",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p30",
+      "evidencePath": "selftest/evidence/runs/273-20261103T093814-p30",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "273-20261103T093814-p30",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:41:32.793Z",
+      "finishedAt": "2026-11-03T01:42:13.344Z",
+      "durationMs": 40551,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 28,
+        "pass": 28,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/273-20261103T093814-p30/run.json 与编排 raw/j1-log-contract-coverage.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "j2-noise-budget",
+      "kind": "pass",
+      "scenarioId": "j2-noise-budget",
+      "ticket": "273",
+      "hostChannel": "dsh-web",
+      "summary": "通道 B 真机：两个 Playwright 页面同时开着真 UI 面板（每页 5s 一次 updateStatus 轮询），静置窗口内 ≥100 次真实轮询，常驻日志零新增（轮询静默不刷屏）；随后在面板点「检查更新」让状态真变化，断言恰一条 update.status.changed（update-available/latest=0.0.2），再等 ≥20 次轮询同指纹不重复（边沿触发）；面板文本如实显示「有新版本 0.0.2」，每命名空间行数在预算内",
+      "tool": "run-j-log",
+      "mode": "noise-budget",
+      "fault": null,
+      "order": 31,
+      "stamp": "20261103T093814-p31",
+      "runId": "273-20261103T093814-p31",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p31",
+      "evidencePath": "selftest/evidence/runs/273-20261103T093814-p31",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "273-20261103T054531",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T03:25:27.893Z",
+      "finishedAt": "2026-11-03T03:30:56.242Z",
+      "durationMs": 328349,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 16,
+        "pass": 16,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": []
+    },
+    {
+      "key": "j3-namespace-whitelist",
+      "kind": "pass",
+      "scenarioId": "j3-namespace-whitelist",
+      "ticket": "273",
+      "hostChannel": "dsh-web",
+      "summary": "通道 B 真机：真 UI 面板日志健康读数（落点=self / 8 位目录指纹 / 按需开关=关 / 启动以来丢弃=0 / 最近事件 / 事件契约=正常）与磁盘日志逐项对账（指纹=update.wire.ready 的 logDirHash、最近事件同窗、无降级行）；客户端事件只落属主命名空间且事件名全在 6 值白名单内；最后直接向属主 logAppend 电话伪造 update.install.exec，断言协议拒收（accepted=0/dropped=1）且磁盘无伪造行、exec 行数不变",
+      "tool": "run-j-log",
+      "mode": "namespace-whitelist",
+      "fault": null,
+      "order": 32,
+      "stamp": "20261103T093814-p32",
+      "runId": "273-20261103T093814-p32",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p32",
+      "evidencePath": "selftest/evidence/runs/273-20261103T093814-p32",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "273-20261103T093814-p32",
+      "canRedHistoryRunId": null,
+      "startedAt": "2026-11-03T01:48:56.004Z",
+      "finishedAt": "2026-11-03T01:49:18.005Z",
+      "durationMs": 22001,
+      "processExitCode": 0,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "pass",
+      "exitCode": 0,
+      "assertions": {
+        "total": 17,
+        "pass": 17,
+        "fail": 0,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "pass"
+      ],
+      "expectedRedIds": null,
+      "expectedRedSteps": null,
+      "outcome": "pass",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/273-20261103T093814-p32/run.json 与编排 raw/j3-namespace-whitelist.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "can-red:a-single-package-main-chain",
+      "kind": "can-red",
+      "scenarioId": "a-single-package-main-chain",
+      "ticket": "265",
+      "hostChannel": "desktop-official",
+      "summary": "单包主链：A@0.0.1 → 真 UI 检查/安装 → A@0.0.2 重启后可见变化",
+      "tool": "run-a-main-chain",
+      "mode": null,
+      "fault": "stale-variant",
+      "order": 33,
+      "stamp": "20261103T093814-r33",
+      "runId": "265-20261103T093814-r33",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\265-20261103T093814-r33",
+      "evidencePath": "selftest/evidence/runs/265-20261103T093814-r33",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "265-20261103T093814-p01",
+      "canRedHistoryRunId": "265-20261101T214716",
+      "startedAt": "2026-11-03T02:44:16.469Z",
+      "finishedAt": "2026-11-03T02:47:44.421Z",
+      "durationMs": 207952,
+      "processExitCode": 1,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "fail",
+      "exitCode": 1,
+      "assertions": {
+        "total": 13,
+        "pass": 11,
+        "fail": 2,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [
+        "15-assert",
+        "26-assert"
+      ],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "fail"
+      ],
+      "expectedRedIds": [
+        "15-assert",
+        "26-assert"
+      ],
+      "expectedRedSteps": [
+        "发布 A 新版（可见变化）",
+        "重启后新版 UI + 可见变化"
+      ],
+      "outcome": "can-red-expected-fail",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/265-20261103T093814-r33/run.json 与编排 raw/can-red:a-single-package-main-chain.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "can-red:b-batch-two-integrators",
+      "kind": "can-red",
+      "scenarioId": "b-batch-two-integrators",
+      "ticket": "266",
+      "hostChannel": "desktop-official",
+      "summary": "A/B 两个批量集成方 + C 纯目标同装：A 发起批量更新，两席视图正确、三目标推到 0.0.2、无跨 scope 污染",
+      "tool": "run-b-batch",
+      "mode": null,
+      "fault": "skip-variant:c",
+      "order": 34,
+      "stamp": "20261103T093814-r34",
+      "runId": "266-20261103T093814-r34",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\266-20261103T093814-r34",
+      "evidencePath": "selftest/evidence/runs/266-20261103T093814-r34",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "266-20261103T093814-p02",
+      "canRedHistoryRunId": "266-20261102T080334",
+      "startedAt": "2026-11-03T02:47:45.447Z",
+      "finishedAt": "2026-11-03T02:54:29.848Z",
+      "durationMs": 404401,
+      "processExitCode": 1,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "fail",
+      "exitCode": 1,
+      "assertions": {
+        "total": 38,
+        "pass": 34,
+        "fail": 4,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [
+        "47-assert",
+        "49-assert",
+        "50-assert",
+        "59-assert"
+      ],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "fail"
+      ],
+      "expectedRedIds": [
+        "47-assert",
+        "49-assert",
+        "50-assert",
+        "59-assert"
+      ],
+      "expectedRedSteps": [
+        "重启后 A 新版可见 UI/行为（更新前 vs 更新后对比）",
+        "重启后 B 新版可见 UI/行为",
+        "重启后 C 纯目标内容变新（更新前 vs 更新后）",
+        "日志链：批量入口 → 真装 → in-process 宿主"
+      ],
+      "outcome": "can-red-expected-fail",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/266-20261103T093814-r34/run.json 与编排 raw/can-red:b-batch-two-integrators.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "can-red:c-pure-target-no-wiring",
+      "kind": "can-red",
+      "scenarioId": "c-pure-target-no-wiring",
+      "ticket": "266",
+      "hostChannel": "desktop-official",
+      "summary": "A@0.0.1 + C（纯目标）@0.0.1：A 批量把 C 推到 0.0.2，C 页面没有 .dsh-upd 面板/入口",
+      "tool": "run-c-pure-target",
+      "mode": null,
+      "fault": "stale-variant:c",
+      "order": 35,
+      "stamp": "20261103T093814-r35",
+      "runId": "266-20261103T093814-r35",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\266-20261103T093814-r35",
+      "evidencePath": "selftest/evidence/runs/266-20261103T093814-r35",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "266-20261103T093814-p03",
+      "canRedHistoryRunId": "266-20261102T081101",
+      "startedAt": "2026-11-03T02:54:30.696Z",
+      "finishedAt": "2026-11-03T02:58:00.776Z",
+      "durationMs": 210080,
+      "processExitCode": 1,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "fail",
+      "exitCode": 1,
+      "assertions": {
+        "total": 24,
+        "pass": 22,
+        "fail": 2,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [
+        "22-assert",
+        "33-assert"
+      ],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "fail"
+      ],
+      "expectedRedIds": [
+        "22-assert",
+        "33-assert"
+      ],
+      "expectedRedSteps": [
+        "发布 C 的 0.0.2 变体（码面真的变了）",
+        "重启后 C 内容变新（更新前 vs 更新后对比）"
+      ],
+      "outcome": "can-red-expected-fail",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/266-20261103T093814-r35/run.json 与编排 raw/can-red:c-pure-target-no-wiring.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "can-red:d1-desktop-manager-update-success",
+      "kind": "can-red",
+      "scenarioId": "d1-desktop-manager-update-success",
+      "ticket": "267",
+      "hostChannel": "desktop-official",
+      "summary": "出口二成功：官方桌面 in-process 插件管理器把 A@0.0.1 更新到 A@0.0.2（remove→install 两步）",
+      "tool": "run-d-desktop-manager",
+      "mode": "can-red",
+      "fault": null,
+      "order": 36,
+      "stamp": "20261103T093814-r36",
+      "runId": "267-20261103T093814-r36",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-r36",
+      "evidencePath": "selftest/evidence/runs/267-20261103T093814-r36",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "267-20261103T093814-p04",
+      "canRedHistoryRunId": "267-20261102T113218",
+      "startedAt": "2026-11-03T03:40:09.284Z",
+      "finishedAt": "2026-11-03T03:43:38.291Z",
+      "durationMs": 209006,
+      "processExitCode": 1,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "fail",
+      "exitCode": 1,
+      "assertions": {
+        "total": 17,
+        "pass": 15,
+        "fail": 2,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [
+        "17-assert",
+        "38-assert"
+      ],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "fail"
+      ],
+      "expectedRedIds": [
+        "16-assert",
+        "37-assert"
+      ],
+      "expectedRedSteps": [
+        "发布变体版（可见变化）",
+        "重启后新版 UI + 可见变化"
+      ],
+      "outcome": "can-red-expected-fail",
+      "notes": [
+        "can-red 断言编号漂移：历史 16-assert、37-assert → 本轮 17-assert、38-assert，按断言语义步骤匹配（发布变体版（可见变化）；重启后新版 UI + 可见变化）"
+      ]
+    },
+    {
+      "key": "can-red:e1-cli-host-update-success",
+      "kind": "can-red",
+      "scenarioId": "e1-cli-host-update-success",
+      "ticket": "267",
+      "hostChannel": "dsh-web",
+      "summary": "出口三成功：普通 DSH 宿主（非 desktop profile）spawn CLI 子进程更新 A@0.0.1→A@0.0.2",
+      "tool": "run-e-cli-host",
+      "mode": "can-red",
+      "fault": null,
+      "order": 37,
+      "stamp": "20261103T093814-r37",
+      "runId": "267-20261103T093814-r37",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-r37",
+      "evidencePath": "selftest/evidence/runs/267-20261103T093814-r37",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "267-20261103T093814-p06",
+      "canRedHistoryRunId": "267-20261102T113629",
+      "startedAt": "2026-11-03T03:40:09.805Z",
+      "finishedAt": "2026-11-03T03:40:22.805Z",
+      "durationMs": 13000,
+      "processExitCode": 1,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "fail",
+      "exitCode": 1,
+      "assertions": {
+        "total": 22,
+        "pass": 21,
+        "fail": 1,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [
+        "41-assert"
+      ],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "fail"
+      ],
+      "expectedRedIds": [
+        "40-assert"
+      ],
+      "expectedRedSteps": [
+        "出口三成功：重启后 host 代码真的换了版"
+      ],
+      "outcome": "can-red-expected-fail",
+      "notes": [
+        "can-red 断言编号漂移：历史 40-assert → 本轮 41-assert，按断言语义步骤匹配（出口三成功：重启后 host 代码真的换了版）"
+      ]
+    },
+    {
+      "key": "can-red:g4-desktop-manager-retry-single-success",
+      "kind": "can-red",
+      "scenarioId": "g4-desktop-manager-retry-single-success",
+      "ticket": "268",
+      "hostChannel": "desktop-official",
+      "summary": "补一次成功：失败落定后恢复 registry tarball，用 A 面板真 UI 重试安装 B → 成功；重启后台账/历史对 B 恰一条成功终态、无重复成功记录，UI 与磁盘一致",
+      "tool": "run-g-settlement",
+      "mode": "retry-can-red",
+      "fault": null,
+      "order": 38,
+      "stamp": "20261103T093814-r38",
+      "runId": "268-20261103T093814-r38",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\268-20261103T093814-r38",
+      "evidencePath": "selftest/evidence/runs/268-20261103T093814-r38",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "268-20261103T093814-p13",
+      "canRedHistoryRunId": "268-20261102T180537",
+      "startedAt": "2026-11-03T03:43:38.373Z",
+      "finishedAt": "2026-11-03T03:49:06.792Z",
+      "durationMs": 328419,
+      "processExitCode": 1,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "fail",
+      "exitCode": 1,
+      "assertions": {
+        "total": 25,
+        "pass": 24,
+        "fail": 1,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [
+        "72-assert"
+      ],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "fail"
+      ],
+      "expectedRedIds": [
+        "71-assert"
+      ],
+      "expectedRedSteps": [
+        "D4 can-red 成功诚实性（预期红）"
+      ],
+      "outcome": "can-red-expected-fail",
+      "notes": [
+        "can-red 断言编号漂移：历史 71-assert → 本轮 72-assert，按断言语义步骤匹配（D4 can-red 成功诚实性（预期红））"
+      ]
+    },
+    {
+      "key": "can-red:e-batch-three-package-upgrade",
+      "kind": "can-red",
+      "scenarioId": "e-batch-three-package-upgrade",
+      "ticket": "269",
+      "hostChannel": "desktop-official",
+      "summary": "三包批量全成：A/B/C@0.0.1 同 profile，A 面板真 UI「检查更新」后宏「全部更新」，三包都被推到 0.0.2；面板三行、三个台账、磁盘三处、重启后三卡片一致，无全批假成功",
+      "tool": "run-e-batch",
+      "mode": "can-red",
+      "fault": null,
+      "order": 39,
+      "stamp": "20261103T093814-r39",
+      "runId": "269-20261103T093814-r39",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-r39",
+      "evidencePath": "selftest/evidence/runs/269-20261103T093814-r39",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "269-20261103T093814-p15",
+      "canRedHistoryRunId": "269-20261102T230056",
+      "startedAt": "2026-11-03T03:07:05.547Z",
+      "finishedAt": "2026-11-03T03:09:50.889Z",
+      "durationMs": 165342,
+      "processExitCode": 1,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "fail",
+      "exitCode": 1,
+      "assertions": {
+        "total": 16,
+        "pass": 15,
+        "fail": 1,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [
+        "38-assert"
+      ],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "fail"
+      ],
+      "expectedRedIds": [
+        "38-assert"
+      ],
+      "expectedRedSteps": [
+        "can-red 三包成功诚实性（预期红：C 内容仍旧版）"
+      ],
+      "outcome": "can-red-expected-fail",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/269-20261103T093814-r39/run.json 与编排 raw/can-red:e-batch-three-package-upgrade.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "can-red:i1-restart-enrollment-truth",
+      "kind": "can-red",
+      "scenarioId": "i1-restart-enrollment-truth",
+      "ticket": "272",
+      "hostChannel": "desktop-official",
+      "summary": "官方桌面把 A@0.0.1 更新到 0.0.2：desktop-manager 是 in-process 热换——装完即同一宿主进程内加载 0.0.2（面板「已是最新」、卡片 client/host v0.0.2），安装窗内无 host.start；再真重启（关宿主起新实例）断言不回退，磁盘/profile 清单（dependencies+在册名单）/DOM 三面一致，台账恰一条成功",
+      "tool": "run-i-enrollment",
+      "mode": "can-red",
+      "fault": null,
+      "order": 40,
+      "stamp": "20261103T093814-r40",
+      "runId": "272-20261103T093814-r40",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\272-20261103T093814-r40",
+      "evidencePath": "selftest/evidence/runs/272-20261103T093814-r40",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "272-20261103T093814-p23",
+      "canRedHistoryRunId": "272-20261103T041611",
+      "startedAt": "2026-11-03T03:09:51.721Z",
+      "finishedAt": "2026-11-03T03:12:24.303Z",
+      "durationMs": 152582,
+      "processExitCode": 1,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "fail",
+      "exitCode": 1,
+      "assertions": {
+        "total": 17,
+        "pass": 16,
+        "fail": 1,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [
+        "31-assert"
+      ],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "fail"
+      ],
+      "expectedRedIds": [
+        "31-assert"
+      ],
+      "expectedRedSteps": [
+        "安装完成后面板如实反映「已生效」（不是写盘假绿）"
+      ],
+      "outcome": "can-red-expected-fail",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/272-20261103T093814-r40/run.json 与编排 raw/can-red:i1-restart-enrollment-truth.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "can-red:k-single-panel-happy",
+      "kind": "can-red",
+      "scenarioId": "k-single-panel-happy",
+      "ticket": "274",
+      "hostChannel": "dsh-web",
+      "summary": "通道 B 真页面（Playwright）：A@0.0.1 在装（单包面板 + 入口 + 安装按钮），另挂一块绑定未安装 C 的面板覆盖「未安装」态；发布 A@0.0.2（带 CHANGELOG.md）→ A 面板「可更新」banner + changelog 行内 markdown/裸 URL/BREAKING/yanked/截断提示（版本节 100 上限）；真 UI 点安装 → 更新中状态 → 已了结「已是最新」；重启后状态不回退；入口/安装按钮/额外面板与产品文案真源一致",
+      "tool": "run-k-ui",
+      "mode": "can-red",
+      "fault": null,
+      "order": 41,
+      "stamp": "20261103T093814-r41",
+      "runId": "274-20261103T093814-r41",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-r41",
+      "evidencePath": "selftest/evidence/runs/274-20261103T093814-r41",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "274-20261103T093814-p26",
+      "canRedHistoryRunId": "274-20261103T090655",
+      "startedAt": "2026-11-03T01:49:35.922Z",
+      "finishedAt": "2026-11-03T01:50:26.051Z",
+      "durationMs": 50129,
+      "processExitCode": 1,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "fail",
+      "exitCode": 1,
+      "assertions": {
+        "total": 9,
+        "pass": 8,
+        "fail": 1,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [
+        "24-assert"
+      ],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "fail"
+      ],
+      "expectedRedIds": [
+        "24-assert"
+      ],
+      "expectedRedSteps": [
+        "can-red-03-banner-exact"
+      ],
+      "outcome": "can-red-expected-fail",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/274-20261103T093814-r41/run.json 与编排 raw/can-red:k-single-panel-happy.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "can-red:j1-log-contract-coverage",
+      "kind": "can-red",
+      "scenarioId": "j1-log-contract-coverage",
+      "ticket": "273",
+      "hostChannel": "dsh-web",
+      "summary": "通道 B 真机：A 单包真安装 0.0.1→0.0.2 + 三包真批量（故障注入：对已装 B 的 lib/index.js 持独占文件锁 + 安装预算压到 6s → B 的 remove 超时真失败；整轮批量继续推进 C，C 因 B 半删级联失败）之后，把 <home>/logs 全部命名空间目录逐行读回，按 event-list.update.json 校验事件名/level/字段/枚举四关，并断言必备常驻事件覆盖、失败事件面（exec ok=false + install.fail stage=exec reason=timeout）、批量 summary 事实、命名空间落点合法、每命名空间行数在预算内、按需事件零行",
+      "tool": "run-j-log",
+      "mode": "can-red",
+      "fault": null,
+      "order": 42,
+      "stamp": "20261103T093814-r42",
+      "runId": "273-20261103T093814-r42",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-r42",
+      "evidencePath": "selftest/evidence/runs/273-20261103T093814-r42",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "273-20261103T093814-p30",
+      "canRedHistoryRunId": "273-20261103T054614",
+      "startedAt": "2026-11-03T01:50:16.945Z",
+      "finishedAt": "2026-11-03T01:50:37.010Z",
+      "durationMs": 20065,
+      "processExitCode": 1,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "fail",
+      "exitCode": 1,
+      "assertions": {
+        "total": 14,
+        "pass": 13,
+        "fail": 1,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [
+        "29-assert"
+      ],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "fail"
+      ],
+      "expectedRedIds": [
+        "29-assert"
+      ],
+      "expectedRedSteps": [
+        "can-red：删掉本 run 私有契约里的 update.install.exec → 真 exec 行必须被判成未知事件（本 run 必须红）"
+      ],
+      "outcome": "can-red-expected-fail",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/273-20261103T093814-r42/run.json 与编排 raw/can-red:j1-log-contract-coverage.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "can-red:h1-queue-lock-concurrent",
+      "kind": "can-red",
+      "scenarioId": "h1-queue-lock-concurrent",
+      "ticket": "270",
+      "hostChannel": "dsh-web",
+      "summary": "两个独立 DSH web 宿主进程共享同一 home+profile（各自有电话入口）：入口 1 先受理安装、轮询到 global.lock 出现后入口 2 在锁窗内对同一 target=A@0.0.2 发 updateInstall —— 恰一个 exec 真跑、另一个被 update-busy 稳定拒绝，两安装窗不重叠、profile 不损坏、台账恰一条成功终态、失败方重试收敛，队列 owner 任意时刻至多一个",
+      "tool": "run-h-queue-lock",
+      "mode": "can-red",
+      "fault": null,
+      "order": 43,
+      "stamp": "20261103T093814-r43",
+      "runId": "270-20261103T093814-r43",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-r43",
+      "evidencePath": "selftest/evidence/runs/270-20261103T093814-r43",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "270-20261103T093814-p18",
+      "canRedHistoryRunId": "270-20261103T004915",
+      "startedAt": "2026-11-03T01:50:26.367Z",
+      "finishedAt": "2026-11-03T01:50:43.833Z",
+      "durationMs": 17466,
+      "processExitCode": 1,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "fail",
+      "exitCode": 1,
+      "assertions": {
+        "total": 12,
+        "pass": 11,
+        "fail": 1,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [
+        "38-assert"
+      ],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "fail"
+      ],
+      "expectedRedIds": [
+        "38-assert"
+      ],
+      "expectedRedSteps": [
+        "can-red：删全局锁+自家锁后第二入口是否越过锁（预期红）"
+      ],
+      "outcome": "can-red-expected-fail",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/270-20261103T093814-r43/run.json 与编排 raw/can-red:h1-queue-lock-concurrent.log；原因见 suite notes）"
+      ]
+    },
+    {
+      "key": "can-red:g6-hub-survives-self-replacement",
+      "kind": "can-red",
+      "scenarioId": "g6-hub-survives-self-replacement",
+      "ticket": "271",
+      "hostChannel": "dsh-web",
+      "summary": "三包批量（A 自键排第一）在通道 B web 宿主上推进：A@0.0.2 装完、B/C 未终态时第一代宿主进程被杀，第二代宿主同 home+profile 启动——从盘上的 hub plan / batch session 恢复，B/C 无需人工续跑自动完成 0.0.2；batch 三行终态无 failed、hubStatus finished done3 failed0、台账三条成功、磁盘三包一致、租约始终单一属主",
+      "tool": "run-g-hub",
+      "mode": "can-red",
+      "fault": null,
+      "order": 44,
+      "stamp": "20261103T093814-r44",
+      "runId": "271-20261103T093814-r44",
+      "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-r44",
+      "evidencePath": "selftest/evidence/runs/271-20261103T093814-r44",
+      "evidenceSynced": true,
+      "isHistorical": false,
+      "historicalRunId": "271-20261103T093814-p21",
+      "canRedHistoryRunId": "271-20261103T015357",
+      "startedAt": "2026-11-03T01:56:00.603Z",
+      "finishedAt": "2026-11-03T01:57:05.445Z",
+      "durationMs": 64842,
+      "processExitCode": 1,
+      "timedOut": false,
+      "spawnError": null,
+      "runVerdict": "fail",
+      "exitCode": 1,
+      "assertions": {
+        "total": 24,
+        "pass": 23,
+        "fail": 1,
+        "knownRed": 0,
+        "unknown": 0
+      },
+      "redIds": [
+        "53-assert"
+      ],
+      "knownRedIds": [],
+      "expectedVerdict": [
+        "fail"
+      ],
+      "expectedRedIds": [
+        "53-assert"
+      ],
+      "expectedRedSteps": [
+        "can-red 红点：换手窗口删 hub plan 后 B/C 未自动续跑"
+      ],
+      "outcome": "can-red-expected-fail",
+      "notes": [
+        "聚合记录由证据重建（数据源：selftest/evidence/runs/271-20261103T093814-r44/run.json 与编排 raw/can-red:g6-hub-survives-self-replacement.log；原因见 suite notes）"
+      ]
+    }
+  ],
+  "knownRedLedger": [
+    {
+      "id": "t3-267-exit-one",
+      "scenarioId": "f1-third-party-desktop-probe",
+      "firstRunId": "267-20261102T113042",
+      "status": "documented-unreachable",
+      "thisRound": "run 267-20261103T093814-p09：known-red（known-red）"
+    },
+    {
+      "id": "t4-268-no-cancel-probe",
+      "scenarioId": "g5-desktop-manager-no-cancel-probe",
+      "firstRunId": "268-20261102T181106",
+      "status": "documented-unreachable",
+      "thisRound": "run 268-20261103T093814-p14：known-red（known-red）"
+    },
+    {
+      "id": "t8-272-panel-pending-restart-branch",
+      "scenarioId": "i1-restart-enrollment-truth",
+      "firstRunId": "272-20261103T040926",
+      "status": "documented-unreachable",
+      "thisRound": "run 272-20261103T093814-p23：pass（pass）"
+    },
+    {
+      "id": "t8-272-i2-runtime-version-not-authoritative",
+      "scenarioId": "i2-unregistered-honesty",
+      "firstRunId": "272-20261103T040932",
+      "status": "documented-unreachable",
+      "thisRound": "run 272-20261103T093814-p24：known-red（known-red）"
+    }
+  ],
+  "cleanup": {
+    "processes": [],
+    "ports": [],
+    "notes": [
+      "收尾扫描：无本 suite 残留官方桌面/verdaccio 进程（各工具自清理）",
+      "端口：每个场景的工具自起自清 verdaccio/宿主端口，无跨场景复用"
+    ]
+  },
+  "notes": [
+    "SUT dist：suite 起跑前在 worktree 统一 npm run build 一次（聚合指纹 e8cef960ed4baca3…，208 文件），所有 run 子进程带 npm_config_ignore_scripts=true，SUT pin 的 npm pack 不再并发触发 prepack 重建 dist/（避免并发写同一个 dist 造成指纹漂移）。",
+    "编排器运行期修复（事后追记，真机结论不受影响）：①桌面 run 启动前清理曾泛匹配运行根，误杀并发 web run 自己的 verdaccio → 只清理官方桌面进程；②续跑/--rerun 执行前先删除自己上一轮运行目录（否则 verdaccio 存储残留同版本 tarball 致 publish exit 1、新旧 raw 混在一起）；③--rerun 不再重置聚合记录，并新增 --rebuild-state 从已定稿证据补回记录。",
+    "can-red 编号漂移匹配（修复后重跑）：红断言除编号外还按 assertion.step 语义比对历史红点；d1/e1/g4 三组因此判 can-red-expected-fail（历史 → 本轮编号 16/37→17/38、40→41、71→72，步骤原文一致），并非放宽判定——多余红断言仍判 mismatch。",
+    "证据重建起因：一次 --rerun（修复前版本）曾把聚合记录清到 1 条，随后用 --rebuild-state 从定稿单场景证据补回 43 条；此后 j2/g2/d1/e1/g4 为自然重跑，当前 39 条为证据重建记录（每行证据链接带标记、数据源写在各记录备注）。",
+    "记录重建（--rebuild-state）：最近一次补回 0 条、保留已有 44 条（当前共 39 条为证据重建记录，每条注明数据源；不是重跑结果）。"
+  ]
+}

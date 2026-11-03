@@ -1,0 +1,588 @@
+{
+  "statusP1": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "session": {
+        "version": 1,
+        "id": "mw0su47h-6j3jtdhxhq",
+        "selfKey": "a",
+        "stopOnFailure": false,
+        "order": [
+          "a",
+          "b",
+          "c"
+        ],
+        "entries": [
+          {
+            "key": "a",
+            "phase": "done",
+            "requestId": "batch:mw0su47h-6j3jtdhxhq:a",
+            "targetVersion": "0.0.2",
+            "restartRequired": false,
+            "error": null,
+            "updatedAt": 1793717084054
+          },
+          {
+            "key": "b",
+            "phase": "done",
+            "requestId": "batch:mw0su47h-6j3jtdhxhq:b",
+            "targetVersion": "0.0.2",
+            "restartRequired": false,
+            "error": null,
+            "updatedAt": 1793717082111
+          },
+          {
+            "key": "c",
+            "phase": "done",
+            "requestId": "batch:mw0su47h-6j3jtdhxhq:c",
+            "targetVersion": "0.0.2",
+            "restartRequired": false,
+            "error": null,
+            "updatedAt": 1793717084029
+          }
+        ],
+        "createdAt": 1793717079245,
+        "updatedAt": 1793717084054
+      },
+      "rows": [
+        {
+          "key": "a",
+          "title": "夹具 A 本体",
+          "phase": "done",
+          "targetVersion": "0.0.2",
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": "0.0.2",
+            "installed": true,
+            "installedVersion": "0.0.2",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": {
+              "requestId": "batch-mw0su47h-6j3jtdhxhq-a-e203a5e6",
+              "message": null,
+              "id": "ab2af17d-c76a-4a58-ab26-4e303d1ee678",
+              "state": "completed",
+              "targetVersion": "0.0.2",
+              "previousVersion": "0.0.1"
+            },
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t14p1 add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:61698",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t14p1",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-a.updateStatus",
+            "updateCheck": "fxa-a.updateCheck",
+            "updateInstall": "fxa-a.updateInstall",
+            "updateChangelog": "fxa-a.updateChangelog",
+            "updateCheckFallback": "fxa-a.updateCheckFallback",
+            "logAppend": "fxa-a.logAppend"
+          },
+          "pluginId": "fxa-a",
+          "diag": null
+        },
+        {
+          "key": "b",
+          "title": "夹具 B",
+          "phase": "done",
+          "targetVersion": "0.0.2",
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": "0.0.2",
+            "installed": true,
+            "installedVersion": "0.0.2",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": {
+              "requestId": "batch-mw0su47h-6j3jtdhxhq-b-e203a5e7",
+              "message": null,
+              "id": "38764d82-b69b-421e-bf5f-748573190da1",
+              "state": "completed",
+              "targetVersion": "0.0.2",
+              "previousVersion": "0.0.1"
+            },
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t14p1 add --save-exact dsh-plugin-update-fixture-b@0.0.2 --registry=http://127.0.0.1:61698",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t14p1",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-b.updateStatus",
+            "updateCheck": "fxa-b.updateCheck",
+            "updateInstall": "fxa-b.updateInstall",
+            "updateChangelog": "fxa-b.updateChangelog",
+            "updateCheckFallback": "fxa-b.updateCheckFallback",
+            "logAppend": "fxa-b.logAppend"
+          },
+          "pluginId": "fxa-b",
+          "diag": null
+        },
+        {
+          "key": "c",
+          "title": "夹具 C",
+          "phase": "done",
+          "targetVersion": "0.0.2",
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": "0.0.2",
+            "installed": true,
+            "installedVersion": "0.0.2",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": {
+              "requestId": "batch-mw0su47h-6j3jtdhxhq-c-e203a5e8",
+              "message": null,
+              "id": "e61e4036-5a48-42e4-9298-89894705fba6",
+              "state": "completed",
+              "targetVersion": "0.0.2",
+              "previousVersion": null
+            },
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t14p1 add --save-exact dsh-plugin-update-fixture-c@0.0.2 --registry=http://127.0.0.1:61698",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t14p1",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-c.updateStatus",
+            "updateCheck": "fxa-c.updateCheck",
+            "updateInstall": "fxa-c.updateInstall",
+            "updateChangelog": "fxa-c.updateChangelog",
+            "updateCheckFallback": "fxa-c.updateCheckFallback",
+            "logAppend": "fxa-c.logAppend"
+          },
+          "pluginId": "fxa-c",
+          "diag": null
+        }
+      ],
+      "progress": {
+        "total": 3,
+        "done": 3,
+        "failed": 0,
+        "skipped": 0,
+        "current": 0,
+        "pending": 0,
+        "finished": true
+      },
+      "inventory": {
+        "version": 1,
+        "updatedAt": 1793717079250,
+        "entries": {
+          "c": {
+            "lastCheckedAt": 1793717079250,
+            "installed": false,
+            "installedVersion": null,
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          },
+          "b": {
+            "lastCheckedAt": 1793717079250,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          },
+          "a": {
+            "lastCheckedAt": 1793717079250,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          }
+        }
+      },
+      "prefs": {}
+    }
+  },
+  "statusP2": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "session": {
+        "version": 1,
+        "id": "mw0su47i-ixf3kjlk8m",
+        "selfKey": "a",
+        "stopOnFailure": false,
+        "order": [
+          "a",
+          "b",
+          "c"
+        ],
+        "entries": [
+          {
+            "key": "a",
+            "phase": "done",
+            "requestId": "batch:mw0su47i-ixf3kjlk8m:a",
+            "targetVersion": "0.0.2",
+            "restartRequired": false,
+            "error": null,
+            "updatedAt": 1793717080661
+          },
+          {
+            "key": "b",
+            "phase": "done",
+            "requestId": "batch:mw0su47i-ixf3kjlk8m:b",
+            "targetVersion": "0.0.2",
+            "restartRequired": false,
+            "error": null,
+            "updatedAt": 1793717082066
+          },
+          {
+            "key": "c",
+            "phase": "done",
+            "requestId": "batch:mw0su47i-ixf3kjlk8m:c",
+            "targetVersion": "0.0.2",
+            "restartRequired": false,
+            "error": null,
+            "updatedAt": 1793717083992
+          }
+        ],
+        "createdAt": 1793717079246,
+        "updatedAt": 1793717083992
+      },
+      "rows": [
+        {
+          "key": "a",
+          "title": "夹具 A 本体",
+          "phase": "done",
+          "targetVersion": "0.0.2",
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": "0.0.2",
+            "installed": true,
+            "installedVersion": "0.0.2",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": {
+              "requestId": "batch-mw0su47i-ixf3kjlk8m-a-780bf724",
+              "message": null,
+              "id": "7946980f-8342-4c40-a031-663919886180",
+              "state": "completed",
+              "targetVersion": "0.0.2",
+              "previousVersion": "0.0.1"
+            },
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t14p2 add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:61698",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t14p2",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-a.updateStatus",
+            "updateCheck": "fxa-a.updateCheck",
+            "updateInstall": "fxa-a.updateInstall",
+            "updateChangelog": "fxa-a.updateChangelog",
+            "updateCheckFallback": "fxa-a.updateCheckFallback",
+            "logAppend": "fxa-a.logAppend"
+          },
+          "pluginId": "fxa-a",
+          "diag": null
+        },
+        {
+          "key": "b",
+          "title": "夹具 B",
+          "phase": "done",
+          "targetVersion": "0.0.2",
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": "0.0.2",
+            "installed": true,
+            "installedVersion": "0.0.2",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": {
+              "requestId": "batch-mw0su47i-ixf3kjlk8m-b-780bf725",
+              "message": null,
+              "id": "2387e5fd-eaee-4bca-a0a5-52bc7fe77eef",
+              "state": "completed",
+              "targetVersion": "0.0.2",
+              "previousVersion": "0.0.1"
+            },
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t14p2 add --save-exact dsh-plugin-update-fixture-b@0.0.2 --registry=http://127.0.0.1:61698",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t14p2",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-b.updateStatus",
+            "updateCheck": "fxa-b.updateCheck",
+            "updateInstall": "fxa-b.updateInstall",
+            "updateChangelog": "fxa-b.updateChangelog",
+            "updateCheckFallback": "fxa-b.updateCheckFallback",
+            "logAppend": "fxa-b.logAppend"
+          },
+          "pluginId": "fxa-b",
+          "diag": null
+        },
+        {
+          "key": "c",
+          "title": "夹具 C",
+          "phase": "done",
+          "targetVersion": "0.0.2",
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": "0.0.2",
+            "installed": true,
+            "installedVersion": "0.0.2",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": {
+              "requestId": "batch-mw0su47i-ixf3kjlk8m-c-780bf726",
+              "message": null,
+              "id": "4deb83c8-fb7d-41ed-8dad-46aa00682011",
+              "state": "completed",
+              "targetVersion": "0.0.2",
+              "previousVersion": null
+            },
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t14p2 add --save-exact dsh-plugin-update-fixture-c@0.0.2 --registry=http://127.0.0.1:61698",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t14p2",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-c.updateStatus",
+            "updateCheck": "fxa-c.updateCheck",
+            "updateInstall": "fxa-c.updateInstall",
+            "updateChangelog": "fxa-c.updateChangelog",
+            "updateCheckFallback": "fxa-c.updateCheckFallback",
+            "logAppend": "fxa-c.logAppend"
+          },
+          "pluginId": "fxa-c",
+          "diag": null
+        }
+      ],
+      "progress": {
+        "total": 3,
+        "done": 3,
+        "failed": 0,
+        "skipped": 0,
+        "current": 0,
+        "pending": 0,
+        "finished": true
+      },
+      "inventory": {
+        "version": 1,
+        "updatedAt": 1793717079249,
+        "entries": {
+          "c": {
+            "lastCheckedAt": 1793717079249,
+            "installed": false,
+            "installedVersion": null,
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          },
+          "b": {
+            "lastCheckedAt": 1793717079249,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          },
+          "a": {
+            "lastCheckedAt": 1793717079249,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          }
+        }
+      },
+      "prefs": {}
+    }
+  },
+  "hubP1": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "version": 1,
+        "at": 1793717084200,
+        "sessions": [
+          {
+            "sessionId": "mw0su47h-6j3jtdhxhq",
+            "owner": "fxa",
+            "selfKey": "a",
+            "state": "finished",
+            "updatedAt": 1793717084054,
+            "progress": {
+              "total": 3,
+              "done": 3,
+              "failed": 0,
+              "skipped": 0,
+              "current": 0,
+              "pending": 0,
+              "finished": true
+            },
+            "rows": [
+              {
+                "key": "a",
+                "title": "夹具 A 本体",
+                "phase": "done",
+                "targetVersion": "0.0.2",
+                "installedVersion": "0.0.1",
+                "latestVersion": "0.0.2",
+                "restartRequired": false,
+                "error": null
+              },
+              {
+                "key": "b",
+                "title": "夹具 B",
+                "phase": "done",
+                "targetVersion": "0.0.2",
+                "installedVersion": "0.0.1",
+                "latestVersion": "0.0.2",
+                "restartRequired": false,
+                "error": null
+              },
+              {
+                "key": "c",
+                "title": "夹具 C",
+                "phase": "done",
+                "targetVersion": "0.0.2",
+                "installedVersion": null,
+                "latestVersion": "0.0.2",
+                "restartRequired": false,
+                "error": null
+              }
+            ],
+            "rowsTotal": 3,
+            "rowsTruncated": false
+          }
+        ],
+        "sessionsTotal": 1,
+        "sessionsTruncated": false,
+        "activeInstall": null
+      }
+    }
+  },
+  "hubP2": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "version": 1,
+        "at": 1793717084213,
+        "sessions": [
+          {
+            "sessionId": "mw0su47i-ixf3kjlk8m",
+            "owner": "fxa",
+            "selfKey": "a",
+            "state": "finished",
+            "updatedAt": 1793717083992,
+            "progress": {
+              "total": 3,
+              "done": 3,
+              "failed": 0,
+              "skipped": 0,
+              "current": 0,
+              "pending": 0,
+              "finished": true
+            },
+            "rows": [
+              {
+                "key": "a",
+                "title": "夹具 A 本体",
+                "phase": "done",
+                "targetVersion": "0.0.2",
+                "installedVersion": "0.0.1",
+                "latestVersion": "0.0.2",
+                "restartRequired": false,
+                "error": null
+              },
+              {
+                "key": "b",
+                "title": "夹具 B",
+                "phase": "done",
+                "targetVersion": "0.0.2",
+                "installedVersion": "0.0.1",
+                "latestVersion": "0.0.2",
+                "restartRequired": false,
+                "error": null
+              },
+              {
+                "key": "c",
+                "title": "夹具 C",
+                "phase": "done",
+                "targetVersion": "0.0.2",
+                "installedVersion": null,
+                "latestVersion": "0.0.2",
+                "restartRequired": false,
+                "error": null
+              }
+            ],
+            "rowsTotal": 3,
+            "rowsTruncated": false
+          }
+        ],
+        "sessionsTotal": 1,
+        "sessionsTruncated": false,
+        "activeInstall": null
+      }
+    }
+  }
+}

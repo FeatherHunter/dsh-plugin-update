@@ -1,0 +1,64 @@
+{
+  "exec": [
+    {
+      "ts": 1793656284317,
+      "ns": "fxa-b",
+      "pluginId": "fxa-b",
+      "route": "cli-process",
+      "ok": false,
+      "exitCode": 1,
+      "durationMs": 6047
+    }
+  ],
+  "installFailRows": [
+    {
+      "ts": 1793656277898,
+      "ns": "fxa-b",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "check-expired",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "7f002067",
+        "traceId": "3172101d32ad007c",
+        "spanId": "2aa15c15",
+        "seq": 1
+      }
+    },
+    {
+      "ts": 1793656284320,
+      "ns": "fxa-b",
+      "fields": {
+        "stage": "exec",
+        "reason": "timeout",
+        "code": "install-failed",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": 1,
+        "observedVersion": null,
+        "intentHash": "7f002067",
+        "traceId": "c91ddd9b552f5fd0",
+        "spanId": "f3a8ce5d",
+        "seq": 6
+      }
+    }
+  ],
+  "verifyRows": [
+    {
+      "ts": 1793656284320,
+      "ns": "fxa-b",
+      "fields": {
+        "result": "failed",
+        "pendingRestart": false,
+        "traceId": "c91ddd9b552f5fd0",
+        "spanId": "f3a8ce5d",
+        "seq": 7
+      }
+    }
+  ],
+  "matched": true,
+  "elapsedMs": 1
+}

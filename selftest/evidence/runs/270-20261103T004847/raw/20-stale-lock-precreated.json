@@ -1,0 +1,14 @@
+{
+  "path": "D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004847\\os-home\\.dsh\\update-queue\\c67c3b8de223ccc769e3d588\\global.lock",
+  "raw": "{\"id\":\"selftest-stale-20261103T004847\",\"pluginId\":\"fxa-a\",\"pid\":999999,\"startedAt\":1793638085212}",
+  "payload": {
+    "id": "selftest-stale-20261103T004847",
+    "pluginId": "fxa-a",
+    "pid": 999999,
+    "startedAt": 1793638085212
+  },
+  "ageMs": 60000,
+  "deadPid": 999999,
+  "deadPidAlive": false,
+  "installTimeoutMs": 4000
+}

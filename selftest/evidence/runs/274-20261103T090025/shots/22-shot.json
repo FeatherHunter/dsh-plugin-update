@@ -1,0 +1,9 @@
+{
+  "看什么": "检查更新后：三行都列出 0.0.1 → 0.0.2，总账「3 个可更新」，「全部更新」可点",
+  "步骤": "k3-20-ready",
+  "expected": "每行 cur=0.0.1、new=0.0.2；summary 含「3 个可更新」；ledger 含「3 个可更新」；install 宏可点",
+  "actual": "rows=[{\"key\":\"a\",\"cur\":\"0.0.1\",\"next\":\"0.0.2\",\"phase\":\"pending\"},{\"key\":\"b\",\"cur\":\"0.0.1\",\"next\":\"0.0.2\",\"phase\":\"pending\"},{\"key\":\"c\",\"cur\":\"0.0.1\",\"next\":\"0.0.2\",\"phase\":\"pending\"}]；summary=\"3 个可更新；请选择「全部更新」一次安装完成，也可逐项选择「安装此插件」。\"；ledger=\"3 个可更新\"；installDisabled=false",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\22-shot.png"
+}

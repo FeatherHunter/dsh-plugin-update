@@ -1,0 +1,49 @@
+{
+  "tarballsBefore": 5,
+  "tarballsAfter": 5,
+  "diskBefore": {
+    "dsh-plugin-update-fixture-a": "0.0.2",
+    "dsh-plugin-update-fixture-b": "0.0.2",
+    "dsh-plugin-update-fixture-c": "0.0.1"
+  },
+  "diskAfter": {
+    "dsh-plugin-update-fixture-a": "0.0.2",
+    "dsh-plugin-update-fixture-b": "0.0.2",
+    "dsh-plugin-update-fixture-c": "0.0.1"
+  },
+  "ledgerBefore": {
+    "b": {
+      "file": "fxa-b/29f9a4c12edb219711e767b2/state.json",
+      "mtimeMs": 1793667903288.788,
+      "id": "6d5995e7-232a-4511-89a1-10a9380b4b62",
+      "state": "completed",
+      "targetVersion": "0.0.2"
+    },
+    "c": {
+      "file": "fxa-c/29f9a4c12edb219711e767b2/state.json",
+      "mtimeMs": 1793667986786.9326,
+      "id": "a403c236-6e9d-4214-934b-4c54db6de0ca",
+      "state": "failed",
+      "targetVersion": "0.0.2"
+    }
+  },
+  "ledgerAfter": {
+    "b": {
+      "file": "fxa-b/29f9a4c12edb219711e767b2/state.json",
+      "mtimeMs": 1793667903288.788,
+      "id": "6d5995e7-232a-4511-89a1-10a9380b4b62",
+      "state": "completed",
+      "targetVersion": "0.0.2"
+    },
+    "c": {
+      "file": "fxa-c/29f9a4c12edb219711e767b2/state.json",
+      "mtimeMs": 1793667986786.9326,
+      "id": "a403c236-6e9d-4214-934b-4c54db6de0ca",
+      "state": "failed",
+      "targetVersion": "0.0.2"
+    }
+  },
+  "batchBefore": "a:current|b:current|c:ready",
+  "batchAfter": "a:current|b:current|c:ready",
+  "freezeOk": true
+}

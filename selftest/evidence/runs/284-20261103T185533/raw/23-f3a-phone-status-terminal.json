@@ -1,0 +1,9 @@
+{
+  "state": "failed",
+  "code": "install-failed",
+  "message": "install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [ERR_PNPM_FETCH_404] GET https://127.0.0.1:52814/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz: Not Found - 404 No authorization header…",
+  "elapsedMs": 1017,
+  "polls": 2,
+  "replyStatus": 200,
+  "replyDurationMs": 9
+}

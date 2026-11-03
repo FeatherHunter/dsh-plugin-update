@@ -1,0 +1,9 @@
+{
+  "看什么": "重启后构建标记：后台那次「产品以为失败」的安装确实换了运行代码",
+  "步骤": "g8-after-restart",
+  "expected": "client=client v0.0.2；host=host v0.0.2",
+  "actual": "client=client v0.0.2；host=host v0.0.2；title=夹具 A · 更新演示（新版）",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\38-shot.png"
+}

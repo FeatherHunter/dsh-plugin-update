@@ -1,0 +1,5 @@
+{
+  "text": "新会话\nCtrl\n+\nN\n插件\n自动化任务\n更多\n工作区\n默认工作区\n新会话\n更多\n探索未至之境\n预览版\n默认工作区\n标准模式\n描述你想要构建的内容, / 调用指令, @ 文件或对话\n工作区内修改\n请选择模型",
+  "stdout": "\r\nChecking for update\nGenerated new staging user ID: b16115ac-880f-5c05-81ca-8c8763f1e352\nUpdate for version 0.2.1-rc.5 is not available (latest version: 0.2.1-rc.5, downgrade is disallowed).\ndsh web: http://127.0.0.1:55058/?token=7dHJISyuQsO5lakBghmFXFFtACflPIDDQ5jYB3otL1I\n",
+  "stderr": "\r\nDevTools listening on ws://127.0.0.1:61865/devtools/browser/f9890802-93be-4f2b-ba93-eeb8e239a8ac\r\n"
+}

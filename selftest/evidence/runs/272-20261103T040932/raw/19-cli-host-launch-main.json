@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:49490/?token=Xbm59hKAMlpMKyvaWjjGxFb8PdSfLpFAye-Wq2R7GeA",
+  "port": 49490,
+  "bootMs": 3894,
+  "profileName": "t8i2",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040932\\os-home\\.dsh",
+  "pid": 47144,
+  "stdoutTail": "dsh web: http://127.0.0.1:49490/?token=Xbm59hKAMlpMKyvaWjjGxFb8PdSfLpFAye-Wq2R7GeA\n",
+  "stderrTail": ""
+}

@@ -1,0 +1,57 @@
+{
+  "polls": 3,
+  "elapsedMs": 2037,
+  "status": 200,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.1",
+        "installed": true,
+        "installedVersion": "0.0.1",
+        "latestVersion": "0.0.2",
+        "canInstall": false,
+        "blockedReason": null,
+        "job": {
+          "id": "339f8a29-ef73-45da-84ab-83e9fe23de85",
+          "state": "failed",
+          "targetVersion": "0.0.2",
+          "message": "install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [ERR_PNPM_FETCH_404] GET http://127.0.0.1:64943/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz: Not Found - 404 No authorization header…",
+          "requestId": "t3e-failure-1793589101152",
+          "previousVersion": "0.0.1"
+        },
+        "identity": "update",
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t3cli add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:64943",
+      "receipt": null,
+      "logContract": {
+        "state": "ok",
+        "file": "event-list.update.json",
+        "events": 29,
+        "unvalidated": 0
+      },
+      "logHealth": {
+        "sink": "self",
+        "dirHash": "bb7938d1",
+        "switchEnabled": false,
+        "droppedSinceStart": 0,
+        "lastEventAt": 1793589102222,
+        "contract": "ok",
+        "external": null,
+        "reason": null
+      },
+      "diag": {
+        "v": 1,
+        "stage": "exec",
+        "detail": "Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [ERR_PNPM_FETCH_404] GET http://127.0.0.1:64943/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz: Not Found - 404 No authorization header…",
+        "targetPackageName": "dsh-plugin-update-fixture-a",
+        "runningVersion": "0.0.1",
+        "requestId": "t3e-failure-1793589101152",
+        "intentHash": "bbe64937",
+        "action": "contact"
+      }
+    }
+  }
+}

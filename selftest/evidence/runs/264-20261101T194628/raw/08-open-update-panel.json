@@ -1,0 +1,59 @@
+{
+  "seq": 8,
+  "name": "open-update-panel",
+  "file": "08-open-update-panel.json",
+  "startedAt": "2026-11-01T11:55:49.315Z",
+  "ok": true,
+  "ms": 2252,
+  "data": {
+    "entryFacts": {
+      "rect": {
+        "x": 854.203125,
+        "y": -193,
+        "width": 118.796875,
+        "height": 30.796875
+      },
+      "innerText": "已是最新 0.4.40",
+      "buttons": [
+        {
+          "text": "已是最新 0.4.40",
+          "action": null
+        }
+      ],
+      "settingsSectionText": "设置\n通用设置\n模型\n内置插件\nAgent 预设\n提示词模板\n打开配置文件\n关闭\n提示词模板\n已是最新 0.4.40\n屏蔽预制模板\n打开后列表与标签云不再展示预制模板\n触发方式\n当前：悬浮触发\n缺省悬浮即开；切到点击触发后，鼠标划过不再闪烁，只有点击才开。\nPrompt\n预制 0 · 自定义 0\n＋ 新增\n›\n远程模式-配合网易UU远程等手机App\n大小\n5档·300%\n1档\n10档\n方向偏好\n自动\n横屏\n竖屏\n自动跟整机方向，无桥时跟视口；锁定先切整机方向，失败只锁自家布局。\n当前：横屏（整机）\n宫格密度\n12宫格\n8宫格\n诊断日志\n调试日志\n关闭只停信息与调试两级，错误与告警始终记录。\n落"
+    },
+    "panelFacts": {
+      "rect": {
+        "x": 407,
+        "y": 44.078125,
+        "width": 602,
+        "height": 712.84375
+      },
+      "plugin": "dsh-prompt",
+      "theme": "archive",
+      "text": "插件更新\n更新档案 卷\nd h-prompt\n使用范围  263profile\n定已是最新，无需更新。\n运行版\n0.4.40\n已安装\n0.4.40\n最新版\n未知\n01\n检查与安装\n正在查询版本信息…\n安装更新\n复制诊断\n02\n更新日志\n尚未查询到新版本；查询到后将显示更新日志。\n03\n更新队列\n当前无排队任务；同一使用范围同时仅安装一项。\n04\n错误信息\n暂无失败：此时复制诊断提供的是当前状态快照。\n请查看日志：<DSH_HOME>/log /<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx d h-log <log-dir>；按插件标识 d h-prompt 筛选 ho t.call、ho t.call.fail、update.in tall.exec 事件。\n日志：落点=external（落盘归集成方实例）；未验证（对方没给判据，不能当有日志下结论）；目录指纹本包不猜（那是对方实例的目录）；启动以来丢弃 0 行（只算本包发射口）；最近事件=11/1 19:55；事件契约=缺失（mi ing）：字段门禁这轮没有尺子\n正在查询版本信息…\n05\n手工命令\n当前没有可用",
+      "actions": [
+        {
+          "action": "check",
+          "text": "正在查询版本信息…",
+          "disabled": true
+        },
+        {
+          "action": "install",
+          "text": "安装更新",
+          "disabled": true
+        },
+        {
+          "action": "copy-diag",
+          "text": "复制诊断",
+          "disabled": false
+        },
+        {
+          "action": "close-view",
+          "text": "关闭",
+          "disabled": false
+        }
+      ]
+    }
+  }
+}

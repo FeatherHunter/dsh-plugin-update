@@ -1,0 +1,8 @@
+{
+  "env": {
+    "DSH_SELFTEST_REGISTRY": "http://127.0.0.1:65514",
+    "DSH_SELFTEST_INSTALL_TIMEOUT_MS": "120000"
+  },
+  "mode": "m3",
+  "why": "M3 只有一个宿主、不换手：安装预算放宽到 30s（A 自更新 + pnpm 拉坏 tarball 都超过 4s；4s 会把真安装窗误判成超时）。"
+}

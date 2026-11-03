@@ -1,0 +1,489 @@
+{
+  "schemaVersion": 1,
+  "runId": "270-20261103T004808",
+  "ticket": "270",
+  "scenarioId": "h1b-queue-lock-simultaneous",
+  "hostChannel": "dsh-web",
+  "startedAt": "2026-11-02T16:48:09.200Z",
+  "finishedAt": "2026-11-02T16:48:46.735Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:\\dsh-plugin\\_wt263\\t6",
+    "branch": "impl/263-t6",
+    "head": "025e50a2549a862bb1a197264529a02633f88031",
+    "hostChannel": "dsh-web"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004808\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "80cbd584d05efe8dd1a14cfc01dcb9149a3bc29e0d8592cff33d8f5896436312",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:62679",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 80cbd584d05efe8d…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "08-assert",
+      "step": "隔离口径（两宿主同 home = 同一 USERPROFILE/.dsh）",
+      "what": "两个通道 B 宿主用同一个 USERPROFILE/osHomeDir 与同一个 homeDir（= osHomeDir/.dsh），profile 名不是 desktop（P1 探针证明 desktop 被官方桌面独占）",
+      "expected": "homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004808\\os-home\\.dsh；profileName=t6lock",
+      "actual": "osHomeDir=D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004808\\os-home；homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004808\\os-home\\.dsh；profileName=t6lock",
+      "verdict": "pass"
+    },
+    {
+      "id": "10-assert",
+      "step": "建普通 profile（CLI 入口）",
+      "what": "用官方发行 CLI 在隔离 home 建普通 DSH 使用范围 t6lock；profileDir 决定 update-queue 的短哈希目录名",
+      "expected": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004808\\os-home\\.dsh\\profiles\\t6lock",
+      "actual": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004808\\os-home\\.dsh\\profiles\\t6lock",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "15-assert",
+      "step": "更新前基版在盘",
+      "what": "隔离 profile 的 node_modules 里是场景声明的基版 0.0.1（更新前状态）",
+      "expected": "磁盘版本=0.0.1",
+      "actual": "磁盘版本=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "18-assert",
+      "step": "变体版发布（更新目标）",
+      "what": "按场景声明发布变体 dsh-plugin-update-fixture-a@0.0.2（UI/行为随版本变，重启后可自证）",
+      "expected": "本地 registry 可见版本含 0.0.2",
+      "actual": "registry 版本=[\"0.0.1\",\"0.0.2\"]",
+      "verdict": "pass"
+    },
+    {
+      "id": "22-assert",
+      "step": "两个真机入口（两个独立宿主进程）同 profile",
+      "what": "两个独立的 DSH web 宿主进程用同一 USERPROFILE/.dsh 与同一 profile 名启动，各自暴露 HTTP 电话入口；它们解析到同一 profileDir，因此抢同一把 global.lock、写同一份 queue.json",
+      "expected": "两代 pid/port 不同；homeDir/profileDir/queueDirectory 相同",
+      "actual": "pidA=84008；portA=54419；pidB=30360；portB=58700；queueDir=D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004808\\os-home\\.dsh\\update-queue\\ac7600c5c6530399ef16e20f",
+      "verdict": "pass"
+    },
+    {
+      "id": "24-assert",
+      "step": "入口 a check 电话（发现新版）",
+      "what": "宿主里的电话入口 updateCheck 返回快照：运行版=0.0.1、最新版=0.0.2、可安装，并给候选凭证 checkId",
+      "expected": "ok=true；runningVersion=0.0.1；latestVersion=0.0.2；canInstall=true；receipt.checkId 非空",
+      "actual": "ok=true；runningVersion=0.0.1；latestVersion=0.0.2；canInstall=true；checkId=\"705bf075-3c07-41a6-a1c2-68c4e51f670a\"",
+      "verdict": "pass"
+    },
+    {
+      "id": "26-assert",
+      "step": "入口 b check 电话（发现新版）",
+      "what": "宿主里的电话入口 updateCheck 返回快照：运行版=0.0.1、最新版=0.0.2、可安装，并给候选凭证 checkId",
+      "expected": "ok=true；runningVersion=0.0.1；latestVersion=0.0.2；canInstall=true；receipt.checkId 非空",
+      "actual": "ok=true；runningVersion=0.0.1；latestVersion=0.0.2；canInstall=true；checkId=\"a36c7b83-0f6c-461c-8a01-03d157a90266\"",
+      "verdict": "pass"
+    },
+    {
+      "id": "30-assert",
+      "step": "两入口同时抢锁：恰一个受理",
+      "what": "两个入口几乎同时（不 await 完成）发同一 target 同一版本安装；全局锁 + queue 公平门应当只放一个进来",
+      "expected": "恰一个入口 ok=true 且 job.state ∈ {installing, verifying}；另一个 ok=false（稳定拒绝）",
+      "actual": "A: ok=true；job.state=installing；error=null；http=200；durationMs=404；B: ok=false；job.state=null；error=update-busy；http=200；durationMs=49",
+      "verdict": "pass"
+    },
+    {
+      "id": "32-assert",
+      "step": "赢家安装到终态",
+      "what": "轮询赢家宿主的 updateStatus，直到作业进入终态（进程未重启前应为 restart-required）",
+      "expected": "job.state ∈ {restart-required, completed}",
+      "actual": "job.state=completed；polls=5；timedOut=false",
+      "verdict": "pass"
+    },
+    {
+      "id": "35-assert",
+      "step": "失败方重试（已装待重启）：诚实拒绝且不再装",
+      "what": "同一 checkId/requestId 的失败意图在赢家装完（restart-required，进程未重启）后重试一次；作业状态门/锁门应稳定拒绝，且不产生第二次安装",
+      "expected": "ok=false；error ∈ [\"update-busy\",\"check-expired\"]（稳定拒绝，不重装）；exec 行数保持 1；台账仍 1 条",
+      "actual": "retry: ok=false；job.state=null；error=check-expired；http=200；durationMs=28；exec 行数=1；台账文件数=1",
+      "verdict": "pass"
+    },
+    {
+      "id": "40-assert",
+      "step": "重启后：profile 能正常 boot 且运行版已是变体",
+      "what": "装完后停掉两个入口宿主，再用同 home/profile 起一个干净宿主：能正常启动、运行版=0.0.2、夹具 buildTag 自证是变体构建（证明 profile 没被并发写坏）",
+      "expected": "runningVersion=0.0.2；buildTag=host v0.0.2",
+      "actual": "runningVersion=0.0.2；buildTag=host v0.0.2",
+      "verdict": "pass"
+    },
+    {
+      "id": "42-assert",
+      "step": "重启后 fresh check：已是最新（失败方收敛）",
+      "what": "重启后的 fresh updateCheck 应报已装=0.0.2、最新=0.0.2、canInstall=false",
+      "expected": "canInstall=false；installedVersion=0.0.2；latestVersion=0.0.2",
+      "actual": "canInstall=false；installedVersion=0.0.2；latestVersion=0.0.2",
+      "verdict": "pass"
+    },
+    {
+      "id": "44-assert",
+      "step": "重启后强行再装：诚实拒绝且不产生新安装",
+      "what": "已是最新（canInstall=false、fresh check 没有候选凭证）时再发一次 updateInstall，产品应诚实拒绝（check-expired / installation-changed / update-busy 之一），不得再起安装",
+      "expected": "ok=false；error ∈ [\"installation-changed\",\"check-expired\",\"update-busy\"]；exec 行数保持 1",
+      "actual": "forced: ok=false；job.state=null；error=check-expired；http=200；durationMs=15；exec 行数=1；台账文件数=1",
+      "verdict": "pass"
+    },
+    {
+      "id": "51-assert",
+      "step": "恰一个真实安装 exec（route=cli-process）",
+      "what": "两个入口同时更新同一 target，日志里应只有一条 update.install.exec（第二个入口没有起 CLI 安装）",
+      "expected": "update.install.exec 行数=1；route=cli-process；ok=true；exitCode=0；durationMs>0",
+      "actual": "exec 行数=1；{\"start\":1793638115678,\"end\":1793638117669,\"ts\":1793638117669,\"durationMs\":1991,\"route\":\"cli-process\",\"ok\":true,\"exitCode\":0,\"pluginId\":\"fxa-a\",\"source\":\"fxa-a/2026-11-03.log\",\"line\":21}",
+      "verdict": "pass"
+    },
+    {
+      "id": "53-assert",
+      "step": "安装窗口落在单一全局锁持有区间内",
+      "what": "唯一一次真实安装的 exec 窗口 [ts-durationMs, ts] 完整落在一次 global.lock 持有区间内（任一时刻至多一个安装；两安装窗口不重叠）",
+      "expected": "锁 id 数=1；持有区间数=1；exec 窗口被该区间包含（±1000ms 轮询误差）",
+      "actual": "锁 id=[\"07b64a9f-75d3-41be-9a99-998e9af452cc\"]；区间=[{\"from\":1793638115548,\"to\":1793638117714,\"ids\":[\"07b64a9f-75d3-41be-9a99-998e9af452cc\"]}]；exec 窗口={\"start\":1793638115678,\"end\":1793638117669,\"ts\":1793638117669,\"durationMs\":1991,\"route\":\"cli-process\",\"ok\":true,\"exitCode\":0,\"pluginId\":\"fxa-a\",\"source\":\"fxa-a/2026-11-03.log\",\"line\":21}",
+      "verdict": "pass"
+    },
+    {
+      "id": "55-assert",
+      "step": "队列跃迁：有排入/有运行/有完成、无回收",
+      "what": "queue.json 的跃迁事件如实记录排队/运行/完成；并发格不应出现 reclaimed（没有陈旧锁）",
+      "expected": "queued≥1；running≥1；done≥1；reclaimed=0",
+      "actual": "{\"queued\":2,\"abandoned\":2,\"running\":1,\"done\":1}",
+      "verdict": "pass"
+    },
+    {
+      "id": "57-assert",
+      "step": "第二入口被稳定拒绝且可归因",
+      "what": "未受理的入口回包 ok=false，且拒绝原因能从日志/回包归因（全局锁 busy-owner 异常、queue 公平门 gate-refused、或回包里的拒绝码之一）",
+      "expected": "ok=false；lock.anomaly busy-owner ≥1 或 update.install.fail(gate/gate-refused) ≥1 或 拒绝码 ∈ [\"update-busy\",\"recovery-required\",\"installation-changed\",\"check-expired\"]",
+      "actual": "loser=b；error=update-busy；anomalies={\"busy-owner\":1}；gateRefused=3",
+      "verdict": "pass"
+    },
+    {
+      "id": "59-assert",
+      "step": "profile 未损坏（after-install）",
+      "what": "更新后 profile 的 package.json 可解析、dependencies 与 node_modules 磁盘版本都是 0.0.2、bundles 仍含该包（无半写/无双装）",
+      "expected": "dependencies=0.0.2；磁盘版本=0.0.2；bundles 含 dsh-plugin-update-fixture-a",
+      "actual": "dependencies=0.0.2；磁盘版本=0.0.2；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；package.json 可解析=true",
+      "verdict": "pass"
+    },
+    {
+      "id": "61-assert",
+      "step": "台账恰一条成功终态（after-install）",
+      "what": "每个 profile 一份 update 台账（<home>/updates/<pluginId>/<shortHash(profileDir)>/state.json）：恰一条 targetVersion=0.0.2 的成功终态，无重复成功、无丢单",
+      "expected": "target 台账=1 条；state ∈ {completed, restart-required}；requestId=h1-a-1793638115501",
+      "actual": "target 台账=1；成功终态=1；requestIds=[\"h1-a-1793638115501\"]；全部台账=[{\"file\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t6-270\\\\270-20261103T004808\\\\os-home\\\\.dsh\\\\updates\\\\fxa-a\\\\ac7600c5c6530399ef16e20f\\\\state.json\",\"state\":\"completed\",\"target\":\"0.0.2\"}]",
+      "verdict": "pass"
+    },
+    {
+      "id": "63-assert",
+      "step": "队列收尾：owner=null、无残留占位",
+      "what": "赢家完成释放 owner，失败方重试（check-expired）时撤销了自己的 waiting 占位；收尾 queue.json 应只剩空队列",
+      "expected": "owner=null；waiting=[]",
+      "actual": "owner=null；waiting 条数=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "65-assert",
+      "step": "收尾（无宿主残留、端口释放）",
+      "what": "两个入口宿主（以及重启校验宿主）都已停止，进程不存在、端口已释放",
+      "expected": "所有宿主 pid 不再存活；所有宿主端口空闲",
+      "actual": "进程=[{\"label\":\"cli-host-a\",\"pid\":84008,\"aliveAfterStop\":false},{\"label\":\"cli-host-b\",\"pid\":30360,\"aliveAfterStop\":false},{\"label\":\"cli-host-c\",\"pid\":42628,\"aliveAfterStop\":false}]；端口=[{\"label\":\"cli-host-a-port\",\"port\":54419,\"free\":true},{\"label\":\"cli-host-b-port\",\"port\":58700,\"free\":true},{\"label\":\"cli-host-c-port\",\"port\":57521,\"free\":true}]",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\07-isolation-facts.json"
+    },
+    {
+      "id": "09-profile-create",
+      "name": "profile-create",
+      "file": "raw\\09-profile-create.json"
+    },
+    {
+      "id": "11-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\11-install-baseline.json"
+    },
+    {
+      "id": "13-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\13-sut-installed-dist.json"
+    },
+    {
+      "id": "16-queue-lock-paths",
+      "name": "queue-lock-paths",
+      "file": "raw\\16-queue-lock-paths.json"
+    },
+    {
+      "id": "17-fixture-published-variant",
+      "name": "fixture-published-variant",
+      "file": "raw\\17-fixture-published-variant.json"
+    },
+    {
+      "id": "19-cli-host-launch-a",
+      "name": "cli-host-launch-a",
+      "file": "raw\\19-cli-host-launch-a.json"
+    },
+    {
+      "id": "20-cli-host-launch-b",
+      "name": "cli-host-launch-b",
+      "file": "raw\\20-cli-host-launch-b.json"
+    },
+    {
+      "id": "21-two-hosts-same-profile",
+      "name": "two-hosts-same-profile",
+      "file": "raw\\21-two-hosts-same-profile.json"
+    },
+    {
+      "id": "23-phone-update-check-a",
+      "name": "phone-update-check-a",
+      "file": "raw\\23-phone-update-check-a.json"
+    },
+    {
+      "id": "25-phone-update-check-b",
+      "name": "phone-update-check-b",
+      "file": "raw\\25-phone-update-check-b.json"
+    },
+    {
+      "id": "27-phone-update-install-b",
+      "name": "phone-update-install-b",
+      "file": "raw\\27-phone-update-install-b.json"
+    },
+    {
+      "id": "28-phone-update-install-a",
+      "name": "phone-update-install-a",
+      "file": "raw\\28-phone-update-install-a.json"
+    },
+    {
+      "id": "29-install-admission",
+      "name": "install-admission",
+      "file": "raw\\29-install-admission.json"
+    },
+    {
+      "id": "31-phone-status-terminal",
+      "name": "phone-status-terminal",
+      "file": "raw\\31-phone-status-terminal.json"
+    },
+    {
+      "id": "33-lock-absent-after-install",
+      "name": "lock-absent-after-install",
+      "file": "raw\\33-lock-absent-after-install.json"
+    },
+    {
+      "id": "34-phone-retry-before-restart",
+      "name": "phone-retry-before-restart",
+      "file": "raw\\34-phone-retry-before-restart.json"
+    },
+    {
+      "id": "36-hosts-stopped-before-restart",
+      "name": "hosts-stopped-before-restart",
+      "file": "raw\\36-hosts-stopped-before-restart.json"
+    },
+    {
+      "id": "37-cli-host-launch-c",
+      "name": "cli-host-launch-c",
+      "file": "raw\\37-cli-host-launch-c.json"
+    },
+    {
+      "id": "38-phone-status-after-restart",
+      "name": "phone-status-after-restart",
+      "file": "raw\\38-phone-status-after-restart.json"
+    },
+    {
+      "id": "39-phone-build-tag-after-restart",
+      "name": "phone-build-tag-after-restart",
+      "file": "raw\\39-phone-build-tag-after-restart.json"
+    },
+    {
+      "id": "41-phone-check-after-restart",
+      "name": "phone-check-after-restart",
+      "file": "raw\\41-phone-check-after-restart.json"
+    },
+    {
+      "id": "43-phone-install-after-restart",
+      "name": "phone-install-after-restart",
+      "file": "raw\\43-phone-install-after-restart.json"
+    },
+    {
+      "id": "45-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\45-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "46-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\46-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "47-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\47-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "48-logs-after-install",
+      "name": "logs-after-install",
+      "file": "raw\\48-logs-after-install.json"
+    },
+    {
+      "id": "49-lock-queue-timeline",
+      "name": "lock-queue-timeline",
+      "file": "raw\\49-lock-queue-timeline.json"
+    },
+    {
+      "id": "50-exec-windows",
+      "name": "exec-windows",
+      "file": "raw\\50-exec-windows.json"
+    },
+    {
+      "id": "52-lock-window-containment",
+      "name": "lock-window-containment",
+      "file": "raw\\52-lock-window-containment.json"
+    },
+    {
+      "id": "54-queue-transitions",
+      "name": "queue-transitions",
+      "file": "raw\\54-queue-transitions.json"
+    },
+    {
+      "id": "56-refusal-evidence",
+      "name": "refusal-evidence",
+      "file": "raw\\56-refusal-evidence.json"
+    },
+    {
+      "id": "58-disk-after-after-install",
+      "name": "disk-after-after-install",
+      "file": "raw\\58-disk-after-after-install.json"
+    },
+    {
+      "id": "60-ledger-states",
+      "name": "ledger-states",
+      "file": "raw\\60-ledger-states.json"
+    },
+    {
+      "id": "62-queue-final",
+      "name": "queue-final",
+      "file": "raw\\62-queue-final.json"
+    },
+    {
+      "id": "64-cleanup-facts",
+      "name": "cleanup-facts",
+      "file": "raw\\64-cleanup-facts.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "cli-host-a",
+        "pid": 84008,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "cli-host-b",
+        "pid": 30360,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "cli-host-c",
+        "pid": 42628,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "cli-host-a-port",
+        "port": 54419,
+        "released": true
+      },
+      {
+        "label": "cli-host-b-port",
+        "port": 58700,
+        "released": true
+      },
+      {
+        "label": "cli-host-c-port",
+        "port": 57521,
+        "released": true
+      },
+      {
+        "label": "registry",
+        "port": 62679,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:62679（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "两个宿主共享同一 home/profile 是为了共享同一把 global.lock；sessions/storages 等其它状态串台不在本组断言范围。",
+      "安装窗口用 update.install.exec 的 ts 与 durationMs 还原（[ts-durationMs, ts]），锁/队列用 10ms 轮询时间线判定，不用 UI。"
+    ]
+  },
+  "maintainerProfile": null,
+  "notes": [
+    "本地 registry：http://127.0.0.1:62679（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "两个宿主共享同一 home/profile 是为了共享同一把 global.lock；sessions/storages 等其它状态串台不在本组断言范围。",
+    "安装窗口用 update.install.exec 的 ts 与 durationMs 还原（[ts-durationMs, ts]），锁/队列用 10ms 轮询时间线判定，不用 UI。"
+  ]
+}

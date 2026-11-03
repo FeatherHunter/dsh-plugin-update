@@ -1,0 +1,13 @@
+{
+  "label": "i4-unregistered-restart",
+  "urlMasked": "http://127.0.0.1:62837/?token=***",
+  "port": 62837,
+  "bootMs": 1768,
+  "profileName": "t3eq",
+  "registryUrl": "https://127.0.0.1:59761",
+  "equivalentKind": "reader-version",
+  "equivalentSpecPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185635/equivalent-host-specs/i4-unregistered-restart.json",
+  "installTimeoutMs": 300000,
+  "stdoutTail": "dsh web: http://127.0.0.1:62837/?token=GPR4QeRSgt0eK6R9mYekqbvbnJuiJOaK1ovRm1wplAw\n",
+  "stderrTail": ""
+}

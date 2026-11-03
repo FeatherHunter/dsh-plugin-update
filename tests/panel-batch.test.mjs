@@ -968,6 +968,11 @@ describe('排队语义：忙时也能加入队列（入队不算失败）', () =
     assert.deepEqual(cancelCall.args, { cancelQueued: true, requestId: 'batch:s1:b' })
     assert.ok(!log.some((e) => e.name === 'life.batchCancel'), '不许拿批量取消顶（那是清整轮会话）')
     assert.ok(box.innerHTML.includes('已取消排队'), '取消后给一句回执')
+    // #268 BUG 回归：旧文案「此插件将不再等待」在 hub 驱动的活跃批次里是假话（撤销后 1s 内又入队）。
+    // 诚实的行取消文案必须说明：只撤本次等待占位、本批仍会继续尝试安装、不会终止在飞安装。
+    assert.ok(box.innerHTML.includes('继续'), '要说明本批仍会继续尝试安装（不是「不再等待」）')
+    assert.ok(!box.innerHTML.includes('不再等待'), '不许说「不再等待」（中枢会重推）')
+    assert.ok(!box.innerHTML.includes('已终止') && !box.innerHTML.includes('已请求终止'), '行取消不终止在飞安装，不许谎称已终止')
     panel.unmount()
   })
 })

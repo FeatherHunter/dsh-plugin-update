@@ -1,0 +1,17 @@
+{
+  "windows": [
+    {
+      "start": 1793638077401,
+      "end": 1793638078963,
+      "ts": 1793638078963,
+      "durationMs": 1562,
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "pluginId": "fxa-a",
+      "source": "fxa-a/2026-11-03.log",
+      "line": 20
+    }
+  ],
+  "count": 1
+}

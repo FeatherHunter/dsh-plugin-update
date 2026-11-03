@@ -1,0 +1,10 @@
+{
+  "reason": "after-install",
+  "gen": 0,
+  "kind": "desktop",
+  "port": 59961,
+  "pid": 48424,
+  "equivalentSpecPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185708/equivalent-host-specs/exit-one.json",
+  "stdoutTail": "dsh web: http://127.0.0.1:59961/?token=61IiQlK1mG_BtIvavFyj1LrzaKExha8uiVtB1wSMJ0E\n",
+  "stderrTail": ""
+}

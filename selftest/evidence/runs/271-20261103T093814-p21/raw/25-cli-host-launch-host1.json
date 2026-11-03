@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:51834/?token=nrDYqZr_FAiNSpzTH6uCQJTbwIoNHRXQ2lz8o0rwqmo",
+  "port": 51834,
+  "pid": 67124,
+  "bootMs": 1903,
+  "profileName": "t7hub",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-p21\\os-home\\.dsh",
+  "stdoutTail": "dsh web: http://127.0.0.1:51834/?token=nrDYqZr_FAiNSpzTH6uCQJTbwIoNHRXQ2lz8o0rwqmo\n",
+  "stderrTail": ""
+}

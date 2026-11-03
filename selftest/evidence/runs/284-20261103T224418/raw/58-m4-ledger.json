@@ -1,0 +1,85 @@
+{
+  "hash1": "bd5189e28a3b2dafb88cc9ab",
+  "hash2": "a328f0af2908efbb800dbcf8",
+  "byHash": {
+    "bd5189e28a3b2dafb88cc9ab": {
+      "fxa-a": [
+        {
+          "state": "completed",
+          "targetVersion": "0.0.2",
+          "previousVersion": "0.0.1"
+        }
+      ],
+      "fxa-b": [
+        {
+          "state": "completed",
+          "targetVersion": "0.0.2",
+          "previousVersion": "0.0.1"
+        }
+      ],
+      "fxa-c": [
+        {
+          "state": "completed",
+          "targetVersion": "0.0.2",
+          "previousVersion": null
+        }
+      ]
+    },
+    "a328f0af2908efbb800dbcf8": {
+      "fxa-a": [
+        {
+          "state": "completed",
+          "targetVersion": "0.0.2",
+          "previousVersion": "0.0.1"
+        }
+      ],
+      "fxa-b": [
+        {
+          "state": "completed",
+          "targetVersion": "0.0.2",
+          "previousVersion": "0.0.1"
+        }
+      ],
+      "fxa-c": [
+        {
+          "state": "completed",
+          "targetVersion": "0.0.2",
+          "previousVersion": null
+        }
+      ]
+    }
+  },
+  "foreignLedger": [],
+  "rows": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\updates\\fxa-a\\a328f0af2908efbb800dbcf8\\state.json",
+      "state": "completed",
+      "targetVersion": "0.0.2"
+    },
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\updates\\fxa-a\\bd5189e28a3b2dafb88cc9ab\\state.json",
+      "state": "completed",
+      "targetVersion": "0.0.2"
+    },
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\updates\\fxa-b\\a328f0af2908efbb800dbcf8\\state.json",
+      "state": "completed",
+      "targetVersion": "0.0.2"
+    },
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\updates\\fxa-b\\bd5189e28a3b2dafb88cc9ab\\state.json",
+      "state": "completed",
+      "targetVersion": "0.0.2"
+    },
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\updates\\fxa-c\\a328f0af2908efbb800dbcf8\\state.json",
+      "state": "completed",
+      "targetVersion": "0.0.2"
+    },
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\updates\\fxa-c\\bd5189e28a3b2dafb88cc9ab\\state.json",
+      "state": "completed",
+      "targetVersion": "0.0.2"
+    }
+  ]
+}

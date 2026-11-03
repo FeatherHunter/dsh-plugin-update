@@ -1,0 +1,12 @@
+{
+  "path": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\272-20261103T093814-r40\\home\\profiles\\desktop\\package.json",
+  "text": "{\n  \"name\": \"dsh-profile-desktop\",\n  \"private\": true,\n  \"dependencies\": {\n    \"dsh-plugin-update-fixture-a\": \"0.0.1\"\n  },\n  \"dsh\": {\n    \"profile\": {\n      \"bundles\": [\n        \"@deepseek-ai/dsh-base\",\n        \"@deepseek-ai/dsh-web-app\",\n        \"dsh-plugin-update-fixture-a\"\n      ]\n    }\n  }\n}\n",
+  "dependencies": {
+    "dsh-plugin-update-fixture-a": "0.0.1"
+  },
+  "bundles": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-web-app",
+    "dsh-plugin-update-fixture-a"
+  ]
+}

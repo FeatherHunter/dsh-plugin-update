@@ -1,0 +1,12 @@
+{
+  "message": "install-failed: 移除已装包超时，未继续安装；目标包可能已不在册，请重启宿主检查并按手工命令重装 (dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:53089)；无法确认宿主是否把该插件移出了在册名单，也未能恢复在册；若插件页显示关闭，请重新启用",
+  "argv": [
+    "plugin",
+    "--profile",
+    "desktop",
+    "add",
+    "--save-exact",
+    "dsh-plugin-update-fixture-a@0.0.2",
+    "--registry=http://127.0.0.1:53089"
+  ]
+}

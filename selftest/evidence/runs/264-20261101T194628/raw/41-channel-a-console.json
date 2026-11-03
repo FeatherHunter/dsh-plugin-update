@@ -1,0 +1,58 @@
+{
+  "step": "console",
+  "channel": "A",
+  "at": "2026-11-01T12:40:15.542Z",
+  "counts": {
+    "console": 0,
+    "exceptions": 0,
+    "logEntries": 6,
+    "pageErrors": 0
+  },
+  "consoleTail": [],
+  "exceptions": [],
+  "logEntries": [
+    {
+      "at": "2026-11-01T12:40:12.789Z",
+      "level": "error",
+      "source": "network",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "dsh-app://app/_dsh/dsh-prompt/update/prompt.logAppend"
+    },
+    {
+      "at": "2026-11-01T12:40:13.056Z",
+      "level": "error",
+      "source": "network",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "dsh-app://app/_dsh/dsh-prompt/update/prompt.logAppend"
+    },
+    {
+      "at": "2026-11-01T12:40:14.058Z",
+      "level": "error",
+      "source": "network",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "dsh-app://app/_dsh/dsh-prompt/update/prompt.logAppend"
+    },
+    {
+      "at": "2026-11-01T12:40:14.063Z",
+      "level": "error",
+      "source": "network",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "dsh-app://app/_dsh/dsh-prompt/update/prompt.logAppend"
+    },
+    {
+      "at": "2026-11-01T12:40:14.316Z",
+      "level": "error",
+      "source": "network",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "dsh-app://app/_dsh/dsh-prompt/update/prompt.logAppend"
+    },
+    {
+      "at": "2026-11-01T12:40:15.321Z",
+      "level": "error",
+      "source": "network",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "dsh-app://app/_dsh/dsh-prompt/update/prompt.logAppend"
+    }
+  ],
+  "pageErrors": []
+}

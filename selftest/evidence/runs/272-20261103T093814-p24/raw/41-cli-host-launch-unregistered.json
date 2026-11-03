@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:53640/?token=7IlIrUJ1bNHkpSsoZB5279RUPwgjSTRf0qyCs3OPjx0",
+  "port": 53640,
+  "bootMs": 2406,
+  "profileName": "t8i2",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\272-20261103T093814-p24\\os-home\\.dsh",
+  "pid": 37820,
+  "stdoutTail": "dsh web: http://127.0.0.1:53640/?token=7IlIrUJ1bNHkpSsoZB5279RUPwgjSTRf0qyCs3OPjx0\n",
+  "stderrTail": ""
+}

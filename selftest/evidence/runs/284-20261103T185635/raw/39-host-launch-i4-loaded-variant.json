@@ -1,0 +1,13 @@
+{
+  "label": "i4-loaded-variant",
+  "urlMasked": "http://127.0.0.1:49979/?token=***",
+  "port": 49979,
+  "bootMs": 1765,
+  "profileName": "t3eq",
+  "registryUrl": "https://127.0.0.1:59761",
+  "equivalentKind": "reader-version",
+  "equivalentSpecPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185635/equivalent-host-specs/i4-loaded-variant.json",
+  "installTimeoutMs": 300000,
+  "stdoutTail": "dsh web: http://127.0.0.1:49979/?token=EEBRs44vN8oBOc_Ft5aiIAYVe4KSJh1gxbNgidMlDiA\n",
+  "stderrTail": ""
+}

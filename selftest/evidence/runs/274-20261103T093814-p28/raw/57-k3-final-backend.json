@@ -1,0 +1,170 @@
+{
+  "execsA": [
+    {
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "cli-process",
+        "ok": true,
+        "exitCode": 0,
+        "durationMs": 16675,
+        "pluginId": "fxa-a",
+        "traceId": "be5351c96af41f51",
+        "spanId": "b1f5dc63",
+        "seq": 4
+      },
+      "source": "fxa-a/2026-11-03.log",
+      "line": 26
+    }
+  ],
+  "execsB": [
+    {
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "cli-process",
+        "ok": true,
+        "exitCode": 0,
+        "durationMs": 7674,
+        "pluginId": "fxa-b",
+        "traceId": "3e9de0d401e22744",
+        "spanId": "dd030548",
+        "seq": 4
+      },
+      "source": "fxa-b/2026-11-03.log",
+      "line": 23
+    }
+  ],
+  "execsC": [
+    {
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "cli-process",
+        "ok": false,
+        "exitCode": 1,
+        "durationMs": 83440,
+        "pluginId": "fxa-c",
+        "traceId": "3c2bde0b0dad7198",
+        "spanId": "f0f90a7f",
+        "seq": 4
+      },
+      "source": "fxa-c/2026-11-03.log",
+      "line": 21
+    },
+    {
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "cli-process",
+        "ok": true,
+        "exitCode": 0,
+        "durationMs": 1169,
+        "pluginId": "fxa-c",
+        "traceId": "8075336565280b4b",
+        "spanId": "8e6c5e07",
+        "seq": 4
+      },
+      "source": "fxa-c/2026-11-03.log",
+      "line": 98
+    }
+  ],
+  "failsC": [
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "check-expired",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "78a9497a",
+        "traceId": "335ff636b4e1c1cd",
+        "spanId": "eee7f044",
+        "seq": 1
+      },
+      "source": "fxa-c/2026-11-03.log",
+      "line": 9
+    },
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "exec",
+        "reason": "nonzero-exit",
+        "code": "install-failed",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": 1,
+        "observedVersion": null,
+        "intentHash": "78a9497a",
+        "traceId": "3c2bde0b0dad7198",
+        "spanId": "f0f90a7f",
+        "seq": 6
+      },
+      "source": "fxa-c/2026-11-03.log",
+      "line": 23
+    },
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "check-expired",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "f1e0efd5",
+        "traceId": "675d4526f19e477b",
+        "spanId": "3cbaa016",
+        "seq": 1
+      },
+      "source": "fxa-c/2026-11-03.log",
+      "line": 86
+    }
+  ],
+  "audit": {
+    "failCount": 5,
+    "retryCount": 5,
+    "nonCheckExpired": 1,
+    "unretried": 0,
+    "queuedCount": 0,
+    "namespaces": [
+      "fxa-a",
+      "fxa-b",
+      "fxa-c"
+    ]
+  },
+  "jobs": {
+    "a": [
+      {
+        "file": "fxa-a/6f47dce0930c0a192b550a83/state.json",
+        "state": "completed",
+        "target": "0.0.2",
+        "previous": "0.0.1",
+        "mtimeMs": 1793670804357.8044
+      }
+    ],
+    "b": [
+      {
+        "file": "fxa-b/6f47dce0930c0a192b550a83/state.json",
+        "state": "completed",
+        "target": "0.0.2",
+        "mtimeMs": 1793670812721.7488
+      }
+    ],
+    "c": [
+      {
+        "file": "fxa-c/6f47dce0930c0a192b550a83/state.json",
+        "state": "completed",
+        "target": "0.0.2",
+        "mtimeMs": 1793670997101.1262
+      }
+    ]
+  }
+}

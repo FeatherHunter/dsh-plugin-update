@@ -1,0 +1,434 @@
+{
+  "at": 1793641911245,
+  "phases": {
+    "a": "done",
+    "b": "installing",
+    "c": "ready"
+  },
+  "lease": {
+    "version": 1,
+    "driverId": "dsh-hub:71848:a8baaata9e",
+    "pluginId": "fxa",
+    "pid": 71848,
+    "startedAt": 1793641908730,
+    "heartbeatAt": 1793641908730,
+    "generation": 1
+  },
+  "plan": {
+    "file": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015124\\os-home\\.dsh\\update-queue\\15d3c4e73b89962b531d80d6\\hub\\plans\\fxa.json",
+    "json": {
+      "version": 1,
+      "sessionId": "mvzk2y8h-zeuz50e76f",
+      "owner": "fxa",
+      "selfKey": "a",
+      "selfOrder": "first",
+      "stopOnFailure": false,
+      "targets": [
+        {
+          "key": "a",
+          "title": "夹具 A 本体",
+          "packageName": "dsh-plugin-update-fixture-a",
+          "pluginId": "fxa-a",
+          "prefix": "fxa-a",
+          "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015124\\os-home\\.dsh",
+          "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015124\\os-home\\.dsh\\profiles\\t7hub"
+        },
+        {
+          "key": "b",
+          "title": "夹具 B",
+          "packageName": "dsh-plugin-update-fixture-b",
+          "pluginId": "fxa-b",
+          "prefix": "fxa-b",
+          "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015124\\os-home\\.dsh",
+          "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015124\\os-home\\.dsh\\profiles\\t7hub"
+        },
+        {
+          "key": "c",
+          "title": "夹具 C",
+          "packageName": "dsh-plugin-update-fixture-c",
+          "pluginId": "fxa-c",
+          "prefix": "fxa-c",
+          "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015124\\os-home\\.dsh",
+          "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015124\\os-home\\.dsh\\profiles\\t7hub"
+        }
+      ],
+      "scope": {
+        "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015124\\os-home\\.dsh",
+        "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015124\\os-home\\.dsh\\profiles\\t7hub",
+        "profileName": "t7hub",
+        "registryUrl": "http://127.0.0.1:53544"
+      },
+      "createdAt": 1793641908727,
+      "updatedAt": 1793641908727
+    }
+  },
+  "batch": {
+    "version": 1,
+    "id": "mvzk2y8h-zeuz50e76f",
+    "selfKey": "a",
+    "stopOnFailure": false,
+    "order": [
+      "a",
+      "b",
+      "c"
+    ],
+    "entries": [
+      {
+        "key": "a",
+        "phase": "done",
+        "requestId": "batch:mvzk2y8h-zeuz50e76f:a",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793641911167
+      },
+      {
+        "key": "b",
+        "phase": "installing",
+        "requestId": "batch:mvzk2y8h-zeuz50e76f:b",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793641911178
+      },
+      {
+        "key": "c",
+        "phase": "ready",
+        "requestId": "batch:mvzk2y8h-zeuz50e76f:c",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793641908726
+      }
+    ],
+    "createdAt": 1793641908690,
+    "updatedAt": 1793641911178
+  },
+  "samples": [
+    {
+      "t": 1793641908688,
+      "phases": {
+        "a": null,
+        "b": null,
+        "c": null
+      },
+      "lease": null,
+      "planSessionId": null
+    },
+    {
+      "t": 1793641908810,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641908932,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641909054,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641909176,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641909298,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641909420,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641909541,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641909662,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641909784,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641909906,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641910028,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641910149,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641910270,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641910392,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641910514,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641910637,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641910759,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641910880,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641911002,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641911123,
+      "phases": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    },
+    {
+      "t": 1793641911245,
+      "phases": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 71848,
+        "generation": 1,
+        "driverId": "dsh-hub:71848:a8baaata9e",
+        "heartbeatAt": 1793641908730
+      },
+      "planSessionId": "mvzk2y8h-zeuz50e76f"
+    }
+  ]
+}

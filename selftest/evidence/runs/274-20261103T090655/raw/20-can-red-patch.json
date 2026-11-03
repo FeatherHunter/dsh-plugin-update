@@ -1,0 +1,10 @@
+{
+  "file": "D:\\dsh-plugin\\_wt263\\runtime\\t10-274\\274-20261103T090655\\os-home\\.dsh\\profiles\\t10ui\\node_modules\\dsh-plugin-update-fixture-a\\lib\\client.js",
+  "occurrences": 2,
+  "escapedNeedle": "\\u5DF2\\u662F\\u6700\\u65B0\\uFF0C\\u65E0\\u9700\\u66F4\\u65B0\\u3002",
+  "charsBefore": 435034,
+  "charsAfter": 435040,
+  "sha256Before": "cd6194b07e1870b1c16c2dc0b4be1db2ee0cc71e29ac9a9327f46a284c64ad00",
+  "sha256After": "8312054a031b2d62982ab6e541b113ea285fe569e6c60b9504dcea4583c1883c",
+  "changed": true
+}

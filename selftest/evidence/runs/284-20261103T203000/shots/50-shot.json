@@ -1,0 +1,9 @@
+{
+  "看什么": "恢复成功后再次重启：首屏版本未知（见 l5b-07a）→ 真 UI 检查更新后三面一致（面板已了结 / 运行构建 0.0.2 / 台账恰一条成功），无重复成功记录",
+  "步骤": "l5b-40-restart-truthful",
+  "expected": "横幅「已是最新，无需更新。」、clientTag/hostTag=0.0.2、台账恰 1 份成功",
+  "actual": "{\"banner\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"},\"tags\":{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\"},\"ledgerJobs\":[\"completed\"]}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\50-shot.png"
+}

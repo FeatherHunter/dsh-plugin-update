@@ -1,0 +1,9 @@
+{
+  "看什么": "B 批量面板两行 phase=current、版本 0.0.2；B 没有 a 行，证明两席各自把 targets 当 scope",
+  "步骤": "B 面板看到 b/c 已是最新（A 的安装结果）",
+  "expected": "B rows=[b,c] current 0.0.2",
+  "actual": "c=pending[0.0.2]; b=pending[0.0.2]",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\44-shot.png"
+}

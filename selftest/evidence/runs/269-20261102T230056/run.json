@@ -1,0 +1,359 @@
+{
+  "schemaVersion": 1,
+  "runId": "269-20261102T230056",
+  "ticket": "269",
+  "scenarioId": "e-batch-three-package-upgrade",
+  "hostChannel": "desktop-official",
+  "startedAt": "2026-11-02T15:00:57.317Z",
+  "finishedAt": "2026-11-02T15:05:15.841Z",
+  "verdict": "fail",
+  "exitCode": 1,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:\\dsh-plugin\\_wt263\\t5",
+    "branch": "impl/263-t5",
+    "head": "9c094c76938310fcde2b4d6c4038ff0160688904",
+    "hostChannel": "desktop-official"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t5-269\\269-20261102T230056\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "80cbd584d05efe8dd1a14cfc01dcb9149a3bc29e0d8592cff33d8f5896436312",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:55213",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 80cbd584d05efe8d…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1, dsh-plugin-update-fixture-b@0.0.1, dsh-plugin-update-fixture-c@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "11-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "干净 profile 装基版（b）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-b@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-b；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "13-assert",
+      "step": "干净 profile 装基版（c）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-c@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-c；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b, dsh-plugin-update-fixture-c]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "15-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "17-assert",
+      "step": "基版 UI（三包 0.0.1）",
+      "what": "A 批量面板列出 a/b/c 三行；A/B 卡片与 C 徽标都是 0.0.1（干净 profile 的起点）",
+      "expected": "rows=a,b,c；A/B clientTag=client v0.0.1/client v0.0.1；C 徽标 client v0.0.1",
+      "actual": "{\"rows\":\"a,b,c\",\"cardA\":\"client v0.0.1\",\"cardB\":\"client v0.0.1\",\"cardC\":\"client v0.0.1\",\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.1\",\"dsh-plugin-update-fixture-b\":\"0.0.1\",\"dsh-plugin-update-fixture-c\":\"0.0.1\"}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "20-assert",
+      "step": "三包 0.0.2 变体发布",
+      "what": "A/B/C 三个夹具的 0.0.2 变体都发到 run 私有 registry，tarball 字节与 0.0.1 基版不同（内容真变，不是只改版本号）；can-red 注入 stale-variant C（版本号新、内容旧）",
+      "expected": "A/B/C 三个 0.0.2 tarball 都可读且 sha256 与各自 0.0.1 不同；无注入时 variants 三席齐全（can-red 注入：C 内容旧）",
+      "actual": "{\"variantShas\":{\"a\":\"b918dd5d494a57d14bc76c0bb701362148a0163c05bba67551576e5a562ee98c\",\"b\":\"799ea28992729f90d0e6abc0e81a7bc1f2985b42903232fc659197794bdc0437\",\"c\":\"3a9cf76cde9ffdd8285faa014e5765b1d6268002adbe29cfef0889799bb0327d\"},\"baselineShas\":{\"a\":\"31cac26daa2a9b9f269998d97e99177622eb382a56a8cc6ecfc7ee6b3bf8eb84\",\"b\":\"5b855860cfa2782344a80355f0a0758e6546357f06bd24eda86bde596e0ceed1\",\"c\":\"f74cbb521e0b34841e2f3b693d7a4c4faee626e21a0e98f1c392ebd5c76dd178\"},\"injected\":[{\"slotKey\":\"c\",\"kind\":\"stale-variant\",\"spec\":\"dsh-plugin-update-fixture-c@0.0.2\"}]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "22-assert",
+      "step": "真 UI 检查更新（三行都可更新 0.0.2）",
+      "what": "A 面板点「检查更新」后，a/b/c 三行的当前版本=0.0.1、新版本=0.0.2",
+      "expected": "rows=a,b,c 且每行 versionCur=0.0.1、versionNew=0.0.2",
+      "actual": "[{\"key\":\"a\",\"cur\":\"0.0.1\",\"next\":\"0.0.2\",\"phase\":\"pending\"},{\"key\":\"b\",\"cur\":\"0.0.1\",\"next\":\"0.0.2\",\"phase\":\"pending\"},{\"key\":\"c\",\"cur\":\"0.0.1\",\"next\":\"0.0.2\",\"phase\":\"pending\"}]",
+      "verdict": "pass"
+    },
+    {
+      "id": "25-assert",
+      "step": "宏批量更新落盘（三包都到 0.0.2）",
+      "what": "真 UI 宏「全部更新」后，磁盘上 A/B/C 的已装版本都变成 0.0.2（不是只改台账）",
+      "expected": "versions[a]=versions[b]=versions[c]=0.0.2；dependencies 三包=0.0.2",
+      "actual": "{\"versions\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":\"0.0.2\",\"dsh-plugin-update-fixture-c\":\"0.0.2\"},\"dependencies\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":\"0.0.2\",\"dsh-plugin-update-fixture-c\":\"0.0.2\"},\"observed\":[\"a=0.0.1,b=0.0.1,c=0.0.1\",\"a=null,b=0.0.1,c=0.0.1\",\"a=0.0.2,b=0.0.1,c=0.0.1\",\"a=0.0.2,b=null,c=0.0.1\",\"a=0.0.2,b=0.0.2,c=0.0.1\",\"a=0.0.2,b=0.0.2,c=0.0.2\"]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "27-assert",
+      "step": "台账逐行真相（三包各一条成功终态）",
+      "what": "三个插件（fxa-a/fxa-b/fxa-c）各恰一条 state.json，state∈{completed,restart-required}、targetVersion=0.0.2、previousVersion=0.0.1；总成功条数=3（无丢行/无重复）",
+      "expected": "每插件 1 条；成功终态各 1；target=0.0.2；previous=0.0.1",
+      "actual": "{\"ledgerA\":[{\"state\":\"completed\",\"target\":\"0.0.2\",\"previous\":\"0.0.1\"}],\"ledgerB\":[{\"state\":\"completed\",\"target\":\"0.0.2\",\"previous\":\"0.0.1\"}],\"ledgerC\":[{\"state\":\"completed\",\"target\":\"0.0.2\",\"previous\":\"0.0.1\"}]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "35-assert",
+      "step": "日志链：批量入口 → 三包真装 → in-process 宿主",
+      "what": "日志里有三包（fxa-a/fxa-b/fxa-c）的 install.request、host.call(update-install, ok=true)、update.wire.ready(desktop-manager)、批量 summary；无 error 级；exec 失败=0；install.fail 只允许设计内 check-expired（每条紧跟 retry）；无 check.fail / host.call.fail{method:*.updateCheck}",
+      "expected": "三目标命名空间各有 install.request；host.call ok；wire=desktop-manager；summary≥1；exec 失败=0；非 check-expired 的 fail=0 且未 retry 的拒绝=0；无 error/check.fail",
+      "actual": "{\"requests\":3,\"requestNs\":[\"fxa-a\",\"fxa-b\",\"fxa-c\"],\"installAudit\":{\"failCount\":3,\"retryCount\":3,\"nonCheckExpired\":0,\"unretried\":0,\"queuedCount\":0,\"namespaces\":[\"fxa-a\",\"fxa-b\",\"fxa-c\"]},\"hostCallOk\":true,\"wireDesktop\":true,\"batchSummary\":1,\"execFailCount\":0,\"checkFailCount\":0,\"errorCount\":0}",
+      "verdict": "pass"
+    },
+    {
+      "id": "38-assert",
+      "step": "can-red 三包成功诚实性（预期红：C 内容仍旧版）",
+      "what": "can-red：台账/磁盘都说 C=0.0.2，但 C 卡片 buildTag 必须真是 v0.0.2（stale 注入让内容仍旧版 ⇒ 此断言应真红，证明它能抓住「版本号说成功、内容还是旧的」）",
+      "expected": "A=client v0.0.2/host v0.0.2；B=client v0.0.2/host v0.0.2；C=client v0.0.2；三行 current 0.0.2",
+      "actual": "{\"cardA\":{\"present\":true,\"key\":\"a\",\"ui\":\"batch\",\"title\":\"夹具 A · 更新演示（批量新版）\",\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\",\"seatLine\":{\"attr\":\"批量席位 fxa · 自键 a · 目标 a/b/c\",\"text\":\"批量席位 fxa · 自键 a · 目标 a/b/c\"},\"behavior\":{\"attr\":\"seat-aware-v2\",\"text\":\"宿主行为 seat-aware-v2\"},\"dockHost\":\"hub-dock\"},\"cardB\":{\"present\":true,\"key\":\"b\",\"ui\":\"batch\",\"title\":\"夹具 B · 更新演示（批量新版）\",\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\",\"seatLine\":{\"attr\":\"批量席位 fxb · 自键 b · 目标 b/c\",\"text\":\"批量席位 fxb · 自键 b · 目标 b/c\"},\"behavior\":{\"attr\":\"seat-aware-v2\",\"text\":\"宿主行为 seat-aware-v2\"},\"dockHost\":\"hub-dock\"},\"seatC\":{\"clientTag\":\"client v0.0.1\",\"badge\":\"夹具 C · client v0.0.1\"},\"rows\":[{\"key\":\"a\",\"phase\":\"done\",\"cur\":\"0.0.2\"},{\"key\":\"b\",\"phase\":\"done\",\"cur\":\"0.0.2\"},{\"key\":\"c\",\"phase\":\"done\",\"cur\":\"0.0.2\"}]}",
+      "verdict": "fail",
+      "note": "can-red 注入：C@0.0.2 用 0.0.1 内容构建（staleContentVersion=0.0.1）。本条记录真实失败（run verdict=fail、exitCode=1），失败点即「台账/磁盘说 0.0.2 成功、运行内容仍是旧版」。"
+    },
+    {
+      "id": "40-assert",
+      "step": "重启后台账/磁盘与 UI 三处一致",
+      "what": "重启不产生新台账/不回退：三个插件仍各一条成功终态（target=0.0.2），磁盘三包=0.0.2，与 UI 三行 current 一致",
+      "expected": "三插件各 1 条成功终态；磁盘 versions/dependencies 三包=0.0.2",
+      "actual": "{\"ledgerA\":[\"completed\"],\"ledgerB\":[\"completed\"],\"ledgerC\":[\"completed\"],\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":\"0.0.2\",\"dsh-plugin-update-fixture-c\":\"0.0.2\"},\"dependencies\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":\"0.0.2\",\"dsh-plugin-update-fixture-c\":\"0.0.2\"}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "43-assert",
+      "step": "批量账本/中枢/队列：属主 fxa 三键、无跨 scope、无残留等待项",
+      "what": "磁盘上 A 的批量会话（属主 fxa）batch.json/inventory.json 都恰含 a/b/c 三键；中枢 plans/fxa 的 selfKey=a、targets=a/b/c；根队列 waiting=[]；没有 fxc 属主/计划（C 纯目标不接更新系统）",
+      "expected": "fxa batch/inventory keys=[a,b,c]；hub plan fxa selfKey=a targets=[a,b,c]；queue.waiting=[]；无 fxc",
+      "actual": "{\"owners\":[\"fxa\",\"fxb\"],\"fxaBatchKeys\":[\"a\",\"b\",\"c\"],\"fxaInventoryKeys\":[\"a\",\"b\",\"c\"],\"hubPlanOwners\":[\"fxa\"],\"fxaHubSelfKey\":\"a\",\"fxaHubTargets\":[\"a\",\"b\",\"c\"],\"waiting\":[],\"lease\":null}",
+      "verdict": "pass"
+    },
+    {
+      "id": "44-assert",
+      "step": "桌面实例退出（收尾无人残留）",
+      "what": "场景结束时登记过的桌面进程（含宿主自重启产生的实例）全部已退出，没有残留窗口占用单实例名额",
+      "expected": "登记进程的 kill(pid,0) 全部失败（已退出）",
+      "actual": "登记 3 个进程；仍活着=[]",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [
+    {
+      "id": "18-shot",
+      "step": "基版 UI（三包 0.0.1）",
+      "what": "三包批量场景的初始形态：A 面板三行、A/B 卡片、C 纯目标卡片",
+      "expected": "三行 + 三卡片都在页面上，版本 0.0.1",
+      "actual": "rows=a,b,c；A=client v0.0.1；C=client v0.0.1",
+      "verdict": "pass",
+      "png": "shots\\18-shot.png",
+      "sidecar": "shots\\18-shot.json"
+    },
+    {
+      "id": "23-shot",
+      "step": "真 UI 检查更新（三行都可更新 0.0.2）",
+      "what": "A 批量面板三行：当前 0.0.1、可更新 0.0.2",
+      "expected": "三行都显示 0.0.1 → 0.0.2",
+      "actual": "a:0.0.1->0.0.2 | b:0.0.1->0.0.2 | c:0.0.1->0.0.2",
+      "verdict": "pass",
+      "png": "shots\\23-shot.png",
+      "sidecar": "shots\\23-shot.json"
+    },
+    {
+      "id": "39-shot",
+      "step": "can-red 三包成功诚实性（预期红）",
+      "what": "can-red 现场：C 卡片 buildTag 应是旧版（本条预期 fail）",
+      "expected": "client v0.0.2",
+      "actual": "{\"cardA\":\"client v0.0.2\",\"cardB\":\"client v0.0.2\",\"seatC\":\"client v0.0.1\"}",
+      "verdict": "fail",
+      "png": "shots\\39-shot.png",
+      "sidecar": "shots\\39-shot.json"
+    }
+  ],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-pnpm-store-isolation",
+      "name": "pnpm-store-isolation",
+      "file": "raw\\07-pnpm-store-isolation.json"
+    },
+    {
+      "id": "08-desktop-first-launch",
+      "name": "desktop-first-launch",
+      "file": "raw\\08-desktop-first-launch.json"
+    },
+    {
+      "id": "09-desktop-stop-bootstrap",
+      "name": "desktop-stop-bootstrap",
+      "file": "raw\\09-desktop-stop-bootstrap.json"
+    },
+    {
+      "id": "10-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\10-install-baseline.json"
+    },
+    {
+      "id": "14-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\14-sut-installed-dist.json"
+    },
+    {
+      "id": "16-batch-panel-initial",
+      "name": "batch-panel-initial",
+      "file": "raw\\16-batch-panel-initial.json"
+    },
+    {
+      "id": "19-fixture-published-variants",
+      "name": "fixture-published-variants",
+      "file": "raw\\19-fixture-published-variants.json"
+    },
+    {
+      "id": "21-a-check-complete",
+      "name": "a-check-complete",
+      "file": "raw\\21-a-check-complete.json"
+    },
+    {
+      "id": "24-batch-settled",
+      "name": "batch-settled",
+      "file": "raw\\24-batch-settled.json"
+    },
+    {
+      "id": "26-ledger-after-batch",
+      "name": "ledger-after-batch",
+      "file": "raw\\26-ledger-after-batch.json"
+    },
+    {
+      "id": "28-desktop-stop-after-batch",
+      "name": "desktop-stop-after-batch",
+      "file": "raw\\28-desktop-stop-after-batch.json"
+    },
+    {
+      "id": "29-log-fxa-a-2026-11-02",
+      "name": "log-fxa-a-2026-11-02",
+      "file": "raw\\29-log-fxa-a-2026-11-02.json"
+    },
+    {
+      "id": "30-log-fxa-b-2026-11-02",
+      "name": "log-fxa-b-2026-11-02",
+      "file": "raw\\30-log-fxa-b-2026-11-02.json"
+    },
+    {
+      "id": "31-log-fxa-c-2026-11-02",
+      "name": "log-fxa-c-2026-11-02",
+      "file": "raw\\31-log-fxa-c-2026-11-02.json"
+    },
+    {
+      "id": "32-log-fxb-b-2026-11-02",
+      "name": "log-fxb-b-2026-11-02",
+      "file": "raw\\32-log-fxb-b-2026-11-02.json"
+    },
+    {
+      "id": "33-log-fxb-c-2026-11-02",
+      "name": "log-fxb-c-2026-11-02",
+      "file": "raw\\33-log-fxb-c-2026-11-02.json"
+    },
+    {
+      "id": "34-log-counts",
+      "name": "log-counts",
+      "file": "raw\\34-log-counts.json"
+    },
+    {
+      "id": "36-panel-after-batch-restart",
+      "name": "panel-after-batch-restart",
+      "file": "raw\\36-panel-after-batch-restart.json"
+    },
+    {
+      "id": "37-final-state",
+      "name": "final-state",
+      "file": "raw\\37-final-state.json"
+    },
+    {
+      "id": "41-desktop-stop-after-final",
+      "name": "desktop-stop-after-final",
+      "file": "raw\\41-desktop-stop-after-final.json"
+    },
+    {
+      "id": "42-batch-disk-facts",
+      "name": "batch-disk-facts",
+      "file": "raw\\42-batch-disk-facts.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "desktop-bootstrap",
+        "pid": 87296,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-main",
+        "pid": 49660,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-after-batch-restart",
+        "pid": 72212,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "registry",
+        "port": 55213,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:55213（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "每 run 私有 pnpm store：D:\\dsh-plugin\\_wt263\\runtime\\t5-269\\269-20261102T230056\\pnpm-store（从 bootstrap/CLI 基版安装起生效）",
+      "真 UI 点 A 面板宏「全部更新」；安装窗只轮询磁盘/台账（三包串行安装，每次成功会触发宿主自重启，旧 CDP 失效）"
+    ]
+  },
+  "maintainerProfile": null,
+  "notes": [
+    "本地 registry：http://127.0.0.1:55213（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "每 run 私有 pnpm store：D:\\dsh-plugin\\_wt263\\runtime\\t5-269\\269-20261102T230056\\pnpm-store（从 bootstrap/CLI 基版安装起生效）",
+    "真 UI 点 A 面板宏「全部更新」；安装窗只轮询磁盘/台账（三包串行安装，每次成功会触发宿主自重启，旧 CDP 失效）"
+  ]
+}

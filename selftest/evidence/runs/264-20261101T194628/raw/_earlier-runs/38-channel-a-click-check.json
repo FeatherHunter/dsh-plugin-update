@@ -1,0 +1,56 @@
+{
+  "step": "click-check",
+  "channel": "A",
+  "at": "2026-11-01T12:38:38.591Z",
+  "pick": {
+    "ok": true,
+    "action": "check",
+    "text": "检查更新",
+    "disabled": false,
+    "x": 398.2857246398926,
+    "y": 421.5401840209961,
+    "rect": {
+      "x": 359.71429443359375,
+      "y": 405.5446472167969,
+      "width": 77.14286041259766,
+      "height": 31.991073608398438
+    }
+  },
+  "topTag": "BUTTON.",
+  "immediate": {
+    "checkText": "正在查询版本信息…",
+    "disabled": true
+  },
+  "after": {
+    "text": "插件更新 更新档案 卷 dsh-prompt 使用范围 desktopprofile 定已是最新，无需更新。 运行版 0.4.40 已安装 0.4.40 最新版 0.4.40 01 检查与安装 正在查询版本信息… 安装更新 复制诊断 02 更新日志 更新说明（0.4.40 → 0.4.40）： 作者未提供更新说明，安装不受影响。 03 更新队列 当前无排队任务；同一使用范围同时仅安装一项。 04 错误信息 暂无失败：此时复制诊断提供的是当前状态快照。 请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 dsh-prompt 筛选 host.call、host.call.fail、update.install.exec 事件。 日志：落点=external（落盘归集成方实例）；未验证（对方没给判据，不能当有日志下结论）；目录指纹本包不猜（那是对方实例的目录）；启动以来丢弃 0 行（只算本包发射口）；最近事件=11/1 20:38；事件契约=缺失（missing）：字段门禁这轮没有尺子 正在查询版本信息… 05 手工命令 当前没有可用的手工命令。 关闭窗口，更新不受影响，可随时返回查看。 关闭",
+    "actions": [
+      {
+        "action": "check",
+        "text": "正在查询版本信息…",
+        "disabled": true
+      },
+      {
+        "action": "install",
+        "text": "安装更新",
+        "disabled": true
+      },
+      {
+        "action": "copy-diag",
+        "text": "复制诊断",
+        "disabled": false
+      },
+      {
+        "action": "close-view",
+        "text": "关闭",
+        "disabled": false
+      }
+    ],
+    "rect": {
+      "x": 339.14288330078125,
+      "y": 46.017860412597656,
+      "width": 601.1428833007812,
+      "height": 729.107177734375
+    }
+  },
+  "clickedAt": "2026-11-01T12:38:38.591Z"
+}

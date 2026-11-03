@@ -1,0 +1,11 @@
+{
+  "phase": "installBundle.request",
+  "packageSpec": "dsh-plugin-update-fixture-a@0.0.2",
+  "options": {
+    "requestId": "28e7f5d1-d71e-401e-be18-4eec933be2da",
+    "registry": "https://127.0.0.1:51172"
+  },
+  "requestId": "28e7f5d1-d71e-401e-be18-4eec933be2da",
+  "delayMs": 8000,
+  "at": "2026-11-03T10:56:21.347Z"
+}

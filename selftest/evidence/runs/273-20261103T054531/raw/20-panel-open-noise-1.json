@@ -1,0 +1,15 @@
+{
+  "url": "http://127.0.0.1:57627/",
+  "mounted": true,
+  "elapsedMs": 2,
+  "counts": {
+    "dshUpd": 1,
+    "dshUpdLog": 2,
+    "fixture": 1
+  },
+  "logTexts": [
+    "请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 dsh-plugin-update-fixture-a 筛选 host.call、host.call.fail、update.install.exec 事件。",
+    "日志：落点=self（本包自建落点）；目录指纹=410b0aeb；按需信息开关=关；启动以来丢弃 0 行；最近事件=11/3 05:45；事件契约=正常"
+  ],
+  "panelText": "dsh-plugin-update-fixture-a 使用范围 t9j2profile 已是最新，无需更新。 运行版 0.0.1 已安装 0.0.1 最新版 未知 01 检查与安装 检查更新 安装更新 复制诊断 02 更新日志 尚未查询到新版本；查询到后将显示更新日志。 03 更新队列 当前无排队任务；同一使用范围同时仅安装一项。 04 错误信息 暂无失败：此时复制诊断提供的是当前状态快照。 请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 dsh-plugin-update-fixture-a 筛选 host.call、host.call.fail、update.install.exec 事件。 日志：落点=self（本包自建落点）；目录指纹=410b0aeb；按需信息开关=关；启动以来丢弃 0 行；最近事件=11/3 05:45；事件契约=正常 05 手工命令 当前没有可用的手工命令。 dsh-plugin-update@0.18.39 (profile)"
+}

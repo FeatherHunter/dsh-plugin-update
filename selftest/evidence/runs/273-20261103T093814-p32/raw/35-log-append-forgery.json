@@ -1,0 +1,18 @@
+{
+  "forgedTs": 1793670554945,
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "reply": {
+        "accepted": 0,
+        "dropped": 1
+      }
+    }
+  },
+  "accepted": 0,
+  "dropped": 1,
+  "execBefore": 0,
+  "execAfter": 0,
+  "forgedRows": []
+}

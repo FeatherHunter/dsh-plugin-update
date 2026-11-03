@@ -1,0 +1,9 @@
+{
+  "看什么": "第二次重启后：首屏先如实说版本未知（见 l2-14a），真 UI 检查更新后面板已了结、运行构建 v0.0.2、台账仍恰一条成功终态",
+  "步骤": "l2-50-restart-settled",
+  "expected": "横幅「已是最新，无需更新。」、clientTag/hostTag=0.0.2、A 的 state.json 恰 1 份且成功",
+  "actual": "{\"banner\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"},\"tags\":{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\"},\"ledgerJobs\":[{\"file\":\"fxa-a/6ac707cc17b61675c1631f46/state.json\",\"state\":\"completed\"}]}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\45-shot.png"
+}

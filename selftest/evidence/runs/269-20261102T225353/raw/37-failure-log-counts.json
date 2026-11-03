@@ -1,0 +1,109 @@
+{
+  "countsA": {
+    "requests": 1,
+    "execs": 1,
+    "execFails": 0,
+    "execOks": 1
+  },
+  "countsB": {
+    "requests": 1,
+    "execs": 1,
+    "execFails": 1,
+    "execOks": 0
+  },
+  "countsC": {
+    "requests": 1,
+    "execs": 1,
+    "execFails": 0,
+    "execOks": 1
+  },
+  "bExecFails": [
+    {
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "desktop-manager",
+        "ok": false,
+        "exitCode": 1,
+        "durationMs": 72454,
+        "pluginId": "fxa-b",
+        "traceId": "34b6ed57f82caa0b",
+        "spanId": "80d406a6",
+        "seq": 4
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 102
+    }
+  ],
+  "bFails": [
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "check-expired",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "81f02d37",
+        "traceId": "bba4d2fb8cf26b95",
+        "spanId": "4fd896b3",
+        "seq": 1
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 77
+    },
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "check-expired",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "81f02d37",
+        "traceId": "8c6975beef968377",
+        "spanId": "d0efca1b",
+        "seq": 1
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 86
+    },
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "exec",
+        "reason": "nonzero-exit",
+        "code": "install-failed",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": 1,
+        "observedVersion": null,
+        "intentHash": "81f02d37",
+        "traceId": "34b6ed57f82caa0b",
+        "spanId": "80d406a6",
+        "seq": 6
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 104
+    }
+  ],
+  "installAudit": {
+    "failCount": 5,
+    "retryCount": 4,
+    "nonCheckExpired": 1,
+    "unretried": 1,
+    "queuedCount": 0,
+    "namespaces": [
+      "fxa-a",
+      "fxa-b",
+      "fxa-c"
+    ]
+  }
+}

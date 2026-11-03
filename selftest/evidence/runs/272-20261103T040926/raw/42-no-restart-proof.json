@@ -1,0 +1,74 @@
+{
+  "installWindow": {
+    "from": 1793650276512,
+    "to": 1793650286067
+  },
+  "hostStarts": [
+    {
+      "ts": 1793650210005,
+      "pid": 81448,
+      "fields": {
+        "pid": 81448,
+        "startedAt": "2026-11-02T20:10:10.001Z",
+        "dir": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040926\\home\\logs",
+        "pluginVersion": "0.18.39",
+        "os": "win32"
+      }
+    },
+    {
+      "ts": 1793650210006,
+      "pid": 81448,
+      "fields": {
+        "pid": 81448,
+        "startedAt": "2026-11-02T20:10:10.004Z",
+        "dir": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040926\\home\\logs",
+        "pluginVersion": "0.18.39",
+        "os": "win32"
+      }
+    },
+    {
+      "ts": 1793650210007,
+      "pid": 81448,
+      "fields": {
+        "pid": 81448,
+        "startedAt": "2026-11-02T20:10:10.004Z",
+        "dir": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T040926\\home\\logs",
+        "pluginVersion": "0.18.39",
+        "os": "win32"
+      }
+    }
+  ],
+  "hostStartsInInstallWindowCount": 0,
+  "execRows": [
+    {
+      "ts": 1793650281041,
+      "fields": {
+        "route": "desktop-manager",
+        "ok": true,
+        "exitCode": 0,
+        "durationMs": 3433,
+        "pluginId": "fxa-a",
+        "traceId": "887139f543fd607a",
+        "spanId": "0b35fdfa",
+        "seq": 4
+      }
+    }
+  ],
+  "installRequestRows": [
+    {
+      "ts": 1793650277588,
+      "fields": {
+        "from": "panel",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 2719,
+        "intentHash": "f769eb24",
+        "traceId": "887139f543fd607a",
+        "spanId": "0b35fdfa",
+        "seq": 1
+      }
+    }
+  ],
+  "wireRowsCount": 6,
+  "rawRows": 27
+}

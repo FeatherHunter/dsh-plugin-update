@@ -1,0 +1,21 @@
+{
+  "logTexts": [
+    "请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 dsh-plugin-update-fixture-a 筛选 host.call、host.call.fail、update.install.exec 事件。",
+    "日志：落点=self（本包自建落点）；目录指纹=922361b3；按需信息开关=关；启动以来丢弃 0 行；最近事件=11/3 09:49；事件契约=正常"
+  ],
+  "healthText": "日志：落点=self（本包自建落点）；目录指纹=922361b3；按需信息开关=关；启动以来丢弃 0 行；最近事件=11/3 09:49；事件契约=正常",
+  "parsed": {
+    "text": "日志：落点=self（本包自建落点）；目录指纹=922361b3；按需信息开关=关；启动以来丢弃 0 行；最近事件=11/3 09:49；事件契约=正常",
+    "sink": "self",
+    "dirHash": "922361b3",
+    "switchText": "关",
+    "dropped": 0,
+    "lastEventText": "11/3 09:49",
+    "contract": "正常"
+  },
+  "counts": {
+    "dshUpd": 1,
+    "dshUpdLog": 2,
+    "fixture": 1
+  }
+}

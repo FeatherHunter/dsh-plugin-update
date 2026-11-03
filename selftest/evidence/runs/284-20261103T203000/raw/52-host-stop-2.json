@@ -1,0 +1,10 @@
+{
+  "reason": "l5b-final",
+  "gen": 2,
+  "port": 60649,
+  "pid": 103096,
+  "registryUrl": "https://127.0.0.1:54352",
+  "delayMs": null,
+  "proxyRequests": 1,
+  "delayedRequests": 0
+}

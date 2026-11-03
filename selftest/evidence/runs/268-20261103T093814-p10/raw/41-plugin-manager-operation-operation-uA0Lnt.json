@@ -1,0 +1,13 @@
+{
+  "dirName": "operation-uA0Lnt",
+  "logsDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\268-20261103T093814-p10\\home\\profiles\\desktop\\.plugin-manager\\logs",
+  "pnpmLogFile": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\268-20261103T093814-p10\\home\\profiles\\desktop\\.plugin-manager\\logs\\operation-uA0Lnt\\pnpm.log",
+  "createdAt": "2026-11-03T02:05:44.525Z",
+  "modifiedAt": "2026-11-03T02:05:44.525Z",
+  "pnpmLogBytes": 357,
+  "pnpmLog": "[WARN] The store at C:\\Users\\辰辰洋洋\\AppData\\Local\\pnpm\\store\\v11 is not used because packages cannot be hard linked from it into this project. Using the store at D:\\.pnpm-store\\v11 instead. Set storeDir to choose the store.\n? Verifying lockfile against supply-chain policies (4 entries)...\n✓ Lockfile passes supply-chain policies (4 entries in 2ms)\n",
+  "removed": [],
+  "added": [],
+  "doneIn": null,
+  "empty": false
+}

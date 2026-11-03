@@ -2,7 +2,7 @@
 //
 // 管两件事：① ReaderOverrides（调用方注入端口的唯一形状，风险 R2）；
 // ② 单例读取器装配 getSharedReader：解析使用范围 → 磁盘/队列/锁/执行器端口 → 读取器（含跨插件队列口）。
-// 单例状态只在本模块：sharedReader / sharedReaderKey；复位口 resetSharedUpdateReaderState 给测试。
+// 单例状态只在本模块：sharedReader / sharedReaderKey / recentReaders；复位口 resetSharedUpdateReaderState 给测试。
 
 import {
   ctxService,
@@ -49,8 +49,45 @@ type SharedQueueIO = {
 type SharedHubScope = {
   hubScope: { homeDir: string; profileDir: string }
 }
-let sharedReader: (ReturnType<typeof createUpdateReader> & SharedQueueIO & SharedHubScope) | null = null
+/** 单例读取器的完整类型：读取器电话 + 跨插件队列口 + 使用范围。 */
+type SharedReaderInstance = ReturnType<typeof createUpdateReader> & SharedQueueIO & SharedHubScope
+let sharedReader: SharedReaderInstance | null = null
 let sharedReaderKey = ''
+// #268 真机暴露（#266 的同类路径）：单例槽只有一个——**别的目标**的电话一来，就会把正在安装的那个实例挤出槽。
+// 被挤出的实例仍握着 activeJobId；该目标下一条 status 电话（如批量的 settleInstall）只能新建实例，healJob 于是把
+// 同进程在飞任务误判成「上一代进程遗留」，合成 interrupted/recovery-required（真机 run 268-20261102T153751：
+// fxb-c 的在飞安装被 fxa-* 的检查电话挤出槽后，B 自己的状态电话把任务 heal 成 interrupted，队列 owner 提前释放，
+// 排队取消格因此不可达）。中断的语义属于进程世代，不是读取器实例：按「除运行版本外的身份」保留最近建过的实例，
+// 命中且仍握着在飞任务时先复用旧实例；任务收尾后不再 busy，下一次同身份调用照常按新键换代。
+const recentReaders = new Map<string, SharedReaderInstance>()
+/** 最近实例保留上限：只需覆盖「同时在飞的不同目标」，远小于正常电话并发。 */
+const RECENT_READERS_LIMIT = 16
+// #284 真机暴露（run 284-20261103T151900）：单例槽仍是「最后一个电话的键」——多目标/多使用范围的面板
+// 轮询交替进来时，每次取 reader 都因键不同而新建实例，**上一次 check 的结果（checked）留在旧实例里**，
+// 下一条 status 电话建成的新实例只能报 latestVersion=null（unknown/no-latest），面板于是每轮都在
+// 「已是最新」与「不知道」之间抖，实际是每次都没记住查过什么。checked 属于「同一使用范围+同一插件」
+// 的记忆，不是最后一个电话的临时值：按完整缓存键（含运行版本/使用范围/环境）保留最近用过的实例，
+// 同键直接复用、无论是否在飞；换包换代仍是新键（#278/#266 的在飞保护在其后照旧生效）。
+// 即使某实例被 LRU 挤出，recentReaders 的 busy-identity 兜底仍能在飞时找回它，不会误判中断。
+const readerCache = new Map<string, SharedReaderInstance>()
+/** 完整键读取器缓存上限：只需覆盖同时活跃的目标/使用范围，与 recentReaders 同量级。 */
+const READER_CACHE_LIMIT = 16
+/** 命中即刷新最近使用顺序；超限淘汰最久未用（被淘汰的在飞实例仍由 recentReaders 兜底找回）。 */
+function touchReaderCache(key: string, reader: SharedReaderInstance): void {
+  readerCache.delete(key)
+  readerCache.set(key, reader)
+  if (readerCache.size > READER_CACHE_LIMIT) {
+    const oldest = readerCache.keys().next().value
+    if (oldest !== undefined && oldest !== key) readerCache.delete(oldest)
+  }
+}
+/** 实例身份 = 缓存键除第 3 段（下标 2，runningVersion）外的全部字段；键形状见 getSharedReader。 */
+function readerIdentityOf(key: string): string {
+  const parts = key.split('\0')
+  if (parts.length < 3) return key
+  parts[2] = ''
+  return parts.join('\0')
+}
 export interface ReaderOverrides {
   env?: Record<string, string | undefined>
   osHome?: string
@@ -191,7 +228,39 @@ export async function getSharedReader(pluginId: string, config: ReturnType<typeo
   const installTimeoutMs = overrides.installTimeoutMs ?? config.installTimeoutMs
   const registryUrl = overrides.registryUrl ?? config.registryUrl
   const key = `${pluginId}\0${config.prefix}\0${runningVersion}\0${dshVersion}\0${profileDirInput}\0${profileNameInput ?? ''}\0${homeDirInput}\0${overrides.runInstall ? 'exec' : ''}\0${environmentKind}\0${targetPackageName}\0${explicitTargetDir}\0${releaseChannel}`
-  if (sharedReader && sharedReaderKey === key) return sharedReader
+  // #284：同完整键直接复用（不论是否在飞）——保住该使用范围+插件的 checked 记忆；
+  // 单例槽只是「最后一个电话」，不再承担缓存职责（见 readerCache 注释）。
+  const cached = readerCache.get(key)
+  if (cached !== undefined) {
+    touchReaderCache(key, cached)
+    sharedReader = cached
+    sharedReaderKey = key
+    return cached
+  }
+  // #266 真机暴露（产品 BUG）：安装执行器换包那一瞬，目标包清单版本变化 → 本函数按 runningVersion 缓存
+  // 会新建 reader；同进程仍在 installing/verifying 的任务因此在旧实例的 activeJobId 之外，被 healJob 误判成
+  // 「上一个进程世代遗留」，合成 interrupted/recovery-required。批量的 settleInstall 读到这一瞬间就把该家记失败——
+  // 尽管 exec 随后照常完成（真机 run 266-20261102T021151 日志：verify interrupted → entry.fail(recovery-required/settle)
+  // → 1.2s 后 exec ok + verify restart-required）。中断的语义属于进程世代，不是读取器实例：
+  // 同一使用范围（缓存键除 runningVersion 外全同）且旧实例仍握着在飞任务时，先复用旧实例；
+  // 等任务收尾后再按新键换代（此时新实例读到的是 restart-required/completed 的终态，不会误判中断）。
+  if (sharedReader && sameReaderExceptRunningVersion(sharedReaderKey, key)) {
+    const busy = await sharedReader
+      .status()
+      .then((snap) => snap.job?.state === 'installing' || snap.job?.state === 'verifying')
+      .catch(() => false)
+    if (busy) return sharedReader
+  }
+  // #268：单例槽被**别的目标**的电话挤掉后，同一身份的在飞实例仍要能按身份找回来（见 recentReaders 注释）。
+  // 只复用仍在 in-flight 的实例：收尾后的实例不用，换代照旧按当前 runningVersion 建。
+  const recent = recentReaders.get(readerIdentityOf(key))
+  if (recent !== undefined) {
+    const busy = await recent
+      .status()
+      .then((snap) => snap.job?.state === 'installing' || snap.job?.state === 'verifying')
+      .catch(() => false)
+    if (busy) return recent
+  }
   // 绑好插件标识的发射口（#124）：中立文件不 import node、也不认识插件标识，端口一律在宿主侧绑好再递进去。
   // 磁盘侧就是本插件这一家；队列与全局锁是**跨插件共享**的，所以给一个「按当次动作方取口」的工厂——
   // 一次跃迁记在谁头上，行就落谁自己的目录（路由表按标识寻址，别的插件没接线就只能没有落点，不猜）。
@@ -423,6 +492,12 @@ export async function getSharedReader(pluginId: string, config: ReturnType<typeo
     { readQueuePruned: loadQueuePruned, writeQueueState: writeQueueBestEffort, queueTtlMs, queueNow, hubScope: { homeDir: homeDirInput, profileDir: profileDirInput } },
   )
   sharedReaderKey = key
+  touchReaderCache(key, sharedReader)
+  recentReaders.set(readerIdentityOf(key), sharedReader)
+  if (recentReaders.size > RECENT_READERS_LIMIT) {
+    const oldest = recentReaders.keys().next().value
+    if (oldest !== undefined) recentReaders.delete(oldest)
+  }
   return sharedReader
 }
 /** 安装执行结果进日志（常驻事件 update.install.exec，由执行器在跨边界调用后发）。 */
@@ -430,8 +505,21 @@ function emitInstallLog(level: string, event: string, fields: Record<string, unk
   emitUpdateLog(level, event, fields)
 }
 
+/**
+ * 缓存键除「运行版本」外是否全同（#266）：安装换包的一瞬间只有版本位会变，其余身份位不变。
+ * 键的形状见 getSharedReader（字段顺序固定；第 3 段是 runningVersion）。
+ */
+function sameReaderExceptRunningVersion(a: string, b: string): boolean {
+  const left = a.split('\0')
+  const right = b.split('\0')
+  if (a === '' || left.length !== right.length) return false
+  for (let i = 0; i < left.length; i += 1) if (i !== 2 && left[i] !== right[i]) return false
+  return true
+}
 /** 单例复位（测试与门禁口，规格 #591 第 6 条保留）：只清本模块的单例缓存。 */
 export function resetSharedUpdateReaderState(): void {
   sharedReader = null
   sharedReaderKey = ''
+  recentReaders.clear()
+  readerCache.clear()
 }

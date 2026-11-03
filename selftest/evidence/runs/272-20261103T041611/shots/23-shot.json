@@ -1,0 +1,9 @@
+{
+  "看什么": "安装前官方桌面夹具卡片与更新面板（基版 0.0.1）",
+  "步骤": "panel-old",
+  "expected": "卡片显示 client v0.0.1 / host v0.0.1",
+  "actual": "visible",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\23-shot.png"
+}

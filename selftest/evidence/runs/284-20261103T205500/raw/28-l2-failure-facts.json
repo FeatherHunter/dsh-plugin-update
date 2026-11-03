@@ -1,0 +1,65 @@
+{
+  "installClickAt": "2026-11-03T11:29:25.210Z",
+  "execPath": false,
+  "execs": [],
+  "fails": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "check-failed",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "20ab3e41",
+        "traceId": "e8f54ac2c0910854",
+        "spanId": "798c73b7",
+        "seq": 2
+      }
+    }
+  ],
+  "requests": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "panel",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 1008,
+        "intentHash": "20ab3e41",
+        "traceId": "e8f54ac2c0910854",
+        "spanId": "798c73b7",
+        "seq": 1
+      }
+    }
+  ],
+  "ledger": null,
+  "disk": {
+    "dsh-plugin-update-fixture-a": "0.0.1"
+  },
+  "banner": {
+    "kind": "failed",
+    "title": "已是最新，无需更新。（check-failed）：版本信息查询失败（网络 / 数据源 / 限流）。",
+    "sub": "稍后重新查询；若持续，请提交诊断信息至插件作者"
+  },
+  "errCode": "check-failed",
+  "manual": {
+    "present": true,
+    "heading": "手工备用命令（请复制整行执行）：",
+    "code": "dsh plugin --profile t13b add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=https://127.0.0.1:58151",
+    "neutral": ""
+  },
+  "lastResort": null,
+  "humanNetwork": true,
+  "detailHasNetwork": true,
+  "injectionError": "fetch failed",
+  "carrierInHuman": false,
+  "pathConsistent": true,
+  "networkErrorSourceText": "已是最新，无需更新。（check-failed）：版本信息查询失败（网络 / 数据源 / 限流）。 | 稍后重新查询；若持续，请提交诊断信息至插件作者 |  | [{\"source\":\"fxa-a/2026-11-03.log\",\"event\":\"update.install.fail\",\"level\":\"warn\",\"fields\":{\"stage\":\"gate\",\"reason\":\"gate-refused\",\"code\":\"check-failed\",\"hostCodeHash\":\"none\",\"check\":\"none\",\"exitCode\":null,\"observedVersion\":null,\"intentHash\":\"20ab3e41\",\"traceId\":\"e8f54ac2c0910854\",\"spanId\":\"798c73b7\",\"seq\":2}}] | []"
+}

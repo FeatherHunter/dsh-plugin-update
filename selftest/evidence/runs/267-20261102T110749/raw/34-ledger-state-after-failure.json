@@ -1,0 +1,26 @@
+{
+  "records": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T110749\\home\\updates\\fxa-a\\df520e19c24cc5b728d3395f\\state.json",
+      "state": {
+        "id": "ceb641f5-0d8e-4d57-9a8e-d42bdc211b6b",
+        "state": "failed",
+        "targetVersion": "0.0.2",
+        "message": "install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [ERR_P；目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装 (dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:51665)",
+        "requestId": "rmvyojwra3orqt",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ],
+  "selected": {
+    "file": "D:\\dsh-plugin\\_wt263\\runtime\\t3-267\\267-20261102T110749\\home\\updates\\fxa-a\\df520e19c24cc5b728d3395f\\state.json",
+    "state": {
+      "id": "ceb641f5-0d8e-4d57-9a8e-d42bdc211b6b",
+      "state": "failed",
+      "targetVersion": "0.0.2",
+      "message": "install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [ERR_P；目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装 (dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:51665)",
+      "requestId": "rmvyojwra3orqt",
+      "previousVersion": "0.0.1"
+    }
+  }
+}

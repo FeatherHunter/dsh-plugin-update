@@ -1,0 +1,26 @@
+{
+  "roots": [
+    "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185533/os-home/.dsh/update-queue",
+    "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185533/os-home/.dsh/updates"
+  ],
+  "filesBefore": [
+    {
+      "path": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185533/os-home/.dsh/update-queue/b69ded97a474bd4682cf86bb/queue.json",
+      "bytes": 53,
+      "contentTail": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n"
+    },
+    {
+      "path": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185533/os-home/.dsh/updates/fxa-a/b69ded97a474bd4682cf86bb/before.json",
+      "bytes": 1730,
+      "contentTail": "s: false\\n  excludeLinksFromLockfile: false\\n\\nimporters:\\n\\n  .:\\n    dependencies:\\n      dsh-plugin-update-fixture-a:\\n        specifier: 0.0.1\\n        version: 0.0.1\\n\\npackages:\\n\\n  dsh-log@0.3.4:\\n    resolution: {integrity: sha512-uCG6sLTze5YjmZmLln2KAeCCepsKvzGhnpZmkym/3OKNOsMKH5sA2lunwrLoOfmLxxju3/ZkKQmLp76Fklpw2w==}\\n    engines: {node: '>=22'}\\n    hasBin: true\\n\\n  dsh-plugin-update-fixture-a@0.0.1:\\n    resolution: {integrity: sha512-E2KTGov9XZ/9r4YnKKQ202Jy1u0YTdfN5qF9+QKpPmDO4Kv/umY+10AzDNBBwhl4gFyze/62FejT8wiT4wARzQ==}\\n    engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0'}\\n\\n  dsh-plugin-update@0.18.39:\\n    resolution: {integrity: sha512-aaAZS3+u456KTfoyEczo6gMXTangYlWp0S2Sle7llc5tHNPUZcNVnY52q33XeSXcYYdDDGfnWcjqFRaHlU3Y8w==}\\n    engines: {node: '>=22'}\\n\\nsnapshots:\\n\\n  dsh-log@0.3.4: {}\\n\\n  dsh-plugin-update-fixture-a@0.0.1:\\n    dependencies:\\n      dsh-plugin-update: 0.18.39\\n\\n  dsh-plugin-update@0.18.39:\\n    dependencies:\\n      dsh-log: 0.3.4\\n\",\n    \"pnpm-workspace.yaml\": \"packages:\\n  - .\\n\\nnodeLinker: hoisted\\nautoInstallPeers: false\\nminimumReleaseAgeExclude:\\n  - dsh-log@0.3.4\\n  - dsh-plugin-update-fixture-a@0.0.1\\n  - dsh-plugin-update@0.18.39\\n\"\n  }\n}\n"
+    },
+    {
+      "path": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185533/os-home/.dsh/updates/fxa-a/b69ded97a474bd4682cf86bb/state.json",
+      "bytes": 494,
+      "contentTail": "{\n  \"id\": \"f783af96-5114-4d89-8ed7-aa0f76a7024a\",\n  \"state\": \"failed\",\n  \"targetVersion\": \"0.0.2\",\n  \"message\": \"install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [ERR_PNPM_FETCH_404] GET https://127.0.0.1:52814/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz: Not Found - 404 No authorization header…\",\n  \"requestId\": \"rmw0kntgi3u49x\",\n  \"previousVersion\": \"0.0.1\"\n}\n"
+    }
+  ],
+  "hadFailedState": true,
+  "absentAfter": true,
+  "note": "面板横幅由持久化 state.json 重建；清掉上一格失败状态后，新宿主从 check 开始（磁盘上的安装不变）"
+}

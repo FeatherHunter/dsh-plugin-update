@@ -1,0 +1,27 @@
+{
+  "restoreCommand": {
+    "exe": "icacls",
+    "args": [
+      "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T200100\\os-home\\.dsh\\profiles\\t13b\\node_modules",
+      "/remove:d",
+      "*S-1-5-21-3717688226-1312542433-2550484439-1003"
+    ],
+    "exitCode": 0,
+    "signal": null,
+    "stdout": "�Ѵ������ļ�: D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T200100\\os-home\\.dsh\\profiles\\t13b\\node_modules\r\n�ѳɹ����� 1 ���ļ�; ���� 0 ���ļ�ʱʧ��\r\n",
+    "stderr": "",
+    "timedOut": false
+  },
+  "aclAfterRestore": {
+    "exitCode": 0,
+    "stdout": "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T200100\\os-home\\.dsh\\profiles\\t13b\\node_modules BUILTIN\\Administrators:(I)(F)\n                                                                                                      BUILTIN\\Administrators:(I)(OI)(CI)(IO)(F)\n                                                                                                      NT AUTHORITY\\SYSTEM:(I)(F)\n                                                                                                      NT AUTHORITY\\SYSTEM:(I)(OI)(CI)(IO)(F)\n                                                                                                      NT AUTHORITY\\Authenticated Users:(I)(M)\n                                                                                                      NT AUTHORITY\\Authenticated Users:(I)(OI)(CI)(IO)(M)\n                                                                                                      BUILTIN\\Users:(I)(RX)\n                                                                                                      BUILTIN\\Users:(I)(OI)(CI)(IO)(GR,GE)\n\n�ѳɹ����� 1 ���ļ�; ���� 0 ���ļ�ʱʧ��",
+    "stderr": ""
+  },
+  "writeProbe": {
+    "ok": true,
+    "code": null,
+    "message": null
+  },
+  "restoredOk": true,
+  "note": "icacls /remove:d 撤销拒绝项；同用户写探针恢复成功才允许重试"
+}

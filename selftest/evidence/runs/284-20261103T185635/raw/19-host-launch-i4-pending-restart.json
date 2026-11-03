@@ -1,0 +1,13 @@
+{
+  "label": "i4-pending-restart",
+  "urlMasked": "http://127.0.0.1:59515/?token=***",
+  "port": 59515,
+  "bootMs": 1768,
+  "profileName": "t3eq",
+  "registryUrl": "https://127.0.0.1:59761",
+  "equivalentKind": "reader-version",
+  "equivalentSpecPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185635/equivalent-host-specs/i4-pending-restart.json",
+  "installTimeoutMs": 300000,
+  "stdoutTail": "dsh web: http://127.0.0.1:59515/?token=lijjatqgbQkFANIi__D-SpzixyB4X0z6Bv5tt2Lkx0s\n",
+  "stderrTail": ""
+}

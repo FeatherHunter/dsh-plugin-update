@@ -1,0 +1,67 @@
+{
+  "seq": 7,
+  "name": "open-prompt-panel",
+  "file": "07-open-prompt-panel.json",
+  "startedAt": "2026-11-01T11:55:48.820Z",
+  "ok": true,
+  "ms": 494,
+  "data": {
+    "barButtons": [
+      {
+        "text": "全部",
+        "title": "",
+        "aria": "",
+        "action": "",
+        "inBar": true
+      },
+      {
+        "text": "自定义",
+        "title": "",
+        "aria": "",
+        "action": "",
+        "inBar": true
+      },
+      {
+        "text": "＋ 新增",
+        "title": "新增自定义模板",
+        "aria": "",
+        "action": "",
+        "inBar": true
+      },
+      {
+        "text": "展示预制模板",
+        "title": "展示预制模板",
+        "aria": "展示预制模板",
+        "action": "",
+        "inBar": true
+      },
+      {
+        "text": "当前：悬浮触发",
+        "title": "当前：悬浮触发，点击切换为点击触发",
+        "aria": "当前：悬浮触发，点击切换为点击触发",
+        "action": "",
+        "inBar": true
+      },
+      {
+        "text": "模板管理",
+        "title": "设置 → 模板管理",
+        "aria": "设置 → 模板管理",
+        "action": "",
+        "inBar": true
+      },
+      {
+        "text": "×",
+        "title": "关闭",
+        "aria": "关闭",
+        "action": "",
+        "inBar": true
+      }
+    ],
+    "clicked": {
+      "x": 1142.1796875,
+      "y": 442.5,
+      "title": "设置 → 模板管理",
+      "text": "模板管理"
+    }
+  }
+}

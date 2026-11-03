@@ -1,0 +1,47 @@
+{
+  "step": "preflight",
+  "channel": "A",
+  "at": "2026-11-01T13:08:07.916Z",
+  "cdpPort": 59349,
+  "portFree": true,
+  "home": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-channelA\\home",
+  "homeExists": true,
+  "homeProfilePackage": {
+    "name": "dsh-profile-desktop",
+    "private": true,
+    "dependencies": {
+      "dsh-prompt": "0.4.40"
+    },
+    "dsh": {
+      "profile": {
+        "bundles": [
+          "@deepseek-ai/dsh-base",
+          "@deepseek-ai/dsh-web-app",
+          "dsh-prompt"
+        ]
+      }
+    }
+  },
+  "userDataDir": "D:\\dsh-plugin\\_wt263\\runtime\\t0-264-wizard4\\udd",
+  "userDataDirExists": false,
+  "parentEnv": {
+    "ELECTRON_RUN_AS_NODE": "1",
+    "DSH_HOME": "C:\\Users\\辰辰洋洋\\.dsh",
+    "DSH_PROFILE": "desktop",
+    "DSH_SHELL": "1"
+  },
+  "maintainerProcs": [
+    {
+      "Id": 17020,
+      "ProcessName": "DeepSeek Harness",
+      "StartTime": "/Date(1793518061453)/"
+    },
+    {
+      "Id": 39812,
+      "ProcessName": "DeepSeek Harness",
+      "StartTime": "/Date(1793518061044)/"
+    }
+  ],
+  "maintainerProfilePkgSha": "aa45f522c8169a025ac4b0053d556b9d62fea77cb209ee5b4c867920019b19d8",
+  "note": "全新 DSH_HOME + 全新 --user-data-dir ⇒ 首启向导必然出现；本脚本不装插件，只取证向导两层"
+}

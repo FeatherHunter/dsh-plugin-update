@@ -1,0 +1,557 @@
+{
+  "schemaVersion": 1,
+  "runId": "268-20261102T174922",
+  "ticket": "268",
+  "scenarioId": "g2-batch-queued-cancel",
+  "hostChannel": "desktop-official",
+  "startedAt": "2026-11-02T09:49:22.918Z",
+  "finishedAt": "2026-11-02T09:54:24.179Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:/dsh-plugin/_wt263/t4",
+    "branch": "impl/263-t4",
+    "head": "b57fd1903fa1b90216cb2885da3738ae4e5843f9",
+    "hostChannel": "desktop-official"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t4-268\\268-20261102T174922\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "795c5746976b5d43f34b2b221e2772f637551129898c2b7d56c92f5c1829822a",
+    "distDigest": "25f1970da9af6a36eac92a2bd84b5b4fa0839fbb54de0411a17b60f308e15b28",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:58828",
+    "installedDistDigest": "25f1970da9af6a36eac92a2bd84b5b4fa0839fbb54de0411a17b60f308e15b28",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "03-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 795c5746976b5d43…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "05-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1, dsh-plugin-update-fixture-b@0.0.1, dsh-plugin-update-fixture-c@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "07-assert",
+      "step": "慢安装地基",
+      "what": "延迟代理把 pnpm 请求挂 60s，产品安装预算 40s（经夹具 config.installTimeoutMs 透传）",
+      "expected": "代理监听并只延迟 pnpm 请求（产品自己的 check 不延迟）",
+      "actual": "proxy http://127.0.0.1:50386，delayMs=60000，installTimeoutMs=40000",
+      "verdict": "pass"
+    },
+    {
+      "id": "11-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "干净 profile 装基版（b）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-b@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-b；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "13-assert",
+      "step": "干净 profile 装基版（c）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-c@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-c；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b, dsh-plugin-update-fixture-c]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "15-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "25f1970da9af6a36eac92a2bd84b5b4fa0839fbb54de0411a17b60f308e15b28",
+      "actual": "25f1970da9af6a36eac92a2bd84b5b4fa0839fbb54de0411a17b60f308e15b28（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "17-assert",
+      "step": "基版 UI",
+      "what": "A 批量面板列出 a/b/c 三行，B/C 卡片是 0.0.1",
+      "expected": "rows=a,b,c；B clientTag=client v0.0.1；C 徽标 0.0.1",
+      "actual": "{\"rows\":\"a,b,c\",\"cardB\":\"client v0.0.1\",\"cardC\":{\"present\":true,\"clientTag\":\"client v0.0.1\",\"badge\":\"夹具 C · client v0.0.1\"},\"disk\":{\"versions\":{\"dsh-plugin-update-fixture-a\":\"0.0.1\",\"dsh-plugin-update-fixture-b\":\"0.0.1\",\"dsh-plugin-update-fixture-c\":\"0.0.1\"},\"dependencies\":{\"dsh-plugin-update-fixture-a\":\"0.0.1\",\"dsh-plugin-update-fixture-b\":\"0.0.1\",\"dsh-plugin-update-fixture-c\":\"0.0.1\"}}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "20-assert",
+      "step": "变体发布",
+      "what": "C 变体版内容确实换了（client bundle sha256 与基版不同；该格只发 C）",
+      "expected": "C 的 client sha256 与基版不同；B 未发布 0.0.2",
+      "actual": "{\"canRed\":false,\"publishesC\":true,\"oldHashB\":{\"client\":\"fb45379759000e9f28a542c4bd1321b57f66d9dc6914fcf43a1f2a9831a9481e\",\"host\":\"3b96a7414d552893e5d7f87cf5915b071eaa8ff7601f693839b042f1db321f9e\"},\"newHashB\":null,\"oldHashC\":{\"client\":\"702b04232df1f4a555693f4ddeb438d4e6eec482ef021d04df9548441a28d306\",\"host\":\"dbc9e7763edb5b044442684e2d25b2641a5c093e7cbf135ad53de12272124260\"},\"newHashC\":{\"client\":\"7314eee4792c7aeca029db45b872fc5434d7e1739ece5c6e663ba2df62bcd8cf\",\"host\":\"ca9c615e7f36884f6709a13eb64181eb42a9d3d6610a469492f2a6d3bab1c545\"},\"canRedStaleHost\":null}",
+      "verdict": "pass"
+    },
+    {
+      "id": "22-assert",
+      "step": "变体可见",
+      "what": "C 的 0.0.2 已在 registry 可见，B 仍只有 0.0.1（A 面板宏安装只会轮到 C）",
+      "expected": "C 元数据含 0.0.1 与 0.0.2；B 元数据只有 0.0.1",
+      "actual": "{\"b\":[\"0.0.1\"],\"c\":[\"0.0.1\",\"0.0.2\"]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "24-assert",
+      "step": "真 UI 检查更新",
+      "what": "A 批量面板 C 行读到 0.0.2，B 仍是基版（宏按钮只会轮到 C 被排队门挡下）",
+      "expected": "C 行 versionNew=0.0.2；B 行无 0.0.2",
+      "actual": "{\"b\":{\"key\":\"b\",\"phase\":\"pending\",\"queued\":false,\"busy\":false,\"title\":\"夹具 B\",\"status\":\"已是最新，无需操作。\",\"versionCur\":\"0.0.1\",\"versionNew\":null,\"actions\":[\"toggle-details\",\"toggle-details\"],\"fail\":null},\"c\":{\"key\":\"c\",\"phase\":\"pending\",\"queued\":false,\"busy\":false,\"title\":\"夹具 C\",\"status\":\"有新版本 0.0.2\",\"versionCur\":\"0.0.1\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"toggle-details\"],\"fail\":null}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "27-assert",
+      "step": "D2 占锁方受理",
+      "what": "B 的夹具桥打单插件电话 fxb-c.updateCheck/updateInstall：拿到 checkId、安装电话受理（电话先回，慢安装 exec 在后台跑）；check-expired 按产品批量电话口径重查重提",
+      "expected": "check 回包 reply.ok=true 且有 receipt.checkId；install 回包 reply.ok=true（最多 5 次，同一次 read 内 check 后立即 install）",
+      "actual": "{\"accepted\":true,\"attemptCount\":1,\"checkId\":\"ba6b3263-b624-413c-af8f-813ac1a2aba1\",\"requestId\":\"g2-occupier-20261102T174922-1\",\"lastAttempt\":{\"attempt\":1,\"check\":{\"route\":\"/_dsh/selftest-fixture-b\",\"envelopeOk\":true,\"reply\":{\"ok\":true,\"snapshot\":{\"runningVersion\":\"0.0.1\",\"installed\":true,\"installedVersion\":\"0.0.1\",\"latestVersion\":\"0.0.2\",\"canInstall\":true,\"blockedReason\":null,\"job\":null,\"identity\":\"update\",\"registered\":true},\"manual\":\"dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-c@0.0.2 --registry=http://127.0.0.1:50386\",\"receipt\":{\"checkId\":\"ba6b3263-b624-413c-af8f-813ac1a2aba1\",\"checkedAt\":1793613127305,\"expiresAt\":1793613727305},\"queue\":{\"busy\":false,\"owner\":null,\"waiting\":[],\"position\":null},\"env\":{\"profileName\":\"desktop\",\"environmentKind\":\"desktop-manager\",\"registered\":true,\"updaterVersion\":\"0.18.39\",\"updaterCopyLevel\":\"profile\"}},\"error\":null},\"install\":{\"route\":\"/_dsh/selftest-fixture-b\",\"envelopeOk\":true,\"reply\":{\"ok\":true,\"snapshot\":{\"runningVersion\":\"0.0.1\",\"installed\":true,\"installedVersion\":\"0.0.1\",\"latestVersion\":\"0.0.2\",\"canInstall\":false,\"blockedReason\":null,\"job\":{\"id\":\"5171375d-787d-4368-bf88-2d3c26e55f8b\",\"state\":\"installing\",\"targetVersion\":\"0.0.2\",\"message\":null,\"requestId\":\"g2-occupier-20261102T174922-1\",\"previousVersion\":\"0.0.1\"},\"identity\":\"update\",\"registered\":true},\"manual\":\"dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-c@0.0.2 --registry=http://127.0.0.1:50386\",\"receipt\":null},\"error\":null},\"accepted\":true}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "29-assert",
+      "step": "D2 队列占用",
+      "what": "单插件安装电话先起的 C 慢安装已占住全局执行锁（queue.json 的 owner 是 B 运行时里的 C 目标 fxb-c）",
+      "expected": "owner.pluginId=fxb-c",
+      "actual": "{\"present\":true,\"owner\":{\"pluginId\":\"fxb-c\",\"jobId\":\"5171375d-787d-4368-bf88-2d3c26e55f8b\",\"requestId\":\"g2-occupier-20261102T174922-1\",\"targetVersion\":\"0.0.2\",\"startedAt\":1793613127332},\"waiting\":[],\"raw\":{\"version\":1,\"owner\":{\"pluginId\":\"fxb-c\",\"jobId\":\"5171375d-787d-4368-bf88-2d3c26e55f8b\",\"requestId\":\"g2-occupier-20261102T174922-1\",\"targetVersion\":\"0.0.2\",\"startedAt\":1793613127332},\"waiting\":[]}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "31-assert",
+      "step": "D2 真 UI 排队",
+      "what": "第二个安装进队列：A 面板 C 行 data-queued=1 且出现「取消排队」按钮",
+      "expected": "rowC.queued=true；actions 含 row-cancel-queue",
+      "actual": "{\"key\":\"c\",\"phase\":\"ready\",\"queued\":true,\"busy\":false,\"title\":\"夹具 C\",\"status\":\"已排队 · 前方还有 1 项\",\"versionCur\":\"0.0.1\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"row-cancel-queue\",\"toggle-details\"],\"fail\":null}",
+      "verdict": "pass"
+    },
+    {
+      "id": "34-assert",
+      "step": "D2 队列落盘",
+      "what": "queue.json 的 waiting 里有 A 会话 C 的占位（requestId 是出发安装时排上的）",
+      "expected": "waiting 含 pluginId=fxa-c",
+      "actual": "{\"present\":true,\"owner\":{\"pluginId\":\"fxb-c\",\"jobId\":\"5171375d-787d-4368-bf88-2d3c26e55f8b\",\"requestId\":\"g2-occupier-20261102T174922-1\",\"targetVersion\":\"0.0.2\",\"startedAt\":1793613127332},\"waiting\":[{\"pluginId\":\"fxa-c\",\"requestId\":\"batch-mvz2y2t0-nbw8blbu8g-c-800d95ec\",\"targetVersion\":null,\"enqueuedAt\":1793613127937}],\"raw\":{\"version\":1,\"owner\":{\"pluginId\":\"fxb-c\",\"jobId\":\"5171375d-787d-4368-bf88-2d3c26e55f8b\",\"requestId\":\"g2-occupier-20261102T174922-1\",\"targetVersion\":\"0.0.2\",\"startedAt\":1793613127332},\"waiting\":[{\"pluginId\":\"fxa-c\",\"requestId\":\"batch-mvz2y2t0-nbw8blbu8g-c-800d95ec\",\"targetVersion\":null,\"enqueuedAt\":1793613127937}]}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "36-assert",
+      "step": "D2 排队窗内占锁方未被误判中断",
+      "what": "排队窗内 A 侧电话持续换 sharedReader 槽：占锁方 fxb-c 台账仍是 installing（不是 interrupted/recovery-required），执行锁仍被它持有（上一条 owner 断言）",
+      "expected": "fxb-c 台账恰 1 条且 state=installing；无 interrupted",
+      "actual": "{\"aC\":\"fxa-c\",\"bC\":\"fxb-c\",\"ownerLedger\":[{\"file\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t4-268\\\\268-20261102T174922\\\\home\\\\updates\\\\fxb-c\\\\3fa834a7715fea4219cbe846\\\\state.json\",\"state\":{\"id\":\"5171375d-787d-4368-bf88-2d3c26e55f8b\",\"state\":\"installing\",\"targetVersion\":\"0.0.2\",\"message\":null,\"requestId\":\"g2-occupier-20261102T174922-1\",\"previousVersion\":\"0.0.1\"}}]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "38-assert",
+      "step": "D2 行取消排队文案诚实",
+      "what": "点 C 行「取消排队」：回执如实说明只撤本次等待占位、本批仍会继续尝试安装、不会终止在飞安装（不谎称「不再等待」）",
+      "expected": "notice 含「已取消排队」与「继续」；不含「不再等待/已终止/已请求终止」",
+      "actual": "{\"notice\":\"已取消排队：本次等待占位已撤掉，本批仍会继续尝试安装（不会终止正在安装的项）。\",\"rowC\":{\"key\":\"c\",\"phase\":\"ready\",\"queued\":false,\"busy\":false,\"title\":\"夹具 C\",\"status\":\"选择「安装此插件」安装 0.0.2\",\"versionCur\":\"未安装\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"row-install\",\"toggle-details\"],\"fail\":null}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "43-assert",
+      "step": "D2 真 UI 丢弃本批（两步确认）",
+      "what": "两步确认真 UI 点「丢弃本批未完成的更新」：回执如实说已丢弃未完成项（已完成的将保留），C 行不再排队/不在安装，页面不谎称已终止在飞安装",
+      "expected": "第一次点击进入 data-confirm=1 上膛；第二次点击后 notice 含「已丢弃」；rowC 不 queued/installing；无终止假话",
+      "actual": "{\"notice\":\"已丢弃本批未完成的更新（已完成的将保留）。\",\"rowC\":{\"key\":\"c\",\"phase\":\"pending\",\"queued\":false,\"busy\":false,\"title\":\"夹具 C\",\"status\":\"有新版本 0.0.2\",\"versionCur\":\"0.0.1\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"toggle-details\"],\"fail\":null},\"attempts\":1}",
+      "verdict": "pass"
+    },
+    {
+      "id": "46-assert",
+      "step": "D2 丢弃后批量会话清空",
+      "what": "「丢弃本批」把 A 会话从磁盘清掉（不产生成功/失败终态）；C 行在任何残留会话里都不是 done/failed",
+      "expected": "磁盘上不存在含 A entry 的批量会话；C 行 phase 不为 done/failed",
+      "actual": "{\"aSession\":null,\"cPhase\":null}",
+      "verdict": "pass"
+    },
+    {
+      "id": "48-assert",
+      "step": "D2 丢弃后不再排队",
+      "what": "丢弃后 8 次队列采样（约 4s）：A 会话 C 的 waiting 占位没有再出现；owner 只允许 null（丢弃清场后的正常态）或仍为占锁方",
+      "expected": "全部采样 waiting 不含 fxa-c；owner ∈ {null, fxb-c}",
+      "actual": "{\"noRequeue\":true,\"ownerReleasedOrOccupier\":true,\"samples\":[{\"atMs\":2,\"ownerId\":null,\"waitingIds\":[]},{\"atMs\":505,\"ownerId\":null,\"waitingIds\":[]},{\"atMs\":1008,\"ownerId\":null,\"waitingIds\":[]},{\"atMs\":1511,\"ownerId\":null,\"waitingIds\":[]},{\"atMs\":2016,\"ownerId\":null,\"waitingIds\":[]},{\"atMs\":2518,\"ownerId\":null,\"waitingIds\":[]},{\"atMs\":3021,\"ownerId\":null,\"waitingIds\":[]},{\"atMs\":3523,\"ownerId\":null,\"waitingIds\":[]}]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "50-assert",
+      "step": "D2 占位者收局（噪声）",
+      "what": "占锁方的 C 慢安装真的以它自己的安装预算超时失败落定（证明取消期间执行锁确被占用；本格判据只看 A 的 C 不装）",
+      "expected": "fxb-c 台账 state=failed；从占锁开始到失败 ≥ 产品安装预算 40000ms（远大于本格取消排队发生的时刻）",
+      "actual": "{\"observed\":[\"failed\"],\"entry\":{\"file\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t4-268\\\\268-20261102T174922\\\\home\\\\updates\\\\fxb-c\\\\3fa834a7715fea4219cbe846\\\\state.json\",\"state\":{\"id\":\"5171375d-787d-4368-bf88-2d3c26e55f8b\",\"state\":\"failed\",\"targetVersion\":\"0.0.2\",\"message\":\"install-failed: 安装已被取消；目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装 (dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-c@0.0.2 --registry=http://127.0.0.1:50386)\",\"requestId\":\"g2-occupier-20261102T174922-1\",\"previousVersion\":\"0.0.1\"}},\"elapsedMs\":68134}",
+      "verdict": "pass"
+    },
+    {
+      "id": "52-assert",
+      "step": "D2 队列清空",
+      "what": "占位者收局后 queue.json 没有残留占位：owner 释放、waiting 为空（撤销与收尾都留下了账）",
+      "expected": "owner=null 且 waiting 为空",
+      "actual": "{\"present\":true,\"owner\":null,\"waiting\":[],\"raw\":{\"version\":1,\"owner\":null,\"waiting\":[]}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "60-assert",
+      "step": "D2 丢弃后不安装",
+      "what": "A 会话的 C 从未开始安装：没有 update.install.exec（丢弃的是未完成批次，不是终止在飞安装）",
+      "expected": "fxa-c 的 update.install.exec 条数=0",
+      "actual": "{\"aExecCount\":0,\"events\":[]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "61-assert",
+      "step": "D2 排队/丢弃不算失败",
+      "what": "A 的 C 的 update.install.fail 只允许排队门拒绝（stage=gate；code∈{check-expired,update-busy}；首提当场重查重提与公平门都是设计内事件；核心 acquire 立即忙时工厂公平门不会发这行，所以空列表也算诚实），不允许 install-failed",
+      "expected": "A 的 C 的 fail 事件为空或全部 stage=gate code∈{check-expired,update-busy}",
+      "actual": "{\"count\":4,\"fields\":[{\"stage\":\"gate\",\"reason\":\"gate-refused\",\"code\":\"check-expired\",\"hostCodeHash\":\"none\",\"check\":\"none\",\"exitCode\":null,\"observedVersion\":null,\"intentHash\":\"a18a71f1\",\"traceId\":\"bc994d557f5e58c0\",\"spanId\":\"942d17dc\",\"seq\":1},{\"stage\":\"gate\",\"reason\":\"gate-refused\",\"code\":\"update-busy\",\"hostCodeHash\":\"none\",\"check\":\"none\",\"exitCode\":null,\"observedVersion\":null,\"intentHash\":\"a18a71f1\",\"traceId\":\"6b9829699dac9e87\",\"spanId\":\"0d3062aa\",\"seq\":3},{\"stage\":\"gate\",\"reason\":\"gate-refused\",\"code\":\"update-busy\",\"hostCodeHash\":\"none\",\"check\":\"none\",\"exitCode\":null,\"observedVersion\":null,\"intentHash\":\"a18a71f1\",\"traceId\":\"5da6ebb65e50f767\",\"spanId\":\"448d6cc7\",\"seq\":1},{\"stage\":\"gate\",\"reason\":\"gate-refused\",\"code\":\"update-busy\",\"hostCodeHash\":\"none\",\"check\":\"none\",\"exitCode\":null,\"observedVersion\":null,\"intentHash\":\"a18a71f1\",\"traceId\":\"da0e6e11c9d414f6\",\"spanId\":\"668001ff\",\"seq\":2}]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "62-assert",
+      "step": "D2 无虚假终态",
+      "what": "A 的 C 没有台账记录（排队撤销后没有启动安装，不存在成功/失败终态）",
+      "expected": "fxa-c 的 state.json 条数=0",
+      "actual": "{\"aLedger\":[]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "63-assert",
+      "step": "D2 丢弃不产生 0.0.2 安装",
+      "what": "丢弃没有造成任何 0.0.2 安装副作用（占锁方慢安装超时后已被宿主移除并重装失败，磁盘 C 不是 0.0.2）",
+      "expected": "versions[C]≠0.0.2；dependencies[C]≠0.0.2",
+      "actual": "{\"versions\":null,\"dependencies\":null,\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.1\",\"dsh-plugin-update-fixture-b\":\"0.0.1\",\"dsh-plugin-update-fixture-c\":null}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "65-assert",
+      "step": "D2 取消未终止在飞安装",
+      "what": "占锁方的 update.install.exec 跑满自己的安装预算才收尾（取消排队只撤 waiting 占位，没有终止正在跑的安装）",
+      "expected": "bExec 恰 1 条且 durationMs ≥ 40000ms（ok=false）",
+      "actual": "{\"count\":1,\"durationMs\":40391,\"ok\":false,\"route\":\"desktop-manager\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "68-assert",
+      "step": "D2 重启后如实展示",
+      "what": "重启后 A 面板 C 行不再排队/不在安装、页面无「正在安装」，C 目标卡不谎称 0.0.2（磁盘如实：占锁方的超时失败移除了 C）",
+      "expected": "rowC.queued=false 且 phase≠installing；无「正在安装」；C 卡不显示 client v0.0.2",
+      "actual": "{\"rowC\":{\"key\":\"c\",\"phase\":\"pending\",\"queued\":false,\"busy\":false,\"title\":\"夹具 C\",\"status\":\"有新版本 0.0.2\",\"versionCur\":\"0.0.1\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"toggle-details\"],\"fail\":null},\"claimsRunning\":false,\"cardC\":{\"present\":false,\"key\":null,\"ui\":null,\"wiring\":null,\"clientTag\":null,\"badgeText\":null,\"dshUpdCount\":0,\"dockCount\":0,\"entryCount\":0},\"diskC\":null}",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [
+    {
+      "id": "18-shot",
+      "step": "基版 UI",
+      "what": "A 批量面板与 B/C 卡片的初始形态",
+      "expected": "三行；B/C 0.0.1；面板可见",
+      "actual": "rows=a,b,c；B=client v0.0.1；C=client v0.0.1",
+      "verdict": "pass",
+      "png": "shots\\18-shot.png",
+      "sidecar": "shots\\18-shot.json"
+    },
+    {
+      "id": "25-shot",
+      "step": "真 UI 检查更新",
+      "what": "A 批量面板 C 行已显示可更新到 0.0.2（B 仍基版）",
+      "expected": "C 行 0.0.2",
+      "actual": "versionNew B=null C=0.0.2",
+      "verdict": "pass",
+      "png": "shots\\25-shot.png",
+      "sidecar": "shots\\25-shot.json"
+    },
+    {
+      "id": "32-shot",
+      "step": "D2 真 UI 排队",
+      "what": "A 面板 C 行排队中（有取消排队按钮）",
+      "expected": "C 行 queued + row-cancel-queue",
+      "actual": "{\"key\":\"c\",\"phase\":\"ready\",\"queued\":true,\"busy\":false,\"title\":\"夹具 C\",\"status\":\"已排队 · 前方还有 1 项\",\"versionCur\":\"0.0.1\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"row-cancel-queue\",\"toggle-details\"],\"fail\":null}",
+      "verdict": "pass",
+      "png": "shots\\32-shot.png",
+      "sidecar": "shots\\32-shot.json"
+    },
+    {
+      "id": "39-shot",
+      "step": "D2 行取消排队文案诚实",
+      "what": "行取消排队回执（钉住 #268 文案修复后的诚实措辞）",
+      "expected": "已取消排队 + 本批仍会继续尝试 + 不终止在飞安装",
+      "actual": "{\"notice\":\"已取消排队：本次等待占位已撤掉，本批仍会继续尝试安装（不会终止正在安装的项）。\",\"rowC\":{\"key\":\"c\",\"phase\":\"ready\",\"queued\":false,\"busy\":false,\"title\":\"夹具 C\",\"status\":\"选择「安装此插件」安装 0.0.2\",\"versionCur\":\"未安装\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"row-install\",\"toggle-details\"],\"fail\":null}}",
+      "verdict": "pass",
+      "png": "shots\\39-shot.png",
+      "sidecar": "shots\\39-shot.json"
+    },
+    {
+      "id": "44-shot",
+      "step": "D2 真 UI 丢弃本批（两步确认）",
+      "what": "丢弃本批后的面板（回执 + C 行状态）",
+      "expected": "已丢弃本批未完成的更新；C 行不再排队/安装",
+      "actual": "{\"notice\":\"已丢弃本批未完成的更新（已完成的将保留）。\",\"rowC\":{\"key\":\"c\",\"phase\":\"pending\",\"queued\":false,\"busy\":false,\"title\":\"夹具 C\",\"status\":\"有新版本 0.0.2\",\"versionCur\":\"0.0.1\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"toggle-details\"],\"fail\":null}}",
+      "verdict": "pass",
+      "png": "shots\\44-shot.png",
+      "sidecar": "shots\\44-shot.json"
+    },
+    {
+      "id": "69-shot",
+      "step": "D2 重启后如实展示",
+      "what": "重启后 A 面板 C 行未在排队/安装，C 目标卡不谎称已到 0.0.2",
+      "expected": "C 行不排队、不安装；C 卡不显示 v0.0.2",
+      "actual": "{\"rowC\":{\"key\":\"c\",\"phase\":\"pending\",\"queued\":false,\"busy\":false,\"title\":\"夹具 C\",\"status\":\"有新版本 0.0.2\",\"versionCur\":\"0.0.1\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"toggle-details\"],\"fail\":null},\"cardC\":{\"present\":false,\"key\":null,\"ui\":null,\"wiring\":null,\"clientTag\":null,\"badgeText\":null,\"dshUpdCount\":0,\"dockCount\":0,\"entryCount\":0}}",
+      "verdict": "pass",
+      "png": "shots\\69-shot.png",
+      "sidecar": "shots\\69-shot.json"
+    }
+  ],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "04-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\04-fixture-published-baseline.json"
+    },
+    {
+      "id": "06-delaying-proxy",
+      "name": "delaying-proxy",
+      "file": "raw\\06-delaying-proxy.json"
+    },
+    {
+      "id": "08-desktop-first-launch",
+      "name": "desktop-first-launch",
+      "file": "raw\\08-desktop-first-launch.json"
+    },
+    {
+      "id": "09-desktop-stop-bootstrap",
+      "name": "desktop-stop-bootstrap",
+      "file": "raw\\09-desktop-stop-bootstrap.json"
+    },
+    {
+      "id": "10-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\10-install-baseline.json"
+    },
+    {
+      "id": "14-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\14-sut-installed-dist.json"
+    },
+    {
+      "id": "16-batch-panel-initial",
+      "name": "batch-panel-initial",
+      "file": "raw\\16-batch-panel-initial.json"
+    },
+    {
+      "id": "19-fixture-publications",
+      "name": "fixture-publications",
+      "file": "raw\\19-fixture-publications.json"
+    },
+    {
+      "id": "21-registry-metadata-variants",
+      "name": "registry-metadata-variants",
+      "file": "raw\\21-registry-metadata-variants.json"
+    },
+    {
+      "id": "23-panel-after-check",
+      "name": "panel-after-check",
+      "file": "raw\\23-panel-after-check.json"
+    },
+    {
+      "id": "26-occupier-phone-replies",
+      "name": "occupier-phone-replies",
+      "file": "raw\\26-occupier-phone-replies.json"
+    },
+    {
+      "id": "28-queue-owner-before",
+      "name": "queue-owner-before",
+      "file": "raw\\28-queue-owner-before.json"
+    },
+    {
+      "id": "30-panel-after-queue",
+      "name": "panel-after-queue",
+      "file": "raw\\30-panel-after-queue.json"
+    },
+    {
+      "id": "33-queue-before-cancel",
+      "name": "queue-before-cancel",
+      "file": "raw\\33-queue-before-cancel.json"
+    },
+    {
+      "id": "35-queue-window-owner-ledger",
+      "name": "queue-window-owner-ledger",
+      "file": "raw\\35-queue-window-owner-ledger.json"
+    },
+    {
+      "id": "37-panel-after-row-cancel",
+      "name": "panel-after-row-cancel",
+      "file": "raw\\37-panel-after-row-cancel.json"
+    },
+    {
+      "id": "40-row-cancel-reenqueue-timeline",
+      "name": "row-cancel-reenqueue-timeline",
+      "file": "raw\\40-row-cancel-reenqueue-timeline.json"
+    },
+    {
+      "id": "41-discard-armed-1",
+      "name": "discard-armed-1",
+      "file": "raw\\41-discard-armed-1.json"
+    },
+    {
+      "id": "42-panel-after-discard",
+      "name": "panel-after-discard",
+      "file": "raw\\42-panel-after-discard.json"
+    },
+    {
+      "id": "45-batch-ledger-after-discard",
+      "name": "batch-ledger-after-discard",
+      "file": "raw\\45-batch-ledger-after-discard.json"
+    },
+    {
+      "id": "47-queue-after-discard",
+      "name": "queue-after-discard",
+      "file": "raw\\47-queue-after-discard.json"
+    },
+    {
+      "id": "49-owner-failed-noise",
+      "name": "owner-failed-noise",
+      "file": "raw\\49-owner-failed-noise.json"
+    },
+    {
+      "id": "51-queue-settled",
+      "name": "queue-settled",
+      "file": "raw\\51-queue-settled.json"
+    },
+    {
+      "id": "53-desktop-stop-after-cancel",
+      "name": "desktop-stop-after-cancel",
+      "file": "raw\\53-desktop-stop-after-cancel.json"
+    },
+    {
+      "id": "54-log-fxa-a-2026-11-02",
+      "name": "log-fxa-a-2026-11-02",
+      "file": "raw\\54-log-fxa-a-2026-11-02.json"
+    },
+    {
+      "id": "55-log-fxa-b-2026-11-02",
+      "name": "log-fxa-b-2026-11-02",
+      "file": "raw\\55-log-fxa-b-2026-11-02.json"
+    },
+    {
+      "id": "56-log-fxa-c-2026-11-02",
+      "name": "log-fxa-c-2026-11-02",
+      "file": "raw\\56-log-fxa-c-2026-11-02.json"
+    },
+    {
+      "id": "57-log-fxb-b-2026-11-02",
+      "name": "log-fxb-b-2026-11-02",
+      "file": "raw\\57-log-fxb-b-2026-11-02.json"
+    },
+    {
+      "id": "58-log-fxb-c-2026-11-02",
+      "name": "log-fxb-c-2026-11-02",
+      "file": "raw\\58-log-fxb-c-2026-11-02.json"
+    },
+    {
+      "id": "59-cancel-outcome",
+      "name": "cancel-outcome",
+      "file": "raw\\59-cancel-outcome.json"
+    },
+    {
+      "id": "64-occupier-exec-duration",
+      "name": "occupier-exec-duration",
+      "file": "raw\\64-occupier-exec-duration.json"
+    },
+    {
+      "id": "66-batch-panel-after-restart-cancel",
+      "name": "batch-panel-after-restart-cancel",
+      "file": "raw\\66-batch-panel-after-restart-cancel.json"
+    },
+    {
+      "id": "67-panel-after-restart-cancel",
+      "name": "panel-after-restart-cancel",
+      "file": "raw\\67-panel-after-restart-cancel.json"
+    },
+    {
+      "id": "70-desktop-stop-final-cancel",
+      "name": "desktop-stop-final-cancel",
+      "file": "raw\\70-desktop-stop-final-cancel.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "desktop-bootstrap",
+        "pid": 53316,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-main",
+        "pid": 75480,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-restart-after-cancel",
+        "pid": 51224,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "delaying-registry-proxy",
+        "port": 50386,
+        "released": true
+      },
+      {
+        "label": "registry",
+        "port": 58828,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:58828（仓库外 verdaccio，run 内独立 storage）",
+      "D2 行取消只撤占位：实测 撤销后 2ms 同一插件占位又被中枢重推；因此改用「丢弃本批」作终态取消。"
+    ]
+  },
+  "maintainerProfile": {
+    "homeDir": "C:\\Users\\辰辰洋洋\\.dsh",
+    "before": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "b6c28349b3d14bf2c516a8832f6fe3a62784123b4123c3ac4ecca8e9e1be7973",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "after": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "b6c28349b3d14bf2c516a8832f6fe3a62784123b4123c3ac4ecca8e9e1be7973",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "unchanged": true
+  },
+  "notes": [
+    "本地 registry：http://127.0.0.1:58828（仓库外 verdaccio，run 内独立 storage）",
+    "D2 行取消只撤占位：实测 撤销后 2ms 同一插件占位又被中枢重推；因此改用「丢弃本批」作终态取消。"
+  ]
+}

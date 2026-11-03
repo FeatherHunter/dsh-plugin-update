@@ -1,0 +1,40 @@
+{
+  "seq": 6,
+  "name": "attach-and-prepare-page",
+  "file": "06-attach-and-prepare-page.json",
+  "startedAt": "2026-11-01T11:55:46.285Z",
+  "ok": true,
+  "ms": 2534,
+  "data": {
+    "gateRounds": [
+      {
+        "gate": true,
+        "inert": 1,
+        "text": "预览版说明\n\nDeepSeek Harne  目前的 0.2 版本仍处于预览阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者和用户的反馈建议。现在，新的桌面端面向广泛用户，开发者相关的进阶功能可在配置中开启使用。预计 DeepSee",
+        "action": "click",
+        "label": "继续",
+        "x": 920,
+        "y": 526.5
+      },
+      {
+        "gate": true,
+        "inert": 0,
+        "text": "开始使用\n\n登录 DeepSeek 账号，或添加 API Key，即可开始使用。你的项目和文件保存在本地。\n\n添加 API Key\n登录",
+        "action": "hide"
+      },
+      {
+        "gate": false,
+        "inert": 0,
+        "text": ""
+      }
+    ],
+    "facts": {
+      "title": "DeepSeek Harness",
+      "lang": "zh-CN",
+      "href": "http://127.0.0.1:61925/",
+      "entryCount": 1,
+      "composerCount": 1,
+      "bodyText": "新会话\nCtrl\n+\nAlt\n+\nN\n插件\n自动化任务\n更多\n工作区\n默认工作区\n新会话\n更多\n探索未至之境\n预览版\n默认工作区\n标准模式\n描述你想要构建的内容, / 调用指令, @ 文件或对话\n工作区内修改\nPrompt\n请选择模型"
+    }
+  }
+}

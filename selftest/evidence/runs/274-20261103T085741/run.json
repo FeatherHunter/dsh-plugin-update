@@ -1,0 +1,554 @@
+{
+  "schemaVersion": 1,
+  "runId": "274-20261103T085741",
+  "ticket": "274",
+  "scenarioId": "k-single-panel-happy",
+  "hostChannel": "dsh-web",
+  "startedAt": "2026-11-03T00:57:42.003Z",
+  "finishedAt": "2026-11-03T00:58:32.984Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:/dsh-plugin/_wt263/t10",
+    "branch": "impl/263-t10",
+    "head": "fb539ecc68dd107ca052d726cb8064bbfadd42d0",
+    "hostChannel": "dsh-web"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t10-274\\274-20261103T085741\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "3502f4da6b9116c24b0e67a15a3b8dd96584b24d8a68afbaa273c1681d201efc",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:63860",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 3502f4da6b9116c2…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "10-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "13-assert",
+      "step": "setup-sut",
+      "what": "通道 B profile 里装的 SUT 与工作树构建一致",
+      "expected": "installed distDigest === worktree distDigest",
+      "actual": "true",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "setup-base-disk",
+      "what": "基版安装后磁盘版本与声明一致",
+      "expected": "{\"dsh-plugin-update-fixture-a\":\"0.0.1\"}",
+      "actual": "dsh-plugin-update-fixture-a=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "18-assert",
+      "step": "k1-11-panel-done",
+      "what": "已安装且未查更新时单包面板显示已了结",
+      "expected": "banner.kind=done、标题「已是最新，无需更新。」",
+      "actual": "{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "19-assert",
+      "step": "k1-12-c-not-installed",
+      "what": "额外面板指向未安装的 C：显示未安装与检查动作",
+      "expected": "banner.kind=idle、标题「未安装」、有 check 动作",
+      "actual": "{\"kind\":\"idle\",\"title\":\"未安装\",\"sub\":\"检查更新\"}；actions=[\"check\",\"install\",\"copy-diag\"]",
+      "verdict": "pass"
+    },
+    {
+      "id": "20-assert",
+      "step": "k1-13-install-button-loading",
+      "what": "安装按钮挂载后（autoCheck=never）未查询时呈 loading 档，并给检查动作",
+      "expected": "kind=loading、status「正在读取更新状态…」、buttons 含 action=check",
+      "actual": "{\"kind\":\"loading\",\"status\":\"正在读取更新状态…\",\"buttons\":[\"check\"]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "21-assert",
+      "step": "k1-14-entry-idle",
+      "what": "单包入口初始态为 badge + idle（aria-label 给「已是最新 0.0.1」，badge 无可见正文）",
+      "expected": "variant=badge、state=idle、aria-label=「已是最新 0.0.1」",
+      "actual": "{\"present\":true,\"variant\":\"badge\",\"state\":\"idle\",\"text\":\"\",\"note\":\"\",\"ariaLabel\":\"已是最新 0.0.1\",\"title\":\"检查更新\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "23-assert",
+      "step": "k1-21-update-banner",
+      "what": "可更新横幅原文与动作",
+      "expected": "标题精确等于「有新版本 0.0.2 可安装（当前版本 0.0.1）。」且含 install",
+      "actual": "{\"kind\":\"update\",\"title\":\"有新版本 0.0.2 可安装（当前版本 0.0.1）。\",\"sub\":\"选择安装将按精确版本安装；同一使用范围同时仅安装一项。\"}；actions=[\"check\",\"install\",\"skip\",\"copy-manual\",\"copy-diag\",\"toggle-changelog\"]",
+      "verdict": "pass"
+    },
+    {
+      "id": "24-assert",
+      "step": "k1-22-entry-update",
+      "what": "入口切到 update 档",
+      "expected": "state=update 且 aria-label 含「有新版本 0.0.2」",
+      "actual": "{\"present\":true,\"variant\":\"badge\",\"state\":\"update\",\"text\":\"\",\"note\":\"\",\"ariaLabel\":\"有新版本 0.0.2\",\"title\":\"有新版本 0.0.2\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "25-assert",
+      "step": "k1-23-install-button-update",
+      "what": "安装按钮切到 update 档并给安装动作",
+      "expected": "kind=update 且 buttons 含 action=install",
+      "actual": "{\"kind\":\"update\",\"buttons\":[\"install\",\"copy-manual\"]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "27-assert",
+      "step": "k1-26-changelog-heading",
+      "what": "changelog 区间标题",
+      "expected": "「更新说明（0.0.1 → 0.0.2）：」",
+      "actual": "更新说明（0.0.1 → 0.0.2）：",
+      "verdict": "pass"
+    },
+    {
+      "id": "28-assert",
+      "step": "k1-27-yanked",
+      "what": "yanked 版本标记：版本标题后缀 + 文档级横幅",
+      "expected": "版本节 0.0.2 标题含「已撤回」、yanked 横幅含「已被作者撤回（yanked）」",
+      "actual": "{\"versionTitle\":\"0.0.2 · 2026-11-03 · 已撤回\\n\\n新增（Added）\\n\\n**不兼容 BREAKING:** 旧的 updateCheck 电话返回结构改为新形状（面板按新字段渲染）。\\n集成方面板新增 安装按钮 与 更新日志 折叠区，旧徽标 保留 已移除。\\n产品主页 dsh-plugin-update 与裸链接 https://example.com/changelog 都可点。\\n\\n\\n\\n修复（Fixed）\\n\\n修复 check-expired 在宿主重载窗口内被误判为失败的问题。\\n\\n\\n\\n变更（Changed）\\n\\n批量行状态文案统一为「等待/安装中/已完成/失败」四态。\\n\\n\\n\\n安全（Security）\\n\\n安装命令不再拼接未转义的包名（防注入）。\\n\\n\\n\\n弃用预告（Deprecated）（1）\\n\\n旧的 updateEntry 徽标入口将在下个版本移除。\\n\\n\\n移除（Removed）（1）\\n\\n移除未使用的 updateLegacyProbe 内部出口。\",\"yanked\":\"目标版本 0.0.2 已被作者撤回（yanked），安装不受影响，继续前请确认。\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "29-assert",
+      "step": "k1-28-truncnote",
+      "what": "版本节上限（100 条）触发的截断提示",
+      "expected": "截断提示含「仅显示前 100 条」",
+      "actual": "共 107 条，仅显示前 100 条",
+      "verdict": "pass"
+    },
+    {
+      "id": "30-assert",
+      "step": "k1-29-cats",
+      "what": "六类小节（含折叠类）都在 DOM",
+      "expected": "类别小节数 >= 6",
+      "actual": "6；cats=[\"Added\",\"Fixed\",\"Changed\",\"Security\"]；fold=[\"Deprecated\",\"Removed\"]",
+      "verdict": "pass"
+    },
+    {
+      "id": "31-assert",
+      "step": "k1-30-md-code",
+      "what": "行内 code 渲染",
+      "expected": "md-code 含「updateCheck」",
+      "actual": "[\"updateCheck\",\"check-expired\",\"updateEntry\",\"updateLegacyProbe\"]",
+      "verdict": "pass"
+    },
+    {
+      "id": "32-assert",
+      "step": "k1-31-md-strong-em-del",
+      "what": "行内 strong/em/del 渲染",
+      "expected": "strong 含「安装按钮」、em 含「更新日志」、del 含「保留」",
+      "actual": "{\"strong\":[\"BREAKING:\",\"安装按钮\"],\"em\":[\"更新日志\"],\"del\":[\"保留\"]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "33-assert",
+      "step": "k1-32-links",
+      "what": "markdown 链接与裸 URL 都可点（http/https）",
+      "expected": "md-link 同时含 example.com/dsh-plugin-update 与 example.com/changelog",
+      "actual": "[{\"text\":\"dsh-plugin-update\",\"href\":\"https://example.com/dsh-plugin-update\"},{\"text\":\"https://example.com/changelog\",\"href\":\"https://example.com/changelog\"}]",
+      "verdict": "pass"
+    },
+    {
+      "id": "34-assert",
+      "step": "k1-33-no-html",
+      "what": "changelog 不直通 HTML（无 script 注入）",
+      "expected": "changelog 内无 script 标签",
+      "actual": "false",
+      "verdict": "pass"
+    },
+    {
+      "id": "35-assert",
+      "step": "k1-34-breaking",
+      "what": "BREAKING 徽标",
+      "expected": "breaking 徽标 >= 1",
+      "actual": "[\"不兼容\"]",
+      "verdict": "pass"
+    },
+    {
+      "id": "37-assert",
+      "step": "k1-35-busy-banner",
+      "what": "安装中横幅原文",
+      "expected": "标题精确等于「正在安装 0.0.2…关闭面板不会中断。」",
+      "actual": "{\"kind\":\"busy\",\"title\":\"正在安装 0.0.2…关闭面板不会中断。\",\"sub\":\"进度将自动轮询刷新；重新打开面板将在 1 秒内恢复显示。\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "38-assert",
+      "step": "k1-36-busy-entry",
+      "what": "入口切 busy 档",
+      "expected": "state=busy、aria-label「正在安装…」",
+      "actual": "{\"present\":true,\"variant\":\"badge\",\"state\":\"busy\",\"text\":\"\",\"note\":\"\",\"ariaLabel\":\"正在安装…\",\"title\":\"正在安装…\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "39-assert",
+      "step": "k1-37-busy-install-button",
+      "what": "安装按钮切 busy 档",
+      "expected": "kind=busy",
+      "actual": "busy",
+      "verdict": "pass"
+    },
+    {
+      "id": "41-assert",
+      "step": "k1-41-settled-banner",
+      "what": "安装落定后面板原文",
+      "expected": "标题精确等于「已是最新，无需更新。」",
+      "actual": "{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "42-assert",
+      "step": "k1-42-settled-entry",
+      "what": "安装落定后入口读数（已是最新 0.0.2 或待重启）",
+      "expected": "state=idle 且 aria「已是最新 0.0.2」，或 state=restart 且 aria「待重启」",
+      "actual": "{\"present\":true,\"variant\":\"badge\",\"state\":\"idle\",\"text\":\"\",\"note\":\"\",\"ariaLabel\":\"已是最新 0.0.2\",\"title\":\"检查更新\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "45-assert",
+      "step": "k1-43-install-request-once",
+      "what": "单包安装只发起一次安装请求（UI 真实点击安装按钮触发）",
+      "expected": "A 的 update.install.request 恰 1 条、无 update.install.fail",
+      "actual": "requests=1 fails=0；request={\"from\":\"entry\",\"current\":\"0.0.1\",\"latest\":\"0.0.2\",\"checkAgeMs\":782,\"intentHash\":\"a99ca3c6\",\"traceId\":\"0f89b7dffa8228e7\",\"spanId\":\"729ce7eb\",\"seq\":1}",
+      "verdict": "pass"
+    },
+    {
+      "id": "46-assert",
+      "step": "k1-44-ledger-snapshot",
+      "what": "受保护安装：安装前快照 before.json 记录旧版 0.0.1 且 jobId 与台账一致",
+      "expected": "before.previousVersion=0.0.1、before.jobId===state.id",
+      "actual": "{\"previousVersion\":\"0.0.1\",\"jobId\":\"3d071016-6b54-4746-acee-4ae850d023a6\",\"files\":[\"package.json\",\"pnpm-lock.yaml\",\"pnpm-workspace.yaml\"]}；state.id=3d071016-6b54-4746-acee-4ae850d023a6",
+      "verdict": "pass"
+    },
+    {
+      "id": "47-assert",
+      "step": "k1-45-ledger-settled",
+      "what": "台账逐行真相：目标 0.0.2、状态为落定档（completed 或 restart-required）",
+      "expected": "state∈{completed,restart-required}、targetVersion=0.0.2、previousVersion=0.0.1",
+      "actual": "{\"state\":\"completed\",\"targetVersion\":\"0.0.2\",\"previousVersion\":\"0.0.1\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "48-assert",
+      "step": "k1-46-disk-after-install",
+      "what": "磁盘装到 0.0.2",
+      "expected": "A 磁盘版本=0.0.2",
+      "actual": "{\"dsh-plugin-update-fixture-a\":\"0.0.2\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "51-assert",
+      "step": "k1-51-done-banner",
+      "what": "重启后面板已了结原文",
+      "expected": "标题精确等于「已是最新，无需更新。」",
+      "actual": "{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "52-assert",
+      "step": "k1-52-build-tags",
+      "what": "重启后运行的是 0.0.2 构建",
+      "expected": "clientTag=client v0.0.2、hostTag=host v0.0.2",
+      "actual": "{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "53-assert",
+      "step": "k1-53-install-button-done",
+      "what": "安装按钮回到 done 档",
+      "expected": "kind=done",
+      "actual": "done",
+      "verdict": "pass"
+    },
+    {
+      "id": "54-assert",
+      "step": "k1-54-entry-done",
+      "what": "入口已是最新（aria-label）",
+      "expected": "state=idle、aria-label 含「已是最新 0.0.2」",
+      "actual": "{\"present\":true,\"variant\":\"badge\",\"state\":\"idle\",\"text\":\"\",\"note\":\"\",\"ariaLabel\":\"已是最新 0.0.2\",\"title\":\"检查更新\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "55-assert",
+      "step": "k1-55-ledger-completed",
+      "what": "重启后台账收敛为已完成",
+      "expected": "state=completed",
+      "actual": "{\"state\":\"completed\",\"targetVersion\":\"0.0.2\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "57-assert",
+      "step": "k1-61-first-install-banner",
+      "what": "首次安装横幅原文",
+      "expected": "标题精确等于「首次安装 0.0.2（新增依赖）。」",
+      "actual": "{\"kind\":\"update\",\"title\":\"首次安装 0.0.2（新增依赖）。\",\"sub\":\"装完需要重启宿主才会加载。\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "58-assert",
+      "step": "k1-62-changelog-neutral",
+      "what": "无 changelog 时的中性提示（非取数失败）",
+      "expected": "changelog 区含「作者未提供更新说明」或「没有更新说明文件」",
+      "actual": "该版本包里没有更新说明文件，不是取数失败。 ",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [
+    {
+      "id": "17-shot",
+      "step": "k1-10-initial",
+      "what": "A 单包面板初始（未查更新）+ 额外面板绑未安装的 C + 安装按钮 + 入口",
+      "expected": "A 横幅「已是最新，无需更新。」；C 横幅「未安装」+「检查更新」；安装按钮 loading 档（挂载未查、含检查动作）；入口 badge + aria「已是最新 0.0.1」",
+      "actual": "A={\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"}；C={\"kind\":\"idle\",\"title\":\"未安装\",\"sub\":\"检查更新\"}；按钮 kind=loading；入口={\"variant\":\"badge\",\"state\":\"idle\",\"ariaLabel\":\"已是最新 0.0.1\"}",
+      "verdict": "pass",
+      "png": "shots\\17-shot.png",
+      "sidecar": "shots\\17-shot.json"
+    },
+    {
+      "id": "22-shot",
+      "step": "k1-20-update",
+      "what": "点「检查更新」后：可更新横幅 + 安装动作 + 版本条 + 入口",
+      "expected": "横幅「有新版本 0.0.2 可安装（当前版本 0.0.1）。」、有 install 动作、入口 update 档",
+      "actual": "{\"kind\":\"update\",\"title\":\"有新版本 0.0.2 可安装（当前版本 0.0.1）。\",\"sub\":\"选择安装将按精确版本安装；同一使用范围同时仅安装一项。\"}；strip=[\"0.0.1\",\"0.0.1\",\"0.0.2\"]；actions=[\"check\",\"install\",\"skip\",\"copy-manual\",\"copy-diag\",\"toggle-changelog\"]；入口={\"state\":\"update\",\"ariaLabel\":\"有新版本 0.0.2\"}",
+      "verdict": "pass",
+      "png": "shots\\22-shot.png",
+      "sidecar": "shots\\22-shot.json"
+    },
+    {
+      "id": "26-shot",
+      "step": "k1-25-changelog",
+      "what": "changelog：行内 markdown、裸 URL、BREAKING、yanked、六类与版本节上限截断提示",
+      "expected": "版本节含 0.0.2（标题带「已撤回」）、yanked 横幅、md-code/strong/em/del/link、breaking 徽标、截断提示「仅显示前 100 条」",
+      "actual": "{\"heading\":\"更新说明（0.0.1 → 0.0.2）：\",\"yanked\":\"目标版本 0.0.2 已被作者撤回（yanked），安装不受影响，继续前请确认。\",\"truncnote\":\"共 107 条，仅显示前 100 条\",\"cats\":[\"Added\",\"Fixed\",\"Changed\",\"Security\"],\"foldCats\":[\"Deprecated\",\"Removed\"]}",
+      "verdict": "pass",
+      "png": "shots\\26-shot.png",
+      "sidecar": "shots\\26-shot.json"
+    },
+    {
+      "id": "36-shot",
+      "step": "k1-30-installing",
+      "what": "安装进行中：忙碌横幅 + 禁用动作 + 入口/安装按钮 busy 档",
+      "expected": "横幅「正在安装 0.0.2…关闭面板不会中断。」、安装动作禁用、入口「正在安装…」",
+      "actual": "{\"kind\":\"busy\",\"title\":\"正在安装 0.0.2…关闭面板不会中断。\",\"sub\":\"进度将自动轮询刷新；重新打开面板将在 1 秒内恢复显示。\"}；actions=[{\"action\":\"check\",\"disabled\":true},{\"action\":\"install\",\"disabled\":true},{\"action\":\"copy-diag\",\"disabled\":false},{\"action\":\"toggle-changelog\",\"disabled\":false},{\"action\":\"toggle-queue\",\"disabled\":false}]；入口={\"state\":\"busy\",\"ariaLabel\":\"正在安装…\"}",
+      "verdict": "pass",
+      "png": "shots\\36-shot.png",
+      "sidecar": "shots\\36-shot.json"
+    },
+    {
+      "id": "40-shot",
+      "step": "k1-40-settled",
+      "what": "安装完成落定：面板已了结 + 入口已是最新 0.0.2（换包后宿主半重载，运行版本=磁盘版本）",
+      "expected": "横幅「已是最新，无需更新。」、入口 idle 且 note 含「已是最新 0.0.2」",
+      "actual": "{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"}；入口={\"state\":\"idle\",\"ariaLabel\":\"已是最新 0.0.2\"}",
+      "verdict": "pass",
+      "png": "shots\\40-shot.png",
+      "sidecar": "shots\\40-shot.json"
+    },
+    {
+      "id": "50-shot",
+      "step": "k1-50-after-restart",
+      "what": "重启后：面板已了结、卡片构建标记 v0.0.2、安装按钮 done、额外面板 C 仍未安装",
+      "expected": "横幅「已是最新，无需更新。」、clientTag/hostTag 均为 0.0.2、按钮 kind=done、C 横幅「未安装」",
+      "actual": "{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"}；tags={\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\"}；按钮 kind=done；C={\"kind\":\"idle\",\"title\":\"未安装\",\"sub\":\"检查更新\"}",
+      "verdict": "pass",
+      "png": "shots\\50-shot.png",
+      "sidecar": "shots\\50-shot.json"
+    },
+    {
+      "id": "56-shot",
+      "step": "k1-60-first-install",
+      "what": "未安装插件的首次安装态 + 无 changelog 的中性提示",
+      "expected": "横幅「首次安装 0.0.2（新增依赖）。」、changelog 区给出作者未提供/文件缺失的中性提示",
+      "actual": "{\"kind\":\"update\",\"title\":\"首次安装 0.0.2（新增依赖）。\",\"sub\":\"装完需要重启宿主才会加载。\"}；changelog={\"neutral\":\"该版本包里没有更新说明文件，不是取数失败。\",\"text\":\"\"}",
+      "verdict": "pass",
+      "png": "shots\\56-shot.png",
+      "sidecar": "shots\\56-shot.json"
+    }
+  ],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-tls-registry-front",
+      "name": "tls-registry-front",
+      "file": "raw\\07-tls-registry-front.json"
+    },
+    {
+      "id": "08-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\08-isolation-facts.json"
+    },
+    {
+      "id": "09-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\09-install-baseline.json"
+    },
+    {
+      "id": "11-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\11-sut-installed-dist.json"
+    },
+    {
+      "id": "15-fixture-publication",
+      "name": "fixture-publication",
+      "file": "raw\\15-fixture-publication.json"
+    },
+    {
+      "id": "16-host-launch-k1-gen1",
+      "name": "host-launch-k1-gen1",
+      "file": "raw\\16-host-launch-k1-gen1.json"
+    },
+    {
+      "id": "43-host-stop-0",
+      "name": "host-stop-0",
+      "file": "raw\\43-host-stop-0.json"
+    },
+    {
+      "id": "44-k1-gen1-logs",
+      "name": "k1-gen1-logs",
+      "file": "raw\\44-k1-gen1-logs.json"
+    },
+    {
+      "id": "49-host-launch-k1-gen2",
+      "name": "host-launch-k1-gen2",
+      "file": "raw\\49-host-launch-k1-gen2.json"
+    },
+    {
+      "id": "59-host-stop-1",
+      "name": "host-stop-1",
+      "file": "raw\\59-host-stop-1.json"
+    },
+    {
+      "id": "60-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\60-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "61-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\61-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "62-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\62-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "63-cleanup-log-files",
+      "name": "cleanup-log-files",
+      "file": "raw\\63-cleanup-log-files.json"
+    },
+    {
+      "id": "64-tls-front-stop",
+      "name": "tls-front-stop",
+      "file": "raw\\64-tls-front-stop.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "k1-gen1-host",
+        "pid": 90548,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "k1-gen2-host",
+        "pid": 27252,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "tls-registry-front",
+        "port": 56345,
+        "released": false
+      },
+      {
+        "label": "k1-gen1-host-port",
+        "port": 52437,
+        "released": false
+      },
+      {
+        "label": "k1-gen2-host-port",
+        "port": 64638,
+        "released": false
+      },
+      {
+        "label": "registry",
+        "port": 63860,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:63860（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "宿主 k1-gen1 已起：port=52437，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:56345）",
+      "宿主 k1-gen2 已起：port=64638，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:56345）"
+    ]
+  },
+  "maintainerProfile": null,
+  "notes": [
+    "本地 registry：http://127.0.0.1:63860（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "宿主 k1-gen1 已起：port=52437，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:56345）",
+    "宿主 k1-gen2 已起：port=64638，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:56345）"
+  ]
+}

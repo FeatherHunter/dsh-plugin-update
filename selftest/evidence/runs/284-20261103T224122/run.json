@@ -1,0 +1,597 @@
+{
+  "schemaVersion": 1,
+  "runId": "284-20261103T224122",
+  "ticket": "284",
+  "scenarioId": "m2-hub-orphan-only-owner-b-returns",
+  "hostChannel": "dsh-web",
+  "startedAt": "2026-11-03T14:41:22.437Z",
+  "finishedAt": "2026-11-03T14:42:25.087Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:\\dsh-plugin\\_wt263\\t14",
+    "branch": "impl/284-hub-lifecycle",
+    "head": "2080f29612bba8b2b7cabf691b19fda491f0b962",
+    "hostChannel": "dsh-web"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "9535fa5cd7321617dd158d1972f35824f5eea2492ef3e08e53348a426c309eeb",
+    "distDigest": "ff0a6b1aea9773eced40869b73a2d3a837a9b3e98afd9c900e81d4b158e62b76",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:52976",
+    "installedDistDigest": "ff0a6b1aea9773eced40869b73a2d3a837a9b3e98afd9c900e81d4b158e62b76",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 9535fa5cd7321617…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1, dsh-plugin-update-fixture-b@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "09-assert",
+      "step": "建普通 profile（CLI 入口）",
+      "what": "createWebProfileInHome 建通道 B 的普通 profile（非 desktop）",
+      "expected": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\profiles\\t14hub",
+      "actual": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\profiles\\t14hub",
+      "verdict": "pass"
+    },
+    {
+      "id": "11-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "干净 profile 装基版（b）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-b@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-b；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "ff0a6b1aea9773eced40869b73a2d3a837a9b3e98afd9c900e81d4b158e62b76",
+      "actual": "ff0a6b1aea9773eced40869b73a2d3a837a9b3e98afd9c900e81d4b158e62b76（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "16-assert",
+      "step": "更新前基版在盘",
+      "what": "场景声明 install 里的包 @0.0.1 已装进 profile，SUT 钉版与工作树 dist 一致（M1/M2 的 C 是孤儿目标，初始不在册，由中枢按方案补装，故不参与本断言）",
+      "expected": "声明在册包（a,b）磁盘版本=0.0.1",
+      "actual": "已声明包全部=0.0.1；未在册=[\"c\"]",
+      "verdict": "pass"
+    },
+    {
+      "id": "18-assert",
+      "step": "变体 0.0.2 已发布",
+      "what": "场景声明 variants 发布到仓库外 verdaccio",
+      "expected": "A/B/C 均有 0.0.2，A 变体含批量坞/新版 UI",
+      "actual": "A=0.0.2；baseline=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "21-assert",
+      "step": "中枢/批量目录定位",
+      "what": "按 profileDir 短哈希复算队列目录，并与盘上实际目录对照（首次安装前目录可能尚未创建）",
+      "expected": "盘上目录数 ≤1，且存在时=afe54603808af02737bf8a89",
+      "actual": "盘上=[]；复算=afe54603808af02737bf8a89",
+      "verdict": "pass"
+    },
+    {
+      "id": "23-assert",
+      "step": "宿主启动（通道 B，host1）",
+      "what": "startCliHost 起 DSH web 宿主（隔离 USERPROFILE/home/profile）",
+      "expected": "boot 成功、HTTP 电话入口可用、pid>0",
+      "actual": "pid=42480，port=60171，bootMs=2301",
+      "verdict": "pass"
+    },
+    {
+      "id": "26-assert",
+      "step": "A/B 两个集成方的批量检查电话受理",
+      "what": "fxa.batchCheck / fxb.batchCheck 各建批量会话（A 三行、B 两行；行序不敏感）",
+      "expected": "ok=true；fxa rows={a,b,c}；fxb rows={b,c}",
+      "actual": "fxa.ok=true rows=[\"a\",\"b\",\"c\"]；fxb.ok=true rows=[\"c\",\"b\"]",
+      "verdict": "pass"
+    },
+    {
+      "id": "28-assert",
+      "step": "A 自身检查更新（批量前）",
+      "what": "A 的 updateCheck 看到 0.0.2 可更新",
+      "expected": "canInstall=true；installedVersion=0.0.1；latestVersion=0.0.2",
+      "actual": "canInstall=true；installedVersion=0.0.1；latestVersion=0.0.2",
+      "verdict": "pass"
+    },
+    {
+      "id": "30-assert",
+      "step": "A 批量安装电话已发出（不等回包）",
+      "what": "host1 先发 fxa.batchInstall；B 的 fxb.batchInstall 在换手窗口里（A 自键 done 后）再发",
+      "expected": "A 的批量开始推进（fxa 方案与 batch.json 落盘）",
+      "actual": "at=1793716900352",
+      "verdict": "pass"
+    },
+    {
+      "id": "33-assert",
+      "step": "换手窗口：双方案在盘、A 自键已 done、B/C 未终态",
+      "what": "轮询 hub/plans/ 与 fxa batch.json 捕获第一代推进到「A 已换、B/C 未终态」的窗口；B 的批量在 A 自键 done 后才发，fxb 方案落盘即进窗口",
+      "expected": "plans 含 fxa.json/fxb.json；phase(a)='done' 且 b 或 c 非终态；bFiredAt 非空",
+      "actual": "plans=[\"fxa.json\",\"fxb.json\"]；phasesA={\"a\":\"done\",\"b\":\"installing\",\"c\":\"ready\"}；phasesB={\"a\":null,\"b\":\"ready\",\"c\":\"ready\"}；bFiredAt=1793716902381",
+      "verdict": "pass"
+    },
+    {
+      "id": "34-assert",
+      "step": "换手前中枢租约由第一代宿主持有",
+      "what": "hub/lease.json 的 pid/属主与 generation（只记录实测值）",
+      "expected": "lease.pid=42480（第一代宿主进程）",
+      "actual": "lease={\"pid\":42480,\"generation\":1,\"driverId\":\"dsh-hub:42480:cju9bqbjt7\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "36-assert",
+      "step": "第一代宿主已硬杀（换手注入）",
+      "what": "taskkill /T /F 杀掉第一代宿主进程树（未等批量收尾），中枢执行者消失",
+      "expected": "pid=42480 不再存活",
+      "actual": "pid=42480；alive=false",
+      "verdict": "pass"
+    },
+    {
+      "id": "38-assert",
+      "step": "摘掉 A：profile 在册与包目录都不再有 A（B 保留）",
+      "what": "CLI plugin remove A；核对 dsh.profile.bundles 与 node_modules",
+      "expected": "bundles 不含 dsh-plugin-update-fixture-a 且含 dsh-plugin-update-fixture-b；A 的包目录/版本读不到",
+      "actual": "bundles=[\"@deepseek-ai/dsh-base\",\"@deepseek-ai/dsh-web-app\",\"dsh-plugin-update-fixture-b\"]；A 目录版本=null",
+      "verdict": "pass"
+    },
+    {
+      "id": "40-assert",
+      "step": "宿主启动（通道 B，host2）",
+      "what": "startCliHost 起 DSH web 宿主（隔离 USERPROFILE/home/profile）",
+      "expected": "boot 成功、HTTP 电话入口可用、pid>0",
+      "actual": "pid=29248，port=58281，bootMs=2345",
+      "verdict": "pass"
+    },
+    {
+      "id": "47-assert",
+      "step": "只回来 B：B 推完自己的 fxb 批次（b/c 均 done）",
+      "what": "不驱动安装，只轮询 fxb/batch.json 等第二代 B 把 b/c 推完",
+      "expected": "fxb phases={b:'done',c:'done'}；无 failed",
+      "actual": "phasesB={\"a\":null,\"b\":\"done\",\"c\":\"done\"}；elapsedMs=31087；batchFailed=[]",
+      "verdict": "pass"
+    },
+    {
+      "id": "48-assert",
+      "step": "B 的 fxb 行在第二代宿主启动后由 B 自己续跑（exec 各恰 1 次、ok=true）",
+      "what": "fxb-b/fxb-c 的 update.install.exec 行数与 ts vs 第二代 host.start ts",
+      "expected": "fxb-b、fxb-c 各恰 1 条 exec（route=cli-process、ok=true、exitCode=0）且 ts > 第二代 host.start",
+      "actual": "host2StartTs=1793716905550；fxb-b=[{\"ts\":1793716936321,\"pluginId\":\"fxb-b\",\"route\":\"cli-process\",\"ok\":true,\"exitCode\":0,\"durationMs\":1298}]；fxb-c=[{\"ts\":1793716934782,\"pluginId\":\"fxb-c\",\"route\":\"cli-process\",\"ok\":true,\"exitCode\":0,\"durationMs\":1391}]",
+      "verdict": "pass"
+    },
+    {
+      "id": "49-assert",
+      "step": "B 未冒领 A 的 fxa 方案：fxa.json 字节/哈希不变、无 fxa 行执行",
+      "what": "换手前后 fxa.json sha256 比较；日志里 fxa-b/fxa-c 无 exec 行；fxa batch.json 的 b/c 行保持未终态",
+      "expected": "fxa sha256 前后相同；execFxaB=[]、execFxaC=[]；fxa phases 的 b/c 仍非 done/failed",
+      "actual": "fxaHashBefore=6c90b2561a36ef32091fa0b185c64166fe529f5c63810251633ac6797f640ef5；fxaHashAfter=6c90b2561a36ef32091fa0b185c64166fe529f5c63810251633ac6797f640ef5；execFxaB=[]；execFxaC=[]；fxaPhases={\"a\":\"done\",\"b\":\"installing\",\"c\":\"ready\"}；planNames=[\"fxa.json\",\"fxb.json\"]",
+      "verdict": "pass"
+    },
+    {
+      "id": "50-assert",
+      "step": "A 的目标 a 不被 B 安装（A 已摘出 profile）",
+      "what": "磁盘：A 不在 profile dependencies/node_modules；B 的 b/c 到 0.0.2",
+      "expected": "dependencies.a=null、nodeModules.a=null；b/c=0.0.2",
+      "actual": "dependencies={\"a\":null,\"b\":\"0.0.2\",\"c\":\"0.0.2\"}；nodeModules={\"a\":null,\"b\":\"0.0.2\",\"c\":\"0.0.2\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "51-assert",
+      "step": "B 的台账：fxb-b/fxb-c 各恰一条成功终态（A 无新台账行）",
+      "what": "<home>/updates/<pluginId>/<hash>/state.json：B 自己两行完整、A 不被 B 写",
+      "expected": "fxb-b、fxb-c 各 1 条 targetVersion=0.0.2 成功终态；fxa-b/fxa-c 无新增成功行",
+      "actual": "{\"fxbB\":[{\"state\":\"completed\",\"targetVersion\":\"0.0.2\"}],\"fxbC\":[{\"state\":\"completed\",\"targetVersion\":\"0.0.2\"}],\"fxaA\":[{\"state\":\"completed\",\"targetVersion\":\"0.0.2\"}]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "52-assert",
+      "step": "B 按属主采纳自己的 fxb 方案（跨宿主会话保留；不是只读不动、也不是 A 冒领）",
+      "what": "fxb.json 的 owner=批量前缀 fxb、sessionId 与 fxb/batch.json 的批次 id 一致；第二代宿主日志出现 fxb 的 resume run.start（total=2、resumed=true、sessionHash 非空）——第一幕 entry 行在硬杀宿主时日志未落盘，本 run 改用「盘上方案/batch 会话 id 跨代不变 + second host 仍按该会话续跑」作为会话保留的客观证据",
+      "expected": "fxb owner='fxb'；plan.sessionId=fxb batch.id；resume run.start total=2/resumed=true/sessionHash 非空；fxb 批次 done",
+      "actual": "fxbOwner=fxb；planSessionId=mw0sqbqo-wldv0qkv68；batchId=mw0sqbqo-wldv0qkv68；entry(未落盘)=null；resume={\"ts\":1793716905567,\"trigger\":\"resume\",\"resumed\":true,\"total\":2,\"sessionHash\":\"e91f19d9\"}；fxbHashBefore=fed24fba4843b8acad523623cf3d640fbbd8da310e0e0672019e234d6722ba5f；fxbHashAfter=24e5d21b1613c313f5fb5b269af0cdf460e4a59d01330f9deb9dfc22554464a7",
+      "verdict": "pass",
+      "note": "host1 的 fxb entry run.start 行在 SIGKILL 时未 flush 且重启后日志文件被截断（仅剩 host.start 起的 24 行），因此 entry↔resume 的 sessionHash 等值不可用；改以 plan.sessionId 与 batch.id 跨代一致 + resume 行动作证明同一会话被续跑。"
+    },
+    {
+      "id": "55-assert",
+      "step": "第三幕：剖面只装回 A（B 摘出、A@0.0.2 重新在册）",
+      "what": "CLI plugin remove B + add A@0.0.2；核对 bundles 与磁盘版本",
+      "expected": "bundles 含 A 不含 B；node_modules A=0.0.2",
+      "actual": "bundles=[\"@deepseek-ai/dsh-base\",\"@deepseek-ai/dsh-web-app\",\"dsh-plugin-update-fixture-c\",\"dsh-plugin-update-fixture-a\"]；addA.ok=true",
+      "verdict": "pass"
+    },
+    {
+      "id": "57-assert",
+      "step": "宿主启动（通道 B，host3）",
+      "what": "startCliHost 起 DSH web 宿主（隔离 USERPROFILE/home/profile）",
+      "expected": "boot 成功、HTTP 电话入口可用、pid>0",
+      "actual": "pid=37868，port=56455，bootMs=2277",
+      "verdict": "pass"
+    },
+    {
+      "id": "61-assert",
+      "step": "第三幕：A 采纳跨宿主的 fxa 方案并收尾（无 failed）",
+      "what": "第三宿主只装 A，轮询 fxa/batch.json 到终态：a 已 done，b/c 已被 B 的 fxb 装到 0.0.2，A 应看到 current/done 而非重装",
+      "expected": "phases a='done'；b/c ∈ {done,current}；无 failed",
+      "actual": "phases={\"a\":\"done\",\"b\":\"done\",\"c\":\"done\"}；elapsedMs=2034；batchFailed=[]",
+      "verdict": "pass"
+    },
+    {
+      "id": "62-assert",
+      "step": "第三幕：A 在第三宿主上 resume（run.start trigger=resume、sessionHash 与 act1 entry 一致）",
+      "what": "日志 run.start：第三宿主出现 resume 行，且与第一幕 entry 的 sessionHash 相同（同一批量会话跨宿主保留）",
+      "expected": "resume run.start ≥1；resume.sessionHash=d84ef6e1",
+      "actual": "resumeRows=[{\"ts\":1793716942133,\"trigger\":\"resume\",\"resumed\":true,\"total\":3,\"sessionHash\":\"d84ef6e1\"}]；allRunStart=[{\"ts\":1793716900356,\"trigger\":\"entry\",\"resumed\":false,\"total\":3,\"sessionHash\":\"d84ef6e1\"},{\"ts\":1793716905567,\"trigger\":\"resume\",\"resumed\":true,\"total\":2,\"sessionHash\":\"e91f19d9\"},{\"ts\":1793716942133,\"trigger\":\"resume\",\"resumed\":true,\"total\":3,\"sessionHash\":\"d84ef6e1\"}]",
+      "verdict": "pass"
+    },
+    {
+      "id": "65-assert",
+      "step": "第三幕磁盘：a/b/c 三包都在 0.0.2（a 由 CLI 装回、b/c 由 B 的 fxb 装成）",
+      "what": "profile package.json dependencies + node_modules 实际版本",
+      "expected": "a/b/c 都是 0.0.2",
+      "actual": "dependencies={\"a\":\"0.0.2\",\"b\":\"0.0.2\",\"c\":\"0.0.2\"}；nodeModules={\"a\":\"0.0.2\",\"b\":\"0.0.2\",\"c\":\"0.0.2\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "66-assert",
+      "step": "第三幕台账：fxa-a / fxb-b / fxb-c 各恰一条成功终态，目标 0.0.2（无重复/丢行）",
+      "what": "<home>/updates/**/state.json：A 的 a 与 B 的 b/c 各恰一条成功终态；A 未给 b/c 写重复成功行",
+      "expected": "fxa-a、fxb-b、fxb-c 各 1 条 targetVersion=0.0.2 成功终态",
+      "actual": "{\"fxaA\":[{\"state\":\"completed\",\"targetVersion\":\"0.0.2\"}],\"fxbB\":[{\"state\":\"completed\",\"targetVersion\":\"0.0.2\"}],\"fxbC\":[{\"state\":\"completed\",\"targetVersion\":\"0.0.2\"}]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "68-assert",
+      "step": "第三幕面板：fxa 三行终态、无 failed（UI/台账/磁盘一致）",
+      "what": "batchStatus 回包（面板数据源）与磁盘 batch.json 一致",
+      "expected": "三行 phase ∈ {done,current} 且无 failed",
+      "actual": "ok=true；rows=[{\"key\":\"a\",\"phase\":\"done\",\"targetVersion\":\"0.0.2\"},{\"key\":\"b\",\"phase\":\"done\",\"targetVersion\":\"0.0.2\"},{\"key\":\"c\",\"phase\":\"done\",\"targetVersion\":\"0.0.2\"}]",
+      "verdict": "pass"
+    },
+    {
+      "id": "70-assert",
+      "step": "第三幕中枢状态：fxa 会话 finished、failed=0、activeInstall=null",
+      "what": "updateHubStatus 回包：state/progress/activeInstall",
+      "expected": "state='finished'；progress.failed=0；activeInstall=null",
+      "actual": "state=finished；progress={\"total\":3,\"done\":3,\"failed\":0,\"skipped\":0,\"current\":0,\"pending\":0,\"finished\":true}；activeInstall=null",
+      "verdict": "pass"
+    },
+    {
+      "id": "79-assert",
+      "step": "收尾：宿主进程与端口无残留",
+      "what": "关闭所有宿主后核实 pid 不在、端口空闲",
+      "expected": "remainingPids=[]、所有端口 free=true",
+      "actual": "remainingPids=[]；portChecks=[{\"label\":\"host1\",\"port\":60171,\"free\":true},{\"label\":\"host2\",\"port\":58281,\"free\":true},{\"label\":\"host3\",\"port\":56455,\"free\":true}]",
+      "verdict": "pass"
+    },
+    {
+      "id": "80-assert",
+      "step": "exactly-once：每个目标至多一次成功 exec（无重复成功；中断的首次尝试允许被恢复重跑一次）",
+      "what": "宿主全部关闭后重读最终日志：fxb-b/fxb-c 各恰 1 次成功；fxa-c=0（被 fxb 装好，A 收敛 current 不重装）；fxa-b∈{0,1}（第一幕在装时被杀=中断、无成功记录，第三幕恢复至多成功一次）；任何目标成功 exec 不超过 1",
+      "expected": "成功 exec：fxb-b=1、fxb-c=1、fxa-c=0、fxa-b∈{0,1}；所有目标成功 exec ≤1",
+      "actual": "{\"fxbB\":1,\"fxbC\":1,\"fxaB\":0,\"fxaC\":0}",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\07-isolation-facts.json"
+    },
+    {
+      "id": "08-profile-create",
+      "name": "profile-create",
+      "file": "raw\\08-profile-create.json"
+    },
+    {
+      "id": "10-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\10-install-baseline.json"
+    },
+    {
+      "id": "13-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\13-sut-installed-dist.json"
+    },
+    {
+      "id": "15-baseline-installed",
+      "name": "baseline-installed",
+      "file": "raw\\15-baseline-installed.json"
+    },
+    {
+      "id": "17-fixture-published-variant",
+      "name": "fixture-published-variant",
+      "file": "raw\\17-fixture-published-variant.json"
+    },
+    {
+      "id": "19-host-env",
+      "name": "host-env",
+      "file": "raw\\19-host-env.json"
+    },
+    {
+      "id": "20-hub-paths",
+      "name": "hub-paths",
+      "file": "raw\\20-hub-paths.json"
+    },
+    {
+      "id": "22-cli-host-launch-host1",
+      "name": "cli-host-launch-host1",
+      "file": "raw\\22-cli-host-launch-host1.json"
+    },
+    {
+      "id": "24-panel-batch-status-initial",
+      "name": "panel-batch-status-initial",
+      "file": "raw\\24-panel-batch-status-initial.json"
+    },
+    {
+      "id": "25-phone-batch-check",
+      "name": "phone-batch-check",
+      "file": "raw\\25-phone-batch-check.json"
+    },
+    {
+      "id": "27-phone-a-update-check-before-batch",
+      "name": "phone-a-update-check-before-batch",
+      "file": "raw\\27-phone-a-update-check-before-batch.json"
+    },
+    {
+      "id": "29-phone-batch-install-fire",
+      "name": "phone-batch-install-fire",
+      "file": "raw\\29-phone-batch-install-fire.json"
+    },
+    {
+      "id": "31-phone-batch-install-fire-b",
+      "name": "phone-batch-install-fire-b",
+      "file": "raw\\31-phone-batch-install-fire-b.json"
+    },
+    {
+      "id": "32-state-at-kill",
+      "name": "state-at-kill",
+      "file": "raw\\32-state-at-kill.json"
+    },
+    {
+      "id": "35-host-stop-host1-kill",
+      "name": "host-stop-host1-kill",
+      "file": "raw\\35-host-stop-host1-kill.json"
+    },
+    {
+      "id": "37-remove-owner-a",
+      "name": "remove-owner-a",
+      "file": "raw\\37-remove-owner-a.json"
+    },
+    {
+      "id": "39-cli-host-launch-host2",
+      "name": "cli-host-launch-host2",
+      "file": "raw\\39-cli-host-launch-host2.json"
+    },
+    {
+      "id": "41-host2-start-window",
+      "name": "host2-start-window",
+      "file": "raw\\41-host2-start-window.json"
+    },
+    {
+      "id": "42-fxb-after-handoff",
+      "name": "fxb-after-handoff",
+      "file": "raw\\42-fxb-after-handoff.json"
+    },
+    {
+      "id": "43-install-promise-outcomes",
+      "name": "install-promise-outcomes",
+      "file": "raw\\43-install-promise-outcomes.json"
+    },
+    {
+      "id": "44-log-timeline-act2",
+      "name": "log-timeline-act2",
+      "file": "raw\\44-log-timeline-act2.json"
+    },
+    {
+      "id": "45-disk-after-handoff-b",
+      "name": "disk-after-handoff-b",
+      "file": "raw\\45-disk-after-handoff-b.json"
+    },
+    {
+      "id": "46-ledger-states-act2",
+      "name": "ledger-states-act2",
+      "file": "raw\\46-ledger-states-act2.json"
+    },
+    {
+      "id": "53-host-stop-host2-stop-act3",
+      "name": "host-stop-host2-stop-act3",
+      "file": "raw\\53-host-stop-host2-stop-act3.json"
+    },
+    {
+      "id": "54-act3-profile-swap",
+      "name": "act3-profile-swap",
+      "file": "raw\\54-act3-profile-swap.json"
+    },
+    {
+      "id": "56-cli-host-launch-host3",
+      "name": "cli-host-launch-host3",
+      "file": "raw\\56-cli-host-launch-host3.json"
+    },
+    {
+      "id": "58-host3-start-window",
+      "name": "host3-start-window",
+      "file": "raw\\58-host3-start-window.json"
+    },
+    {
+      "id": "59-fxa-after-act3",
+      "name": "fxa-after-act3",
+      "file": "raw\\59-fxa-after-act3.json"
+    },
+    {
+      "id": "60-log-timeline-act3",
+      "name": "log-timeline-act3",
+      "file": "raw\\60-log-timeline-act3.json"
+    },
+    {
+      "id": "63-disk-after-act3",
+      "name": "disk-after-act3",
+      "file": "raw\\63-disk-after-act3.json"
+    },
+    {
+      "id": "64-ledger-states-act3",
+      "name": "ledger-states-act3",
+      "file": "raw\\64-ledger-states-act3.json"
+    },
+    {
+      "id": "67-panel-batch-status-act3",
+      "name": "panel-batch-status-act3",
+      "file": "raw\\67-panel-batch-status-act3.json"
+    },
+    {
+      "id": "69-panel-hub-status-act3",
+      "name": "panel-hub-status-act3",
+      "file": "raw\\69-panel-hub-status-act3.json"
+    },
+    {
+      "id": "71-host-stop-final",
+      "name": "host-stop-final",
+      "file": "raw\\71-host-stop-final.json"
+    },
+    {
+      "id": "72-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\72-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "73-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\73-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "74-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\74-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "75-log-fxb-b-2026-11-03",
+      "name": "log-fxb-b-2026-11-03",
+      "file": "raw\\75-log-fxb-b-2026-11-03.json"
+    },
+    {
+      "id": "76-log-fxb-c-2026-11-03",
+      "name": "log-fxb-c-2026-11-03",
+      "file": "raw\\76-log-fxb-c-2026-11-03.json"
+    },
+    {
+      "id": "77-logs-final",
+      "name": "logs-final",
+      "file": "raw\\77-logs-final.json"
+    },
+    {
+      "id": "78-cleanup-verify",
+      "name": "cleanup-verify",
+      "file": "raw\\78-cleanup-verify.json"
+    },
+    {
+      "id": "81-exactly-once-final",
+      "name": "exactly-once-final",
+      "file": "raw\\81-exactly-once-final.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "cli-host-host1",
+        "pid": 42480,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "cli-host-host2",
+        "pid": 29248,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "cli-host-host3",
+        "pid": 37868,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "cli-host-host1-port",
+        "port": 60171,
+        "released": true
+      },
+      {
+        "label": "cli-host-host2-port",
+        "port": 58281,
+        "released": true
+      },
+      {
+        "label": "cli-host-host3-port",
+        "port": 56455,
+        "released": true
+      },
+      {
+        "label": "registry",
+        "port": 52976,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:52976（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "换手注入同 M1：taskkill 硬杀第一代宿主 + 同 home/profile 起第二代；「只回来 B」= 杀宿主后从 profile 摘掉 A（CLI plugin remove），保留 B。",
+      "第三幕「装回 A」：关掉第二代宿主后 CLI plugin remove B、add A@0.0.2 回 profile，起第三宿主——A 按盘上仍是原来那份 fxa.json 采纳续跑（跨宿主方案保留有效）。"
+    ]
+  },
+  "maintainerProfile": null,
+  "notes": [
+    "本地 registry：http://127.0.0.1:52976（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "换手注入同 M1：taskkill 硬杀第一代宿主 + 同 home/profile 起第二代；「只回来 B」= 杀宿主后从 profile 摘掉 A（CLI plugin remove），保留 B。",
+    "第三幕「装回 A」：关掉第二代宿主后 CLI plugin remove B、add A@0.0.2 回 profile，起第三宿主——A 按盘上仍是原来那份 fxa.json 采纳续跑（跨宿主方案保留有效）。"
+  ]
+}

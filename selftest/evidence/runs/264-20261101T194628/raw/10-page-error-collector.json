@@ -1,0 +1,11 @@
+{
+  "seq": 10,
+  "name": "page-error-collector",
+  "file": "10-page-error-collector.json",
+  "startedAt": "2026-11-01T11:55:55.395Z",
+  "ok": true,
+  "ms": 0,
+  "data": {
+    "note": "本 spike 未装 Runtime.exceptionThrown 收集器（T1 补），页面错误看 shots 与 raw 文本"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "scenario": "i3-topology-compensation",
+  "baseline": [
+    {
+      "slotKey": "a",
+      "spec": "dsh-plugin-update-fixture-a@0.0.1"
+    }
+  ]
+}

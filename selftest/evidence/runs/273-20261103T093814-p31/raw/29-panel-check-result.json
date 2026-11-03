@@ -1,0 +1,43 @@
+{
+  "clicked": {
+    "clicked": true,
+    "text": "检查更新",
+    "candidates": [
+      "新会话 Ctrl + Alt + N",
+      "插件",
+      "自动化任务",
+      "更多",
+      "更多",
+      "默认工作区",
+      "标准模式",
+      "工作区内修改",
+      "请选择模型",
+      "检查更新"
+    ]
+  },
+  "matched": true,
+  "elapsedMs": 2008,
+  "availabilityRows": [
+    {
+      "ts": 1793676602654,
+      "ns": "fxa-a",
+      "fields": {
+        "kind": "update-available",
+        "latest": "0.0.2",
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "update",
+        "blockedReason": "none",
+        "traceId": "35b1647df4d0162f",
+        "spanId": "d323ef31",
+        "seq": 0
+      }
+    }
+  ],
+  "panelText": "dsh-plugin-update-fixture-a 使用范围 t9j2profile 有新版本 0.0.2 可安装（当前版本 0.0.1）。 选择安装将按精确版本安装；同一使用范围同时仅安装一项。 运行版 0.0.1 已安装 0.0.1 最新版 0.0.2 01 检查与安装 检查更新 安装版本 0.0.2 跳过该版本 复制手工命令 复制诊断 02 更新日志 更新说明没取到（网络或完整性校验失败）。 03 更新队列 当前无排队任务；同一使用范围同时仅安装一项。 04 错误信息 暂无失败：此时复制诊断提供的是当前状态快照。 请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 dsh-plugin-update-fixture-a 筛选 host.call、host.call.fail、update.install.exec 事件。 日志：落点=self（本包自建落点）；目录指纹=88eebefd；按需信息开关=关；启动以来丢弃 0 行；最近事件=11/3 11:25；事件契约=正常 05 手工命令 手工备用命令（请复制整行执行）： dsh plugin --profile t9j2 add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:60106 dsh-plugin-update@0.18.39 (profile)",
+  "logTexts": [
+    "请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 dsh-plugin-update-fixture-a 筛选 host.call、host.call.fail、update.install.exec 事件。",
+    "日志：落点=self（本包自建落点）；目录指纹=88eebefd；按需信息开关=关；启动以来丢弃 0 行；最近事件=11/3 11:25；事件契约=正常"
+  ]
+}

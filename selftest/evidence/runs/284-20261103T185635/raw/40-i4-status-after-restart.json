@@ -1,0 +1,32 @@
+{
+  "replyStatus": 200,
+  "snapshot": {
+    "runningVersion": "0.0.2",
+    "installed": true,
+    "installedVersion": "0.0.2",
+    "latestVersion": null,
+    "canInstall": false,
+    "blockedReason": null,
+    "job": {
+      "requestId": "rmw0kp3xm3j8z8",
+      "message": null,
+      "id": "71e0df2b-0713-426f-a517-b40553d8714e",
+      "state": "completed",
+      "targetVersion": "0.0.2",
+      "previousVersion": "0.0.1"
+    },
+    "identity": null,
+    "registered": true
+  },
+  "tags": {
+    "clientTag": "client v0.0.2",
+    "hostTag": "host v0.0.2",
+    "title": "夹具 A · 更新演示（新版）"
+  },
+  "banner": {
+    "kind": "done",
+    "title": "已是最新，无需更新。",
+    "sub": "",
+    "action": ""
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "env": {
+    "DSH_SELFTEST_REGISTRY": "http://127.0.0.1:57699",
+    "DSH_SELFTEST_INSTALL_TIMEOUT_MS": "4000"
+  },
+  "why": "换手窗口里第一代宿主被强杀，会留下 global.lock / install.lock；installTimeoutMs 同时是锁陈旧阈值，压到 4s 让第二代能在数秒内回收陈旧锁（默认 15min 会把换手拖死，不构成「不依赖人工」的检验）。"
+}

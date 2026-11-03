@@ -1,0 +1,10 @@
+{
+  "shot": "a11-desktop-after-enable.png",
+  "channel": "A",
+  "whatToLook": "启用操作后再次确认向导与插件状态",
+  "expected": "向导关闭、插件已启用",
+  "actual": "向导仍在（「准备可用额度」），插件仍待启用",
+  "judgement": "不符合预期",
+  "note": "与 a6 同图",
+  "run": "264-20261101T194628"
+}

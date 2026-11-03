@@ -1,0 +1,22 @@
+{
+  "key": "e1-cli-host-update-success",
+  "kind": "pass",
+  "scenarioId": "e1-cli-host-update-success",
+  "ticket": "267",
+  "hostChannel": "dsh-web",
+  "tool": "run-e-cli-host",
+  "mode": "success",
+  "fault": null,
+  "stamp": "20261103T093814-p06",
+  "runId": "267-20261103T093814-p06",
+  "command": "node D:\\dsh-plugin\\_wt263\\t11\\selftest\\real-machine\\tools\\run-e-cli-host.ts --worktree D:/dsh-plugin/_wt263/t11 --run-base-dir D:/dsh-plugin/_wt263/runtime/t11-275 --verdaccio-install-dir D:/dsh-plugin/_wt263/runtime/tools/verdaccio --esbuild D:\\dsh-plugin\\_wt263\\t11\\node_modules\\@esbuild\\win32-x64\\esbuild.exe --stamp 20261103T093814-p06 --maintainer-home C:/Users/辰辰洋洋/.dsh --mode success",
+  "cwd": "D:/dsh-plugin/_wt263/t11",
+  "env": {
+    "pnpm_config_cache_dir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\_pkgcache\\267-20261103T093814-p06",
+    "npm_config_cache": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\_pkgcache\\267-20261103T093814-p06",
+    "npm_config_store_dir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\_pkgcache\\267-20261103T093814-p06",
+    "DSH_VERIFY_PLAYWRIGHT": "D:/dsh-plugin/dsh-mattpocock-skills-deck/node_modules/playwright"
+  },
+  "timeoutMs": 1800000,
+  "evidenceSync": true
+}

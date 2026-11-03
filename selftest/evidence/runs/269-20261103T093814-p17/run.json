@@ -1,0 +1,571 @@
+{
+  "schemaVersion": 1,
+  "runId": "269-20261103T093814-p17",
+  "ticket": "269",
+  "scenarioId": "e-batch-resume-retry",
+  "hostChannel": "desktop-official",
+  "startedAt": "2026-11-03T02:32:59.061Z",
+  "finishedAt": "2026-11-03T02:38:17.012Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:/dsh-plugin/_wt263/t11",
+    "branch": "impl/263-t11",
+    "head": "bd39b57baa10f3c9f128dfd05f66b286d8828045",
+    "hostChannel": "desktop-official"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p17\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "3502f4da6b9116c24b0e67a15a3b8dd96584b24d8a68afbaa273c1681d201efc",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:55010",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 3502f4da6b9116c2…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1, dsh-plugin-update-fixture-b@0.0.1, dsh-plugin-update-fixture-c@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "11-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "干净 profile 装基版（b）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-b@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-b；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "13-assert",
+      "step": "干净 profile 装基版（c）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-c@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-c；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b, dsh-plugin-update-fixture-c]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "15-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "17-assert",
+      "step": "基版 UI（三包 0.0.1）",
+      "what": "A 批量面板列出 a/b/c 三行；A/B 卡片与 C 徽标都是 0.0.1（干净 profile 的起点）",
+      "expected": "rows=a,b,c；A/B clientTag=client v0.0.1/client v0.0.1；C 徽标 client v0.0.1",
+      "actual": "{\"rows\":\"a,b,c\",\"cardA\":\"client v0.0.1\",\"cardB\":\"client v0.0.1\",\"cardC\":\"client v0.0.1\",\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.1\",\"dsh-plugin-update-fixture-b\":\"0.0.1\",\"dsh-plugin-update-fixture-c\":\"0.0.1\"}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "20-assert",
+      "step": "三包 0.0.2 变体发布",
+      "what": "A/B/C 三个夹具的 0.0.2 变体都发到 run 私有 registry，tarball 字节与 0.0.1 基版不同（内容真变，不是只改版本号）",
+      "expected": "A/B/C 三个 0.0.2 tarball 都可读且 sha256 与各自 0.0.1 不同；无注入时 variants 三席齐全",
+      "actual": "{\"variantShas\":{\"a\":\"0a3b052a7047c3ff355a44aa8e2bbe9dab2406c878fc34730a741155e6f775ab\",\"b\":\"65ce0d8110b5de2de919173f9da3f7c82f874088fb5bbb664fc909bc89755ea2\",\"c\":\"9aa0079c5a898177aa7efc0c3bda8c69592e0b896590b077aef33e6304a1954a\"},\"baselineShas\":{\"a\":\"bf76dc3cb9103febe61392bafa38411d55fd26fb0daf677a362b86dbb92ffc39\",\"b\":\"25bbd96e27bb3cd4dd87a61e9624e0d03b3989d7dba92206437ddd4d1e24e0f3\",\"c\":\"f74cbb521e0b34841e2f3b693d7a4c4faee626e21a0e98f1c392ebd5c76dd178\"},\"injected\":[]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "22-assert",
+      "step": "故障注入：改坏 B@0.0.2 tarball 字节",
+      "what": "元数据/versionDoc/dist.integrity 一字不动，只把已发布 tarball 的中点 64 字节翻位 ⇒ 候选门能过（check 照常显示 0.0.2）、pnpm 下载时 integrity 校验必失败（200 + 字节坏，不是 404）",
+      "expected": "servedBeforeStatus=200；servedAfterStatus=200；tarball 大小不变；sha256 变了；versionDocUnchanged=true；dist.integrity 仍在元数据原文里",
+      "actual": "{\"servedBefore\":200,\"servedAfterStatus\":200,\"sizeBytes\":116312,\"sha256Before\":\"65ce0d8110b5de2de919173f9da3f7c82f874088fb5bbb664fc909bc89755ea2\",\"sha256After\":\"c01ec570bb412f30098642e9e810d310a47c806f3beaef98a9eef85ebd147c08\",\"corruptedOffset\":58156,\"corruptedLength\":64,\"versionDocUnchanged\":true}",
+      "verdict": "pass"
+    },
+    {
+      "id": "24-assert",
+      "step": "真 UI 检查更新（三行都可更新 0.0.2）",
+      "what": "A 面板点「检查更新」后，a/b/c 三行的当前版本=0.0.1、新版本=0.0.2；B 的 tarball 虽被改坏，检查只读元数据，所以仍然列出 0.0.2（候选门能过）",
+      "expected": "rows=a,b,c 且每行 versionCur=0.0.1、versionNew=0.0.2",
+      "actual": "[{\"key\":\"a\",\"cur\":\"0.0.1\",\"next\":\"0.0.2\",\"phase\":\"pending\"},{\"key\":\"b\",\"cur\":\"0.0.1\",\"next\":\"0.0.2\",\"phase\":\"pending\"},{\"key\":\"c\",\"cur\":\"0.0.1\",\"next\":\"0.0.2\",\"phase\":\"pending\"}]",
+      "verdict": "pass"
+    },
+    {
+      "id": "27-assert",
+      "step": "部分失败隔离：坏行失败、好行完成",
+      "what": "B@0.0.2 tarball 被改坏后，宏批量没有「全批失败」也没有「全批假成功」：A/C 照常到 0.0.2，B 未到 0.0.2 且台账落定 failed",
+      "expected": "versions[a]=0.0.2；versions[c]=0.0.2；versions[b]≠0.0.2；B 台账 state=failed",
+      "actual": "{\"versions\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":null,\"dsh-plugin-update-fixture-c\":\"0.0.2\"},\"dependencies\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":null,\"dsh-plugin-update-fixture-c\":\"0.0.2\"},\"ledgerB\":[{\"state\":\"failed\",\"target\":\"0.0.2\",\"message\":\"install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [WARN]；目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装 (dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-b@0.0.2 --registry=http://\"}],\"observed\":[\"a=0.0.1,b=0.0.1,c=0.0.1,bLedger=missing\",\"a=null,b=0.0.1,c=0.0.1,bLedger=missing\",\"a=0.0.2,b=0.0.1,c=0.0.1,bLedger=installing\",\"a=0.0.2,b=null,c=0.0.1,bLedger=installing\",\"a=0.0.2,b=null,c=0.0.1,bLedger=failed\",\"a=0.0.2,b=null,c=0.0.2,bLedger=failed\"]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "28-assert",
+      "step": "坏行台账真相：B 恰一条失败、失败码 install-failed",
+      "what": "B 的台账恰一条 state.json，state=failed、targetVersion=0.0.2，message 以 install-failed 开头（bad tarball 是执行失败，不是检查失败）",
+      "expected": "fxa-b 台账条数=1；state=failed；target=0.0.2；失败码=install-failed",
+      "actual": "{\"count\":1,\"states\":[\"failed\"],\"target\":\"0.0.2\",\"failureCode\":\"install-failed\",\"message\":\"install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [WARN]；目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装 (dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-b@0.0.2 --registry=http://127.0.0.1:55010)\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "30-assert",
+      "step": "好行台账不受坏行影响（A/C 各一条成功）",
+      "what": "同一个批量会话里，A/C 的台账各恰一条成功终态（target=0.0.2），没有因为 B 失败而丢行或被标失败",
+      "expected": "fxa-a/fxa-c 各 1 条成功终态；target=0.0.2",
+      "actual": "{\"ledgerA\":[\"completed\"],\"ledgerC\":[\"completed\"],\"targetA\":\"0.0.2\",\"targetC\":\"0.0.2\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "38-assert",
+      "step": "失败日志：B 恰一次执行失败、无自动重试、A/C 无执行失败",
+      "what": "递归日志里 B 只有一次 update.install.exec（ok=false，非零退出）、一条 stage=exec 的 install.fail；静置后 exec/fail 计数不增（已失败不自动重试）；A/C 没有任何 exec 失败",
+      "expected": "B exec 次数=1 且 ok=false 恰 1、stage=exec 的 fail=1；A/C exec 失败=0；非 check-expired 的 fail 恰 1（就是这个坏 tarball 的真实执行失败）且它没有被自动重试（unretried=1）；其余设计内 check-expired 拒绝都当场 retry",
+      "actual": "{\"countsA\":{\"requests\":1,\"execs\":1,\"execFails\":0,\"execOks\":1},\"countsB\":{\"requests\":1,\"execs\":1,\"execFails\":1,\"execOks\":0},\"countsC\":{\"requests\":1,\"execs\":1,\"execFails\":0,\"execOks\":1},\"bExecFail\":[{\"ok\":false,\"exitCode\":1,\"durationMs\":71550}],\"bExecStageFails\":[{\"reason\":\"nonzero-exit\",\"code\":\"install-failed\"}],\"installAudit\":{\"failCount\":4,\"retryCount\":3,\"nonCheckExpired\":1,\"unretried\":1,\"queuedCount\":0,\"namespaces\":[\"fxa-a\",\"fxa-b\",\"fxa-c\"]}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "41-assert",
+      "step": "重启后如实展示（坏行不谎称成功、不谎称在飞）",
+      "what": "重启后 B 行不显示 done/current/installing，不宣称目标版已装/已是最新/安装完成；页面无「正在安装」；B 台账仍 failed；A/C 磁盘保持 0.0.2，C 徽标新版",
+      "expected": "B 行诚实（failed 的 fail 含 install-failed，或按磁盘投影为未安装可装）；页面无「正在安装」；B 台账仍 failed；A/C 磁盘 0.0.2；C clientTag=v0.0.2",
+      "actual": "{\"rowB\":{\"key\":\"b\",\"phase\":\"ready\",\"queued\":false,\"busy\":false,\"title\":\"夹具 B\",\"status\":\"选择「安装此插件」安装 0.0.2\",\"versionCur\":\"未安装\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"row-install\",\"toggle-details\"],\"fail\":null},\"cardB\":{\"present\":false,\"key\":null,\"ui\":null,\"title\":null,\"clientTag\":null,\"hostTag\":null,\"seatLine\":null,\"behavior\":null,\"dockHost\":null},\"seatC\":{\"clientTag\":\"client v0.0.2\",\"badge\":\"夹具 C · client v0.0.2（新版）\"},\"restartDisk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":null,\"dsh-plugin-update-fixture-c\":\"0.0.2\"},\"restartLedgerB\":[\"failed\"],\"pageClaimsInstalling\":false,\"rowHonest\":true}",
+      "verdict": "pass"
+    },
+    {
+      "id": "52-assert",
+      "step": "恢复 B@0.0.2 tarball（sha 复原、元数据不变）",
+      "what": "把改坏前的 B tarball 备份拷回 registry storage：GET 200、字节 sha256 复原为改坏前、版本文档不变（后续重试用的是好源）",
+      "expected": "restoredStatus=200；shaMatches=true；versionDocUnchanged=true",
+      "actual": "{\"restoredStatus\":200,\"restoredSha256\":\"65ce0d8110b5de2de919173f9da3f7c82f874088fb5bbb664fc909bc89755ea2\",\"shaMatches\":true,\"versionDocUnchanged\":true}",
+      "verdict": "pass"
+    },
+    {
+      "id": "56-assert",
+      "step": "恢复后重试/续跑成功落盘（B=0.0.2）",
+      "what": "恢复 tarball 后再起桌面：产品自动续跑未完成批次（开面板行态见 raw 50），或由真 UI 行按钮触发重装；B 最终装成 0.0.2，A/C 磁盘保持 0.0.2（产品路径，不是手工 CLI）",
+      "expected": "versions[b]=0.0.2；versions[a]/[c] 仍 0.0.2",
+      "actual": "versions={\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":\"0.0.2\",\"dsh-plugin-update-fixture-c\":\"0.0.2\"}；retryPath=auto-resume；openedRowB={\"key\":\"b\",\"phase\":\"done\",\"queued\":false,\"busy\":false,\"title\":\"夹具 B\",\"status\":\"已安装完成，无需操作。\",\"versionCur\":\"0.0.2\",\"versionNew\":null,\"actions\":[\"toggle-details\",\"toggle-details\"],\"fail\":null}",
+      "verdict": "pass"
+    },
+    {
+      "id": "66-assert",
+      "step": "续跑语义：A/C 不重复安装、B 恰一次成功",
+      "what": "重试前后递归日志计数对比：A/C 的安装请求/执行次数完全不变（没有因为 B 重试而重复安装）；B 的请求/执行各恰增 1（失败一次 + 重试成功一次），exec 失败仍是 1（重试没有再失败），exec 成功恰 1（不重复安装）",
+      "expected": "A/C 的 requests/execs 前后相等；B requests 后=前+1、execs 后=前+1、execFails 后=1（不增）、execOks 后=1；非 check-expired 的 fail 仍恰 1（首次坏 tarball，不因重试增加），且重试后它已被后续 retry 覆盖、不再有未 retry 的拒绝（unretried=0）",
+      "actual": "{\"before\":{\"a\":{\"requests\":1,\"execs\":1,\"execFails\":0,\"execOks\":1},\"b\":{\"requests\":1,\"execs\":1,\"execFails\":1,\"execOks\":0},\"c\":{\"requests\":1,\"execs\":1,\"execFails\":0,\"execOks\":1}},\"after\":{\"a\":{\"requests\":1,\"execs\":1,\"execFails\":0,\"execOks\":1},\"b\":{\"requests\":2,\"execs\":2,\"execFails\":1,\"execOks\":1},\"c\":{\"requests\":1,\"execs\":1,\"execFails\":0,\"execOks\":1}},\"retryAudit\":{\"failCount\":4,\"retryCount\":4,\"nonCheckExpired\":1,\"unretried\":0,\"queuedCount\":0,\"namespaces\":[\"fxa-a\",\"fxa-b\",\"fxa-c\"]}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "69-assert",
+      "step": "重启后 UI 一致（重试成功：三卡片新版 + 三行 current）",
+      "what": "重试成功后重启：A/B 卡片 clientTag/hostTag=v0.0.2、C 徽标 v0.0.2，A 面板三行都 current 0.0.2",
+      "expected": "A=client v0.0.2/host v0.0.2；B=client v0.0.2/host v0.0.2；C=client v0.0.2；三行 current",
+      "actual": "{\"cardA\":{\"present\":true,\"key\":\"a\",\"ui\":\"batch\",\"title\":\"夹具 A · 更新演示（批量新版）\",\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\",\"seatLine\":{\"attr\":\"批量席位 fxa · 自键 a · 目标 a/b/c\",\"text\":\"批量席位 fxa · 自键 a · 目标 a/b/c\"},\"behavior\":{\"attr\":\"seat-aware-v2\",\"text\":\"宿主行为 seat-aware-v2\"},\"dockHost\":\"hub-dock\"},\"cardB\":{\"present\":true,\"key\":\"b\",\"ui\":\"batch\",\"title\":\"夹具 B · 更新演示（批量新版）\",\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\",\"seatLine\":{\"attr\":\"批量席位 fxb · 自键 b · 目标 b/c\",\"text\":\"批量席位 fxb · 自键 b · 目标 b/c\"},\"behavior\":{\"attr\":\"seat-aware-v2\",\"text\":\"宿主行为 seat-aware-v2\"},\"dockHost\":\"hub-dock\"},\"seatC\":{\"clientTag\":\"client v0.0.2\",\"badge\":\"夹具 C · client v0.0.2（新版）\"},\"rows\":[{\"key\":\"a\",\"phase\":\"current\",\"cur\":\"0.0.2\"},{\"key\":\"b\",\"phase\":\"current\",\"cur\":\"0.0.2\"},{\"key\":\"c\",\"phase\":\"current\",\"cur\":\"0.0.2\"}]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "71-assert",
+      "step": "总账：3 条成功、无重复无丢行（重试后）",
+      "what": "重试成功后的总账 = 三个插件各恰一条成功终态（target=0.0.2，共 3 条成功），没有第二条成功记录、没有丢行、没有残留失败冒充成功；磁盘三包=0.0.2",
+      "expected": "A/B/C 三插件各 1 条成功终态；总条数=3；target 都是 0.0.2；磁盘三包=0.0.2",
+      "actual": "{\"ledgerA\":[{\"state\":\"completed\",\"target\":\"0.0.2\"}],\"ledgerB\":[{\"state\":\"completed\",\"target\":\"0.0.2\"}],\"ledgerC\":[{\"state\":\"completed\",\"target\":\"0.0.2\"}],\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":\"0.0.2\",\"dsh-plugin-update-fixture-c\":\"0.0.2\"}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "74-assert",
+      "step": "批量账本/中枢/队列：属主 fxa 三键、无跨 scope、无残留等待项",
+      "what": "磁盘上 A 的批量会话（属主 fxa）batch.json/inventory.json 都恰含 a/b/c 三键；中枢 plans/fxa 的 selfKey=a、targets=a/b/c；根队列 waiting=[]；没有 fxc 属主/计划（C 纯目标不接更新系统）",
+      "expected": "fxa batch/inventory keys=[a,b,c]；hub plan fxa selfKey=a targets=[a,b,c]；queue.waiting=[]；无 fxc",
+      "actual": "{\"owners\":[\"fxa\",\"fxb\"],\"fxaBatchKeys\":[\"a\",\"b\",\"c\"],\"fxaInventoryKeys\":[\"a\",\"b\",\"c\"],\"hubPlanOwners\":[\"fxa\"],\"fxaHubSelfKey\":\"a\",\"fxaHubTargets\":[\"a\",\"b\",\"c\"],\"waiting\":[],\"lease\":null}",
+      "verdict": "pass"
+    },
+    {
+      "id": "75-assert",
+      "step": "桌面实例退出（收尾无人残留）",
+      "what": "场景结束时登记过的桌面进程（含宿主自重启产生的实例）全部已退出，没有残留窗口占用单实例名额",
+      "expected": "登记进程的 kill(pid,0) 全部失败（已退出）",
+      "actual": "登记 5 个进程；仍活着=[]",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [
+    {
+      "id": "18-shot",
+      "step": "基版 UI（三包 0.0.1）",
+      "what": "三包批量场景的初始形态：A 面板三行、A/B 卡片、C 纯目标卡片",
+      "expected": "三行 + 三卡片都在页面上，版本 0.0.1",
+      "actual": "rows=a,b,c；A=client v0.0.1；C=client v0.0.1",
+      "verdict": "pass",
+      "png": "shots\\18-shot.png",
+      "sidecar": "shots\\18-shot.json"
+    },
+    {
+      "id": "25-shot",
+      "step": "真 UI 检查更新（三行都可更新 0.0.2）",
+      "what": "A 批量面板三行：当前 0.0.1、可更新 0.0.2",
+      "expected": "三行都显示 0.0.1 → 0.0.2",
+      "actual": "a:0.0.1->0.0.2 | b:0.0.1->0.0.2 | c:0.0.1->0.0.2",
+      "verdict": "pass",
+      "png": "shots\\25-shot.png",
+      "sidecar": "shots\\25-shot.json"
+    },
+    {
+      "id": "42-shot",
+      "step": "重启后如实展示（部分失败）",
+      "what": "部分失败后重启：A/C 已新版、B 未完成且 UI 不谎称成功/在飞",
+      "expected": "B 行不显示完成/安装中；页面无「正在安装」",
+      "actual": "{\"rowB\":{\"key\":\"b\",\"phase\":\"ready\",\"queued\":false,\"busy\":false,\"title\":\"夹具 B\",\"status\":\"选择「安装此插件」安装 0.0.2\",\"versionCur\":\"未安装\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"row-install\",\"toggle-details\"],\"fail\":null},\"cardB\":{\"present\":false,\"key\":null,\"ui\":null,\"title\":null,\"clientTag\":null,\"hostTag\":null,\"seatLine\":null,\"behavior\":null,\"dockHost\":null}}",
+      "verdict": "pass",
+      "png": "shots\\42-shot.png",
+      "sidecar": "shots\\42-shot.json"
+    },
+    {
+      "id": "70-shot",
+      "step": "重启后 UI 一致（重试成功）",
+      "what": "重试成功并重启：三包都是新版，A 面板三行 current",
+      "expected": "三卡片 v0.0.2；三行 current 0.0.2",
+      "actual": "{\"cardA\":\"client v0.0.2\",\"cardB\":\"client v0.0.2\",\"seatC\":\"client v0.0.2\"}",
+      "verdict": "pass",
+      "png": "shots\\70-shot.png",
+      "sidecar": "shots\\70-shot.json"
+    }
+  ],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-pnpm-store-isolation",
+      "name": "pnpm-store-isolation",
+      "file": "raw\\07-pnpm-store-isolation.json"
+    },
+    {
+      "id": "08-desktop-first-launch",
+      "name": "desktop-first-launch",
+      "file": "raw\\08-desktop-first-launch.json"
+    },
+    {
+      "id": "09-desktop-stop-bootstrap",
+      "name": "desktop-stop-bootstrap",
+      "file": "raw\\09-desktop-stop-bootstrap.json"
+    },
+    {
+      "id": "10-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\10-install-baseline.json"
+    },
+    {
+      "id": "14-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\14-sut-installed-dist.json"
+    },
+    {
+      "id": "16-batch-panel-initial",
+      "name": "batch-panel-initial",
+      "file": "raw\\16-batch-panel-initial.json"
+    },
+    {
+      "id": "19-fixture-published-variants",
+      "name": "fixture-published-variants",
+      "file": "raw\\19-fixture-published-variants.json"
+    },
+    {
+      "id": "21-registry-tarball-corrupted",
+      "name": "registry-tarball-corrupted",
+      "file": "raw\\21-registry-tarball-corrupted.json"
+    },
+    {
+      "id": "23-a-check-complete",
+      "name": "a-check-complete",
+      "file": "raw\\23-a-check-complete.json"
+    },
+    {
+      "id": "26-batch-settled",
+      "name": "batch-settled",
+      "file": "raw\\26-batch-settled.json"
+    },
+    {
+      "id": "29-ledger-partial-failure",
+      "name": "ledger-partial-failure",
+      "file": "raw\\29-ledger-partial-failure.json"
+    },
+    {
+      "id": "31-desktop-stop-after-batch-failure",
+      "name": "desktop-stop-after-batch-failure",
+      "file": "raw\\31-desktop-stop-after-batch-failure.json"
+    },
+    {
+      "id": "32-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\32-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "33-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\33-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "34-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\34-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "35-log-fxb-b-2026-11-03",
+      "name": "log-fxb-b-2026-11-03",
+      "file": "raw\\35-log-fxb-b-2026-11-03.json"
+    },
+    {
+      "id": "36-log-fxb-c-2026-11-03",
+      "name": "log-fxb-c-2026-11-03",
+      "file": "raw\\36-log-fxb-c-2026-11-03.json"
+    },
+    {
+      "id": "37-failure-log-counts",
+      "name": "failure-log-counts",
+      "file": "raw\\37-failure-log-counts.json"
+    },
+    {
+      "id": "39-batch-panel-after-failure",
+      "name": "batch-panel-after-failure",
+      "file": "raw\\39-batch-panel-after-failure.json"
+    },
+    {
+      "id": "40-panel-after-failure-restart",
+      "name": "panel-after-failure-restart",
+      "file": "raw\\40-panel-after-failure-restart.json"
+    },
+    {
+      "id": "43-desktop-stop-final-partial",
+      "name": "desktop-stop-final-partial",
+      "file": "raw\\43-desktop-stop-final-partial.json"
+    },
+    {
+      "id": "44-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\44-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "45-log-fxa-a-2026-11-03-tail",
+      "name": "log-fxa-a-2026-11-03-tail",
+      "file": "raw\\45-log-fxa-a-2026-11-03-tail.json"
+    },
+    {
+      "id": "46-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\46-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "47-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\47-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "48-log-fxb-b-2026-11-03",
+      "name": "log-fxb-b-2026-11-03",
+      "file": "raw\\48-log-fxb-b-2026-11-03.json"
+    },
+    {
+      "id": "49-log-fxb-c-2026-11-03",
+      "name": "log-fxb-c-2026-11-03",
+      "file": "raw\\49-log-fxb-c-2026-11-03.json"
+    },
+    {
+      "id": "50-log-counts-before-retry",
+      "name": "log-counts-before-retry",
+      "file": "raw\\50-log-counts-before-retry.json"
+    },
+    {
+      "id": "51-registry-tarball-restored",
+      "name": "registry-tarball-restored",
+      "file": "raw\\51-registry-tarball-restored.json"
+    },
+    {
+      "id": "53-batch-panel-before-retry",
+      "name": "batch-panel-before-retry",
+      "file": "raw\\53-batch-panel-before-retry.json"
+    },
+    {
+      "id": "54-panel-before-retry-open",
+      "name": "panel-before-retry-open",
+      "file": "raw\\54-panel-before-retry-open.json"
+    },
+    {
+      "id": "55-disk-after-retry",
+      "name": "disk-after-retry",
+      "file": "raw\\55-disk-after-retry.json"
+    },
+    {
+      "id": "57-ledger-after-retry",
+      "name": "ledger-after-retry",
+      "file": "raw\\57-ledger-after-retry.json"
+    },
+    {
+      "id": "58-desktop-stop-after-retry",
+      "name": "desktop-stop-after-retry",
+      "file": "raw\\58-desktop-stop-after-retry.json"
+    },
+    {
+      "id": "59-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\59-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "60-log-fxa-a-2026-11-03-tail",
+      "name": "log-fxa-a-2026-11-03-tail",
+      "file": "raw\\60-log-fxa-a-2026-11-03-tail.json"
+    },
+    {
+      "id": "61-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\61-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "62-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\62-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "63-log-fxb-b-2026-11-03",
+      "name": "log-fxb-b-2026-11-03",
+      "file": "raw\\63-log-fxb-b-2026-11-03.json"
+    },
+    {
+      "id": "64-log-fxb-c-2026-11-03",
+      "name": "log-fxb-c-2026-11-03",
+      "file": "raw\\64-log-fxb-c-2026-11-03.json"
+    },
+    {
+      "id": "65-log-counts-after-retry",
+      "name": "log-counts-after-retry",
+      "file": "raw\\65-log-counts-after-retry.json"
+    },
+    {
+      "id": "67-panel-after-retry-restart",
+      "name": "panel-after-retry-restart",
+      "file": "raw\\67-panel-after-retry-restart.json"
+    },
+    {
+      "id": "68-final-state-retry",
+      "name": "final-state-retry",
+      "file": "raw\\68-final-state-retry.json"
+    },
+    {
+      "id": "72-desktop-stop-final-retry-end",
+      "name": "desktop-stop-final-retry-end",
+      "file": "raw\\72-desktop-stop-final-retry-end.json"
+    },
+    {
+      "id": "73-batch-disk-facts",
+      "name": "batch-disk-facts",
+      "file": "raw\\73-batch-disk-facts.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "desktop-bootstrap",
+        "pid": 82108,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-main",
+        "pid": 33712,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-after-failure",
+        "pid": 21740,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-before-retry",
+        "pid": 36772,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-final-retry",
+        "pid": 33732,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "registry",
+        "port": 55010,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:55010（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "每 run 私有 pnpm store：D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p17\\pnpm-store（从 bootstrap/CLI 基版安装起生效）",
+      "部分失败注入：B@0.0.2 tarball 字节改坏（sha256 65ce0d8110b5de2d… → c01ec570bb412f30…，元数据/版本文档不变）",
+      "真 UI 点 A 面板宏「全部更新」；安装窗只轮询磁盘/台账（三包串行安装，每次成功会触发宿主自重启，旧 CDP 失效）",
+      "重试前日志 raw 日志截断：D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p17\\home\\logs\\fxa-a\\2026-11-03.log 原始 50353 字节 / 50353 字符，保留前 50000 字符；尾段见 raw\\45-log-fxa-a-2026-11-03-tail.json",
+      "恢复后再起桌面：开面板瞬间的行态记在 raw/panel-before-retry-open（自动续跑时 B 行=正在安装）；安装窗只轮询磁盘/台账",
+      "重试后日志 raw 日志截断：D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p17\\home\\logs\\fxa-a\\2026-11-03.log 原始 51995 字节 / 51995 字符，保留前 50000 字符；尾段见 raw\\60-log-fxa-a-2026-11-03-tail.json"
+    ]
+  },
+  "maintainerProfile": {
+    "homeDir": "C:/Users/辰辰洋洋/.dsh",
+    "before": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "77441cc19d6b8f4dc5026b694b42bbf141097822b8359e208585db4303de34f4",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "after": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "77441cc19d6b8f4dc5026b694b42bbf141097822b8359e208585db4303de34f4",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "unchanged": true
+  },
+  "notes": [
+    "本地 registry：http://127.0.0.1:55010（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "每 run 私有 pnpm store：D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p17\\pnpm-store（从 bootstrap/CLI 基版安装起生效）",
+    "部分失败注入：B@0.0.2 tarball 字节改坏（sha256 65ce0d8110b5de2d… → c01ec570bb412f30…，元数据/版本文档不变）",
+    "真 UI 点 A 面板宏「全部更新」；安装窗只轮询磁盘/台账（三包串行安装，每次成功会触发宿主自重启，旧 CDP 失效）",
+    "重试前日志 raw 日志截断：D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p17\\home\\logs\\fxa-a\\2026-11-03.log 原始 50353 字节 / 50353 字符，保留前 50000 字符；尾段见 raw\\45-log-fxa-a-2026-11-03-tail.json",
+    "恢复后再起桌面：开面板瞬间的行态记在 raw/panel-before-retry-open（自动续跑时 B 行=正在安装）；安装窗只轮询磁盘/台账",
+    "重试后日志 raw 日志截断：D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p17\\home\\logs\\fxa-a\\2026-11-03.log 原始 51995 字节 / 51995 字符，保留前 50000 字符；尾段见 raw\\60-log-fxa-a-2026-11-03-tail.json"
+  ]
+}

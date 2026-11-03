@@ -1,0 +1,42 @@
+{
+  "execRows": [
+    {
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "desktop-manager",
+        "ok": false,
+        "exitCode": 1,
+        "durationMs": 2728,
+        "pluginId": "fxa-b",
+        "traceId": "6e82108e14f97fca",
+        "spanId": "46f9c7e4",
+        "seq": 4
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 83
+    }
+  ],
+  "failRows": [
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "exec",
+        "reason": "nonzero-exit",
+        "code": "install-failed",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": 1,
+        "observedVersion": null,
+        "intentHash": "361d8f0b",
+        "traceId": "6e82108e14f97fca",
+        "spanId": "46f9c7e4",
+        "seq": 6
+      },
+      "source": "fxa-b/2026-11-02.log",
+      "line": 85
+    }
+  ],
+  "okCount": 0
+}

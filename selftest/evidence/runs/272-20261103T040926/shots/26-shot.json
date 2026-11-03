@@ -1,0 +1,9 @@
+{
+  "看什么": "检查更新后的官方桌面面板（可安装 0.0.2）",
+  "步骤": "panel-checked",
+  "expected": "版本条显示 0.0.2 且安装按钮可点",
+  "actual": "visible",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\26-shot.png"
+}

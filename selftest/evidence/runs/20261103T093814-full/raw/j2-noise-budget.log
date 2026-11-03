@@ -1,0 +1,14 @@
+[command] node D:\dsh-plugin\_wt263\t11\selftest\real-machine\tools\run-j-log.ts --worktree D:/dsh-plugin/_wt263/t11 --run-base-dir D:/dsh-plugin/_wt263/runtime/t11-275 --verdaccio-install-dir D:/dsh-plugin/_wt263/runtime/tools/verdaccio --esbuild D:\dsh-plugin\_wt263\t11\node_modules\@esbuild\win32-x64\esbuild.exe --stamp 20261103T093814-p31 --maintainer-home C:/Users/辰辰洋洋/.dsh --mode noise-budget
+[cwd] D:/dsh-plugin/_wt263/t11
+[isolation] pnpm/npm cache: D:\dsh-plugin\_wt263\runtime\t11-275\_pkgcache\273-20261103T093814-p31
+[exit] 0
+[stdout]
+{
+  "runDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p31",
+  "verdict": "pass",
+  "exitCode": 0
+}
+
+[stderr]
+[fixtures] verdaccio 启动：cmd=D:\2Study\nodejs\node.exe D:\dsh-plugin\_wt263\runtime\tools\verdaccio\node_modules\verdaccio\bin\verdaccio --config D:\dsh-plugin\_wt263\runtime\t11-275\273-20261103T093814-p31\registry\verdaccio\config.yaml --listen 127.0.0.1:60106 cwd=D:\dsh-plugin\_wt263\runtime\t11-275\273-20261103T093814-p31\registry pid=89260
+

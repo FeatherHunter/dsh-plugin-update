@@ -1,0 +1,75 @@
+{
+  "session": null,
+  "cPhase": null,
+  "owners": {
+    "fxa": {
+      "batch": {
+        "version": 1,
+        "id": "",
+        "selfKey": null,
+        "stopOnFailure": false,
+        "order": [],
+        "entries": [],
+        "createdAt": 0,
+        "updatedAt": 0
+      },
+      "inventory": {
+        "version": 1,
+        "updatedAt": 1793613127865,
+        "entries": {
+          "c": {
+            "lastCheckedAt": 1793613127865,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          },
+          "b": {
+            "lastCheckedAt": 1793613127865,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.1",
+            "canInstall": false,
+            "error": null
+          },
+          "a": {
+            "lastCheckedAt": 1793613127865,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.1",
+            "canInstall": false,
+            "error": null
+          }
+        }
+      },
+      "prefs": null
+    },
+    "fxb": {
+      "batch": null,
+      "inventory": {
+        "version": 1,
+        "updatedAt": 1793613002989,
+        "entries": {
+          "c": {
+            "lastCheckedAt": 1793613002989,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.1",
+            "canInstall": false,
+            "error": null
+          },
+          "b": {
+            "lastCheckedAt": 1793613002989,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.1",
+            "canInstall": false,
+            "error": null
+          }
+        }
+      },
+      "prefs": null
+    }
+  }
+}

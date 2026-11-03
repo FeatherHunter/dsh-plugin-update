@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "runId": "273-20261103T054614",
+  "ticket": "273",
+  "scenarioId": "j1-log-contract-coverage",
+  "hostChannel": "dsh-web",
+  "startedAt": "2026-11-02T21:46:14.990Z",
+  "finishedAt": "2026-11-02T21:46:33.306Z",
+  "verdict": "fail",
+  "exitCode": 1,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:\\dsh-plugin\\_wt263\\t9",
+    "branch": "impl/263-t9",
+    "head": "cffcf3c37c5862921fa407bf65ffa11ef81147a2",
+    "hostChannel": "dsh-web"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t9-273\\273-20261103T054614\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "3502f4da6b9116c24b0e67a15a3b8dd96584b24d8a68afbaa273c1681d201efc",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:49707",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 3502f4da6b9116c2…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1, dsh-plugin-update-fixture-b@0.0.1, dsh-plugin-update-fixture-c@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "08-assert",
+      "step": "隔离口径（通道 B：普通 DSH web 宿主 + 非 desktop profile）",
+      "what": "每个 run 一个仓库外 home；日志根 = <home>/logs（产品自建落点），命名空间目录按插件身份派生",
+      "expected": "homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t9-273\\273-20261103T054614\\os-home\\.dsh；profile=t9j1c",
+      "actual": "osHomeDir=D:\\dsh-plugin\\_wt263\\runtime\\t9-273\\273-20261103T054614\\os-home；homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t9-273\\273-20261103T054614\\os-home\\.dsh；profile=t9j1c",
+      "verdict": "pass"
+    },
+    {
+      "id": "10-assert",
+      "step": "建普通 profile（通道 B 宿主的使用范围）",
+      "what": "用官方发行 CLI 在隔离 home 建普通 DSH 使用范围 t9j1c",
+      "expected": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t9-273\\273-20261103T054614\\os-home\\.dsh\\profiles\\t9j1c",
+      "actual": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t9-273\\273-20261103T054614\\os-home\\.dsh\\profiles\\t9j1c",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "13-assert",
+      "step": "干净 profile 装基版（b）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-b@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-b；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "干净 profile 装基版（c）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-c@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-c；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b, dsh-plugin-update-fixture-c]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "16-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "18-assert",
+      "step": "更新前基版在盘",
+      "what": "隔离 profile 里装着场景声明的基版 0.0.1（日志命名空间随后由它派生）",
+      "expected": "node_modules/dsh-plugin-update-fixture-a 版本=0.0.1",
+      "actual": "磁盘版本=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "20-assert",
+      "step": "变体版本已发布（更新目标）",
+      "what": "本地 verdaccio 发布 dsh-plugin-update-fixture-a@0.0.2；其余席位按场景声明一并发布",
+      "expected": "dsh-plugin-update-fixture-a@0.0.2；variants=[\"a\",\"b\",\"c\"]",
+      "actual": "dsh-plugin-update-fixture-a@0.0.2；injected=[]",
+      "verdict": "pass"
+    },
+    {
+      "id": "24-assert",
+      "step": "can-red 前置：真安装确实产生 exec 行（否则后面的红点不可归因）",
+      "what": "can-red 要证明的是「删掉契约后真 exec 行被判未知」，前提是真机真发过这一行",
+      "expected": "exec 行 ≥1（pluginId=fxa-a）",
+      "actual": "exec 行数=1；matched=true",
+      "verdict": "pass"
+    },
+    {
+      "id": "26-assert",
+      "step": "can-red 前置：真实事件契约下这批日志四关全过（红点后来才可归因到注入）",
+      "what": "同一批磁盘日志先对仓库里的 event-list.update.json 校验一遍，证明日志本身不脏",
+      "expected": "unknownEvents=0；level/field/enum 违规=0；checkedRows>0",
+      "actual": "{\"checkedRows\":15,\"unknownEvents\":[],\"levelMismatches\":[],\"fieldViolations\":[],\"enumViolations\":[]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "29-assert",
+      "step": "can-red：删掉本 run 私有契约里的 update.install.exec → 真 exec 行必须被判成未知事件（本 run 必须红）",
+      "what": "注入点 = run 私有副本 D:\\dsh-plugin\\_wt263\\runtime\\t9-273\\273-20261103T054614\\can-red-event-list.json（产品文件未动）；被破坏的检查 = 事件名覆盖关",
+      "expected": "injectedReport.unknownEvents 含 update.install.exec；本 run verdict=fail / exitCode=1",
+      "actual": "removedEvent=true；unknownEvents=[\"update.install.exec\"]；exec 未知行数=1",
+      "verdict": "fail",
+      "note": "can-red 是故意造的失败：红点来自「真机上产品确实发了 update.install.exec，而契约副本被删掉」这一因果；不注入时同一批日志四关全过（上一条断言）。"
+    },
+    {
+      "id": "31-assert",
+      "step": "收尾：真 UI 页面与 CLI 宿主全部退出，无残留进程/端口",
+      "what": "登记每个宿主的 pid/port 并核对退出；端口释放由 run.close 的 cleanup 复核",
+      "expected": "每个宿主 closed=true；pidAlive=false",
+      "actual": "[{\"label\":\"can-red\",\"pid\":91928,\"port\":57055,\"closed\":true,\"pidAlive\":false}]",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\07-isolation-facts.json"
+    },
+    {
+      "id": "09-profile-create",
+      "name": "profile-create",
+      "file": "raw\\09-profile-create.json"
+    },
+    {
+      "id": "11-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\11-install-baseline.json"
+    },
+    {
+      "id": "15-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\15-sut-installed-dist.json"
+    },
+    {
+      "id": "17-baseline-disk",
+      "name": "baseline-disk",
+      "file": "raw\\17-baseline-disk.json"
+    },
+    {
+      "id": "19-fixture-published-variants",
+      "name": "fixture-published-variants",
+      "file": "raw\\19-fixture-published-variants.json"
+    },
+    {
+      "id": "21-cli-host-launch-can-red",
+      "name": "cli-host-launch-can-red",
+      "file": "raw\\21-cli-host-launch-can-red.json"
+    },
+    {
+      "id": "22-can-red-install-request",
+      "name": "can-red-install-request",
+      "file": "raw\\22-can-red-install-request.json"
+    },
+    {
+      "id": "23-can-red-exec-rows",
+      "name": "can-red-exec-rows",
+      "file": "raw\\23-can-red-exec-rows.json"
+    },
+    {
+      "id": "25-can-red-manifest-clean",
+      "name": "can-red-manifest-clean",
+      "file": "raw\\25-can-red-manifest-clean.json"
+    },
+    {
+      "id": "27-can-red-injection",
+      "name": "can-red-injection",
+      "file": "raw\\27-can-red-injection.json"
+    },
+    {
+      "id": "28-can-red-contract-report",
+      "name": "can-red-contract-report",
+      "file": "raw\\28-can-red-contract-report.json"
+    },
+    {
+      "id": "30-cli-host-close-can-red",
+      "name": "cli-host-close-can-red",
+      "file": "raw\\30-cli-host-close-can-red.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "cli-host-can-red",
+        "pid": 91928,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "cli-host-can-red-port",
+        "port": 57055,
+        "released": true
+      },
+      {
+        "label": "registry",
+        "port": 49707,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:49707（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "J 组判读口径：web GUI 没有独立的插件日志查看器；面板面 = 更新面板第 4 章的日志路牌 + 日志健康读数（.dsh-upd-log），事件契约/噪声预算/命名空间都从 <home>/logs 磁盘原始行独立统计；UI 只作「面板看得见、读数与磁盘一致」的证据。"
+    ]
+  },
+  "maintainerProfile": null,
+  "notes": [
+    "本地 registry：http://127.0.0.1:49707（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "J 组判读口径：web GUI 没有独立的插件日志查看器；面板面 = 更新面板第 4 章的日志路牌 + 日志健康读数（.dsh-upd-log），事件契约/噪声预算/命名空间都从 <home>/logs 磁盘原始行独立统计；UI 只作「面板看得见、读数与磁盘一致」的证据。"
+  ]
+}

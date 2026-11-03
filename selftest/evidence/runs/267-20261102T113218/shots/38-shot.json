@@ -1,0 +1,9 @@
+{
+  "看什么": "重启后的官方桌面窗口：卡片标题变为新版变体，client/host 构建标记都是 v0.0.2",
+  "步骤": "重启后新版面板",
+  "expected": "client v0.0.2 / host v0.0.2 / 标题含「新版」",
+  "actual": "clientTag=client v0.0.1；hostTag=host v0.0.1；title=夹具 A · 更新演示",
+  "判定": "fail",
+  "备注": null,
+  "截图": "shots\\38-shot.png"
+}

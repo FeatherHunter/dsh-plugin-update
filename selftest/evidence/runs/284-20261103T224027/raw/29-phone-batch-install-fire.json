@@ -1,0 +1,7 @@
+{
+  "at": 1793716842020,
+  "phones": [
+    "fxa.batchInstall"
+  ],
+  "note": "只发 A；B 的 batchInstall 在窗口里 A 自键 done 后立即发，随即在 fxb 方案落盘时硬杀宿主。"
+}

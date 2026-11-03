@@ -1,0 +1,10 @@
+{
+  "reason": "cleanup",
+  "gen": 2,
+  "port": 58745,
+  "pid": 43000,
+  "registryUrl": "https://127.0.0.1:62521",
+  "delayMs": null,
+  "proxyRequests": 1,
+  "delayedRequests": 0
+}

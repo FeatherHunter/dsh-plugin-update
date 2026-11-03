@@ -1,0 +1,9 @@
+{
+  "scenario": "e2-cli-host-update-failure",
+  "baseline": [
+    {
+      "slotKey": "a",
+      "spec": "dsh-plugin-update-fixture-a@0.0.1"
+    }
+  ]
+}

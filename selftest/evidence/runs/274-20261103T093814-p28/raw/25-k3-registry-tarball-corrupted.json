@@ -1,0 +1,19 @@
+{
+  "packageName": "dsh-plugin-update-fixture-c",
+  "version": "0.0.2",
+  "tarballUrl": "http://127.0.0.1:51872/dsh-plugin-update-fixture-c/-/dsh-plugin-update-fixture-c-0.0.2.tgz",
+  "tarballPath": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p28\\registry\\verdaccio\\storage\\dsh-plugin-update-fixture-c\\dsh-plugin-update-fixture-c-0.0.2.tgz",
+  "backupPath": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p28\\raw\\k3-corrupt-c\\dsh-plugin-update-fixture-c-0.0.2.tgz",
+  "sizeBytes": 1385,
+  "sha256Before": "9aa0079c5a898177aa7efc0c3bda8c69592e0b896590b077aef33e6304a1954a",
+  "sha256After": "b2297d24c8496a4fcf44715da8104125452a9913beb2fb610a5bf8711610f33d",
+  "corruptedOffset": 692,
+  "corruptedLength": 64,
+  "versionDocBefore": "{\"name\":\"dsh-plugin-update-fixture-c\",\"version\":\"0.0.2\",\"private\":false,\"type\":\"module\",\"description\":\"纯目标（无更新接线，只被批量集成方更新） [TEST ONLY sed: selftest fixture for dsh-plugin-update]\",\"license\":\"MIT\",\"main\":\"./lib/index.js\",\"exports\":{\".\":\"./lib/index.js\",\"./client\":\"./lib/client.js\",\"./package.json\":\"./package.json\"},\"files\":[\"lib\",\"cordis.patch.yml\"],\"engines\":{\"dsh\":\">=0.2.0-rc.2 <0.3.0-0\"},\"dependencies\":{},\"dsh\":{\"client\":{\"platform\":\"web\",\"inject\":[]},\"bundle\":{\"patch\":\"./cordis.patch.yml\"}},\"_id\":\"dsh-plugin-update-fixture-c@0.0.2\",\"_nodeVersion\":\"24.19.0\",\"_npmVersion\":\"10.9.2\",\"dist\":{\"integrity\":\"sha512-IHYPOkONr9+vnYzdMdzvF6gGnxSThMXbPABcrGaQoCEnewmfF0S20RB5Qr0zKjpR046VIKISP8GzugWgREZblw==\",\"shasum\":\"757e9f812380acd9b7a898864f6d5ba6fb7b0741\",\"tarball\":\"http://127.0.0.1:51872/dsh-plugin-update-fixture-c/-/dsh-plugin-update-fixture-c-0.0.2.tgz\"},\"contributors\":[]}",
+  "versionDocAfter": "{\"name\":\"dsh-plugin-update-fixture-c\",\"version\":\"0.0.2\",\"private\":false,\"type\":\"module\",\"description\":\"纯目标（无更新接线，只被批量集成方更新） [TEST ONLY sed: selftest fixture for dsh-plugin-update]\",\"license\":\"MIT\",\"main\":\"./lib/index.js\",\"exports\":{\".\":\"./lib/index.js\",\"./client\":\"./lib/client.js\",\"./package.json\":\"./package.json\"},\"files\":[\"lib\",\"cordis.patch.yml\"],\"engines\":{\"dsh\":\">=0.2.0-rc.2 <0.3.0-0\"},\"dependencies\":{},\"dsh\":{\"client\":{\"platform\":\"web\",\"inject\":[]},\"bundle\":{\"patch\":\"./cordis.patch.yml\"}},\"_id\":\"dsh-plugin-update-fixture-c@0.0.2\",\"_nodeVersion\":\"24.19.0\",\"_npmVersion\":\"10.9.2\",\"dist\":{\"integrity\":\"sha512-IHYPOkONr9+vnYzdMdzvF6gGnxSThMXbPABcrGaQoCEnewmfF0S20RB5Qr0zKjpR046VIKISP8GzugWgREZblw==\",\"shasum\":\"757e9f812380acd9b7a898864f6d5ba6fb7b0741\",\"tarball\":\"http://127.0.0.1:51872/dsh-plugin-update-fixture-c/-/dsh-plugin-update-fixture-c-0.0.2.tgz\"},\"contributors\":[]}",
+  "versionDocUnchanged": true,
+  "servedBeforeStatus": 200,
+  "servedBeforeBytes": 1320,
+  "servedAfterStatus": 200,
+  "servedAfterBytes": 1320
+}

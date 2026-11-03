@@ -1,0 +1,63 @@
+{
+  "entries": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015124\\os-home\\.dsh\\updates\\fxa-a\\15d3c4e73b89962b531d80d6\\state.json",
+      "state": {
+        "requestId": "batch-mvzk2y8h-zeuz50e76f-a-287c2987",
+        "message": null,
+        "id": "b0c9c747-fae1-4689-a26f-599fe4e47d8a",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    },
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015124\\os-home\\.dsh\\updates\\fxa-b\\15d3c4e73b89962b531d80d6\\state.json",
+      "state": {
+        "requestId": "batch-mvzk2y8h-zeuz50e76f-b-287c2988-aae499fd4",
+        "message": null,
+        "id": "0ab2d988-ab9a-4d3f-aaf5-74d74341d670",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    },
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t7-271\\271-20261103T015124\\os-home\\.dsh\\updates\\fxa-c\\15d3c4e73b89962b531d80d6\\state.json",
+      "state": {
+        "requestId": "batch-mvzk2y8h-zeuz50e76f-c-287c2989",
+        "message": null,
+        "id": "aeeaef8c-8e79-41fb-9117-ddabca38ea15",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ],
+  "byPlugin": {
+    "fxa-a": [
+      {
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1",
+        "requestId": "batch-mvzk2y8h-zeuz50e76f-a-287c2987"
+      }
+    ],
+    "fxa-b": [
+      {
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1",
+        "requestId": "batch-mvzk2y8h-zeuz50e76f-b-287c2988-aae499fd4"
+      }
+    ],
+    "fxa-c": [
+      {
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1",
+        "requestId": "batch-mvzk2y8h-zeuz50e76f-c-287c2989"
+      }
+    ]
+  }
+}

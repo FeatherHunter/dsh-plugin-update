@@ -1,0 +1,26 @@
+{
+  "baseUrl": "http://127.0.0.1:52181",
+  "delayMs": 15000,
+  "total": 3,
+  "delayed": 1,
+  "requests": [
+    {
+      "method": "GET",
+      "url": "/dsh-plugin-update-fixture-a/latest",
+      "userAgent": "node",
+      "delayed": false
+    },
+    {
+      "method": "GET",
+      "url": "/dsh-plugin-update-fixture-a/latest",
+      "userAgent": "node",
+      "delayed": false
+    },
+    {
+      "method": "GET",
+      "url": "/dsh-plugin-update-fixture-a",
+      "userAgent": "pnpm/11.28.5 npm/? node/v24.21.0 win32 x64",
+      "delayed": true
+    }
+  ]
+}

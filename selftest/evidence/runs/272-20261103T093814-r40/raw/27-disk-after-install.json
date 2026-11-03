@@ -1,0 +1,28 @@
+{
+  "packageName": "dsh-plugin-update-fixture-a",
+  "targetVersion": "0.0.2",
+  "version": "0.0.2",
+  "elapsedMs": 2043,
+  "samples": [
+    {
+      "at": 1793675478002,
+      "version": "0.0.1"
+    },
+    {
+      "at": 1793675478514,
+      "version": "0.0.1"
+    },
+    {
+      "at": 1793675479022,
+      "version": null
+    },
+    {
+      "at": 1793675479535,
+      "version": null
+    },
+    {
+      "at": 1793675480045,
+      "version": "0.0.2"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "baseline": "dsh-plugin-update-fixture-a@0.0.1",
+  "variant": "dsh-plugin-update-fixture-a@0.0.2",
+  "registryVersions": [
+    "0.0.1",
+    "0.0.2"
+  ]
+}

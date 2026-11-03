@@ -1,0 +1,22 @@
+{
+  "tag": "m4-p1-after",
+  "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\profiles\\t14p1",
+  "manifestParseError": null,
+  "dependencies": {
+    "a": "0.0.2",
+    "b": "0.0.2",
+    "c": "0.0.2"
+  },
+  "nodeModules": {
+    "a": "0.0.2",
+    "b": "0.0.2",
+    "c": "0.0.2"
+  },
+  "bundles": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-web-app",
+    "dsh-plugin-update-fixture-a",
+    "dsh-plugin-update-fixture-b",
+    "dsh-plugin-update-fixture-c"
+  ]
+}

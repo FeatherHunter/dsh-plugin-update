@@ -1,0 +1,37 @@
+ELECTRON_RUN_AS_NODE(set)=1
+ELECTRON_RUN_AS_NODE(user)=
+ELECTRON_RUN_AS_NODE(machine)=
+DSH_HOME=C:\Users\辰辰洋洋\.dsh
+
+Name                 Value
+----                 -----
+DSH_HOME             C:\Users\辰辰洋洋\.dsh
+DSH_PROFILE          desktop
+DSH_PROFILE_DIR      C:\Users\辰辰洋洋\.dsh\profiles\desktop
+DSH_SESSION_ID       3c2ade59-3d22-405f-b61c-f9521632cbd7
+DSH_SHELL            1
+DSH_WEB_URL          http://127.0.0.1:54428
+ELECTRON_RUN_AS_NODE 1
+
+
+started pid=26184
+{
+   "Browser": "Chrome/152.0.7977.130",
+   "Protocol-Version": "1.3",
+   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) @deepseek-ai/dsh-desktop/0.2.1-rc.3 Chrome/152.0.7977.130 Electron/44.7.0 Safari/537.36",
+   "V8-Version": "15.2.124.28",
+   "WebKit-Version": "537.36 (@58da080b2b7c38a02e066a911d0b9cd0e9daa70d)",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:59333/devtools/browser/434c6678-c694-410e-ac69-cdcd16bd93ac"
+}
+
+cdp_ok=True
+alive=True exitcode=n/a
+--- stderr ---
+
+DevTools listening on ws://127.0.0.1:59333/devtools/browser/434c6678-c694-410e-ac69-cdcd16bd93ac
+
+--- stdout ---
+
+Checking for update
+Generated new staging user ID: 47d3d096-d4eb-5581-8b2e-53d7eaf96f3f
+

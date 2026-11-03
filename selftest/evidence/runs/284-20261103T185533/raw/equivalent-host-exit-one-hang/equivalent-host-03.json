@@ -1,0 +1,12 @@
+{
+  "phase": "runPlugin",
+  "mode": "hang-no-terminate",
+  "args": [
+    "add",
+    "--save-exact",
+    "dsh-plugin-update-fixture-a@0.0.2",
+    "--registry=https://127.0.0.1:52814"
+  ],
+  "cwd": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\os-home\\.dsh\\profiles\\t3eq",
+  "startedAt": "2026-11-03T10:55:56.102Z"
+}

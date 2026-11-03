@@ -1,0 +1,115 @@
+{
+  "pollIntervalMs": 10,
+  "samples": [
+    {
+      "t": 1793669927954,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": null,
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    },
+    {
+      "t": 1793669927975,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"3c9a74cd-221c-4cdc-9bf7-9b4850e3d435\",\"pluginId\":\"fxa-a\",\"pid\":86340,\"startedAt\":1793669927965}",
+      "lockId": "3c9a74cd-221c-4cdc-9bf7-9b4850e3d435",
+      "lockPid": 86340,
+      "lockStartedAt": 1793669927965,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-a-1793669927953\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793669927961\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-a-1793669927953"
+      ]
+    },
+    {
+      "t": 1793669927990,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"3c9a74cd-221c-4cdc-9bf7-9b4850e3d435\",\"pluginId\":\"fxa-a\",\"pid\":86340,\"startedAt\":1793669927965}",
+      "lockId": "3c9a74cd-221c-4cdc-9bf7-9b4850e3d435",
+      "lockPid": 86340,
+      "lockStartedAt": 1793669927965,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": {\n    \"pluginId\": \"fxa-a\",\n    \"jobId\": \"3c9a74cd-221c-4cdc-9bf7-9b4850e3d435\",\n    \"requestId\": \"h1-a-1793669927953\",\n    \"targetVersion\": \"0.0.2\",\n    \"startedAt\": 1793669927974\n  },\n  \"waiting\": []\n}\n",
+      "queueOwnerPluginId": "fxa-a",
+      "queueOwnerJobId": "3c9a74cd-221c-4cdc-9bf7-9b4850e3d435",
+      "queueOwnerRequestId": "h1-a-1793669927953",
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    },
+    {
+      "t": 1793669928013,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"3c9a74cd-221c-4cdc-9bf7-9b4850e3d435\",\"pluginId\":\"fxa-a\",\"pid\":86340,\"startedAt\":1793669927965}",
+      "lockId": "3c9a74cd-221c-4cdc-9bf7-9b4850e3d435",
+      "lockPid": 86340,
+      "lockStartedAt": 1793669927965,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": {\n    \"pluginId\": \"fxa-a\",\n    \"jobId\": \"3c9a74cd-221c-4cdc-9bf7-9b4850e3d435\",\n    \"requestId\": \"h1-a-1793669927953\",\n    \"targetVersion\": \"0.0.2\",\n    \"startedAt\": 1793669927974\n  },\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-b-1793669927953\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793669928005\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": "fxa-a",
+      "queueOwnerJobId": "3c9a74cd-221c-4cdc-9bf7-9b4850e3d435",
+      "queueOwnerRequestId": "h1-a-1793669927953",
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-b-1793669927953"
+      ]
+    },
+    {
+      "t": 1793669929087,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-b-1793669927953\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793669928005\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-b-1793669927953"
+      ]
+    },
+    {
+      "t": 1793669930128,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    }
+  ],
+  "lockIds": [
+    "3c9a74cd-221c-4cdc-9bf7-9b4850e3d435"
+  ],
+  "lockIntervals": [
+    {
+      "from": 1793669927975,
+      "to": 1793669929087,
+      "ids": [
+        "3c9a74cd-221c-4cdc-9bf7-9b4850e3d435"
+      ]
+    }
+  ],
+  "finalQueueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+  "finalLockRaw": null
+}

@@ -1,0 +1,9 @@
+{
+  "scenario": "h1-queue-lock-concurrent",
+  "baseline": [
+    {
+      "slotKey": "a",
+      "spec": "dsh-plugin-update-fixture-a@0.0.1"
+    }
+  ]
+}

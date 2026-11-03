@@ -1,0 +1,5949 @@
+{
+  "files": [
+    "fxa-a/2026-11-03.log",
+    "fxa-b/2026-11-03.log",
+    "fxa-c/2026-11-03.log"
+  ],
+  "events": [
+    {
+      "namespace": "fxa-a",
+      "event": "host.start",
+      "level": "info",
+      "fields": {
+        "pid": 16840,
+        "startedAt": "2026-11-03T02:54:44.384Z",
+        "dir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\266-20261103T093814-r35\\home\\logs",
+        "pluginVersion": "0.18.39",
+        "os": "win32"
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.wire.ready",
+      "level": "info",
+      "fields": {
+        "logSink": "self",
+        "logDirHash": "01d0c2e7",
+        "updaterVersion": "0.18.39",
+        "copyLevel": "profile",
+        "hostKind": "desktop-manager"
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "f98399c6673ea46c",
+        "spanId": "ffd670d0",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "up-to-date",
+        "latest": "0.0.1",
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "up-to-date",
+        "blockedReason": "none",
+        "traceId": "11a441b59e097e7a",
+        "spanId": "cb9b3366",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.check.done",
+      "level": "info",
+      "fields": {
+        "ok": true,
+        "current": "0.0.1",
+        "latest": "0.0.1",
+        "channel": "stable",
+        "source": "custom",
+        "blockedReason": "none",
+        "fallback": false,
+        "dataSource": "npm-version",
+        "pendingRestart": false,
+        "jobState": "none",
+        "latencyMs": 33,
+        "traceId": "11a441b59e097e7a",
+        "spanId": "cb9b3366",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "host.call",
+      "level": "info",
+      "fields": {
+        "method": "fxa-a.updateCheck",
+        "latencyMs": 55,
+        "ok": true,
+        "kind": "update-check",
+        "pluginId": "fxa-a",
+        "traceId": "11a441b59e097e7a",
+        "spanId": "cb9b3366",
+        "seq": 2
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.panel.mount",
+      "level": "info",
+      "fields": {
+        "mode": "embedded",
+        "theme": "default",
+        "lang": "zh",
+        "pollMs": 2000,
+        "autoCheck": "started"
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "25bb861af9544e33",
+        "spanId": "99aab7d8",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "289c3100693c9971",
+        "spanId": "007bc62a",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2f83e64abe73960c",
+        "spanId": "527720a5",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "204657d797d2d11e",
+        "spanId": "7acbb250",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "164b57b9823ba1eb",
+        "spanId": "d8ba8489",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "c60dc149daa518da",
+        "spanId": "f9af9aaa",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "020e9eab95c5b099",
+        "spanId": "7c89d769",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "25c159386597f9e4",
+        "spanId": "6bc20061",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "e2ea09e6994d9f81",
+        "spanId": "00d999ab",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "78de7cc0cb00f1d0",
+        "spanId": "b61fa215",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "ce10b29b05c37e59",
+        "spanId": "d9547906",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "7289f483cd0db48a",
+        "spanId": "4ea7d857",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "43dc68b563d6d71c",
+        "spanId": "0e991243",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "81d7c977018d6226",
+        "spanId": "cfa1ed28",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "95f1991390bee7ec",
+        "spanId": "1bd918c5",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "d6fe5a29a6e74df1",
+        "spanId": "9994a206",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "788197ad2d76ce09",
+        "spanId": "06a0e6b8",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "42be44f867af3eef",
+        "spanId": "a1727abb",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "3ec5db1d54e24c80",
+        "spanId": "6ddcae41",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "c60eddadc7fab140",
+        "spanId": "496471c3",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "248d05ae8e0a16a4",
+        "spanId": "2728e431",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "1e9b22ef5ead6068",
+        "spanId": "5f85ce83",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "51700c55a021f82d",
+        "spanId": "cadab268",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "5ab7eb516afe49fd",
+        "spanId": "f29f5c1f",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "f867d7745d1b1a9d",
+        "spanId": "8da75f3a",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "145243e47cc86fac",
+        "spanId": "11566dd0",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b486d6eef99f34fe",
+        "spanId": "35dbb346",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "e35be5600b570564",
+        "spanId": "96d9e167",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b918399980f773b3",
+        "spanId": "c40ba519",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "be54339cdbf029b2",
+        "spanId": "774fcb39",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "up-to-date",
+        "latest": "0.0.1",
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "up-to-date",
+        "blockedReason": "none",
+        "traceId": "060a1f25983bb7b5",
+        "spanId": "d5db2f8f",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.check.done",
+      "level": "info",
+      "fields": {
+        "ok": true,
+        "current": "0.0.1",
+        "latest": "0.0.1",
+        "channel": "stable",
+        "source": "custom",
+        "blockedReason": "none",
+        "fallback": false,
+        "dataSource": "npm-version",
+        "pendingRestart": false,
+        "jobState": "none",
+        "latencyMs": 8,
+        "traceId": "060a1f25983bb7b5",
+        "spanId": "d5db2f8f",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "host.call",
+      "level": "info",
+      "fields": {
+        "method": "fxa-a.updateCheck",
+        "latencyMs": 15,
+        "ok": true,
+        "kind": "update-check",
+        "pluginId": "fxa-a",
+        "traceId": "060a1f25983bb7b5",
+        "spanId": "d5db2f8f",
+        "seq": 2
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "710b93941cbb646b",
+        "spanId": "c96ac436",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.panel.action",
+      "level": "info",
+      "fields": {
+        "action": "check",
+        "ok": true,
+        "errorKind": null,
+        "durationMs": 72
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "a07053ff1be7c322",
+        "spanId": "6c9680c0",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "7b91eea8135c3f7b",
+        "spanId": "761994de",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "e666c0289f9874b7",
+        "spanId": "6452a715",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "e19c686b3d8bf086",
+        "spanId": "202ec9ec",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "43d28cccc037d1f8",
+        "spanId": "474e3a39",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "3cfedb8780a901d7",
+        "spanId": "c04a07fa",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "e0bf5c59c0943f22",
+        "spanId": "1bf28a03",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "d505436ad3a240d8",
+        "spanId": "54e5016b",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b6cecc4bc8ecff38",
+        "spanId": "0ba93472",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "6dd63f05ea626e4b",
+        "spanId": "72e56e7e",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "4082df4376a966de",
+        "spanId": "846a2c5b",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "c00334d9f82542db",
+        "spanId": "c74dd057",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "599313251d1d0547",
+        "spanId": "d32761ce",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "f3aa8b8e8976c8de",
+        "spanId": "c79d3897",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "d114c1d9eaebb987",
+        "spanId": "e666a86d",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "852a9faab05a421b",
+        "spanId": "9e5ce6be",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "d421259b52981a1a",
+        "spanId": "9aec3d3c",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "e92b25be194d1074",
+        "spanId": "2454bdbf",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2b8d28e051efd012",
+        "spanId": "3179e3c4",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b80cf80fe5b34034",
+        "spanId": "21ef4601",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "7f6a3893dd8c84f7",
+        "spanId": "221a3d52",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "85a5a5a83f8fe2cb",
+        "spanId": "ba1dd3b4",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "21daf5422b9ca666",
+        "spanId": "96140c1c",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "fa5ddc273376477d",
+        "spanId": "bc2656db",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "3bc1d7dc6a3adbf0",
+        "spanId": "15d8812f",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "a65e8db5dfed0097",
+        "spanId": "a8b60260",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "434f63fa1ba1665c",
+        "spanId": "14a923b4",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "288b6e1673d94722",
+        "spanId": "cfab8903",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2810b5448875d972",
+        "spanId": "495d3e69",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "9f7f8d7e8fbd2525",
+        "spanId": "194d5716",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.batch.entry.request",
+      "level": "info",
+      "fields": {
+        "total": 3,
+        "ownCount": 1,
+        "foreignCount": 2,
+        "sessionHash": "bf394771"
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.batch.run.start",
+      "level": "info",
+      "fields": {
+        "trigger": "entry",
+        "resumed": false,
+        "total": 3,
+        "pending": 3,
+        "sessionHash": "bf394771"
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "up-to-date",
+        "latest": "0.0.1",
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "up-to-date",
+        "blockedReason": "none",
+        "traceId": "1f175603e63789b2",
+        "spanId": "498e35d7",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.check.done",
+      "level": "info",
+      "fields": {
+        "ok": true,
+        "current": "0.0.1",
+        "latest": "0.0.1",
+        "channel": "stable",
+        "source": "custom",
+        "blockedReason": "none",
+        "fallback": false,
+        "dataSource": "npm-version",
+        "pendingRestart": false,
+        "jobState": "none",
+        "latencyMs": 7,
+        "traceId": "1f175603e63789b2",
+        "spanId": "498e35d7",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "host.call",
+      "level": "info",
+      "fields": {
+        "method": "fxa-a.updateCheck",
+        "latencyMs": 13,
+        "ok": true,
+        "kind": "update-check",
+        "pluginId": "fxa-a",
+        "traceId": "1f175603e63789b2",
+        "spanId": "498e35d7",
+        "seq": 2
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "host.start",
+      "level": "info",
+      "fields": {
+        "pid": 51292,
+        "startedAt": "2026-11-03T02:56:53.459Z",
+        "dir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\266-20261103T093814-r35\\home\\logs",
+        "pluginVersion": "0.18.39",
+        "os": "win32"
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.wire.ready",
+      "level": "info",
+      "fields": {
+        "logSink": "self",
+        "logDirHash": "01d0c2e7",
+        "updaterVersion": "0.18.39",
+        "copyLevel": "profile",
+        "hostKind": "desktop-manager"
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "7bf6cd44952166c5",
+        "spanId": "ae4fa1ec",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.panel.mount",
+      "level": "info",
+      "fields": {
+        "mode": "embedded",
+        "theme": "default",
+        "lang": "zh",
+        "pollMs": 2000,
+        "autoCheck": "recent"
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "fd75c2239d34aac5",
+        "spanId": "35e5f71e",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "59071d121df4cebe",
+        "spanId": "d499b5c9",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "7fe220c12d425244",
+        "spanId": "bab43f81",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b7a643c9a8bc0a9e",
+        "spanId": "41ebb200",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "f01d9dc30d38adaa",
+        "spanId": "ca97e9a9",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "67a3798f58aa67cd",
+        "spanId": "dfdfedf1",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b196b8c3de7e8342",
+        "spanId": "b10571d0",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "a4848d5a6624b8b7",
+        "spanId": "4ff231f7",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b896247a00ac5722",
+        "spanId": "23039c4c",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "1fcc873027e1faf0",
+        "spanId": "8e98a540",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b81d68c9d7606fe3",
+        "spanId": "bb39bc68",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "652da0922fbb7b42",
+        "spanId": "6554fc34",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "84f7264d50c38fe9",
+        "spanId": "ba7cb5de",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "0a2d908c8b44ff2b",
+        "spanId": "6f8a0428",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "dff07cfd80c44d49",
+        "spanId": "8e262f4c",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "5eeb2c646f853362",
+        "spanId": "45f991a7",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "54972ae835cddd7c",
+        "spanId": "741a45ae",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "177e0d4347aeb6e2",
+        "spanId": "8e19712b",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "de311ea2a77ec30a",
+        "spanId": "8259b4cd",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2be08cb058ccf34b",
+        "spanId": "bf96335b",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "3e7cb73250059def",
+        "spanId": "e9015eee",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "cf6484475e706493",
+        "spanId": "cb8b3160",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "fa39206929bcff9a",
+        "spanId": "532ea329",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "19d27627cdfc76f2",
+        "spanId": "9d67254f",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "13440716f2ae542c",
+        "spanId": "9f96c3aa",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "8a986fd47812fada",
+        "spanId": "3eb77599",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "1499c2c459efcc1c",
+        "spanId": "010adf73",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "5fc40460bdca5901",
+        "spanId": "deaa0cd0",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "4d91928b20b3ca0f",
+        "spanId": "57bdea79",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "ac1f173486844f36",
+        "spanId": "5a8491be",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-a",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "600f327b04f9ca90",
+        "spanId": "d7b20dc8",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "host.start",
+      "level": "info",
+      "fields": {
+        "pid": 16840,
+        "startedAt": "2026-11-03T02:54:44.386Z",
+        "dir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\266-20261103T093814-r35\\home\\logs",
+        "pluginVersion": "0.18.39",
+        "os": "win32"
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.wire.ready",
+      "level": "info",
+      "fields": {
+        "logSink": "self",
+        "logDirHash": "3ae087f0",
+        "updaterVersion": "0.18.39",
+        "copyLevel": "profile",
+        "hostKind": "desktop-manager"
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "94688e0b04496eb5",
+        "spanId": "95732967",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.check.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "fetch",
+        "errorKind": "http",
+        "httpStatus": 404,
+        "latencyMs": 9,
+        "source": "custom",
+        "traceId": "c9db3f2c251d2287",
+        "spanId": "4d0a78d7",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "host.call.fail",
+      "level": "warn",
+      "fields": {
+        "method": "fxa-b.updateCheck",
+        "kind": "update-check",
+        "error": "check-failed",
+        "errorHash": "553a0675",
+        "pluginId": "fxa-b",
+        "traceId": "c9db3f2c251d2287",
+        "spanId": "4d0a78d7",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "5784460202c465ad",
+        "spanId": "407084d7",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "5784460202c465ad",
+        "spanId": "407084d7",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "01415fd748916986",
+        "spanId": "a66eeb76",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "27517c97254823f1",
+        "spanId": "2ba9090d",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "88ed55e284b6b2e2",
+        "spanId": "90097bf7",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "e669c836ec7e3391",
+        "spanId": "013821ca",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "39736fb924659cb2",
+        "spanId": "232cc82b",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "ea2391d3964d3732",
+        "spanId": "7cbf58fe",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "59991e9f9bf754b3",
+        "spanId": "9e3a8fea",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "e0f7c2a5f9655c0e",
+        "spanId": "9d1c82e4",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "c99a77766471aa43",
+        "spanId": "89951308",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "34ac51d01440eb49",
+        "spanId": "0434975c",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "59b22cc30d0dd8ea",
+        "spanId": "476f02bd",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b9b1c3fd9f29cda4",
+        "spanId": "71c22069",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "287a263f77f37860",
+        "spanId": "8c7bd283",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "3a8162724bc584f1",
+        "spanId": "5908733e",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "efd4b6d3ca8d77f7",
+        "spanId": "ab3763cb",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "0bbd58d3e6787862",
+        "spanId": "083476c6",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "66d2f45233f370eb",
+        "spanId": "d8f42dc1",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "8fa31141a69045e8",
+        "spanId": "cf8a3cc4",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "9a3bfb06dd527402",
+        "spanId": "290b3bda",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "04f7cb94be3da0c9",
+        "spanId": "691261af",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "deec1e3b03354c90",
+        "spanId": "d06aecbc",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "dac6fca8155ae0ef",
+        "spanId": "9c0df905",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "d296b2dd8b256899",
+        "spanId": "68b19dcc",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "eb90d15980b61021",
+        "spanId": "cb9b434e",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "9b54151a773c8212",
+        "spanId": "77c30ada",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "8b4a5f76d0e88347",
+        "spanId": "51cb8c73",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "5e0faab5ae46f145",
+        "spanId": "33e80ee8",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "203b5469d5822563",
+        "spanId": "46da0cb9",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "88eccf70f9f369dc",
+        "spanId": "59d9b472",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.check.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "fetch",
+        "errorKind": "http",
+        "httpStatus": 404,
+        "latencyMs": 3,
+        "source": "custom",
+        "traceId": "cc04ffccfa10d443",
+        "spanId": "b142fa18",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "host.call.fail",
+      "level": "warn",
+      "fields": {
+        "method": "fxa-b.updateCheck",
+        "kind": "update-check",
+        "error": "check-failed",
+        "errorHash": "553a0675",
+        "pluginId": "fxa-b",
+        "traceId": "cc04ffccfa10d443",
+        "spanId": "b142fa18",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "a5d30f70545e9778",
+        "spanId": "facf3c9d",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "a5d30f70545e9778",
+        "spanId": "facf3c9d",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2e70e510df98b957",
+        "spanId": "54fa3f85",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "f74c1ea73d0fdbaf",
+        "spanId": "50bf2c66",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "cd7ca59366f793de",
+        "spanId": "1e5d4f97",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "af3fdaabc99e4d47",
+        "spanId": "370e89b8",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b9d5603f5efe12ae",
+        "spanId": "a6de5c90",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "04ae2f7f7532976b",
+        "spanId": "c608cb37",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "dee54fc781604ace",
+        "spanId": "adb73493",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "94b0e26ce0a199c2",
+        "spanId": "6d347446",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "c6ba0aa8be20f830",
+        "spanId": "864d247d",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "4b53ef5fdc57fcfd",
+        "spanId": "9f304668",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2f6df73285708533",
+        "spanId": "43899320",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "79ca73b774f50974",
+        "spanId": "e41d4566",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "12702011075755af",
+        "spanId": "d4415f2d",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "10bfa5969f7c0507",
+        "spanId": "265f4fc2",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "d74632015c4398e6",
+        "spanId": "9c31d1ba",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "ea92d06f0ca30b4f",
+        "spanId": "8c0aa6f8",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "73599573c9b73282",
+        "spanId": "90f66d4c",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "f3421ee8feef925c",
+        "spanId": "2e8b1c1d",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "51fe8a5c15b57b88",
+        "spanId": "958036bd",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "e2a19b577e16d2c0",
+        "spanId": "bacdba72",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "4b735179ae037bcd",
+        "spanId": "1cff6b40",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "a4f05d5e1ad45b5d",
+        "spanId": "f25f27e8",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "d80eb28f860de892",
+        "spanId": "81ad9b27",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "d378c7d13bc25fcf",
+        "spanId": "cf09250a",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "a717549e50270dc5",
+        "spanId": "cf13a2e7",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "aa05947c9283f9d2",
+        "spanId": "2113f4dc",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "ac69387188302f24",
+        "spanId": "7543f8e4",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "31b149b4ebcde12a",
+        "spanId": "0df78e2f",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "be1270432f1598d7",
+        "spanId": "d1734689",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "df900514da7fbd1e",
+        "spanId": "ab5abdfb",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.check.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "fetch",
+        "errorKind": "http",
+        "httpStatus": 404,
+        "latencyMs": 3,
+        "source": "custom",
+        "traceId": "3308dfde08cc6c89",
+        "spanId": "838d209a",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "host.call.fail",
+      "level": "warn",
+      "fields": {
+        "method": "fxa-b.updateCheck",
+        "kind": "update-check",
+        "error": "check-failed",
+        "errorHash": "553a0675",
+        "pluginId": "fxa-b",
+        "traceId": "3308dfde08cc6c89",
+        "spanId": "838d209a",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.batch.entry.fail",
+      "level": "warn",
+      "fields": {
+        "targetHash": "0002b607",
+        "sessionHash": "bf394771",
+        "errorKind": "check-failed",
+        "stage": "check",
+        "index": 1
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "host.start",
+      "level": "info",
+      "fields": {
+        "pid": 51292,
+        "startedAt": "2026-11-03T02:56:53.458Z",
+        "dir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\266-20261103T093814-r35\\home\\logs",
+        "pluginVersion": "0.18.39",
+        "os": "win32"
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.wire.ready",
+      "level": "info",
+      "fields": {
+        "logSink": "self",
+        "logDirHash": "3ae087f0",
+        "updaterVersion": "0.18.39",
+        "copyLevel": "profile",
+        "hostKind": "desktop-manager"
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "3c5e4d621c0ef445",
+        "spanId": "70af93dd",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "369e59a9d3d9643c",
+        "spanId": "ee358b91",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "32f99835d572c4b3",
+        "spanId": "f6c1e0db",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "1fc03c534eeabed9",
+        "spanId": "29765b2f",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "7cf365c1f0fc499e",
+        "spanId": "e63ab1d7",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "aa3afc89c30c062f",
+        "spanId": "fe97c8fb",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "e20e22c6c60da1e7",
+        "spanId": "fb2f3e1a",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "a1e853a389765bea",
+        "spanId": "d91a2bb4",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "a61209ced5d170e2",
+        "spanId": "c34d281b",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "60d0391a0973d9a6",
+        "spanId": "1339e349",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "7576ed0021a3edad",
+        "spanId": "98561af2",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "677a169c1b7c2ba2",
+        "spanId": "af22b8b1",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "050a7672a0aa00c0",
+        "spanId": "24f2528a",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "68bc6e1cf1608242",
+        "spanId": "aaddc6f7",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "db6874c64e57bf29",
+        "spanId": "57ff4325",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "a357a4bdc0e7ee00",
+        "spanId": "bd6923b3",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "9f9e2e7f88d85b8e",
+        "spanId": "d3466474",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "0e02accdabba053a",
+        "spanId": "c016b2fc",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "536b0d38e7ce3f98",
+        "spanId": "244115bb",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "6eb4512df5b813f0",
+        "spanId": "da853a66",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2f9a78f83a926447",
+        "spanId": "9908009d",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "8f2b28e748aa77f4",
+        "spanId": "168bac78",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "dbb7d5a26b236757",
+        "spanId": "a831b703",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "f6755df1dd291d4a",
+        "spanId": "e3f59411",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b1b024dffa788f76",
+        "spanId": "9a9794e2",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "66bd2d792cdac02a",
+        "spanId": "b182580c",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "f0ee096da821318c",
+        "spanId": "1c92055c",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "a2a6a620bdc50d76",
+        "spanId": "318f19ab",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "1b96dfd8ab33b541",
+        "spanId": "9a375b57",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "908915ee271ce983",
+        "spanId": "fb6773cd",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "888694d2748de9d0",
+        "spanId": "f9a7cc3b",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-b",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "c2f8a7ad9619258c",
+        "spanId": "885038ce",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "host.start",
+      "level": "info",
+      "fields": {
+        "pid": 16840,
+        "startedAt": "2026-11-03T02:54:44.386Z",
+        "dir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\266-20261103T093814-r35\\home\\logs",
+        "pluginVersion": "0.18.39",
+        "os": "win32"
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.wire.ready",
+      "level": "info",
+      "fields": {
+        "logSink": "self",
+        "logDirHash": "aaa7e757",
+        "updaterVersion": "0.18.39",
+        "copyLevel": "profile",
+        "hostKind": "desktop-manager"
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "0ec2222f49202832",
+        "spanId": "e03c285d",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "up-to-date",
+        "latest": "0.0.1",
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "up-to-date",
+        "blockedReason": "none",
+        "traceId": "86fc944be966c9f7",
+        "spanId": "16152c66",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.check.done",
+      "level": "info",
+      "fields": {
+        "ok": true,
+        "current": "0.0.1",
+        "latest": "0.0.1",
+        "channel": "stable",
+        "source": "custom",
+        "blockedReason": "none",
+        "fallback": false,
+        "dataSource": "npm-version",
+        "pendingRestart": false,
+        "jobState": "none",
+        "latencyMs": 23,
+        "traceId": "86fc944be966c9f7",
+        "spanId": "16152c66",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "host.call",
+      "level": "info",
+      "fields": {
+        "method": "fxa-c.updateCheck",
+        "latencyMs": 51,
+        "ok": true,
+        "kind": "update-check",
+        "pluginId": "fxa-c",
+        "traceId": "86fc944be966c9f7",
+        "spanId": "16152c66",
+        "seq": 2
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "7fba474b11df881b",
+        "spanId": "89e8ccf4",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "d1badc5be13b0923",
+        "spanId": "18d7c830",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "369b9dae488f2d23",
+        "spanId": "63f0bb72",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "4757d00f9558b490",
+        "spanId": "3836d225",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "8bdfc1c48449a380",
+        "spanId": "84fb4be6",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "a5bac53cbda0516c",
+        "spanId": "04211754",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "f59b4de6680bd9ad",
+        "spanId": "e48afab9",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "4fad48c0c6986baa",
+        "spanId": "7ddeeee3",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "a535a12ce89a8ede",
+        "spanId": "328f3a92",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "f9bc99a1a7ad648d",
+        "spanId": "fe3dc4d6",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "d09db78808e1ad79",
+        "spanId": "54814e1f",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "42c19964430be9bd",
+        "spanId": "a5e5ca14",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "cd34d109ec403d3d",
+        "spanId": "de849892",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "26b25d5074de2c18",
+        "spanId": "0c72b0a1",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "5d5f63d865d5a82d",
+        "spanId": "0864a691",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "aa15e5c2ba72ec9b",
+        "spanId": "5fd38f01",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "fefd69822740e9f3",
+        "spanId": "5e9c509b",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "a2d2cdc36ed3353b",
+        "spanId": "70278044",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "389f2a628607a48a",
+        "spanId": "95358489",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "7363aebfecfd8495",
+        "spanId": "5d416510",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "95f81edea6b37fb1",
+        "spanId": "0e903251",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "3fc9aaddaed2b858",
+        "spanId": "a18008f8",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "53e1d64bbfcbfb95",
+        "spanId": "837827f8",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "35d6b313dfd2b6b1",
+        "spanId": "84aaf148",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "ee6be576a2162598",
+        "spanId": "abb2a0bc",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b21d4ac7e60124ec",
+        "spanId": "2c749f66",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "fa4a02617bb21c50",
+        "spanId": "74b03068",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "dd9b4157774c1c20",
+        "spanId": "dc837b87",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "90827ef8dded8219",
+        "spanId": "e2a5076f",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "190a11da37a395c3",
+        "spanId": "4925d730",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "update-available",
+        "latest": "0.0.2",
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "update",
+        "blockedReason": "none",
+        "traceId": "6e178f5577a3c200",
+        "spanId": "b7f08194",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.check.done",
+      "level": "info",
+      "fields": {
+        "ok": true,
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "channel": "stable",
+        "source": "custom",
+        "blockedReason": "none",
+        "fallback": false,
+        "dataSource": "npm-version",
+        "pendingRestart": false,
+        "jobState": "none",
+        "latencyMs": 6,
+        "traceId": "6e178f5577a3c200",
+        "spanId": "b7f08194",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "host.call",
+      "level": "info",
+      "fields": {
+        "method": "fxa-c.updateCheck",
+        "latencyMs": 12,
+        "ok": true,
+        "kind": "update-check",
+        "pluginId": "fxa-c",
+        "traceId": "6e178f5577a3c200",
+        "spanId": "b7f08194",
+        "seq": 2
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "024da690204fc9cd",
+        "spanId": "57bf5733",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b05b83caadbbd638",
+        "spanId": "e6d3fbc3",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "ad3b336c6c65d721",
+        "spanId": "2b47d91d",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2486747164181c84",
+        "spanId": "386aa0fd",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "ea46215f7c6b39d6",
+        "spanId": "c3e3f4b5",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "0b41df11cbdc45a9",
+        "spanId": "9889880c",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "c5cde28407b03cab",
+        "spanId": "c23e2d68",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "36e488ca3cb6eea2",
+        "spanId": "dc294911",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "fa5da2b32760981e",
+        "spanId": "00300160",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2532f199b346fc76",
+        "spanId": "35c5807c",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2581be2987357c72",
+        "spanId": "c58ce2d0",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b914960aee7bdd3f",
+        "spanId": "af623387",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b08c0960c3e2e479",
+        "spanId": "1ab0da07",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "f9a953ae4f446097",
+        "spanId": "8bf217db",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "1228f62af52db41f",
+        "spanId": "8b19c301",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "60d79dfbb8f2db8f",
+        "spanId": "cb5b537a",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "bf2364af552686c2",
+        "spanId": "90271474",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "74540cacd240cc35",
+        "spanId": "821d28f6",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "97c20faf2751f50c",
+        "spanId": "77bec5f7",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "12965d6c6a35d8e3",
+        "spanId": "5185ebfb",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "078b2945ed8762f3",
+        "spanId": "33aa02f2",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2202e5a6be4d7210",
+        "spanId": "e979635f",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "76b971ebdfe3d585",
+        "spanId": "0a2ae22b",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "9a106a4b4885601a",
+        "spanId": "f554a181",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "4da0f95151d022e7",
+        "spanId": "5b7a6932",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "8cbfc7da697d6d84",
+        "spanId": "74580224",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "782195d54882777c",
+        "spanId": "14f93649",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "cd1333c6d6acf2ea",
+        "spanId": "824f94aa",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2d6f1015cc0fcf5a",
+        "spanId": "2a17dd79",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "5e7242883830498a",
+        "spanId": "0acfd512",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "f84fb79a1a1d0145",
+        "spanId": "2efd2b8f",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "update-available",
+        "latest": "0.0.2",
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "update",
+        "blockedReason": "none",
+        "traceId": "687607a761931295",
+        "spanId": "45e45279",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.check.done",
+      "level": "info",
+      "fields": {
+        "ok": true,
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "channel": "stable",
+        "source": "custom",
+        "blockedReason": "none",
+        "fallback": false,
+        "dataSource": "npm-version",
+        "pendingRestart": false,
+        "jobState": "none",
+        "latencyMs": 5,
+        "traceId": "687607a761931295",
+        "spanId": "45e45279",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "host.call",
+      "level": "info",
+      "fields": {
+        "method": "fxa-c.updateCheck",
+        "latencyMs": 11,
+        "ok": true,
+        "kind": "update-check",
+        "pluginId": "fxa-c",
+        "traceId": "687607a761931295",
+        "spanId": "45e45279",
+        "seq": 2
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.queue.transition",
+      "level": "info",
+      "fields": {
+        "phase": "queued",
+        "position": 1,
+        "traceId": "c934d3e5c5904d00",
+        "spanId": "ab20467e",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "check-expired",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "68ae13ad",
+        "traceId": "c934d3e5c5904d00",
+        "spanId": "ab20467e",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.queue.transition",
+      "level": "info",
+      "fields": {
+        "phase": "abandoned",
+        "traceId": "c934d3e5c5904d00",
+        "spanId": "ab20467e",
+        "seq": 2
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "host.call.fail",
+      "level": "warn",
+      "fields": {
+        "method": "fxa-c.updateInstall",
+        "kind": "update-install",
+        "error": "check-expired",
+        "errorHash": "e5a47d01",
+        "pluginId": "fxa-c",
+        "traceId": "c934d3e5c5904d00",
+        "spanId": "ab20467e",
+        "seq": 3
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "update-available",
+        "latest": "0.0.2",
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "update",
+        "blockedReason": "none",
+        "traceId": "546994f5f116893a",
+        "spanId": "26c73ac6",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.check.done",
+      "level": "info",
+      "fields": {
+        "ok": true,
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "channel": "stable",
+        "source": "custom",
+        "blockedReason": "none",
+        "fallback": false,
+        "dataSource": "npm-version",
+        "pendingRestart": false,
+        "jobState": "none",
+        "latencyMs": 4,
+        "traceId": "546994f5f116893a",
+        "spanId": "26c73ac6",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "host.call",
+      "level": "info",
+      "fields": {
+        "method": "fxa-c.updateCheck",
+        "latencyMs": 9,
+        "ok": true,
+        "kind": "update-check",
+        "pluginId": "fxa-c",
+        "traceId": "546994f5f116893a",
+        "spanId": "26c73ac6",
+        "seq": 2
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.queue.transition",
+      "level": "info",
+      "fields": {
+        "phase": "queued",
+        "position": 1,
+        "traceId": "3ca6ba2ea02d985b",
+        "spanId": "2ed8e7b6",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "batch",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 5,
+        "intentHash": "68ae13ad",
+        "traceId": "3ca6ba2ea02d985b",
+        "spanId": "2ed8e7b6",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.queue.transition",
+      "level": "info",
+      "fields": {
+        "phase": "running",
+        "waitedMs": 9,
+        "holderHash": "0f7833d4",
+        "traceId": "3ca6ba2ea02d985b",
+        "spanId": "2ed8e7b6",
+        "seq": 2
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "host.call",
+      "level": "info",
+      "fields": {
+        "method": "fxa-c.updateInstall",
+        "latencyMs": 258,
+        "ok": true,
+        "kind": "update-install",
+        "pluginId": "fxa-c",
+        "traceId": "3ca6ba2ea02d985b",
+        "spanId": "2ed8e7b6",
+        "seq": 3
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.install.retry",
+      "level": "info",
+      "fields": {
+        "reason": "check-expired",
+        "attempt": 2,
+        "requestHash": "68ae13ad"
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "update-available",
+        "latest": "0.0.2",
+        "runningVersion": null,
+        "installedVersion": null,
+        "registered": false,
+        "identity": "first-install",
+        "blockedReason": "none",
+        "traceId": "0a2ff9f8c4fd2d37",
+        "spanId": "29b3f078",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "host.call",
+      "level": "info",
+      "fields": {
+        "method": "fxa-c.updateStatus",
+        "latencyMs": 5,
+        "ok": true,
+        "kind": "update-status",
+        "pluginId": "fxa-c",
+        "traceId": "0a2ff9f8c4fd2d37",
+        "spanId": "29b3f078",
+        "seq": 1
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "host.start",
+      "level": "info",
+      "fields": {
+        "pid": 51292,
+        "startedAt": "2026-11-03T02:56:53.459Z",
+        "dir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\266-20261103T093814-r35\\home\\logs",
+        "pluginVersion": "0.18.39",
+        "os": "win32"
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.wire.ready",
+      "level": "info",
+      "fields": {
+        "logSink": "self",
+        "logDirHash": "aaa7e757",
+        "updaterVersion": "0.18.39",
+        "copyLevel": "profile",
+        "hostKind": "desktop-manager"
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "58e4933e0ad353b0",
+        "spanId": "aa9eacdf",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "41d7b28d1e621ecf",
+        "spanId": "16ed737a",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "f47dc12ecd886559",
+        "spanId": "a24867d8",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "143ff14e3755bc52",
+        "spanId": "a70c10b3",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "7b3aeaa9a5afcafd",
+        "spanId": "0ad96397",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "ca05add58da07507",
+        "spanId": "3ab68d4b",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "edeadd9b2954335c",
+        "spanId": "4e43e557",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "2f5b6bd7e34f30ee",
+        "spanId": "30352272",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "3d28bc00528a8e24",
+        "spanId": "f2ecb0c4",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b426f5389b027a78",
+        "spanId": "321eff2c",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "01c09315bdb3f980",
+        "spanId": "fba271ad",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "112066a8df0f1b94",
+        "spanId": "baf6dff7",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "dd75b094c3de161a",
+        "spanId": "4ac30ebf",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "9a57324e56efc828",
+        "spanId": "acdf696c",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "1f3f0904e6050c2d",
+        "spanId": "6864fe78",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "15d57e6e4989eca0",
+        "spanId": "1c1b6144",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "bc7d509c763ade8f",
+        "spanId": "a642993e",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "36ea5db081dbf356",
+        "spanId": "87d5c349",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "4f4a06051782139a",
+        "spanId": "5a283d62",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "c2124f35bc3c3c3c",
+        "spanId": "193609d7",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "5d5851c31202e7d7",
+        "spanId": "2cdd3913",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "64bf7e4c4d6f2134",
+        "spanId": "90422486",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "843c6555c9581536",
+        "spanId": "c8293b99",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "cf387a7fc7d8a355",
+        "spanId": "74cfc5eb",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "74a765e6aca4ae39",
+        "spanId": "789538f3",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "3e5256e0093613b9",
+        "spanId": "224c04b6",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "6702e1a9fba2ced6",
+        "spanId": "5020a57d",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "785012bd8420939d",
+        "spanId": "41f00906",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "b20bef267965977d",
+        "spanId": "59d5da07",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "f25c5b92c977e2c7",
+        "spanId": "16bdb759",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "6cc224a24499c241",
+        "spanId": "e16632b8",
+        "seq": 0
+      }
+    },
+    {
+      "namespace": "fxa-c",
+      "event": "update.status.changed",
+      "level": "info",
+      "fields": {
+        "kind": "unknown",
+        "latest": null,
+        "runningVersion": "0.0.2",
+        "installedVersion": "0.0.2",
+        "registered": true,
+        "identity": "unknown",
+        "blockedReason": "none",
+        "unknownCause": "no-latest",
+        "traceId": "afcf90a2ea3992a8",
+        "spanId": "25b66711",
+        "seq": 0
+      }
+    }
+  ]
+}

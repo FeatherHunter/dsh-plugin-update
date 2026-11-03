@@ -1,0 +1,28 @@
+{
+  "lockIds": [
+    "12b2d589-aa3c-45b2-abaa-1a188b2b9dfc"
+  ],
+  "intervals": [
+    {
+      "from": 1793669929182,
+      "to": 1793669930203,
+      "ids": [
+        "12b2d589-aa3c-45b2-abaa-1a188b2b9dfc"
+      ]
+    }
+  ],
+  "execWindow": {
+    "start": 1793669929184,
+    "end": 1793669930189,
+    "ts": 1793669930189,
+    "durationMs": 1005,
+    "route": "cli-process",
+    "ok": true,
+    "exitCode": 0,
+    "pluginId": "fxa-a",
+    "source": "fxa-a/2026-11-03.log",
+    "line": 20
+  },
+  "toleranceMs": 1000,
+  "note": "interval 首末样本来自 10ms 轮询，故给 ±1000ms 容忍"
+}

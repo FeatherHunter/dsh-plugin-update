@@ -1,0 +1,174 @@
+{
+  "pid": 30496,
+  "alive": true,
+  "status": {
+    "status": 200,
+    "ok": true,
+    "body": {
+      "ok": true,
+      "reply": {
+        "ok": true,
+        "snapshot": {
+          "runningVersion": "0.0.1",
+          "installed": true,
+          "installedVersion": "0.0.1",
+          "latestVersion": null,
+          "canInstall": false,
+          "blockedReason": null,
+          "job": {
+            "requestId": "batch-mw0srtis-274sja1vqm-a-cbae4632",
+            "message": "install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [WARN] GET http://127.0.0.1:65514/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz error (ERR_PNPM_TARBALL_INTEGRITY). Will retry ；已回滚到 0.0.1",
+            "id": "b9040cc9-c928-4df5-b88b-3ea9b89400fc",
+            "state": "failed",
+            "targetVersion": "0.0.2",
+            "previousVersion": "0.0.1"
+          },
+          "identity": null,
+          "registered": true
+        },
+        "manual": "dsh plugin --profile t14hub add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:65514",
+        "receipt": null,
+        "logContract": {
+          "state": "ok",
+          "file": "event-list.update.json",
+          "events": 29,
+          "unvalidated": 0
+        },
+        "logHealth": {
+          "sink": "self",
+          "dirHash": "81bc1eca",
+          "switchEnabled": false,
+          "droppedSinceStart": 0,
+          "lastEventAt": 1793717050198,
+          "contract": "ok",
+          "external": null,
+          "reason": null
+        },
+        "diag": {
+          "v": 1,
+          "stage": "exec",
+          "detail": "Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [WARN] GET http://127.0.0.1:65514/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz error (ERR_PNPM_TARBALL_INTEGRITY). Will retry ；已回滚到 0.0.1",
+          "targetPackageName": "dsh-plugin-update-fixture-a",
+          "runningVersion": "0.0.1",
+          "requestId": "batch-mw0srtis-274sja1vqm-a-cbae4632",
+          "intentHash": "8a1f8f7f",
+          "action": "contact"
+        }
+      }
+    }
+  },
+  "check": {
+    "status": 200,
+    "ok": true,
+    "body": {
+      "ok": true,
+      "reply": {
+        "ok": true,
+        "snapshot": {
+          "runningVersion": "0.0.1",
+          "installed": true,
+          "installedVersion": "0.0.1",
+          "latestVersion": "0.0.2",
+          "canInstall": true,
+          "blockedReason": null,
+          "job": {
+            "requestId": "batch-mw0srtis-274sja1vqm-a-cbae4632",
+            "message": "install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [WARN] GET http://127.0.0.1:65514/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz error (ERR_PNPM_TARBALL_INTEGRITY). Will retry ；已回滚到 0.0.1",
+            "id": "b9040cc9-c928-4df5-b88b-3ea9b89400fc",
+            "state": "failed",
+            "targetVersion": "0.0.2",
+            "previousVersion": "0.0.1"
+          },
+          "identity": "update",
+          "registered": true
+        },
+        "manual": "dsh plugin --profile t14hub add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:65514",
+        "receipt": {
+          "checkId": "9e42df7e-fb26-4397-8a10-03aa403905a2",
+          "checkedAt": 1793717050211,
+          "expiresAt": 1793717650211
+        },
+        "diag": {
+          "v": 1,
+          "stage": "exec",
+          "detail": "Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [WARN] GET http://127.0.0.1:65514/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz error (ERR_PNPM_TARBALL_INTEGRITY). Will retry ；已回滚到 0.0.1",
+          "targetPackageName": "dsh-plugin-update-fixture-a",
+          "runningVersion": "0.0.1",
+          "requestId": "batch-mw0srtis-274sja1vqm-a-cbae4632",
+          "intentHash": "8a1f8f7f",
+          "action": "contact"
+        }
+      }
+    }
+  },
+  "hub": {
+    "status": 200,
+    "ok": true,
+    "body": {
+      "ok": true,
+      "reply": {
+        "ok": true,
+        "snapshot": {
+          "version": 1,
+          "at": 1793717050217,
+          "sessions": [
+            {
+              "sessionId": "mw0srtis-274sja1vqm",
+              "owner": "fxa",
+              "selfKey": "a",
+              "state": "finished",
+              "updatedAt": 1793717048229,
+              "progress": {
+                "total": 3,
+                "done": 2,
+                "failed": 1,
+                "skipped": 0,
+                "current": 0,
+                "pending": 0,
+                "finished": true
+              },
+              "rows": [
+                {
+                  "key": "a",
+                  "title": "夹具 A 本体",
+                  "phase": "failed",
+                  "targetVersion": "0.0.2",
+                  "installedVersion": "0.0.1",
+                  "latestVersion": "0.0.2",
+                  "restartRequired": false,
+                  "error": "install-failed"
+                },
+                {
+                  "key": "b",
+                  "title": "夹具 B",
+                  "phase": "done",
+                  "targetVersion": "0.0.2",
+                  "installedVersion": "0.0.1",
+                  "latestVersion": "0.0.2",
+                  "restartRequired": false,
+                  "error": null
+                },
+                {
+                  "key": "c",
+                  "title": "夹具 C",
+                  "phase": "done",
+                  "targetVersion": "0.0.2",
+                  "installedVersion": "0.0.1",
+                  "latestVersion": "0.0.2",
+                  "restartRequired": false,
+                  "error": null
+                }
+              ],
+              "rowsTotal": 3,
+              "rowsTruncated": false
+            }
+          ],
+          "sessionsTotal": 1,
+          "sessionsTruncated": false,
+          "activeInstall": null
+        }
+      }
+    }
+  },
+  "lease": null
+}

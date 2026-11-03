@@ -1,0 +1,9 @@
+{
+  "osHomeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224027\\os-home",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224027\\os-home\\.dsh",
+  "profileName": "t14hub",
+  "hostChannel": "dsh-web",
+  "mode": "m1",
+  "scenarioId": "m1-hub-orphan-only-owner-a-returns",
+  "why": "通道 B 宿主用 USERPROFILE=osHomeDir、DSH_HOME=homeDir 解析 profile；第一代/第二代宿主用同一组目录与同一 profile 名，因此解析到同一 profileDir 与同一 update-queue/hub/updates 台账。"
+}

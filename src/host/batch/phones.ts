@@ -93,6 +93,13 @@ function sleep(ms: number): Promise<void> {
     setTimeout(() => settle(), ms > 0 ? ms : 0)
   })
 }
+/**
+ * check-expired 有界重试上限（#269/205101）：最多 2 次重试、总提交 3 次。
+ * 只把「宿主重载换手窗口」当瞬态，不把真过期（凭证/版本对不上）无限重试。
+ */
+const CHECK_EXPIRED_RETRY_LIMIT = 2
+/** 每次重试前的退避毫秒：205101 的失败窗口在宿主重载后 <200ms，300ms 足以让换手落定。 */
+const CHECK_EXPIRED_RETRY_DELAY_MS = 300
 export function validateTargets(raw: unknown): MultiTargetSpec[] {
   if (!Array.isArray(raw) || raw.length === 0) {
     throw new Error('[dsh-plugin-update] 批量目标清单 targets 必填：至少一个目标')
@@ -341,11 +348,40 @@ async function queuePositionFor(rt: TargetRuntime, requestId: string | null): Pr
   }
 }
 
+/**
+ * 续跑行重查落「已完成」的口径（#284 真机）：行是 ready/installing、宿主换手把 receipt 丢了，
+ * 重查时目标可能已被**另一批量的安装**装到目标版——此时 again.kind 是 current（无需装）或 done（装好待重启）。
+ * 这类行必须按「已达成目标」收 done，不能当 check-expired 失败（否则续跑丢行）。
+ * 但收 done 前必须核对目标版确实已被满足（installedVersion === targetVersion 或更高），
+ * 空/更低的 installedVersion 一律不认——绝不把真失败吞成成功。targetVersion 缺失时退回旧语义。
+ */
+function satisfiedByRecheck(rt: TargetRuntime, outcome: BatchCheckOutcome, targetVersion: string | null | undefined): BatchInstallOutcome | null {
+  if (outcome.kind !== 'current' && outcome.kind !== 'done') return null
+  const target = typeof targetVersion === 'string' && targetVersion ? targetVersion : null
+  if (target === null) return null
+  const installed = firstText(asRecord(rt.cache.snapshot)['installedVersion'])
+  if (installed === null) return null
+  try {
+    if (compareReleaseVersions(installed, target) < 0) return null
+  } catch {
+    return null
+  }
+  return outcome.kind === 'done' ? outcome : { kind: 'done', restartRequired: false }
+}
+
 /** 真装一家：拿凭证提交，再等它收尾；没有凭证（跨重启只剩 ready）就重查一次拿凭证。 */
-export async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetSpec, requestId: string): Promise<BatchInstallOutcome> {
+export async function defaultInstall(
+  rt: TargetRuntime,
+  key: string,
+  spec: MultiTargetSpec,
+  requestId: string,
+  targetVersion?: string,
+): Promise<BatchInstallOutcome> {
   let receipt = rt.receipt
   if (!receipt) {
     const again = await rt.check(key, spec)
+    const satisfied = satisfiedByRecheck(rt, again, targetVersion)
+    if (satisfied) return satisfied
     if (again.kind !== 'update') {
       return { kind: 'failed', error: again.kind === 'failed' ? again.error : 'check-expired', stage: 'check' }
     }
@@ -385,11 +421,22 @@ export async function defaultInstall(rt: TargetRuntime, key: string, spec: Multi
   if (reply['ok'] === true) reply = await rotateIfStale(reply, checkIdInUse)
   if (reply['ok'] === true) return await settleInstall(rt, reply, version)
   let code = codeOfReply(reply)
-  if (code === 'check-expired') {
-    // A 案（#70 ADR-0004 §3）：单例 sharedReader 同一时刻只留最后一家，预查并发查完后
-    // 槽里只剩最后一家——驱动串行装、每取下一家 reader（含第一家）凭证都已过期，
-    // 所以 ≥2 家的批每家首次提交都会走这里当场重查一次；第二次仍过期才记 failed。不碰单例纪律。
+  // A 案（#70 ADR-0004 §3）：单例 sharedReader 同一时刻只留最后一家，预查并发查完后
+  // 槽里只剩最后一家——驱动串行装、每取下一家 reader（含第一家）凭证都已过期，
+  // 所以 ≥2 家的批每家首次提交都会走这里当场重查重提，设计内动作（#216 留一行说明）。
+  //
+  // #269/205101（2026-11-02 真机）：宿主重载换手窗口里，B/C 首次提交被 gate 拒（check-expired）
+  // 后 20ms 内重查重提仍被拒——重查与提交落到了换手中的不同实例，checkId 不被新实例认。
+  // 对照 211934 同场景重载后 220ms 重提即成功；凭证 TTL 是检查时刻起的秒级窗口，20ms 内
+  // 不该过期，所以这是换手瞬态、不是凭证真过期。按瞬态做有界退避重试：最多 2 次重试
+  // （总提交 3 次），每次重试前等 300ms 让换手落定；绝不无限重试，最终仍过期就如实失败。
+  // 双 driver 并存的 fencing 不在本票范围（见 docs/research/20261101-issue-269-*.md 的 known issue）。
+  for (let attempt = 2; code === 'check-expired' && attempt <= CHECK_EXPIRED_RETRY_LIMIT + 1; attempt += 1) {
+    await sleep(CHECK_EXPIRED_RETRY_DELAY_MS)
     const again = await rt.check(key, spec)
+    // #284：退避期间另一批量可能已把目标装好——重查 current/done 且目标版已满足就收 done，别记失败丢行。
+    const satisfied = satisfiedByRecheck(rt, again, targetVersion)
+    if (satisfied) return satisfied
     if (again.kind !== 'update') {
       return { kind: 'failed', error: again.kind === 'failed' ? again.error : 'check-expired', stage: 'check' }
     }
@@ -401,11 +448,10 @@ export async function defaultInstall(rt: TargetRuntime, key: string, spec: Multi
     checkIdInUse = fresh.checkId
     reply = await submitOnce(checkIdInUse, phoneRequestId)
     rt.receipt = null
-    // #216：凭证过期后当场重查重提是设计内动作（ADR-0004 §3 A 案 ≥2 家的批每家首次都会走），
-    // 但日志要留一行说明「第一次提交不是环境坏了、是凭证过期」——否则读日志只看到一条 gate-refused。
+    // #216：每次重提都留一行，attempt 递增（2、3）——读日志能数出是换手瞬态还是真过期。
     emitBatchLog(rt.pluginId, 'info', 'update.install.retry', {
       reason: 'check-expired',
-      attempt: 2,
+      attempt,
       requestHash: hash8(phoneRequestId),
     })
     if (reply['ok'] === true) reply = await rotateIfStale(reply, checkIdInUse)

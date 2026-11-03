@@ -1,0 +1,41 @@
+{
+  "ledgerA": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p15\\home\\updates\\fxa-a\\65ba14485a375fc7891605d4\\state.json",
+      "state": {
+        "requestId": "batch-mw02ibks-lc2xvp0bv1-a-6ca67330",
+        "message": null,
+        "id": "d087c29e-aa83-4382-8ed6-c728a27e9e36",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ],
+  "ledgerB": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p15\\home\\updates\\fxa-b\\65ba14485a375fc7891605d4\\state.json",
+      "state": {
+        "requestId": "batch-mw02ibks-lc2xvp0bv1-b-6ca67331",
+        "message": null,
+        "id": "83f56056-8001-4c88-8bd2-80fccdb6acf0",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ],
+  "ledgerC": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p15\\home\\updates\\fxa-c\\65ba14485a375fc7891605d4\\state.json",
+      "state": {
+        "requestId": "batch-mw02ibks-lc2xvp0bv1-c-6ca67332",
+        "message": null,
+        "id": "1a8b991f-e8de-4668-9d0d-77d29bd78bbe",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ]
+}

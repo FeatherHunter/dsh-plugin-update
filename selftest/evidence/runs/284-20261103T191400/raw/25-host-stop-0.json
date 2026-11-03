@@ -1,0 +1,10 @@
+{
+  "reason": "l2-after-failure",
+  "gen": 0,
+  "port": 57168,
+  "pid": 102680,
+  "registryUrl": "https://127.0.0.1:62521",
+  "delayMs": null,
+  "proxyRequests": 4,
+  "delayedRequests": 0
+}

@@ -1,0 +1,9 @@
+{
+  "看什么": "官方桌面窗口里的 A 面板：版本条带三个 0.0.1/未知，夹具卡片显示 client v0.0.1，更新器显示 dsh-plugin-update@0.18.39 (profile)",
+  "步骤": "旧版面板",
+  "expected": "运行版=已安装=0.0.1，最新版=未知（未检查），卡片 client v0.0.1",
+  "actual": "versions=[0.0.1, 0.0.1, 未知]；seal=已是最新；clientTag=client v0.0.1",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\12-shot.png"
+}

@@ -1,0 +1,9 @@
+{
+  "看什么": "丢弃本批后的面板（回执 + C 行状态）",
+  "步骤": "D2 真 UI 丢弃本批（两步确认）",
+  "expected": "已丢弃本批未完成的更新；C 行不再排队/安装",
+  "actual": "{\"notice\":\"已丢弃本批未完成的更新（已完成的将保留）。\",\"rowC\":{\"key\":\"c\",\"phase\":\"pending\",\"queued\":false,\"busy\":false,\"title\":\"夹具 C\",\"status\":\"有新版本 0.0.2\",\"versionCur\":\"0.0.1\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"toggle-details\"],\"fail\":null}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\45-shot.png"
+}

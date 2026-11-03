@@ -1,0 +1,34 @@
+{
+  "staleOwner": [
+    {
+      "fields": {
+        "kind": "stale-owner",
+        "ageMs": 64339,
+        "ownerHash": "b9ae1254",
+        "traceId": "6db3826c94cf5bf4",
+        "spanId": "0c39cd54",
+        "seq": 2
+      },
+      "ts": 1793638149574,
+      "source": "fxa-a/2026-11-03.log",
+      "line": 8
+    }
+  ],
+  "busyOwner": [],
+  "reclaimed": [
+    {
+      "fields": {
+        "phase": "reclaimed",
+        "holderHash": "0f7833d2",
+        "traceId": "6db3826c94cf5bf4",
+        "spanId": "0c39cd54",
+        "seq": 3
+      },
+      "ts": 1793638149574,
+      "source": "fxa-a/2026-11-03.log",
+      "line": 9
+    }
+  ],
+  "expectedOwnerHash": "b9ae1254",
+  "expectedHolderHash": "0f7833d2"
+}

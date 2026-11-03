@@ -1,0 +1,46 @@
+{
+  "settled": true,
+  "disk": {
+    "a": "0.0.1",
+    "b": "0.0.2",
+    "c": "0.0.2",
+    "dependencies": {
+      "a": "0.0.1",
+      "b": "0.0.2",
+      "c": "0.0.2"
+    }
+  },
+  "ledger": {
+    "fxa-a": [
+      {
+        "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224225\\os-home\\.dsh\\updates\\fxa-a\\cc6ce59c078ff915e3c9380b\\state.json",
+        "state": "failed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    ],
+    "fxa-b": [
+      {
+        "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224225\\os-home\\.dsh\\updates\\fxa-b\\cc6ce59c078ff915e3c9380b\\state.json",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    ],
+    "fxa-c": [
+      {
+        "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224225\\os-home\\.dsh\\updates\\fxa-c\\cc6ce59c078ff915e3c9380b\\state.json",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    ]
+  },
+  "observed": [
+    "a=0.0.1,b=0.0.1,c=0.0.1,aState=null",
+    "a=0.0.1,b=0.0.1,c=0.0.1,aState=installing",
+    "a=0.0.1,b=0.0.1,c=0.0.1,aState=failed",
+    "a=0.0.1,b=0.0.2,c=0.0.1,aState=failed",
+    "a=0.0.1,b=0.0.2,c=0.0.2,aState=failed"
+  ]
+}

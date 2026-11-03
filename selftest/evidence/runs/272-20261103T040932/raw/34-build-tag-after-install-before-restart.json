@@ -1,0 +1,15 @@
+{
+  "status": 200,
+  "body": {
+    "ok": true,
+    "reply": {
+      "buildTag": "host v0.0.1",
+      "role": "integrator",
+      "packageName": "dsh-plugin-update-fixture-a",
+      "behavior": null,
+      "targetKeys": "a/b/c"
+    }
+  },
+  "value": "host v0.0.1",
+  "diskVersion": "0.0.2"
+}

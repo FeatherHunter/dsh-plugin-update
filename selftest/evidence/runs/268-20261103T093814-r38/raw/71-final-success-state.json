@@ -1,0 +1,99 @@
+{
+  "rowB": {
+    "key": "b",
+    "phase": "current",
+    "queued": false,
+    "busy": false,
+    "title": "夹具 B",
+    "status": "已是最新，无需操作。",
+    "versionCur": "0.0.2",
+    "versionNew": null,
+    "actions": [
+      "toggle-details",
+      "toggle-details"
+    ],
+    "fail": null
+  },
+  "cardB": {
+    "slotKey": "b",
+    "card": {
+      "present": true,
+      "key": "b",
+      "ui": "single",
+      "title": "夹具 B · 更新演示",
+      "clientTag": "client v0.0.1",
+      "hostTag": "host v0.0.1",
+      "seatLine": {
+        "attr": "none",
+        "text": "单席位集成方（无批量席位行）"
+      },
+      "behavior": {
+        "attr": "none",
+        "text": "宿主行为 无（v1）"
+      },
+      "dockHost": null
+    },
+    "panel": {
+      "present": false,
+      "mode": null,
+      "seal": null,
+      "rows": [],
+      "check": null,
+      "install": null,
+      "ledger": null,
+      "summary": null,
+      "notice": null
+    },
+    "entry": {
+      "present": true,
+      "text": "",
+      "variant": null
+    },
+    "dock": null,
+    "dshUpdCount": 1
+  },
+  "cardC": {
+    "present": true,
+    "key": "c",
+    "ui": "none",
+    "wiring": "none",
+    "clientTag": "client v0.0.1",
+    "badgeText": "夹具 C · client v0.0.1",
+    "dshUpdCount": 0,
+    "dockCount": 0,
+    "entryCount": 0
+  },
+  "disk": {
+    "versions": {
+      "dsh-plugin-update-fixture-a": "0.0.1",
+      "dsh-plugin-update-fixture-b": "0.0.2",
+      "dsh-plugin-update-fixture-c": "0.0.1"
+    },
+    "dependencies": {
+      "dsh-plugin-update-fixture-a": "0.0.1",
+      "dsh-plugin-update-fixture-b": "0.0.2",
+      "dsh-plugin-update-fixture-c": "0.0.1"
+    },
+    "manifest": {
+      "name": "dsh-profile-desktop",
+      "private": true,
+      "dependencies": {
+        "dsh-plugin-update-fixture-a": "0.0.1",
+        "dsh-plugin-update-fixture-b": "0.0.2",
+        "dsh-plugin-update-fixture-c": "0.0.1"
+      },
+      "dsh": {
+        "profile": {
+          "bundles": [
+            "@deepseek-ai/dsh-base",
+            "@deepseek-ai/dsh-web-app",
+            "dsh-plugin-update-fixture-a",
+            "dsh-plugin-update-fixture-c",
+            "dsh-plugin-update-fixture-b"
+          ]
+        }
+      }
+    }
+  },
+  "pageTextTail": "新会话\nCtrl\n+\nN\n插件\n自动化任务\n更多\n工作区\n默认工作区\n新会话\n更多\n探索未至之境\n预览版\n默认工作区\n标准模式\n描述你想要构建的内容, / 调用指令, @ 文件或对话\n工作区内修改\n请选择模型\n夹具 C · client v0.0.1\n夹具 A · 更新演示\nclient v0.0.1\nhost v0.0.1\n批量席位 fxa · 自键 a · 目标 a/b/c\n宿主行为 无（v1）\n检查更新\n更新档案 · 总账\n检查更新\n全部更新\n已全部为最新，无需操作。\n夹具 A 本体\n0.0.1\n已是最新，无需操作。\n详情\n夹具 B\n0.0.2\n已是最新，无需操作。\n详情\n夹具 C\n0.0.1\n已是最新，无需操作。\n详情\n3 个已是最新\n[x] 打开面板时自动检查更新\n夹具 B · 更新演示\nclient v0.0.1\nhost v0.0.1\n单席位集成方（无批量席位行）\n宿主行为 无（v1）\ndsh-plugin-update-fixture-b\n使用范围 desktopprofile\n已是最新，无需更新。\n运行版\n0.0.2\n已安装\n0.0.2\n最新版\n未知\n01\n检查与安装\n检查更新\n安装更新\n复制诊断\n02\n更新日志\n尚未查询到新版本；查询到后将显示更新日志。\n03\n更新队列\n当前无排队任务；同一使用范围同时仅安装一项。\n04\n错误信息\n暂无失败：此时复制诊断提供的是当前状态快照。\n请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 dsh-plugin-update-fixture-b 筛选 host.call、host.call.fail、update.install.exec 事件。\n日志：落点=self（本包自建落点）；目录指纹=5558f489；按需信息开关=关；启动以来丢弃 0 行；最近事件=11/3 11:48；事件契约=正常\n05\n手工命令\n当前没有可用的手工命令。\ndsh-plugin-update@0.18.39 (profile)"
+}

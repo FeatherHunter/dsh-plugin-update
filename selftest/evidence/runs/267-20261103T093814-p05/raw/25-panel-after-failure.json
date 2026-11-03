@@ -1,0 +1,31 @@
+{
+  "panelReachable": false,
+  "panelDetached": true,
+  "panelReadError": null,
+  "panelState": {
+    "present": false,
+    "seal": null,
+    "mode": null,
+    "versions": [],
+    "check": null,
+    "install": null,
+    "updater": null,
+    "banner": null,
+    "error": null,
+    "manual": null,
+    "progressText": null,
+    "logText": null,
+    "card": null,
+    "pageText": "新会话\nCtrl\n+\nN\n插件\n自动化任务\n更多\n工作区\n默认工作区\n新会话\n更多\n探索未至之境\n预览版\n默认工作区\n标准模式\n描述你想要构建的内容, / 调用指令, @ 文件或对话\n工作区内修改\n请选择模型"
+  },
+  "pageTextExcerpt": "新会话\nCtrl\n+\nN\n插件\n自动化任务\n更多\n工作区\n默认工作区\n新会话\n更多\n探索未至之境\n预览版\n默认工作区\n标准模式\n描述你想要构建的内容, / 调用指令, @ 文件或对话\n工作区内修改\n请选择模型",
+  "ledgerFile": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p05\\home\\updates\\fxa-a\\3d0990a91852c4a534dbb855\\state.json",
+  "ledgerState": {
+    "id": "86e908df-aab5-49d3-b0bd-57f04178b3c7",
+    "state": "failed",
+    "targetVersion": "0.0.2",
+    "message": "install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [ERR_P；目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装 (dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:57230)",
+    "requestId": "rmw01k2fm53piz",
+    "previousVersion": "0.0.1"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "scenario": "d1-desktop-manager-update-success",
+  "baseline": [
+    {
+      "slotKey": "a",
+      "spec": "dsh-plugin-update-fixture-a@0.0.1"
+    }
+  ]
+}

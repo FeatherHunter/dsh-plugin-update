@@ -1,0 +1,9 @@
+{
+  "看什么": "registry 不可达时真 UI 点安装：失败横幅（人话格）+ 错误码 + 手工备用区（若有）",
+  "步骤": "l2-20-failure-panel",
+  "expected": "横幅 kind=failed、标题含「更新失败」、errCode 非空且指向真实失败类别；不得呈现「已是最新」/更新成功",
+  "actual": "{\"banner\":{\"kind\":\"failed\",\"title\":\"更新失败（check-failed）：版本信息查询失败（网络 / 数据源 / 限流）。\",\"sub\":\"稍后重新查询；若持续，请提交诊断信息至插件作者\"},\"bannerKind\":\"failed\",\"errCode\":\"check-failed\",\"manual\":{\"present\":true,\"heading\":\"手工备用命令（请复制整行执行）：\",\"code\":\"dsh plugin --profile t13b add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=https://127.0.0.1:62521\",\"neutral\":\"\"},\"lastResort\":null}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\22-shot.png"
+}

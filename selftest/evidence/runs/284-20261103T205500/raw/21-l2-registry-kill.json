@@ -1,0 +1,19 @@
+{
+  "port": 56221,
+  "baseUrl": "http://127.0.0.1:56221",
+  "killedAt": "2026-11-03T11:29:24.546Z",
+  "pingBefore": {
+    "ok": true,
+    "status": 200,
+    "error": null,
+    "bodyText": "{}\n"
+  },
+  "pingAfter": {
+    "ok": false,
+    "status": null,
+    "error": "fetch failed",
+    "bodyText": ""
+  },
+  "stdoutTail": "warn --- http address - http://127.0.0.1:56221/ - verdaccio/6.11.1\n",
+  "stderrTail": ""
+}

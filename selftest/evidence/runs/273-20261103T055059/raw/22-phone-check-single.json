@@ -1,0 +1,27 @@
+{
+  "status": 200,
+  "durationMs": 25,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.1",
+        "installed": true,
+        "installedVersion": "0.0.1",
+        "latestVersion": "0.0.2",
+        "canInstall": true,
+        "blockedReason": null,
+        "job": null,
+        "identity": "update",
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t9j1 add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:55869",
+      "receipt": {
+        "checkId": "54af41eb-600b-4306-baa2-95f90cdf01bf",
+        "checkedAt": 1793656274048,
+        "expiresAt": 1793656874048
+      }
+    }
+  }
+}

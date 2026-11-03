@@ -1,0 +1,9 @@
+{
+  "execs": [
+    "{\"event\":\"update.install.exec\",\"level\":\"info\",\"fields\":{\"route\":\"cli-process\",\"ok\":true,\"exitCode\":0,\"durationMs\":1049,\"pluginId\":\"fxa-a\",\"traceId\":\"dd9a0eb1acd00c10\",\"spanId\":\"7c2e9523\",\"seq\":4},\"source\":\"fxa-a/2026-11-03.log\",\"line\":22}"
+  ],
+  "fails": [],
+  "requests": [
+    "{\"event\":\"update.install.request\",\"level\":\"info\",\"fields\":{\"from\":\"entry\",\"current\":\"0.0.1\",\"latest\":\"0.0.2\",\"checkAgeMs\":494,\"intentHash\":\"cc575cc5\",\"traceId\":\"dd9a0eb1acd00c10\",\"spanId\":\"7c2e9523\",\"seq\":1},\"source\":\"fxa-a/2026-11-03.log\",\"line\":11}"
+  ]
+}

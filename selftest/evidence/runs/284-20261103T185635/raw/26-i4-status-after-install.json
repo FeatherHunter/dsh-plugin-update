@@ -1,0 +1,21 @@
+{
+  "replyStatus": 200,
+  "snapshot": {
+    "runningVersion": "0.0.1",
+    "installed": true,
+    "installedVersion": "0.0.2",
+    "latestVersion": "0.0.2",
+    "canInstall": false,
+    "blockedReason": "pending-restart",
+    "job": {
+      "id": "71e0df2b-0713-426f-a517-b40553d8714e",
+      "state": "restart-required",
+      "targetVersion": "0.0.2",
+      "message": null,
+      "requestId": "rmw0kp3xm3j8z8",
+      "previousVersion": "0.0.1"
+    },
+    "identity": "up-to-date",
+    "registered": true
+  }
+}

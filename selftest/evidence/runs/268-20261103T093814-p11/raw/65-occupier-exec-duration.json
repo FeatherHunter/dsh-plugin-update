@@ -1,0 +1,23 @@
+{
+  "bExecCount": 1,
+  "bExec": [
+    {
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "desktop-manager",
+        "ok": false,
+        "exitCode": null,
+        "durationMs": 120598,
+        "pluginId": "fxb-c",
+        "traceId": "a00e4b5542bd99d9",
+        "spanId": "1e786de9",
+        "seq": 4
+      },
+      "source": "fxb-c/2026-11-03.log",
+      "line": 77
+    }
+  ],
+  "bExecDurationMs": 120598,
+  "slowInstallTimeoutMs": 120000
+}

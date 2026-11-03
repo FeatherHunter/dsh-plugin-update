@@ -1,0 +1,19 @@
+{
+  "hostA": {
+    "url": "http://127.0.0.1:61734/?token=SYB-Gn4UC_t1YE9RUoNzCXEt3l2rurJd4Zz2gDjm030",
+    "port": 61734,
+    "pid": 86340,
+    "bootMs": 2641
+  },
+  "hostB": {
+    "url": "http://127.0.0.1:64067/?token=VCWyxWedLkkccJdxj-RVB-tscY6ESFVESF-uhwxO_I0",
+    "port": 64067,
+    "pid": 38684,
+    "bootMs": 2738
+  },
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-p18\\os-home\\.dsh",
+  "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-p18\\os-home\\.dsh\\profiles\\t6lock",
+  "queueDirectory": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-p18\\os-home\\.dsh\\update-queue\\af0cadb566f5da1d7ffa87b9",
+  "globalLockFile": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-p18\\os-home\\.dsh\\update-queue\\af0cadb566f5da1d7ffa87b9\\global.lock",
+  "queueFile": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-p18\\os-home\\.dsh\\update-queue\\af0cadb566f5da1d7ffa87b9\\queue.json"
+}

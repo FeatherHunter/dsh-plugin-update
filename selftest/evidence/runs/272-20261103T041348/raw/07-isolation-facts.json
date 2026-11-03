@@ -1,0 +1,11 @@
+{
+  "hostChannel": "desktop-official",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T041348\\home",
+  "userDataDir": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T041348\\user-data-dir",
+  "profileName": "desktop",
+  "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t8-272\\272-20261103T041348\\home\\profiles\\desktop",
+  "packageName": "dsh-plugin-update-fixture-a",
+  "registryUrl": "http://127.0.0.1:63133",
+  "mode": "lock-remove-timeout",
+  "installTimeoutMs": 4000
+}

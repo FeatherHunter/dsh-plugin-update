@@ -1,0 +1,10 @@
+{
+  "phase": "apply",
+  "kind": "desktop",
+  "profileName": "t3eq",
+  "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185513\\os-home\\.dsh\\profiles\\t3eq",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185513\\os-home\\.dsh",
+  "runningVersion": "0.0.1",
+  "entry": "createMultiHostUpdate deps.readerOverrides（README.md:527/:564/:600 的集成方入口）",
+  "note": "readerOverrides.environmentKind=desktop（README deps.readerOverrides 集成方入口）；宿主服务对象由夹具提供，安装仍走官方发行包 CLI"
+}

@@ -1,0 +1,158 @@
+{
+  "eventCounts": {
+    "host.start": 8,
+    "update.wire.ready": 8,
+    "update.status.changed": 23,
+    "update.check.done": 25,
+    "host.call": 52,
+    "update.batch.entry.request": 1,
+    "update.batch.run.start": 2,
+    "update.queue.transition": 19,
+    "update.install.fail": 31,
+    "host.call.fail": 31,
+    "update.install.request": 4,
+    "update.install.retry": 3,
+    "update.install.verify": 3,
+    "update.lock.anomaly": 3,
+    "update.install.exec": 2
+  },
+  "hostStartRows": [
+    {
+      "ts": 1793716841563,
+      "pid": 21528,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716841567,
+      "pid": 21528,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716841567,
+      "pid": 21528,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716841567,
+      "pid": 21528,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716841567,
+      "pid": 21528,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716846738,
+      "pid": 21500,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716846739,
+      "pid": 21500,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716846739,
+      "pid": 21500,
+      "hostKind": null
+    }
+  ],
+  "host2StartTs": 1793716846738,
+  "batchRunStart": [
+    {
+      "ts": 1793716842023,
+      "trigger": "entry",
+      "resumed": false,
+      "total": 3,
+      "sessionHash": "44cc80da"
+    },
+    {
+      "ts": 1793716846991,
+      "trigger": "resume",
+      "resumed": true,
+      "total": 3,
+      "sessionHash": "44cc80da"
+    }
+  ],
+  "gateRefusedCount": 31,
+  "gateRefusedFirst": {
+    "ts": 1793716842072,
+    "fields": {
+      "stage": "gate",
+      "reason": "gate-refused",
+      "code": "check-expired",
+      "hostCodeHash": "none",
+      "check": "none",
+      "exitCode": null,
+      "observedVersion": null,
+      "intentHash": "beecd6e7",
+      "traceId": "74a739b8f80106f2",
+      "spanId": "47c2d199",
+      "seq": 1
+    }
+  },
+  "execFailures": [],
+  "execA": [],
+  "execB": [
+    {
+      "ts": 1793716878814,
+      "pluginId": "fxa-b",
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 1102
+    }
+  ],
+  "execC": [
+    {
+      "ts": 1793716880391,
+      "pluginId": "fxa-c",
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 1054
+    }
+  ],
+  "execFxbB": [],
+  "execFxbC": [],
+  "installRequestsA": [
+    {
+      "ts": 1793716842393,
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "batch",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 8,
+        "intentHash": "beecd6e7",
+        "traceId": "ee9694593589d746",
+        "spanId": "cc607b38",
+        "seq": 1
+      },
+      "source": "fxa-a/2026-11-03.log",
+      "line": 21
+    }
+  ],
+  "hostCallOkA": [
+    {
+      "ts": 1793716842424,
+      "event": "host.call",
+      "level": "info",
+      "fields": {
+        "method": "fxa-a.updateInstall",
+        "latencyMs": 35,
+        "ok": true,
+        "kind": "update-install",
+        "pluginId": "fxa-a",
+        "traceId": "ee9694593589d746",
+        "spanId": "cc607b38",
+        "seq": 3
+      },
+      "source": "fxa-a/2026-11-03.log",
+      "line": 23
+    }
+  ],
+  "parseNote": "raw 行保留 ts；readLogEvents 丢 ts，但 raw 拷回原文可解析。"
+}

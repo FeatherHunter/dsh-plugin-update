@@ -1,0 +1,10 @@
+{
+  "shot": "b2-settings-with-update-entry.png",
+  "channel": "B",
+  "whatToLook": "设置页里集成方更新入口 [data-dsh-prompt-update-entry] 是否存在",
+  "expected": "入口可见，文本为「已是最新 0.4.40」",
+  "actual": "入口存在；初次 rect 在视口外（y=-193），scrollIntoView 后可见",
+  "judgement": "符合预期",
+  "note": "复用要点：必须先 scrollIntoView 再点击",
+  "run": "264-20261101T194628"
+}

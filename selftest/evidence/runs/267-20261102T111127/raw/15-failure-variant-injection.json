@@ -1,0 +1,11 @@
+{
+  "why": "失败格必须让 pnpm 真的去 registry 下载 tarball；共享 store 里已缓存历史 run 同 integrity 的 0.0.2，所以本 run 用带注入标记的内容构建（integrity 不同）",
+  "effect": {
+    "ui": "single",
+    "titleSuffix": "（新版）",
+    "hubDock": false,
+    "hostBehavior": "e2-failure-injection:20261102T111127",
+    "seatLine": "e2 失败格注入 20261102T111127"
+  },
+  "spec": "dsh-plugin-update-fixture-a@0.0.2"
+}

@@ -1,0 +1,22 @@
+{
+  "key": "e-batch-resume-retry",
+  "kind": "pass",
+  "scenarioId": "e-batch-resume-retry",
+  "ticket": "269",
+  "hostChannel": "desktop-official",
+  "tool": "run-e-batch",
+  "mode": "resume-retry",
+  "fault": null,
+  "stamp": "20261103T093814-p17",
+  "runId": "269-20261103T093814-p17",
+  "command": "node D:\\dsh-plugin\\_wt263\\t11\\selftest\\real-machine\\tools\\run-e-batch.ts --worktree D:/dsh-plugin/_wt263/t11 --run-base-dir D:/dsh-plugin/_wt263/runtime/t11-275 --verdaccio-install-dir D:/dsh-plugin/_wt263/runtime/tools/verdaccio --esbuild D:\\dsh-plugin\\_wt263\\t11\\node_modules\\@esbuild\\win32-x64\\esbuild.exe --stamp 20261103T093814-p17 --maintainer-home C:/Users/辰辰洋洋/.dsh --mode resume-retry",
+  "cwd": "D:/dsh-plugin/_wt263/t11",
+  "env": {
+    "pnpm_config_cache_dir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\_pkgcache\\269-20261103T093814-p17",
+    "npm_config_cache": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\_pkgcache\\269-20261103T093814-p17",
+    "npm_config_store_dir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\_pkgcache\\269-20261103T093814-p17",
+    "DSH_VERIFY_PLAYWRIGHT": "D:/dsh-plugin/dsh-mattpocock-skills-deck/node_modules/playwright"
+  },
+  "timeoutMs": 1800000,
+  "evidenceSync": true
+}

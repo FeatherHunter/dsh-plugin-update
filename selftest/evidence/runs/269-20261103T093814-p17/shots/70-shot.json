@@ -1,0 +1,9 @@
+{
+  "看什么": "重试成功并重启：三包都是新版，A 面板三行 current",
+  "步骤": "重启后 UI 一致（重试成功）",
+  "expected": "三卡片 v0.0.2；三行 current 0.0.2",
+  "actual": "{\"cardA\":\"client v0.0.2\",\"cardB\":\"client v0.0.2\",\"seatC\":\"client v0.0.2\"}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\70-shot.png"
+}

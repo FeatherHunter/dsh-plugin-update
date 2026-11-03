@@ -1,0 +1,9 @@
+{
+  "看什么": "被杀后重启：面板如实反映中断（不得谎称「已是最新」/完成），磁盘仍基版、台账非成功；残留锁考虑见 raw",
+  "步骤": "l5a-20-restart-after-kill",
+  "expected": "横幅 kind≠done 且文案不含已最新/更新成功；磁盘 A=0.0.1；台账非成功",
+  "actual": "{\"banner\":{\"kind\":\"failed\",\"title\":\"更新失败（recovery-required）：上次安装异常中断，存在未完成任务。\",\"sub\":\"重新执行安装；若持续，请按第 6 节排错\"},\"errCode\":\"recovery-required\",\"lastResort\":null,\"manual\":{\"present\":true,\"heading\":\"手工备用命令（请复制整行执行）：\",\"code\":\"dsh plugin --profile t13b add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=https://127.0.0.1:54352\",\"neutral\":\"\"},\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.1\"},\"ledgerState\":\"interrupted\",\"queueFiles\":[\"1a089baafd2442ab17f9ac25/global.lock\",\"1a089baafd2442ab17f9ac25/queue.json\"],\"lockTail\":\"1a089baafd2442ab17f9ac25/global.lock\\n{\\\"id\\\":\\\"32124fb0-91ab-4841-ab8d-a3be9c77e41f\\\",\\\"pluginId\\\":\\\"fxa-a\\\",\\\"pid\\\":57744,\\\"startedAt\\\":1793704923027}\"}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\24-shot.png"
+}

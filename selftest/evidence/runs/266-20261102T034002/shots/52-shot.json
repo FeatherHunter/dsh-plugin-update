@@ -1,0 +1,9 @@
+{
+  "看什么": "A（右下）与 B（左上）卡片标题带批量新版后缀、各有一个更新进度中枢坞；C（左下）只显示新内容徽标，没有任何更新面板/入口",
+  "步骤": "重启后整窗：两席新版 UI + 中枢坞，C 仍无更新 UI",
+  "expected": "A/B 新版标题+dock；C 新版徽标、无 .dsh-upd；batchPanels=2",
+  "actual": "A title=夹具 A · 更新演示（批量新版）；B title=夹具 B · 更新演示（批量新版）；C badge=夹具 C · client v0.0.2（新版）；batchPanels=2；docks=2",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\52-shot.png"
+}

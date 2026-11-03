@@ -1,0 +1,9 @@
+{
+  "看什么": "点「检查更新」后：可更新横幅 + 安装动作 + 版本条 + 入口",
+  "步骤": "k1-20-update",
+  "expected": "横幅「有新版本 0.0.2 可安装（当前版本 0.0.1）。」、有 install 动作、入口 update 档",
+  "actual": "{\"kind\":\"update\",\"title\":\"有新版本 0.0.2 可安装（当前版本 0.0.1）。\",\"sub\":\"选择安装将按精确版本安装；同一使用范围同时仅安装一项。\"}；strip=[\"0.0.1\",\"0.0.1\",\"0.0.2\"]；actions=[\"check\",\"install\",\"skip\",\"copy-manual\",\"copy-diag\",\"toggle-changelog\"]；入口={\"state\":\"update\",\"ariaLabel\":\"有新版本 0.0.2\"}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\22-shot.png"
+}

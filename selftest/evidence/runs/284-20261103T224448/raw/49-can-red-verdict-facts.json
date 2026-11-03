@@ -1,0 +1,25 @@
+{
+  "phases": {
+    "a": "done",
+    "b": "installing",
+    "c": "ready"
+  },
+  "allTerminal": false,
+  "host2StartTs": 1793717107078,
+  "execAfterHost2": [],
+  "runStartRows": [
+    {
+      "ts": 1793717102928,
+      "trigger": "entry",
+      "resumed": false,
+      "total": 3,
+      "sessionHash": "e163b01d"
+    }
+  ],
+  "elapsedMs": 45148,
+  "gateRefusedCount": 2,
+  "planANamesAfter": [
+    "fxb.json"
+  ],
+  "note": "本 run 预期红：删 plan 后中枢无方案可接管，B/C 不应自动续跑。"
+}

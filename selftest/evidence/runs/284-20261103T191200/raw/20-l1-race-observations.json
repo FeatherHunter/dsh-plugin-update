@@ -1,0 +1,358 @@
+{
+  "raceStartAt": "2026-11-03T10:49:17.985Z",
+  "clickResult": {
+    "a": true,
+    "b": true
+  },
+  "timelineTail": [
+    {
+      "at": "2026-11-03T10:49:17.989Z",
+      "a": {
+        "kind": "update",
+        "title": "有新版本 0.0.2 可安装（当前版本 0.0.1）。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "skip",
+          "copy-manual",
+          "copy-diag"
+        ]
+      },
+      "b": {
+        "kind": "update",
+        "title": "有新版本 0.0.2 可安装（当前版本 0.0.1）。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "skip",
+          "copy-manual",
+          "copy-diag"
+        ]
+      },
+      "disk": {
+        "dsh-plugin-update-fixture-a": "0.0.1",
+        "dsh-plugin-update-fixture-b": "0.0.1"
+      }
+    },
+    {
+      "at": "2026-11-03T10:49:18.345Z",
+      "a": {
+        "kind": "update",
+        "title": "有新版本 0.0.2 可安装（当前版本 0.0.1）。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "skip",
+          "copy-manual",
+          "copy-diag"
+        ]
+      },
+      "b": {
+        "kind": "update",
+        "title": "有新版本 0.0.2 可安装（当前版本 0.0.1）。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "skip",
+          "copy-manual",
+          "copy-diag",
+          "toggle-queue"
+        ]
+      },
+      "disk": {
+        "dsh-plugin-update-fixture-a": "0.0.1",
+        "dsh-plugin-update-fixture-b": "0.0.1"
+      }
+    },
+    {
+      "at": "2026-11-03T10:49:18.699Z",
+      "a": {
+        "kind": "busy",
+        "title": "正在安装 0.0.2…关闭面板不会中断。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "copy-diag",
+          "toggle-queue"
+        ]
+      },
+      "b": {
+        "kind": "update",
+        "title": "有新版本 0.0.2 可安装（当前版本 0.0.1）。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "skip",
+          "copy-manual",
+          "copy-diag",
+          "toggle-queue"
+        ]
+      },
+      "disk": {
+        "dsh-plugin-update-fixture-a": "0.0.1",
+        "dsh-plugin-update-fixture-b": "0.0.1"
+      }
+    },
+    {
+      "at": "2026-11-03T10:49:19.053Z",
+      "a": {
+        "kind": "busy",
+        "title": "正在安装 0.0.2…关闭面板不会中断。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "copy-diag",
+          "toggle-queue"
+        ]
+      },
+      "b": {
+        "kind": "update",
+        "title": "有新版本 0.0.2 可安装（当前版本 0.0.1）。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "skip",
+          "copy-manual",
+          "copy-diag",
+          "toggle-queue"
+        ]
+      },
+      "disk": {
+        "dsh-plugin-update-fixture-a": "0.0.1",
+        "dsh-plugin-update-fixture-b": "0.0.1"
+      }
+    },
+    {
+      "at": "2026-11-03T10:49:19.407Z",
+      "a": {
+        "kind": "busy",
+        "title": "正在安装 0.0.2…关闭面板不会中断。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "copy-diag",
+          "toggle-queue"
+        ]
+      },
+      "b": {
+        "kind": "update",
+        "title": "有新版本 0.0.2 可安装（当前版本 0.0.1）。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "skip",
+          "copy-manual",
+          "copy-diag",
+          "toggle-queue"
+        ]
+      },
+      "disk": {
+        "dsh-plugin-update-fixture-a": "0.0.1",
+        "dsh-plugin-update-fixture-b": "0.0.1"
+      }
+    },
+    {
+      "at": "2026-11-03T10:49:19.759Z",
+      "a": {
+        "kind": "busy",
+        "title": "正在安装 0.0.2…关闭面板不会中断。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "copy-diag",
+          "toggle-queue"
+        ]
+      },
+      "b": {
+        "kind": "update",
+        "title": "有新版本 0.0.2 可安装（当前版本 0.0.1）。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "skip",
+          "copy-manual",
+          "copy-diag",
+          "toggle-queue"
+        ]
+      },
+      "disk": {
+        "dsh-plugin-update-fixture-a": "0.0.1",
+        "dsh-plugin-update-fixture-b": "0.0.1"
+      }
+    },
+    {
+      "at": "2026-11-03T10:49:20.115Z",
+      "a": {
+        "kind": "busy",
+        "title": "正在安装 0.0.2…关闭面板不会中断。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "copy-diag",
+          "toggle-queue"
+        ]
+      },
+      "b": {
+        "kind": "update",
+        "title": "有新版本 0.0.2 可安装（当前版本 0.0.1）。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "skip",
+          "copy-manual",
+          "copy-diag",
+          "toggle-queue"
+        ]
+      },
+      "disk": {
+        "dsh-plugin-update-fixture-a": "0.0.1",
+        "dsh-plugin-update-fixture-b": "0.0.1"
+      }
+    },
+    {
+      "at": "2026-11-03T10:49:20.469Z",
+      "a": {
+        "kind": "idle",
+        "title": "版本信息未知，请检查更新。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "copy-manual",
+          "copy-diag"
+        ]
+      },
+      "b": {
+        "kind": "update",
+        "title": "有新版本 0.0.2 可安装（当前版本 0.0.1）。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "skip",
+          "copy-manual",
+          "copy-diag",
+          "toggle-queue"
+        ]
+      },
+      "disk": {
+        "dsh-plugin-update-fixture-a": "0.0.2",
+        "dsh-plugin-update-fixture-b": "0.0.1"
+      }
+    },
+    {
+      "at": "2026-11-03T10:49:22.972Z",
+      "a": {
+        "kind": "idle",
+        "title": "版本信息未知，请检查更新。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "copy-manual",
+          "copy-diag"
+        ]
+      },
+      "b": {
+        "kind": "idle",
+        "title": "有新版本 0.0.2，但当前无法安装；请重新检查更新后重试。",
+        "errCode": null,
+        "actions": [
+          "check",
+          "install",
+          "copy-manual",
+          "copy-diag",
+          "toggle-queue"
+        ]
+      },
+      "disk": {
+        "dsh-plugin-update-fixture-a": "0.0.2",
+        "dsh-plugin-update-fixture-b": "0.0.1"
+      }
+    }
+  ],
+  "raceStepMs": 350,
+  "raceExecs": {
+    "a": 1,
+    "b": 0
+  },
+  "raceFails": {
+    "a": 0,
+    "b": 1
+  },
+  "queueEvents": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.queue.transition",
+      "level": "info",
+      "fields": {
+        "phase": "queued",
+        "position": 1,
+        "traceId": "bf20129d4fedf99d",
+        "spanId": "0d55f958",
+        "seq": 0
+      }
+    },
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.queue.transition",
+      "level": "info",
+      "fields": {
+        "phase": "running",
+        "waitedMs": 22,
+        "holderHash": "0f7833d2",
+        "traceId": "bf20129d4fedf99d",
+        "spanId": "0d55f958",
+        "seq": 2
+      }
+    },
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.queue.transition",
+      "level": "info",
+      "fields": {
+        "phase": "done",
+        "holderHash": "0f7833d2",
+        "traceId": "bf20129d4fedf99d",
+        "spanId": "0d55f958",
+        "seq": 5
+      }
+    },
+    {
+      "source": "fxb-b/2026-11-03.log",
+      "event": "update.queue.transition",
+      "level": "info",
+      "fields": {
+        "phase": "queued",
+        "position": 2,
+        "traceId": "30aee4c1c62835a5",
+        "spanId": "1e464777",
+        "seq": 0
+      }
+    }
+  ],
+  "lockAnomalies": [],
+  "raceDisk": {
+    "dsh-plugin-update-fixture-a": "0.0.2",
+    "dsh-plugin-update-fixture-b": "0.0.1"
+  },
+  "raceWinner": "dsh-plugin-update-fixture-a",
+  "raceLooserKind": "idle",
+  "raceLoserHonest": true,
+  "raceSerialized": true,
+  "note": "同一 evaluate tick 点安装后 45s 内面板/磁盘时间线；日志计数为并发窗口结束后的宿主侧事实（dsh-log 有防抖，可能略滞后）"
+}

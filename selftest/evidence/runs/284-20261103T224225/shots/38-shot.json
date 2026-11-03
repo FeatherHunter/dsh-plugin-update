@@ -1,0 +1,9 @@
+{
+  "看什么": "部分失败隔离：A 行失败但 A 仍活着，B/C 行完成；失败横幅只说 1 个失败，不谎称全批成功",
+  "步骤": "m3-30-partial-failure",
+  "expected": "A 行 failed 且有 row-install；B/C 行 done/current 且 cur=0.0.2；summary 含「1 个插件安装失败」不含「已全部为最新」；ledger 含「1 个失败」不含「安装中」",
+  "actual": "{\"rows\":[{\"key\":\"a\",\"phase\":\"failed\",\"cur\":\"0.0.1\",\"next\":\"0.0.2\",\"status\":\"最后手段安装失败，请选择「重试」。\",\"fail\":\"失败 install-failed：安装执行失败，详情见诊断摘要\",\"actions\":[\"toggle-details\",\"row-install\",\"toggle-details\"]},{\"key\":\"b\",\"phase\":\"done\",\"cur\":\"0.0.2\",\"next\":null,\"status\":\"已安装完成，无需操作。\",\"fail\":null,\"actions\":[\"toggle-details\",\"toggle-details\"]},{\"key\":\"c\",\"phase\":\"done\",\"cur\":\"0.0.2\",\"next\":null,\"status\":\"已安装完成，无需操作。\",\"fail\":null,\"actions\":[\"toggle-details\",\"toggle-details\"]}],\"summary\":\"1 个插件安装失败；请按下方失败提示逐项重试。\",\"ledger\":\"1 个失败 · 2 个已是最新\",\"disk\":{\"a\":\"0.0.1\",\"b\":\"0.0.2\",\"c\":\"0.0.2\",\"dependencies\":{\"a\":\"0.0.1\",\"b\":\"0.0.2\",\"c\":\"0.0.2\"}}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\38-shot.png"
+}

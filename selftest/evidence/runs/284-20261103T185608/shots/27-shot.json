@@ -1,0 +1,9 @@
+{
+  "看什么": "管理器超时失败后的面板（此刻后台其实还在装）",
+  "步骤": "g8-timeout-panel",
+  "expected": "banner.kind=failed；卡片不出现「已是最新 / 更新成功」",
+  "actual": "banner={\"kind\":\"failed\",\"title\":\"更新失败（install-failed）：安装执行失败，详情见诊断摘要。\",\"sub\":\"请查阅诊断摘要；官方桌面版请提交该诊断信息至插件作者\",\"action\":\"\"}；text=夹具 A · 更新演示（新版）client v0.0.2host v0.0.1单席位集成方（无批量席位行）宿主行为 无（v1）.dsh-upd-entry{display:inline-flex;align-items:center;gap:8px;font:13px/1.6 var(--dsh-update-font-sans,system-ui,\"Microsoft YaHei\",sans-serif);font-size:var(--dsh-update-entry-font-size,13px);color:var(--dsh-update-text,#1f2937)}\n.dsh-upd-entry-btn{font:inherit;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:var(--dsh-update-entry-border-radius,6px);\nbackground:var(--dsh-update-button-bg,#f9fafb);color:inherit;padding:var(--dsh-update-entry-padding,4px 12px);zoom:var(--dsh-update-entry-scale,1);cursor:pointer}\n.dsh-upd-entry-btn:hover{border-color:var(--dsh-update-primary,#2563eb)}\n.dsh-upd-entry-btn,.dsh-upd-entry-dot{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}\n.dsh-upd-entry-btn:active:not(:disabled){transform:translateY(1px)}\n.dsh-upd-entry-btn:disabled,",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\27-shot.png"
+}

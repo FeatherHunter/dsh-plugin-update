@@ -1,0 +1,65 @@
+{
+  "status": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.2",
+        "installed": true,
+        "installedVersion": "0.0.2",
+        "latestVersion": null,
+        "canInstall": false,
+        "blockedReason": null,
+        "job": {
+          "requestId": "i2-install-1793650197346",
+          "message": null,
+          "id": "82c4e8e0-688a-405b-a5c0-b48945a9ba4d",
+          "state": "completed",
+          "targetVersion": "0.0.2",
+          "previousVersion": "0.0.1"
+        },
+        "identity": null,
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t8i2 add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:52830",
+      "receipt": null,
+      "logContract": {
+        "state": "ok",
+        "file": "event-list.update.json",
+        "events": 29,
+        "unvalidated": 0
+      },
+      "logHealth": {
+        "sink": "self",
+        "dirHash": "b7ecda32",
+        "switchEnabled": false,
+        "droppedSinceStart": 0,
+        "lastEventAt": 1793650210960,
+        "contract": "ok",
+        "external": null,
+        "reason": null
+      }
+    }
+  },
+  "buildTagStatus": 200,
+  "buildTagBody": {
+    "ok": true,
+    "reply": {
+      "buildTag": "host v0.0.2",
+      "role": "integrator",
+      "packageName": "dsh-plugin-update-fixture-a",
+      "behavior": null,
+      "targetKeys": "a/b/c"
+    }
+  },
+  "buildTag": "host v0.0.2",
+  "diskVersion": "0.0.2",
+  "dependencies": {
+    "dsh-plugin-update-fixture-a": "0.0.2"
+  },
+  "bundles": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-web-app",
+    "dsh-plugin-update-fixture-a"
+  ]
+}

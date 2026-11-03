@@ -1,0 +1,18 @@
+{
+  "fault": {
+    "kind": "skip-variant",
+    "slotKey": "c"
+  },
+  "expected": "C 拿不到 0.0.2：46/48（重启后行态与版本条）、49（C 徽标新版）、58（日志 installC）应红；其余断言仍 pass",
+  "injected": [
+    {
+      "slotKey": "c",
+      "kind": "skip-variant",
+      "spec": "c@0.0.2"
+    }
+  ],
+  "publishedSpecs": [
+    "dsh-plugin-update-fixture-a@0.0.2",
+    "dsh-plugin-update-fixture-b@0.0.2"
+  ]
+}

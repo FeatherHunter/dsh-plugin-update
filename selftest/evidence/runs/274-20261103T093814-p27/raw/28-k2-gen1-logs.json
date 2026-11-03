@@ -1,0 +1,56 @@
+{
+  "execs": [
+    {
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "cli-process",
+        "ok": false,
+        "exitCode": 1,
+        "durationMs": 71875,
+        "pluginId": "fxa-a",
+        "traceId": "bc6d964330ad969d",
+        "spanId": "8271fde4",
+        "seq": 4
+      },
+      "source": "fxa-a/2026-11-03.log",
+      "line": 20
+    }
+  ],
+  "fails": [
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "exec",
+        "reason": "nonzero-exit",
+        "code": "install-failed",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": 1,
+        "observedVersion": null,
+        "intentHash": "3ca2813b",
+        "traceId": "bc6d964330ad969d",
+        "spanId": "8271fde4",
+        "seq": 6
+      },
+      "source": "fxa-a/2026-11-03.log",
+      "line": 22
+    }
+  ],
+  "ledger": {
+    "file": "fxa-a/435f062b3a30eb4033489138/state.json",
+    "state": {
+      "id": "7b406761-3847-447a-b8cf-73272cec8bec",
+      "state": "failed",
+      "targetVersion": "0.0.2",
+      "message": "install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [WARN] GET https://127.0.0.1:57142/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz error (ERR_PNPM_TARBALL_INTEGRITY). Will retry in 10…",
+      "requestId": "rmw011dwx3vtzd",
+      "previousVersion": "0.0.1"
+    },
+    "mtimeMs": 1793670461071.7378
+  },
+  "disk": {
+    "dsh-plugin-update-fixture-a": "0.0.1"
+  }
+}

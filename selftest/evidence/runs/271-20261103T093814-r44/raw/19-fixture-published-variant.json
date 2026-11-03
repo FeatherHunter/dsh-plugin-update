@@ -1,0 +1,10 @@
+{
+  "baselineVersion": "0.0.1",
+  "variantVersion": "0.0.2",
+  "spec": "dsh-plugin-update-fixture-a@0.0.2",
+  "published": {
+    "a": "0.0.2",
+    "b": "0.0.2",
+    "c": "0.0.2"
+  }
+}

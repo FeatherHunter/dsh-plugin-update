@@ -1,0 +1,9 @@
+{
+  "看什么": "官方桌面：C 徽标显示 client v0.0.2（新版），卡片无任何更新面板/入口；A 仍是 0.0.1 的旧集成方（无坞）；整页只有 A 一份批量面板",
+  "步骤": "重启后整窗：C 新版内容、无更新 UI；A 仍旧版",
+  "expected": "C badge=client v0.0.2（新版） 且 C .dsh-upd=0；A 旧版；batchPanels=1",
+  "actual": "C badge=夹具 C · client v0.0.1；C dshUpd=0；A client=client v0.0.1；batchPanels=1",
+  "判定": "fail",
+  "备注": null,
+  "截图": "shots\\37-shot.png"
+}

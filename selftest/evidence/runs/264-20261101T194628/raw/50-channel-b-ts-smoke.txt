@@ -1,0 +1,12 @@
+[ok] env-probe (227ms)
+[ok] seed-web-profile (205ms)
+[ok] install-integrator (6758ms)
+[ok] start-server (6141ms)
+[ok] launch-browser (434ms)
+[ok] attach-and-prepare-page (3244ms)
+[ok] open-prompt-panel (483ms)
+[ok] open-update-panel (2417ms)
+[ok] click-panel-entry (3255ms)
+[ok] page-error-collector (0ms)
+[cleanup] {"at":"2026-11-01T12:47:01.933Z","server":{"pid":52800,"port":59079,"exited":true,"portFree":true,"killedPortOwner":null},"browser":{"pid":50332,"exited":true,"cdpPort":62935,"cdpPortFree":true},"tempKept":false}
+RESULT: OK 证据目录=D:\dsh-plugin\_wt263\runtime\t0-264-tscheck2\run

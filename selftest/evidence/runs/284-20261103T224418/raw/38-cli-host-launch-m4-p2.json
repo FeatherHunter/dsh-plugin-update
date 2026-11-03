@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:60690/?token=8W-slXu6E-deKJbfe2CoeVEtwl94C8doIhtcufk8l14",
+  "port": 60690,
+  "pid": 20304,
+  "bootMs": 1911,
+  "profileName": "t14p2",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh",
+  "stdoutTail": "dsh web: http://127.0.0.1:60690/?token=8W-slXu6E-deKJbfe2CoeVEtwl94C8doIhtcufk8l14\n",
+  "stderrTail": ""
+}

@@ -1,0 +1,9 @@
+{
+  "看什么": "真重启后的官方桌面面板（0.0.2 仍生效）",
+  "步骤": "panel-after-restart",
+  "expected": "卡片 client/host = 0.0.2",
+  "actual": "visible",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\50-shot.png"
+}

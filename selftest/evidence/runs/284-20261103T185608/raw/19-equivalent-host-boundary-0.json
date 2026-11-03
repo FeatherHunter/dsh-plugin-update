@@ -1,0 +1,13 @@
+{
+  "kind": "desktop-manager",
+  "why": "本机没有第三方 Desktop / 官方桌面；用产品文档化入口 createMultiHostUpdate(deps.readerOverrides) 注入等效宿主能力，产品走真实路由/executor/电话/面板",
+  "whatIsReal": "产品源码路径（environment.ts 路由、executor.ts 执行器、电话/面板、日志、失败码与人话格）全部真实；安装由官方发行包 CLI（dsh plugin add --save-exact --registry）真跑 pnpm 落到真磁盘",
+  "whatIsStubbed": "宿主进程内的服务对象（desktopProfiles/desktopPnpm/pluginManager）由夹具模板提供，不是宿主发行包自带",
+  "specPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185608/equivalent-host-specs/manager-no-cancel.json",
+  "subcase": "timeout-no-cancelInstall",
+  "installTimeoutMs": 3000,
+  "managerDelayMs": 8000,
+  "runningVersionInjected": "0.0.1",
+  "whyThisSubcase": "等效 pluginManager 故意没有 cancelInstall（模板 equivalentPluginManager）；installBundle 先 delay 8000ms 再真跑 CLI，产品 3000ms deadline 到点只能报「未提供取消能力」",
+  "whyRunningVersionInjected": "官方桌面宿主报「已加载代码」的版本，不拿磁盘 package.json 冒充；模板 desktop-manager readerOverrides 因此注入 runningVersion=0.0.1（当前加载的 host half 版本）。缺这格时 #245 的失败结算会以为目标版本已在跑，面板会在宿主仍跑旧版时说「已是最新」（#272-i2 的缺口）"
+}

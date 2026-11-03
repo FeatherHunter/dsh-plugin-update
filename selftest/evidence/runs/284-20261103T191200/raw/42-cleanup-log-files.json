@@ -1,0 +1,11 @@
+{
+  "files": [
+    "fxa-a/2026-11-03.log",
+    "fxa-b/2026-11-03.log",
+    "fxa-c/2026-11-03.log",
+    "fxb-b/2026-11-03.log",
+    "fxb-c/2026-11-03.log"
+  ],
+  "eventCount": 97,
+  "truncations": 0
+}

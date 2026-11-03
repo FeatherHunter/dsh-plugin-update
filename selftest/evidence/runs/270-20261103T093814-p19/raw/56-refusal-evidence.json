@@ -1,0 +1,18 @@
+{
+  "anomalies": {
+    "busy-owner": 1
+  },
+  "gateFails": 3,
+  "callFails": 3,
+  "loser": {
+    "label": "a",
+    "error": "update-busy",
+    "job": null
+  },
+  "refusalCodes": [
+    "update-busy",
+    "recovery-required",
+    "installation-changed",
+    "check-expired"
+  ]
+}

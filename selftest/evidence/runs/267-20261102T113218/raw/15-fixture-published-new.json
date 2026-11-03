@@ -1,0 +1,20 @@
+{
+  "spec": "dsh-plugin-update-fixture-a@0.0.2",
+  "publish": {
+    "exitCode": 0,
+    "stdout": "+ dsh-plugin-update-fixture-a@0.0.2\n",
+    "stderr": "npm notice\nnpm notice package: dsh-plugin-update-fixture-a@0.0.2\nnpm notice Tarball Contents\nnpm notice 211B cordis.patch.yml\nnpm notice 392.6kB lib/client.js\nnpm notice 3.8kB lib/index.js\nnpm notice 717B package.json\nnpm notice Tarball Details\nnpm notice name: dsh-plugin-update-fixture-a\nnpm notice version: 0.0.2\nnpm notice filename: dsh-plugin-update-fixture-a-0.0.2.tgz\nnpm notice package size: 97.4 kB\nnpm notice unpacked size: 397.4 kB\nnpm notice shasum: 9dd7dd29dee4a01bfa8a9fcb2fbfe943877c2dcf\nnpm notice integrity: sha512-Sa0DRWic/0NQc[...]arnn6NM95myZg==\nnpm notice total files: 4\nnpm notice\nnpm notice Publishing to http://127.0.0.1:51337/ with tag latest and default access\n"
+  },
+  "artifacts": [
+    "package.json",
+    "cordis.patch.yml",
+    "lib/index.js",
+    "lib/client.js"
+  ],
+  "hashes": {
+    "oldClientHash": "2134db6bd6e1ec43b1eb683e45bed662de8725c4f042b2a033507d505b6f98ec",
+    "newClientHash": "2134db6bd6e1ec43b1eb683e45bed662de8725c4f042b2a033507d505b6f98ec",
+    "oldHostHash": "bc5a002cfb4b56a6a1d13b704ff046d7e0d83ccbc5225fbd8339436bcd94fc65",
+    "newHostHash": "bc5a002cfb4b56a6a1d13b704ff046d7e0d83ccbc5225fbd8339436bcd94fc65"
+  }
+}

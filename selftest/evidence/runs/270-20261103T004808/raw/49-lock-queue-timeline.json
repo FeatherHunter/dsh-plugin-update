@@ -1,0 +1,151 @@
+{
+  "pollIntervalMs": 10,
+  "samples": [
+    {
+      "t": 1793638115503,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": null,
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    },
+    {
+      "t": 1793638115528,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-a-1793638115501\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793638115506\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-a-1793638115501"
+      ]
+    },
+    {
+      "t": 1793638115543,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-b-1793638115501\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793638115520\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-b-1793638115501"
+      ]
+    },
+    {
+      "t": 1793638115548,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"07b64a9f-75d3-41be-9a99-998e9af452cc\",\"pluginId\":\"fxa-a\",\"pid\":84008,\"startedAt\":1793638115532}",
+      "lockId": "07b64a9f-75d3-41be-9a99-998e9af452cc",
+      "lockPid": 84008,
+      "lockStartedAt": 1793638115532,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-b-1793638115501\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793638115520\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-b-1793638115501"
+      ]
+    },
+    {
+      "t": 1793638115694,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"07b64a9f-75d3-41be-9a99-998e9af452cc\",\"pluginId\":\"fxa-a\",\"pid\":84008,\"startedAt\":1793638115532}",
+      "lockId": "07b64a9f-75d3-41be-9a99-998e9af452cc",
+      "lockPid": 84008,
+      "lockStartedAt": 1793638115532,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": {\n    \"pluginId\": \"fxa-a\",\n    \"jobId\": \"07b64a9f-75d3-41be-9a99-998e9af452cc\",\n    \"requestId\": \"h1-a-1793638115501\",\n    \"targetVersion\": \"0.0.2\",\n    \"startedAt\": 1793638115621\n  },\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-b-1793638115501\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793638115520\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": "fxa-a",
+      "queueOwnerJobId": "07b64a9f-75d3-41be-9a99-998e9af452cc",
+      "queueOwnerRequestId": "h1-a-1793638115501",
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-b-1793638115501"
+      ]
+    },
+    {
+      "t": 1793638117708,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"07b64a9f-75d3-41be-9a99-998e9af452cc\",\"pluginId\":\"fxa-a\",\"pid\":84008,\"startedAt\":1793638115532}",
+      "lockId": "07b64a9f-75d3-41be-9a99-998e9af452cc",
+      "lockPid": 84008,
+      "lockStartedAt": 1793638115532,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-b-1793638115501\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793638115520\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-b-1793638115501"
+      ]
+    },
+    {
+      "t": 1793638117714,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-b-1793638115501\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793638115520\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-b-1793638115501"
+      ]
+    },
+    {
+      "t": 1793638118819,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    }
+  ],
+  "lockIds": [
+    "07b64a9f-75d3-41be-9a99-998e9af452cc"
+  ],
+  "lockIntervals": [
+    {
+      "from": 1793638115548,
+      "to": 1793638117714,
+      "ids": [
+        "07b64a9f-75d3-41be-9a99-998e9af452cc"
+      ]
+    }
+  ],
+  "finalQueueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+  "finalLockRaw": null
+}

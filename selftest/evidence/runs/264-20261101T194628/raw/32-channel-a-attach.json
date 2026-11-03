@@ -1,0 +1,91 @@
+{
+  "step": "attach",
+  "channel": "A",
+  "at": "2026-11-01T12:40:07.888Z",
+  "cdpPort": 59344,
+  "cdp": {
+    "Browser": "Chrome/152.0.7977.130",
+    "UserAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) @deepseek-ai/dsh-desktop/0.2.1-rc.3 Chrome/152.0.7977.130 Electron/44.7.0 Safari/537.36"
+  },
+  "pageTarget": {
+    "id": "7A6B2A5711180594F6067E8D8E3A1890",
+    "type": "page",
+    "url": "dsh-app://app/",
+    "title": "DeepSeek Harness"
+  },
+  "appReadyMs": 5128,
+  "href": "dsh-app://app/",
+  "title": "DeepSeek Harness",
+  "state": {
+    "href": "dsh-app://app/",
+    "title": "DeepSeek Harness",
+    "readyState": "complete",
+    "wizard": false,
+    "welcome": false,
+    "composer": true,
+    "dialogs": [],
+    "buttons": [
+      {
+        "text": "新会话 Ctrl + N",
+        "title": "",
+        "disabled": false
+      },
+      {
+        "text": "插件",
+        "title": "",
+        "disabled": false
+      },
+      {
+        "text": "自动化任务",
+        "title": "",
+        "disabled": false
+      },
+      {
+        "text": "更多",
+        "title": "",
+        "disabled": false
+      },
+      {
+        "text": "止息",
+        "title": "",
+        "disabled": false
+      },
+      {
+        "text": "新版本",
+        "title": "",
+        "disabled": false
+      },
+      {
+        "text": "默认工作区",
+        "title": "",
+        "disabled": false
+      },
+      {
+        "text": "标准模式",
+        "title": "选择新任务使用的 Agent 预设",
+        "disabled": false
+      },
+      {
+        "text": "工作区内修改",
+        "title": "",
+        "disabled": false
+      },
+      {
+        "text": "Prompt",
+        "title": "Prompt",
+        "disabled": false
+      },
+      {
+        "text": "DeepSeek-V4.1-Flash 1017 High",
+        "title": "DeepSeek-V4.1-Flash · High",
+        "disabled": false
+      }
+    ],
+    "text": "新会话 Ctrl + N 插件 自动化任务 更多 工作区 默认工作区 新会话 止息 新版本 探索未至之境 预览版 默认工作区 标准模式 描述你想要构建的内容, / 调用指令, @ 文件或对话 工作区内修改 Prompt DeepSeek-V4.1-Flash 1017 High"
+  },
+  "viewport": {
+    "width": 1279,
+    "height": 821,
+    "dpr": 1.75
+  }
+}

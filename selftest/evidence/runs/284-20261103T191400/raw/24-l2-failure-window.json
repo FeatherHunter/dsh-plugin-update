@@ -1,0 +1,17 @@
+{
+  "installClickAt": "2026-11-03T10:50:48.973Z",
+  "failObservedAt": "2026-11-03T10:50:50.086Z",
+  "windowEndAt": "2026-11-03T10:50:58.154Z",
+  "windowMs": 8000,
+  "countsAtFail": {
+    "requests": 1,
+    "execs": 0,
+    "fails": 1
+  },
+  "countsAtWindowEnd": {
+    "requests": 1,
+    "execs": 0,
+    "fails": 1
+  },
+  "note": "安装失败后静置 8s，宿主存活期间前后两次读日志计数：必须相同（无 retry storm）"
+}

@@ -1,0 +1,13 @@
+[
+  {
+    "file": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-r36\\home\\updates\\fxa-a\\9135bb0503a1b46e343b86a6\\state.json",
+    "state": {
+      "requestId": "rmw03n2033p86j",
+      "message": null,
+      "id": "2168e489-8dfc-4332-8b85-dd6a0d624c58",
+      "state": "completed",
+      "targetVersion": "0.0.2",
+      "previousVersion": "0.0.1"
+    }
+  }
+]

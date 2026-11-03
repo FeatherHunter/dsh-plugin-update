@@ -1,0 +1,108 @@
+{
+  "batch": {
+    "version": 1,
+    "id": "mw0sqa6a-29adsvrjpz",
+    "selfKey": "a",
+    "stopOnFailure": false,
+    "order": [
+      "a",
+      "b",
+      "c"
+    ],
+    "entries": [
+      {
+        "key": "a",
+        "phase": "done",
+        "requestId": "batch:mw0sqa6a-29adsvrjpz:a",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793716902309
+      },
+      {
+        "key": "b",
+        "phase": "done",
+        "requestId": "batch:mw0sqa6a-29adsvrjpz:b",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793716943804
+      },
+      {
+        "key": "c",
+        "phase": "done",
+        "requestId": "batch:mw0sqa6a-29adsvrjpz:c",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793716943841
+      }
+    ],
+    "createdAt": 1793716900354,
+    "updatedAt": 1793716943841
+  },
+  "elapsedMs": 2031,
+  "samples": [
+    {
+      "t": 1793716942147,
+      "phasesA": {
+        "a": "done",
+        "b": "pending",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 37868,
+        "generation": 1,
+        "driverId": "dsh-hub:37868:gs84tfzwrp"
+      }
+    },
+    {
+      "t": 1793716942648,
+      "phasesA": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 37868,
+        "generation": 1,
+        "driverId": "dsh-hub:37868:gs84tfzwrp"
+      }
+    },
+    {
+      "t": 1793716943150,
+      "phasesA": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 37868,
+        "generation": 1,
+        "driverId": "dsh-hub:37868:gs84tfzwrp"
+      }
+    },
+    {
+      "t": 1793716943661,
+      "phasesA": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 37868,
+        "generation": 1,
+        "driverId": "dsh-hub:37868:gs84tfzwrp"
+      }
+    },
+    {
+      "t": 1793716944178,
+      "phasesA": {
+        "a": "done",
+        "b": "done",
+        "c": "done"
+      },
+      "lease": null
+    }
+  ]
+}

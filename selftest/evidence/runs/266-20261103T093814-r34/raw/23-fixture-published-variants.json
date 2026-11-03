@@ -1,0 +1,51 @@
+{
+  "fault": {
+    "kind": "skip-variant",
+    "slotKey": "c"
+  },
+  "injected": [
+    {
+      "slotKey": "c",
+      "kind": "skip-variant",
+      "spec": "c@0.0.2"
+    }
+  ],
+  "specs": [
+    "dsh-plugin-update-fixture-a@0.0.2",
+    "dsh-plugin-update-fixture-b@0.0.2"
+  ],
+  "effects": [
+    {
+      "slotKey": "a",
+      "effect": {
+        "ui": "batch",
+        "titleSuffix": "（批量新版）",
+        "hubDock": true,
+        "hostBehavior": "seat-aware-v2",
+        "seatLine": "批量席位 fxa · 自键 a · 目标 a/b/c"
+      }
+    },
+    {
+      "slotKey": "b",
+      "effect": {
+        "ui": "batch",
+        "titleSuffix": "（批量新版）",
+        "hubDock": true,
+        "hostBehavior": "seat-aware-v2",
+        "seatLine": "批量席位 fxb · 自键 b · 目标 b/c"
+      }
+    }
+  ],
+  "variantContent": {
+    "a": {
+      "clientChanged": true,
+      "hostChanged": null,
+      "clientHasNewTag": true
+    },
+    "b": {
+      "clientChanged": true,
+      "hostChanged": null,
+      "clientHasNewTag": true
+    }
+  }
+}

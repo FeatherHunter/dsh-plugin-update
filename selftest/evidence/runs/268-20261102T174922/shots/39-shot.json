@@ -1,0 +1,9 @@
+{
+  "看什么": "行取消排队回执（钉住 #268 文案修复后的诚实措辞）",
+  "步骤": "D2 行取消排队文案诚实",
+  "expected": "已取消排队 + 本批仍会继续尝试 + 不终止在飞安装",
+  "actual": "{\"notice\":\"已取消排队：本次等待占位已撤掉，本批仍会继续尝试安装（不会终止正在安装的项）。\",\"rowC\":{\"key\":\"c\",\"phase\":\"ready\",\"queued\":false,\"busy\":false,\"title\":\"夹具 C\",\"status\":\"选择「安装此插件」安装 0.0.2\",\"versionCur\":\"未安装\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"row-install\",\"toggle-details\"],\"fail\":null}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\39-shot.png"
+}

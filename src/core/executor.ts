@@ -1243,11 +1243,140 @@ async function runDesktopManager(recipe: InstallRecipe, parts: ExecutorParts): P
   }
 }
 
+/**
+ * cli 路失败补偿（#284）：被终止的 pnpm 可能已经把 profile 清单的依赖边写成目标版，而 node_modules
+ * 仍是装前版本——后续行解析整份清单会反复拉坏包，一行的失败扩散成整批（坏首行拖累好行）。
+ * 失败后不重试安装，只用同一载体把依赖边回滚到装前版本；这是尽可能的补偿，原失败码/阶段/原因一字不动，
+ * 绝不改判成功。
+ */
+const ROLLBACK_FACT_OK_PREFIX = '已回滚到 '
+const ROLLBACK_FACT_FAIL_PREFIX = '回滚未成功：'
+/** 回滚是失败后的补偿，不继承安装的整段时限：上限 30 秒（#284 审查边界）。 */
+const ROLLBACK_TIMEOUT_MAX_MS = 30_000
+/** 清单写入与进程退出之间可能有一小段窗口：再等这么久仍不退出就不动手。 */
+const ROLLBACK_SETTLE_WAIT_MS = 2_000
+
+/** 安装配方里那个「包名@版本」实参（add 路最后一个非旗标实参）：回滚要原样换掉它。 */
+function cliTargetSpecOf(pluginArgs: string[]): { name: string; version: string; raw: string } | null {
+  for (let index = pluginArgs.length - 1; index >= 0; index -= 1) {
+    const raw = pluginArgs[index]
+    if (typeof raw !== 'string' || raw.length === 0 || raw.startsWith('-')) continue
+    const at = raw.lastIndexOf('@')
+    if (at <= 0 || at === raw.length - 1) continue
+    const name = raw.slice(0, at)
+    const version = raw.slice(at + 1)
+    if (name.length === 0 || version.length === 0) continue
+    return { name, version, raw }
+  }
+  return null
+}
+
+/** profile 清单里的依赖边：读不到清单算「不知道」，绝不拿猜测去回滚别人的文件。 */
+async function dependencyEdgeOf(profileDir: string, name: string): Promise<{ known: boolean; version: string | null }> {
+  const manifest = await readManifestAt(profileDir)
+  if (!manifest) return { known: false, version: null }
+  const dependencies = (manifest as { dependencies?: unknown }).dependencies
+  if (!dependencies || typeof dependencies !== 'object' || Array.isArray(dependencies)) return { known: true, version: null }
+  const value = (dependencies as Record<string, unknown>)[name]
+  return { known: true, version: typeof value === 'string' ? value : null }
+}
+
+/**
+ * 锁文件里这个依赖边的版本。读不到锁文件（不存在/读不了）算「没有可核对的锁」，
+ * 格式认不出则算「对不上」——回滚后核验宁可保守，不拿读不懂的文本冒充一致。
+ */
+async function lockDependencyVersionOf(profileDir: string, name: string): Promise<{ known: boolean; version: string | null }> {
+  let text = ''
+  try {
+    text = await readFile(join(profileDir, 'pnpm-lock.yaml'), 'utf8')
+  } catch {
+    return { known: false, version: null }
+  }
+  const lines = text.split(/\r?\n/)
+  const marker = '      ' + name + ':'
+  const start = lines.findIndex((line) => line === marker)
+  if (start < 0) return { known: false, version: null }
+  for (let index = start + 1; index < Math.min(start + 8, lines.length); index += 1) {
+    const match = /^        version: (.+)$/.exec(lines[index])
+    if (match) return { known: true, version: match[1].trim() }
+  }
+  return { known: true, version: null }
+}
+
+/** 回滚后重读清单与锁：依赖边（锁里找得到版本时也算上）都回到装前版本才算真回滚。 */
+async function rollbackVerified(profileDir: string, name: string, previousVersion: string): Promise<{ ok: boolean; reason: string }> {
+  const edge = await dependencyEdgeOf(profileDir, name)
+  if (!edge.known) return { ok: false, reason: '读不到 profile 清单，无法确认依赖边' }
+  if (edge.version !== previousVersion) {
+    return { ok: false, reason: edge.version ? '依赖边仍是 ' + edge.version : '依赖边已不在清单里' }
+  }
+  const lock = await lockDependencyVersionOf(profileDir, name)
+  if (lock.known && lock.version !== previousVersion) {
+    return { ok: false, reason: lock.version ? '锁文件里仍是 ' + lock.version : '锁文件里读不到这个依赖的版本' }
+  }
+  return { ok: true, reason: '' }
+}
+
+type RollbackHandle = { done: Promise<{ exitCode?: number } | null>; terminate?: () => void }
+type RollbackSpawn = (opts: { argv: string[]; cwd?: string; stdio: unknown; graceMs: number }) => RollbackHandle
+
+/**
+ * 起一次有界回滚：同 carrier、同样子进程能力，只把配方里的目标版本换成装前版本。
+ * 与安装不同，回滚失败不再重试——它只是失败之后的补偿，超时/崩溃/非零都折成一句诚实原因。
+ */
+async function runCliRollback(
+  spawn: RollbackSpawn,
+  argv: string[],
+  profileDir: string,
+  timeoutMs: number
+): Promise<{ ok: boolean; reason: string }> {
+  let handle: RollbackHandle
+  try {
+    handle = spawn({ argv, cwd: profileDir, stdio: INSTALL_STDIO, graceMs: TERMINATION_GRACE_MS })
+  } catch {
+    return { ok: false, reason: '起不了回滚进程' }
+  }
+  if (!handle || !handle.done || typeof handle.done.then !== 'function') return { ok: false, reason: '起不了回滚进程' }
+  const terminate = typeof handle.terminate === 'function' ? handle.terminate : null
+  const settled = Promise.resolve(handle.done).then(
+    (value) => ({ kind: 'settled' as const, value }),
+    () => ({ kind: 'crashed' as const, value: null })
+  )
+  const TIMEOUT = Symbol('rollback-timeout')
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const deadline = new Promise<typeof TIMEOUT>((settle) => {
+    timer = setTimeout(() => {
+      try {
+        if (terminate !== null) terminate.call(handle)
+      } catch {}
+      settle(TIMEOUT)
+    }, timeoutMs)
+  })
+  let outcome: { kind: 'settled'; value: { exitCode?: number } | null } | { kind: 'crashed'; value: null } | typeof TIMEOUT
+  try {
+    outcome = await Promise.race([settled, deadline])
+  } finally {
+    if (timer !== null) {
+      try {
+        clearTimeout(timer)
+      } catch {}
+    }
+  }
+  if (outcome === TIMEOUT) {
+    await settleWithin(settled, ROLLBACK_SETTLE_WAIT_MS)
+    return { ok: false, reason: '回滚超时，已终止' }
+  }
+  if (outcome.kind === 'crashed') return { ok: false, reason: '回滚进程异常退出' }
+  const code = outcome.value && typeof outcome.value.exitCode === 'number' ? outcome.value.exitCode : null
+  if (code !== 0) return { ok: false, reason: '回滚命令退出码 ' + (code === null ? '未知' : String(code)) }
+  return { ok: true, reason: '' }
+}
 
 /** 普通 DSH 宿主：当前运行时 + CLI 的 JS 入口 + 参数数组，经宿主注入的子进程能力起进程。 */
 async function runCliProcess(
   recipe: { pluginArgs: string[]; profileName: string; timeoutMs: number },
-  parts: ExecutorParts
+  parts: ExecutorParts,
+  previousVersion: string | null = null
 ): Promise<number | null> {
   const executable = part(parts.runtimeExecutable) || (typeof process !== 'undefined' ? process.execPath : '')
   const execArgs =
@@ -1260,6 +1389,30 @@ async function runCliProcess(
     spawn?: (opts: { argv: string[]; cwd?: string; stdio: unknown; graceMs: number }) => { done: Promise<{ exitCode?: number } | null> }
   } | null
   if (!subprocess || typeof subprocess.spawn !== 'function') throw failExec(fail('install-failed'), { reason: 'spawn-failed' })
+  const profileDir = (part(parts.profileDir) as string) || ''
+  /**
+   * 失败补偿：只有「清单依赖边确实被写到目标版」才动手（读不到/本来就对就不碰）；
+   * 结论只拼进 detail 尾巴，原失败语义不变。
+   */
+  const rollbackFact = async (): Promise<string> => {
+    if (typeof previousVersion !== 'string' || previousVersion.length === 0) return ''
+    const spec = cliTargetSpecOf(recipe.pluginArgs)
+    if (!spec || spec.version === previousVersion) return ''
+    if (!profileDir) return ''
+    const before = await dependencyEdgeOf(profileDir, spec.name)
+    if (!before.known || before.version !== spec.version) return ''
+    const rollbackArgs = recipe.pluginArgs.map((arg) => (arg === spec.raw ? spec.name + '@' + previousVersion : arg))
+    const rollbackArgv = [executable, ...execArgs, entry, 'plugin', '--profile', recipe.profileName, ...rollbackArgs]
+    const budget = Math.min(recipe.timeoutMs > 0 ? recipe.timeoutMs : ROLLBACK_TIMEOUT_MAX_MS, ROLLBACK_TIMEOUT_MAX_MS)
+    // 宿主注入的子进程能力是对象方法，脱离 receiver 调用会丢 this（真机上表现为「起不了回滚进程」），
+    // 因此包一层箭头函数保住 receiver；测试假件也按方法形态提供。
+    const st = subprocess
+    const spawnFn: RollbackSpawn = (opts) => st.spawn!(opts)
+    const result = await runCliRollback(spawnFn, rollbackArgv, profileDir, budget)
+    if (!result.ok) return ROLLBACK_FACT_FAIL_PREFIX + result.reason
+    const verified = await rollbackVerified(profileDir, spec.name, previousVersion)
+    return verified.ok ? ROLLBACK_FACT_OK_PREFIX + previousVersion : ROLLBACK_FACT_FAIL_PREFIX + verified.reason
+  }
   const handle = subprocess.spawn({
     argv,
     cwd: (part(parts.profileDir) as string) || undefined,
@@ -1316,18 +1469,28 @@ async function runCliProcess(
       { terminated, ended: late !== null, terminateFailed },
       { terminated: CLI_TIMEOUT_DETAIL, noTerminate: SERVICE_TIMEOUT_NO_TERMINATE_DETAIL }
     )
-    throw failExec(withDetail(withExit(fail('install-failed'), lateCode), withTimeoutHint(readOutput(), hint)), {
+    const timeoutError = failExec(withDetail(withExit(fail('install-failed'), lateCode), withTimeoutHint(readOutput(), hint)), {
       reason: terminateFailed ? 'terminate-failed' : 'timeout',
       exitCode: lateCode,
     })
+    // 进程可能还在写清单：先确认它真退出了，再决定要不要回滚；状态不明就不碰清单。
+    const settledDown = late !== null || (await settleWithin(settled, ROLLBACK_SETTLE_WAIT_MS)) !== null
+    const timeoutFact = settledDown ? await rollbackFact() : ''
+    throw timeoutFact ? withTrailingFact(timeoutError, timeoutFact) : timeoutError
   }
   if (outcome.kind === 'crashed') {
-    throw failExec(withDetail(fail('install-failed'), readOutput() || CLI_CRASHED_DETAIL), { reason: 'crashed' })
+    const crashedError = failExec(withDetail(fail('install-failed'), readOutput() || CLI_CRASHED_DETAIL), { reason: 'crashed' })
+    const crashedFact = await rollbackFact()
+    throw crashedFact ? withTrailingFact(crashedError, crashedFact) : crashedError
   }
   const code = outcome.value && typeof outcome.value.exitCode === 'number' ? outcome.value.exitCode : null
   // 抓取读数在退出后仍可读（宿主 subprocess 契约）：失败时把它挑成一句人话再上抛，
   // 上层按既有 message 通道给面板；挑不到就是空串，形状与从前一致。
-  if (code !== 0) throw failExec(withDetail(withExit(fail('install-failed'), code), readOutput()), { reason: 'nonzero-exit', exitCode: code })
+  if (code !== 0) {
+    const nonzeroError = failExec(withDetail(withExit(fail('install-failed'), code), readOutput()), { reason: 'nonzero-exit', exitCode: code })
+    const nonzeroFact = await rollbackFact()
+    throw nonzeroFact ? withTrailingFact(nonzeroError, nonzeroFact) : nonzeroError
+  }
   return code
 }
 
@@ -1335,7 +1498,7 @@ async function runCliProcess(
  * 路由 → 跑法：三条路由与 README 第 4 节那张表一一对应，加路由只动这一处。
  * 起进程与两处宿主出口都只经宿主注入的零件，不经 shell、不用 PATH 上的命令名。
  */
-type InstallRunner = (recipe: InstallRecipe, parts: ExecutorParts) => Promise<number | null>
+type InstallRunner = (recipe: InstallRecipe, parts: ExecutorParts, previousVersion?: string | null) => Promise<number | null>
 const INSTALL_RUNNERS: Record<string, InstallRunner> = {
   'desktop-service': runDesktopService,
   'desktop-manager': runDesktopManager,
@@ -1351,8 +1514,8 @@ const INSTALL_RUNNERS: Record<string, InstallRunner> = {
  *   - cli-process：subprocess.spawn({ argv: [运行时, …运行时参数, CLI 入口, 'plugin', '--profile', 名, …参数] })。
  * 起进程只经宿主注入的子进程能力，不经 shell、不用 PATH 上的 `dsh` 命令名。
  */
-export function createUpdateExecutor(parts: ExecutorParts = {}): (args?: { version?: string; profileName?: string | null; environmentKind?: EnvironmentKind; releaseChannel?: ReleaseChannel; approvedBuilds?: unknown }) => Promise<void> {
-  return async function runInstall(args: { version?: string; profileName?: string | null; environmentKind?: EnvironmentKind; releaseChannel?: ReleaseChannel; approvedBuilds?: unknown } = {}): Promise<void> {
+export function createUpdateExecutor(parts: ExecutorParts = {}): (args?: { version?: string; profileName?: string | null; environmentKind?: EnvironmentKind; releaseChannel?: ReleaseChannel; approvedBuilds?: unknown; previousVersion?: string | null }) => Promise<void> {
+  return async function runInstall(args: { version?: string; profileName?: string | null; environmentKind?: EnvironmentKind; releaseChannel?: ReleaseChannel; approvedBuilds?: unknown; previousVersion?: string | null } = {}): Promise<void> {
     const recipe = installRecipe({
       profileName: args.profileName ?? (part(parts.profileName ?? null) as string | null),
       version: String(args.version ?? ''),
@@ -1371,7 +1534,7 @@ export function createUpdateExecutor(parts: ExecutorParts = {}): (args?: { versi
       if (!recipe) throw failExec(fail('install-failed'), { reason: 'spawn-failed' })
       const runner = INSTALL_RUNNERS[recipe.route] ?? null
       if (!runner) throw failExec(fail('install-failed'), { reason: 'spawn-failed' })
-      exitCode = await runner(recipe, partsForCall)
+      exitCode = await runner(recipe, partsForCall, args.previousVersion ?? null)
       emitInstall(parts, recipe, true, exitCode, Date.now() - startedAt)
     } catch (error) {
       emitInstall(parts, recipe, false, (error as { exitCode?: number })?.exitCode ?? exitCode, Date.now() - startedAt)

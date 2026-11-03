@@ -1,0 +1,415 @@
+{
+  "schemaVersion": 1,
+  "runId": "284-20261103T185608",
+  "ticket": "284",
+  "scenarioId": "g8-desktop-manager-no-cancel-timeout",
+  "hostChannel": "dsh-web",
+  "startedAt": "2026-11-03T10:56:08.145Z",
+  "finishedAt": "2026-11-03T10:56:35.075Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:/dsh-plugin/_wt263/t12",
+    "branch": "impl/284-known-red-recovery",
+    "head": "3c2997f7a73904165619412b8fcba6edb08f4171",
+    "hostChannel": "dsh-web"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185608\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "3502f4da6b9116c24b0e67a15a3b8dd96584b24d8a68afbaa273c1681d201efc",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:58584",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 3502f4da6b9116c2…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "09-assert",
+      "step": "建普通 web profile（等效宿主的宿主环境）",
+      "what": "在 run 私有 DSH_HOME 里建一个普通 web 使用范围，基版装进它；产品对宿主种类的判定由 readerOverrides.environmentKind 显式给",
+      "expected": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185608\\os-home\\.dsh\\profiles\\t3eq",
+      "actual": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185608\\os-home\\.dsh\\profiles\\t3eq",
+      "verdict": "pass"
+    },
+    {
+      "id": "11-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "13-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "setup-sut",
+      "what": "profile 里装的 SUT 与工作树构建一致",
+      "expected": "installed distDigest === worktree distDigest",
+      "actual": "true",
+      "verdict": "pass"
+    },
+    {
+      "id": "15-assert",
+      "step": "基版在盘（更新前状态）",
+      "what": "更新前隔离 profile 的 node_modules 里装的是场景声明的基版 0.0.1",
+      "expected": "磁盘版本=0.0.1",
+      "actual": "磁盘版本=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "22-assert",
+      "step": "g8 安装作业终态（产品以为失败）",
+      "what": "等效桌面管理器无 cancelInstall、installBundle 迟迟不 resolve：产品按 deadline 判超时失败",
+      "expected": "state=failed；code=install-failed",
+      "actual": "state=failed；code=install-failed；message=install-failed: 安装超时；宿主未提供取消能力，这次安装可能仍在后台继续",
+      "verdict": "pass"
+    },
+    {
+      "id": "23-assert",
+      "step": "g8 超时文案逐字：未提供取消能力",
+      "what": "产品管理器超时人话格按能力分支：无 cancelInstall 时必须用常量原文（src/core/executor.ts:48）",
+      "expected": "含「安装超时；宿主未提供取消能力，这次安装可能仍在后台继续」",
+      "actual": "install-failed: 安装超时；宿主未提供取消能力，这次安装可能仍在后台继续",
+      "verdict": "pass"
+    },
+    {
+      "id": "24-assert",
+      "step": "g8 不谎称已取消/已终止",
+      "what": "没有 cancelInstall 时不得出现「安装超时，已请求宿主取消/终止」等我们去做了的话术",
+      "expected": "不含「安装超时，已请求宿主取消」「安装超时，已请求宿主终止」",
+      "actual": "install-failed: 安装超时；宿主未提供取消能力，这次安装可能仍在后台继续",
+      "verdict": "pass"
+    },
+    {
+      "id": "25-assert",
+      "step": "g8 确实按 deadline+宽限收尾",
+      "what": "installTimeoutMs=3000ms + 3s 宽限；5000~25000ms",
+      "expected": "5000 ≤ elapsedMs ≤ 25000",
+      "actual": "elapsedMs=6057",
+      "verdict": "pass"
+    },
+    {
+      "id": "26-assert",
+      "step": "g8 超时失败后面板不撒谎",
+      "what": "管理器超时失败后面板显示失败横幅，不出现「已是最新 / 更新成功」（产品确实不知道后台会成功）",
+      "expected": "banner.kind=failed；不含「已是最新」「更新成功」",
+      "actual": "banner={\"kind\":\"failed\",\"title\":\"更新失败（install-failed）：安装执行失败，详情见诊断摘要。\",\"sub\":\"请查阅诊断摘要；官方桌面版请提交该诊断信息至插件作者\",\"action\":\"\"}；waitError=null；text=夹具 A · 更新演示（新版）client v0.0.2host v0.0.1单席位集成方（无批量席位行）宿主行为 无（v1）.dsh-upd-entry{display:inline-flex;align-items:center;gap:8px;font:13px/1.6 var(--dsh-update-font-sans,system-ui,\"Microsoft YaHei\",sans-serif);font-size:var(--dsh-update-entry-font-size,13px);color:var(--dsh-update-text,#1f2937)}\n.dsh-upd-entry-btn{font:inherit;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:var(--dsh-update-entry-border-radius,6px);\nbackground:var(--dsh-update-button-bg,#f9fafb);color:inherit;padding:var(--dsh-update-entry-padding,4px 12px);zoom:var(--dsh-update-entry-scale,1);cursor:pointer}\n.dsh-",
+      "verdict": "pass"
+    },
+    {
+      "id": "28-assert",
+      "step": "g8 宿主仍活着、作业仍报失败",
+      "what": "超时失败后宿主进程与产品服务仍可用（status 电话 200），作业状态仍 failed（产品不知道后台会成功）",
+      "expected": "status=200；job.state=failed",
+      "actual": "status=200；job.state=failed",
+      "verdict": "pass"
+    },
+    {
+      "id": "29-assert",
+      "step": "g8 超时失败但后台真把变体装上了",
+      "what": "installBundle 的 delay 结束后真跑 CLI：产品已判失败，磁盘 node_modules 却真的变成变体版",
+      "expected": "dsh-plugin-update-fixture-a@0.0.2",
+      "actual": "0.0.2",
+      "verdict": "pass"
+    },
+    {
+      "id": "30-assert",
+      "step": "g8 后台装完后产品仍报失败",
+      "what": "磁盘已是变体版，但产品作业仍 failed（它真的不知道后台装完了；面板不谎称成功）",
+      "expected": "banner.kind=failed；不含「已是最新」",
+      "actual": "banner={\"kind\":\"failed\",\"title\":\"更新失败（install-failed）：安装执行失败，详情见诊断摘要。\",\"sub\":\"请查阅诊断摘要；官方桌面版请提交该诊断信息至插件作者\",\"action\":\"\"}；waitError=null；text=夹具 A · 更新演示（新版）client v0.0.2host v0.0.1单席位集成方（无批量席位行）宿主行为 无（v1）.dsh-upd-entry{display:inline-flex;align-items:center;gap:8px;font:13px/1.6 var(--dsh-update-font-sans,system-ui,\"Microsoft YaHei\",sans-serif);font-size:var(--dsh-update-entry-font-size,13px);color:var(--dsh-update-text,#1f2937)}\n.dsh-upd-entry-btn{font:inherit;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:var(--dsh-update-entry-border-radius,6px);\nbackground:var(--dsh-update-button-bg,#f9fafb);color:inherit;padding:var(--dsh-update-entry-padding,4px 12px);zoom:var(--dsh-update-entry-scale,1);cursor:pointer}\n.dsh-",
+      "verdict": "pass"
+    },
+    {
+      "id": "34-assert",
+      "step": "g8 管理器侧收到真安装请求（带 registry 透传）",
+      "what": "installBundle.request：packageSpec=包@变体；options.registry=本 run 的 https 源；无 cancel 调用",
+      "expected": "packageSpec=dsh-plugin-update-fixture-a@0.0.2；registry=https://127.0.0.1:51172；hasCancel=false",
+      "actual": "packageSpec=dsh-plugin-update-fixture-a@0.0.2；registry=https://127.0.0.1:51172；hasCancel=false",
+      "verdict": "pass"
+    },
+    {
+      "id": "35-assert",
+      "step": "g8 后台 CLI 真跑且成功、installBundle 报 applied",
+      "what": "delay 之后模板真 spawn CLI（exitCode=0），manager 回 application=applied（产品早已不等它）",
+      "expected": "cli.exitCode=0；result.application=applied；result.exitCode=0",
+      "actual": "cliExit=0；result={\"phase\":\"installBundle.result\",\"packageSpec\":\"dsh-plugin-update-fixture-a@0.0.2\",\"requestId\":\"28e7f5d1-d71e-401e-be18-4eec933be2da\",\"application\":\"applied\",\"exitCode\":0}",
+      "verdict": "pass"
+    },
+    {
+      "id": "41-assert",
+      "step": "g8 产品失败日志：路线 desktop-manager + ok=false",
+      "what": "update.install.exec 记录 route=desktop-manager、ok=false（超时失败）",
+      "expected": "route=desktop-manager；ok=false",
+      "actual": "route=desktop-manager；ok=false",
+      "verdict": "pass"
+    },
+    {
+      "id": "42-assert",
+      "step": "g8 产品失败日志：reason=timeout",
+      "what": "update.install.fail：reason=timeout、code=install-failed（失败事件不带 detail，诚实文案在电话回包，已由上一条断言覆盖）",
+      "expected": "reason=timeout；code=install-failed",
+      "actual": "reason=timeout；code=install-failed；detail=",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [
+    {
+      "id": "27-shot",
+      "step": "g8-timeout-panel",
+      "what": "管理器超时失败后的面板（此刻后台其实还在装）",
+      "expected": "banner.kind=failed；卡片不出现「已是最新 / 更新成功」",
+      "actual": "banner={\"kind\":\"failed\",\"title\":\"更新失败（install-failed）：安装执行失败，详情见诊断摘要。\",\"sub\":\"请查阅诊断摘要；官方桌面版请提交该诊断信息至插件作者\",\"action\":\"\"}；text=夹具 A · 更新演示（新版）client v0.0.2host v0.0.1单席位集成方（无批量席位行）宿主行为 无（v1）.dsh-upd-entry{display:inline-flex;align-items:center;gap:8px;font:13px/1.6 var(--dsh-update-font-sans,system-ui,\"Microsoft YaHei\",sans-serif);font-size:var(--dsh-update-entry-font-size,13px);color:var(--dsh-update-text,#1f2937)}\n.dsh-upd-entry-btn{font:inherit;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:var(--dsh-update-entry-border-radius,6px);\nbackground:var(--dsh-update-button-bg,#f9fafb);color:inherit;padding:var(--dsh-update-entry-padding,4px 12px);zoom:var(--dsh-update-entry-scale,1);cursor:pointer}\n.dsh-upd-entry-btn:hover{border-color:var(--dsh-update-primary,#2563eb)}\n.dsh-upd-entry-btn,.dsh-upd-entry-dot{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}\n.dsh-upd-entry-btn:active:not(:disabled){transform:translateY(1px)}\n.dsh-upd-entry-btn:disabled,",
+      "verdict": "pass",
+      "png": "shots\\27-shot.png",
+      "sidecar": "shots\\27-shot.json"
+    },
+    {
+      "id": "31-shot",
+      "step": "g8-disk-updated-panel-still-failed",
+      "what": "磁盘已变体版但产品仍显示失败（「后台继续」的诚实文案与事实一致）",
+      "expected": "banner.kind=failed；卡片不出现「已是最新」（产品没刷新到成功）",
+      "actual": "banner={\"kind\":\"failed\",\"title\":\"更新失败（install-failed）：安装执行失败，详情见诊断摘要。\",\"sub\":\"请查阅诊断摘要；官方桌面版请提交该诊断信息至插件作者\",\"action\":\"\"}；text=夹具 A · 更新演示（新版）client v0.0.2host v0.0.1单席位集成方（无批量席位行）宿主行为 无（v1）.dsh-upd-entry{display:inline-flex;align-items:center;gap:8px;font:13px/1.6 var(--dsh-update-font-sans,system-ui,\"Microsoft YaHei\",sans-serif);font-size:var(--dsh-update-entry-font-size,13px);color:var(--dsh-update-text,#1f2937)}\n.dsh-upd-entry-btn{font:inherit;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:var(--dsh-update-entry-border-radius,6px);\nbackground:var(--dsh-update-button-bg,#f9fafb);color:inherit;padding:var(--dsh-update-entry-padding,4px 12px);zoom:var(--dsh-update-entry-scale,1);cursor:pointer}\n.dsh-upd-entry-btn:hover{border-color:var(--dsh-update-primary,#2563eb)}\n.dsh-upd-entry-btn,.dsh-upd-entry-dot{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .06s ease}\n.dsh-upd-entry-btn:active:not(:disabled){transform:translateY(1px)}\n.dsh-upd-entry-btn:disabled,",
+      "verdict": "pass",
+      "png": "shots\\31-shot.png",
+      "sidecar": "shots\\31-shot.json"
+    },
+    {
+      "id": "38-shot",
+      "step": "g8-after-restart",
+      "what": "重启后构建标记：后台那次「产品以为失败」的安装确实换了运行代码",
+      "expected": "client=client v0.0.2；host=host v0.0.2",
+      "actual": "client=client v0.0.2；host=host v0.0.2；title=夹具 A · 更新演示（新版）",
+      "verdict": "pass",
+      "png": "shots\\38-shot.png",
+      "sidecar": "shots\\38-shot.json"
+    }
+  ],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\07-isolation-facts.json"
+    },
+    {
+      "id": "08-profile-create",
+      "name": "profile-create",
+      "file": "raw\\08-profile-create.json"
+    },
+    {
+      "id": "10-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\10-install-baseline.json"
+    },
+    {
+      "id": "12-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\12-sut-installed-dist.json"
+    },
+    {
+      "id": "16-fixture-published-variant",
+      "name": "fixture-published-variant",
+      "file": "raw\\16-fixture-published-variant.json"
+    },
+    {
+      "id": "17-equivalent-host-spec-manager-no-cancel",
+      "name": "equivalent-host-spec-manager-no-cancel",
+      "file": "raw\\17-equivalent-host-spec-manager-no-cancel.json"
+    },
+    {
+      "id": "18-host-launch-manager-no-cancel",
+      "name": "host-launch-manager-no-cancel",
+      "file": "raw\\18-host-launch-manager-no-cancel.json"
+    },
+    {
+      "id": "19-equivalent-host-boundary-0",
+      "name": "equivalent-host-boundary-0",
+      "file": "raw\\19-equivalent-host-boundary-0.json"
+    },
+    {
+      "id": "20-g8-equivalent-manager-methods",
+      "name": "g8-equivalent-manager-methods",
+      "file": "raw\\20-g8-equivalent-manager-methods.json"
+    },
+    {
+      "id": "21-g8-phone-status-terminal",
+      "name": "g8-phone-status-terminal",
+      "file": "raw\\21-g8-phone-status-terminal.json"
+    },
+    {
+      "id": "32-host-stop-0",
+      "name": "host-stop-0",
+      "file": "raw\\32-host-stop-0.json"
+    },
+    {
+      "id": "33-g8-equivalent-host-captures",
+      "name": "g8-equivalent-host-captures",
+      "file": "raw\\33-g8-equivalent-host-captures.json"
+    },
+    {
+      "id": "36-equivalent-host-spec-manager-no-cancel-restarted",
+      "name": "equivalent-host-spec-manager-no-cancel-restarted",
+      "file": "raw\\36-equivalent-host-spec-manager-no-cancel-restarted.json"
+    },
+    {
+      "id": "37-host-launch-manager-no-cancel-restarted",
+      "name": "host-launch-manager-no-cancel-restarted",
+      "file": "raw\\37-host-launch-manager-no-cancel-restarted.json"
+    },
+    {
+      "id": "39-host-stop-1",
+      "name": "host-stop-1",
+      "file": "raw\\39-host-stop-1.json"
+    },
+    {
+      "id": "40-g8-install-log-facts",
+      "name": "g8-install-log-facts",
+      "file": "raw\\40-g8-install-log-facts.json"
+    },
+    {
+      "id": "43-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\43-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "44-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\44-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "45-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\45-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "46-cleanup-log-files",
+      "name": "cleanup-log-files",
+      "file": "raw\\46-cleanup-log-files.json"
+    },
+    {
+      "id": "47-tls-front-stop",
+      "name": "tls-front-stop",
+      "file": "raw\\47-tls-front-stop.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "manager-no-cancel-host",
+        "pid": 57548,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "manager-no-cancel-restarted-host",
+        "pid": 104812,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "manager-no-cancel-host-port",
+        "port": 59386,
+        "released": true
+      },
+      {
+        "label": "manager-no-cancel-restarted-host-port",
+        "port": 53141,
+        "released": true
+      },
+      {
+        "label": "tls-registry-front",
+        "port": 51172,
+        "released": true
+      },
+      {
+        "label": "registry",
+        "port": 58584,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:58584（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "等效宿主（本机没有第三方 Desktop / 官方桌面）：用产品文档化入口 createMultiHostUpdate(deps.readerOverrides) 注入宿主能力；产品路由/执行器/电话/面板/日志全真实，安装由官方发行包 CLI 真跑 pnpm 落真磁盘。边界见 raw/equivalent-host-boundary-*。",
+      "宿主 manager-no-cancel 已起：kind=desktop-manager，port=59386，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright",
+      "等效宿主边界（0，kind=desktop-manager）：本机没有第三方 Desktop / 官方桌面；用产品文档化入口 createMultiHostUpdate(deps.readerOverrides) 注入等效宿主能力，产品走真实路由/executor/电话/面板；stub=宿主进程内的服务对象（desktopProfiles/desktopPnpm/pluginManager）由夹具模板提供，不是宿主发行包自带",
+      "宿主 manager-no-cancel-restarted 已起：kind=desktop-manager，port=53141，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright"
+    ]
+  },
+  "maintainerProfile": null,
+  "notes": [
+    "本地 registry：http://127.0.0.1:58584（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "等效宿主（本机没有第三方 Desktop / 官方桌面）：用产品文档化入口 createMultiHostUpdate(deps.readerOverrides) 注入宿主能力；产品路由/执行器/电话/面板/日志全真实，安装由官方发行包 CLI 真跑 pnpm 落真磁盘。边界见 raw/equivalent-host-boundary-*。",
+    "宿主 manager-no-cancel 已起：kind=desktop-manager，port=59386，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright",
+    "等效宿主边界（0，kind=desktop-manager）：本机没有第三方 Desktop / 官方桌面；用产品文档化入口 createMultiHostUpdate(deps.readerOverrides) 注入等效宿主能力，产品走真实路由/executor/电话/面板；stub=宿主进程内的服务对象（desktopProfiles/desktopPnpm/pluginManager）由夹具模板提供，不是宿主发行包自带",
+    "宿主 manager-no-cancel-restarted 已起：kind=desktop-manager，port=53141，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright"
+  ],
+  "equivalentHost": {
+    "what": "出口二（官方桌面 in-process 插件管理器）超时格：pluginManager 故意不提供 cancelInstall，installBundle 延迟后真装",
+    "why": "本机没有第三方 Desktop、也没有能稳定停在与产品内部状态相反的 web 宿主：按 #284 用户要求，用产品文档化集成方入口构造等效宿主，让产品代码走真实路径、断言真状态，绝不假回包。",
+    "documentedEntry": "README「测试用集成方」deps.readerOverrides → host/factory.ts createHostUpdate；安装一律真 CLI/真 registry/真 tarball 落盘。",
+    "realParts": [
+      "产品 src/host/environment.ts 路由判定 → environmentKind=desktop-manager（profileName=desktop）",
+      "产品 src/core/executor.ts runDesktopManager 真实执行路径（含 installTimeoutDetail 无取消分支）",
+      "installBundle 延迟结束后由夹具模板 spawn 真 CLI 装 tarball 落真磁盘",
+      "超时后面板/电话/日志全部来自真机"
+    ],
+    "simulatedParts": [
+      "pluginManager 服务对象由夹具模板实现，故意不提供 cancelInstall（官方桌面管理器在 HMR 宿主上通常提供），用来覆盖「宿主无取消能力」真实分支",
+      "installBundle 的延迟由夹具模板注入（delayMs），真安装随后发生"
+    ],
+    "nonEquivalence": [
+      "不是官方桌面进程内管理器；官方桌面 already-installed 毫秒守卫、removeBundle/取消语义未在等效宿主上重现",
+      "真实官方桌面进程无法安全构造「无 cancelInstall」实例（这就是原 known-red 的原因）"
+    ]
+  }
+}

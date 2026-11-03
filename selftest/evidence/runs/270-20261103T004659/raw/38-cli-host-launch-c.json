@@ -1,0 +1,9 @@
+{
+  "url": "http://127.0.0.1:61388/?token=6VXnKZH6DkKu1264dk9BiL4ibN8b51omTlAtk_pQ6oI",
+  "port": 61388,
+  "bootMs": 3896,
+  "profileName": "t6lock",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t6-270\\270-20261103T004659\\os-home\\.dsh",
+  "stdoutTail": "dsh web: http://127.0.0.1:61388/?token=6VXnKZH6DkKu1264dk9BiL4ibN8b51omTlAtk_pQ6oI\n",
+  "stderrTail": ""
+}

@@ -1,0 +1,9 @@
+{
+  "看什么": "changelog：行内 markdown、裸 URL、BREAKING、yanked、六类与版本节上限截断提示",
+  "步骤": "k1-25-changelog",
+  "expected": "版本节含 0.0.2（标题带「已撤回」）、yanked 横幅、md-code/strong/em/del/link、breaking 徽标、截断提示「仅显示前 100 条」",
+  "actual": "{\"heading\":\"更新说明（0.0.1 → 0.0.2）：\",\"yanked\":\"目标版本 0.0.2 已被作者撤回（yanked），安装不受影响，继续前请确认。\",\"truncnote\":\"共 107 条，仅显示前 100 条\",\"cats\":[\"Added\",\"Fixed\",\"Changed\",\"Security\"],\"foldCats\":[\"Deprecated\",\"Removed\"]}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\26-shot.png"
+}

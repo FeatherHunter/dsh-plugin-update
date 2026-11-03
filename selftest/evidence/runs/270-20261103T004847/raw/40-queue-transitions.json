@@ -1,0 +1,8 @@
+{
+  "phases": {
+    "queued": 1,
+    "reclaimed": 1,
+    "running": 1,
+    "done": 1
+  }
+}

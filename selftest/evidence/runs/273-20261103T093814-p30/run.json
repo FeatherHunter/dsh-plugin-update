@@ -1,0 +1,472 @@
+{
+  "schemaVersion": 1,
+  "runId": "273-20261103T093814-p30",
+  "ticket": "273",
+  "scenarioId": "j1-log-contract-coverage",
+  "hostChannel": "dsh-web",
+  "startedAt": "2026-11-03T01:41:32.793Z",
+  "finishedAt": "2026-11-03T01:42:13.344Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:/dsh-plugin/_wt263/t11",
+    "branch": "impl/263-t11",
+    "head": "bd39b57baa10f3c9f128dfd05f66b286d8828045",
+    "hostChannel": "dsh-web"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p30\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "3502f4da6b9116c24b0e67a15a3b8dd96584b24d8a68afbaa273c1681d201efc",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:59342",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 3502f4da6b9116c2…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1, dsh-plugin-update-fixture-b@0.0.1, dsh-plugin-update-fixture-c@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "08-assert",
+      "step": "隔离口径（通道 B：普通 DSH web 宿主 + 非 desktop profile）",
+      "what": "每个 run 一个仓库外 home；日志根 = <home>/logs（产品自建落点），命名空间目录按插件身份派生",
+      "expected": "homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p30\\os-home\\.dsh；profile=t9j1",
+      "actual": "osHomeDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p30\\os-home；homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p30\\os-home\\.dsh；profile=t9j1",
+      "verdict": "pass"
+    },
+    {
+      "id": "10-assert",
+      "step": "建普通 profile（通道 B 宿主的使用范围）",
+      "what": "用官方发行 CLI 在隔离 home 建普通 DSH 使用范围 t9j1",
+      "expected": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p30\\os-home\\.dsh\\profiles\\t9j1",
+      "actual": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p30\\os-home\\.dsh\\profiles\\t9j1",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "13-assert",
+      "step": "干净 profile 装基版（b）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-b@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-b；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "干净 profile 装基版（c）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-c@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-c；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b, dsh-plugin-update-fixture-c]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "16-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "18-assert",
+      "step": "更新前基版在盘",
+      "what": "隔离 profile 里装着场景声明的基版 0.0.1（日志命名空间随后由它派生）",
+      "expected": "node_modules/dsh-plugin-update-fixture-a 版本=0.0.1",
+      "actual": "磁盘版本=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "20-assert",
+      "step": "变体版本已发布（更新目标）",
+      "what": "本地 verdaccio 发布 dsh-plugin-update-fixture-a@0.0.2；其余席位按场景声明一并发布",
+      "expected": "dsh-plugin-update-fixture-a@0.0.2；variants=[\"a\",\"b\",\"c\"]",
+      "actual": "dsh-plugin-update-fixture-a@0.0.2；injected=[]",
+      "verdict": "pass"
+    },
+    {
+      "id": "23-assert",
+      "step": "单包入口 check 发现 0.0.2",
+      "what": "真电话 fxa-a.updateCheck：返回快照与候选凭证 checkId",
+      "expected": "ok=true；latestVersion=0.0.2；canInstall=true；checkId 非空",
+      "actual": "ok=true；latestVersion=0.0.2；canInstall=true；checkId=\"39a2e7a6-296a-43a9-810b-6dbe4df5ece3\"",
+      "verdict": "pass"
+    },
+    {
+      "id": "25-assert",
+      "step": "单包安装被受理（快照=安装中，不是终态）",
+      "what": "产品 install() 先 saveJob(installing) 再返回受理快照（src/core/service.ts:1027-1120）",
+      "expected": "ok=true；job.state ∈ {installing, verifying}",
+      "actual": "ok=true；job.state=installing；blockedReason=null",
+      "verdict": "pass"
+    },
+    {
+      "id": "27-assert",
+      "step": "单包安装恰一次真实执行（route=cli-process / ok=true / exit=0）",
+      "what": "日志 update.install.exec 行即安装窗口事实（比 UI 可靠）；pluginId=目标电话前缀 fxa-a",
+      "expected": "exec 行数=1；route=cli-process；ok=true；exitCode=0；durationMs>0；ns=fxa-a",
+      "actual": "[{\"ts\":1793670109300,\"ns\":\"fxa-a\",\"pluginId\":\"fxa-a\",\"route\":\"cli-process\",\"ok\":true,\"exitCode\":0,\"durationMs\":1101}]",
+      "verdict": "pass"
+    },
+    {
+      "id": "29-assert",
+      "step": "安装瞬间的 verify 行说真话（restart-required / pendingRestart=true）",
+      "what": "通道 B 不热换：装好后到重启前，verify 行结果是 restart-required 且 pendingRestart=true",
+      "expected": "result=restart-required；pendingRestart=true；installedVersion=0.0.2",
+      "actual": "result=restart-required；pendingRestart=true；installedVersion=0.0.2",
+      "verdict": "pass",
+      "note": "单包 A 从 0.0.1 → 0.0.2；通道 A 是 in-process 热换，通道 B 要重启才生效，这条 verify 行是两种通道的共同真话。"
+    },
+    {
+      "id": "31-assert",
+      "step": "故障注入：B 的已装文件被独占锁拖住（remove 被拖住 → 安装预算 6s 耗尽）",
+      "what": "PowerShell 对 profile/node_modules/dsh-plugin-update-fixture-b/lib/index.js 持 FileShare.Read 独占句柄；宿主以 DSH_SELFTEST_INSTALL_TIMEOUT_MS=6000 启动（夹具 installTimeoutMs → 执行器安装预算）",
+      "expected": "锁 marker 出现；第二个进程独占打开失败（probeExitCode=3）",
+      "actual": "lockPid=99848；probeExitCode=3",
+      "verdict": "pass"
+    },
+    {
+      "id": "33-assert",
+      "step": "批量 check 仍能列出 B@0.0.2（注入只锁已装文件，不动 registry）",
+      "what": "真电话 fxa.batchCheck：B 行 canInstall=true，候选门能过",
+      "expected": "b.canInstall=true；b.latestVersion=0.0.2",
+      "actual": "b={\"canInstall\":true,\"latestVersion\":\"0.0.2\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "35-assert",
+      "step": "批量安装整轮（b 的 remove 被锁拖住 → 超时；批量驱动串行推进所有行直到收尾）",
+      "what": "真电话 fxa.batchInstall {}；批量驱动按会话顺序串行推进，b 在 remove 阶段撞上独占锁",
+      "expected": "电话送达（status=200）；回包 ok=true 或明确忙（update-busy）",
+      "actual": "status=200；ok=true；error=null",
+      "verdict": "pass"
+    },
+    {
+      "id": "37-assert",
+      "step": "B 行落定为 failed（remove 超时真失败，不伪装成功）",
+      "what": "批量行 phase 以 batchStatus 会话为准；B 应 failed，别的行不被这一行拖进安装",
+      "expected": "timedOut=false；b.phase=failed",
+      "actual": "phases={\"a\":\"current\",\"b\":\"failed\",\"c\":\"done\"}；timedOut=false",
+      "verdict": "pass"
+    },
+    {
+      "id": "39-assert",
+      "step": "B 的失败是「执行失败」事件面：exec ok=false（安装预算超时）+ install.fail stage=exec reason=timeout + verify failed",
+      "what": "remove 被独占锁拖住，执行器在安装预算耗尽后判失败（不是 check 拒绝、不是静默跳过）；exec 行 pluginId=批量目标前缀 fxa-b",
+      "expected": "B exec 失败恰 1；route=cli-process；durationMs≈6000；exitCode=null 或非 0；install.fail.stage=exec reason=timeout code=install-failed；verify.result=failed",
+      "actual": "bExecFail=[{\"ts\":1793670118974,\"ns\":\"fxa-b\",\"pluginId\":\"fxa-b\",\"route\":\"cli-process\",\"ok\":false,\"exitCode\":1,\"durationMs\":6040}]；bFail.stage=exec；bFail.reason=timeout；bFail.code=install-failed；bVerify.result=failed",
+      "verdict": "pass"
+    },
+    {
+      "id": "41-assert",
+      "step": "批量 summary 如实记失败行（failed≥1，不冒充全绿）",
+      "what": "收尾一条 update.batch.summary：total/failed/stoppedBecause 反映真账本",
+      "expected": "存在 summary 行；failed≥1；total≥1",
+      "actual": "fields={\"total\":3,\"ok\":1,\"failed\":2,\"skipped\":0,\"durationMs\":13061,\"sessionAgeMs\":13062,\"resumed\":false,\"sessionHash\":\"9fa0a31b\",\"stoppedBecause\":\"finished\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "43-assert",
+      "step": "释放注入锁（收尾）：持锁进程退出、文件句柄可再用",
+      "what": "kill + taskkill /T /F 兜底，复核 pid 不再存活",
+      "expected": "aliveAfter=false",
+      "actual": "killed=true；aliveAfter=false",
+      "verdict": "pass"
+    },
+    {
+      "id": "45-assert",
+      "step": "台账逐包真相：A 恰一条成功终态；B 失败终态；C 无成功记录（整轮推进过 c，失败是注入级联）",
+      "what": "读 <home>/updates/<pluginId>/<hash>/state.json；成功不重复、失败不丢单；b 半删导致 c 也装不上是故障注入的级联副作用，如实记录不硬断言 c 成功",
+      "expected": "A success=1（target=0.0.2 / previous=0.0.1）；B failed=1；C success=0；每插件台账 ≤1 条",
+      "actual": "aSuccess=[{\"pluginId\":\"fxa-a\",\"state\":\"completed\",\"targetVersion\":\"0.0.2\",\"previousVersion\":\"0.0.1\"}]；bFailed=[{\"pluginId\":\"fxa-b\",\"state\":\"failed\",\"targetVersion\":\"0.0.2\",\"previousVersion\":\"0.0.1\"}]；cRows=[{\"pluginId\":\"fxa-c\",\"state\":\"failed\",\"targetVersion\":\"0.0.2\",\"previousVersion\":\"0.0.1\"}]；duplicated=[]",
+      "verdict": "pass"
+    },
+    {
+      "id": "48-assert",
+      "step": "日志事件契约四关：事件名 ∈ 清单、level 一致、字段名 ∈ 声明、枚举值合法",
+      "what": "把磁盘日志逐行对 event-list.update.json（fieldEnums 也校验）；未知事件/未知字段/非法枚举都必须为 0",
+      "expected": "unknownEvents=0；levelMismatches=0；fieldViolations=0；enumViolations=0；checkedRows>0",
+      "actual": "checkedRows=84；unknown=[]；level=0；fields=0；enums=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "49-assert",
+      "step": "必备常驻事件覆盖（真安装/真批量/真失败三处事件面都到齐）",
+      "what": "逐事件计数：覆盖集每项 ≥1；本格不应出现的噪声/失败面必须为 0",
+      "expected": "missing=[]；zeroViolations=[]",
+      "actual": "missing=[]；zeroViolations=[]；counts={\"host.start\":5,\"update.wire.ready\":5,\"update.status.changed\":19,\"update.check.done\":8,\"host.call\":17,\"update.queue.transition\":13,\"update.install.request\":3,\"update.install.exec\":3,\"update.install.verify\":3,\"update.batch.entry.request\":1,\"update.batch.run.start\":1,\"update.install.fail\":4,\"host.call.fail\":2,\"update.install.retry\":2,\"update.batch.entry.fail\":2,\"update.batch.summary\":1}",
+      "verdict": "pass"
+    },
+    {
+      "id": "51-assert",
+      "step": "按需事件（kind=ondemand）零行：默认不写盘，不冒充常驻",
+      "what": "清单把事件分常驻/按需；本格没开按需开关，按需事件必须一行不落",
+      "expected": "ondemand 事件计数全 0",
+      "actual": "ondemand=[\"update.check.start\",\"update.registry.fetch\",\"update.channel.decide\",\"update.poll\",\"update.lang.applied\",\"update.panel.state\"]；withRows=[]",
+      "verdict": "pass"
+    },
+    {
+      "id": "53-assert",
+      "step": "日志落点：命名空间集合 = 夹具身份派生、exec 行只在属主目录、无解析失败行、每命名空间在预算内",
+      "what": "命名空间目录只允许由已装夹具批量接线派生的集合（A 的 fxa-* 与 B 的 fxb-*）；exec 行 ns 必须等于其 pluginId；每目录 ≤500 行",
+      "expected": "namespaces=[\"fxa-a\",\"fxa-b\",\"fxa-c\",\"fxb-b\",\"fxb-c\"]；execOwnership=[]；parseFailures=0；overBudget=[]",
+      "actual": "namespaces=[\"fxa-a\",\"fxa-b\",\"fxa-c\",\"fxb-b\",\"fxb-c\"]；nsMatches=true；parseFailures=0；overBudget=[]；execOwnership=[]",
+      "verdict": "pass"
+    },
+    {
+      "id": "55-assert",
+      "step": "真 UI 面板挂载（j1-evidence）",
+      "what": "Playwright 打开 web 宿主页面：夹具卡片与更新面板真出现，面板开始轮询 updateStatus",
+      "expected": ".dsh-upd≥1；[data-fixture]≥1；面板开始轮询 updateStatus",
+      "actual": "counts={\"dshUpd\":2,\"dshUpdLog\":0,\"fixture\":3}；elapsedMs=2",
+      "verdict": "pass",
+      "note": "日志健康卡（.dsh-upd-log）只在面板 04 诊断章节（失败/待重启/可更新等横幅状态）渲染；j3 单独断言该卡，j1 批量后页面不强制。"
+    },
+    {
+      "id": "58-assert",
+      "step": "收尾：真 UI 页面与 CLI 宿主全部退出，无残留进程/端口",
+      "what": "登记每个宿主的 pid/port 并核对退出；端口释放由 run.close 的 cleanup 复核",
+      "expected": "每个宿主 closed=true；pidAlive=false",
+      "actual": "[{\"label\":\"main\",\"pid\":61500,\"port\":51551,\"closed\":true,\"pidAlive\":false}]",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [
+    {
+      "id": "56-panel-after-batch",
+      "what": "真批量跑完（B 超时失败、C 级联失败）之后的真 UI 更新面板：批量结果与更新面板状态同屏",
+      "step": "通道 B 宿主 + 三包装好 → 批量 check/install（B 被文件锁拖到 6s 预算超时）→ 轮询到终态 → 打开真 UI 页面截面板",
+      "expected": "面板挂载（.dsh-upd/[data-fixture] 在）；面板文本可读，作为批量结果的视觉对照",
+      "actual": "{\"counts\":{\"dshUpd\":2,\"dshUpdLog\":0,\"fixture\":3},\"panelText\":\"更新档案 · 总账 检查更新 全部更新 1 个插件安装失败；请按下方失败提示逐项重试。 1 个插件安装失败。 夹具 B：install-failed 安装执行失败，详情见诊断摘要 复制诊断 复制手工命令 请逐家使用行内「重试」；若持续，请提交诊断信息至插件作者。 夹具 A 本体 0.0.2 正在查询版本信息，请稍候。 详情 夹具 B 0.0.1 → 0.0.2 安装失败，请选择「重试」。 失败 install-failed：安装执行失败，详情见诊断摘要 重试详情 夹具 C 0.0.2 正在查询版本信息，请稍候。 详情 正在按最新版本重新检查… [x] 打开面板时自动检查更新\",\"logTexts\":[]}",
+      "verdict": "pass",
+      "note": "J1 的硬断言仍在日志/台账/电话；这张图只作批量面板的视觉对照（批量面板在「插件」页，非独立日志查看器）。",
+      "png": "shots\\56-panel-after-batch.png",
+      "sidecar": "shots\\56-panel-after-batch.json"
+    }
+  ],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\07-isolation-facts.json"
+    },
+    {
+      "id": "09-profile-create",
+      "name": "profile-create",
+      "file": "raw\\09-profile-create.json"
+    },
+    {
+      "id": "11-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\11-install-baseline.json"
+    },
+    {
+      "id": "15-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\15-sut-installed-dist.json"
+    },
+    {
+      "id": "17-baseline-disk",
+      "name": "baseline-disk",
+      "file": "raw\\17-baseline-disk.json"
+    },
+    {
+      "id": "19-fixture-published-variants",
+      "name": "fixture-published-variants",
+      "file": "raw\\19-fixture-published-variants.json"
+    },
+    {
+      "id": "21-cli-host-launch-main",
+      "name": "cli-host-launch-main",
+      "file": "raw\\21-cli-host-launch-main.json"
+    },
+    {
+      "id": "22-phone-check-single",
+      "name": "phone-check-single",
+      "file": "raw\\22-phone-check-single.json"
+    },
+    {
+      "id": "24-phone-install-single",
+      "name": "phone-install-single",
+      "file": "raw\\24-phone-install-single.json"
+    },
+    {
+      "id": "26-exec-rows-single",
+      "name": "exec-rows-single",
+      "file": "raw\\26-exec-rows-single.json"
+    },
+    {
+      "id": "28-verify-rows-single",
+      "name": "verify-rows-single",
+      "file": "raw\\28-verify-rows-single.json"
+    },
+    {
+      "id": "30-file-lock-acquired",
+      "name": "file-lock-acquired",
+      "file": "raw\\30-file-lock-acquired.json"
+    },
+    {
+      "id": "32-phone-batch-check",
+      "name": "phone-batch-check",
+      "file": "raw\\32-phone-batch-check.json"
+    },
+    {
+      "id": "34-phone-batch-install-all",
+      "name": "phone-batch-install-all",
+      "file": "raw\\34-phone-batch-install-all.json"
+    },
+    {
+      "id": "36-batch-b-timeline",
+      "name": "batch-b-timeline",
+      "file": "raw\\36-batch-b-timeline.json"
+    },
+    {
+      "id": "38-batch-b-failure",
+      "name": "batch-b-failure",
+      "file": "raw\\38-batch-b-failure.json"
+    },
+    {
+      "id": "40-batch-summary",
+      "name": "batch-summary",
+      "file": "raw\\40-batch-summary.json"
+    },
+    {
+      "id": "42-file-lock-release",
+      "name": "file-lock-release",
+      "file": "raw\\42-file-lock-release.json"
+    },
+    {
+      "id": "44-ledger-states",
+      "name": "ledger-states",
+      "file": "raw\\44-ledger-states.json"
+    },
+    {
+      "id": "46-log-inventory",
+      "name": "log-inventory",
+      "file": "raw\\46-log-inventory.json"
+    },
+    {
+      "id": "47-contract-report",
+      "name": "contract-report",
+      "file": "raw\\47-contract-report.json"
+    },
+    {
+      "id": "50-ondemand-events",
+      "name": "ondemand-events",
+      "file": "raw\\50-ondemand-events.json"
+    },
+    {
+      "id": "52-namespace-landing",
+      "name": "namespace-landing",
+      "file": "raw\\52-namespace-landing.json"
+    },
+    {
+      "id": "54-panel-open-j1-evidence",
+      "name": "panel-open-j1-evidence",
+      "file": "raw\\54-panel-open-j1-evidence.json"
+    },
+    {
+      "id": "57-cli-host-close-main",
+      "name": "cli-host-close-main",
+      "file": "raw\\57-cli-host-close-main.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "file-lock-b",
+        "pid": 99848,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "cli-host-main",
+        "pid": 61500,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "cli-host-main-port",
+        "port": 51551,
+        "released": true
+      },
+      {
+        "label": "registry",
+        "port": 59342,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:59342（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "J 组判读口径：web GUI 没有独立的插件日志查看器；面板面 = 更新面板第 4 章的日志路牌 + 日志健康读数（.dsh-upd-log），事件契约/噪声预算/命名空间都从 <home>/logs 磁盘原始行独立统计；UI 只作「面板看得见、读数与磁盘一致」的证据。"
+    ]
+  },
+  "maintainerProfile": {
+    "homeDir": "C:/Users/辰辰洋洋/.dsh",
+    "before": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "77441cc19d6b8f4dc5026b694b42bbf141097822b8359e208585db4303de34f4",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "after": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "77441cc19d6b8f4dc5026b694b42bbf141097822b8359e208585db4303de34f4",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "unchanged": true
+  },
+  "notes": [
+    "本地 registry：http://127.0.0.1:59342（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "J 组判读口径：web GUI 没有独立的插件日志查看器；面板面 = 更新面板第 4 章的日志路牌 + 日志健康读数（.dsh-upd-log），事件契约/噪声预算/命名空间都从 <home>/logs 磁盘原始行独立统计；UI 只作「面板看得见、读数与磁盘一致」的证据。"
+  ]
+}

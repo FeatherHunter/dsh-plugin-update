@@ -1,0 +1,428 @@
+{
+  "schemaVersion": 1,
+  "runId": "274-20261103T093814-p27",
+  "ticket": "274",
+  "scenarioId": "k-single-panel-failure",
+  "hostChannel": "dsh-web",
+  "startedAt": "2026-11-03T01:46:09.858Z",
+  "finishedAt": "2026-11-03T01:47:50.681Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:/dsh-plugin/_wt263/t11",
+    "branch": "impl/263-t11",
+    "head": "bd39b57baa10f3c9f128dfd05f66b286d8828045",
+    "hostChannel": "dsh-web"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p27\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "3502f4da6b9116c24b0e67a15a3b8dd96584b24d8a68afbaa273c1681d201efc",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:60395",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 3502f4da6b9116c2…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "10-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "13-assert",
+      "step": "setup-sut",
+      "what": "通道 B profile 里装的 SUT 与工作树构建一致",
+      "expected": "installed distDigest === worktree distDigest",
+      "actual": "true",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "setup-base-disk",
+      "what": "基版安装后磁盘版本与声明一致",
+      "expected": "{\"dsh-plugin-update-fixture-a\":\"0.0.1\"}",
+      "actual": "dsh-plugin-update-fixture-a=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "17-assert",
+      "step": "k2-01-corrupt-tarball",
+      "what": "只改 registry 上已发布 tarball 的字节（中点起 64 字节 xor），版本元数据与 dist.integrity 一字不动",
+      "expected": "versionDocUnchanged=true、sha256Before≠sha256After、改坏前后 tarball URL 都回 200 且响应字节数一致（存储文件字节数只是参考，HTTP 响应可能走压缩/包装）",
+      "actual": "{\"versionDocUnchanged\":true,\"shaChanged\":true,\"servedBeforeStatus\":200,\"servedAfterStatus\":200,\"servedBeforeBytes\":102504,\"servedAfterBytes\":102504,\"sizeBytes\":108345}",
+      "verdict": "pass"
+    },
+    {
+      "id": "20-assert",
+      "step": "k2-02-check-passes",
+      "what": "坏 tarball 不影响检查阶段（check 只读版本文档）",
+      "expected": "可更新横幅原文精确匹配",
+      "actual": "{\"kind\":\"update\",\"title\":\"有新版本 0.0.2 可安装（当前版本 0.0.1）。\",\"sub\":\"选择安装将按精确版本安装；同一使用范围同时仅安装一项。\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "22-assert",
+      "step": "k2-03-failure-banner",
+      "what": "失败横幅标题与错误码一致",
+      "expected": "标题以「更新失败（install-failed）」开头、errCode=install-failed",
+      "actual": "{\"title\":\"更新失败（install-failed）：安装执行失败，详情见诊断摘要。\",\"sub\":\"请查阅诊断摘要；官方桌面版请提交该诊断信息至插件作者\",\"errCode\":\"install-failed\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "23-assert",
+      "step": "k2-04-last-resort",
+      "what": "最后手段条只在「无自动救援 + 命令当帧可信」时出现，原文三字段",
+      "expected": "badge=最后手段、status=自动恢复不可用、reason=「没有可用的自动数据路径；复制这条命令是唯一出路。」",
+      "actual": "{\"present\":true,\"badge\":\"最后手段\",\"status\":\"自动恢复不可用\",\"reason\":\"没有可用的自动数据路径；复制这条命令是唯一出路。\",\"copyText\":\"复制手工命令\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "24-assert",
+      "step": "k2-05-manual-command",
+      "what": "手工备用命令原文（与命令形状对齐、registry 指向本 run）",
+      "expected": "标题「手工备用命令（请复制整行执行）：」+ 命令行匹配 dsh plugin --profile t10ui add --save-exact <pkg>@0.0.2 --registry=https://127.0.0.1:<port>",
+      "actual": "{\"heading\":\"手工备用命令（请复制整行执行）：\",\"code\":\"dsh plugin --profile t10ui add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=https://127.0.0.1:57142\",\"neutral\":\"\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "25-assert",
+      "step": "k2-06-entry-failed",
+      "what": "入口随安装失败落到失败档",
+      "expected": "state=failed、aria-label「更新失败，请查看详情」",
+      "actual": "{\"present\":true,\"variant\":\"badge\",\"state\":\"failed\",\"text\":\"\",\"note\":\"\",\"ariaLabel\":\"更新失败，请查看详情\",\"title\":\"更新失败，请查看详情\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "26-assert",
+      "step": "k2-07-install-button-failed",
+      "what": "安装按钮切失败档",
+      "expected": "kind=failed",
+      "actual": "failed",
+      "verdict": "pass"
+    },
+    {
+      "id": "29-assert",
+      "step": "k2-08-exec-failed",
+      "what": "安装执行阶段真的跑了 pnpm 且非零退出（不是 check 阶段失败）",
+      "expected": "update.install.exec 全部 ok=false（至少 1 条）、无成功",
+      "actual": "exec=1 ok=0 exit=[1]",
+      "verdict": "pass"
+    },
+    {
+      "id": "30-assert",
+      "step": "k2-09-fail-fact",
+      "what": "失败事件的阶段/原因/码/退出码",
+      "expected": "update.install.fail 恰 1 条、stage=exec、reason=nonzero-exit、code=install-failed、exitCode≠0",
+      "actual": "{\"stage\":\"exec\",\"reason\":\"nonzero-exit\",\"code\":\"install-failed\",\"hostCodeHash\":\"none\",\"check\":\"none\",\"exitCode\":1,\"observedVersion\":null,\"intentHash\":\"3ca2813b\",\"traceId\":\"bc6d964330ad969d\",\"spanId\":\"8271fde4\",\"seq\":6}",
+      "verdict": "pass"
+    },
+    {
+      "id": "31-assert",
+      "step": "k2-10-disk-unchanged",
+      "what": "安装失败后磁盘保持旧版（无半装/假成功）",
+      "expected": "A 磁盘版本仍 0.0.1",
+      "actual": "{\"dsh-plugin-update-fixture-a\":\"0.0.1\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "32-assert",
+      "step": "k2-11-ledger-failed",
+      "what": "台账逐行真相：失败行目标版本 0.0.2、状态 failed",
+      "expected": "state=failed、targetVersion=0.0.2",
+      "actual": "{\"state\":\"failed\",\"targetVersion\":\"0.0.2\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "34-assert",
+      "step": "k2-12-restore",
+      "what": "还原 tarball 字节（恢复后回包 sha 与原始一致、元数据未动）",
+      "expected": "shaMatches=true、versionDocUnchanged=true",
+      "actual": "{\"restoredStatus\":200,\"restoredSha256\":\"dc0bb9bd54dcb2926d9fbe41d12e14b31dde541cc19e9076b40e5ef563d05d09\",\"shaMatches\":true,\"versionDocUnchanged\":true}",
+      "verdict": "pass"
+    },
+    {
+      "id": "36-assert",
+      "step": "k2-13-manual-exec",
+      "what": "停宿主后照面板给出的手工命令原文执行，exit=0 且磁盘装到 0.0.2",
+      "expected": "exitCode=0 且 A 磁盘版本=0.0.2",
+      "actual": "{\"exitCode\":0,\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\"},\"durationMs\":1090}",
+      "verdict": "pass"
+    },
+    {
+      "id": "39-assert",
+      "step": "k2-14-settled-banner",
+      "what": "重启后面板了结（不把已修好的包继续报成当前失败）",
+      "expected": "横幅 kind=done 且标题「已是最新，无需更新。」",
+      "actual": "{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "40-assert",
+      "step": "k2-15-settled-history",
+      "what": "旧失败以中性历史行保留（失败事实仍可追溯）",
+      "expected": "settled 行含「上次尝试失败（install-failed）」与「0.0.2」",
+      "actual": "上次尝试失败（install-failed）；目标版本 0.0.2 或更新版本正在运行。",
+      "verdict": "pass"
+    },
+    {
+      "id": "41-assert",
+      "step": "k2-16-build-tags",
+      "what": "重启后运行 0.0.2 构建",
+      "expected": "clientTag=client v0.0.2、hostTag=host v0.0.2",
+      "actual": "{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "42-assert",
+      "step": "k2-17-ledger-history",
+      "what": "台账保留失败历史（真相优先；不因手工修复而伪造成功）",
+      "expected": "state=failed、targetVersion=0.0.2",
+      "actual": "{\"state\":\"failed\",\"targetVersion\":\"0.0.2\"}",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [
+    {
+      "id": "19-shot",
+      "step": "k2-10-check-passes",
+      "what": "tarball 字节已坏、元数据与完整性摘要未变：检查更新仍给出可更新（可证伪：若 check 读了 tarball 内容，这一格会失败）",
+      "expected": "可更新横幅原文「有新版本 0.0.2 可安装（当前版本 0.0.1）。」",
+      "actual": "{\"kind\":\"update\",\"title\":\"有新版本 0.0.2 可安装（当前版本 0.0.1）。\",\"sub\":\"选择安装将按精确版本安装；同一使用范围同时仅安装一项。\"}",
+      "verdict": "pass",
+      "png": "shots\\19-shot.png",
+      "sidecar": "shots\\19-shot.json"
+    },
+    {
+      "id": "21-shot",
+      "step": "k2-20-failure-last-resort",
+      "what": "安装失败：失败横幅 + 最后手段条 + 手工备用命令（当帧可信）+ 入口/安装按钮失败档",
+      "expected": "横幅标题以「更新失败（install-failed）」开头、最后手段三字段原文、手工命令形状 --profile t10ui add --save-exact <pkg>@0.0.2 --registry=<本 run registry>、入口「更新失败，请查看详情」、按钮 kind=failed",
+      "actual": "{\"banner\":{\"kind\":\"failed\",\"title\":\"更新失败（install-failed）：安装执行失败，详情见诊断摘要。\",\"sub\":\"请查阅诊断摘要；官方桌面版请提交该诊断信息至插件作者\"},\"errCode\":\"install-failed\",\"lastResort\":{\"present\":true,\"badge\":\"最后手段\",\"status\":\"自动恢复不可用\",\"reason\":\"没有可用的自动数据路径；复制这条命令是唯一出路。\",\"copyText\":\"复制手工命令\"},\"manual\":{\"heading\":\"手工备用命令（请复制整行执行）：\",\"code\":\"dsh plugin --profile t10ui add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=https://127.0.0.1:57142\",\"neutral\":\"\"},\"entry\":{\"state\":\"failed\",\"ariaLabel\":\"更新失败，请查看详情\"},\"buttonKind\":\"failed\"}",
+      "verdict": "pass",
+      "png": "shots\\21-shot.png",
+      "sidecar": "shots\\21-shot.json"
+    },
+    {
+      "id": "38-shot",
+      "step": "k2-30-after-manual-fix",
+      "what": "手工命令修好后重启宿主：面板按磁盘真相了结，旧失败只留中性历史行",
+      "expected": "横幅「已是最新，无需更新。」、settled 历史行含「上次尝试失败（install-failed）」与 0.0.2、clientTag/hostTag=0.0.2",
+      "actual": "{\"banner\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"},\"settled\":\"上次尝试失败（install-failed）；目标版本 0.0.2 或更新版本正在运行。\",\"tags\":{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\"}}",
+      "verdict": "pass",
+      "png": "shots\\38-shot.png",
+      "sidecar": "shots\\38-shot.json"
+    }
+  ],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-tls-registry-front",
+      "name": "tls-registry-front",
+      "file": "raw\\07-tls-registry-front.json"
+    },
+    {
+      "id": "08-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\08-isolation-facts.json"
+    },
+    {
+      "id": "09-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\09-install-baseline.json"
+    },
+    {
+      "id": "11-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\11-sut-installed-dist.json"
+    },
+    {
+      "id": "15-fixture-publication",
+      "name": "fixture-publication",
+      "file": "raw\\15-fixture-publication.json"
+    },
+    {
+      "id": "16-k2-corrupt-tarball",
+      "name": "k2-corrupt-tarball",
+      "file": "raw\\16-k2-corrupt-tarball.json"
+    },
+    {
+      "id": "18-host-launch-k2-gen1",
+      "name": "host-launch-k2-gen1",
+      "file": "raw\\18-host-launch-k2-gen1.json"
+    },
+    {
+      "id": "27-host-stop-0",
+      "name": "host-stop-0",
+      "file": "raw\\27-host-stop-0.json"
+    },
+    {
+      "id": "28-k2-gen1-logs",
+      "name": "k2-gen1-logs",
+      "file": "raw\\28-k2-gen1-logs.json"
+    },
+    {
+      "id": "33-k2-restore-tarball",
+      "name": "k2-restore-tarball",
+      "file": "raw\\33-k2-restore-tarball.json"
+    },
+    {
+      "id": "35-k2-manual-command-exec",
+      "name": "k2-manual-command-exec",
+      "file": "raw\\35-k2-manual-command-exec.json",
+      "command": "dsh plugin --profile t10ui add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=https://127.0.0.1:57142",
+      "exitCode": 0
+    },
+    {
+      "id": "37-host-launch-k2-gen2",
+      "name": "host-launch-k2-gen2",
+      "file": "raw\\37-host-launch-k2-gen2.json"
+    },
+    {
+      "id": "43-host-stop-1",
+      "name": "host-stop-1",
+      "file": "raw\\43-host-stop-1.json"
+    },
+    {
+      "id": "44-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\44-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "45-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\45-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "46-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\46-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "47-cleanup-log-files",
+      "name": "cleanup-log-files",
+      "file": "raw\\47-cleanup-log-files.json"
+    },
+    {
+      "id": "48-tls-front-stop",
+      "name": "tls-front-stop",
+      "file": "raw\\48-tls-front-stop.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "k2-gen1-host",
+        "pid": 66064,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "k2-gen2-host",
+        "pid": 95984,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "tls-registry-front",
+        "port": 57142,
+        "released": false
+      },
+      {
+        "label": "k2-gen1-host-port",
+        "port": 55282,
+        "released": false
+      },
+      {
+        "label": "k2-gen2-host-port",
+        "port": 49232,
+        "released": false
+      },
+      {
+        "label": "registry",
+        "port": 60395,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:60395（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "宿主 k2-gen1 已起：port=55282，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:57142）",
+      "宿主 k2-gen2 已起：port=49232，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:57142）"
+    ]
+  },
+  "maintainerProfile": {
+    "homeDir": "C:/Users/辰辰洋洋/.dsh",
+    "before": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "77441cc19d6b8f4dc5026b694b42bbf141097822b8359e208585db4303de34f4",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "after": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "77441cc19d6b8f4dc5026b694b42bbf141097822b8359e208585db4303de34f4",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "unchanged": true
+  },
+  "notes": [
+    "本地 registry：http://127.0.0.1:60395（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "宿主 k2-gen1 已起：port=55282，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:57142）",
+    "宿主 k2-gen2 已起：port=49232，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:57142）"
+  ]
+}

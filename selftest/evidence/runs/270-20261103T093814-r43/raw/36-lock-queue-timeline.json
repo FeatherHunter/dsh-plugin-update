@@ -1,0 +1,119 @@
+{
+  "pollIntervalMs": 10,
+  "samples": [
+    {
+      "t": 1793670639577,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": null,
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    },
+    {
+      "t": 1793670639605,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"4a2a21ab-52ca-41d8-a2f9-5fac545139ad\",\"pluginId\":\"fxa-a\",\"pid\":84784,\"startedAt\":1793670639585}",
+      "lockId": "4a2a21ab-52ca-41d8-a2f9-5fac545139ad",
+      "lockPid": 84784,
+      "lockStartedAt": 1793670639585,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": {\n    \"pluginId\": \"fxa-a\",\n    \"jobId\": \"4a2a21ab-52ca-41d8-a2f9-5fac545139ad\",\n    \"requestId\": \"h1-red-a-1793670639576\",\n    \"targetVersion\": \"0.0.2\",\n    \"startedAt\": 1793670639597\n  },\n  \"waiting\": []\n}\n",
+      "queueOwnerPluginId": "fxa-a",
+      "queueOwnerJobId": "4a2a21ab-52ca-41d8-a2f9-5fac545139ad",
+      "queueOwnerRequestId": "h1-red-a-1793670639576",
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    },
+    {
+      "t": 1793670639631,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    },
+    {
+      "t": 1793670639647,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"ca852383-6103-471b-8fb8-53dd22893f3f\",\"pluginId\":\"fxa-a\",\"pid\":84032,\"startedAt\":1793670639638}",
+      "lockId": "ca852383-6103-471b-8fb8-53dd22893f3f",
+      "lockPid": 84032,
+      "lockStartedAt": 1793670639638,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-red-b-1793670639576\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793670639634\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-red-b-1793670639576"
+      ]
+    },
+    {
+      "t": 1793670639666,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"ca852383-6103-471b-8fb8-53dd22893f3f\",\"pluginId\":\"fxa-a\",\"pid\":84032,\"startedAt\":1793670639638}",
+      "lockId": "ca852383-6103-471b-8fb8-53dd22893f3f",
+      "lockPid": 84032,
+      "lockStartedAt": 1793670639638,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": {\n    \"pluginId\": \"fxa-a\",\n    \"jobId\": \"ca852383-6103-471b-8fb8-53dd22893f3f\",\n    \"requestId\": \"h1-red-b-1793670639576\",\n    \"targetVersion\": \"0.0.2\",\n    \"startedAt\": 1793670639650\n  },\n  \"waiting\": []\n}\n",
+      "queueOwnerPluginId": "fxa-a",
+      "queueOwnerJobId": "ca852383-6103-471b-8fb8-53dd22893f3f",
+      "queueOwnerRequestId": "h1-red-b-1793670639576",
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    },
+    {
+      "t": 1793670641545,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    }
+  ],
+  "lockIds": [
+    "4a2a21ab-52ca-41d8-a2f9-5fac545139ad",
+    "ca852383-6103-471b-8fb8-53dd22893f3f"
+  ],
+  "lockIntervals": [
+    {
+      "from": 1793670639605,
+      "to": 1793670639631,
+      "ids": [
+        "4a2a21ab-52ca-41d8-a2f9-5fac545139ad"
+      ]
+    },
+    {
+      "from": 1793670639647,
+      "to": 1793670641545,
+      "ids": [
+        "ca852383-6103-471b-8fb8-53dd22893f3f"
+      ]
+    }
+  ],
+  "finalQueueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+  "finalLockRaw": null
+}

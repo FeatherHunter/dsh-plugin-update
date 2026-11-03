@@ -1,0 +1,44 @@
+{
+  "profileName": "desktop",
+  "logsDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\268-20261103T093814-p10\\home\\profiles\\desktop\\.plugin-manager\\logs",
+  "window": {
+    "fromIso": "2026-11-03T02:05:42.439Z",
+    "toIso": "2026-11-03T02:06:04.547Z"
+  },
+  "operations": [
+    {
+      "dirName": "operation-0IAIaz",
+      "createdAt": "2026-11-03T02:05:43.765Z",
+      "modifiedAt": "2026-11-03T02:05:43.765Z",
+      "pnpmLogBytes": 513,
+      "pnpmLog": "[WARN] The store at C:\\Users\\辰辰洋洋\\AppData\\Local\\pnpm\\store\\v11 is not used because packages cannot be hard linked from it into this project. Using the store at D:\\.pnpm-store\\v11 instead. Set storeDir to choose the store.\n? Verifying lockfile against supply-chain policies (5 entries)...\n✓ Lockfile passes supply-chain policies (5 entries in 1ms)\nLockfile is up to date, resolution step is skipped\nAlready up to date\n\ndependencies:\n- dsh-plugin-update-fixture-b 0.0.1\n\nDone in 283ms using pnpm v11.28.5\n",
+      "removed": [
+        {
+          "name": "dsh-plugin-update-fixture-b",
+          "version": "0.0.1"
+        }
+      ],
+      "added": [],
+      "doneIn": "283ms using pnpm v11.28.5",
+      "empty": false
+    },
+    {
+      "dirName": "operation-uA0Lnt",
+      "createdAt": "2026-11-03T02:05:44.525Z",
+      "modifiedAt": "2026-11-03T02:05:44.525Z",
+      "pnpmLogBytes": 357,
+      "pnpmLog": "[WARN] The store at C:\\Users\\辰辰洋洋\\AppData\\Local\\pnpm\\store\\v11 is not used because packages cannot be hard linked from it into this project. Using the store at D:\\.pnpm-store\\v11 instead. Set storeDir to choose the store.\n? Verifying lockfile against supply-chain policies (4 entries)...\n✓ Lockfile passes supply-chain policies (4 entries in 2ms)\n",
+      "removed": [],
+      "added": [],
+      "doneIn": null,
+      "empty": false
+    }
+  ],
+  "count": 2,
+  "nonEmptyCount": 2,
+  "order": "remove-only",
+  "copiedFiles": [
+    "raw\\40-plugin-manager-operation-operation-0IAIaz.json",
+    "raw\\41-plugin-manager-operation-operation-uA0Lnt.json"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "requests": 3,
+  "requestNs": [
+    "fxa-a",
+    "fxa-b",
+    "fxa-c"
+  ],
+  "installAudit": {
+    "failCount": 2,
+    "retryCount": 2,
+    "nonCheckExpired": 0,
+    "unretried": 0,
+    "queuedCount": 0,
+    "namespaces": [
+      "fxa-b",
+      "fxa-c"
+    ]
+  },
+  "hostCallOk": true,
+  "wireDesktop": true,
+  "batchSummary": 1,
+  "execFails": [],
+  "checkFail": [],
+  "errorLevel": []
+}

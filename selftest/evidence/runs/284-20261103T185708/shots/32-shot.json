@@ -1,0 +1,9 @@
+{
+  "看什么": "重启后卡片上的夹具构建标记（client/host tag）与标题",
+  "步骤": "f2-after-restart",
+  "expected": "client=client v0.0.2；host=host v0.0.2（运作代码来自变体版）",
+  "actual": "client=client v0.0.1；host=host v0.0.1；title=夹具 A · 更新演示",
+  "判定": "fail",
+  "备注": null,
+  "截图": "shots\\32-shot.png"
+}

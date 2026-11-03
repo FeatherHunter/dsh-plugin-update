@@ -1,0 +1,10 @@
+{
+  "shot": "a6-desktop-enabled.png",
+  "channel": "A",
+  "whatToLook": "点「立即启用」后插件是否已启用",
+  "expected": "插件行变为已启用",
+  "actual": "列表仍显示「启用 dsh-prompt」，与 a11 同哈希",
+  "judgement": "不符合预期",
+  "note": "推断需重启桌面 app/宿主；未验证",
+  "run": "264-20261101T194628"
+}

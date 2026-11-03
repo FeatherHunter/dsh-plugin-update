@@ -1,0 +1,10 @@
+{
+  "reason": "k4-after-resume",
+  "gen": 1,
+  "port": 64963,
+  "pid": 13876,
+  "registryUrl": "https://127.0.0.1:58120",
+  "delayMs": null,
+  "proxyRequests": 9,
+  "delayedRequests": 0
+}
