@@ -358,9 +358,19 @@ export interface UpdatePorts {
    * `approvedBuilds` 是 #194 的加法扩展（可选）：调用方已决定批准这些构建脚本时随安装
    * 一起交回宿主（宿主先 approveBuilds 再跑 pnpm）；不传即现状，一字不动。
    * 形状归一（过滤/去重/上限）在 source 侧完成，核心只做透明转发。
+   * `previousVersion` 是 #284 的加法扩展（可选）：这次安装动手前磁盘上的版本；适配器在
+   * cli 路失败且清单依赖边被写到目标版时用它做失败补偿（把依赖边回滚到装前版本）。
+   * 不传即现状，一字不动；适配器不得因为拿不到它改变失败语义。
    * 测试一律给假的，不真跑。
    */
-  runInstall?: (args: { version: string; profileName: string | null; environmentKind: EnvironmentKind; releaseChannel?: ReleaseChannel; approvedBuilds?: string[] }) => void | Promise<void>
+  runInstall?: (args: {
+    version: string
+    profileName: string | null
+    environmentKind: EnvironmentKind
+    releaseChannel?: ReleaseChannel
+    approvedBuilds?: string[]
+    previousVersion?: string | null
+  }) => void | Promise<void>
   /**
    * 合规版决议函数（#156，可选注入）：核心的零运行时导入契约不变——决议逻辑由外面递进来，
    * 不递时 `checkFallback` 按不支持诚实失败（与 `runInstall` 缺席走 `unsupported` 同口径）。

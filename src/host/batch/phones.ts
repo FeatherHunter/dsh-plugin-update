@@ -348,11 +348,40 @@ async function queuePositionFor(rt: TargetRuntime, requestId: string | null): Pr
   }
 }
 
+/**
+ * 续跑行重查落「已完成」的口径（#284 真机）：行是 ready/installing、宿主换手把 receipt 丢了，
+ * 重查时目标可能已被**另一批量的安装**装到目标版——此时 again.kind 是 current（无需装）或 done（装好待重启）。
+ * 这类行必须按「已达成目标」收 done，不能当 check-expired 失败（否则续跑丢行）。
+ * 但收 done 前必须核对目标版确实已被满足（installedVersion === targetVersion 或更高），
+ * 空/更低的 installedVersion 一律不认——绝不把真失败吞成成功。targetVersion 缺失时退回旧语义。
+ */
+function satisfiedByRecheck(rt: TargetRuntime, outcome: BatchCheckOutcome, targetVersion: string | null | undefined): BatchInstallOutcome | null {
+  if (outcome.kind !== 'current' && outcome.kind !== 'done') return null
+  const target = typeof targetVersion === 'string' && targetVersion ? targetVersion : null
+  if (target === null) return null
+  const installed = firstText(asRecord(rt.cache.snapshot)['installedVersion'])
+  if (installed === null) return null
+  try {
+    if (compareReleaseVersions(installed, target) < 0) return null
+  } catch {
+    return null
+  }
+  return outcome.kind === 'done' ? outcome : { kind: 'done', restartRequired: false }
+}
+
 /** 真装一家：拿凭证提交，再等它收尾；没有凭证（跨重启只剩 ready）就重查一次拿凭证。 */
-export async function defaultInstall(rt: TargetRuntime, key: string, spec: MultiTargetSpec, requestId: string): Promise<BatchInstallOutcome> {
+export async function defaultInstall(
+  rt: TargetRuntime,
+  key: string,
+  spec: MultiTargetSpec,
+  requestId: string,
+  targetVersion?: string,
+): Promise<BatchInstallOutcome> {
   let receipt = rt.receipt
   if (!receipt) {
     const again = await rt.check(key, spec)
+    const satisfied = satisfiedByRecheck(rt, again, targetVersion)
+    if (satisfied) return satisfied
     if (again.kind !== 'update') {
       return { kind: 'failed', error: again.kind === 'failed' ? again.error : 'check-expired', stage: 'check' }
     }
@@ -405,6 +434,9 @@ export async function defaultInstall(rt: TargetRuntime, key: string, spec: Multi
   for (let attempt = 2; code === 'check-expired' && attempt <= CHECK_EXPIRED_RETRY_LIMIT + 1; attempt += 1) {
     await sleep(CHECK_EXPIRED_RETRY_DELAY_MS)
     const again = await rt.check(key, spec)
+    // #284：退避期间另一批量可能已把目标装好——重查 current/done 且目标版已满足就收 done，别记失败丢行。
+    const satisfied = satisfiedByRecheck(rt, again, targetVersion)
+    if (satisfied) return satisfied
     if (again.kind !== 'update') {
       return { kind: 'failed', error: again.kind === 'failed' ? again.error : 'check-expired', stage: 'check' }
     }
