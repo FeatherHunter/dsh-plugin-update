@@ -406,6 +406,38 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
       queueNote,
     }
   }
+  // #284 第二面（真机 run 284-20261103T180549 抓到）：最新版已知、也确实比运行版新，但这次检查结论
+  // 已经装不了（canInstall=false；典型是另一个插件安装改写了共享使用范围，installationKey 变了，
+  // src/core/service.ts:486-493 不再认旧 check）。若落到下面的 done 兜底，面板会谎称「已是最新」，
+  // 而服务层 statusVerdictOf（service.ts:534-551）同期仍判 update-available——两套口径打架。
+  // 可装分支(:317)已在前没收，走到这里即「知道有新版、当前装不了」：照实说有新版、当前装不了，
+  // 给「检查更新」入口自愈；不自称已完成。条件放在 pending-restart/blocked/job 等分支之后，
+  // 且要求 latest/running 都非空，不与 latest 未知分支(:394)交叉。
+  const knownLatest = snapshot.latestVersion
+  const knownRunning = snapshot.runningVersion
+  if (knownLatest !== null && knownRunning !== null) {
+    let newerThanRunning = false
+    try {
+      newerThanRunning = compareReleaseVersions(knownLatest, knownRunning) === 1
+    } catch {
+      newerThanRunning = false
+    }
+    if (newerThanRunning) {
+      return {
+        banner: {
+          kind: 'idle',
+          title: copyText('panel.banner.not-installable-title', l, { latest: knownLatest }),
+          action: copyText('panel.action.check', l),
+        },
+        installEnabled: false,
+        installLabel: copyText('panel.action.install', l),
+        skippedLatest: false,
+        showManual: manual ? true : false,
+        showReset: false,
+        queueNote,
+      }
+    }
+  }
   return {
     banner: { kind: 'done', title: copyText('panel.banner.done', l), action: '' },
     installEnabled: false,

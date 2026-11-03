@@ -1022,6 +1022,11 @@
       "zh": "正在读取更新状态…",
       "draft": true
     },
+    "panel.banner.not-installable-title": {
+      "en": "Newer version {latest} is available, but it cannot be installed right now; check for updates and retry.",
+      "zh": "有新版本 {latest}，但当前无法安装；请重新检查更新后重试。",
+      "draft": true
+    },
     "panel.banner.not-installed": {
       "en": "Not installed",
       "zh": "未安装",
@@ -1360,6 +1365,11 @@
     "panel.diag.copy.field.version": {
       "en": "Version={run}→{inst}",
       "zh": "版本={run}→{inst}",
+      "draft": true
+    },
+    "panel.diag.copy.healthy.not-installable": {
+      "en": "Newer version {latest} is available, but it cannot be installed right now; check for updates and retry.",
+      "zh": "有新版本 {latest}，但当前无法安装；请重新检查更新后重试。",
       "draft": true
     },
     "panel.diag.copy.healthy.unknown-latest": {
