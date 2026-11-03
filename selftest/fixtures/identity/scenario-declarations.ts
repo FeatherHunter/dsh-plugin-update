@@ -671,7 +671,7 @@ function kChangelogMarkdown(): string {
     '## [0.0.2] - 2026-11-03 [YANKED]',
     '',
     '### Added',
-    '- **BREAKING**: 旧的 `updateCheck` 电话返回结构改为新形状（面板按新字段渲染）。',
+    '- **BREAKING:** 旧的 `updateCheck` 电话返回结构改为新形状（面板按新字段渲染）。',
     '- 集成方面板新增 **安装按钮** 与 _更新日志_ 折叠区，旧徽标 ~~保留~~ 已移除。',
     '- 产品主页 [dsh-plugin-update](https://example.com/dsh-plugin-update) 与裸链接 https://example.com/changelog 都可点。',
     '',
@@ -778,21 +778,24 @@ export const SCENARIO_K2_SINGLE_PANEL_FAILURE: ScenarioDeclaration = {
   ],
 }
 
-/** K3 批量面板状态矩阵：三包批量从可更新到落定的行相位/总账/台账/续跑提示。 */
+/** K3 批量面板状态矩阵：部分失败隔离（坏最后一行）+ 重启后续跑，逐行 UI/总账/台账/磁盘一致。 */
 export const SCENARIO_K3_BATCH_PANEL_STATES: ScenarioDeclaration = {
   id: 'k-batch-panel-states',
   ticket: '274',
   hostChannel: 'dsh-web',
   summary:
-    '通道 B 真页面：A/B/C@0.0.1 在装，发布三包 0.0.2 → A 面板可更新三行（pending/current）→ 真 UI 点「全部更新」→ 安装窗内按行拍 queued/installing/busy 相位与总账数字 → 等落定后拍 done 行、总账 finished、台账三条成功 → 停宿主读 batch.json 与日志；重启后行 current 不回退',
+    '通道 B 真页面：A/B/C@0.0.1 在装，发布三包 0.0.2 后改坏最后一行 C 的 tarball 字节（元数据/integrity 不动）→ 真 UI 点「全部更新」→ 安装窗拍 installing/queued → A/B 成功、C 失败（1 个失败横幅 + 行内最后手段可重试）→ 停宿主读日志/台账（好行不受影响、无全批假成功）→ 复原 tarball 并清 run 私有 pnpm store → 第二代宿主批量面板续跑（默认自动续跑，冻结时真 UI 点续跑）→ C 成功落定、三行 done/current → 停宿主读 exactly-once（A/B 各 1 次、C 1 失败 1 成功）→ 第三代宿主重启后三行 current、台账三包 completed、构建标记 v0.0.2',
   install: K_BATCH_INSTALL,
   variants: K_BATCH_VARIANTS,
   expected: [
-    '初始批量面板可更新：三行 [data-key=fxa-a/fxa-b/fxa-c] 均为 pending 且 phase=current、总账显示将更新 3 个；入口 data-state 与可更新一致',
-    '发起后安装窗内：至少一行进入 queued/installing 相位，行内进度与总账一致（不出现「已完成」而磁盘仍旧版的全批假成功）',
-    '落定后：三行 phase=done、总账 finished done=3 failed=0、台账逐行三条成功（target 0.0.2/previous 0.0.1）、磁盘三包 0.0.2',
-    '失败横幅在无失败时不可见；续跑提示/notice 在未完成批次不存在时不出现（UI 状态与 session 事实一致）',
-    '重启后三行 current、总账不回退、卡片 clientTag/hostTag=v0.0.2；截图覆盖可更新/更新中/落定/重启四个状态',
+    '挂载即三行 a/b/c；产品默认打开面板自动检查（首帧 pending，「尚未查询」不作稳定断言）',
+    '检查后三行 0.0.1→0.0.2、总账/台账「3 个可更新」、全部更新宏可点；改坏 C tarball 前后 HTTP 200/大小不变/sha256 变/版本文档不动',
+    '安装窗：行 installing/queued 与总账「安装中」一致（磁盘未到 0.0.2 时 UI 不称已完成）',
+    '部分失败隔离：1 个失败横幅（名单含夹具 C、行内复制诊断/复制手工命令）、C 行 failed+最后手段+可重试、summary「1 个插件安装失败」、ledger「1 个失败」、磁盘 a/b=0.0.2、c=0.0.1、无全批假成功',
+    '停 gen1 读后端：A/B 各 1 次 exec 成功、C 1 次 exec 失败 code=install-failed（gate 的 check-expired 重试单独记录、不计入安装失败）',
+    '恢复后第二代宿主续跑：C 装到 0.0.2、失败横幅消失、三行 done/current、C 台账成功终态、A/B 台账不被重复写',
+    '停 gen2 读 exactly-once 与台账逐行真相：A/B exec=1 成功、C exec=2（1 失败 1 成功）；台账同一插件同一 profile 只有一条 state.json（重试覆盖、不追加历史行）⇒ 三包各恰 1 条成功终态，C 的失败历史只留在日志计数；审计 nonCheckExpired=1',
+    '重启后第三代宿主：三行 current 0.0.2、总账「已全部为最新」、卡片 clientTag/hostTag=v0.0.2、台账三包 completed；截图覆盖挂载/可更新/安装中/失败/续跑后/重启六个状态',
   ],
 }
 
@@ -802,7 +805,7 @@ export const SCENARIO_K4_BATCH_RESUME: ScenarioDeclaration = {
   ticket: '274',
   hostChannel: 'dsh-web',
   summary:
-    '通道 B 两代宿主：三包批量推进到 A 行 done、B/C 未终态时杀第一代宿主 → 第二代宿主加载 A@0.0.2（autoResume:false 关面板自动续跑 + batchHub:false 关宿主孤儿接管）→ 面板出现未完成横幅与「继续上次未完成的更新（剩余 n 个）」→ 真 UI 点继续 → B/C 完成、A 不重复安装、台账 3 条成功无重复无丢行、重启后三行 current',
+    '通道 B 三代宿主：批量「全部更新」中改坏 C tarball → 部分失败隔离（A/B 完成、C failed、总账不假称全批成功）→ 杀第一代宿主（taskkill 整树；此刻三行终态、无在飞安装）→ 复原 tarball + 清 run 私有 store → 第二代宿主加载 A@0.0.2（autoResume:false 关面板自动续跑 + batchHub:false 关宿主孤儿接管）→ 面板自动检查把失败行对账成 ready → 出现「继续上次未完成的更新（剩余 1 个）」→ 静置 8 秒冻结（无自动续跑、无 tarball 请求）→ 真 UI 点继续 → C 装到 0.0.2、A/B 不重复安装、台账每包恰一条成功 → 重启后三行 current',
   install: K4_BATCH_INSTALL,
   variants: [
     { slotKey: 'a', version: '0.0.2', changeClasses: ['ui', 'behavior', 'metadata'], effect: { ...batchEffectOf(FIXTURE_SLOT_A, true), batchAutoResume: false, batchHub: false } },
@@ -810,11 +813,12 @@ export const SCENARIO_K4_BATCH_RESUME: ScenarioDeclaration = {
     { slotKey: 'c', version: '0.0.2', changeClasses: ['ui', 'metadata'], effect: targetEffectOf('0.0.2') },
   ],
   expected: [
-    '换手窗口成立：第一代宿主被杀时 A 行 done、B/C 未终态；batch.json/lease.json 原文留证；第二代 host.start 后无自动 B/C exec（面板 autoResume:false + host half hub:false 双闸）',
-    '续跑提示可见且 honest：.dsh-upd-batch-more 内 button[data-act=resume] 文案含剩余数；点继续后 notice role=status 命中 resumed，行相位从 pending→installing→done 推进',
-    'B/C 各恰一次成功、A 不重复：A 的 install.request/exec 计数与换手前一致，B/C 在续跑后各新增恰一次 exec 且 ok=true；台账 fxa-a/fxa-b/fxa-c 各恰一条成功终态',
-    '磁盘三包 0.0.2、总账 finished done=3 failed=0；重启后三行 current、卡片 v0.0.2；无重复成功记录、无丢行',
-    '截图留证：换手前批量中、第二代续跑提示、续跑后落定、重启后 current，每图同六字段 sidecar',
+    '部分失败隔离（杀宿主前）：C 坏 tarball 在 install 阶段失败（元数据未动、check 仍能过），A/B 磁盘与台账都到 0.0.2；C 台账 failed target=0.0.2；总账「1 个插件安装失败」且不含「已全部为最新」（无全批假成功）',
+    '杀宿主后的落盘真相：taskkill 整树后 A/B 磁盘 0.0.2、C 仍 0.0.1，批量会话三行全终态（此刻无在飞安装）；batch.json/台账原文留证',
+    '重启后续跑入口出现且 honest：.dsh-upd-batch-more 内 button[data-act=resume] 文案「继续上次未完成的更新（剩余 n 个）。」、title/cancel 逐字、data-confirm 初始为空；A/B 行终态 0.0.2、C 行被自动检查对账成 ready；双闸（面板 autoResume:false + host half hub:false）下静置 8 秒无自动续跑、无 tarball 请求、磁盘/台账/会话不变',
+    '真 UI 点继续后续跑生效：notice 命中 resumed、C 装到 0.0.2、续跑区消失；exactly-once = A/B install.request 各恰 1 条且台账 file/id/state/mtime 未被改写、B/C 各恰 1 次成功 exec、C 恰 1 次 stage=exec 失败 code=install-failed、audit.nonCheckExpired=1',
+    '台账逐行真相：同一插件同一 profile 只有一条 state.json（续跑覆盖、不追加）⇒ 三包各恰 1 条成功终态（target 0.0.2/previous 0.0.1），无重复、无丢行；重启后三行 current 0.0.2、总账「已全部为最新」、卡片 v0.0.2',
+    '截图留证：部分失败现场、续跑入口（冻结）、续跑后落定、重启后 current，每图同六字段 sidecar',
   ],
 }
 

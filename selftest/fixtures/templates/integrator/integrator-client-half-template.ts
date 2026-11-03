@@ -104,6 +104,13 @@ export function renderIntegratorClientHalf(inputs: IntegratorClientHalfInputs): 
       '    const extraPanel = mountUpdatePanel(extraPanelHost, { pluginId: ' + quote(extraTarget.packageName) + ', prefix: ' + quote(extraTarget.prefix) + ", call, mode: 'embedded', autoCheck: false, pollMs: 5000 })",
     )
   }
+  // 测试钩子：把 controller 的公开 refresh 暴露给真机断言（入口件/安装按钮只在挂载、打开关闭或任务期刷新）。
+  singleHostLines.push(
+    '    ;(globalThis as any).__fixtureRefresh = {',
+    '      entry: function () { return entry.refresh() },',
+    ...(effect.installButton === true ? ["      button: function () { return installButton.refresh() },"] : []),
+    '    }',
+  )
   singleHostLines.push(
     ...buildTagEffectLines,
     '    return () => {',

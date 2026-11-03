@@ -159,7 +159,7 @@ const k1Plan = planFixturePackage(FIXTURE_SLOT_A, '0.0.2', SUT, k1Variant.effect
 const changelogFile = sourceFileOf(k1Plan, 'changelog')
 assertEqual(changelogFile.path, 'CHANGELOG.md', 'K1 变体计划带 CHANGELOG.md 源文件')
 assert(changelogFile.content.includes('## [0.0.2] - 2026-11-03 [YANKED]'), 'CHANGELOG 标题含版本与 [YANKED] 标记')
-assert(changelogFile.content.includes('**BREAKING**'), 'CHANGELOG 含 BREAKING 条目（加粗前缀也要被识别）')
+assert(changelogFile.content.includes('**BREAKING:**'), 'CHANGELOG 含 BREAKING 条目（冒号在粗体内，产品 splitBreakingPrefix 才识别为破坏前缀）')
 assert(changelogFile.content.includes('https://example.com/changelog'), 'CHANGELOG 含裸 URL')
 assert(changelogFile.content.includes('`updateCheck`'), 'CHANGELOG 含行内 code')
 const kVersionHeadings = changelogFile.content.split('\n').filter((line) => line.startsWith('## [')).length
