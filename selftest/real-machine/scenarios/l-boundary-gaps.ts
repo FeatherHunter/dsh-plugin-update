@@ -1236,15 +1236,37 @@ async function clickCheckAndWaitKnown(ui: UiHandle, cardSelector: string, plugin
 /**
  * 装完后让面板落到「已了结」：安装会改写磁盘包清单 → 读取器按 runningVersion 换代，新实例没查过
  * 最新版，首屏先给诚实「版本信息未知」（#284 修后行为，不是假话）。这是产品诚实行为，驱动只能
- * 真 UI 点一次检查更新让它自愈，再等 done；不通过等待旧状态来伪造「装完即已最新」。
+ * 真 UI 点检查更新让它自愈，再等 done；不通过等待旧状态来伪造「装完即已最新」。
+ * 注意：装完最初几秒面板仍可能是 busy/restart（旧读取器结论 + 磁盘已换），此时 check 按钮不可点或
+ * 点不出新结论，必须先等这一档过去（观察点：164500 run 里 busy 状态下点 check 无 update.panel.action）。
  * 首屏已是 done（同实例记忆还在）时直接用，不夺走证据。
  */
 async function settlePanelDoneAfterInstall(ui: UiHandle, cardSelector: string, pluginSelector: string, what: string): Promise<PanelState> {
-  const first = await waitForPanel(ui, cardSelector, pluginSelector, (next) => next.banner !== null && next.banner.kind !== 'loading', what + '：装完后回填', 180000)
-  if (first.banner !== null && first.banner.kind === 'done') return first
-  const known = await clickCheckAndWaitKnown(ui, cardSelector, pluginSelector, what + '：装完后点检查更新')
-  if (known.banner !== null && known.banner.kind === 'done') return known
-  return waitForPanel(ui, cardSelector, pluginSelector, (next) => next.banner !== null && next.banner.kind === 'done', what + '：已了结', 180000)
+  const deadline = Date.now() + 180000
+  let last: PanelState | null = null
+  while (Date.now() < deadline) {
+    last = await readPanel(ui, cardSelector, pluginSelector)
+    const banner = last !== null && last.present ? last.banner : null
+    if (banner !== null && banner.kind === 'done') return last as PanelState
+    const transient = banner === null || banner.kind === 'loading' || banner.kind === 'busy' || banner.kind === 'restart'
+    const check = last !== null ? last.actions.find((item) => item.action === 'check') : undefined
+    if (!transient && check !== undefined && !check.disabled) {
+      await clickInCard(ui, cardSelector, pluginSelector + ' button[data-action="check"]')
+      // 点完等结论回填：done 直接收；其它可判定档回外层再决定是否再点。
+      const attemptDeadline = Date.now() + 60000
+      while (Date.now() < attemptDeadline) {
+        const next = await readPanel(ui, cardSelector, pluginSelector)
+        if (next !== null && next.present && next.banner !== null) {
+          last = next
+          if (next.banner.kind === 'done') return next
+          if (next.banner.kind !== 'loading' && next.banner.kind !== 'busy') break
+        }
+        await sleep(POLL_MS)
+      }
+    }
+    await sleep(POLL_MS)
+  }
+  throw new Error('等待面板落定超时（' + what + '）：last=' + JSON.stringify(last !== null ? last.banner : null))
 }
 
 /** L1：同一宿主进程里 A、B 两个集成方面板同一 tick 点安装 → 串行/忙碌诚实、exactly-once、重启后不回退。 */
@@ -1332,7 +1354,13 @@ async function runL1(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
     raceLooserKind !== null && ['failed', 'busy', 'queued', 'blocked', 'restart', 'error'].indexOf(raceLooserKind) >= 0
   const raceLooserIdleHonest =
     raceLooserKind === 'idle' && (raceLooserTitle.indexOf('有新版本') >= 0 || raceLooserTitle.indexOf('版本信息未知') >= 0)
-  const raceLoserHonest = raceWinner === null || raceLooserKnownHonest || raceLooserIdleHonest
+  // 真机 184500：落败者 A 的 gate 拒绝已在日志落定（update.install.fail），但面板轮询 5s 未回填，观测窗
+  // 结束时仍显示「有新版本 0.0.2 可安装」。这也是真话（A 磁盘确实还是 0.0.1、0.0.2 确实可装），
+  // 只是没来得及变成忙碌/失败档；不能当假「已最新」。落败者磁盘已变（装成了）才不认这档。
+  const raceLoserPackageName = raceWinner === packageA ? packageB : raceWinner === packageB ? packageA : null
+  const raceLooserUpdateHonest =
+    raceLoserPackageName !== null && raceLooserKind === 'update' && raceLooserTitle.indexOf('有新版本') >= 0 && raceDisk[raceLoserPackageName] === FIXTURE_BASE_VERSION
+  const raceLoserHonest = raceWinner === null || raceLooserKnownHonest || raceLooserIdleHonest || raceLooserUpdateHonest
   const raceExecTotal = raceExecsA + raceExecsB
   const raceSerialized = raceExecTotal <= 1 || raceQueue.length > 0
   const raceOk = raceSerialized && raceLoserHonest && !(raceWinner !== null && raceLooserKind === 'done')
@@ -1359,7 +1387,7 @@ async function runL1(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
     actual: JSON.stringify({ raceDisk, raceWinner, raceLooser: raceLooserBrief, raceExecTotal, raceSerialized, queueEvents: raceQueue.length, lockAnomalies: raceLockAnomalies.length }),
     verdict: raceOk ? 'pass' : 'fail',
   })
-  rec({ step: 'l1-02-race-serialized-or-honest-busy', what: '同进程两插件并发安装：串行落定或后到者诚实忙碌（不谎称已更新）', expected: '并发窗口内 exec 总数<=1 或出现队列事件；后到者横幅为忙碌/失败/排队/阻挡档，或诚实 idle（明确说有新版但当前装不了/版本信息未知）', actual: JSON.stringify({ raceExecTotal, raceSerialized, raceLooserKind, raceLooserTitle, queueEvents: raceQueue.length, lockAnomalies: raceLockAnomalies.length }), ok: raceOk })
+  rec({ step: 'l1-02-race-serialized-or-honest-busy', what: '同进程两插件并发安装：串行落定或后到者诚实忙碌（不谎称已更新）', expected: '并发窗口内 exec 总数<=1 或出现队列事件；后到者横幅为忙碌/失败/排队/阻挡档，或诚实 idle（明确说有新版但当前装不了/版本信息未知），或仍诚实显示「有新版本可安装」且其磁盘/台账未变（轮询未回填，非假最新）', actual: JSON.stringify({ raceExecTotal, raceSerialized, raceLooserKind, raceLooserTitle, raceLooserUpdateHonest, queueEvents: raceQueue.length, lockAnomalies: raceLockAnomalies.length }), ok: raceOk })
   rec({ step: 'l1-03-no-fake-latest-at-race', what: '并发现场无假最新：后到面板在自己磁盘未变时不得显示「已是最新」', expected: '后到者 kind!==done 且文案不含「已是最新」（其磁盘仍是 0.0.1；修后诚实档为「有新版本 X，但当前无法安装」）', actual: JSON.stringify({ raceDisk, raceWinner, raceLooserKind, raceLooserTitle }), ok: raceWinner === null || (raceLooserKind !== 'done' && raceLooserTitle.indexOf('已是最新') < 0) })
 
   // ---- 4. 后到者重试完成（或产品自动续跑） ----
