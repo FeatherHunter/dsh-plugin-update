@@ -858,7 +858,8 @@ async function runL2(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
   const retryClickAt = new Date().toISOString()
   await clickInCard(ui2, cardA, panelA + ' button[data-action="install"]')
   await waitDiskVersions(ctx, { [packageA]: FIXTURE_VARIANT_VERSION }, 'L2 恢复后真装到 0.0.2')
-  const settled = await waitForPanel(ui2, cardA, panelA, (state) => state.banner !== null && state.banner.kind === 'done', '恢复后安装落定（已是最新）', 180000)
+  // 装完读取器换代首屏诚实未知，真 UI 点检查更新后落定（见 helper 注释）。
+  const settled = await settlePanelDoneAfterInstall(ui2, cardA, panelA, 'L2 恢复后安装')
   const ledger2 = await waitForLedger(ctx, packageA, ['completed', 'restart-required'], 'L2 恢复后台账成功终态', 60000)
   const diskAfterSuccess = await diskVersions(ctx, [packageA])
   const settledOk = settled.banner !== null && settled.banner.title === '已是最新，无需更新。'
@@ -1232,6 +1233,20 @@ async function clickCheckAndWaitKnown(ui: UiHandle, cardSelector: string, plugin
   return waitForPanel(ui, cardSelector, pluginSelector, (next) => next.banner !== null && (next.banner.kind === 'update' || next.banner.kind === 'done'), what + '：检查更新后档位回填', 180000)
 }
 
+/**
+ * 装完后让面板落到「已了结」：安装会改写磁盘包清单 → 读取器按 runningVersion 换代，新实例没查过
+ * 最新版，首屏先给诚实「版本信息未知」（#284 修后行为，不是假话）。这是产品诚实行为，驱动只能
+ * 真 UI 点一次检查更新让它自愈，再等 done；不通过等待旧状态来伪造「装完即已最新」。
+ * 首屏已是 done（同实例记忆还在）时直接用，不夺走证据。
+ */
+async function settlePanelDoneAfterInstall(ui: UiHandle, cardSelector: string, pluginSelector: string, what: string): Promise<PanelState> {
+  const first = await waitForPanel(ui, cardSelector, pluginSelector, (next) => next.banner !== null && next.banner.kind !== 'loading', what + '：装完后回填', 180000)
+  if (first.banner !== null && first.banner.kind === 'done') return first
+  const known = await clickCheckAndWaitKnown(ui, cardSelector, pluginSelector, what + '：装完后点检查更新')
+  if (known.banner !== null && known.banner.kind === 'done') return known
+  return waitForPanel(ui, cardSelector, pluginSelector, (next) => next.banner !== null && next.banner.kind === 'done', what + '：已了结', 180000)
+}
+
 /** L1：同一宿主进程里 A、B 两个集成方面板同一 tick 点安装 → 串行/忙碌诚实、exactly-once、重启后不回退。 */
 async function runL1(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): Promise<void> {
   void options
@@ -1352,15 +1367,16 @@ async function runL1(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
   if (diskAfterRace[packageA] !== FIXTURE_VARIANT_VERSION) await ensureInstalledViaUi(ctx, ui1, cardA, panelA, packageA, 'L1 后到者 A')
   if (diskAfterRace[packageB] !== FIXTURE_VARIANT_VERSION) await ensureInstalledViaUi(ctx, ui1, cardB, panelB, packageB, 'L1 后到者 B')
   await waitDiskVersions(ctx, { [packageA]: FIXTURE_VARIANT_VERSION, [packageB]: FIXTURE_VARIANT_VERSION }, 'L1 两包最终都到 0.0.2')
-  const settledA = await waitForPanel(ui1, cardA, panelA, (state) => state.banner !== null && state.banner.kind === 'done', 'L1 A 面板已了结', 180000)
-  const settledB = await waitForPanel(ui1, cardB, panelB, (state) => state.banner !== null && state.banner.kind === 'done', 'L1 B 面板已了结', 180000)
+  // 装完读取器换代：首屏诚实说版本未知（见 helper 注释），真 UI 点检查更新后落定。
+  const settledA = await settlePanelDoneAfterInstall(ui1, cardA, panelA, 'L1 A 面板')
+  const settledB = await settlePanelDoneAfterInstall(ui1, cardB, panelB, 'L1 B 面板')
   const tagsFinal = { a: await readCardTags(ui1, cardA), b: await readCardTags(ui1, cardB) }
   const ledgerA = await waitForLedger(ctx, packageA, SUCCESS_STATES, 'L1 A 台账成功', 60000)
   const ledgerB = await waitForLedger(ctx, packageB, SUCCESS_STATES, 'L1 B 台账成功', 60000)
   await capture(ctx.run, ui1, {
     step: 'l1-25-both-settled',
     what: '后到者重试/自动续跑完成：A、B 两个面板都已了结，磁盘 0.0.2，台账各一条成功终态',
-    expected: '两面板「已是最新，无需更新。」、磁盘 A/B=0.0.2、台账各一条成功终态且 target=0.0.2',
+    expected: '装完首屏诚实未知（读取器换代）→ 真 UI 各点一次检查更新后两面板「已是最新，无需更新。」、磁盘 A/B=0.0.2、台账各一条成功终态且 target=0.0.2',
     actual: JSON.stringify({ bannerA: settledA.banner, bannerB: settledB.banner, tags: tagsFinal, ledgerA: ledgerStateOf(ledgerA), ledgerB: ledgerStateOf(ledgerB) }),
     verdict: settledA.banner !== null && settledB.banner !== null && settledA.banner.title === '已是最新，无需更新。' && settledB.banner.title === '已是最新，无需更新。' && isSuccessLedger(ledgerA) && isSuccessLedger(ledgerB) ? 'pass' : 'fail',
   })
@@ -1549,7 +1565,8 @@ async function runL3(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
   await waitForPanel(ui2, cardA, panelA, (state) => state.banner !== null && state.banner.kind === 'update', 'L3 恢复后检查仍给出可更新')
   await clickInCard(ui2, cardA, panelA + ' button[data-action="install"]')
   await waitDiskVersions(ctx, { [packageA]: FIXTURE_VARIANT_VERSION }, 'L3 恢复后真装到 0.0.2')
-  const settled = await waitForPanel(ui2, cardA, panelA, (state) => state.banner !== null && state.banner.kind === 'done', 'L3 恢复后安装落定', 180000)
+  // 装完读取器换代首屏诚实未知，真 UI 点检查更新后落定（见 helper 注释）。
+  const settled = await settlePanelDoneAfterInstall(ui2, cardA, panelA, 'L3 恢复后安装')
   const ledger2 = await waitForLedger(ctx, packageA, SUCCESS_STATES, 'L3 恢复后台账成功终态', 60000)
   const diskAfterSuccess = await diskVersions(ctx, [packageA])
   const settledOk = settled.banner !== null && settled.banner.title === '已是最新，无需更新。'
@@ -1676,13 +1693,14 @@ async function runL4(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
   const ui2 = await openUi(gen1.host.url)
   gen1.ui = ui2
   ctx.ui = ui2
-  const reopened = await waitForPanel(ui2, cardA, panelA, (state) => state.banner !== null && state.banner.kind === 'done', 'L4 重开页面后已了结', 180000)
+  // 关页面期间装成 → 重开页面是新面板实例、没查过最新版：首屏诚实未知，真 UI 点检查更新后落定。
+  const reopened = await settlePanelDoneAfterInstall(ui2, cardA, panelA, 'L4 重开页面后')
   const tagsReopened = await readCardTags(ui2, cardA)
   const reopenedOk = reopened.banner !== null && reopened.banner.title === '已是最新，无需更新。' && tagsReopened.clientTag === tagsA.clientTag
   await capture(ctx.run, ui2, {
     step: 'l4-30-reopened-truthful',
-    what: '关页面后重开：面板已是「已是最新」、运行构建 0.0.2，与宿主侧磁盘/台账真相一致',
-    expected: '横幅「已是最新，无需更新。」、clientTag/hostTag=0.0.2',
+    what: '关页面后重开：首屏先诚实说版本未知（新面板实例没查过最新版）→ 真 UI 点检查更新后面板已「已是最新」、运行构建 0.0.2，与宿主侧磁盘/台账真相一致',
+    expected: '首屏诚实未知、检查更新后横幅「已是最新，无需更新。」、clientTag/hostTag=0.0.2',
     actual: JSON.stringify({ banner: reopened.banner, tags: tagsReopened }),
     verdict: reopenedOk ? 'pass' : 'fail',
   })
@@ -1915,7 +1933,8 @@ async function runL5(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
     await waitForPanel(uiB2, cardA, panelA, (state) => state.banner !== null && state.banner.kind === 'update', 'L5b 重启后检查给出可更新')
     await clickInCard(uiB2, cardA, panelA + ' button[data-action="install"]')
     await waitDiskVersions(ctx2, { [packageA]: FIXTURE_VARIANT_VERSION }, 'L5b 陈旧锁回收后真装到 0.0.2')
-    const settledB = await waitForPanel(uiB2, cardA, panelA, (state) => state.banner !== null && state.banner.kind === 'done', 'L5b 安装落定', 180000)
+    // 装完读取器换代首屏诚实未知，真 UI 点检查更新后落定（见 helper 注释）。
+    const settledB = await settlePanelDoneAfterInstall(uiB2, cardA, panelA, 'L5b 安装')
     const ledgerB = await waitForLedger(ctx2, packageA, SUCCESS_STATES, 'L5b 台账成功终态', 60000)
     const diskB = await diskVersions(ctx2, [packageA])
     const reclaimOk = diskB[packageA] === FIXTURE_VARIANT_VERSION && isSuccessLedger(ledgerB)
