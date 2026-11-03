@@ -1,0 +1,10 @@
+{
+  "reason": "l3-after-failure",
+  "gen": 0,
+  "port": 53739,
+  "pid": 71692,
+  "registryUrl": "https://127.0.0.1:65143",
+  "delayMs": null,
+  "proxyRequests": 9,
+  "delayedRequests": 0
+}

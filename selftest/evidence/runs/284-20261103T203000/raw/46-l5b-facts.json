@@ -1,0 +1,114 @@
+{
+  "reclaimEvents": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.lock.anomaly",
+      "level": "warn",
+      "fields": {
+        "kind": "stale-owner",
+        "ageMs": 20923,
+        "ownerHash": "ad0a0f0e",
+        "traceId": "d8f86be900aec478",
+        "spanId": "28c169b0",
+        "seq": 2
+      }
+    },
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.queue.transition",
+      "level": "info",
+      "fields": {
+        "phase": "reclaimed",
+        "holderHash": "0f7833d2",
+        "traceId": "d8f86be900aec478",
+        "spanId": "28c169b0",
+        "seq": 3
+      }
+    },
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.lock.anomaly",
+      "level": "warn",
+      "fields": {
+        "kind": "stale-owner",
+        "ageMs": 20923,
+        "ownerHash": "0b9041f1",
+        "traceId": "d8f86be900aec478",
+        "spanId": "28c169b0",
+        "seq": 4
+      }
+    }
+  ],
+  "requests": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "panel",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 295,
+        "intentHash": "5f74f209",
+        "traceId": "0b6091159a92ab35",
+        "spanId": "711cbdfa",
+        "seq": 1
+      }
+    },
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "panel",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 296,
+        "intentHash": "ef57c28c",
+        "traceId": "d8f86be900aec478",
+        "spanId": "28c169b0",
+        "seq": 1
+      }
+    }
+  ],
+  "execs": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "cli-process",
+        "ok": true,
+        "exitCode": 0,
+        "durationMs": 1004,
+        "pluginId": "fxa-a",
+        "traceId": "d8f86be900aec478",
+        "spanId": "28c169b0",
+        "seq": 7
+      }
+    }
+  ],
+  "fails": [],
+  "successJobs": 1,
+  "ledgerJobs": [
+    {
+      "file": "fxa-a/73dfb4db7487fd0abe5b8137/state.json",
+      "state": {
+        "requestId": "rmw0lm85o468vt",
+        "message": null,
+        "id": "425fa377-02b3-4739-a084-ea8834ed1f50",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      },
+      "mtimeMs": 1793704954954.299
+    }
+  ],
+  "beforeFiles": [
+    "fxa-a/73dfb4db7487fd0abe5b8137/before.json"
+  ],
+  "disk": {
+    "dsh-plugin-update-fixture-a": "0.0.2"
+  },
+  "note": "陈旧锁回收证据（reclaimed/stale-owner 事件若有）+ 恰一次成功终态；被杀尝试不应产生 ok exec"
+}

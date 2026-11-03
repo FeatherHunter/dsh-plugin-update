@@ -1,0 +1,12 @@
+{
+  "closedAt": "2026-11-03T11:15:59.623Z",
+  "busyObserved": true,
+  "bannerAtClose": {
+    "kind": "busy",
+    "title": "正在安装 0.0.2…关闭面板不会中断。",
+    "sub": "进度将自动轮询刷新；重新打开面板将在 1 秒内恢复显示。"
+  },
+  "progressAtClose": "正在安装新版本…",
+  "hostUrlMasked": "http://127.0.0.1:52694/?token=***",
+  "note": "安装请求已交给宿主（电话已回、exec 在后台跑）后关闭页面；此后不再读页面，只用磁盘/台账/日志/registry 请求判定宿主侧真相"
+}

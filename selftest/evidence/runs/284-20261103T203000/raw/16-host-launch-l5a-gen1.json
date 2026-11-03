@@ -1,0 +1,13 @@
+{
+  "label": "l5a-gen1",
+  "urlMasked": "http://127.0.0.1:50584/?token=***",
+  "port": 50584,
+  "bootMs": 2113,
+  "registryUrl": "https://127.0.0.1:54352",
+  "tlsFrontPort": 54352,
+  "certSha256": "8b7b68e31372c03d91f295e1bc3da1b6ef4515dbe058f2431c48923a69be7121",
+  "delayMs": 6000,
+  "requestsFrom": 0,
+  "stdoutTail": "dsh web: http://127.0.0.1:50584/?token=YYCiEQKiBEFBKanbYT0TMZS9z5Tdj4cCbVH6Us13qPw\n",
+  "stderrTail": ""
+}

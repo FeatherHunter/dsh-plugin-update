@@ -1,0 +1,44 @@
+{
+  "profilePackageDir": "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T200100\\os-home\\.dsh\\profiles\\t13b\\node_modules\\dsh-plugin-update-fixture-a",
+  "nodeModulesDir": "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T200100\\os-home\\.dsh\\profiles\\t13b\\node_modules",
+  "identity": {
+    "user": "�û���Ϣ\r\n----------------\r\n\r\n�û���            SID                                           \r\n================= ==============================================\r\n����γ���\\������ S-1-5-21-3717688226-1312542433-2550484439-1003",
+    "sid": "S-1-5-21-3717688226-1312542433-2550484439-1003",
+    "groups": "����Ϣ\r\n-----------------\r\n\r\n����                                   ����   SID                                            ����                          \r\n====================================== ====== ============================================== ==============================\r\nEveryone                               ��֪�� S-1-1-0                                        �������, ������Ĭ��, ���õ���\r\nNT AUTHORITY\\�����ʻ��͹���Ա���Ա    ��֪�� S-1-5-114                                      ֻ���ھܾ�����                \r\n����γ���\\docker-users                ����   S-1-5-21-3717688226-1312542433-2550484439-1005 �������, ������Ĭ��, ���õ���\r\nBUILTIN\\Administrators                 ����   S-1-5-32-544                                   ֻ���ھܾ�����                \r\nBUILTIN\\Users                          ����   S-1-5-32-545                                   �������, ������Ĭ��, ���õ���\r\nNT AUTHORITY\\INTERACTIVE               ��֪�� S-1-5-4                                        �������, ������Ĭ��, ���õ���\r\nCONSOLE LOGON                          ��֪�� S-1-2-1                                        �������, ������Ĭ��, ���õ���\r\nNT AUTHORITY\\Authenticated Users       ��֪�� S-1-5-11                                       �������, ������Ĭ��, ���õ���\r\nNT AUTHORITY\\This Organization         ��֪�� S-1-5-15                                       �������, ������Ĭ��, ���õ���\r\nNT AUTHORITY\\�����ʻ�                  ��֪�� S-1-5-113                                      �������, ������Ĭ��, ���õ���\r\nLOCAL                                  ��֪�� S-1-2-0                                        �������, ������Ĭ��, ���õ���\r\nNT AUTHORITY\\NTLM Authentication       ��֪�� S-1-5-64-10                                    �������, ������Ĭ��, ���õ���\r\nMandatory Label\\Medium Mandatory Level ��ǩ   S-1-16-8192"
+  },
+  "aclBefore": {
+    "exitCode": 0,
+    "stdout": "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T200100\\os-home\\.dsh\\profiles\\t13b\\node_modules BUILTIN\\Administrators:(I)(F)\n                                                                                                      BUILTIN\\Administrators:(I)(OI)(CI)(IO)(F)\n                                                                                                      NT AUTHORITY\\SYSTEM:(I)(F)\n                                                                                                      NT AUTHORITY\\SYSTEM:(I)(OI)(CI)(IO)(F)\n                                                                                                      NT AUTHORITY\\Authenticated Users:(I)(M)\n                                                                                                      NT AUTHORITY\\Authenticated Users:(I)(OI)(CI)(IO)(M)\n                                                                                                      BUILTIN\\Users:(I)(RX)\n                                                                                                      BUILTIN\\Users:(I)(OI)(CI)(IO)(GR,GE)\n\n�ѳɹ����� 1 ���ļ�; ���� 0 ���ļ�ʱʧ��",
+    "stderr": ""
+  },
+  "denyCommand": {
+    "exe": "icacls",
+    "args": [
+      "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T200100\\os-home\\.dsh\\profiles\\t13b\\node_modules",
+      "/deny",
+      "*S-1-5-21-3717688226-1312542433-2550484439-1003:(OI)(CI)(AD,WD)"
+    ],
+    "exitCode": 0,
+    "signal": null,
+    "stdout": "�Ѵ������ļ�: D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T200100\\os-home\\.dsh\\profiles\\t13b\\node_modules\r\n�ѳɹ����� 1 ���ļ�; ���� 0 ���ļ�ʱʧ��\r\n",
+    "stderr": "",
+    "timedOut": false
+  },
+  "aclAfter": {
+    "exitCode": 0,
+    "stdout": "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T200100\\os-home\\.dsh\\profiles\\t13b\\node_modules ����γ���\\������:(OI)(CI)(DENY)(WD,AD)\n                                                                                                      BUILTIN\\Administrators:(I)(F)\n                                                                                                      BUILTIN\\Administrators:(I)(OI)(CI)(IO)(F)\n                                                                                                      NT AUTHORITY\\SYSTEM:(I)(F)\n                                                                                                      NT AUTHORITY\\SYSTEM:(I)(OI)(CI)(IO)(F)\n                                                                                                      NT AUTHORITY\\Authenticated Users:(I)(M)\n                                                                                                      NT AUTHORITY\\Authenticated Users:(I)(OI)(CI)(IO)(M)\n                                                                                                      BUILTIN\\Users:(I)(RX)\n                                                                                                      BUILTIN\\Users:(I)(OI)(CI)(IO)(GR,GE)\n\n�ѳɹ����� 1 ���ļ�; ���� 0 ���ļ�ʱʧ��",
+    "stderr": ""
+  },
+  "writeProbe": {
+    "ok": false,
+    "code": "EPERM",
+    "message": "EPERM: operation not permitted, open 'D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T200100\\os-home\\.dsh\\profiles\\t13b\\node_modules\\.l284-write-probe-1793704511674.txt'"
+  },
+  "readProbe": {
+    "ok": true,
+    "bytes": 685,
+    "code": null
+  },
+  "effective": true,
+  "note": "icacls /deny *SID:(OI)(CI)(AD,WD) 对本 run 隔离 profile 的 node_modules 拒绝写数据/加子目录（读不受影响，产品仍认包 0.0.1 完好）；同用户 raw 写探针证明真写不进去（外部注入，未改产品代码）"
+}

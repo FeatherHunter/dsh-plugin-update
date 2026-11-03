@@ -1,0 +1,9 @@
+{
+  "scenario": "l4-page-close-mid-install",
+  "baseline": [
+    {
+      "slotKey": "a",
+      "spec": "dsh-plugin-update-fixture-a@0.0.1"
+    }
+  ]
+}

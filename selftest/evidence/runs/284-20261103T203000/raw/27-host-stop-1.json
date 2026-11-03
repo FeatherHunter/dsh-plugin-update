@@ -1,0 +1,10 @@
+{
+  "reason": "l5a-after-restart",
+  "gen": 1,
+  "port": 52786,
+  "pid": 99036,
+  "registryUrl": "https://127.0.0.1:54352",
+  "delayMs": null,
+  "proxyRequests": 0,
+  "delayedRequests": 0
+}

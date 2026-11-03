@@ -1,0 +1,18 @@
+{
+  "files": [
+    {
+      "id": "fixture-client-bundle",
+      "path": "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T205500\\os-home\\.dsh\\profiles\\t13b\\node_modules\\dsh-plugin-update-fixture-a\\lib\\client.js",
+      "restoredSha": "3139a2bd08f04158f8e2483a7091ec849be9a9810668f6b8f577f0de6e9e9cb9",
+      "beforeSha": "3139a2bd08f04158f8e2483a7091ec849be9a9810668f6b8f577f0de6e9e9cb9",
+      "ok": true
+    },
+    {
+      "id": "sut-dictionary",
+      "path": "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T205500\\os-home\\.dsh\\profiles\\t13b\\node_modules\\dsh-plugin-update\\dist\\core\\i18n\\dictionary.js",
+      "restoredSha": "aa34c02408bc2b9fcee60df2d6b2e156e162583624ae3fec0407d0a2fa1c0e89",
+      "beforeSha": "aa34c02408bc2b9fcee60df2d6b2e156e162583624ae3fec0407d0a2fa1c0e89",
+      "ok": true
+    }
+  ]
+}

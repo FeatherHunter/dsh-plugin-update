@@ -1,0 +1,9 @@
+{
+  "看什么": "后到者重试/自动续跑完成：A、B 两个面板都已了结，磁盘 0.0.2，台账各一条成功终态",
+  "步骤": "l1-25-both-settled",
+  "expected": "装完首屏诚实未知（读取器换代）→ 真 UI 各点一次检查更新后两面板「已是最新，无需更新。」、磁盘 A/B=0.0.2、台账各一条成功终态且 target=0.0.2",
+  "actual": "{\"bannerA\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"},\"bannerB\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"},\"tags\":{\"a\":{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.1\"},\"b\":{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.1\"}},\"ledgerA\":\"completed\",\"ledgerB\":\"completed\"}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\26-shot.png"
+}

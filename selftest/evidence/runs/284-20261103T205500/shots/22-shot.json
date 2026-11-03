@@ -1,0 +1,9 @@
+{
+  "看什么": "本 run 私有 verdaccio 已被停（外部手段）：registry 探活从 200 变为不可达；页面仍在但安装将失败",
+  "步骤": "l2-15-registry-killed",
+  "expected": "杀前 /-/ping 200、杀后连接失败；注入命令与输出入 raw",
+  "actual": "{\"pingBefore\":{\"ok\":true,\"status\":200},\"pingAfter\":{\"ok\":false,\"error\":\"fetch failed\"}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\22-shot.png"
+}

@@ -1,0 +1,107 @@
+{
+  "requests": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "panel",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 1329,
+        "intentHash": "051c47b4",
+        "traceId": "05245f698fc5334a",
+        "spanId": "f12b585e",
+        "seq": 1
+      }
+    },
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "panel",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 298,
+        "intentHash": "170a9fb4",
+        "traceId": "147228dbb3eb89dc",
+        "spanId": "0da95e80",
+        "seq": 1
+      }
+    }
+  ],
+  "execs": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "cli-process",
+        "ok": false,
+        "exitCode": 1,
+        "durationMs": 1094,
+        "pluginId": "fxa-a",
+        "traceId": "05245f698fc5334a",
+        "spanId": "f12b585e",
+        "seq": 4
+      }
+    },
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "cli-process",
+        "ok": true,
+        "exitCode": 0,
+        "durationMs": 1069,
+        "pluginId": "fxa-a",
+        "traceId": "147228dbb3eb89dc",
+        "spanId": "0da95e80",
+        "seq": 4
+      }
+    }
+  ],
+  "fails": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "exec",
+        "reason": "nonzero-exit",
+        "code": "install-failed",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": 1,
+        "observedVersion": null,
+        "intentHash": "051c47b4",
+        "traceId": "05245f698fc5334a",
+        "spanId": "f12b585e",
+        "seq": 6
+      }
+    }
+  ],
+  "ledgerJobs": [
+    {
+      "file": "fxa-a/0755149b625073aea804221c/state.json",
+      "state": {
+        "requestId": "rmw0lcyix3a7dq",
+        "message": null,
+        "id": "53a3ddae-fa26-4f73-9700-17743ed5155c",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      },
+      "mtimeMs": 1793704522528.8193
+    }
+  ],
+  "beforeFiles": [
+    "fxa-a/0755149b625073aea804221c/before.json"
+  ],
+  "disk": {
+    "dsh-plugin-update-fixture-a": "0.0.2"
+  },
+  "note": "同一插件+profile 台账共槽：失败记录被成功重试覆盖，最终恰一条成功终态"
+}

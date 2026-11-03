@@ -1,0 +1,9 @@
+{
+  "看什么": "ACL 恢复后重试安装真装成 0.0.2：面板已了结、磁盘 0.0.2、台账成功终态",
+  "步骤": "l3-40-retry-success",
+  "expected": "横幅「已是最新，无需更新。」、磁盘 0.0.2、台账成功终态 target=0.0.2",
+  "actual": "{\"banner\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"},\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\"},\"ledger\":{\"state\":\"completed\",\"targetVersion\":\"0.0.2\"}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\33-shot.png"
+}

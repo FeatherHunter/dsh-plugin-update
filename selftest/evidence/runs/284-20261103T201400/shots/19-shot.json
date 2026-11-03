@@ -1,0 +1,9 @@
+{
+  "看什么": "真 UI 点安装后、关页面前的现场：安装正在宿主侧进行（进度/忙碌档），页面即将被关闭",
+  "步骤": "l4-20-busy-before-close",
+  "expected": "观测到安装进行中（busy/进度非空）；页面仍未关闭",
+  "actual": "{\"busyObserved\":true,\"panel\":{\"present\":true,\"plugin\":\"dsh-plugin-update-fixture-a\",\"banner\":{\"kind\":\"busy\",\"title\":\"正在安装 0.0.2…关闭面板不会中断。\",\"sub\":\"进度将自动轮询刷新；重新打开面板将在 1 秒内恢复显示。\"},\"errCode\":null,\"settled\":\"\",\"lastResort\":null,\"manual\":{\"present\":true,\"heading\":\"当前没有可用的手工命令。\",\"code\":null,\"neutral\":\"当前没有可用的手工命令。\"},\"strip\":[\"0.0.1\",\"0.0.1\",\"0.0.2\"],\"actions\":[{\"action\":\"check\",\"text\":\"检查更新\",\"disabled\":true},{\"action\":\"install\",\"text\":\"正在安装…\",\"disabled\":true},{\"action\":\"copy-diag\",\"text\":\"复制诊断\",\"disabled\":false},{\"action\":\"toggle-queue\",\"text\":\"显示其他插件\",\"disabled\":false}],\"progress\":\"正在安装新版本…\"}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\19-shot.png"
+}

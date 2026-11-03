@@ -1,0 +1,9 @@
+{
+  "scenario": "l5-host-killed-mid-install-recovery",
+  "baseline": [
+    {
+      "slotKey": "a",
+      "spec": "dsh-plugin-update-fixture-a@0.0.1"
+    }
+  ]
+}

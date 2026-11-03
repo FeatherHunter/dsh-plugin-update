@@ -1,0 +1,90 @@
+{
+  "injectAt": "2026-11-03T11:15:11.740Z",
+  "execs": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "cli-process",
+        "ok": false,
+        "exitCode": 1,
+        "durationMs": 1094,
+        "pluginId": "fxa-a",
+        "traceId": "05245f698fc5334a",
+        "spanId": "f12b585e",
+        "seq": 4
+      }
+    }
+  ],
+  "fails": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "exec",
+        "reason": "nonzero-exit",
+        "code": "install-failed",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": 1,
+        "observedVersion": null,
+        "intentHash": "051c47b4",
+        "traceId": "05245f698fc5334a",
+        "spanId": "f12b585e",
+        "seq": 6
+      }
+    }
+  ],
+  "requests": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "panel",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 1329,
+        "intentHash": "051c47b4",
+        "traceId": "05245f698fc5334a",
+        "spanId": "f12b585e",
+        "seq": 1
+      }
+    }
+  ],
+  "ledger": {
+    "file": "fxa-a/0755149b625073aea804221c/state.json",
+    "state": {
+      "id": "6e68adb7-c62e-4342-804b-28c4a9221bca",
+      "state": "failed",
+      "targetVersion": "0.0.2",
+      "message": "install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [ERR_PNPM_EPERM] [importPackage <路径> EPERM: operation not permitted, mkdir '<路径>'",
+      "requestId": "rmw0lcr2p7dert",
+      "previousVersion": "0.0.1"
+    },
+    "mtimeMs": 1793704512895.471
+  },
+  "disk": {
+    "dsh-plugin-update-fixture-a": "0.0.1"
+  },
+  "banner": {
+    "kind": "failed",
+    "title": "更新失败（install-failed）：安装执行失败，详情见诊断摘要。",
+    "sub": "请查阅诊断摘要；官方桌面版请提交该诊断信息至插件作者"
+  },
+  "errCode": "install-failed",
+  "manual": {
+    "present": true,
+    "heading": "手工备用命令（请复制整行执行）：",
+    "code": "dsh plugin --profile t13b add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=https://127.0.0.1:65143",
+    "neutral": ""
+  },
+  "humanText": "更新失败（install-failed）：安装执行失败，详情见诊断摘要。 | 请查阅诊断摘要；官方桌面版请提交该诊断信息至插件作者 | install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [ERR_PNPM_EPERM] [importPackage <路径> EPERM: operation not permitted, mkdir '<路径>'",
+  "permissionInHuman": true,
+  "failStage": "exec",
+  "failReason": "nonzero-exit",
+  "failCodeLogged": "install-failed",
+  "failDetailText": "更新失败（install-failed）：安装执行失败，详情见诊断摘要。 | 请查阅诊断摘要；官方桌面版请提交该诊断信息至插件作者 | install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [ERR_PNPM_EPERM] [importPackage <路径> EPERM: operation not permitted, mkdir '<路径>' | [{\"source\":\"fxa-a/2026-11-03.log\",\"event\":\"update.install.request\",\"level\":\"info\",\"fields\":{\"from\":\"panel\",\"current\":\"0.0.1\",\"latest\":\"0.0.2\",\"checkAgeMs\":1329,\"intentHash\":\"051c47b4\",\"traceId\":\"05245f698fc5334a\",\"spanId\":\"f12b585e\",\"seq\":1}}] | [{\"source\":\"fxa-a/2026-11-03.log\",\"event\":\"update.install.exec\",\"level\":\"info\",\"fields\":{\"route\":\"cli-process\",\"ok\":false,\"exitCode\":1,\"durationMs\":1094,\"pluginId\":\"fxa-a\",\"traceId\":\"05245f698fc5334a\",\"spanId\":\"f12b585e\",\"seq\":4}}]"
+}

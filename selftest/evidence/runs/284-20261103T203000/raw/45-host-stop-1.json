@@ -1,0 +1,10 @@
+{
+  "reason": "l5b-after-success",
+  "gen": 1,
+  "port": 55390,
+  "pid": 70808,
+  "registryUrl": "https://127.0.0.1:54352",
+  "delayMs": null,
+  "proxyRequests": 10,
+  "delayedRequests": 0
+}

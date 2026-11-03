@@ -1,0 +1,56 @@
+{
+  "requests": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "panel",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 341,
+        "intentHash": "2c282ff1",
+        "traceId": "475c1d75e7a4feab",
+        "spanId": "434a8bc3",
+        "seq": 1
+      }
+    }
+  ],
+  "fails": [],
+  "execs": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "cli-process",
+        "ok": true,
+        "exitCode": 0,
+        "durationMs": 41120,
+        "pluginId": "fxa-a",
+        "traceId": "475c1d75e7a4feab",
+        "spanId": "434a8bc3",
+        "seq": 4
+      }
+    }
+  ],
+  "ledgerJobs": [
+    {
+      "file": "fxa-a/521500d512eaa23c8be043b4/state.json",
+      "state": {
+        "requestId": "rmw0ldrpv820wm",
+        "message": null,
+        "id": "c4088eda-99cf-40de-879f-095f1e55852b",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      },
+      "mtimeMs": 1793704601533.3826
+    }
+  ],
+  "beforeFiles": [
+    "fxa-a/521500d512eaa23c8be043b4/before.json"
+  ],
+  "execOkMaybeRotated": true,
+  "note": "页面关闭/重开期间不得产生第二次安装请求；单包自更新成功时旧日志口可能轮换导致 exec 行缺失，exactly-once 以 request+台账+磁盘为准"
+}
