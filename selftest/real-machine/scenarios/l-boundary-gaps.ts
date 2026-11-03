@@ -2017,8 +2017,19 @@ async function runL5(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
     const genB2 = await startHostGen(ctx2, 'l5b-gen2', { extraEnv: { DSH_SELFTEST_INSTALL_TIMEOUT_MS: String(SHORT_TIMEOUT_MS) } })
     const uiB2 = uiOf(genB2)
     await waitForPanel(uiB2, cardA, panelA, (state) => state.banner !== null && state.banner.kind !== 'loading', 'L5b 重启后 A 面板回填')
+    // 被杀重启后盘上任务仍是中断态：面板如实显示失败/中断历史（不是更新中、不是已最新）。
+    const interruptedB = await readPanel(uiB2, cardA, panelA)
+    const interruptedOkB = interruptedB.banner !== null && interruptedB.banner.kind === 'failed' && interruptedB.banner.title.indexOf('更新失败') >= 0
+    await capture(ctx.run, uiB2, {
+      step: 'l5b-25-restart-interrupted-honest',
+      what: '短阈值格被杀重启后首屏：如实显示上次安装中断（failed/recovery-required），不谎称更新中/已最新',
+      expected: '横幅 kind=failed、标题含「更新失败」',
+      actual: JSON.stringify({ banner: interruptedB.banner, errCode: interruptedB.errCode }),
+      verdict: interruptedOkB ? 'pass' : 'fail',
+    })
+    rec({ step: 'l5b-interrupted-honest', what: '被杀重启如实展示中断历史（不谎称更新中/已完成）', expected: 'kind=failed 且标题含「更新失败」', actual: JSON.stringify({ banner: interruptedB.banner, errCode: interruptedB.errCode }), ok: interruptedOkB })
     await clickInCard(uiB2, cardA, panelA + ' button[data-action="check"]')
-    await waitForPanel(uiB2, cardA, panelA, (state) => state.banner !== null && state.banner.kind === 'update', 'L5b 重启后检查给出可更新')
+    await waitForPanel(uiB2, cardA, panelA, (state) => state.banner !== null && state.actions.some((entry) => entry.action === 'install' && entry.disabled === false), 'L5b 重启后检查拿到凭证、安装按钮可用（重试）', 90000)
     await clickInCard(uiB2, cardA, panelA + ' button[data-action="install"]')
     await waitDiskVersions(ctx2, { [packageA]: FIXTURE_VARIANT_VERSION }, 'L5b 陈旧锁回收后真装到 0.0.2')
     // 装完读取器换代首屏诚实未知，真 UI 点检查更新后落定（见 helper 注释）。
