@@ -1,0 +1,13 @@
+{
+  "label": "k4-gen1",
+  "urlMasked": "http://127.0.0.1:50613/?token=***",
+  "port": 50613,
+  "bootMs": 2093,
+  "registryUrl": "https://127.0.0.1:50079",
+  "tlsFrontPort": 50079,
+  "certSha256": "05e3620cac54ba1b4577113f48cddbedcc01eac9e22d9407083fab2500e724c3",
+  "delayMs": 3000,
+  "requestsFrom": 0,
+  "stdoutTail": "dsh web: http://127.0.0.1:50613/?token=RRpVqjkaW93NJ_X86fcqVyNuNCi6-XZveWWPne3wyi0\n",
+  "stderrTail": ""
+}

@@ -1,0 +1,10 @@
+{
+  "reason": "can-red-before-patch",
+  "gen": 0,
+  "port": 59777,
+  "pid": 60992,
+  "registryUrl": "https://127.0.0.1:62956",
+  "delayMs": 6000,
+  "proxyRequests": 10,
+  "delayedRequests": 5
+}

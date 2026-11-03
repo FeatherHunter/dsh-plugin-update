@@ -1,0 +1,9 @@
+{
+  "看什么": "批量部分失败隔离（杀宿主前的现场）：C 坏 tarball 失败、A/B 已完成；总账/台账不谎称全批成功",
+  "步骤": "k4-10-partial-failure",
+  "expected": "磁盘 a/b=0.0.2、c=0.0.1；C 台账 failed target=0.0.2；A/B 台账成功终态；summary 含「1 个插件安装失败」且无「已全部为最新」；C 行 failed（最后手段）",
+  "actual": "{\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":\"0.0.2\",\"dsh-plugin-update-fixture-c\":\"0.0.1\"},\"summary\":\"1 个插件安装失败；请按下方失败提示逐项重试。\",\"ledger\":\"1 个失败 · 2 个已是最新\",\"banner\":{\"title\":\"1 个插件安装失败。\",\"sub\":\"\",\"list\":[\"夹具 C：install-failed 安装执行失败，详情见诊断摘要\"],\"rowline\":[\"复制诊断\",\"复制手工命令\"]},\"rowC\":{\"phase\":\"failed\",\"status\":\"最后手段安装失败，请选择「重试」。\",\"fail\":\"失败 install-failed：安装执行失败，详情见诊断摘要\"},\"ledgerC\":{\"state\":\"failed\",\"target\":\"0.0.2\"}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\21-shot.png"
+}

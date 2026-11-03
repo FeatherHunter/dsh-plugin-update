@@ -645,6 +645,183 @@ export const SCENARIO_I3_TOPOLOGY_COMPENSATION: ScenarioDeclaration = {
   ],
 }
 
+/**
+ * T10（#274）组 K：全 UI 状态（通道 B：普通 DSH web 宿主 + Playwright 真页面）。
+ *
+ * 四条声明共用「单包面板 / 批量面板」两套夹具形态，但各自独立可跑，差异只在观测面与故障注入：
+ *   - k-single-panel-happy：单包面板全状态（A 已装可更新/更新中/已了结、入口、安装按钮、额外未安装目标面板、
+ *     changelog 渲染）；变体带 CHANGELOG.md（行内 markdown、裸 URL、BREAKING、yanked、64KiB 截断墙）。
+ *   - k-single-panel-failure：坏 tarball 字节（元数据/integrity 不动）→ 安装失败 → 面板失败面/最后手段/
+ *     手工命令原文回填 → 恢复 tarball 后真执行手工命令 → 重启看已生效。
+ *   - k-batch-panel-states：A/B/C 三包批量面板的未检查/可更新/更新中/queued/已完成行相位、总账、台账、
+ *     失败横幅、续跑提示与 notice 的 UI 状态矩阵（一 run 多图）。
+ *   - k-batch-resume：批量更新中杀宿主（A 已 done、B/C 未终态）→ 第二代宿主加载 A@0.0.2 的
+ *     autoResume:false 面板（自动续跑被冻结）→ 真 UI 点「继续上次未完成的更新」→ B/C 恰一次成功、
+ *     A 不重复安装、台账 3 条成功无重复无丢行。
+ * can-red 复用 K1（stale-variant：版本号新、内容旧，重启后运行内容仍旧版应真红）。
+ */
+
+/** #274 K 组：一条足够长的 CHANGELOG.md（覆盖六类条目、行内 markdown、裸 URL、BREAKING、yanked、64KiB 截断墙）。 */
+function kChangelogMarkdown(): string {
+  // 版本节数上限 100（CHANGELOG_MAX_ENTRIES）是 registry 取数路径上唯一可达的截断墙：
+  // 产品取数时先把文本压到 64 KiB 字节以内（io.ts truncateToBytes），所以「64 KiB 文件墙」
+  // 在真机取数路径不可达；而 0.0.2 一条 + 106 条占位版本节 = 107 条，超过 100 条上限，
+  // 渲染层必然出 .dsh-upd-changelog-truncnote（『共 107 条，仅显示前 100 条』）。
+  const lines: string[] = [
+    '## [0.0.2] - 2026-11-03 [YANKED]',
+    '',
+    '### Added',
+    '- **BREAKING:** 旧的 `updateCheck` 电话返回结构改为新形状（面板按新字段渲染）。',
+    '- 集成方面板新增 **安装按钮** 与 _更新日志_ 折叠区，旧徽标 ~~保留~~ 已移除。',
+    '- 产品主页 [dsh-plugin-update](https://example.com/dsh-plugin-update) 与裸链接 https://example.com/changelog 都可点。',
+    '',
+    '### Fixed',
+    '- 修复 `check-expired` 在宿主重载窗口内被误判为失败的问题。',
+    '',
+    '### Changed',
+    '- 批量行状态文案统一为「等待/安装中/已完成/失败」四态。',
+    '',
+    '### Deprecated',
+    '- 旧的 `updateEntry` 徽标入口将在下个版本移除。',
+    '',
+    '### Removed',
+    '- 移除未使用的 `updateLegacyProbe` 内部出口。',
+    '',
+    '### Security',
+    '- 安装命令不再拼接未转义的包名（防注入）。',
+    '',
+  ]
+  for (let index = 1; index <= 106; index += 1) {
+    const tag = String(index).padStart(4, '0')
+    lines.push('## [0.0.0-t' + tag + '] - 2026-11-03', '', '### Added', '- placeholder entry ' + tag + '）', '')
+  }
+  return lines.join('\n') + '\n'
+}
+
+/** K1/K2 的单包面板效果：单面板 + 入口 + 安装按钮；K1 另挂「未安装的 C」面板与 CHANGELOG.md。 */
+function kSingleEffectOf(version: FixtureVersion, options: { extraPanel?: boolean; changelog?: boolean } = {}): FixtureVariantEffect {
+  const legacy = legacySingleEffectOf(version)
+  return {
+    ...legacy,
+    installButton: true,
+    ...(options.extraPanel === true ? { extraSinglePanelTargetKey: 'c' } : {}),
+    ...(options.changelog === true ? { changelogMarkdown: kChangelogMarkdown() } : {}),
+  }
+}
+
+/** K3/K4 三包批量基版（A/B 批量集成方 + C 纯目标，与 e-batch 系列同形）。 */
+const K_BATCH_INSTALL: readonly ScenarioInstallStep[] = [
+  { slotKey: 'a', version: '0.0.1', effect: batchEffectOf(FIXTURE_SLOT_A, false) },
+  { slotKey: 'b', version: '0.0.1', effect: batchEffectOf(FIXTURE_SLOT_B, false) },
+  { slotKey: 'c', version: '0.0.1', effect: targetEffectOf('0.0.1') },
+]
+const K_BATCH_VARIANTS: readonly FixtureVariantDeclaration[] = [
+  { slotKey: 'a', version: '0.0.2', changeClasses: ['ui', 'behavior', 'metadata'], effect: batchEffectOf(FIXTURE_SLOT_A, true) },
+  { slotKey: 'b', version: '0.0.2', changeClasses: ['ui', 'behavior', 'metadata'], effect: batchEffectOf(FIXTURE_SLOT_B, true) },
+  { slotKey: 'c', version: '0.0.2', changeClasses: ['ui', 'metadata'], effect: targetEffectOf('0.0.2') },
+]
+
+/**
+ * K4 的基版三包：与 K3 同形，但 A 的基版批量面板显式 autoResume:false。
+ * 换手时若 A 还没装完，第二代宿主加载的仍是 A@0.0.1 的 client——它也必须冻结自动续跑，
+ * 否则「继续上次未完成的更新」按钮会被自动续跑抢跑（双保险：变体同样 autoResume:false）。
+ * 注意：autoResume 只关面板侧自动续跑；宿主侧「装载即孤儿接管」由 A@0.0.2 变体的 batchHub:false
+ * 单独关掉——两道闸都关，续跑按钮才是第二代唯一入口（见 K4 声明的 expected 第一条）。
+ */
+const K4_BATCH_INSTALL: readonly ScenarioInstallStep[] = [
+  { slotKey: 'a', version: '0.0.1', effect: { ...batchEffectOf(FIXTURE_SLOT_A, false), batchAutoResume: false } },
+  { slotKey: 'b', version: '0.0.1', effect: batchEffectOf(FIXTURE_SLOT_B, false) },
+  { slotKey: 'c', version: '0.0.1', effect: targetEffectOf('0.0.1') },
+]
+
+/** K1 单包面板全状态（happy）：已装可更新→更新中→已了结，changelog 渲染与入口/按钮/额外面板。 */
+export const SCENARIO_K1_SINGLE_PANEL_HAPPY: ScenarioDeclaration = {
+  id: 'k-single-panel-happy',
+  ticket: '274',
+  hostChannel: 'dsh-web',
+  summary:
+    '通道 B 真页面（Playwright）：A@0.0.1 在装（单包面板 + 入口 + 安装按钮），另挂一块绑定未安装 C 的面板覆盖「未安装」态；发布 A@0.0.2（带 CHANGELOG.md）→ A 面板「可更新」banner + changelog 行内 markdown/裸 URL/BREAKING/yanked/截断提示（版本节 100 上限）；真 UI 点安装 → 更新中状态 → 已了结「已是最新」；重启后状态不回退；入口/安装按钮/额外面板与产品文案真源一致',
+  install: [{ slotKey: 'a', version: '0.0.1', effect: kSingleEffectOf('0.0.1', { extraPanel: true }) }],
+  variants: [
+    {
+      slotKey: 'a',
+      version: '0.0.2',
+      changeClasses: ['ui', 'behavior', 'metadata'],
+      effect: kSingleEffectOf('0.0.2', { extraPanel: true, changelog: true }),
+    },
+    { slotKey: 'c', version: '0.0.2', changeClasses: ['ui', 'metadata'], effect: targetEffectOf('0.0.2') },
+  ],
+  expected: [
+    '未安装态（额外面板绑未安装的 C）：banner data-kind=idle、文案命中「未安装」，入口可见、无动作前的虚假已装；A 自己面板显示已装 0.0.1',
+    '可更新态：banner data-kind=update、版本条 0.0.1→0.0.2；changelog 渲染出 .dsh-upd-md-code/strong/em/del、.dsh-upd-md-link[data-openlink=1]、裸 URL 可点、BREAKING 标记、[YANKED] 标记与版本节上限截断提示（『共 107 条，仅显示前 100 条』）',
+    '更新中态：banner data-kind=busy；安装窗内只轮询磁盘（UI 截图可迟取，但状态必须出现且文案不谎称已完成）',
+    '已了结态：banner 命中「已是最新」、版本条 0.0.2；安装按钮/入口在已装后的可见性与文案与产品真源一致；额外面板对未安装的 C 显示「未安装」',
+    '重启后状态不回退：面板仍「已是最新」、卡片 clientTag/hostTag=client v0.0.2/host v0.0.2；后台台账恰一条成功',
+  ],
+}
+
+/** K2 单包失败链：坏 tarball → 失败面/最后手段/手工命令 → 手工命令真跑装回 → 重启已生效。 */
+export const SCENARIO_K2_SINGLE_PANEL_FAILURE: ScenarioDeclaration = {
+  id: 'k-single-panel-failure',
+  ticket: '274',
+  hostChannel: 'dsh-web',
+  summary:
+    '通道 B 真页面：A@0.0.1 在装、发布 A@0.0.2 后改坏 tarball 字节（元数据/integrity 不动，check 仍列出 0.0.2）→ 真 UI 点安装 → pnpm 校验失败 → 面板失败面 data-kind=failed/.dsh-upd-err 文案与产品失败码一致；记录最后手段区（data-last-resort）与手工命令原文 → 恢复 tarball → harness 真执行面板给出的手工命令 → 重启后已生效 0.0.2',
+  install: [{ slotKey: 'a', version: '0.0.1', effect: kSingleEffectOf('0.0.1') }],
+  variants: [{ slotKey: 'a', version: '0.0.2', changeClasses: ['ui', 'metadata'], effect: kSingleEffectOf('0.0.2') }],
+  expected: [
+    '坏 tarball 前后：HTTP 200/大小不变、版本文档与 dist.integrity 一字不动（check 能过、install 必失败）',
+    '失败面诚实：banner data-kind=failed、.dsh-upd-err 文案含产品失败码/人话；台账恰一条 failed（code=install-failed）；磁盘仍 0.0.1',
+    '最后手段区只在该出现时出现（四条件），文案与 manualSource/failureCode 分支一致；手工命令与 src/shared/commands.ts 命令形状一致、可复制执行',
+    '恢复 tarball（sha 复原）后真执行手工命令 exit0，磁盘 0.0.2 且台账/状态收敛；重启后卡片 clientTag/hostTag=client v0.0.2/host v0.0.2、面板「已是最新」',
+    '截图留证：可更新/失败前态、失败现场（失败面+手工命令）、手工命令后重启已生效，每图同六字段 sidecar',
+  ],
+}
+
+/** K3 批量面板状态矩阵：部分失败隔离（坏最后一行）+ 重启后续跑，逐行 UI/总账/台账/磁盘一致。 */
+export const SCENARIO_K3_BATCH_PANEL_STATES: ScenarioDeclaration = {
+  id: 'k-batch-panel-states',
+  ticket: '274',
+  hostChannel: 'dsh-web',
+  summary:
+    '通道 B 真页面：A/B/C@0.0.1 在装，发布三包 0.0.2 后改坏最后一行 C 的 tarball 字节（元数据/integrity 不动）→ 真 UI 点「全部更新」→ 安装窗拍 installing/queued → A/B 成功、C 失败（1 个失败横幅 + 行内最后手段可重试）→ 停宿主读日志/台账（好行不受影响、无全批假成功）→ 复原 tarball 并清 run 私有 pnpm store → 第二代宿主批量面板续跑（默认自动续跑，冻结时真 UI 点续跑）→ C 成功落定、三行 done/current → 停宿主读 exactly-once（A/B 各 1 次、C 1 失败 1 成功）→ 第三代宿主重启后三行 current、台账三包 completed、构建标记 v0.0.2',
+  install: K_BATCH_INSTALL,
+  variants: K_BATCH_VARIANTS,
+  expected: [
+    '挂载即三行 a/b/c；产品默认打开面板自动检查（首帧 pending，「尚未查询」不作稳定断言）',
+    '检查后三行 0.0.1→0.0.2、总账/台账「3 个可更新」、全部更新宏可点；改坏 C tarball 前后 HTTP 200/大小不变/sha256 变/版本文档不动',
+    '安装窗：行 installing/queued 与总账「安装中」一致（磁盘未到 0.0.2 时 UI 不称已完成）',
+    '部分失败隔离：1 个失败横幅（名单含夹具 C、行内复制诊断/复制手工命令）、C 行 failed+最后手段+可重试、summary「1 个插件安装失败」、ledger「1 个失败」、磁盘 a/b=0.0.2、c=0.0.1、无全批假成功',
+    '停 gen1 读后端：A/B 各 1 次 exec 成功、C 1 次 exec 失败 code=install-failed（gate 的 check-expired 重试单独记录、不计入安装失败）',
+    '恢复后第二代宿主续跑：C 装到 0.0.2、失败横幅消失、三行 done/current、C 台账成功终态、A/B 台账不被重复写',
+    '停 gen2 读 exactly-once 与台账逐行真相：A/B exec=1 成功、C exec=2（1 失败 1 成功）；台账同一插件同一 profile 只有一条 state.json（重试覆盖、不追加历史行）⇒ 三包各恰 1 条成功终态，C 的失败历史只留在日志计数；审计 nonCheckExpired=1',
+    '重启后第三代宿主：三行 current 0.0.2、总账「已全部为最新」、卡片 clientTag/hostTag=v0.0.2、台账三包 completed；截图覆盖挂载/可更新/安装中/失败/续跑后/重启六个状态',
+  ],
+}
+
+/** K4 批量续跑（exactly-once）：杀宿主后真 UI 点「继续上次未完成的更新」。 */
+export const SCENARIO_K4_BATCH_RESUME: ScenarioDeclaration = {
+  id: 'k-batch-resume',
+  ticket: '274',
+  hostChannel: 'dsh-web',
+  summary:
+    '通道 B 三代宿主：批量「全部更新」中改坏 C tarball → 部分失败隔离（A/B 完成、C failed、总账不假称全批成功）→ 杀第一代宿主（taskkill 整树；此刻三行终态、无在飞安装）→ 复原 tarball + 清 run 私有 store → 第二代宿主加载 A@0.0.2（autoResume:false 关面板自动续跑 + batchHub:false 关宿主孤儿接管）→ 面板自动检查把失败行对账成 ready → 出现「继续上次未完成的更新（剩余 1 个）」→ 静置 8 秒冻结（无自动续跑、无 tarball 请求）→ 真 UI 点继续 → C 装到 0.0.2、A/B 不重复安装、台账每包恰一条成功 → 重启后三行 current',
+  install: K4_BATCH_INSTALL,
+  variants: [
+    { slotKey: 'a', version: '0.0.2', changeClasses: ['ui', 'behavior', 'metadata'], effect: { ...batchEffectOf(FIXTURE_SLOT_A, true), batchAutoResume: false, batchHub: false } },
+    { slotKey: 'b', version: '0.0.2', changeClasses: ['ui', 'behavior', 'metadata'], effect: batchEffectOf(FIXTURE_SLOT_B, true) },
+    { slotKey: 'c', version: '0.0.2', changeClasses: ['ui', 'metadata'], effect: targetEffectOf('0.0.2') },
+  ],
+  expected: [
+    '部分失败隔离（杀宿主前）：C 坏 tarball 在 install 阶段失败（元数据未动、check 仍能过），A/B 磁盘与台账都到 0.0.2；C 台账 failed target=0.0.2；总账「1 个插件安装失败」且不含「已全部为最新」（无全批假成功）',
+    '杀宿主后的落盘真相：taskkill 整树后 A/B 磁盘 0.0.2、C 仍 0.0.1，批量会话三行全终态（此刻无在飞安装）；batch.json/台账原文留证',
+    '重启后续跑入口出现且 honest：.dsh-upd-batch-more 内 button[data-act=resume] 文案「继续上次未完成的更新（剩余 n 个）。」、title/cancel 逐字、data-confirm 初始为空；A/B 行终态 0.0.2、C 行被自动检查对账成 ready；双闸（面板 autoResume:false + host half hub:false）下静置 8 秒无自动续跑、无 tarball 请求、磁盘/台账/会话不变',
+    '真 UI 点继续后续跑生效：notice 命中 resumed、C 装到 0.0.2、续跑区消失；exactly-once = A/B install.request 各恰 1 条且台账 file/id/state/mtime 未被改写、B/C 各恰 1 次成功 exec、C 恰 1 次 stage=exec 失败 code=install-failed、audit.nonCheckExpired=1',
+    '台账逐行真相：同一插件同一 profile 只有一条 state.json（续跑覆盖、不追加）⇒ 三包各恰 1 条成功终态（target 0.0.2/previous 0.0.1），无重复、无丢行；重启后三行 current 0.0.2、总账「已全部为最新」、卡片 v0.0.2',
+    '截图留证：部分失败现场、续跑入口（冻结）、续跑后落定、重启后 current，每图同六字段 sidecar',
+  ],
+}
+
 /** J 单包格的安装/变体声明（J2/J3 用：只装 A@0.0.1，只发 A@0.0.2）。 */
 const J_SINGLE_INSTALL = [{ slotKey: 'a', version: '0.0.1', effect: legacySingleEffectOf('0.0.1') }] as const
 const J_SINGLE_VARIANTS = [{ slotKey: 'a', version: '0.0.2', changeClasses: ['ui', 'metadata'] as const, effect: legacySingleEffectOf('0.0.2') }] as const
@@ -729,6 +906,10 @@ export const SCENARIOS: readonly ScenarioDeclaration[] = [
   SCENARIO_I1_RESTART_ENROLLMENT_TRUTH,
   SCENARIO_I2_UNREGISTERED_HONESTY,
   SCENARIO_I3_TOPOLOGY_COMPENSATION,
+  SCENARIO_K1_SINGLE_PANEL_HAPPY,
+  SCENARIO_K2_SINGLE_PANEL_FAILURE,
+  SCENARIO_K3_BATCH_PANEL_STATES,
+  SCENARIO_K4_BATCH_RESUME,
   SCENARIO_J1_LOG_CONTRACT_COVERAGE,
   SCENARIO_J2_NOISE_BUDGET,
   SCENARIO_J3_NAMESPACE_WHITELIST,

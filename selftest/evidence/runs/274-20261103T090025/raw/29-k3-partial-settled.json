@@ -1,0 +1,18 @@
+{
+  "partialSettled": true,
+  "disk": {
+    "dsh-plugin-update-fixture-a": "0.0.2",
+    "dsh-plugin-update-fixture-b": "0.0.2",
+    "dsh-plugin-update-fixture-c": "0.0.1"
+  },
+  "ledgerC": {
+    "state": "failed",
+    "target": "0.0.2"
+  },
+  "observed": [
+    "a=0.0.1,b=0.0.1,c=0.0.1,cLedger=missing",
+    "a=0.0.2,b=0.0.1,c=0.0.1,cLedger=missing",
+    "a=0.0.2,b=0.0.2,c=0.0.1,cLedger=installing",
+    "a=0.0.2,b=0.0.2,c=0.0.1,cLedger=failed"
+  ]
+}

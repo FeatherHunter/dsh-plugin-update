@@ -1,0 +1,9 @@
+{
+  "看什么": "点续跑后：C 装到 0.0.2、A/B 不重复安装；回执 + 三行完成 + 续跑区消失",
+  "步骤": "k4-30-resumed",
+  "expected": "notice 含「已继续上次未完成的更新」；三行 current/done 0.0.2；磁盘三包 0.0.2；续跑区消失（more=null）",
+  "actual": "{\"notice\":\"已继续上次未完成的更新（剩余 0 个）。\",\"rows\":[{\"key\":\"a\",\"phase\":\"current\",\"cur\":\"0.0.2\"},{\"key\":\"b\",\"phase\":\"current\",\"cur\":\"0.0.2\"},{\"key\":\"c\",\"phase\":\"done\",\"cur\":\"0.0.2\"}],\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":\"0.0.2\",\"dsh-plugin-update-fixture-c\":\"0.0.2\"},\"more\":null}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\38-shot.png"
+}

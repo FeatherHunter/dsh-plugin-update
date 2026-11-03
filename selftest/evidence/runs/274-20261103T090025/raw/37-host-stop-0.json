@@ -1,0 +1,10 @@
+{
+  "reason": "k3-after-partial",
+  "gen": 0,
+  "port": 60077,
+  "pid": 86192,
+  "registryUrl": "https://127.0.0.1:62863",
+  "delayMs": 3000,
+  "proxyRequests": 26,
+  "delayedRequests": 13
+}

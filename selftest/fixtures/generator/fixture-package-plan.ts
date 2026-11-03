@@ -21,7 +21,7 @@ export interface FixtureSourceFile {
   readonly path: string
   readonly content: string
   /** 文件角色：给人看/给测试断言的标签，不影响落盘。 */
-  readonly role: 'manifest' | 'cordis-patch' | 'host-source' | 'client-source'
+  readonly role: 'manifest' | 'cordis-patch' | 'host-source' | 'client-source' | 'changelog'
 }
 
 /** 一次 esbuild 构建的入参（builder 负责把 target 映射成真实命令行）。 */
@@ -71,7 +71,7 @@ export function planFixturePackage(
     slot.role === 'integrator'
       ? renderIntegratorClientHalf({ slot, version: pinnedVersion, buildTags, effect: resolvedEffect })
       : renderTargetClientHalf({ slot, version: pinnedVersion, buildTags, effect: resolvedEffect })
-  const manifest = renderPackageManifest(slot, pinnedVersion, sut)
+  const manifest = renderPackageManifest(slot, pinnedVersion, sut, resolvedEffect)
   return {
     slot,
     version: pinnedVersion,
@@ -83,12 +83,18 @@ export function planFixturePackage(
       { path: 'cordis.patch.yml', content: renderCordisPatch(slot), role: 'cordis-patch' },
       { path: 'src/index.ts', content: hostSource, role: 'host-source' },
       { path: 'src/client.ts', content: clientSource, role: 'client-source' },
+      // #274 K 组：变体声明带 changelogMarkdown 时，把 CHANGELOG.md 随包发布（产品从 tarball 里取更新日志）。
+      ...(resolvedEffect.changelogMarkdown === undefined
+        ? []
+        : [{ path: 'CHANGELOG.md', content: resolvedEffect.changelogMarkdown, role: 'changelog' as const }]),
     ],
     buildSteps: [
       { target: 'host', entry: 'src/index.ts', outfile: 'lib/index.js' },
       { target: 'client', entry: 'src/client.ts', outfile: 'lib/client.js', bundleId: slot.pluginId },
     ],
-    expectedArtifacts: ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/client.js'],
+    expectedArtifacts: resolvedEffect.changelogMarkdown === undefined
+      ? ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/client.js']
+      : ['package.json', 'cordis.patch.yml', 'CHANGELOG.md', 'lib/index.js', 'lib/client.js'],
     effect: resolvedEffect,
   }
 }

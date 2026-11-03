@@ -140,6 +140,18 @@ declare module 'node:http' {
   ): ClientRequest
 }
 
+declare module 'node:https' {
+  /** 仅声明缺口：TLS 前置（fixtures/release/tls-registry-front.ts）用它终止 TLS。 */
+  export interface ServerOptions {
+    cert: Uint8Array | string
+    key: Uint8Array | string
+  }
+  export function createServer(
+    options: ServerOptions,
+    handler: (incoming: import('node:http').IncomingMessage, outgoing: import('node:http').ServerResponse) => void
+  ): import('node:http').Server
+}
+
 declare module 'node:net' {
   export interface Socket {
     on(event: string, listener: (...args: any[]) => void): void

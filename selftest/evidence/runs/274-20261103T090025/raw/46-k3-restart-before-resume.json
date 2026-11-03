@@ -1,0 +1,25 @@
+{
+  "rowC": {
+    "key": "c",
+    "phase": "failed",
+    "queued": false,
+    "busy": false,
+    "title": "夹具 C",
+    "status": "最后手段安装失败，请选择「重试」。",
+    "versionCur": "0.0.1",
+    "versionNew": "0.0.2",
+    "actions": [
+      "toggle-details",
+      "row-install",
+      "toggle-details"
+    ],
+    "fail": "失败 install-failed：安装执行失败，详情见诊断摘要"
+  },
+  "summary": "1 个插件安装失败；请按下方失败提示逐项重试。",
+  "ledger": "正在按最新版本重新检查…",
+  "more": null,
+  "notice": "",
+  "disk": {
+    "dsh-plugin-update-fixture-c": "0.0.1"
+  }
+}

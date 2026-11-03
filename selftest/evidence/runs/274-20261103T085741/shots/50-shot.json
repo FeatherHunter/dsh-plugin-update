@@ -1,0 +1,9 @@
+{
+  "看什么": "重启后：面板已了结、卡片构建标记 v0.0.2、安装按钮 done、额外面板 C 仍未安装",
+  "步骤": "k1-50-after-restart",
+  "expected": "横幅「已是最新，无需更新。」、clientTag/hostTag 均为 0.0.2、按钮 kind=done、C 横幅「未安装」",
+  "actual": "{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"}；tags={\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\"}；按钮 kind=done；C={\"kind\":\"idle\",\"title\":\"未安装\",\"sub\":\"检查更新\"}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\50-shot.png"
+}

@@ -1,0 +1,34 @@
+{
+  "disk": {
+    "dsh-plugin-update-fixture-a": "0.0.2",
+    "dsh-plugin-update-fixture-b": "0.0.2",
+    "dsh-plugin-update-fixture-c": "0.0.1"
+  },
+  "batch": [
+    {
+      "key": "a",
+      "phase": "done",
+      "targetVersion": "0.0.2",
+      "restartRequired": false,
+      "error": null
+    },
+    {
+      "key": "b",
+      "phase": "done",
+      "targetVersion": "0.0.2",
+      "restartRequired": false,
+      "error": null
+    },
+    {
+      "key": "c",
+      "phase": "failed",
+      "targetVersion": "0.0.2",
+      "restartRequired": false,
+      "error": "install-failed"
+    }
+  ],
+  "ledgerC": {
+    "state": "failed",
+    "target": "0.0.2"
+  }
+}
