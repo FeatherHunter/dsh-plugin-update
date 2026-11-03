@@ -1515,7 +1515,10 @@ async function runL3(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
   const identity = await identityFacts()
   if (identity.sid === null) throw new Error('whoami /user 未取到当前用户 SID，无法做 icacls 注入')
   const aclBefore = await aclTextOf(nodeModulesDir)
-  const deny = await runExe('icacls', [nodeModulesDir, '/deny', identity.sid + ':(OI)(CI)(W,D)'])
+  // icacls 认字面 SID 时必须带 * 前缀（*S-1-5-...）；不带会去解析账户名 → exit 1332
+  // ERROR_NONE_MAPPED、拒绝项一条都没加上（真机 191500 红点：probe 仍可写，安装照常成功）。
+  const sidSpec = '*' + identity.sid
+  const deny = await runExe('icacls', [nodeModulesDir, '/deny', sidSpec + ':(OI)(CI)(W,D)'])
   const aclAfter = await aclTextOf(nodeModulesDir)
   const probeDenied = await writeProbe(nodeModulesDir)
   const denyEffective = deny.exitCode === 0 && probeDenied.ok === false && (probeDenied.code !== null || PERMISSION_ERROR_TOKEN.test(probeDenied.message || ''))
@@ -1538,8 +1541,16 @@ async function runL3(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
     verdict: denyEffective ? 'pass' : 'fail',
   })
   rec({ step: 'l3-01-acl-injected', what: '外部注入生效：ACL 拒绝写 + 同用户写探针真失败（不伪造失败）', expected: 'deny exit=0 且写探针 EPERM/EACCES', actual: JSON.stringify({ denyExit: deny.exitCode, probe: probeDenied, aclTail: aclAfter.stdout.split(/\r?\n/).slice(-3) }), ok: denyEffective })
+  if (!denyEffective) {
+    // 注入没生效就别再点安装（否则产品会正常装成，失败面证据是假的）；先把 ACL 撤掉再报错。
+    await runExe('icacls', [nodeModulesDir, '/remove:d', sidSpec])
+    throw new Error('ACL 注入未生效（写探针仍成功）：denyExit=' + String(deny.exitCode) + ' probe=' + JSON.stringify(probeDenied))
+  }
 
   // ---- 3. 真 UI 点安装 → 失败诚实 ----
+  // 从注入到恢复包一层 try/finally：中途任何断言/等待抛错都要把 ACL 撤掉（证据契约要求清理）。
+  let aclRestored = false
+  try {
   const injectAt = new Date().toISOString()
   await clickInCard(ui1, cardA, panelA + ' button[data-action="install"]')
   const failed = await waitForPanel(ui1, cardA, panelA, (state) => state.banner !== null && state.banner.kind === 'failed', 'L3 权限不足时安装失败横幅', INSTALL_TIMEOUT_MS)
@@ -1599,12 +1610,19 @@ async function runL3(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
   rec({ step: 'l3-04-no-false-success-no-retry', what: '无假成功、无自动重试：磁盘仍基版、台账 failed、恰一次安装尝试', expected: '磁盘 A=0.0.1、台账非成功、exec 恰 1 且无 ok=true、request/fail 各恰 1', actual: JSON.stringify({ disk: diskAfterFail, ledgerState, execs: execs1.length, okExecs: okExecCount(execs1), requests: requests1.length, fails: fails1.length }), ok: diskUnchanged && noFalseSuccess && execs1.length === 1 && okExecCount(execs1) === 0 && requests1.length === 1 && fails1.length === 1 })
 
   // ---- 5. 恢复 ACL（并复核） ----
-  const restore = await runExe('icacls', [nodeModulesDir, '/remove:d', identity.sid])
+  const restore = await runExe('icacls', [nodeModulesDir, '/remove:d', sidSpec])
   const aclRestored = await aclTextOf(nodeModulesDir)
   const probeRestored = await writeProbe(nodeModulesDir)
   const restoredOk = restore.exitCode === 0 && probeRestored.ok === true
   await ctx.run.raw('l3-acl-restore', { restoreCommand: restore, aclRestored, writeProbe: probeRestored, restoredOk, note: 'icacls /remove:d 撤销拒绝项；同用户写探针恢复成功才允许重试' })
   rec({ step: 'l3-05-acl-restored', what: '恢复 ACL 并复核：拒绝项移除、同用户写探针恢复成功', expected: 'icacls /remove:d exit=0 且写探针 ok=true', actual: JSON.stringify({ restoreExit: restore.exitCode, probe: probeRestored, aclTail: aclRestored.stdout.split(/\r?\n/).slice(-3) }), ok: restoredOk })
+  aclRestored = restoredOk
+  } finally {
+    if (!aclRestored) {
+      const emergency = await runExe('icacls', [nodeModulesDir, '/remove:d', sidSpec])
+      await ctx.run.raw('l3-acl-emergency-restore', { restore: emergency, note: '注入后场景中途失败时的兜底撤 ACL；正常路径见 l3-acl-restore' })
+    }
+  }
 
   // ---- 6. 恢复后重试：真装成 0.0.2 ----
   const gen2 = await startHostGen(ctx, 'l3-gen2')
