@@ -1648,9 +1648,45 @@ async function runG8(ctx: Ctx): Promise<void> {
   })
 }
 
+/**
+ * 关闭宿主内建 HMR（profile patch，宿主文档化配置入口，不是产品后门）。
+ * 为什么需要：dsh web 宿主 HMR 在插件包写盘后会热重载新代码（run 284-20261103T182639 日志：
+ * update.install.verify restart-required 后 ~280ms 出现第二次 update.wire.ready），
+ * 「磁盘已新版、进程仍跑旧版」的待重启状态只存在毫秒级。关掉 HMR（base 组合包的 hmr 条目）
+ * 才能稳定验证这个非 HMR 宿主的真实状态；不注入 runningVersion 以外的产品内部状态。
+ */
+async function disableHostHmr(ctx: Ctx): Promise<void> {
+  const patchPath = join(ctx.homeDir, 'profiles', PROFILE_NAME, 'cordis.patch.yml')
+  const before = await readFile(patchPath, 'utf8')
+  const already = /^- id:\s*hmr\s*$/m.test(before)
+  const block = [
+    '# [selftest #284 i4] 关闭宿主内建 HMR：让「新版本已写盘、进程仍跑旧版」的待重启状态稳定可验证。',
+    '# 这是宿主文档化的 profile patch 入口（@deepseek-ai/dsh-hmr README「使用本包」）；只停用宿主热重载，',
+    '# 不注入产品内部状态，安装仍由真 CLI 落真磁盘。',
+    '- id: hmr',
+    '  disabled: true',
+    '',
+  ].join('\n')
+  const commentsOnly = before
+    .split(/\r?\n/)
+    .filter((line) => line.trim() !== '' && !line.trim().startsWith('#'))
+  const emptyArray = commentsOnly.length === 1 && commentsOnly[0].trim() === '[]'
+  const after = already ? before : emptyArray ? before.replace(/\[\]\s*$/, block) : before.replace(/\s*$/, '') + '\n' + block
+  if (!already) await writeFile(patchPath, after)
+  await ctx.run.raw('i4-hmr-disabled', {
+    path: patchPath.replace(/\\/g, '/'),
+    changed: !already,
+    before,
+    after,
+    why: 'HMR 会在装盘后热重载新插件代码，使 runningVersion 与磁盘版相等，待重启分支只存在毫秒级；关 HMR 是宿主文档化配置，用来验证无 HMR 宿主的真实待重启状态。',
+  })
+  ctx.run.addNote('i4 宿主配置：profile patch 关闭 base 组合包的 hmr 条目（HMR 会在装盘后热重载插件，掩盖待重启状态）。patch 原文见 raw/i4-hmr-disabled。')
+}
+
 /** I4：已写盘未登记的待重启面板真相 + 重启后运行版权威。 */
 async function runI4(ctx: Ctx): Promise<void> {
   const run = ctx.run
+  await disableHostHmr(ctx)
   const gen1 = await startHost(ctx, 'i4-pending-restart', 'reader-version', { installTimeoutMs: INSTALL_TIMEOUT_MS })
   await recordEquivalentHostBoundary(ctx, gen1, {
     subcase: 'pending-restart/unregistered/running-version',
@@ -1682,24 +1718,29 @@ async function runI4(ctx: Ctx): Promise<void> {
     verdict: diskAfter === ctx.variantVersion ? 'pass' : 'fail',
   })
 
+  // 只认 restart 横幅（kind=restart）；「有新版本可安装」的 update 横幅也含「新版本」字样，
+  // 拿标题子串等会把安装前的旧横幅当新的，所以这里必须按 kind + 重启指引原文等。
   const banner1 = await waitForPanelBanner(
     ui,
     ctx.slot,
-    (state) => state.banner !== null && (state.banner.kind === 'restart' || state.banner.title.indexOf('新版本') >= 0 || state.seal.indexOf('待重启') >= 0),
+    (state) => state.banner !== null && state.banner.kind === 'restart' && state.banner.title.indexOf('重启宿主后生效') >= 0,
     '安装后出现待重启横幅',
   )
   const b1 = banner1.banner
   const title1 = b1 ? b1.title : ''
+  const sub1 = b1 ? b1.sub : ''
   const action1 = b1 ? b1.action : ''
   const kind1 = b1 ? b1.kind : null
   const expectedTitle1 = '新版本 ' + ctx.variantVersion + ' 已安装，重启宿主后生效。'
   const expectedAction1 = '重启宿主以加载新版本；此为正常状态，非安装失败'
+  // restart 横幅没有按钮：文案落在 sub；action 只在有按钮的场景才有值。
+  const shown1 = sub1 || action1
   await capture(run, ui, {
     step: 'i4-pending-restart-banner',
     what: '已写盘未重启的面板横幅（登记在册）：待重启文案 + 非安装失败',
-    expected: 'banner.kind=restart；title=「' + expectedTitle1 + '」；action=「' + expectedAction1 + '」；seal 含「待重启」',
+    expected: 'banner.kind=restart；title=「' + expectedTitle1 + '」；sub=「' + expectedAction1 + '」；seal 含「待重启」',
     actual: 'banner=' + JSON.stringify(b1) + '；seal=' + banner1.seal.slice(0, 300),
-    verdict: kind1 === 'restart' && title1 === expectedTitle1 && action1 === expectedAction1 && banner1.seal.indexOf('待重启') >= 0 ? 'pass' : 'fail',
+    verdict: kind1 === 'restart' && title1 === expectedTitle1 && shown1 === expectedAction1 && banner1.seal.indexOf('待重启') >= 0 ? 'pass' : 'fail',
   })
   const after = await callPhone(gen1.host, ctx.route, ctx.statusPhone, {})
   const snap1 = after.snapshot ?? {}
@@ -1731,19 +1772,21 @@ async function runI4(ctx: Ctx): Promise<void> {
   const banner2 = await waitForPanelBanner(
     ui,
     ctx.slot,
-    (state) => state.banner !== null && (state.banner.title.indexOf('未登记在使用范围清单') >= 0 || state.banner.action === expectedAction2),
+    (state) => state.banner !== null && state.banner.kind === 'restart' && (state.banner.title.indexOf('未登记在使用范围清单') >= 0 || state.banner.sub === expectedAction2),
     '未登记待重启横幅',
   )
   const b2 = banner2.banner
   const title2 = b2 ? b2.title : ''
+  const sub2 = b2 ? b2.sub : ''
   const action2 = b2 ? b2.action : ''
   const kind2 = b2 ? b2.kind : null
+  const shown2 = sub2 || action2
   await capture(run, ui, {
     step: 'i4-unregistered-banner',
     what: '同一宿主里把包从在册摘掉后面板：未登记分支（重启也不会加载）',
-    expected: 'banner.kind=restart；title 含「未登记在使用范围清单」与变体版；action=「' + expectedAction2 + '」；seal 含「待重启」',
+    expected: 'banner.kind=restart；title 含「未登记在使用范围清单」与变体版；sub=「' + expectedAction2 + '」；seal 含「待重启」',
     actual: 'banner=' + JSON.stringify(b2) + '；seal=' + banner2.seal.slice(0, 300),
-    verdict: kind2 === 'restart' && title2.indexOf('未登记在使用范围清单') >= 0 && title2.indexOf(ctx.variantVersion) >= 0 && action2 === expectedAction2 && banner2.seal.indexOf('待重启') >= 0 ? 'pass' : 'fail',
+    verdict: kind2 === 'restart' && title2.indexOf('未登记在使用范围清单') >= 0 && title2.indexOf(ctx.variantVersion) >= 0 && shown2 === expectedAction2 && banner2.seal.indexOf('待重启') >= 0 ? 'pass' : 'fail',
   })
   await stopHost(ctx, gen1, 'after-unregistered-banner')
 
@@ -1776,12 +1819,15 @@ async function runI4(ctx: Ctx): Promise<void> {
     bridgeError,
     snapshot: null,
   })
+  // 电话桥不可用的观测：插件没加载就没有这座桥。本机宿主对未匹配的 POST 回 405
+  // （Method Not Allowed），有的宿主形态回 404；两者都证明「桥不存在」，不能拿 200 当结论。
+  const bridgeGone = bridge404 === 404 || bridge404 === 405
   run.record({
     step: 'i4 未登记 + 重启：插件不加载',
-    what: '重启后 10s 内卡片不出现（未被登记就不会被宿主加载），持卡插件电话桥 404',
-    expected: 'cardSeen=false；电话桥 status=404',
+    what: '重启后 10s 内卡片不出现（未被登记就不会被宿主加载），持卡插件电话桥不可用（404/405，不是 200）',
+    expected: 'cardSeen=false；电话桥 status=404 或 405（本机宿主对未匹配 POST 回 405）',
     actual: 'cardSeen=' + String(seen) + '；bridgeStatus=' + String(bridge404) + '；bridgeError=' + String(bridgeError),
-    verdict: seen === false && bridge404 === 404 ? 'pass' : 'fail',
+    verdict: seen === false && bridgeGone ? 'pass' : 'fail',
   })
   await capture(run, ui2, {
     step: 'i4-unregistered-not-loaded',
