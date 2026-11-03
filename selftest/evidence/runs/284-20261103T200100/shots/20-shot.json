@@ -1,0 +1,9 @@
+{
+  "看什么": "icacls 注入后同用户写探针被拒（外部 ACL 真生效），页面仍是注入前状态",
+  "步骤": "l3-15-acl-injected",
+  "expected": "icacls /deny exit=0；同用户 writeFile 探针 EPERM/EACCES（失败）、读包仍 OK，不是猜「应该会失败」",
+  "actual": "{\"denyExit\":0,\"probe\":{\"ok\":false,\"code\":\"EPERM\",\"message\":\"EPERM: operation not permitted, open 'D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t13-284\\\\runs\\\\284-20261103T200100\\\\os-home\\\\.dsh\\\\profiles\\\\t13b\\\\node_modules\\\\.l284-write-probe-1793704511674.txt'\"},\"readProbe\":{\"ok\":true,\"bytes\":685,\"code\":null}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\20-shot.png"
+}

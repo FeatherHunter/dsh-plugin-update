@@ -1,0 +1,20 @@
+{
+  "pid": 58456,
+  "killedAt": "2026-11-03T11:22:14.387Z",
+  "taskkill": {
+    "exitCode": 0,
+    "stdout": "�ɹ�: ����ֹ PID 20304 (���� PID 103072 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 103072 (���� PID 100536 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 100536 (���� PID 58456 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 58456 (���� PID 92084 �ӽ���)�Ľ��̡�\r\n",
+    "stderr": "",
+    "timedOut": false
+  },
+  "queueFiles": {
+    "root": "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T203000\\os-home-l5b\\.dsh\\update-queue",
+    "files": [
+      "73dfb4db7487fd0abe5b8137/global.lock",
+      "73dfb4db7487fd0abe5b8137/queue.json"
+    ],
+    "lock": "73dfb4db7487fd0abe5b8137/global.lock\n{\"id\":\"7e37b489-d994-4e2b-9f7e-206b67248c4e\",\"pluginId\":\"fxa-a\",\"pid\":58456,\"startedAt\":1793704932890}",
+    "queue": "73dfb4db7487fd0abe5b8137/queue.json\n{\n  \"version\": 1,\n  \"owner\": {\n    \"pluginId\": \"fxa-a\",\n    \"jobId\": \"7e37b489-d994-4e2b-9f7e-206b67248c4e\",\n    \"requestId\": \"rmw0lls0i7cehs\",\n    \"targetVersion\": \"0.0.2\",\n    \"startedAt\": 1793704932899\n  },\n  \"waiting\": []\n}\n"
+  },
+  "note": "taskkill /T /F 只杀本 run 的 web 宿主进程树（外部手段，不动产品代码）；锁/队列文件原文即时快照"
+}

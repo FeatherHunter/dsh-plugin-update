@@ -1,0 +1,9 @@
+{
+  "label": "l5b",
+  "osHomeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T203000\\os-home-l5b",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T203000\\os-home-l5b\\.dsh",
+  "profileName": "t13b",
+  "sutOk": true,
+  "registryUrl": "https://127.0.0.1:54352",
+  "note": "第二套 home 与主 home 完全隔离（process.env 的 pnpm store/cache 仍按 run 隔离）；TLS front 共用"
+}

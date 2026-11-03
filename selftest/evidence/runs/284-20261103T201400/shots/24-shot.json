@@ -1,0 +1,9 @@
+{
+  "看什么": "关页面后重开：首屏先诚实说版本未知（新面板实例没查过最新版）→ 真 UI 点检查更新后面板已「已是最新」、运行构建 0.0.2，与宿主侧磁盘/台账真相一致",
+  "步骤": "l4-30-reopened-truthful",
+  "expected": "首屏诚实未知、检查更新后横幅「已是最新，无需更新。」、clientTag/hostTag=0.0.2",
+  "actual": "{\"banner\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"},\"tags\":{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.1\"}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\24-shot.png"
+}

@@ -1,0 +1,25 @@
+{
+  "files": [
+    {
+      "id": "fixture-client-bundle",
+      "path": "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T205500\\os-home\\.dsh\\profiles\\t13b\\node_modules\\dsh-plugin-update-fixture-a\\lib\\client.js",
+      "beforeSha": "3139a2bd08f04158f8e2483a7091ec849be9a9810668f6b8f577f0de6e9e9cb9",
+      "afterSha": "bbfe07791ee7d9047af8a585e8b95d2b2aaae666297823f4cfb06658a4621f9b",
+      "oldValue": "\\u66F4\\u65B0\\u5931\\u8D25\\uFF08{code}\\uFF09\\uFF1A{detail}\\u3002"
+    },
+    {
+      "id": "sut-dictionary",
+      "path": "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T205500\\os-home\\.dsh\\profiles\\t13b\\node_modules\\dsh-plugin-update\\dist\\core\\i18n\\dictionary.js",
+      "beforeSha": "aa34c02408bc2b9fcee60df2d6b2e156e162583624ae3fec0407d0a2fa1c0e89",
+      "afterSha": "6d324b36639824920805502eb65e00f0e39927eaeb13cad3e7eda8d319d8c7fb",
+      "oldValue": "\\u66F4\\u65B0\\u5931\\u8D25\\uFF08{code}\\uFF09\\uFF1A{detail}\\u3002"
+    }
+  ],
+  "injectedValue": "已是最新，无需更新。（{code}）：{detail}。",
+  "injectionEffective": true,
+  "expectedRedAssertions": [
+    "l2-03"
+  ],
+  "expectedExitCode": 1,
+  "note": "把失败横幅标题改成谎称「已是最新，无需更新」：改本 run profile 里夹具集成方打包产物（面板实际加载的文案）与 SUT 字典副本各一处，不改工作树源码/产品源码；finally 逐字节恢复并核 sha256"
+}

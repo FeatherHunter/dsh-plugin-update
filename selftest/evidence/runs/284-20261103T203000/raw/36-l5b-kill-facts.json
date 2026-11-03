@@ -1,0 +1,67 @@
+{
+  "killedAt": "2026-11-03T11:22:14.387Z",
+  "pid": 58456,
+  "taskkill": {
+    "exe": "taskkill",
+    "args": [
+      "/PID",
+      "58456",
+      "/T",
+      "/F"
+    ],
+    "exitCode": 0,
+    "signal": null,
+    "stdout": "�ɹ�: ����ֹ PID 20304 (���� PID 103072 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 103072 (���� PID 100536 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 100536 (���� PID 58456 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 58456 (���� PID 92084 �ӽ���)�Ľ��̡�\r\n",
+    "stderr": "",
+    "timedOut": false
+  },
+  "busyObserved": true,
+  "panelBeforeKill": {
+    "present": true,
+    "plugin": "dsh-plugin-update-fixture-a",
+    "banner": {
+      "kind": "busy",
+      "title": "正在安装 0.0.2…关闭面板不会中断。",
+      "sub": "进度将自动轮询刷新；重新打开面板将在 1 秒内恢复显示。"
+    },
+    "errCode": null,
+    "settled": "",
+    "lastResort": null,
+    "manual": {
+      "present": true,
+      "heading": "当前没有可用的手工命令。",
+      "code": null,
+      "neutral": "当前没有可用的手工命令。"
+    },
+    "strip": [
+      "0.0.1",
+      "0.0.1",
+      "0.0.2"
+    ],
+    "actions": [
+      {
+        "action": "check",
+        "text": "检查更新",
+        "disabled": true
+      },
+      {
+        "action": "install",
+        "text": "正在安装…",
+        "disabled": true
+      },
+      {
+        "action": "copy-diag",
+        "text": "复制诊断",
+        "disabled": false
+      },
+      {
+        "action": "toggle-queue",
+        "text": "显示其他插件",
+        "disabled": false
+      }
+    ],
+    "progress": "正在安装新版本…"
+  },
+  "installTimeoutEnvMs": 12000,
+  "note": "短阈值宿主（DSH_SELFTEST_INSTALL_TIMEOUT_MS=12000 由夹具读到后作为 installTimeoutMs，也是安装锁陈旧阈值）：杀在安装窗内"
+}

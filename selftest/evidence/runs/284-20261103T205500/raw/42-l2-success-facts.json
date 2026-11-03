@@ -1,0 +1,76 @@
+{
+  "retryClickAt": "2026-11-03T11:29:40.275Z",
+  "requests": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "panel",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 1008,
+        "intentHash": "20ab3e41",
+        "traceId": "e8f54ac2c0910854",
+        "spanId": "798c73b7",
+        "seq": 1
+      }
+    },
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "panel",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 338,
+        "intentHash": "0730ad27",
+        "traceId": "62640ca5ea3896cb",
+        "spanId": "3423e054",
+        "seq": 1
+      }
+    }
+  ],
+  "fails": [
+    {
+      "source": "fxa-a/2026-11-03.log",
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "check-failed",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "20ab3e41",
+        "traceId": "e8f54ac2c0910854",
+        "spanId": "798c73b7",
+        "seq": 2
+      }
+    }
+  ],
+  "ledgerJobs": [
+    {
+      "file": "fxa-a/ac6ca93298c251ad22904a20/state.json",
+      "state": {
+        "requestId": "rmw0lvd8722q99",
+        "message": null,
+        "id": "903bc521-3e37-40a6-8842-52afa2082f20",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      },
+      "mtimeMs": 1793705381740.4321
+    }
+  ],
+  "beforeFiles": [
+    "fxa-a/ac6ca93298c251ad22904a20/before.json"
+  ],
+  "disk": {
+    "dsh-plugin-update-fixture-a": "0.0.2"
+  },
+  "note": "单包面板自更新成功时旧日志口会随插件宿主重载轮换（见组 K 结论），成功 exec 行可能缺失；成功事实以磁盘+台账为准"
+}

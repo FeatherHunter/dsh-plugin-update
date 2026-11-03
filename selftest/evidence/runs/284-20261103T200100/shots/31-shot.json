@@ -1,0 +1,9 @@
+{
+  "看什么": "失败后重启（ACL 已恢复、未重试）：新宿主首屏如实保留上次失败横幅，不谎称更新中/已最新",
+  "步骤": "l3-30-restart-failure-honest",
+  "expected": "横幅 kind=failed、标题含「更新失败」；无更新中/已是最新字样",
+  "actual": "{\"banner\":{\"kind\":\"failed\",\"title\":\"更新失败（install-failed）：安装执行失败，详情见诊断摘要。\",\"sub\":\"请查阅诊断摘要；官方桌面版请提交该诊断信息至插件作者\"},\"errCode\":\"install-failed\"}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\31-shot.png"
+}

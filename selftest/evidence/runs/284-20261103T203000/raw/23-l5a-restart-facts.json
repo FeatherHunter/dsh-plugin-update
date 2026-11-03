@@ -1,0 +1,77 @@
+{
+  "killedAt": "2026-11-03T11:22:04.602Z",
+  "panel": {
+    "present": true,
+    "plugin": "dsh-plugin-update-fixture-a",
+    "banner": {
+      "kind": "failed",
+      "title": "更新失败（recovery-required）：上次安装异常中断，存在未完成任务。",
+      "sub": "重新执行安装；若持续，请按第 6 节排错"
+    },
+    "errCode": "recovery-required",
+    "settled": "",
+    "lastResort": null,
+    "manual": {
+      "present": true,
+      "heading": "手工备用命令（请复制整行执行）：",
+      "code": "dsh plugin --profile t13b add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=https://127.0.0.1:54352",
+      "neutral": ""
+    },
+    "strip": [
+      "0.0.1",
+      "0.0.1",
+      "未知"
+    ],
+    "actions": [
+      {
+        "action": "check",
+        "text": "检查更新",
+        "disabled": false
+      },
+      {
+        "action": "install",
+        "text": "重试安装",
+        "disabled": true
+      },
+      {
+        "action": "copy-manual",
+        "text": "复制手工命令",
+        "disabled": false
+      },
+      {
+        "action": "dismiss-failure",
+        "text": "已知晓",
+        "disabled": false
+      },
+      {
+        "action": "copy-diag",
+        "text": "复制诊断",
+        "disabled": false
+      }
+    ],
+    "progress": ""
+  },
+  "disk": {
+    "dsh-plugin-update-fixture-a": "0.0.1"
+  },
+  "ledger": {
+    "file": "fxa-a/1a089baafd2442ab17f9ac25/state.json",
+    "state": {
+      "requestId": "rmw0llkeh302df",
+      "message": "recovery-required",
+      "id": "32124fb0-91ab-4841-ab8d-a3be9c77e41f",
+      "state": "interrupted",
+      "targetVersion": "0.0.2",
+      "previousVersion": "0.0.1"
+    },
+    "mtimeMs": 1793704927840.3833
+  },
+  "queueFiles": [
+    "1a089baafd2442ab17f9ac25/global.lock",
+    "1a089baafd2442ab17f9ac25/queue.json"
+  ],
+  "lockTail": "1a089baafd2442ab17f9ac25/global.lock\n{\"id\":\"32124fb0-91ab-4841-ab8d-a3be9c77e41f\",\"pluginId\":\"fxa-a\",\"pid\":57744,\"startedAt\":1793704923027}",
+  "queueTail": "1a089baafd2442ab17f9ac25/queue.json\n{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+  "falseLatest": false,
+  "note": "重启后只用真 UI/磁盘/台账判定；面板全文与残留锁原文均在此 raw"
+}

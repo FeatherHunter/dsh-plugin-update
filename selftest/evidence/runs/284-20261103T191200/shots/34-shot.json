@@ -1,0 +1,9 @@
+{
+  "看什么": "重启宿主后：首屏先如实说「版本信息未知」（已由 l1-06a/b 断言），真 UI 点检查更新后 A/B 两面板均「已是最新」，运行构建 0.0.2，两包台账仍各恰一条成功终态",
+  "步骤": "l1-30-restart-truthful",
+  "expected": "首屏不谎称已是最新；检查后两面板已了结、clientTag/hostTag=0.0.2、A/B 各恰 1 份成功 state.json",
+  "actual": "{\"a\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"},\"b\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"},\"tags\":{\"a\":{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\"},\"b\":{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\"}},\"jobsA\":1,\"jobsB\":1}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\34-shot.png"
+}

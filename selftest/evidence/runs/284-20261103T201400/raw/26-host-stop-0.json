@@ -1,0 +1,10 @@
+{
+  "reason": "l4-after-reopen",
+  "gen": 0,
+  "port": 52694,
+  "pid": 104344,
+  "registryUrl": "https://127.0.0.1:51859",
+  "delayMs": 8000,
+  "proxyRequests": 10,
+  "delayedRequests": 5
+}

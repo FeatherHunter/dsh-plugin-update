@@ -1,0 +1,12 @@
+{
+  "installedSutDist": "D:\\dsh-plugin\\_wt263\\runtime\\t13-284\\runs\\284-20261103T191200\\os-home\\.dsh\\profiles\\t13b\\node_modules\\dsh-plugin-update\\dist",
+  "installedDist": {
+    "digest": "e280a81080925fdcc76eda4f9edf2559e8ae81b7fce01f326fe301220e119117",
+    "files": 208
+  },
+  "workspaceDist": {
+    "digest": "e280a81080925fdcc76eda4f9edf2559e8ae81b7fce01f326fe301220e119117",
+    "files": 208
+  },
+  "match": true
+}

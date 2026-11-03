@@ -1,0 +1,186 @@
+{
+  "requests": {
+    "a": [
+      {
+        "source": "fxa-a/2026-11-03.log",
+        "event": "update.install.request",
+        "level": "info",
+        "fields": {
+          "from": "panel",
+          "current": "0.0.1",
+          "latest": "0.0.2",
+          "checkAgeMs": 508,
+          "intentHash": "df2f9249",
+          "traceId": "bf20129d4fedf99d",
+          "spanId": "0d55f958",
+          "seq": 1
+        }
+      }
+    ],
+    "b": [
+      {
+        "source": "fxb-b/2026-11-03.log",
+        "event": "update.install.request",
+        "level": "info",
+        "fields": {
+          "from": "panel",
+          "current": "0.0.1",
+          "latest": "0.0.2",
+          "checkAgeMs": 39485,
+          "intentHash": "253255ee",
+          "traceId": "d7f14baa2a73b272",
+          "spanId": "ce7585e2",
+          "seq": 1
+        }
+      }
+    ]
+  },
+  "fails": {
+    "a": [],
+    "b": [
+      {
+        "source": "fxb-b/2026-11-03.log",
+        "event": "update.install.fail",
+        "level": "warn",
+        "fields": {
+          "stage": "gate",
+          "reason": "gate-refused",
+          "code": "update-busy",
+          "hostCodeHash": "none",
+          "check": "none",
+          "exitCode": null,
+          "observedVersion": null,
+          "intentHash": "aa1bf834",
+          "traceId": "30aee4c1c62835a5",
+          "spanId": "1e464777",
+          "seq": 1
+        }
+      },
+      {
+        "source": "fxb-b/2026-11-03.log",
+        "event": "update.install.fail",
+        "level": "warn",
+        "fields": {
+          "stage": "gate",
+          "reason": "gate-refused",
+          "code": "update-busy",
+          "hostCodeHash": "none",
+          "check": "none",
+          "exitCode": null,
+          "observedVersion": null,
+          "intentHash": "c924c182",
+          "traceId": "a16c44ce6cc038ea",
+          "spanId": "473ab1e4",
+          "seq": 1
+        }
+      },
+      {
+        "source": "fxb-b/2026-11-03.log",
+        "event": "update.install.fail",
+        "level": "warn",
+        "fields": {
+          "stage": "gate",
+          "reason": "gate-refused",
+          "code": "update-busy",
+          "hostCodeHash": "none",
+          "check": "none",
+          "exitCode": null,
+          "observedVersion": null,
+          "intentHash": "bb085c20",
+          "traceId": "5bc9fae26db69d57",
+          "spanId": "136b427d",
+          "seq": 0
+        }
+      }
+    ]
+  },
+  "execs": {
+    "a": [
+      {
+        "source": "fxa-a/2026-11-03.log",
+        "event": "update.install.exec",
+        "level": "info",
+        "fields": {
+          "route": "cli-process",
+          "ok": true,
+          "exitCode": 0,
+          "durationMs": 2249,
+          "pluginId": "fxa-a",
+          "traceId": "bf20129d4fedf99d",
+          "spanId": "0d55f958",
+          "seq": 4
+        }
+      }
+    ],
+    "b": [
+      {
+        "source": "fxb-b/2026-11-03.log",
+        "event": "update.install.exec",
+        "level": "info",
+        "fields": {
+          "route": "cli-process",
+          "ok": true,
+          "exitCode": 0,
+          "durationMs": 1573,
+          "pluginId": "fxb-b",
+          "traceId": "d7f14baa2a73b272",
+          "spanId": "ce7585e2",
+          "seq": 4
+        }
+      }
+    ]
+  },
+  "ledgerJobs": {
+    "a": [
+      {
+        "file": "fxa-a/844cb3876d413d26fdd7d380/state.json",
+        "state": {
+          "requestId": "rmw0kfg64222p6",
+          "message": null,
+          "id": "aac48348-3eee-4094-b46c-5b1f400ac85f",
+          "state": "completed",
+          "targetVersion": "0.0.2",
+          "previousVersion": "0.0.1"
+        },
+        "mtimeMs": 1793702960414.7175
+      }
+    ],
+    "b": [
+      {
+        "file": "fxb-b/844cb3876d413d26fdd7d380/state.json",
+        "state": {
+          "requestId": "rmw0kgej73rmkn",
+          "message": null,
+          "id": "f7bd1e17-f7c8-45b0-9db6-a2dea3494c3c",
+          "state": "completed",
+          "targetVersion": "0.0.2",
+          "previousVersion": "0.0.1"
+        },
+        "mtimeMs": 1793703004460.2375
+      }
+    ]
+  },
+  "beforeFiles": {
+    "a": [
+      "fxa-a/844cb3876d413d26fdd7d380/before.json"
+    ],
+    "b": [
+      "fxb-b/844cb3876d413d26fdd7d380/before.json"
+    ]
+  },
+  "disk": {
+    "dsh-plugin-update-fixture-a": "0.0.2",
+    "dsh-plugin-update-fixture-b": "0.0.2"
+  },
+  "tags": {
+    "a": {
+      "clientTag": "client v0.0.2",
+      "hostTag": "host v0.0.1"
+    },
+    "b": {
+      "clientTag": "client v0.0.2",
+      "hostTag": "host v0.0.1"
+    }
+  },
+  "note": "两包各自一份 state.json（同一插件+profile 共槽，成功重试覆盖失败）；恰一条成功终态才算 exactly-once"
+}

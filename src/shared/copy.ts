@@ -8,6 +8,7 @@
  */
 
 import { copyText } from '../core/i18n/text.js'
+import { compareReleaseVersions } from '../core/judgment.js'
 import type { BilingualKey } from '../core/i18n/dictionary.js'
 import { INTERNAL_CODE, isCheckSideFailureCode, type PhoneFailureCode } from './codes.js'
 import { blameCausePackage, CAUSE_KINDS, formatUnlockAt, interpretInstallCause } from '../core/cause.js'
@@ -625,12 +626,34 @@ export function buildHealthyDiagCopy(input: HealthyDiagCopyInput): string {
   const notInstalledWord = input.installed === false ? copyText('panel.banner.not-installed', l) : null
   // #182：运行版本未知时不许把 null 拼成「null」，也不许冒充「已是最新」。
   const runningWord = input.runningVersion ?? copyText('panel.meta.unknown', l)
+  // #284 第二面（真机 run 284-20261103T180549）：最新版已知且比运行版新、但这次检查结论已装不了
+  // （canInstall=false，典型是别的插件安装改写了共享使用范围，installationKey 变了）→ 不许借
+  // 「已是最新」兜底；照实说有新版但当前装不了，与面板横幅同一口径（view-model 的 not-installable 分支）。
+  let notInstallableLine: string | null = null
+  if (
+    !input.canInstall &&
+    input.installed !== false &&
+    typeof input.latestVersion === 'string' &&
+    typeof input.runningVersion === 'string'
+  ) {
+    try {
+      if (compareReleaseVersions(input.latestVersion, input.runningVersion) === 1) {
+        notInstallableLine = copyText('panel.diag.copy.healthy.not-installable', l, { latest: input.latestVersion })
+      }
+    } catch {
+      // 版号形状不认识时比不出来：退回旧口径（与「比不出版本」的既有诚实策略一致）。
+    }
+  }
   const stateLine =
     input.canInstall && input.latestVersion
       ? `有新版 ${input.latestVersion} 可装（当前 ${notInstalledWord ?? runningWord}）`
       : input.installed !== false && input.runningVersion === null
         ? '运行版本未知，无法判断是否有新版可装。'
-        : (notInstalledWord ?? '已是最新，无需更新。')
+        : // #284：最新版未知时不许写「已是最新」（与面板横幅同一守卫；服务层已判 unknown/no-latest）。
+          // 只在这一个组合改行为，其余分支逐字不变。
+          input.installed !== false && input.latestVersion === null
+          ? copyText('panel.diag.copy.healthy.unknown-latest', l)
+          : (notInstallableLine ?? notInstalledWord ?? '已是最新，无需更新。')
   const queueName = queueTextOf(input.queuePosition ?? null, l)
   const envBits = [
     `插件=${input.pluginId}`,

@@ -1,0 +1,29 @@
+{
+  "shortThresholdMs": 12000,
+  "elapsedSinceKillMs": 26356,
+  "lockFile": "73dfb4db7487fd0abe5b8137/global.lock",
+  "lockAgeMs": null,
+  "queueFiles": [
+    "73dfb4db7487fd0abe5b8137/global.lock",
+    "73dfb4db7487fd0abe5b8137/queue.json"
+  ],
+  "lockTail": "73dfb4db7487fd0abe5b8137/global.lock\n{\"id\":\"7e37b489-d994-4e2b-9f7e-206b67248c4e\",\"pluginId\":\"fxa-a\",\"pid\":58456,\"startedAt\":1793704932890}",
+  "queueTail": "73dfb4db7487fd0abe5b8137/queue.json\n{\n  \"version\": 1,\n  \"owner\": {\n    \"pluginId\": \"fxa-a\",\n    \"jobId\": \"7e37b489-d994-4e2b-9f7e-206b67248c4e\",\n    \"requestId\": \"rmw0lls0i7cehs\",\n    \"targetVersion\": \"0.0.2\",\n    \"startedAt\": 1793704932899\n  },\n  \"waiting\": []\n}\n",
+  "disk": {
+    "dsh-plugin-update-fixture-a": "0.0.1"
+  },
+  "ledgerState": "installing",
+  "ledger": {
+    "file": "fxa-a/73dfb4db7487fd0abe5b8137/state.json",
+    "state": {
+      "id": "7e37b489-d994-4e2b-9f7e-206b67248c4e",
+      "state": "installing",
+      "targetVersion": "0.0.2",
+      "message": null,
+      "requestId": "rmw0lls0i7cehs",
+      "previousVersion": "0.0.1"
+    },
+    "mtimeMs": 1793704932898.4192
+  },
+  "note": "kill 后等待超过本 run 宿主安装锁陈旧阈值（12s），期间无宿主运行：磁盘未变、无假成功；锁文件与 age 作为陈旧证据"
+}

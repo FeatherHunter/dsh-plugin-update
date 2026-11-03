@@ -1,0 +1,13 @@
+{
+  "label": "l2-gen2",
+  "urlMasked": "http://127.0.0.1:59955/?token=***",
+  "port": 59955,
+  "bootMs": 2243,
+  "registryUrl": "https://127.0.0.1:62521",
+  "tlsFrontPort": 62521,
+  "certSha256": "6e6b10faa3890bad0e56d3777a52ef77b78d3364a44c4f27be1ed287170e6bb4",
+  "delayMs": null,
+  "requestsFrom": 4,
+  "stdoutTail": "dsh web: http://127.0.0.1:59955/?token=8j4qeAD46r4xaSLVm27xbPakBCo3j8bVmDKVWOnhut4\n",
+  "stderrTail": ""
+}

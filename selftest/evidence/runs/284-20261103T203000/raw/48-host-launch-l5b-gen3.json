@@ -1,0 +1,13 @@
+{
+  "label": "l5b-gen3",
+  "urlMasked": "http://127.0.0.1:60649/?token=***",
+  "port": 60649,
+  "bootMs": 1775,
+  "registryUrl": "https://127.0.0.1:54352",
+  "tlsFrontPort": 54352,
+  "certSha256": "8b7b68e31372c03d91f295e1bc3da1b6ef4515dbe058f2431c48923a69be7121",
+  "delayMs": null,
+  "requestsFrom": 20,
+  "stdoutTail": "dsh web: http://127.0.0.1:60649/?token=yqc31lITkbFbBoptKxHak7L4dys_5Lnb34dWF9ptXWY\n",
+  "stderrTail": ""
+}

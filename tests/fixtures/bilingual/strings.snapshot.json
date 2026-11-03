@@ -1022,6 +1022,11 @@
       "zh": "正在读取更新状态…",
       "draft": true
     },
+    "panel.banner.not-installable-title": {
+      "en": "Newer version {latest} is available, but it cannot be installed right now; check for updates and retry.",
+      "zh": "有新版本 {latest}，但当前无法安装；请重新检查更新后重试。",
+      "draft": true
+    },
     "panel.banner.not-installed": {
       "en": "Not installed",
       "zh": "未安装",
@@ -1040,6 +1045,11 @@
     "panel.banner.restart-unregistered-title": {
       "en": "Version {latest} is on disk, but this plugin is not registered in the scope selection, so restarting the host will not load it.",
       "zh": "新版本 {latest} 已写入磁盘，但该插件未登记在使用范围清单，重启宿主也不会加载。",
+      "draft": true
+    },
+    "panel.banner.unknown-latest-title": {
+      "en": "Version information unknown; check for updates.",
+      "zh": "版本信息未知，请检查更新。",
       "draft": true
     },
     "panel.banner.unknown-running-action": {
@@ -1355,6 +1365,16 @@
     "panel.diag.copy.field.version": {
       "en": "Version={run}→{inst}",
       "zh": "版本={run}→{inst}",
+      "draft": true
+    },
+    "panel.diag.copy.healthy.not-installable": {
+      "en": "Newer version {latest} is available, but it cannot be installed right now; check for updates and retry.",
+      "zh": "有新版本 {latest}，但当前无法安装；请重新检查更新后重试。",
+      "draft": true
+    },
+    "panel.diag.copy.healthy.unknown-latest": {
+      "en": "Version information unknown; check for updates first.",
+      "zh": "版本信息未知，请先检查更新。",
       "draft": true
     },
     "panel.diag.copy.line.remedy": {

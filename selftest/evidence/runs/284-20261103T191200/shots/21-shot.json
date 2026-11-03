@@ -1,0 +1,9 @@
+{
+  "看什么": "同一宿主进程里两个面板几乎同时点安装后的现场：一个安装已落定/进行中，另一个诚实忙碌/失败（不谎称已更新）",
+  "步骤": "l1-20-race-observed",
+  "expected": "并发窗口内恰一个安装真跑（或第二个进队列），后到者不得显示「已是最新」而磁盘未变；面板时间线与日志/磁盘一致",
+  "actual": "{\"raceDisk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":\"0.0.1\"},\"raceWinner\":\"dsh-plugin-update-fixture-a\",\"raceLooser\":{\"kind\":\"idle\",\"title\":\"有新版本 0.0.2，但当前无法安装；请重新检查更新后重试。\",\"errCode\":null,\"actions\":[\"check\",\"install\",\"copy-manual\",\"copy-diag\",\"toggle-queue\"]},\"raceExecTotal\":1,\"raceSerialized\":true,\"queueEvents\":4,\"lockAnomalies\":0}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\21-shot.png"
+}

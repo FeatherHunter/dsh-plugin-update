@@ -1,0 +1,5 @@
+{
+  "port": 55400,
+  "stdoutTail": "warn --- http address - http://127.0.0.1:55400/ - verdaccio/6.11.1\n",
+  "stderrTail": ""
+}

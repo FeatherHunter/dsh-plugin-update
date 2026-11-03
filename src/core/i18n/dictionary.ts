@@ -118,6 +118,8 @@ export type BilingualKey =
   | 'panel.action.install-gated-title'
   | 'panel.action.install-version'
   | 'panel.banner.done'
+  | 'panel.banner.unknown-latest-title'
+  | 'panel.banner.not-installable-title'
   | 'panel.banner.not-installed'
   | 'panel.toast.checking'
   | 'panel.toast.installing'
@@ -290,6 +292,8 @@ export type BilingualKey =
   | 'panel.diag.copy.block.summary'
   | 'panel.diag.copy.block.source'
   | 'panel.diag.copy.block.remedy'
+  | 'panel.diag.copy.healthy.unknown-latest'
+  | 'panel.diag.copy.healthy.not-installable'
   | 'panel.diag.connection'
   | 'batch.action.resume'
   | 'batch.action.resume-title'
@@ -551,6 +555,12 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.banner.update-gated-title': { en: 'Version {latest} was just published and is still gated ({unlock}); installing now will fail — use Install fallback build below if you cannot wait.', zh: '新版本 {latest} 刚发布未满门，{unlock}可装；现在点安装会失败，等不及可先装合规版。', draft: true },
   'panel.action.install-gated-title': { en: 'Come back {unlock} to install {latest}; it is still gated and would fail now.', zh: '{unlock}再来装 {latest} 吧，现在装会被门拦住。', draft: true },
   'panel.banner.done': { en: 'Up to date. No update needed.', zh: '已是最新，无需更新。', draft: true },
+  // #284：最新版未知（reader 换代后检查状态丢失等）时照实说不知道；服务层已判 unknown/no-latest，面板不许补成「已是最新」。
+  'panel.banner.unknown-latest-title': { en: 'Version information unknown; check for updates.', zh: '版本信息未知，请检查更新。', draft: true },
+  // #284 第二面：最新版已知且比运行版新、但这次检查结论已装不了（canInstall=false，典型是别的插件安装
+  // 改写了共享使用范围，installationKey 变了）。这是「知道有新版但装不了」，不是「已是最新」：照实说
+  // 有新版、当前装不了，给「检查更新」自愈入口；服务层 statusVerdictOf 同期仍判 update-available。
+  'panel.banner.not-installable-title': { en: 'Newer version {latest} is available, but it cannot be installed right now; check for updates and retry.', zh: '有新版本 {latest}，但当前无法安装；请重新检查更新后重试。', draft: true },
   'panel.banner.not-installed': { en: 'Not installed', zh: '未安装', draft: true },
   'panel.toast.checking': { en: 'Checking for updates…', zh: '正在查询版本信息…', draft: true },
   'panel.toast.installing': { en: 'Installing…', zh: '正在安装…', draft: true },
@@ -728,6 +738,10 @@ export const BILINGUAL_STRINGS: Record<BilingualKey, BilingualEntry> = {
   'panel.diag.copy.block.summary': { en: 'Summary：{summary}', zh: '摘要：{summary}', draft: true },
   'panel.diag.copy.block.source': { en: 'Source：{source}', zh: '来源：{source}', draft: true },
   'panel.diag.copy.block.remedy': { en: 'Remedy：{remedy}', zh: '怎么办：{remedy}', draft: true },
+  // #284：健康态诊断复制的同款守卫——最新版未知时不许写「已是最新」。只在这一个组合生效，其余分支逐字不变。
+  'panel.diag.copy.healthy.unknown-latest': { en: 'Version information unknown; check for updates first.', zh: '版本信息未知，请先检查更新。', draft: true },
+  // #284 第二面：健康态诊断复制的同款守卫——有新版但这次检查结论装不了时，不许写「已是最新」。只在该组合生效。
+  'panel.diag.copy.healthy.not-installable': { en: 'Newer version {latest} is available, but it cannot be installed right now; check for updates and retry.', zh: '有新版本 {latest}，但当前无法安装；请重新检查更新后重试。', draft: true },
   // #214：连接/丢弃计数尾句。只在计数非 0 时出现（老输出一字不差）；两个槽恒给，
   // 数值为 0 也照实写，避免「只有一半证据」的猜测空间。
   'panel.diag.connection': { en: 'Connection: transport failures {fails} · client dropped rows {drops}', zh: '连接：传输失败 {fails} 次 · 客户端丢弃 {drops} 行', draft: true },
