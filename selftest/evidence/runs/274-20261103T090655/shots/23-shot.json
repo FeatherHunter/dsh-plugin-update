@@ -1,0 +1,9 @@
+{
+  "看什么": "注入重启后：精确原文断言（可证伪点：若断言只做 includes 或没比对原文，这一格会假绿）",
+  "步骤": "can-red-50-after-patch",
+  "expected": "横幅标题精确等于「已是最新，无需更新。」",
+  "actual": "{\"title\":\"已是最新，无需更新。RED\",\"banner\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。RED\",\"sub\":\"\"}}",
+  "判定": "fail",
+  "备注": null,
+  "截图": "shots\\23-shot.png"
+}

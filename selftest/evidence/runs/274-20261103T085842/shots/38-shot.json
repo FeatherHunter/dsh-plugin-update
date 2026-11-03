@@ -1,0 +1,9 @@
+{
+  "看什么": "手工命令修好后重启宿主：面板按磁盘真相了结，旧失败只留中性历史行",
+  "步骤": "k2-30-after-manual-fix",
+  "expected": "横幅「已是最新，无需更新。」、settled 历史行含「上次尝试失败（install-failed）」与 0.0.2、clientTag/hostTag=0.0.2",
+  "actual": "{\"banner\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"},\"settled\":\"上次尝试失败（install-failed）；目标版本 0.0.2 或更新版本正在运行。\",\"tags\":{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\"}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\38-shot.png"
+}

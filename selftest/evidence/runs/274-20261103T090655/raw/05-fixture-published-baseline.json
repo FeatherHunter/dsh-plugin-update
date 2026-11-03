@@ -1,0 +1,9 @@
+{
+  "scenario": "k-single-panel-happy",
+  "baseline": [
+    {
+      "slotKey": "a",
+      "spec": "dsh-plugin-update-fixture-a@0.0.1"
+    }
+  ]
+}

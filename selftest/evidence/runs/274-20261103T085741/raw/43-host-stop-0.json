@@ -1,0 +1,10 @@
+{
+  "reason": "k1-before-restart",
+  "gen": 0,
+  "port": 52437,
+  "pid": 90548,
+  "registryUrl": "https://127.0.0.1:56345",
+  "delayMs": 6000,
+  "proxyRequests": 9,
+  "delayedRequests": 5
+}

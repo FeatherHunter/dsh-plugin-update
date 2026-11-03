@@ -1,0 +1,13 @@
+{
+  "label": "k2-gen1",
+  "urlMasked": "http://127.0.0.1:62879/?token=***",
+  "port": 62879,
+  "bootMs": 1696,
+  "registryUrl": "https://127.0.0.1:59110",
+  "tlsFrontPort": 59110,
+  "certSha256": "1cf9c865a482bce0d93422cfc7b10e45307a133d4300c48957d6ae6712632d7d",
+  "delayMs": null,
+  "requestsFrom": 0,
+  "stdoutTail": "dsh web: http://127.0.0.1:62879/?token=RGt6zCEdempbATp0o97zykVbUY6YyI_d_sZY-Cho3Nw\n",
+  "stderrTail": ""
+}

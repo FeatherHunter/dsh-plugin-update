@@ -1,0 +1,13 @@
+{
+  "label": "can-red-gen1",
+  "urlMasked": "http://127.0.0.1:59777/?token=***",
+  "port": 59777,
+  "bootMs": 1669,
+  "registryUrl": "https://127.0.0.1:62956",
+  "tlsFrontPort": 62956,
+  "certSha256": "7ca6b2d643c67fe7c8c87610dcb004e68207491d29927537597bd7c53a59c5fc",
+  "delayMs": 6000,
+  "requestsFrom": 0,
+  "stdoutTail": "dsh web: http://127.0.0.1:59777/?token=9RR_0EX6_BTY4-ldFmOc5C5Xb7iSd0R8a8yQhW84R_A\n",
+  "stderrTail": ""
+}

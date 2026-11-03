@@ -1,0 +1,62 @@
+{
+  "execs": [
+    {
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "cli-process",
+        "ok": true,
+        "exitCode": 0,
+        "durationMs": 31256,
+        "pluginId": "fxa-a",
+        "traceId": "0f89b7dffa8228e7",
+        "spanId": "729ce7eb",
+        "seq": 4
+      },
+      "source": "fxa-a/2026-11-03.log",
+      "line": 22
+    }
+  ],
+  "fails": [],
+  "requests": [
+    {
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "entry",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 782,
+        "intentHash": "a99ca3c6",
+        "traceId": "0f89b7dffa8228e7",
+        "spanId": "729ce7eb",
+        "seq": 1
+      },
+      "source": "fxa-a/2026-11-03.log",
+      "line": 16
+    }
+  ],
+  "ledger": {
+    "file": "fxa-a/9a2a5e4074f2451377fbee95/state.json",
+    "state": {
+      "requestId": "rmvzzaxsd6rpx8",
+      "message": null,
+      "id": "3d071016-6b54-4746-acee-4ae850d023a6",
+      "state": "completed",
+      "targetVersion": "0.0.2",
+      "previousVersion": "0.0.1"
+    }
+  },
+  "before": {
+    "jobId": "3d071016-6b54-4746-acee-4ae850d023a6",
+    "previousVersion": "0.0.1",
+    "files": {
+      "package.json": "{\n  \"name\": \"dsh-profile-t10ui\",\n  \"private\": true,\n  \"dependencies\": {\n    \"dsh-plugin-update-fixture-a\": \"0.0.1\"\n  },\n  \"dsh\": {\n    \"profile\": {\n      \"bundles\": [\n        \"@deepseek-ai/dsh-base\",\n        \"@deepseek-ai/dsh-web-app\",\n        \"dsh-plugin-update-fixture-a\"\n      ]\n    }\n  }\n}\n",
+      "pnpm-lock.yaml": "lockfileVersion: '9.0'\n\nsettings:\n  autoInstallPeers: false\n  excludeLinksFromLockfile: false\n\nimporters:\n\n  .:\n    dependencies:\n      dsh-plugin-update-fixture-a:\n        specifier: 0.0.1\n        version: 0.0.1\n\npackages:\n\n  dsh-log@0.3.4:\n    resolution: {integrity: sha512-uCG6sLTze5YjmZmLln2KAeCCepsKvzGhnpZmkym/3OKNOsMKH5sA2lunwrLoOfmLxxju3/ZkKQmLp76Fklpw2w==}\n    engines: {node: '>=22'}\n    hasBin: true\n\n  dsh-plugin-update-fixture-a@0.0.1:\n    resolution: {integrity: sha512-aFOvA9KkfrKhDkTPSF9lTEOmy+6Qo7O53OpLs3gkfvpFgiKYHEuU6RfqqyfuKWMsWNkuCfVeK9LcTUxRmHfdHQ==}\n    engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0'}\n\n  dsh-plugin-update@0.18.39:\n    resolution: {integrity: sha512-aaAZS3+u456KTfoyEczo6gMXTangYlWp0S2Sle7llc5tHNPUZcNVnY52q33XeSXcYYdDDGfnWcjqFRaHlU3Y8w==}\n    engines: {node: '>=22'}\n\nsnapshots:\n\n  dsh-log@0.3.4: {}\n\n  dsh-plugin-update-fixture-a@0.0.1:\n    dependencies:\n      dsh-plugin-update: 0.18.39\n\n  dsh-plugin-update@0.18.39:\n    dependencies:\n      dsh-log: 0.3.4\n",
+      "pnpm-workspace.yaml": "packages:\n  - .\n\nnodeLinker: hoisted\nautoInstallPeers: false\nminimumReleaseAgeExclude:\n  - dsh-log@0.3.4\n  - dsh-plugin-update-fixture-a@0.0.1\n  - dsh-plugin-update@0.18.39\n"
+    }
+  },
+  "disk": {
+    "dsh-plugin-update-fixture-a": "0.0.2"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "看什么": "安装失败：失败横幅 + 最后手段条 + 手工备用命令（当帧可信）+ 入口/安装按钮失败档",
+  "步骤": "k2-20-failure-last-resort",
+  "expected": "横幅标题以「更新失败（install-failed）」开头、最后手段三字段原文、手工命令形状 --profile t10ui add --save-exact <pkg>@0.0.2 --registry=<本 run registry>、入口「更新失败，请查看详情」、按钮 kind=failed",
+  "actual": "{\"banner\":{\"kind\":\"failed\",\"title\":\"更新失败（install-failed）：安装执行失败，详情见诊断摘要。\",\"sub\":\"请查阅诊断摘要；官方桌面版请提交该诊断信息至插件作者\"},\"errCode\":\"install-failed\",\"lastResort\":{\"present\":true,\"badge\":\"最后手段\",\"status\":\"自动恢复不可用\",\"reason\":\"没有可用的自动数据路径；复制这条命令是唯一出路。\",\"copyText\":\"复制手工命令\"},\"manual\":{\"heading\":\"手工备用命令（请复制整行执行）：\",\"code\":\"dsh plugin --profile t10ui add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=https://127.0.0.1:59110\",\"neutral\":\"\"},\"entry\":{\"state\":\"failed\",\"ariaLabel\":\"更新失败，请查看详情\"},\"buttonKind\":\"failed\"}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\21-shot.png"
+}
