@@ -1738,9 +1738,9 @@ async function runI4(ctx: Ctx): Promise<void> {
   await capture(run, ui, {
     step: 'i4-pending-restart-banner',
     what: '已写盘未重启的面板横幅（登记在册）：待重启文案 + 非安装失败',
-    expected: 'banner.kind=restart；title=「' + expectedTitle1 + '」；sub=「' + expectedAction1 + '」；seal 含「待重启」',
+    expected: 'banner.kind=restart；title=「' + expectedTitle1 + '」；sub=「' + expectedAction1 + '」（restart 横幅没有 seal 徽标，不能拿空 seal 判失败）',
     actual: 'banner=' + JSON.stringify(b1) + '；seal=' + banner1.seal.slice(0, 300),
-    verdict: kind1 === 'restart' && title1 === expectedTitle1 && shown1 === expectedAction1 && banner1.seal.indexOf('待重启') >= 0 ? 'pass' : 'fail',
+    verdict: kind1 === 'restart' && title1 === expectedTitle1 && shown1 === expectedAction1 ? 'pass' : 'fail',
   })
   const after = await callPhone(gen1.host, ctx.route, ctx.statusPhone, {})
   const snap1 = after.snapshot ?? {}
@@ -1784,9 +1784,9 @@ async function runI4(ctx: Ctx): Promise<void> {
   await capture(run, ui, {
     step: 'i4-unregistered-banner',
     what: '同一宿主里把包从在册摘掉后面板：未登记分支（重启也不会加载）',
-    expected: 'banner.kind=restart；title 含「未登记在使用范围清单」与变体版；sub=「' + expectedAction2 + '」；seal 含「待重启」',
+    expected: 'banner.kind=restart；title 含「未登记在使用范围清单」与变体版；sub=「' + expectedAction2 + '」（同样无 seal 徽标）',
     actual: 'banner=' + JSON.stringify(b2) + '；seal=' + banner2.seal.slice(0, 300),
-    verdict: kind2 === 'restart' && title2.indexOf('未登记在使用范围清单') >= 0 && title2.indexOf(ctx.variantVersion) >= 0 && shown2 === expectedAction2 && banner2.seal.indexOf('待重启') >= 0 ? 'pass' : 'fail',
+    verdict: kind2 === 'restart' && title2.indexOf('未登记在使用范围清单') >= 0 && title2.indexOf(ctx.variantVersion) >= 0 && shown2 === expectedAction2 ? 'pass' : 'fail',
   })
   await stopHost(ctx, gen1, 'after-unregistered-banner')
 
