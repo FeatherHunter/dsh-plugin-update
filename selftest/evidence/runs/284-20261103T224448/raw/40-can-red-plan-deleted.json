@@ -1,0 +1,7 @@
+{
+  "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224448\\os-home\\.dsh\\update-queue\\47afcf060ff22b781e9832d0\\hub\\plans\\fxa.json",
+  "deletedAt": 1793717105445,
+  "beforeSha256": "ab86af7300204ea6e78283ee744d04e5846c4bba567a256f7974f7ef3c24275f",
+  "after": null,
+  "why": "换手窗口里删除 <home>/update-queue/<hash>/hub/plans/fxa.json：中枢方案是第二代接管的唯一依据，删掉后 B/C 不应继续（用于证明「A 自动续跑完成」断言可红）。"
+}

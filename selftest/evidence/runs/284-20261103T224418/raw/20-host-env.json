@@ -1,0 +1,9 @@
+{
+  "env": {
+    "DSH_SELFTEST_REGISTRY": "http://127.0.0.1:61698",
+    "DSH_SELFTEST_INSTALL_TIMEOUT_MS": "30000",
+    "npm_config_minimum_release_age": "0"
+  },
+  "mode": "m4",
+  "why": "M4 两个宿主并发各装三包、同 home 共享 pnpm store：安装预算放宽到 30s；本格不杀宿主，锁陈旧阈值用不到。"
+}

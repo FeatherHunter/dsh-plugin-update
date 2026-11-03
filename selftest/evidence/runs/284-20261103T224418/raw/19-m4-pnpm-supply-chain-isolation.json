@@ -1,0 +1,6 @@
+{
+  "env": {
+    "npm_config_minimum_release_age": "0"
+  },
+  "why": "隔离 os-home 不含维护者全局 pnpm 配置的覆盖；minimumReleaseAge 会把本 run 现场发布的 fixture/SUT 判成 too-new。只关冷却阈值，不碰 registry/install 语义。"
+}

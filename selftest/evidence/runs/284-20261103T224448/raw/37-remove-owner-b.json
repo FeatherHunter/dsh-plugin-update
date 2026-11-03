@@ -1,0 +1,17 @@
+{
+  "packageName": "dsh-plugin-update-fixture-b",
+  "cli": {
+    "exitCode": 0,
+    "stdout": "[WARN] The store at C:\\Users\\辰辰洋洋\\AppData\\Local\\pnpm\\store\\v11 is not used because packages cannot be hard linked from it into this project. Using the store at D:\\.pnpm-store\\v11 instead. Set storeDir to choose the store.\n? Verifying lockfile against supply-chain policies (4 entries)...\n✓ Lockfile passes supply-chain policies (4 entries in 2ms)\nLockfile is up to date, resolution step is skipped\nAlready up to date\n\ndependencies:\n- dsh-plugin-update-fixture-b 0.0.1\n\nDone in 268ms using pnpm v11.28.5\n",
+    "stderr": "",
+    "durationMs": 507
+  },
+  "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224448\\os-home\\.dsh\\profiles\\t14hub",
+  "bundlesAfterRemove": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-web-app",
+    "dsh-plugin-update-fixture-a"
+  ],
+  "bInstalledDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224448\\os-home\\.dsh\\profiles\\t14hub\\node_modules\\dsh-plugin-update-fixture-b",
+  "bDirVersionAfterRemove": null
+}

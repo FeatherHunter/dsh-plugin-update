@@ -1,0 +1,7 @@
+{
+  "baseUrl": "http://127.0.0.1:61698",
+  "port": 61698,
+  "stdout": "warn --- http address - http://127.0.0.1:61698/ - verdaccio/6.11.1\n",
+  "stderr": "",
+  "npmrcPath": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\registry\\registry\\npmrc"
+}

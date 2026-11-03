@@ -329,7 +329,7 @@ export function createMultiHostUpdate(
       profileDir: scope.profileDir,
       check: injectedCheck ?? (() => defaultCheck(runtime)),
       install:
-        injectedInstall ?? ((key: string, one: MultiTargetSpec, requestId: string) => defaultInstall(runtime, key, one, requestId)),
+        injectedInstall ?? ((key: string, one: MultiTargetSpec, requestId: string, version: string) => defaultInstall(runtime, key, one, requestId, version)),
       skipPorts: scope.profileDir ? createSkipDiskPorts(scope.homeDir, resolved.pluginId, scope.profileDir) : null,
       cache: { ...EMPTY_CACHE },
       receipt: null,

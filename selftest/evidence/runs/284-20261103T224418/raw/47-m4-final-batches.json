@@ -1,0 +1,96 @@
+{
+  "p1": {
+    "version": 1,
+    "id": "mw0su47h-6j3jtdhxhq",
+    "selfKey": "a",
+    "stopOnFailure": false,
+    "order": [
+      "a",
+      "b",
+      "c"
+    ],
+    "entries": [
+      {
+        "key": "a",
+        "phase": "done",
+        "requestId": "batch:mw0su47h-6j3jtdhxhq:a",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793717084054
+      },
+      {
+        "key": "b",
+        "phase": "done",
+        "requestId": "batch:mw0su47h-6j3jtdhxhq:b",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793717082111
+      },
+      {
+        "key": "c",
+        "phase": "done",
+        "requestId": "batch:mw0su47h-6j3jtdhxhq:c",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793717084029
+      }
+    ],
+    "createdAt": 1793717079245,
+    "updatedAt": 1793717084054
+  },
+  "p2": {
+    "version": 1,
+    "id": "mw0su47i-ixf3kjlk8m",
+    "selfKey": "a",
+    "stopOnFailure": false,
+    "order": [
+      "a",
+      "b",
+      "c"
+    ],
+    "entries": [
+      {
+        "key": "a",
+        "phase": "done",
+        "requestId": "batch:mw0su47i-ixf3kjlk8m:a",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793717080661
+      },
+      {
+        "key": "b",
+        "phase": "done",
+        "requestId": "batch:mw0su47i-ixf3kjlk8m:b",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793717082066
+      },
+      {
+        "key": "c",
+        "phase": "done",
+        "requestId": "batch:mw0su47i-ixf3kjlk8m:c",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793717083992
+      }
+    ],
+    "createdAt": 1793717079246,
+    "updatedAt": 1793717083992
+  },
+  "queueP1": {
+    "version": 1,
+    "owner": null,
+    "waiting": []
+  },
+  "queueP2": {
+    "version": 1,
+    "owner": null,
+    "waiting": []
+  }
+}

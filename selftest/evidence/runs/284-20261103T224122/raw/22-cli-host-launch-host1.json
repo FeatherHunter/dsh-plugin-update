@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:60171/?token=FB1BImRSJlX2TTfZRE97wbH0o6-QL1vSPGbIevBeyLE",
+  "port": 60171,
+  "pid": 42480,
+  "bootMs": 2301,
+  "profileName": "t14hub",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh",
+  "stdoutTail": "dsh web: http://127.0.0.1:60171/?token=FB1BImRSJlX2TTfZRE97wbH0o6-QL1vSPGbIevBeyLE\n",
+  "stderrTail": ""
+}

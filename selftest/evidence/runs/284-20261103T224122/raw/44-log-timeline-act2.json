@@ -1,0 +1,97 @@
+{
+  "eventCounts": {
+    "host.start": 7,
+    "update.wire.ready": 7,
+    "update.status.changed": 20,
+    "update.check.done": 24,
+    "host.call": 45,
+    "update.batch.entry.request": 1,
+    "update.batch.run.start": 2,
+    "update.queue.transition": 13,
+    "update.install.fail": 28,
+    "host.call.fail": 28,
+    "update.install.request": 3,
+    "update.install.retry": 1,
+    "update.lock.anomaly": 1,
+    "update.install.exec": 2,
+    "update.install.verify": 2,
+    "update.batch.summary": 1
+  },
+  "hostStartRows": [
+    {
+      "ts": 1793716899893,
+      "pid": 42480,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716899895,
+      "pid": 42480,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716899895,
+      "pid": 42480,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716899895,
+      "pid": 42480,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716899896,
+      "pid": 42480,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716905550,
+      "pid": 29248,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716905551,
+      "pid": 29248,
+      "hostKind": null
+    }
+  ],
+  "host2StartTs": 1793716905550,
+  "batchRunStart": [
+    {
+      "ts": 1793716900356,
+      "trigger": "entry",
+      "resumed": false,
+      "total": 3,
+      "sessionHash": "d84ef6e1"
+    },
+    {
+      "ts": 1793716905567,
+      "trigger": "resume",
+      "resumed": true,
+      "total": 2,
+      "sessionHash": "e91f19d9"
+    }
+  ],
+  "execFxaB2": [],
+  "execFxaC2": [],
+  "execFxbB2": [
+    {
+      "ts": 1793716936321,
+      "pluginId": "fxb-b",
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 1298
+    }
+  ],
+  "execFxbC2": [
+    {
+      "ts": 1793716934782,
+      "pluginId": "fxb-c",
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 1391
+    }
+  ],
+  "fxaEntryHash": "d84ef6e1"
+}

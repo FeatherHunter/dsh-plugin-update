@@ -1,0 +1,9 @@
+{
+  "label": "host1",
+  "pid": 38936,
+  "port": 50691,
+  "aliveBefore": true,
+  "aliveAfter": false,
+  "stoppedAt": 1793717104935,
+  "note": "host.close() = proc.stop() = taskkill /T /F 硬杀进程树（等价 SIGKILL）；web 通道没有应用内重启。"
+}

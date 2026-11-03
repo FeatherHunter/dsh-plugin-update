@@ -1,0 +1,32 @@
+{
+  "files": [
+    "fxa-a/2026-11-03.log",
+    "fxa-b/2026-11-03.log",
+    "fxa-c/2026-11-03.log",
+    "fxb-b/2026-11-03.log",
+    "fxb-c/2026-11-03.log"
+  ],
+  "unparsedLines": 0,
+  "truncations": [],
+  "eventCounts": {
+    "host.start": 10,
+    "update.wire.ready": 10,
+    "update.status.changed": 123,
+    "update.check.done": 13,
+    "host.call": 31,
+    "update.batch.entry.request": 1,
+    "update.batch.run.start": 2,
+    "update.queue.transition": 20,
+    "update.install.fail": 4,
+    "host.call.fail": 4,
+    "update.install.request": 4,
+    "update.install.retry": 4,
+    "update.panel.mount": 6,
+    "update.install.exec": 4,
+    "update.install.verify": 4,
+    "update.batch.entry.fail": 1,
+    "update.batch.summary": 2,
+    "update.panel.action": 1,
+    "update.log.degraded": 1
+  }
+}

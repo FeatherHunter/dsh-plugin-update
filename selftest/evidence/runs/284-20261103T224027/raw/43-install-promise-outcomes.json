@@ -1,0 +1,12 @@
+[
+  {
+    "who": "fxa",
+    "at": 1793716842020,
+    "rejected": "fetch failed"
+  },
+  {
+    "who": "fxb",
+    "at": 1793716844042,
+    "rejected": "fetch failed"
+  }
+]
