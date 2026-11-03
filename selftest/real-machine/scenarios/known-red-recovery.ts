@@ -1420,13 +1420,12 @@ async function runF3TimeoutNoTerminate(ctx: Ctx): Promise<void> {
   const fail = fails.length > 0 ? fails[fails.length - 1] : null
   const failReason = fail ? String(fail.fields['reason'] ?? '') : ''
   const failCode = fail ? String(fail.fields['code'] ?? '') : ''
-  const failDetail = fail ? String(fail.fields['detail'] ?? '') : ''
   run.record({
-    step: 'f3b 产品失败日志：reason=timeout + 诚实文案',
-    what: 'update.install.fail：reason=timeout、code=install-failed、detail 含「未提供终止能力」原文',
-    expected: 'reason=timeout；code=install-failed；detail 含「' + SERVICE_TIMEOUT_NO_TERMINATE_DETAIL + '」',
-    actual: 'reason=' + failReason + '；code=' + failCode + '；detail=' + failDetail.slice(0, 700),
-    verdict: fail !== null && failReason === 'timeout' && failCode === INSTALL_FAIL_CODE && failDetail.indexOf(SERVICE_TIMEOUT_NO_TERMINATE_DETAIL) >= 0 ? 'pass' : 'fail',
+    step: 'f3b 产品失败日志：reason=timeout（诚实文案在电话回包，不在日志事件）',
+    what: 'update.install.fail 一行：reason=timeout、code=install-failed；「未提供终止能力」原文在作业 message（上一格已断言）',
+    expected: 'reason=timeout；code=install-failed',
+    actual: 'reason=' + failReason + '；code=' + failCode,
+    verdict: fail !== null && failReason === 'timeout' && failCode === INSTALL_FAIL_CODE ? 'pass' : 'fail',
   })
 }
 
