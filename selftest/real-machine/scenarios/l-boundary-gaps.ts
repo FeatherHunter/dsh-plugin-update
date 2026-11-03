@@ -1559,7 +1559,7 @@ async function runL3(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
 
   // ---- 3. 真 UI 点安装 → 失败诚实 ----
   // 从注入到恢复包一层 try/finally：中途任何断言/等待抛错都要把 ACL 撤掉（证据契约要求清理）。
-  let aclRestored = false
+  let aclRestoreVerified = false
   try {
   const injectAt = new Date().toISOString()
   await clickInCard(ui1, cardA, panelA + ' button[data-action="install"]')
@@ -1621,14 +1621,14 @@ async function runL3(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
 
   // ---- 5. 恢复 ACL（并复核） ----
   const restore = await runExe('icacls', [nodeModulesDir, '/remove:d', sidSpec])
-  const aclRestored = await aclTextOf(nodeModulesDir)
+  const aclAfterRestore = await aclTextOf(nodeModulesDir)
   const probeRestored = await writeProbe(nodeModulesDir)
   const restoredOk = restore.exitCode === 0 && probeRestored.ok === true
-  await ctx.run.raw('l3-acl-restore', { restoreCommand: restore, aclRestored, writeProbe: probeRestored, restoredOk, note: 'icacls /remove:d 撤销拒绝项；同用户写探针恢复成功才允许重试' })
-  rec({ step: 'l3-05-acl-restored', what: '恢复 ACL 并复核：拒绝项移除、同用户写探针恢复成功', expected: 'icacls /remove:d exit=0 且写探针 ok=true', actual: JSON.stringify({ restoreExit: restore.exitCode, probe: probeRestored, aclTail: aclRestored.stdout.split(/\r?\n/).slice(-3) }), ok: restoredOk })
-  aclRestored = restoredOk
+  await ctx.run.raw('l3-acl-restore', { restoreCommand: restore, aclAfterRestore, writeProbe: probeRestored, restoredOk, note: 'icacls /remove:d 撤销拒绝项；同用户写探针恢复成功才允许重试' })
+  rec({ step: 'l3-05-acl-restored', what: '恢复 ACL 并复核：拒绝项移除、同用户写探针恢复成功', expected: 'icacls /remove:d exit=0 且写探针 ok=true', actual: JSON.stringify({ restoreExit: restore.exitCode, probe: probeRestored, aclTail: aclAfterRestore.stdout.split(/\r?\n/).slice(-3) }), ok: restoredOk })
+  aclRestoreVerified = restoredOk
   } finally {
-    if (!aclRestored) {
+    if (!aclRestoreVerified) {
       const emergency = await runExe('icacls', [nodeModulesDir, '/remove:d', sidSpec])
       await ctx.run.raw('l3-acl-emergency-restore', { restore: emergency, note: '注入后场景中途失败时的兜底撤 ACL；正常路径见 l3-acl-restore' })
     }
