@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "durationMs": 2781,
+  "digest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+  "files": 208,
+  "stdoutTail": "[dsh-plugin-update] shared/log-events.ts -> dist/shared/log-events.js（10 行）\n[dsh-plugin-update] shared/manual-absent.ts -> dist/shared/manual-absent.js（40 行）\n[dsh-plugin-update] shared/ports.ts -> dist/shared/ports.js（6 行）\n[dsh-plugin-update] shared/redaction.ts -> dist/shared/redaction.js（218 行）\n[dsh-plugin-update] shared/self.ts -> dist/shared/self.js（33 行）\n[dsh-plugin-update] shared/version.ts -> dist/shared/version.js（11 行）\n[dsh-plugin-update] .d.ts 声明已产出 dist/\n",
+  "stderrTail": "",
+  "note": "SUT dist：suite 起跑前在 worktree 统一 npm run build 一次（聚合指纹 e8cef960ed4baca3…，208 文件），所有 run 子进程带 npm_config_ignore_scripts=true，SUT pin 的 npm pack 不再并发触发 prepack 重建 dist/（避免并发写同一个 dist 造成指纹漂移）。"
+}

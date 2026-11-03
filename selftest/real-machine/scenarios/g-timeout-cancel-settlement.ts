@@ -68,12 +68,15 @@ const PROFILE_NAME = 'desktop'
 /** 产品安装预算（经夹具 config 透传到 recipe.timeoutMs；T3 e3 已真机验证同链路）。 */
 const INSTALL_TIMEOUT_MS = 12000
 /**
- * 取消格占锁方的安装预算（40s）：排队窗要横跨「占锁 → A 面板宏安装 → 行渲染排队 → 行取消 → 丢弃本批
- * → 丢弃后 4s 队列多采样」多步真机交互；12s 太紧（实测 D2 首版在 12s 窗内排不上队），25s 也贴着
- * 占锁方收局边缘（收局会释放 owner 让采样断言失真）。延迟代理仍挂 60s，必然超时。
+ * 取消格占锁方的安装预算（120s）：排队窗要横跨「占锁 → A 面板宏安装（两家 precheck 在桌面真宿主上可能
+ * 各花十几秒）→ 行渲染排队 → 行取消 → 丢弃本批 → 丢弃后 4s 队列多采样」多步真机交互。40s 版在
+ * 全量 suite 并发负载下不够（run 268-20261103T093814-p11：A 的宏安装轮到 C 时占锁方已到 40s 预算收局，
+ * 队列里 A 反而成了 owner，D2 三条断言红）。120s 让排队窗对负载有冗余；延迟代理仍挂 240s，必然超时。
  */
-const QUEUE_OCCUPIER_TIMEOUT_MS = 40000
-/** 延迟代理只拦 pnpm 请求、挂 60s，保证慢安装一定超过 12s 预算。 */
+const QUEUE_OCCUPIER_TIMEOUT_MS = 120000
+/** 取消格的延迟代理挂 240s：保证占锁方一定在 120s 预算上超时失败（语义仍是「慢安装以自身预算收局」）。 */
+const QUEUE_PROXY_DELAY_MS = 240000
+/** 其他格（g1 超时格 12s 预算）的延迟代理挂 60s，保证慢安装一定超过 12s 预算。 */
 const PROXY_DELAY_MS = 60000
 /** 失败落定后静置多久再断言「没有自动重试」。 */
 const FAILURE_IDLE_MS = 15000
@@ -431,23 +434,24 @@ export async function runSettlementScenario(options: SettlementScenarioOptions):
 
   /** 慢安装预算：超时格 12s；取消格 25s（要给「占锁 → 宏安装 → 排队渲染 → 真 UI 取消」留出真实交互窗）。 */
   const slowInstallTimeoutMs = options.mode === 'queued-cancel' ? QUEUE_OCCUPIER_TIMEOUT_MS : INSTALL_TIMEOUT_MS
+  const proxyDelayMs = options.mode === 'queued-cancel' ? QUEUE_PROXY_DELAY_MS : PROXY_DELAY_MS
   const launchExtraEnv: Record<string, string> = {}
   if (options.mode === 'timeout' || options.mode === 'queued-cancel') {
-    proxy = await startDelayingRegistryProxy({ upstreamBaseUrl: registryUrl, delayMs: PROXY_DELAY_MS })
+    proxy = await startDelayingRegistryProxy({ upstreamBaseUrl: registryUrl, delayMs: proxyDelayMs })
     launchExtraEnv['DSH_SELFTEST_REGISTRY'] = proxy.baseUrl
     launchExtraEnv['DSH_SELFTEST_INSTALL_TIMEOUT_MS'] = String(slowInstallTimeoutMs)
     await run.raw('delaying-proxy', {
       upstreamBaseUrl: registryUrl,
       baseUrl: proxy.baseUrl,
       port: proxy.port,
-      delayMs: PROXY_DELAY_MS,
+      delayMs: proxyDelayMs,
       installTimeoutMs: slowInstallTimeoutMs,
     })
     run.record({
       step: '慢安装地基',
-      what: '延迟代理把 pnpm 请求挂 60s，产品安装预算 ' + String(slowInstallTimeoutMs / 1000) + 's（经夹具 config.installTimeoutMs 透传）',
+      what: '延迟代理把 pnpm 请求挂 ' + String(proxyDelayMs / 1000) + 's，产品安装预算 ' + String(slowInstallTimeoutMs / 1000) + 's（经夹具 config.installTimeoutMs 透传）',
       expected: '代理监听并只延迟 pnpm 请求（产品自己的 check 不延迟）',
-      actual: 'proxy ' + proxy.baseUrl + '，delayMs=' + String(PROXY_DELAY_MS) + '，installTimeoutMs=' + String(slowInstallTimeoutMs),
+      actual: 'proxy ' + proxy.baseUrl + '，delayMs=' + String(proxyDelayMs) + '，installTimeoutMs=' + String(slowInstallTimeoutMs),
       verdict: 'pass',
     })
   } else {

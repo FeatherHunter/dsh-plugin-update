@@ -1,0 +1,94 @@
+{
+  "aC": "fxa-c",
+  "bC": "fxb-c",
+  "aExec": [],
+  "aFail": [
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "update-busy",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "873497be",
+        "traceId": "1acf36edacc43e36",
+        "spanId": "cba9289d",
+        "seq": 3
+      },
+      "source": "fxa-c/2026-11-03.log",
+      "line": 78
+    },
+    {
+      "event": "update.install.fail",
+      "level": "warn",
+      "fields": {
+        "stage": "gate",
+        "reason": "gate-refused",
+        "code": "update-busy",
+        "hostCodeHash": "none",
+        "check": "none",
+        "exitCode": null,
+        "observedVersion": null,
+        "intentHash": "873497be",
+        "traceId": "bd72553e93cd04b2",
+        "spanId": "24c238a0",
+        "seq": 2
+      },
+      "source": "fxa-c/2026-11-03.log",
+      "line": 94
+    }
+  ],
+  "bExec": [
+    {
+      "event": "update.install.exec",
+      "level": "info",
+      "fields": {
+        "route": "desktop-manager",
+        "ok": false,
+        "exitCode": null,
+        "durationMs": 120598,
+        "pluginId": "fxb-c",
+        "traceId": "a00e4b5542bd99d9",
+        "spanId": "1e786de9",
+        "seq": 4
+      },
+      "source": "fxb-c/2026-11-03.log",
+      "line": 77
+    }
+  ],
+  "aLedger": [],
+  "diskAfterCancel": {
+    "versions": {
+      "dsh-plugin-update-fixture-a": "0.0.1",
+      "dsh-plugin-update-fixture-b": "0.0.1",
+      "dsh-plugin-update-fixture-c": null
+    },
+    "dependencies": {
+      "dsh-plugin-update-fixture-a": "0.0.1",
+      "dsh-plugin-update-fixture-b": "0.0.1",
+      "dsh-plugin-update-fixture-c": null
+    },
+    "manifest": {
+      "name": "dsh-profile-desktop",
+      "private": true,
+      "dependencies": {
+        "dsh-plugin-update-fixture-a": "0.0.1",
+        "dsh-plugin-update-fixture-b": "0.0.1"
+      },
+      "dsh": {
+        "profile": {
+          "bundles": [
+            "@deepseek-ai/dsh-base",
+            "@deepseek-ai/dsh-web-app",
+            "dsh-plugin-update-fixture-a",
+            "dsh-plugin-update-fixture-b"
+          ]
+        }
+      }
+    }
+  }
+}

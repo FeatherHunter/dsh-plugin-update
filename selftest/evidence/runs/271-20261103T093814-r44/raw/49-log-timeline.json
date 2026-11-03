@@ -1,0 +1,93 @@
+{
+  "eventCounts": {
+    "host.start": 10,
+    "update.wire.ready": 10,
+    "update.status.changed": 9,
+    "update.check.done": 6,
+    "host.call": 10,
+    "update.batch.entry.request": 1,
+    "update.batch.run.start": 1,
+    "update.queue.transition": 6,
+    "update.install.fail": 2,
+    "host.call.fail": 2,
+    "update.install.request": 1,
+    "update.install.retry": 1
+  },
+  "hostStartRows": [
+    {
+      "ts": 1793670973537,
+      "pid": 58196,
+      "hostKind": null
+    },
+    {
+      "ts": 1793670973541,
+      "pid": 58196,
+      "hostKind": null
+    },
+    {
+      "ts": 1793670973541,
+      "pid": 58196,
+      "hostKind": null
+    },
+    {
+      "ts": 1793670973541,
+      "pid": 58196,
+      "hostKind": null
+    },
+    {
+      "ts": 1793670973541,
+      "pid": 58196,
+      "hostKind": null
+    },
+    {
+      "ts": 1793670978784,
+      "pid": 77924,
+      "hostKind": null
+    },
+    {
+      "ts": 1793670978785,
+      "pid": 77924,
+      "hostKind": null
+    },
+    {
+      "ts": 1793670978785,
+      "pid": 77924,
+      "hostKind": null
+    },
+    {
+      "ts": 1793670978785,
+      "pid": 77924,
+      "hostKind": null
+    },
+    {
+      "ts": 1793670978785,
+      "pid": 77924,
+      "hostKind": null
+    }
+  ],
+  "host2StartTs": 1793670978784,
+  "batchRunStart": [
+    {
+      "ts": 1793670973952,
+      "trigger": "entry",
+      "resumed": false,
+      "total": 3
+    }
+  ],
+  "gateRefusedCount": 2,
+  "gateRefusedFirst": {
+    "ts": 1793670973993,
+    "stage": "gate",
+    "code": "check-expired"
+  },
+  "gateRefusedLast": {
+    "ts": 1793670975915,
+    "stage": "gate",
+    "code": "check-expired"
+  },
+  "execFailures": [],
+  "execA": [],
+  "execB": [],
+  "execC": [],
+  "parseNote": "raw 行保留 ts；readLogEvents 丢 ts，但 raw 拷回原文可解析。"
+}

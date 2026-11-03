@@ -1,0 +1,9 @@
+{
+  "看什么": "宏「全部更新」后：批量面板进入安装中（行 installing/queued，总账报安装中）",
+  "步骤": "k3-30-installing",
+  "expected": "存在 installing/queued 行或总账含「安装中」；安装宏禁用",
+  "actual": "rows=[{\"key\":\"a\",\"phase\":\"installing\",\"queued\":false,\"status\":\"正在安装，请勿操作。\"},{\"key\":\"b\",\"phase\":\"ready\",\"queued\":false,\"status\":\"已在队列 · 会自动依次安装\"},{\"key\":\"c\",\"phase\":\"ready\",\"queued\":false,\"status\":\"已在队列 · 会自动依次安装\"}]；summary=\"正在安装 1 个；队列里还有 2 个，会自动依次安装。\"；ledger=\"2 个可更新 · 1 个安装中\"",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\27-shot.png"
+}

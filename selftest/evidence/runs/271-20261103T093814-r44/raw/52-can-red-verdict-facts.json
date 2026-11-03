@@ -1,0 +1,21 @@
+{
+  "phases": {
+    "a": "done",
+    "b": "installing",
+    "c": "ready"
+  },
+  "allTerminal": false,
+  "host2StartTs": 1793670978784,
+  "execAfterHost2": [],
+  "runStartRows": [
+    {
+      "ts": 1793670973952,
+      "trigger": "entry",
+      "resumed": false,
+      "total": 3
+    }
+  ],
+  "elapsedMs": 45390,
+  "gateRefusedCount": 2,
+  "note": "本 run 预期红：删 plan 后中枢无方案可接管，B/C 不应自动续跑。"
+}

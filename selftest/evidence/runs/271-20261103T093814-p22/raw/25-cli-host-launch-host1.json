@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:62138/?token=jjuG44ubBR_vvdeTOdClIvtj5dNnqgaEyfJ2pbnzjAs",
+  "port": 62138,
+  "pid": 39504,
+  "bootMs": 2481,
+  "profileName": "t7hub",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-p22\\os-home\\.dsh",
+  "stdoutTail": "dsh web: http://127.0.0.1:62138/?token=jjuG44ubBR_vvdeTOdClIvtj5dNnqgaEyfJ2pbnzjAs\n",
+  "stderrTail": ""
+}

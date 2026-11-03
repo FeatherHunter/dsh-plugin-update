@@ -1,0 +1,44 @@
+{
+  "entries": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-r44\\os-home\\.dsh\\updates\\fxa-a\\642c79607634f51a3b9d8d18\\state.json",
+      "state": {
+        "requestId": "batch-mw01dx4u-67q0vyzlu7-a-6d7b7fe2",
+        "message": null,
+        "id": "a7bd751a-c975-4066-9897-e3a23c9d5fe4",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    },
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-r44\\os-home\\.dsh\\updates\\fxa-b\\642c79607634f51a3b9d8d18\\state.json",
+      "state": {
+        "id": "c67c9747-7173-4a89-961b-3aad33d70892",
+        "state": "installing",
+        "targetVersion": "0.0.2",
+        "message": null,
+        "requestId": "batch-mw01dx4u-67q0vyzlu7-b-6d7b7fe3",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ],
+  "byPlugin": {
+    "fxa-a": [
+      {
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1",
+        "requestId": "batch-mw01dx4u-67q0vyzlu7-a-6d7b7fe2"
+      }
+    ],
+    "fxa-b": [
+      {
+        "state": "installing",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1",
+        "requestId": "batch-mw01dx4u-67q0vyzlu7-b-6d7b7fe3"
+      }
+    ]
+  }
+}

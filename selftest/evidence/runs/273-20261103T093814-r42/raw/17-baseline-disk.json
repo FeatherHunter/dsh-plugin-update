@@ -1,0 +1,5 @@
+{
+  "packageName": "dsh-plugin-update-fixture-a",
+  "expected": "0.0.1",
+  "actual": "0.0.1"
+}

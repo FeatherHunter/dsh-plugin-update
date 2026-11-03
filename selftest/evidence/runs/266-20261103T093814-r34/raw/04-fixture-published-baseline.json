@@ -1,0 +1,40 @@
+{
+  "scenarioId": "b-batch-two-integrators",
+  "specs": [
+    "dsh-plugin-update-fixture-a@0.0.1",
+    "dsh-plugin-update-fixture-b@0.0.1",
+    "dsh-plugin-update-fixture-c@0.0.1"
+  ],
+  "effects": [
+    {
+      "slotKey": "a",
+      "effect": {
+        "ui": "batch",
+        "titleSuffix": "",
+        "hubDock": false,
+        "hostBehavior": null,
+        "seatLine": "批量席位 fxa · 自键 a · 目标 a/b/c"
+      }
+    },
+    {
+      "slotKey": "b",
+      "effect": {
+        "ui": "batch",
+        "titleSuffix": "",
+        "hubDock": false,
+        "hostBehavior": null,
+        "seatLine": "批量席位 fxb · 自键 b · 目标 b/c"
+      }
+    },
+    {
+      "slotKey": "c",
+      "effect": {
+        "ui": "batch",
+        "titleSuffix": "",
+        "hubDock": false,
+        "hostBehavior": null,
+        "seatLine": ""
+      }
+    }
+  ]
+}

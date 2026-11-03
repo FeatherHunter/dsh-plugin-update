@@ -1,0 +1,22 @@
+{
+  "key": "a-single-package-main-chain",
+  "kind": "pass",
+  "scenarioId": "a-single-package-main-chain",
+  "ticket": "265",
+  "hostChannel": "desktop-official",
+  "tool": "run-a-main-chain",
+  "mode": null,
+  "fault": null,
+  "stamp": "20261103T093814-p01",
+  "runId": "265-20261103T093814-p01",
+  "command": "node D:\\dsh-plugin\\_wt263\\t11\\selftest\\real-machine\\tools\\run-a-main-chain.ts --worktree D:/dsh-plugin/_wt263/t11 --run-base-dir D:/dsh-plugin/_wt263/runtime/t11-275 --verdaccio-install-dir D:/dsh-plugin/_wt263/runtime/tools/verdaccio --esbuild D:\\dsh-plugin\\_wt263\\t11\\node_modules\\@esbuild\\win32-x64\\esbuild.exe --stamp 20261103T093814-p01 --maintainer-home C:/Users/辰辰洋洋/.dsh",
+  "cwd": "D:/dsh-plugin/_wt263/t11",
+  "env": {
+    "pnpm_config_cache_dir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\_pkgcache\\265-20261103T093814-p01",
+    "npm_config_cache": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\_pkgcache\\265-20261103T093814-p01",
+    "npm_config_store_dir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\_pkgcache\\265-20261103T093814-p01",
+    "DSH_VERIFY_PLAYWRIGHT": "D:/dsh-plugin/dsh-mattpocock-skills-deck/node_modules/playwright"
+  },
+  "timeoutMs": 1800000,
+  "evidenceSync": true
+}

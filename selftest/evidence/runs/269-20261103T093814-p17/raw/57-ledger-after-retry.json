@@ -1,0 +1,15 @@
+{
+  "ledgerB": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p17\\home\\updates\\fxa-b\\7190a1f3aafb43f2eb885be6\\state.json",
+      "state": {
+        "requestId": "batch-mw02s9hs-zzicd9usqh-b-bf44f4d5-a9b7ce0d1",
+        "message": null,
+        "id": "39295b4d-2c59-4008-a3ea-f1aa8d58b9d9",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": null
+      }
+    }
+  ]
+}

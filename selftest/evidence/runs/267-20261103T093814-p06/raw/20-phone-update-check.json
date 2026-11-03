@@ -1,0 +1,27 @@
+{
+  "status": 200,
+  "durationMs": 37,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.1",
+        "installed": true,
+        "installedVersion": "0.0.1",
+        "latestVersion": "0.0.2",
+        "canInstall": true,
+        "blockedReason": null,
+        "job": null,
+        "identity": "update",
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t3cli add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:49401",
+      "receipt": {
+        "checkId": "b1ca15fc-6648-471b-aa51-cc22414c1acd",
+        "checkedAt": 1793669907150,
+        "expiresAt": 1793670507150
+      }
+    }
+  }
+}

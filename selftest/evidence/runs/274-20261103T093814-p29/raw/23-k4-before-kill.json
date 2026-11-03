@@ -1,0 +1,32 @@
+{
+  "disk": {
+    "dsh-plugin-update-fixture-a": "0.0.2",
+    "dsh-plugin-update-fixture-b": "0.0.2",
+    "dsh-plugin-update-fixture-c": "0.0.1"
+  },
+  "ledger": {
+    "a": {
+      "file": "fxa-a/db75393863604dbbebc4c7f1/state.json",
+      "mtimeMs": 1793670804296.9482,
+      "id": "b1ffb360-9fbe-4575-bcb2-38a5092bdb64",
+      "state": "completed",
+      "targetVersion": "0.0.2"
+    },
+    "b": {
+      "file": "fxa-b/db75393863604dbbebc4c7f1/state.json",
+      "mtimeMs": 1793670812499.8713,
+      "id": "0c6da927-2fe4-43cb-b357-a51397ce1bf6",
+      "state": "completed",
+      "targetVersion": "0.0.2"
+    },
+    "c": {
+      "file": "fxa-c/db75393863604dbbebc4c7f1/state.json",
+      "mtimeMs": 1793670896330.8684,
+      "id": "046225ca-ae85-4194-9d49-2a3e235d0b62",
+      "state": "failed",
+      "targetVersion": "0.0.2"
+    }
+  },
+  "summary": "1 个插件安装失败；请按下方失败提示逐项重试。",
+  "ledgerLine": "1 个失败 · 2 个已是最新"
+}

@@ -1,0 +1,9 @@
+{
+  "看什么": "部分失败后重启：A/C 已新版、B 未完成且 UI 不谎称成功/在飞",
+  "步骤": "重启后如实展示（部分失败）",
+  "expected": "B 行不显示完成/安装中；页面无「正在安装」",
+  "actual": "{\"rowB\":{\"key\":\"b\",\"phase\":\"ready\",\"queued\":false,\"busy\":false,\"title\":\"夹具 B\",\"status\":\"选择「安装此插件」安装 0.0.2\",\"versionCur\":\"未安装\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"row-install\",\"toggle-details\"],\"fail\":null},\"cardB\":{\"present\":false,\"key\":null,\"ui\":null,\"title\":null,\"clientTag\":null,\"hostTag\":null,\"seatLine\":null,\"behavior\":null,\"dockHost\":null}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\42-shot.png"
+}

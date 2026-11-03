@@ -1,0 +1,39 @@
+{
+  "status": 200,
+  "durationMs": 39,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.1",
+        "installed": true,
+        "installedVersion": "0.0.1",
+        "latestVersion": null,
+        "canInstall": false,
+        "blockedReason": null,
+        "job": null,
+        "identity": null,
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t8i2 add --save-exact dsh-plugin-update-fixture-a@0.0.1 --registry=http://127.0.0.1:56420",
+      "receipt": null,
+      "logContract": {
+        "state": "ok",
+        "file": "event-list.update.json",
+        "events": 29,
+        "unvalidated": 0
+      },
+      "logHealth": {
+        "sink": "self",
+        "dirHash": "fc28da81",
+        "switchEnabled": false,
+        "droppedSinceStart": 0,
+        "lastEventAt": 1793669949495,
+        "contract": "ok",
+        "external": null,
+        "reason": null
+      }
+    }
+  }
+}

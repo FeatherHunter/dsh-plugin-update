@@ -1,0 +1,9 @@
+{
+  "看什么": "A 单包面板初始（未查更新）+ 额外面板绑未安装的 C + 安装按钮 + 入口",
+  "步骤": "k1-10-initial",
+  "expected": "A 横幅「已是最新，无需更新。」；C 横幅「未安装」+「检查更新」；安装按钮 loading 档（挂载未查、含检查动作）；入口 badge + aria「已是最新 0.0.1」",
+  "actual": "A={\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"}；C={\"kind\":\"idle\",\"title\":\"未安装\",\"sub\":\"检查更新\"}；按钮 kind=loading；入口={\"variant\":\"badge\",\"state\":\"idle\",\"ariaLabel\":\"已是最新 0.0.1\"}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\17-shot.png"
+}

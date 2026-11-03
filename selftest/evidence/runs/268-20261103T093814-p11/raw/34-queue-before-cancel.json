@@ -1,0 +1,36 @@
+{
+  "present": true,
+  "owner": {
+    "pluginId": "fxb-c",
+    "jobId": "f7a60d8a-ab87-49f9-b242-55fa889b5fd7",
+    "requestId": "g2-occupier-20261103T093814-p11-1",
+    "targetVersion": "0.0.2",
+    "startedAt": 1793677005317
+  },
+  "waiting": [
+    {
+      "pluginId": "fxa-c",
+      "requestId": "batch-mw04z76a-6m6cs6p3n2-c-c4c9ff63",
+      "targetVersion": null,
+      "enqueuedAt": 1793677005620
+    }
+  ],
+  "raw": {
+    "version": 1,
+    "owner": {
+      "pluginId": "fxb-c",
+      "jobId": "f7a60d8a-ab87-49f9-b242-55fa889b5fd7",
+      "requestId": "g2-occupier-20261103T093814-p11-1",
+      "targetVersion": "0.0.2",
+      "startedAt": 1793677005317
+    },
+    "waiting": [
+      {
+        "pluginId": "fxa-c",
+        "requestId": "batch-mw04z76a-6m6cs6p3n2-c-c4c9ff63",
+        "targetVersion": null,
+        "enqueuedAt": 1793677005620
+      }
+    ]
+  }
+}

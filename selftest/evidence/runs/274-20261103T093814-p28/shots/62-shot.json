@@ -1,0 +1,9 @@
+{
+  "看什么": "重启后：批量面板三行 current 0.0.2、总账「已全部为最新」、卡片构建标记 v0.0.2、台账三条 completed",
+  "步骤": "k3-60-after-restart",
+  "expected": "三行 current 0.0.2；summary 含「已全部为最新」；ledger 含「3 个已是最新」；A/B clientTag/hostTag=v0.0.2、C clientTag=v0.0.2；台账三包 completed",
+  "actual": "{\"rows\":[{\"key\":\"a\",\"phase\":\"current\",\"cur\":\"0.0.2\"},{\"key\":\"b\",\"phase\":\"current\",\"cur\":\"0.0.2\"},{\"key\":\"c\",\"phase\":\"current\",\"cur\":\"0.0.2\"}],\"summary\":\"已全部为最新，无需操作。\",\"ledger\":\"3 个已是最新\",\"tagsA\":{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\"},\"tagsB\":{\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\"},\"tagsC\":{\"clientTag\":\"client v0.0.2\",\"hostTag\":null},\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":\"0.0.2\",\"dsh-plugin-update-fixture-c\":\"0.0.2\"},\"ledgerStates\":{\"a\":\"completed\",\"b\":\"completed\",\"c\":\"completed\"}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\62-shot.png"
+}

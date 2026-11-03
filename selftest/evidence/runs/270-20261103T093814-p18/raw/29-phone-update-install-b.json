@@ -1,0 +1,27 @@
+{
+  "requestId": "h1-b-1793669927953",
+  "checkId": "04e3b2e6-bbf8-4cdd-88fd-6611dcb7df01",
+  "status": 200,
+  "durationMs": 11,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": false,
+      "error": "update-busy",
+      "errorKind": "update-busy",
+      "diag": {
+        "v": 1,
+        "stage": "preflight",
+        "route": "queue",
+        "method": "fs",
+        "latencyMs": 7,
+        "detail": "同一使用范围内存在进行中的安装任务",
+        "targetPackageName": "dsh-plugin-update-fixture-a",
+        "requestId": "h1-b-1793669927953",
+        "intentHash": "8e04a436",
+        "checkId": "04e3b2e6-bbf8-4cdd-88fd-6611dcb7df01",
+        "action": "retry"
+      }
+    }
+  }
+}

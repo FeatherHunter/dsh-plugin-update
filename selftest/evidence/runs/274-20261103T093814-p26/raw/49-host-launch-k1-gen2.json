@@ -1,0 +1,13 @@
+{
+  "label": "k1-gen2",
+  "urlMasked": "http://127.0.0.1:57835/?token=***",
+  "port": 57835,
+  "bootMs": 1850,
+  "registryUrl": "https://127.0.0.1:57378",
+  "tlsFrontPort": 57378,
+  "certSha256": "47a90225e96c6c3a0bdc61306893b3bf6f91cc60e259e1f42e342aac783cfda7",
+  "delayMs": null,
+  "requestsFrom": 9,
+  "stdoutTail": "dsh web: http://127.0.0.1:57835/?token=SBTYjoxd5aa01V-e8cBajZRHMP8NwsC2TOLGxxHjyw4\n",
+  "stderrTail": ""
+}

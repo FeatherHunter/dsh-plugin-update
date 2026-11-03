@@ -1,0 +1,9 @@
+{
+  "url": "http://127.0.0.1:51032/?token=x2z0Vd7y8okJqeQ2mhndcvpZI2LxLruu5weeCOazc-g",
+  "handshakeStatus": 303,
+  "handshakeLocation": "./",
+  "setCookiePresent": true,
+  "status": 200,
+  "bytes": 38654,
+  "snippet": "<!doctype html>\n<html lang=\"en\">\n  <head><base href=\"./\"><style>:root{color-scheme:light}body{background-color:#fff;--dsh-boot-bg:#fff}@media(prefers-color-scheme:dark){:root{color-scheme:dark}body{background-color:#151517;--dsh-boot-bg:#151517}}</style><script>globalThis[\"__DSH_CONTACT_CONFIG__\"] = {\"contactFormUrl\":\"https://trtgsjkv6r.feishu.cn/share/base/form/shrcnlCoGElW7MQznGy9r3YYXcg?hide_uid=1&hide_device_info=1&hide_harness_version=1\",\"contactSource\":\"\",\"bonusAckRetryDelayMs\":1000,\"bonusAckRetryMaxDelayMs\":60000}</script><script>(()=>{\nconst pendingQueue=[]\nwindow.__ModuleLoader__={\n  mode:\"queue\",\n  pendingQueue,\n  load(registration){pendingQueue.push(registration)},\n  create(options){\n    if(this.mode!==\"queue\")throw new Error(\"client-modules: window.__ModuleLoader__.create called after module-system boot\")\n    const index=pendingQueue.findIndex(registration=>registration.id===\"@deepseek-ai/dsh-client-modules\")\n    const registration=pendingQueue[index]\n    if(registration===undefined)throw new Error(\"client-modules: HTML did not preload @deepseek-ai/dsh-client-modules/client.js\")\n    pendingQueue.splice(index,1)\n    const exports=registration.factory(specifier=>{\n      t"
+}

@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:63833/?token=eVve06XGLsMcFAYVloTS9d2t6XXoyT3J35DqzTfw8Gw",
+  "port": 63833,
+  "bootMs": 2288,
+  "profileName": "t9j1c",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-r42\\os-home\\.dsh",
+  "pid": 23976,
+  "stdoutTail": "dsh web: http://127.0.0.1:63833/?token=eVve06XGLsMcFAYVloTS9d2t6XXoyT3J35DqzTfw8Gw\n",
+  "stderrTail": ""
+}

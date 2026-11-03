@@ -1,0 +1,18 @@
+{
+  "dirName": "operation-yFsXJ3",
+  "logsDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\272-20261103T093814-r40\\home\\profiles\\desktop\\.plugin-manager\\logs",
+  "pnpmLogFile": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\272-20261103T093814-r40\\home\\profiles\\desktop\\.plugin-manager\\logs\\operation-yFsXJ3\\pnpm.log",
+  "createdAt": "2026-11-03T03:11:18.262Z",
+  "modifiedAt": "2026-11-03T03:11:18.262Z",
+  "pnpmLogBytes": 462,
+  "pnpmLog": "[WARN] The store at C:\\Users\\辰辰洋洋\\AppData\\Local\\pnpm\\store\\v11 is not used because packages cannot be hard linked from it into this project. Using the store at D:\\.pnpm-store\\v11 instead. Set storeDir to choose the store.\n? Verifying lockfile against supply-chain policies (3 entries)...\n✓ Lockfile passes supply-chain policies (3 entries in 1ms)\nAlready up to date\n\ndependencies:\n- dsh-plugin-update-fixture-a 0.0.1\n\nDone in 280ms using pnpm v11.28.5\n",
+  "removed": [
+    {
+      "name": "dsh-plugin-update-fixture-a",
+      "version": "0.0.1"
+    }
+  ],
+  "added": [],
+  "doneIn": "280ms using pnpm v11.28.5",
+  "empty": false
+}

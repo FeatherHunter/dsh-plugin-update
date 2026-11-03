@@ -1,0 +1,100 @@
+{
+  "pollIntervalMs": 10,
+  "samples": [
+    {
+      "t": 1793669929160,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": null,
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    },
+    {
+      "t": 1793669929182,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"12b2d589-aa3c-45b2-abaa-1a188b2b9dfc\",\"pluginId\":\"fxa-a\",\"pid\":68464,\"startedAt\":1793669929174}",
+      "lockId": "12b2d589-aa3c-45b2-abaa-1a188b2b9dfc",
+      "lockPid": 68464,
+      "lockStartedAt": 1793669929174,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-b-1793669929159\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793669929168\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-b-1793669929159"
+      ]
+    },
+    {
+      "t": 1793669929197,
+      "lockPresent": true,
+      "lockRaw": "{\"id\":\"12b2d589-aa3c-45b2-abaa-1a188b2b9dfc\",\"pluginId\":\"fxa-a\",\"pid\":68464,\"startedAt\":1793669929174}",
+      "lockId": "12b2d589-aa3c-45b2-abaa-1a188b2b9dfc",
+      "lockPid": 68464,
+      "lockStartedAt": 1793669929174,
+      "lockPluginId": "fxa-a",
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-a-1793669929159\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793669929168\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-a-1793669929159"
+      ]
+    },
+    {
+      "t": 1793669930203,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": [\n    {\n      \"pluginId\": \"fxa-a\",\n      \"requestId\": \"h1-a-1793669929159\",\n      \"targetVersion\": null,\n      \"enqueuedAt\": 1793669929168\n    }\n  ]\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 1,
+      "queueWaitingRequestIds": [
+        "h1-a-1793669929159"
+      ]
+    },
+    {
+      "t": 1793669931346,
+      "lockPresent": false,
+      "lockRaw": null,
+      "lockId": null,
+      "lockPid": null,
+      "lockStartedAt": null,
+      "lockPluginId": null,
+      "queueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+      "queueOwnerPluginId": null,
+      "queueOwnerJobId": null,
+      "queueOwnerRequestId": null,
+      "queueWaitingCount": 0,
+      "queueWaitingRequestIds": []
+    }
+  ],
+  "lockIds": [
+    "12b2d589-aa3c-45b2-abaa-1a188b2b9dfc"
+  ],
+  "lockIntervals": [
+    {
+      "from": 1793669929182,
+      "to": 1793669930203,
+      "ids": [
+        "12b2d589-aa3c-45b2-abaa-1a188b2b9dfc"
+      ]
+    }
+  ],
+  "finalQueueRaw": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+  "finalLockRaw": null
+}

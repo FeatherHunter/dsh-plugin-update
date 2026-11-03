@@ -1,0 +1,250 @@
+{
+  "status": 200,
+  "durationMs": 13110,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "session": {
+        "version": 1,
+        "id": "mw00vgha-002n0tc602",
+        "selfKey": "a",
+        "stopOnFailure": false,
+        "order": [
+          "a",
+          "b",
+          "c"
+        ],
+        "entries": [
+          {
+            "key": "a",
+            "phase": "current",
+            "requestId": "batch:mw00vgha-002n0tc602:a",
+            "targetVersion": null,
+            "restartRequired": false,
+            "error": null,
+            "updatedAt": 1793670112575
+          },
+          {
+            "key": "b",
+            "phase": "failed",
+            "requestId": "batch:mw00vgha-002n0tc602:b",
+            "targetVersion": "0.0.2",
+            "restartRequired": false,
+            "error": "install-failed",
+            "updatedAt": 1793670119085
+          },
+          {
+            "key": "c",
+            "phase": "done",
+            "requestId": "batch:mw00vgha-002n0tc602:c",
+            "targetVersion": "0.0.2",
+            "restartRequired": false,
+            "error": "install-failed",
+            "updatedAt": 1793670125652
+          }
+        ],
+        "createdAt": 1793670112558,
+        "updatedAt": 1793670125652
+      },
+      "rows": [
+        {
+          "key": "a",
+          "title": "夹具 A 本体",
+          "phase": "current",
+          "targetVersion": null,
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": "0.0.2",
+            "installed": true,
+            "installedVersion": "0.0.2",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": {
+              "requestId": "j1-single-1793670108175",
+              "message": null,
+              "id": "64a642d1-f3ca-4166-afe3-590a1c8840ea",
+              "state": "completed",
+              "targetVersion": "0.0.2",
+              "previousVersion": "0.0.1"
+            },
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t9j1 add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:59342",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t9j1",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-a.updateStatus",
+            "updateCheck": "fxa-a.updateCheck",
+            "updateInstall": "fxa-a.updateInstall",
+            "updateChangelog": "fxa-a.updateChangelog",
+            "updateCheckFallback": "fxa-a.updateCheckFallback",
+            "logAppend": "fxa-a.logAppend"
+          },
+          "pluginId": "fxa-a",
+          "diag": null
+        },
+        {
+          "key": "b",
+          "title": "夹具 B",
+          "phase": "failed",
+          "targetVersion": "0.0.2",
+          "restartRequired": false,
+          "error": "install-failed",
+          "snapshot": {
+            "runningVersion": "0.0.1",
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": "invalid-installation",
+            "job": {
+              "requestId": "batch-mw00vgha-002n0tc602-b-a478e833",
+              "message": "install-failed: Progress: resolved 5, reused 1, downloaded 0, added 0 + Packages: +1 dsh-plugin-update-fixture-b@0.0.2 Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): Progress: resolved 1, reused 0, downloaded 0,；安装超时，已终止子进程",
+              "id": "74de7bac-c79f-4e40-8c58-716608fb4116",
+              "state": "failed",
+              "targetVersion": "0.0.2",
+              "previousVersion": "0.0.1"
+            },
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t9j1 add --save-exact dsh-plugin-update-fixture-b@0.0.2 --registry=http://127.0.0.1:59342",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t9j1",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-b.updateStatus",
+            "updateCheck": "fxa-b.updateCheck",
+            "updateInstall": "fxa-b.updateInstall",
+            "updateChangelog": "fxa-b.updateChangelog",
+            "updateCheckFallback": "fxa-b.updateCheckFallback",
+            "logAppend": "fxa-b.logAppend"
+          },
+          "pluginId": "fxa-b",
+          "diag": {
+            "v": 1,
+            "stage": "exec",
+            "detail": "Progress: resolved 5, reused 1, downloaded 0, added 0 + Packages: +1 dsh-plugin-update-fixture-b@0.0.2 Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): Progress: resolved 1, reused 0, downloaded 0,；安装超时，已终止子进程",
+            "targetPackageName": "dsh-plugin-update-fixture-b",
+            "runningVersion": "0.0.1",
+            "requestId": "batch-mw00vgha-002n0tc602-b-a478e833",
+            "intentHash": "87845c2d",
+            "action": "contact"
+          }
+        },
+        {
+          "key": "c",
+          "title": "夹具 C",
+          "phase": "done",
+          "targetVersion": "0.0.2",
+          "restartRequired": false,
+          "error": "install-failed",
+          "snapshot": {
+            "runningVersion": "0.0.2",
+            "installed": true,
+            "installedVersion": "0.0.2",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": {
+              "requestId": "batch-mw00vgha-002n0tc602-c-a478e834",
+              "message": "install-failed: Progress: resolved 5, reused 2, downloaded 0, added 1 [WARN] Moving dsh-plugin-update-fixture-b_tmp_101708_2 to \"node_modules\\.ignored\\dsh-plugin-update-fixture-b_tmp_101708_2\". It is not in the dependency tree and pnpm has no record of installing it. ++- Packages: +2 -1…；安装超时，已终止子进程",
+              "id": "e21b017f-0cb3-4007-aee9-7aabb26311bc",
+              "state": "failed",
+              "targetVersion": "0.0.2",
+              "previousVersion": "0.0.1"
+            },
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t9j1 add --save-exact dsh-plugin-update-fixture-c@0.0.2 --registry=http://127.0.0.1:59342",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t9j1",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-c.updateStatus",
+            "updateCheck": "fxa-c.updateCheck",
+            "updateInstall": "fxa-c.updateInstall",
+            "updateChangelog": "fxa-c.updateChangelog",
+            "updateCheckFallback": "fxa-c.updateCheckFallback",
+            "logAppend": "fxa-c.logAppend"
+          },
+          "pluginId": "fxa-c",
+          "diag": {
+            "v": 1,
+            "stage": "exec",
+            "detail": "Progress: resolved 5, reused 2, downloaded 0, added 1 [WARN] Moving dsh-plugin-update-fixture-b_tmp_101708_2 to \"node_modules\\.ignored\\dsh-plugin-update-fixture-b_tmp_101708_2\". It is not in the dependency tree and pnpm has no record of installing it. ++- Packages: +2 -1…；安装超时，已终止子进程",
+            "targetPackageName": "dsh-plugin-update-fixture-c",
+            "runningVersion": "0.0.2",
+            "requestId": "batch-mw00vgha-002n0tc602-c-a478e834",
+            "intentHash": "8b8eed4f",
+            "action": "contact"
+          }
+        }
+      ],
+      "progress": {
+        "total": 3,
+        "done": 2,
+        "failed": 1,
+        "skipped": 0,
+        "current": 0,
+        "pending": 0,
+        "finished": true
+      },
+      "inventory": {
+        "version": 1,
+        "updatedAt": 1793670112561,
+        "entries": {
+          "c": {
+            "lastCheckedAt": 1793670112561,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          },
+          "b": {
+            "lastCheckedAt": 1793670112561,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          },
+          "a": {
+            "lastCheckedAt": 1793670112561,
+            "installed": true,
+            "installedVersion": "0.0.2",
+            "latestVersion": "0.0.2",
+            "canInstall": false,
+            "error": null
+          }
+        }
+      },
+      "prefs": {}
+    }
+  }
+}

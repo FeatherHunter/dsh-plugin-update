@@ -1,0 +1,8 @@
+{
+  "at": 1793670639619,
+  "globalLockPath": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-r43\\os-home\\.dsh\\update-queue\\75c1bf695ca3d76c4beaec02\\global.lock",
+  "baseLockPath": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-r43\\os-home\\.dsh\\updates\\fxa-a\\75c1bf695ca3d76c4beaec02\\install.lock",
+  "globalRaw": "{\"id\":\"4a2a21ab-52ca-41d8-a2f9-5fac545139ad\",\"pluginId\":\"fxa-a\",\"pid\":84784,\"startedAt\":1793670639585}",
+  "baseRaw": "{\"id\":\"4a2a21ab-52ca-41d8-a2f9-5fac545139ad\",\"pid\":84784,\"startedAt\":1793670639587}",
+  "globalOwnerHash": "27597cab"
+}

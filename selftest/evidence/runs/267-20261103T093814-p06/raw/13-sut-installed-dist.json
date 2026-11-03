@@ -1,0 +1,12 @@
+{
+  "installedSutDist": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p06\\os-home\\.dsh\\profiles\\t3cli\\node_modules\\dsh-plugin-update\\dist",
+  "installedDist": {
+    "digest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "files": 208
+  },
+  "workspaceDist": {
+    "digest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "files": 208
+  },
+  "match": true
+}

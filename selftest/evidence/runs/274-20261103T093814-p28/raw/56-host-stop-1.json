@@ -1,0 +1,10 @@
+{
+  "reason": "k3-after-resume",
+  "gen": 1,
+  "port": 64962,
+  "pid": 88908,
+  "registryUrl": "https://127.0.0.1:55525",
+  "delayMs": null,
+  "proxyRequests": 9,
+  "delayedRequests": 0
+}

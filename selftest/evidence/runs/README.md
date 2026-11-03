@@ -63,3 +63,59 @@
 | 274-20261103T090025 | k-batch-panel-states | dsh-web | pass | 0 | K3 批量面板状态矩阵正式证据：三行检查/安装中/部分失败隔离（C 坏 tarball）/复原+清 store/续跑/重启一致（三代宿主同 home/profile） | 38 条断言 / 6 张截图 / 32 raw；`21-assert` 挂载即自动检查（summary「3 个可更新」）；`28-assert` 安装中相位（a installing/b/c ready）；`31-assert` 无全批假成功（「1 个失败 · 2 个已是最新」）；`32/33-assert` 失败横幅 + C 行最后手段文案；`35-assert` 好行不受影响（a/b 磁盘 0.0.2、A/B 台账 completed）；`39-assert` gen1 exec A/B ok=1、C 1 失败；`40-assert` gate check-expired 重试事实；`42-assert` tarball 复原；`44-assert` 清 run 私有 store（343 文件）；`50-assert` 续跑后 C 磁盘 0.0.2；`58-assert` exactly-once（A/B exec=1、C exec=2 且 ok=1）；`59-assert` 台账三包各 1 条 completed；`63/67-assert` gen3 重启三行 current + 磁盘 0.0.2；head fb539ec / distDigest e8cef960… |
 | 274-20261103T090421 | k-batch-resume | dsh-web | pass | 0 | K4 跨重启续跑正式证据：C 坏 tarball 部分失败 → 杀宿主 → 复原+清 store → gen2 双闸冻结（无自动推进）→ 真 UI 点续跑 → exactly-once → gen3 重启一致 | 24 条断言 / 4 张截图 / 31 raw；`20-assert` C tarball sha 变、版本文档不变；`22-assert` 部分失败隔离（a/b 0.0.2、C 0.0.1、C 台账 failed）；`26-assert` 杀宿主后落盘真相（batch a/b done、c failed）；`35-assert` 续跑入口文案（「继续上次未完成的更新（剩余 1 个）。」+ title + 丢弃文案）；`37-assert` 冻结 8s（tarball 请求 5→5、C 磁盘/相位不变）；`39-assert` 点续跑后「已继续上次未完成的更新（剩余 0 个）。」+ C 磁盘 0.0.2；`42-assert` exactly-once（reqA=1/reqB=1/reqC=2、A/B 台账未改写、audit.nonCheckExpired=1）；`43-assert` 台账三包各 1 条 completed；`46-48-assert` gen3 重启三行 current + 卡片标记 v0.0.2；head fb539ec / distDigest e8cef960… |
 | 274-20261103T090655 | k-single-panel-happy（can-red） | dsh-web | fail | 1 | can-red 真失败：停宿主后改 run 私有已装包 `lib/client.js`，把横幅「已是最新，无需更新。」转义串替换为同串+`RED` | 预期失败；9 条断言 = 8 pass + 唯一红 `can-red-03-banner-exact`（重启后标题「已是最新，无需更新。RED」≠ 精确原文）；`21-assert` 注入生效（occurrences=2、sha256 前后变）；注入原点见 run.json notes 与 raw/can-red-patch.json；head fb539ec / distDigest e8cef960… |
+
+
+## 2026-11-03 全量矩阵 suite（#275 / T11）
+
+- suite：`20261103T093814-full`（kind=full-matrix-suite，status=finished，verdict=known-red，exitCode=0，finished）
+- 聚合：44 run = 32 主链 + 12 can-red；pass 29 / known-red 3 / can-red-expected-fail 12 / fail 0 / unknown 0；断言 944 pass / 18 fail（全部为注入预期红）/ 4 known-red / 0 unknown。
+- 索引：`runs/20261103T093814-full/index.md`（结论 → 44 行场景总表（含证据重建标记）→ can-red 表 → known-red 终账 → 隔离/复跑/备注）；机器账本 `runs/20261103T093814-full/run.json`。
+- 记录来源：39 条聚合记录由已定稿证据重建（数据源逐条写在记录 notes），5 条为本轮自然重跑（g2/j2/d1/e1/g4）；重建标记见 index.md。
+- 说明：本 suite 是本票的「全量可审计」入口；单个 run 的具体证据请进各自目录看 run.json/index.md/shots/raw（与上面逐 run 账本同一契约）。
+
+| # | runId | 场景 | 票 | 通道 | 判定 | 断言 p/f/k | 耗时 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | `265-20261103T093814-p01` | a-single-package-main-chain | 265 | desktop | pass | 13/0/0 | 2m06s |
+| 2 | `266-20261103T093814-p02` | b-batch-two-integrators | 266 | desktop | pass | 38/0/0 | 4m47s |
+| 3 | `266-20261103T093814-p03` | c-pure-target-no-wiring | 266 | desktop | pass | 24/0/0 | 3m27s |
+| 4 | `267-20261103T093814-p04` | d1-desktop-manager-update-success | 267 | desktop | pass | 17/0/0 | 3m33s |
+| 5 | `267-20261103T093814-p05` | d2-desktop-manager-update-failure | 267 | desktop | pass | 18/0/0 | 2m36s |
+| 6 | `267-20261103T093814-p06` | e1-cli-host-update-success | 267 | web | pass | 22/0/0 | 0m18s |
+| 7 | `267-20261103T093814-p07` | e2-cli-host-update-failure | 267 | web | pass | 25/0/0 | 0m19s |
+| 8 | `267-20261103T093814-p08` | e3-cli-host-install-timeout | 267 | web | pass | 22/0/0 | 0m17s |
+| 9 | `267-20261103T093814-p09` | f1-third-party-desktop-probe | 267 | desktop | known-red | 8/0/2 | 1m22s |
+| 10 | `268-20261103T093814-p10` | g1-desktop-manager-install-timeout | 268 | desktop | pass | 19/0/0 | 4m08s |
+| 11 | `268-20261103T093814-p11` | g2-batch-queued-cancel | 268 | desktop | pass | 28/0/0 | 5m30s |
+| 12 | `268-20261103T093814-p12` | g3-desktop-manager-failed-no-retry | 268 | desktop | pass | 19/0/0 | 4m54s |
+| 13 | `268-20261103T093814-p13` | g4-desktop-manager-retry-single-success | 268 | desktop | pass | 25/0/0 | 6m05s |
+| 14 | `268-20261103T093814-p14` | g5-desktop-manager-no-cancel-probe | 268 | desktop | known-red | 11/0/1 | 2m31s |
+| 15 | `269-20261103T093814-p15` | e-batch-three-package-upgrade | 269 | desktop | pass | 16/0/0 | 2m47s |
+| 16 | `269-20261103T093814-p16` | e-batch-partial-failure | 269 | desktop | pass | 17/0/0 | 4m56s |
+| 17 | `269-20261103T093814-p17` | e-batch-resume-retry | 269 | desktop | pass | 22/0/0 | 5m18s |
+| 18 | `270-20261103T093814-p18` | h1-queue-lock-concurrent | 270 | web | pass | 25/0/0 | 0m23s |
+| 19 | `270-20261103T093814-p19` | h1b-queue-lock-simultaneous | 270 | web | pass | 25/0/0 | 0m23s |
+| 20 | `270-20261103T093814-p20` | h2-queue-lock-stale-reclaim | 270 | web | pass | 20/0/0 | 0m17s |
+| 21 | `271-20261103T093814-p21` | g6-hub-survives-self-replacement | 271 | web | pass | 32/0/0 | 0m56s |
+| 22 | `271-20261103T093814-p22` | g7-hub-handoff-evidence | 271 | web | pass | 39/0/0 | 1m01s |
+| 23 | `272-20261103T093814-p23` | i1-restart-enrollment-truth | 272 | desktop | pass | 19/0/0 | 3m44s |
+| 24 | `272-20261103T093814-p24` | i2-unregistered-honesty | 272 | web | known-red | 24/0/1 | 0m22s |
+| 25 | `272-20261103T093814-p25` | i3-topology-compensation | 272 | desktop | pass | 19/0/0 | 2m13s |
+| 26 | `274-20261103T093814-p26` | k-single-panel-happy | 274 | web | pass | 38/0/0 | 0m49s |
+| 27 | `274-20261103T093814-p27` | k-single-panel-failure | 274 | web | pass | 23/0/0 | 1m41s |
+| 28 | `274-20261103T093814-p28` | k-batch-panel-states | 274 | web | pass | 38/0/0 | 4m04s |
+| 29 | `274-20261103T093814-p29` | k-batch-resume | 274 | web | pass | 24/0/0 | 2m44s |
+| 30 | `273-20261103T093814-p30` | j1-log-contract-coverage | 273 | web | pass | 28/0/0 | 0m41s |
+| 31 | `273-20261103T093814-p31` | j2-noise-budget | 273 | web | pass | 16/0/0 | 5m28s |
+| 32 | `273-20261103T093814-p32` | j3-namespace-whitelist | 273 | web | pass | 17/0/0 | 0m22s |
+| 33 | `265-20261103T093814-r33` | a-single-package-main-chain（can-red） | 265 | desktop | fail | 11/2/0 | 3m28s |
+| 34 | `266-20261103T093814-r34` | b-batch-two-integrators（can-red） | 266 | desktop | fail | 34/4/0 | 6m44s |
+| 35 | `266-20261103T093814-r35` | c-pure-target-no-wiring（can-red） | 266 | desktop | fail | 22/2/0 | 3m30s |
+| 36 | `267-20261103T093814-r36` | d1-desktop-manager-update-success（can-red） | 267 | desktop | fail | 15/2/0 | 3m29s |
+| 37 | `267-20261103T093814-r37` | e1-cli-host-update-success（can-red） | 267 | web | fail | 21/1/0 | 0m13s |
+| 38 | `268-20261103T093814-r38` | g4-desktop-manager-retry-single-success（can-red） | 268 | desktop | fail | 24/1/0 | 5m28s |
+| 39 | `269-20261103T093814-r39` | e-batch-three-package-upgrade（can-red） | 269 | desktop | fail | 15/1/0 | 2m45s |
+| 40 | `272-20261103T093814-r40` | i1-restart-enrollment-truth（can-red） | 272 | desktop | fail | 16/1/0 | 2m33s |
+| 41 | `274-20261103T093814-r41` | k-single-panel-happy（can-red） | 274 | web | fail | 8/1/0 | 0m50s |
+| 42 | `273-20261103T093814-r42` | j1-log-contract-coverage（can-red） | 273 | web | fail | 13/1/0 | 0m20s |
+| 43 | `270-20261103T093814-r43` | h1-queue-lock-concurrent（can-red） | 270 | web | fail | 11/1/0 | 0m17s |
+| 44 | `271-20261103T093814-r44` | g6-hub-survives-self-replacement（can-red） | 271 | web | fail | 23/1/0 | 1m05s |

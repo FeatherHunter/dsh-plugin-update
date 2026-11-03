@@ -1,0 +1,19 @@
+{
+  "hit": true,
+  "elapsedMs": 14138,
+  "entries": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\272-20261103T093814-p25\\home\\updates\\fxa-a\\fb000c4e6a9bff5b86c1cc3e\\state.json",
+      "pluginId": "fxa-a",
+      "state": {
+        "id": "80d26b8e-d37d-49df-945a-6a23aa819c36",
+        "state": "failed",
+        "targetVersion": "0.0.2",
+        "message": "install-failed: 移除已装包超时，未继续安装；目标包可能已不在册，请重启宿主检查并按手工命令重装 (dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:53089)；无法确认宿主是否把该插件移出了在册名单，也未能恢复在册；若插件页显示关闭，请重新启用",
+        "requestId": "rmw032lwf77zwl",
+        "previousVersion": "0.0.1"
+      },
+      "corrupt": false
+    }
+  ]
+}

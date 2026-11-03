@@ -1,0 +1,5 @@
+{
+  "env": "DSH_SELFTEST_INSTALL_TIMEOUT_MS",
+  "value": 4000,
+  "why": "capabilities.ts 会把 installTimeoutMs 传给 queueDisk.tryAcquireGlobalLock；压到 4s 后 60s 前的锁必判陈旧"
+}

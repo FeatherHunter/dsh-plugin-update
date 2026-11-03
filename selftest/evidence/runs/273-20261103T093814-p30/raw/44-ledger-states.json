@@ -1,0 +1,20 @@
+[
+  {
+    "pluginId": "fxa-a",
+    "state": "completed",
+    "targetVersion": "0.0.2",
+    "previousVersion": "0.0.1"
+  },
+  {
+    "pluginId": "fxa-b",
+    "state": "failed",
+    "targetVersion": "0.0.2",
+    "previousVersion": "0.0.1"
+  },
+  {
+    "pluginId": "fxa-c",
+    "state": "failed",
+    "targetVersion": "0.0.2",
+    "previousVersion": "0.0.1"
+  }
+]

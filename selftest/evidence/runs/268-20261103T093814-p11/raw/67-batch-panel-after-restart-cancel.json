@@ -1,0 +1,90 @@
+{
+  "slotKey": "a",
+  "card": {
+    "present": true,
+    "key": "a",
+    "ui": "batch",
+    "title": "夹具 A · 更新演示",
+    "clientTag": "client v0.0.1",
+    "hostTag": "host v0.0.1",
+    "seatLine": {
+      "attr": "批量席位 fxa · 自键 a · 目标 a/b/c",
+      "text": "批量席位 fxa · 自键 a · 目标 a/b/c"
+    },
+    "behavior": {
+      "attr": "none",
+      "text": "宿主行为 无（v1）"
+    },
+    "dockHost": "none"
+  },
+  "panel": {
+    "present": true,
+    "mode": "embedded",
+    "seal": "总账",
+    "rows": [
+      {
+        "key": "a",
+        "phase": "pending",
+        "queued": false,
+        "busy": false,
+        "title": "夹具 A 本体",
+        "status": "已是最新，无需操作。",
+        "versionCur": "0.0.1",
+        "versionNew": null,
+        "actions": [
+          "toggle-details",
+          "toggle-details"
+        ],
+        "fail": null
+      },
+      {
+        "key": "b",
+        "phase": "pending",
+        "queued": false,
+        "busy": false,
+        "title": "夹具 B",
+        "status": "已是最新，无需操作。",
+        "versionCur": "0.0.1",
+        "versionNew": null,
+        "actions": [
+          "toggle-details",
+          "toggle-details"
+        ],
+        "fail": null
+      },
+      {
+        "key": "c",
+        "phase": "pending",
+        "queued": false,
+        "busy": false,
+        "title": "夹具 C",
+        "status": "有新版本 0.0.2",
+        "versionCur": "0.0.1",
+        "versionNew": "0.0.2",
+        "actions": [
+          "toggle-details",
+          "toggle-details"
+        ],
+        "fail": null
+      }
+    ],
+    "check": {
+      "text": "检查更新",
+      "disabled": false
+    },
+    "install": {
+      "text": "全部更新",
+      "disabled": false
+    },
+    "ledger": "正在按最新版本重新检查…",
+    "summary": "1 个可更新；请选择「全部更新」一次安装完成，也可逐项选择「安装此插件」。",
+    "notice": null
+  },
+  "entry": {
+    "present": true,
+    "text": "检查更新",
+    "variant": null
+  },
+  "dock": null,
+  "dshUpdCount": 1
+}

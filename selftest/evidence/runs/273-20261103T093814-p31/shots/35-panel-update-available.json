@@ -1,0 +1,9 @@
+{
+  "看什么": "点「检查更新」后的真 UI 更新面板：有新版本横幅 + 日志健康读数（同一页）",
+  "步骤": "真 UI 点「检查更新」→ 等状态落 update-available → 再等 ≥20 次轮询不重复 → 截 page1 面板",
+  "expected": "面板文本含「有新版本」与 0.0.2；日志健康读数仍在",
+  "actual": "{\"counts\":{\"dshUpd\":1,\"dshUpdLog\":2,\"fixture\":1},\"panelText\":\"dsh-plugin-update-fixture-a 使用范围 t9j2profile 有新版本 0.0.2 可安装（当前版本 0.0.1）。 选择安装将按精确版本安装；同一使用范围同时仅安装一项。 运行版 0.0.1 已安装 0.0.1 最新版 0.0.2 01 检查与安装 检查更新 安装版本 0.0.2 跳过该版本 复制手工命令 复制诊断 02 更新日志 更新说明没取到（网络或完整性校验失败）。 03 更新队列 当前无排队任务；同一使用范围同时仅安装一项。 04 错误信息 暂无失败：此时复制诊断提供的是当前状态快照。 请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 dsh-plugin-update-fixture-a 筛选 host.call、host.call.fai\",\"logTexts\":[\"请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 dsh-plugin-update-fixture-a 筛选 host.call、host.call.fail、update.install.exec 事件。\",\"日志：落点=self（本包自建落点）；目录指纹=88eebefd；按需信息开关=关；启动以来丢弃 0 行；最近事件=11/3 11:30；事件契约=正常\"]}",
+  "判定": "pass",
+  "备注": "边沿触发后的视觉证据：横幅是状态变化的 UI 呈现，日志侧恰 1 行 status.changed。",
+  "截图": "shots\\35-panel-update-available.png"
+}

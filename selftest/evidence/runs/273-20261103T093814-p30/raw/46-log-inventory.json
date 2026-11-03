@@ -1,0 +1,44 @@
+{
+  "root": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p30\\os-home\\.dsh\\logs",
+  "namespaces": [
+    "fxa-a",
+    "fxa-b",
+    "fxa-c",
+    "fxb-b",
+    "fxb-c"
+  ],
+  "files": [
+    "fxa-a/2026-11-03.log",
+    "fxa-b/2026-11-03.log",
+    "fxa-c/2026-11-03.log",
+    "fxb-b/2026-11-03.log",
+    "fxb-c/2026-11-03.log"
+  ],
+  "parseFailures": [],
+  "rowCount": 89,
+  "eventCounts": {
+    "host.start": 5,
+    "update.wire.ready": 5,
+    "update.status.changed": 19,
+    "update.check.done": 8,
+    "host.call": 17,
+    "update.queue.transition": 13,
+    "update.install.request": 3,
+    "update.install.exec": 3,
+    "update.install.verify": 3,
+    "update.batch.entry.request": 1,
+    "update.batch.run.start": 1,
+    "update.install.fail": 4,
+    "host.call.fail": 2,
+    "update.install.retry": 2,
+    "update.batch.entry.fail": 2,
+    "update.batch.summary": 1
+  },
+  "nsCounts": {
+    "fxa-a": 22,
+    "fxa-b": 31,
+    "fxa-c": 32,
+    "fxb-b": 2,
+    "fxb-c": 2
+  }
+}

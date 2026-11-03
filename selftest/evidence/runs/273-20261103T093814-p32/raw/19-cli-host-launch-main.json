@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:62100/?token=fuz49O3FPDq7RXxsf1LOSqjQvHBAPjmXg5gPovZUXIU",
+  "port": 62100,
+  "bootMs": 1852,
+  "profileName": "t9j3",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p32\\os-home\\.dsh",
+  "pid": 73832,
+  "stdoutTail": "dsh web: http://127.0.0.1:62100/?token=fuz49O3FPDq7RXxsf1LOSqjQvHBAPjmXg5gPovZUXIU\n",
+  "stderrTail": ""
+}

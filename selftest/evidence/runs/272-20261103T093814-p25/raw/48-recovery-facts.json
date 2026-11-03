@@ -1,0 +1,14 @@
+{
+  "recoveredDisk": {
+    "version": "0.0.2",
+    "elapsedMs": 1
+  },
+  "dependencies": {
+    "dsh-plugin-update-fixture-a": "0.0.2"
+  },
+  "bundles": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-web-app",
+    "dsh-plugin-update-fixture-a"
+  ]
+}

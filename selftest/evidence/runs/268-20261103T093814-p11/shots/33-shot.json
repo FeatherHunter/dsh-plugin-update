@@ -1,0 +1,9 @@
+{
+  "看什么": "A 面板 C 行排队中（有取消排队按钮）",
+  "步骤": "D2 真 UI 排队",
+  "expected": "C 行 queued + row-cancel-queue",
+  "actual": "{\"key\":\"c\",\"phase\":\"ready\",\"queued\":true,\"busy\":false,\"title\":\"夹具 C\",\"status\":\"已排队 · 前方还有 1 项\",\"versionCur\":\"0.0.1\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"row-cancel-queue\",\"toggle-details\"],\"fail\":null}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\33-shot.png"
+}

@@ -1,0 +1,10 @@
+{
+  "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-r44\\os-home\\.dsh\\profiles\\t7hub",
+  "profileDirShortHash": "642c79607634f51a3b9d8d18",
+  "expectedQueueDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-r44\\os-home\\.dsh\\update-queue\\642c79607634f51a3b9d8d18",
+  "actualQueueDirs": [],
+  "leaseFile": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-r44\\os-home\\.dsh\\update-queue\\642c79607634f51a3b9d8d18\\hub\\lease.json",
+  "plansDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-r44\\os-home\\.dsh\\update-queue\\642c79607634f51a3b9d8d18\\hub\\plans",
+  "batchFile": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-r44\\os-home\\.dsh\\update-queue\\642c79607634f51a3b9d8d18\\fxa\\batch.json",
+  "why": "用实测目录证明 hub/plan/lease/batch.json 都落在同一 <home>/update-queue/<shortHash>/ 下（不是推断）。"
+}

@@ -1,0 +1,15 @@
+{
+  "manifestPath": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\272-20261103T093814-p23\\home\\profiles\\desktop\\package.json",
+  "dependencies": {
+    "dsh-plugin-update-fixture-a": "0.0.2"
+  },
+  "bundles": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-web-app",
+    "dsh-plugin-update-fixture-a"
+  ],
+  "diskVersion": "0.0.2",
+  "runningClientTag": "client v0.0.2",
+  "runningHostTag": "host v0.0.2",
+  "runningVersion": "0.0.2"
+}

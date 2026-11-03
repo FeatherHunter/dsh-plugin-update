@@ -1,0 +1,6 @@
+{
+  "port": 64444,
+  "pid": 72128,
+  "stdoutHead": "\r\nChecking for update\nGenerated new staging user ID: c48d414c-8ed6-558b-9291-d998bcbe6539\nUpdate for version 0.2.1-rc.5 is not available (latest version: 0.2.1-rc.5, downgrade is disallowed).\ndsh web: http://127.0.0.1:54740/?token=jTVnjHb4x_Jej0Cd8yITAGcLToj1qDKdWX679u6Puow\n",
+  "stderrHead": "\r\nDevTools listening on ws://127.0.0.1:64444/devtools/browser/ef924170-3837-4c8e-b9ca-3349c9fd6230\r\n"
+}

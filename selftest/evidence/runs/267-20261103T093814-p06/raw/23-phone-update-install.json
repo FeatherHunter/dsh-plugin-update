@@ -1,0 +1,31 @@
+{
+  "status": 200,
+  "durationMs": 52,
+  "requestId": "t3e-success-1793669907157",
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.1",
+        "installed": true,
+        "installedVersion": "0.0.1",
+        "latestVersion": "0.0.2",
+        "canInstall": false,
+        "blockedReason": null,
+        "job": {
+          "id": "59bdd48a-ed03-4aab-bbd4-923b83246085",
+          "state": "installing",
+          "targetVersion": "0.0.2",
+          "message": null,
+          "requestId": "t3e-success-1793669907157",
+          "previousVersion": "0.0.1"
+        },
+        "identity": "update",
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t3cli add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:49401",
+      "receipt": null
+    }
+  }
+}

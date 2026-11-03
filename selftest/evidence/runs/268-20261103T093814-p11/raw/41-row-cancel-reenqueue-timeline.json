@@ -1,0 +1,12 @@
+{
+  "firstReenqueueMs": 3,
+  "samples": [
+    {
+      "atMs": 3,
+      "waitingIds": [
+        "fxa-c"
+      ]
+    }
+  ],
+  "note": "hub 1s 退避重推是有意行为；行取消不是终态取消"
+}

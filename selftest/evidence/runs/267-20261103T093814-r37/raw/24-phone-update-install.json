@@ -1,0 +1,31 @@
+{
+  "status": 200,
+  "durationMs": 45,
+  "requestId": "t3e-can-red-1793670954402",
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.1",
+        "installed": true,
+        "installedVersion": "0.0.1",
+        "latestVersion": "0.0.2",
+        "canInstall": false,
+        "blockedReason": null,
+        "job": {
+          "id": "4722e2ac-c5b1-4ba8-91a7-cae8309f48c5",
+          "state": "installing",
+          "targetVersion": "0.0.2",
+          "message": null,
+          "requestId": "t3e-can-red-1793670954402",
+          "previousVersion": "0.0.1"
+        },
+        "identity": "update",
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t3cli add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:63072",
+      "receipt": null
+    }
+  }
+}

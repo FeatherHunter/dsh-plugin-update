@@ -1,0 +1,5 @@
+{
+  "storeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-p16\\pnpm-store",
+  "inheritedFromBeforeBootstrap": false,
+  "reason": "组 E 每 run 私有 pnpm store：跨 run 隔离，且改坏 tarball 的 integrity 失败不会被全局 store 缓存命中"
+}

@@ -1,0 +1,119 @@
+{
+  "seat": {
+    "slotKey": "a",
+    "card": {
+      "present": true,
+      "key": "a",
+      "ui": "batch",
+      "title": "夹具 A · 更新演示",
+      "clientTag": "client v0.0.1",
+      "hostTag": "host v0.0.1",
+      "seatLine": {
+        "attr": "批量席位 fxa · 自键 a · 目标 a/b/c",
+        "text": "批量席位 fxa · 自键 a · 目标 a/b/c"
+      },
+      "behavior": {
+        "attr": "none",
+        "text": "宿主行为 无（v1）"
+      },
+      "dockHost": "none"
+    },
+    "panel": {
+      "present": true,
+      "mode": "embedded",
+      "seal": "总账",
+      "rows": [
+        {
+          "key": "a",
+          "phase": "current",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 A 本体",
+          "status": "已是最新，无需操作。",
+          "versionCur": "0.0.1",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        },
+        {
+          "key": "b",
+          "phase": "ready",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 B",
+          "status": "选择「安装此插件」安装 0.0.2",
+          "versionCur": "未安装",
+          "versionNew": "0.0.2",
+          "actions": [
+            "toggle-details",
+            "row-install",
+            "toggle-details"
+          ],
+          "fail": null
+        },
+        {
+          "key": "c",
+          "phase": "current",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 C",
+          "status": "已是最新，无需操作。",
+          "versionCur": "0.0.1",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        }
+      ],
+      "check": {
+        "text": "检查更新",
+        "disabled": false
+      },
+      "install": {
+        "text": "全部更新",
+        "disabled": false
+      },
+      "ledger": "1 个可更新 · 2 个已是最新",
+      "summary": "1 个可更新；请选择「全部更新」一次安装完成，也可逐项选择「安装此插件」。",
+      "notice": null
+    },
+    "entry": {
+      "present": true,
+      "text": "检查更新",
+      "variant": null
+    },
+    "dock": null,
+    "dshUpdCount": 1
+  },
+  "ledger": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\268-20261103T093814-p13\\home\\updates\\fxa-b\\a6e6b964fea89b362ee4e7e7\\state.json",
+      "state": {
+        "id": "4881a5f9-14be-4b16-8357-19dd2b3af687",
+        "state": "failed",
+        "targetVersion": "0.0.2",
+        "message": "install-failed: Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt): [ERR_P；目标包已被宿主移除，重装失败；它现在不在使用范围里，请复制手工命令重新安装 (dsh plugin --profile desktop add --save-exact dsh-plugin-update-fixture-b@0.0.2 --registry=http://127.0.0.1:49581)",
+        "requestId": "batch-mw027657-bfp2e1tway-b-161042ce",
+        "previousVersion": "0.0.1"
+      }
+    }
+  ],
+  "rowHonest": true,
+  "pageTextTail": "新会话\nCtrl\n+\nN\n插件\n自动化任务\n更多\n工作区\n默认工作区\n新会话\n更多\n探索未至之境\n预览版\n默认工作区\n标准模式\n描述你想要构建的内容, / 调用指令, @ 文件或对话\n工作区内修改\n请选择模型\n夹具 C · client v0.0.1\n夹具 A · 更新演示\nclient v0.0.1\nhost v0.0.1\n批量席位 fxa · 自键 a · 目标 a/b/c\n宿主行为 无（v1）\n检查更新\n更新档案 · 总账\n检查更新\n全部更新\n1 个可更新；请选择「全部更新」一次安装完成，也可逐项选择「安装此插件」。\n夹具 A 本体\n0.0.1\n已是最新，无需操作。\n详情\n夹具 B\n未安装 → 0.0.2\n选择「安装此插件」安装 0.0.2\n安装此插件详情\n夹具 C\n0.0.1\n已是最新，无需操作。\n详情\n1 个可更新 · 2 个已是最新\n继续上次未完成的更新（剩余 1 个）。丢弃本批未完成的更新（已完成的将保留）。\n关闭面板不会中断更新：进度已保存，可随时返回继续。\n[x] 打开面板时自动检查更新",
+  "cardC": {
+    "present": true,
+    "key": "c",
+    "ui": "none",
+    "wiring": "none",
+    "clientTag": "client v0.0.1",
+    "badgeText": "夹具 C · client v0.0.1",
+    "dshUpdCount": 0,
+    "dockCount": 0,
+    "entryCount": 0
+  }
+}

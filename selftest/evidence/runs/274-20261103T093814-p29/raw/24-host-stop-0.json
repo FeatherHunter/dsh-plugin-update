@@ -1,0 +1,10 @@
+{
+  "reason": "k4-kill-after-partial",
+  "gen": 0,
+  "port": 54447,
+  "pid": 54732,
+  "registryUrl": "https://127.0.0.1:58120",
+  "delayMs": 3000,
+  "proxyRequests": 27,
+  "delayedRequests": 13
+}

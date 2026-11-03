@@ -1,0 +1,24 @@
+{
+  "wire": {
+    "ts": 1793670547890,
+    "ns": "fxa-a",
+    "fields": {
+      "logSink": "self",
+      "logDirHash": "922361b3",
+      "updaterVersion": "0.18.39",
+      "copyLevel": "profile",
+      "hostKind": "cli"
+    }
+  },
+  "logDirHash": "922361b3",
+  "logSink": "self",
+  "health": {
+    "text": "日志：落点=self（本包自建落点）；目录指纹=922361b3；按需信息开关=关；启动以来丢弃 0 行；最近事件=11/3 09:49；事件契约=正常",
+    "sink": "self",
+    "dirHash": "922361b3",
+    "switchText": "关",
+    "dropped": 0,
+    "lastEventText": "11/3 09:49",
+    "contract": "正常"
+  }
+}

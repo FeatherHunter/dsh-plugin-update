@@ -1,0 +1,10 @@
+{
+  "terminalState": "completed",
+  "settledJobState": "completed",
+  "settledRunningVersion": "0.0.2",
+  "settledInstalledVersion": "0.0.2",
+  "settledBlockedReason": null,
+  "settledCanInstall": false,
+  "buildTag": "host v0.0.1",
+  "note": "CLI-process 宿主没有权威 runningVersion：getSharedReader 按磁盘包解析（src/host/capabilities.ts:142-168），装完/未重启时 updateStatus 把作业 heal 成 completed 并宣称 running 新版本，而 buildTag 自证进程仍在基版。"
+}

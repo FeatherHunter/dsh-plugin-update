@@ -1,0 +1,19 @@
+{
+  "clientEventNames": [
+    "update.panel.mount",
+    "update.panel.action"
+  ],
+  "clientRows": [
+    {
+      "ts": 1793670549845,
+      "event": "update.panel.mount",
+      "ns": "fxa-a"
+    },
+    {
+      "ts": 1793670551440,
+      "event": "update.panel.action",
+      "ns": "fxa-a"
+    }
+  ],
+  "clientOutsideOwner": []
+}

@@ -1,0 +1,51 @@
+{
+  "ports": [
+    {
+      "label": "desktop-main-port",
+      "port": 62201,
+      "released": true
+    }
+  ],
+  "leftoverPids": [
+    {
+      "label": "desktop-bootstrap",
+      "pid": 94756,
+      "alive": false
+    },
+    {
+      "label": "desktop-bootstrap-relaunched-94756",
+      "pid": 94756,
+      "alive": false
+    },
+    {
+      "label": "desktop-bootstrap-relaunched-9028",
+      "pid": 9028,
+      "alive": false
+    },
+    {
+      "label": "desktop-bootstrap-relaunched-51132",
+      "pid": 51132,
+      "alive": false
+    },
+    {
+      "label": "desktop-bootstrap-relaunched-67488",
+      "pid": 67488,
+      "alive": false
+    },
+    {
+      "label": "desktop-bootstrap-relaunched-26044",
+      "pid": 26044,
+      "alive": false
+    },
+    {
+      "label": "desktop-main",
+      "pid": 66648,
+      "alive": false
+    },
+    {
+      "label": "desktop-main",
+      "pid": 66648,
+      "alive": false
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "osHomeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-r44\\os-home",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-r44\\os-home\\.dsh",
+  "profileName": "t7hub",
+  "hostChannel": "dsh-web",
+  "mode": "can-red",
+  "scenarioId": "g6-hub-survives-self-replacement",
+  "why": "通道 B 宿主用 USERPROFILE=osHomeDir、DSH_HOME=homeDir 解析 profile；第一代/第二代（以及 g2 重开）用同一组目录与同一 profile 名，因此解析到同一 profileDir 与同一 update-queue/hub/updates 台账。"
+}

@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 1,
+  "runId": "268-20261103T093814-p14",
+  "ticket": "268",
+  "scenarioId": "g5-desktop-manager-no-cancel-probe",
+  "hostChannel": "desktop-official",
+  "startedAt": "2026-11-03T02:22:42.703Z",
+  "finishedAt": "2026-11-03T02:25:13.572Z",
+  "verdict": "known-red",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:/dsh-plugin/_wt263/t11",
+    "branch": "impl/263-t11",
+    "head": "bd39b57baa10f3c9f128dfd05f66b286d8828045",
+    "hostChannel": "desktop-official"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\268-20261103T093814-p14\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "3502f4da6b9116c24b0e67a15a3b8dd96584b24d8a68afbaa273c1681d201efc",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:65380",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 3502f4da6b9116c2…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1, dsh-plugin-update-fixture-b@0.0.1, dsh-plugin-update-fixture-c@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "10-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "11-assert",
+      "step": "干净 profile 装基版（b）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-b@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-b；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "干净 profile 装基版（c）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-c@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-c；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b, dsh-plugin-update-fixture-c]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "16-assert",
+      "step": "基版 UI",
+      "what": "A 批量面板列出 a/b/c 三行，B/C 卡片是 0.0.1",
+      "expected": "rows=a,b,c；B clientTag=client v0.0.1；C 徽标 0.0.1",
+      "actual": "{\"rows\":\"a,b,c\",\"cardB\":\"client v0.0.1\",\"cardC\":{\"present\":true,\"clientTag\":\"client v0.0.1\",\"badge\":\"夹具 C · client v0.0.1\"},\"disk\":{\"versions\":{\"dsh-plugin-update-fixture-a\":\"0.0.1\",\"dsh-plugin-update-fixture-b\":\"0.0.1\",\"dsh-plugin-update-fixture-c\":\"0.0.1\"},\"dependencies\":{\"dsh-plugin-update-fixture-a\":\"0.0.1\",\"dsh-plugin-update-fixture-b\":\"0.0.1\",\"dsh-plugin-update-fixture-c\":\"0.0.1\"}}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "19-assert",
+      "step": "D5 真机宿主",
+      "what": "官方桌面真实启动并加载夹具页面（证明探测发生在真宿主上下文）",
+      "expected": "页面文本非空且含夹具卡片",
+      "actual": "pageText 长度 530；含 fixture 卡片=true",
+      "verdict": "pass"
+    },
+    {
+      "id": "23-assert",
+      "step": "D5 能力探测",
+      "what": "官方宿主 asar 里有插件管理器符号（i.e. 探测对象是真实宿主二进制，不是推断）",
+      "expected": "pluginManager>0 且 installBundle>0",
+      "actual": "{\"asarPath\":\"D:/DeepseekHarness/resources/app.asar\",\"asarBytes\":182766714,\"counts\":{\"pluginManager\":724,\"installBundle\":98,\"cancelInstall\":66,\"setBundleEnabled\":95}}",
+      "verdict": "pass"
+    },
+    {
+      "id": "24-assert",
+      "step": "D5 能力探测",
+      "what": "官方宿主是否提供 cancelInstall（决定超时人话格该走「已请求宿主取消」还是「宿主未提供取消能力」）",
+      "expected": "命中数>0 ⇒ 宿主有取消能力",
+      "actual": "cancelInstall 命中 66 处；片段=\"n...//#region ../../boot/plugin-manager/lib/typert.remote-client.js...let _deepseek_ai_dsh_plugin_manager_pluginManager_cancelInstall_parameter_0$schema$value;...const _deepseek_ai_dsh_plugin_manager_pluginManager_cancelInstall_parameter_0$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager\"",
+      "verdict": "pass"
+    },
+    {
+      "id": "26-assert",
+      "step": "D5 库内诚实文案",
+      "what": "产品在宿主无 cancelInstall 时的超时文案（L0 定向测试：detail 含「未提供取消能力/可能仍在后台继续」且不含「已请求宿主取消」）",
+      "expected": "node --test tests/issue-184-timeout-honesty.test.mjs 退出码 0",
+      "actual": "exitCode=0；stdout 尾部=▶ issue #184：超时语义诚实化（不谎称已取消；移除超时点明包可能已不在册）\n  ✔ 宿主没有 cancelInstall：安装步超时人话格如实说「未提供取消能力」，不谎称已请求取消 (3059.8335ms)\n  ✔ 移除步超时：人话格点明「目标包可能已不在册」并给「重启宿主 + 手工命令」的下一步 (3059.4217ms)\n  ✔ 移除超时后，面板输入的环境视图读得到「已摘选中」（includeEnv 回包 registered=false） (3055.3466ms)\n✔ issue #184：超时语义诚实化（不谎称已取消；移除超时点明包可能已不在册） (9176.0509ms)\nℹ tests 3\nℹ suites 1\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 9275.9307\n",
+      "verdict": "pass"
+    },
+    {
+      "id": "27-assert",
+      "step": "D5 真机无能力宿主",
+      "what": "真机造出一个「宿主没有 cancelInstall」的官方桌面实例来跑无能力超时格（票面要求的真机形态）",
+      "expected": "官方桌面宿主没有 cancelInstall 能力",
+      "actual": "官方宿主 D:/DeepseekHarness/resources/app.asar 命中 cancelInstall 66 处（@deepseek-ai/dsh-plugin-manager 0.2.1-rc.5）、installBundle 98 处 ⇒ 本机无法造出无能力宿主",
+      "verdict": "known-red",
+      "note": "复现条件：换一个没有 cancelInstall 的官方宿主版本（旧版 plugin-manager）或第三方 Desktop 宿主；本机官方 0.2.1-rc.5 有该能力，真机无能力格不可达。库内 L0 测试（tests/issue-184-timeout-honesty.test.mjs）已钉住无能力时的诚实措辞，能力探测原始二进制度量在 raw/host-asar-probe。"
+    }
+  ],
+  "shots": [
+    {
+      "id": "17-shot",
+      "step": "基版 UI",
+      "what": "A 批量面板与 B/C 卡片的初始形态",
+      "expected": "三行；B/C 0.0.1；面板可见",
+      "actual": "rows=a,b,c；B=client v0.0.1；C=client v0.0.1",
+      "verdict": "pass",
+      "png": "shots\\17-shot.png",
+      "sidecar": "shots\\17-shot.json"
+    },
+    {
+      "id": "20-shot",
+      "step": "D5 真机宿主",
+      "what": "官方桌面真实启动（能力探测的宿主上下文）",
+      "expected": "窗口里有夹具卡片",
+      "actual": "pageText 长度 530",
+      "verdict": "pass",
+      "png": "shots\\20-shot.png",
+      "sidecar": "shots\\20-shot.json"
+    }
+  ],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-desktop-first-launch",
+      "name": "desktop-first-launch",
+      "file": "raw\\07-desktop-first-launch.json"
+    },
+    {
+      "id": "08-desktop-stop-bootstrap",
+      "name": "desktop-stop-bootstrap",
+      "file": "raw\\08-desktop-stop-bootstrap.json"
+    },
+    {
+      "id": "09-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\09-install-baseline.json"
+    },
+    {
+      "id": "13-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\13-sut-installed-dist.json"
+    },
+    {
+      "id": "15-batch-panel-initial",
+      "name": "batch-panel-initial",
+      "file": "raw\\15-batch-panel-initial.json"
+    },
+    {
+      "id": "18-probe-page-text",
+      "name": "probe-page-text",
+      "file": "raw\\18-probe-page-text.json"
+    },
+    {
+      "id": "21-desktop-stop-probe",
+      "name": "desktop-stop-probe",
+      "file": "raw\\21-desktop-stop-probe.json"
+    },
+    {
+      "id": "22-host-asar-probe",
+      "name": "host-asar-probe",
+      "file": "raw\\22-host-asar-probe.json"
+    },
+    {
+      "id": "25-l0-no-cancel-honesty",
+      "name": "l0-no-cancel-honesty",
+      "file": "raw\\25-l0-no-cancel-honesty.json",
+      "command": "D:\\2Study\\nodejs\\node.exe --test tests/issue-184-timeout-honesty.test.mjs",
+      "exitCode": 0
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "desktop-bootstrap",
+        "pid": 76224,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "desktop-main",
+        "pid": 99560,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "registry",
+        "port": 65380,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:65380（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "D5 结论：官方桌面 0.2.1-rc.5 有 cancelInstall；无能力真机格 known-red（条件已写清），库内诚实文案测试绿。"
+    ]
+  },
+  "maintainerProfile": {
+    "homeDir": "C:/Users/辰辰洋洋/.dsh",
+    "before": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "77441cc19d6b8f4dc5026b694b42bbf141097822b8359e208585db4303de34f4",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "after": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "77441cc19d6b8f4dc5026b694b42bbf141097822b8359e208585db4303de34f4",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "unchanged": true
+  },
+  "notes": [
+    "本地 registry：http://127.0.0.1:65380（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "D5 结论：官方桌面 0.2.1-rc.5 有 cancelInstall；无能力真机格 known-red（条件已写清），库内诚实文案测试绿。"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "polls": 3,
+  "elapsedMs": 2080,
+  "status": 200,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.2",
+        "installed": true,
+        "installedVersion": "0.0.2",
+        "latestVersion": null,
+        "canInstall": false,
+        "blockedReason": null,
+        "job": {
+          "requestId": "t3e-can-red-1793670954402",
+          "message": null,
+          "id": "4722e2ac-c5b1-4ba8-91a7-cae8309f48c5",
+          "state": "completed",
+          "targetVersion": "0.0.2",
+          "previousVersion": "0.0.1"
+        },
+        "identity": null,
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t3cli add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:63072",
+      "receipt": null,
+      "logContract": {
+        "state": "ok",
+        "file": "event-list.update.json",
+        "events": 29,
+        "unvalidated": 0
+      },
+      "logHealth": {
+        "sink": "self",
+        "dirHash": "880cd9e5",
+        "switchEnabled": false,
+        "droppedSinceStart": 0,
+        "lastEventAt": 1793670956525,
+        "contract": "ok",
+        "external": null,
+        "reason": null
+      }
+    }
+  }
+}

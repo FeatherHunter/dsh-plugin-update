@@ -1,0 +1,40 @@
+{
+  "profileName": "t3cli",
+  "results": [
+    {
+      "slotKey": "a",
+      "packageName": "dsh-plugin-update-fixture-a",
+      "version": "0.0.1",
+      "facts": {
+        "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p07\\os-home\\.dsh\\profiles\\t3cli",
+        "dependencyVersion": "0.0.1",
+        "bundles": [
+          "@deepseek-ai/dsh-base",
+          "@deepseek-ai/dsh-web-app",
+          "dsh-plugin-update-fixture-a"
+        ],
+        "installedPackageJsonVersion": "0.0.1",
+        "installedDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p07\\os-home\\.dsh\\profiles\\t3cli\\node_modules\\dsh-plugin-update-fixture-a"
+      },
+      "install": {
+        "command": "D:\\DeepseekHarness\\DeepSeek Harness.exe",
+        "args": [
+          "--expose-internals",
+          "D:\\DeepseekHarness\\resources\\app.asar\\dsh\\node_modules\\@deepseek-ai\\dsh-desktop-host\\lib\\cli.js",
+          "plugin",
+          "--profile",
+          "t3cli",
+          "add",
+          "dsh-plugin-update-fixture-a@0.0.1",
+          "--registry=http://127.0.0.1:49404/"
+        ],
+        "cwd": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p07\\os-home\\.dsh",
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "[WARN] The store at C:\\Users\\辰辰洋洋\\AppData\\Local\\pnpm\\store\\v11 is not used because packages cannot be hard linked from it into this project. Using the store at D:\\.pnpm-store\\v11 instead. Set storeDir to choose the store.\nProgress: resolved 1, reused 0, downloaded 0, added 0\nAdded 3 entries to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt):\n  dsh-log@0.3.4\n  dsh-plugin-update-fixture-a@0.0.1\n  dsh-plugin-update@0.18.39\nPackages: +3\n+++\nPackages are hard linked from the content-addressable store to the virtual store.\n  Content-addressable store is at: D:\\.pnpm-store\\v11\n  Virtual store is at:             node_modules/.pnpm\nProgress: resolved 3, reused 3, downloaded 0, added 3, done\n\ndependencies:\n+ dsh-plugin-update-fixture-a 0.0.1\n\nDone in 434ms using pnpm v11.28.5\n",
+        "stderr": "",
+        "durationMs": 973
+      }
+    }
+  ]
+}

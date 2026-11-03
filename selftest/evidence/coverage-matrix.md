@@ -63,3 +63,28 @@
 | k-single-panel-happy | 故障注入（`--mode can-red`）= 停第一代宿主后改 run 私有已装包 `lib/client.js`：把面板横幅「已是最新，无需更新。」的 UTF-16 ascii 转义串替换为同串+`RED`（occurrences=2，sha256 前后变，raw 记原文） | 整体 fail/退出码 1；恰好 1 条红：`can-red-03-banner-exact`——重启后横幅标题渲染成「已是最新，无需更新。RED」，≠ expected 精确原文；其余 8 条（SUT 钉版/基版安装/patch 前基线/patch 生效）仍 pass | `runs/274-20261103T090655/`（run.json + index.md + shots + raw/can-red-patch.json） |
 
 | j1-log-contract-coverage | 故障注入 = 本 run 私有契约副本（`can-red-event-list.json`）：复制 `event-list.update.json` 后删掉 `events['update.install.exec']` 与同名 `fieldEnums`（仓库契约与 src 不动，raw 记注入前后 diff） | 整体 fail/退出码 1；恰好 1 条红：can-red 断言——真安装确实产生的 exec 行被私有契约判成未知事件（unknownEvents=["update.install.exec"]、exec 未知行数=1）；前置断言（真安装确实产生 exec 行、clean 契约四关全过）仍 pass，红点可归因到注入 | `runs/273-20261103T054614/` |
+
+## 全量 suite 复跑（T11 / #275，2026-11-03）
+
+本节不新增场景声明，只记录「上面 32 条主链声明 + 12 组 can-red 在一轮编排里全部重放」的结果；场景定义与本表逐行一致，run 级字段（scenarioId/断言/证据）见各 run。
+
+- suite：`runs/20261103T093814-full/index.md`；`runs/20261103T093814-full/run.json`
+- 结果：44 run（32 主链 + 12 can-red）；pass 29 / known-red 3 / can-red-expected-fail 12 / fail 0 / unknown 0；断言 944 pass / 18 fail（全部注入预期红）/ 4 known-red / 0 unknown。
+- 编排器：`selftest/real-machine/tools/run-all.ts`（desktop 串行 1、web 并发 3；SUT 统一预构建 + npm pack 忽略 prepack 脚本；can-red 按历史红断言 id 或 assertion.step 语义匹配；`--stamp` 续跑 / `--only` 定向 / `--rerun` / `--rebuild-state` 证据重建）。
+- known-red：账本 4 条不变、0 新增；本轮 f1/g5/i2 仍 known-red，i1 本轮 pass（桌面通道该分支不可达）。
+- 边界：web 通道无窗口截图（DOM/文本证据）；39 条聚合记录由已定稿证据重建（标记在 suite index）；can-red 为故障注入级重放，SUT 变异级证据沿用各票历史 run。详见 `docs/research/20261103-issue-275-full-matrix.md`。
+
+| 场景 | 注入 | 历史 can-red run | 期望红（历史） | 本轮红 | 本轮判定 |
+| --- | --- | --- | --- | --- | --- |
+| a-single-package-main-chain | stale-variant | `265-20261101T214716` | 15/26 | 15/26 | can-red-expected-fail |
+| b-batch-two-integrators | skip-variant:c | `266-20261102T080334` | 47/49/50/59 | 同左 | can-red-expected-fail |
+| c-pure-target-no-wiring | stale-variant:c | `266-20261102T081101` | 22/33 | 同左 | can-red-expected-fail |
+| d1-desktop-manager-update-success | stale-variant | `267-20261102T113218` | 16/37 | 17/38（漂移） | can-red-expected-fail |
+| e1-cli-host-update-success | stale-variant | `267-20261102T113629` | 40 | 41（漂移） | can-red-expected-fail |
+| g4-desktop-manager-retry-single-success | retry-can-red | `268-20261102T180537` | 71 | 72（漂移） | can-red-expected-fail |
+| e-batch-three-package-upgrade | stale-variant:c | `269-20261102T230056` | 38 | 同左 | can-red-expected-fail |
+| i1-restart-enrollment-truth | stale-variant:a | `272-20261103T041611` | 31 | 同左 | can-red-expected-fail |
+| k-single-panel-happy | 改已装 client.js 横幅 | `274-20261103T090655` | 24 | 同左 | can-red-expected-fail |
+| j1-log-contract-coverage | 私有契约删事件 | `273-20261103T054614` | 29 | 同左 | can-red-expected-fail |
+| h1-queue-lock-concurrent | 删两锁+清空 queue | `270-20261103T004915` | 38 | 同左 | can-red-expected-fail |
+| g6-hub-survives-self-replacement | 删 hub plan | `271-20261103T015357` | 53 | 同左 | can-red-expected-fail |

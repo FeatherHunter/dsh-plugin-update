@@ -1,0 +1,199 @@
+{
+  "a": {
+    "slotKey": "a",
+    "card": {
+      "present": true,
+      "key": "a",
+      "ui": "batch",
+      "title": "夹具 A · 更新演示（批量新版）",
+      "clientTag": "client v0.0.2",
+      "hostTag": "host v0.0.2",
+      "seatLine": {
+        "attr": "批量席位 fxa · 自键 a · 目标 a/b/c",
+        "text": "批量席位 fxa · 自键 a · 目标 a/b/c"
+      },
+      "behavior": {
+        "attr": "seat-aware-v2",
+        "text": "宿主行为 seat-aware-v2"
+      },
+      "dockHost": "hub-dock"
+    },
+    "panel": {
+      "present": true,
+      "mode": "embedded",
+      "seal": "总账",
+      "rows": [
+        {
+          "key": "a",
+          "phase": "current",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 A 本体",
+          "status": "正在查询版本信息，请稍候。",
+          "versionCur": "0.0.2",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        },
+        {
+          "key": "b",
+          "phase": "current",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 B",
+          "status": "正在查询版本信息，请稍候。",
+          "versionCur": "0.0.2",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        },
+        {
+          "key": "c",
+          "phase": "current",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 C",
+          "status": "正在查询版本信息，请稍候。",
+          "versionCur": "0.0.2",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        }
+      ],
+      "check": {
+        "text": "检查更新",
+        "disabled": false
+      },
+      "install": {
+        "text": "全部更新",
+        "disabled": false
+      },
+      "ledger": "正在按最新版本重新检查…",
+      "summary": "已全部为最新，无需操作。",
+      "notice": null
+    },
+    "entry": {
+      "present": true,
+      "text": "检查更新",
+      "variant": null
+    },
+    "dock": {
+      "present": true,
+      "title": "",
+      "rows": 0,
+      "meta": ""
+    },
+    "dshUpdCount": 1
+  },
+  "b": {
+    "slotKey": "b",
+    "card": {
+      "present": true,
+      "key": "b",
+      "ui": "batch",
+      "title": "夹具 B · 更新演示（批量新版）",
+      "clientTag": "client v0.0.2",
+      "hostTag": "host v0.0.2",
+      "seatLine": {
+        "attr": "批量席位 fxb · 自键 b · 目标 b/c",
+        "text": "批量席位 fxb · 自键 b · 目标 b/c"
+      },
+      "behavior": {
+        "attr": "seat-aware-v2",
+        "text": "宿主行为 seat-aware-v2"
+      },
+      "dockHost": "hub-dock"
+    },
+    "panel": {
+      "present": true,
+      "mode": "embedded",
+      "seal": "总账",
+      "rows": [
+        {
+          "key": "c",
+          "phase": "current",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 C",
+          "status": "正在查询版本信息，请稍候。",
+          "versionCur": "0.0.2",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        },
+        {
+          "key": "b",
+          "phase": "current",
+          "queued": false,
+          "busy": false,
+          "title": "夹具 B 本体",
+          "status": "正在查询版本信息，请稍候。",
+          "versionCur": "0.0.2",
+          "versionNew": null,
+          "actions": [
+            "toggle-details",
+            "toggle-details"
+          ],
+          "fail": null
+        }
+      ],
+      "check": {
+        "text": "检查更新",
+        "disabled": false
+      },
+      "install": {
+        "text": "全部更新",
+        "disabled": false
+      },
+      "ledger": "正在按最新版本重新检查…",
+      "summary": "已全部为最新，无需操作。",
+      "notice": null
+    },
+    "entry": {
+      "present": true,
+      "text": "检查更新",
+      "variant": null
+    },
+    "dock": {
+      "present": true,
+      "title": "",
+      "rows": 0,
+      "meta": ""
+    },
+    "dshUpdCount": 1
+  },
+  "c": {
+    "present": true,
+    "key": "c",
+    "ui": "none",
+    "wiring": "none",
+    "clientTag": "client v0.0.2",
+    "badgeText": "夹具 C · client v0.0.2（新版）",
+    "dshUpdCount": 0,
+    "dockCount": 0,
+    "entryCount": 0
+  },
+  "page": {
+    "fixtureKeys": [
+      "c",
+      "a",
+      "b"
+    ],
+    "totalDshUpd": 2,
+    "totalBatchPanels": 2,
+    "totalDocks": 2,
+    "totalEntries": 2
+  }
+}
