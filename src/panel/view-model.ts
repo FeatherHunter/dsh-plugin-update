@@ -385,6 +385,27 @@ function panelViewModelCore(input: PanelViewInput, lang: AppLang): Omit<PanelVie
       queueNote,
     }
   }
+  // #284：最新版未知时不许谎称已是最新。服务层已把「没有检查状态」判成 unknown/no-latest
+  // （src/core/service.ts:512 latestVersion=checked?.release.version??null、:534-551 statusVerdictOf），
+  // 面板这里再补成「已是最新」就是两套口径打架——真机 run 284-20261103T151900 抓到：A 的安装被
+  // gate 拒（磁盘仍是 0.0.1、台账无记录），面板却显示「已是最新，无需更新。」。
+  // 诚实档：不知道最新版就说不知道，给「检查更新」入口；未装分支(:373)与运行版未知分支(:301)已在前处理，
+  // 因此走到这里 installed 必为 true（TS 收窄：上面 === false 已 return，这里不再重复比较）。
+  if (snapshot.latestVersion === null) {
+    return {
+      banner: {
+        kind: 'idle',
+        title: copyText('panel.banner.unknown-latest-title', l),
+        action: copyText('panel.action.check', l),
+      },
+      installEnabled: false,
+      installLabel: copyText('panel.action.install', l),
+      skippedLatest: false,
+      showManual: manual ? true : false,
+      showReset: false,
+      queueNote,
+    }
+  }
   return {
     banner: { kind: 'done', title: copyText('panel.banner.done', l), action: '' },
     installEnabled: false,

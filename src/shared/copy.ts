@@ -630,7 +630,11 @@ export function buildHealthyDiagCopy(input: HealthyDiagCopyInput): string {
       ? `有新版 ${input.latestVersion} 可装（当前 ${notInstalledWord ?? runningWord}）`
       : input.installed !== false && input.runningVersion === null
         ? '运行版本未知，无法判断是否有新版可装。'
-        : (notInstalledWord ?? '已是最新，无需更新。')
+        : // #284：最新版未知时不许写「已是最新」（与面板横幅同一守卫；服务层已判 unknown/no-latest）。
+          // 只在这一个组合改行为，其余分支逐字不变。
+          input.installed !== false && input.latestVersion === null
+          ? copyText('panel.diag.copy.healthy.unknown-latest', l)
+          : (notInstalledWord ?? '已是最新，无需更新。')
   const queueName = queueTextOf(input.queuePosition ?? null, l)
   const envBits = [
     `插件=${input.pluginId}`,

@@ -1042,6 +1042,11 @@
       "zh": "新版本 {latest} 已写入磁盘，但该插件未登记在使用范围清单，重启宿主也不会加载。",
       "draft": true
     },
+    "panel.banner.unknown-latest-title": {
+      "en": "Version information unknown; check for updates.",
+      "zh": "版本信息未知，请检查更新。",
+      "draft": true
+    },
     "panel.banner.unknown-running-action": {
       "en": "Check the plugin version in the host manifest and reopen the host, then check again.",
       "zh": "请检查宿主清单里的插件版本，重启宿主后重新查询",
@@ -1355,6 +1360,11 @@
     "panel.diag.copy.field.version": {
       "en": "Version={run}→{inst}",
       "zh": "版本={run}→{inst}",
+      "draft": true
+    },
+    "panel.diag.copy.healthy.unknown-latest": {
+      "en": "Version information unknown; check for updates first.",
+      "zh": "版本信息未知，请先检查更新。",
       "draft": true
     },
     "panel.diag.copy.line.remedy": {
