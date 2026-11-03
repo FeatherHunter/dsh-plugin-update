@@ -1,0 +1,17 @@
+{
+  "scenario": "e-batch-partial-failure",
+  "baseline": [
+    {
+      "slotKey": "a",
+      "spec": "dsh-plugin-update-fixture-a@0.0.1"
+    },
+    {
+      "slotKey": "b",
+      "spec": "dsh-plugin-update-fixture-b@0.0.1"
+    },
+    {
+      "slotKey": "c",
+      "spec": "dsh-plugin-update-fixture-c@0.0.1"
+    }
+  ]
+}

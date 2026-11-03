@@ -1,0 +1,9 @@
+{
+  "看什么": "部分失败隔离：1 个失败横幅 + C 行最后手段可重试，A/B 照常完成；总账/台账不谎称全批成功",
+  "步骤": "k3-40-partial-failure",
+  "expected": "横幅「1 个插件安装失败。」名单含夹具 C、行内动作含「复制诊断/复制手工命令」；C 行 failed 且 status 含「最后手段」「安装失败，请选择「重试」」、fail 含 install-failed、有 row-install；summary 含「1 个插件安装失败」；ledger 含「1 个失败」且无「安装中」；磁盘 a/b=0.0.2、c=0.0.1；无全批假成功",
+  "actual": "{\"failedBanner\":{\"title\":\"1 个插件安装失败。\",\"sub\":\"\",\"list\":[\"夹具 C：install-failed 安装执行失败，详情见诊断摘要\"],\"rowline\":[\"复制诊断\",\"复制手工命令\"]},\"rows\":[{\"key\":\"a\",\"phase\":\"done\",\"cur\":\"0.0.2\",\"next\":null,\"status\":\"已安装完成，无需操作。\",\"fail\":null,\"actions\":[\"toggle-details\",\"toggle-details\"]},{\"key\":\"b\",\"phase\":\"done\",\"cur\":\"0.0.2\",\"next\":null,\"status\":\"已安装完成，无需操作。\",\"fail\":null,\"actions\":[\"toggle-details\",\"toggle-details\"]},{\"key\":\"c\",\"phase\":\"failed\",\"cur\":\"0.0.1\",\"next\":\"0.0.2\",\"status\":\"最后手段安装失败，请选择「重试」。\",\"fail\":\"失败 install-failed：安装执行失败，详情见诊断摘要\",\"actions\":[\"toggle-details\",\"row-install\",\"toggle-details\"]}],\"summary\":\"1 个插件安装失败；请按下方失败提示逐项重试。\",\"ledger\":\"1 个失败 · 2 个已是最新\",\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":\"0.0.2\",\"dsh-plugin-update-fixture-c\":\"0.0.1\"},\"ledgerC\":{\"state\":\"failed\",\"target\":\"0.0.2\"}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\30-shot.png"
+}

@@ -1,0 +1,44 @@
+{
+  "logSummary": "日志文件 3 个/事件 35 条；条件={\"logFilesPresent\":true,\"installRequest\":true,\"installCall\":true,\"restartNewVersion\":true,\"desktopManagerHost\":true,\"noInstallFailure\":true}",
+  "logVerdict": "pass",
+  "ledgerSummary": "作业状态文件 1 个；队列文件 1 个；completedState=true；queueDrained=true；记录={\"stateFiles\":[{\"requestId\":\"rmw035d7u6xn5q\",\"message\":null,\"id\":\"796f5994-27b4-4f58-b8fb-ce5d913f3752\",\"state\":\"completed\",\"targetVersion\":\"0.0.2\",\"previousVersion\":\"0.0.1\"}],\"queueFiles\":[{\"version\":1,\"owner\":null,\"waiting\":[]}]}",
+  "ledgerVerdict": "pass",
+  "logFiles": [
+    "fxa-a/2026-11-03.log",
+    "fxa-b/2026-11-03.log",
+    "fxa-c/2026-11-03.log"
+  ],
+  "ledgerFiles": [
+    "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\265-20261103T093814-r33\\raw\\ledger-fxa-a-d18a48868a44ac4f6d2b3891-state.json",
+    "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\265-20261103T093814-r33\\raw\\ledger-queue-d18a48868a44ac4f6d2b3891-queue.json"
+  ],
+  "logConditions": {
+    "logFilesPresent": true,
+    "installRequest": true,
+    "installCall": true,
+    "restartNewVersion": true,
+    "desktopManagerHost": true,
+    "noInstallFailure": true
+  },
+  "ledgerFacts": {
+    "stateFiles": [
+      {
+        "requestId": "rmw035d7u6xn5q",
+        "message": null,
+        "id": "796f5994-27b4-4f58-b8fb-ce5d913f3752",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    ],
+    "queueFiles": [
+      {
+        "version": 1,
+        "owner": null,
+        "waiting": []
+      }
+    ],
+    "completedState": true,
+    "queueDrained": true
+  }
+}

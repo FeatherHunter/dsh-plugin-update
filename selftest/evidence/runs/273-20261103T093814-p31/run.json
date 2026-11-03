@@ -1,0 +1,342 @@
+{
+  "schemaVersion": 1,
+  "runId": "273-20261103T093814-p31",
+  "ticket": "273",
+  "scenarioId": "j2-noise-budget",
+  "hostChannel": "dsh-web",
+  "startedAt": "2026-11-03T03:25:28.084Z",
+  "finishedAt": "2026-11-03T03:30:56.191Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:/dsh-plugin/_wt263/t11",
+    "branch": "impl/263-t11",
+    "head": "bd39b57baa10f3c9f128dfd05f66b286d8828045",
+    "hostChannel": "dsh-web"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p31\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "3502f4da6b9116c24b0e67a15a3b8dd96584b24d8a68afbaa273c1681d201efc",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:60106",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 3502f4da6b9116c2…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "08-assert",
+      "step": "隔离口径（通道 B：普通 DSH web 宿主 + 非 desktop profile）",
+      "what": "每个 run 一个仓库外 home；日志根 = <home>/logs（产品自建落点），命名空间目录按插件身份派生",
+      "expected": "homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p31\\os-home\\.dsh；profile=t9j2",
+      "actual": "osHomeDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p31\\os-home；homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p31\\os-home\\.dsh；profile=t9j2",
+      "verdict": "pass"
+    },
+    {
+      "id": "10-assert",
+      "step": "建普通 profile（通道 B 宿主的使用范围）",
+      "what": "用官方发行 CLI 在隔离 home 建普通 DSH 使用范围 t9j2",
+      "expected": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p31\\os-home\\.dsh\\profiles\\t9j2",
+      "actual": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\273-20261103T093814-p31\\os-home\\.dsh\\profiles\\t9j2",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "16-assert",
+      "step": "更新前基版在盘",
+      "what": "隔离 profile 里装着场景声明的基版 0.0.1（日志命名空间随后由它派生）",
+      "expected": "node_modules/dsh-plugin-update-fixture-a 版本=0.0.1",
+      "actual": "磁盘版本=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "18-assert",
+      "step": "变体版本已发布（更新目标）",
+      "what": "本地 verdaccio 发布 dsh-plugin-update-fixture-a@0.0.2；其余席位按场景声明一并发布",
+      "expected": "dsh-plugin-update-fixture-a@0.0.2；variants=[\"a\"]",
+      "actual": "dsh-plugin-update-fixture-a@0.0.2；injected=[]",
+      "verdict": "pass"
+    },
+    {
+      "id": "21-assert",
+      "step": "真 UI 面板挂载（noise-1）",
+      "what": "Playwright 打开 web 宿主页面：夹具卡片与更新面板真出现，面板开始轮询 updateStatus",
+      "expected": ".dsh-upd≥1；[data-fixture]≥1；面板开始轮询 updateStatus",
+      "actual": "counts={\"dshUpd\":1,\"dshUpdLog\":2,\"fixture\":1}；elapsedMs=2",
+      "verdict": "pass",
+      "note": "日志健康卡（.dsh-upd-log）只在面板 04 诊断章节（失败/待重启/可更新等横幅状态）渲染；j3 单独断言该卡，j1 批量后页面不强制。"
+    },
+    {
+      "id": "23-assert",
+      "step": "真 UI 面板挂载（noise-2）",
+      "what": "Playwright 打开 web 宿主页面：夹具卡片与更新面板真出现，面板开始轮询 updateStatus",
+      "expected": ".dsh-upd≥1；[data-fixture]≥1；面板开始轮询 updateStatus",
+      "actual": "counts={\"dshUpd\":1,\"dshUpdLog\":2,\"fixture\":1}；elapsedMs=1",
+      "verdict": "pass",
+      "note": "日志健康卡（.dsh-upd-log）只在面板 04 诊断章节（失败/待重启/可更新等横幅状态）渲染；j3 单独断言该卡，j1 批量后页面不强制。"
+    },
+    {
+      "id": "26-assert",
+      "step": "静置 ≥100 次真 UI 面板轮询：常驻日志零新增（轮询静默、不刷屏）",
+      "what": "两个 Playwright 页面同时开着真面板轮询 updateStatus；窗口内每新增一行都算噪声",
+      "expected": "窗口轮询数≥100；每页≥50；窗口内新增行=0（常驻行=0）",
+      "actual": "窗口轮询数=100（每页 53/52）；新增行=0（常驻=0）",
+      "verdict": "pass"
+    },
+    {
+      "id": "30-assert",
+      "step": "真 UI 点「检查更新」→ 状态真变化，恰一条 update.status.changed（update-available）",
+      "what": "面板点击发出 updateCheck；宿主侧状态从 unknown 变为 update-available 时才落一行边沿事件",
+      "expected": "clicked=true；恰 1 行 kind=update-available；latest=0.0.2",
+      "actual": "clicked=true；行数=1；kind=update-available；latest=0.0.2",
+      "verdict": "pass"
+    },
+    {
+      "id": "32-assert",
+      "step": "同一状态再等 ≥20 次轮询：同指纹事件不重复（边沿触发，不是每轮一行）",
+      "what": "状态不变时轮询不得再落 update.status.changed；指纹 = (kind, latest)",
+      "expected": "状态变化后新增轮询≥20；update-available 行数仍=1",
+      "actual": "新增轮询=20；update-available 行数=1",
+      "verdict": "pass"
+    },
+    {
+      "id": "34-assert",
+      "step": "真 UI 面板如实显示「有新版本 0.0.2」",
+      "what": "状态变化后面板下一次轮询把更新可用横幅渲染出来（UI 与日志同一事实）",
+      "expected": "面板文本含「有新版本」与 0.0.2",
+      "actual": "panelText 片段=\"dsh-plugin-update-fixture-a 使用范围 t9j2profile 有新版本 0.0.2 可安装（当前版本 0.0.1）。 选择安装将按精确版本安装；同一使用范围同时仅安装一项。 运行版 0.0.1 已安装 0.0.1 最新版 0.0.2 01 检查与安装 检查更新 安装版本 0.0.2 跳过该版本 复制手工命令 复制诊断 02 更新日志 更新说明没取到（网络或完整性校验失败）。 03 更新队列 当前无排队任务；同一使用范围同时仅安装一项。 04 错误信息 暂无失败：此时复制诊断提供的是当前状态快照。 请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 dsh-plugin-update-fixture-a 筛选 host.call、host.call.fai\"",
+      "verdict": "pass"
+    },
+    {
+      "id": "37-assert",
+      "step": "全程日志行预算：每命名空间 ≤500 行，无解析失败行",
+      "what": "日志是可长期常驻的产物，行预算与可解析性都属于噪声预算的一部分",
+      "expected": "overBudget=[]；parseFailures=0",
+      "actual": "nsCounts={\"fxa-a\":14,\"fxa-b\":2,\"fxa-c\":2}；totalRows=18；parseFailures=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "39-assert",
+      "step": "收尾：真 UI 页面与 CLI 宿主全部退出，无残留进程/端口",
+      "what": "登记每个宿主的 pid/port 并核对退出；端口释放由 run.close 的 cleanup 复核",
+      "expected": "每个宿主 closed=true；pidAlive=false",
+      "actual": "[{\"label\":\"main\",\"pid\":98452,\"port\":57257,\"closed\":true,\"pidAlive\":false}]",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [
+    {
+      "id": "27-panel-before-check",
+      "what": "点「检查更新」前的真 UI 更新面板（状态未变、面板在每 5s 轮询；日志健康读数同在页面上）",
+      "step": "起通道 B 宿主 → 两个 Playwright 页面打开真面板 → 静置 ≥100 次轮询 → 截 page1 面板",
+      "expected": "面板挂载且不含「有新版本」横幅；页面带日志路牌/健康读数",
+      "actual": "{\"counts\":{\"dshUpd\":1,\"dshUpdLog\":2,\"fixture\":1},\"panelText\":\"dsh-plugin-update-fixture-a 使用范围 t9j2profile 已是最新，无需更新。 运行版 0.0.1 已安装 0.0.1 最新版 未知 01 检查与安装 检查更新 安装更新 复制诊断 02 更新日志 尚未查询到新版本；查询到后将显示更新日志。 03 更新队列 当前无排队任务；同一使用范围同时仅安装一项。 04 错误信息 暂无失败：此时复制诊断提供的是当前状态快照。 请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 dsh-plugin-update-fi\",\"logTexts\":[\"请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 dsh-plugin-update-fixture-a 筛选 host.call、host.call.fail、update.install.exec 事件。\",\"日志：落点=self（本包自建落点）；目录指纹=88eebefd；按需信息开关=关；启动以来丢弃 0 行；最近事件=11/3 11:25；事件契约=正常\"]}",
+      "verdict": "pass",
+      "note": "噪声预算格的视觉证据：此时状态仍是 unknown/latest=null，面板不刷横幅。",
+      "png": "shots\\27-panel-before-check.png",
+      "sidecar": "shots\\27-panel-before-check.json"
+    },
+    {
+      "id": "35-panel-update-available",
+      "what": "点「检查更新」后的真 UI 更新面板：有新版本横幅 + 日志健康读数（同一页）",
+      "step": "真 UI 点「检查更新」→ 等状态落 update-available → 再等 ≥20 次轮询不重复 → 截 page1 面板",
+      "expected": "面板文本含「有新版本」与 0.0.2；日志健康读数仍在",
+      "actual": "{\"counts\":{\"dshUpd\":1,\"dshUpdLog\":2,\"fixture\":1},\"panelText\":\"dsh-plugin-update-fixture-a 使用范围 t9j2profile 有新版本 0.0.2 可安装（当前版本 0.0.1）。 选择安装将按精确版本安装；同一使用范围同时仅安装一项。 运行版 0.0.1 已安装 0.0.1 最新版 0.0.2 01 检查与安装 检查更新 安装版本 0.0.2 跳过该版本 复制手工命令 复制诊断 02 更新日志 更新说明没取到（网络或完整性校验失败）。 03 更新队列 当前无排队任务；同一使用范围同时仅安装一项。 04 错误信息 暂无失败：此时复制诊断提供的是当前状态快照。 请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 dsh-plugin-update-fixture-a 筛选 host.call、host.call.fai\",\"logTexts\":[\"请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 dsh-plugin-update-fixture-a 筛选 host.call、host.call.fail、update.install.exec 事件。\",\"日志：落点=self（本包自建落点）；目录指纹=88eebefd；按需信息开关=关；启动以来丢弃 0 行；最近事件=11/3 11:30；事件契约=正常\"]}",
+      "verdict": "pass",
+      "note": "边沿触发后的视觉证据：横幅是状态变化的 UI 呈现，日志侧恰 1 行 status.changed。",
+      "png": "shots\\35-panel-update-available.png",
+      "sidecar": "shots\\35-panel-update-available.json"
+    }
+  ],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\07-isolation-facts.json"
+    },
+    {
+      "id": "09-profile-create",
+      "name": "profile-create",
+      "file": "raw\\09-profile-create.json"
+    },
+    {
+      "id": "11-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\11-install-baseline.json"
+    },
+    {
+      "id": "13-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\13-sut-installed-dist.json"
+    },
+    {
+      "id": "15-baseline-disk",
+      "name": "baseline-disk",
+      "file": "raw\\15-baseline-disk.json"
+    },
+    {
+      "id": "17-fixture-published-variants",
+      "name": "fixture-published-variants",
+      "file": "raw\\17-fixture-published-variants.json"
+    },
+    {
+      "id": "19-cli-host-launch-main",
+      "name": "cli-host-launch-main",
+      "file": "raw\\19-cli-host-launch-main.json"
+    },
+    {
+      "id": "20-panel-open-noise-1",
+      "name": "panel-open-noise-1",
+      "file": "raw\\20-panel-open-noise-1.json"
+    },
+    {
+      "id": "22-panel-open-noise-2",
+      "name": "panel-open-noise-2",
+      "file": "raw\\22-panel-open-noise-2.json"
+    },
+    {
+      "id": "24-noise-window-start",
+      "name": "noise-window-start",
+      "file": "raw\\24-noise-window-start.json"
+    },
+    {
+      "id": "25-noise-window-end",
+      "name": "noise-window-end",
+      "file": "raw\\25-noise-window-end.json"
+    },
+    {
+      "id": "28-panel-click-check",
+      "name": "panel-click-check",
+      "file": "raw\\28-panel-click-check.json"
+    },
+    {
+      "id": "29-panel-check-result",
+      "name": "panel-check-result",
+      "file": "raw\\29-panel-check-result.json"
+    },
+    {
+      "id": "31-noise-repeat-window",
+      "name": "noise-repeat-window",
+      "file": "raw\\31-noise-repeat-window.json"
+    },
+    {
+      "id": "33-panel-final-text",
+      "name": "panel-final-text",
+      "file": "raw\\33-panel-final-text.json"
+    },
+    {
+      "id": "36-noise-budget-final",
+      "name": "noise-budget-final",
+      "file": "raw\\36-noise-budget-final.json"
+    },
+    {
+      "id": "38-cli-host-close-main",
+      "name": "cli-host-close-main",
+      "file": "raw\\38-cli-host-close-main.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "cli-host-main",
+        "pid": 98452,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "cli-host-main-port",
+        "port": 57257,
+        "released": true
+      },
+      {
+        "label": "registry",
+        "port": 60106,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:60106（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "J 组判读口径：web GUI 没有独立的插件日志查看器；面板面 = 更新面板第 4 章的日志路牌 + 日志健康读数（.dsh-upd-log），事件契约/噪声预算/命名空间都从 <home>/logs 磁盘原始行独立统计；UI 只作「面板看得见、读数与磁盘一致」的证据。"
+    ]
+  },
+  "maintainerProfile": {
+    "homeDir": "C:/Users/辰辰洋洋/.dsh",
+    "before": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "77441cc19d6b8f4dc5026b694b42bbf141097822b8359e208585db4303de34f4",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "after": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "77441cc19d6b8f4dc5026b694b42bbf141097822b8359e208585db4303de34f4",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "unchanged": true
+  },
+  "notes": [
+    "本地 registry：http://127.0.0.1:60106（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "J 组判读口径：web GUI 没有独立的插件日志查看器；面板面 = 更新面板第 4 章的日志路牌 + 日志健康读数（.dsh-upd-log），事件契约/噪声预算/命名空间都从 <home>/logs 磁盘原始行独立统计；UI 只作「面板看得见、读数与磁盘一致」的证据。"
+  ]
+}

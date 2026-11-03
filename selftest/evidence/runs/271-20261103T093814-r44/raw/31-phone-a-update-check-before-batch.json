@@ -1,0 +1,27 @@
+{
+  "status": 200,
+  "durationMs": 21,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.1",
+        "installed": true,
+        "installedVersion": "0.0.1",
+        "latestVersion": "0.0.2",
+        "canInstall": true,
+        "blockedReason": null,
+        "job": null,
+        "identity": "update",
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t7hub add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:57699",
+      "receipt": {
+        "checkId": "19c0457e-b9bf-4d3c-bb1f-6e6a9683c539",
+        "checkedAt": 1793670973906,
+        "expiresAt": 1793671573906
+      }
+    }
+  }
+}

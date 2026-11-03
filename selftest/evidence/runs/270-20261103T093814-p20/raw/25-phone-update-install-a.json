@@ -1,0 +1,32 @@
+{
+  "requestId": "h2-stale-1793669928205",
+  "checkId": "8effdd48-2913-4462-b364-e66dcae47056",
+  "status": 200,
+  "durationMs": 57,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.1",
+        "installed": true,
+        "installedVersion": "0.0.1",
+        "latestVersion": "0.0.2",
+        "canInstall": false,
+        "blockedReason": null,
+        "job": {
+          "id": "5114e4ea-f454-49dc-b6d7-add6d3e9d95b",
+          "state": "installing",
+          "targetVersion": "0.0.2",
+          "message": null,
+          "requestId": "h2-stale-1793669928205",
+          "previousVersion": "0.0.1"
+        },
+        "identity": "update",
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t6lock add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:57684",
+      "receipt": null
+    }
+  }
+}

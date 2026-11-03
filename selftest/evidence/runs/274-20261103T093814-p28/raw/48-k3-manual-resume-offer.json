@@ -1,0 +1,26 @@
+{
+  "more": {
+    "resume": "继续上次未完成的更新（剩余 1 个）。",
+    "resumeTitle": "从上次中断处继续安装，已完成的不会重复安装。",
+    "cancel": "丢弃本批未完成的更新（已完成的将保留）。",
+    "cancelConfirm": "",
+    "cancelDisabled": false,
+    "resumeDisabled": false
+  },
+  "rowC": {
+    "key": "c",
+    "phase": "ready",
+    "queued": false,
+    "busy": false,
+    "title": "夹具 C",
+    "status": "选择「安装此插件」安装 0.0.2",
+    "versionCur": "0.0.1",
+    "versionNew": "0.0.2",
+    "actions": [
+      "toggle-details",
+      "row-install",
+      "toggle-details"
+    ],
+    "fail": null
+  }
+}

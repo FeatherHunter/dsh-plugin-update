@@ -1,0 +1,24 @@
+{
+  "fault": {
+    "kind": "stale-variant",
+    "slotKey": "c"
+  },
+  "injected": [
+    {
+      "slotKey": "c",
+      "kind": "stale-variant",
+      "spec": "dsh-plugin-update-fixture-c@0.0.2"
+    }
+  ],
+  "spec": "dsh-plugin-update-fixture-c@0.0.2",
+  "effect": {
+    "ui": "single",
+    "titleSuffix": "",
+    "hubDock": false,
+    "hostBehavior": null,
+    "seatLine": ""
+  },
+  "oldClientHash": "702b04232df1f4a555693f4ddeb438d4e6eec482ef021d04df9548441a28d306",
+  "newClientHash": "702b04232df1f4a555693f4ddeb438d4e6eec482ef021d04df9548441a28d306",
+  "hasNewTag": false
+}

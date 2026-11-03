@@ -1,0 +1,11 @@
+{
+  "reached": true,
+  "windowPolls": 100,
+  "pollPerPage": [
+    53,
+    52
+  ],
+  "waitElapsedMs": 249599,
+  "newRows": [],
+  "newResidentCount": 0
+}

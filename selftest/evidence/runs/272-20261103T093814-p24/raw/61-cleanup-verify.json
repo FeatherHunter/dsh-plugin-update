@@ -1,0 +1,56 @@
+{
+  "hosts": [
+    {
+      "label": "main",
+      "pid": 57188,
+      "port": 57936,
+      "closed": true
+    },
+    {
+      "label": "unregistered",
+      "pid": 37820,
+      "port": 53640,
+      "closed": true
+    },
+    {
+      "label": "registered",
+      "pid": 69184,
+      "port": 57714,
+      "closed": true
+    }
+  ],
+  "ports": [
+    {
+      "label": "cli-host-main-port",
+      "port": 57936,
+      "released": true
+    },
+    {
+      "label": "cli-host-unregistered-port",
+      "port": 53640,
+      "released": true
+    },
+    {
+      "label": "cli-host-registered-port",
+      "port": 57714,
+      "released": true
+    }
+  ],
+  "leftoverPids": [
+    {
+      "label": "main",
+      "pid": 57188,
+      "alive": false
+    },
+    {
+      "label": "unregistered",
+      "pid": 37820,
+      "alive": false
+    },
+    {
+      "label": "registered",
+      "pid": 69184,
+      "alive": false
+    }
+  ]
+}

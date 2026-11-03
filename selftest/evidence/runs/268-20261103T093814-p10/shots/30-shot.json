@@ -1,0 +1,9 @@
+{
+  "看什么": "A 面板 B 行在超时后显示失败（失败码不是「正在安装」）",
+  "步骤": "D1 超时 UI",
+  "expected": "phase=failed；红字含 install-failed；页面无「正在安装」",
+  "actual": "{\"phase\":\"failed\",\"fail\":\"失败 install-failed：安装执行失败，详情见诊断摘要\",\"status\":\"安装失败，请选择「重试」。\",\"busy\":false}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\30-shot.png"
+}

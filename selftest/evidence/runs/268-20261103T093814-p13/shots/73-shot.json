@@ -1,0 +1,9 @@
+{
+  "看什么": "重试成功后重启的 UI（B 卡片新版标记 + A 面板行）",
+  "步骤": "D4 成功后 UI",
+  "expected": "client v0.0.2",
+  "actual": "{\"cardB\":{\"present\":true,\"key\":\"b\",\"ui\":\"batch\",\"title\":\"夹具 B · 更新演示（批量新版）\",\"clientTag\":\"client v0.0.2\",\"hostTag\":\"host v0.0.2\",\"seatLine\":{\"attr\":\"T4 组 D 注入 20261103T093814-p13\",\"text\":\"T4 组 D 注入 20261103T093814-p13\"},\"behavior\":{\"attr\":\"t4-settlement:20261103T093814-p13\",\"text\":\"宿主行为 t4-settlement:20261103T093814-p13\"},\"dockHost\":\"hub-dock\"},\"rowB\":{\"key\":\"b\",\"phase\":\"current\",\"queued\":false,\"busy\":false,\"title\":\"夹具 B\",\"status\":\"已是最新，无需操作。\",\"versionCur\":\"0.0.2\",\"versionNew\":null,\"actions\":[\"toggle-details\",\"toggle-details\"],\"fail\":null}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\73-shot.png"
+}

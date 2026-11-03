@@ -1,0 +1,10 @@
+{
+  "reason": "k2-after-failure",
+  "gen": 0,
+  "port": 55282,
+  "pid": 66064,
+  "registryUrl": "https://127.0.0.1:57142",
+  "delayMs": null,
+  "proxyRequests": 11,
+  "delayedRequests": 0
+}

@@ -1,0 +1,9 @@
+{
+  "看什么": "A 批量面板与 B/C 卡片的初始形态",
+  "步骤": "基版 UI",
+  "expected": "三行；B/C 0.0.1；面板可见",
+  "actual": "rows=a,b,c；B=client v0.0.1；C=client v0.0.1",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\18-shot.png"
+}

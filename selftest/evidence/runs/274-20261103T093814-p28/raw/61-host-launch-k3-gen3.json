@@ -1,0 +1,13 @@
+{
+  "label": "k3-gen3",
+  "urlMasked": "http://127.0.0.1:51285/?token=***",
+  "port": 51285,
+  "bootMs": 1854,
+  "registryUrl": "https://127.0.0.1:55525",
+  "tlsFrontPort": 55525,
+  "certSha256": "15e6417ff2344c5caab8a8297697d256758a393d81c6aecb48695871087ce989",
+  "delayMs": null,
+  "requestsFrom": 35,
+  "stdoutTail": "dsh web: http://127.0.0.1:51285/?token=eUBf7Bwz_muPWl_d3Y9_4BJnjrzsIcmjJ3xQMD4ZfOI\n",
+  "stderrTail": ""
+}

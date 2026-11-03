@@ -1,0 +1,57 @@
+{
+  "check": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "reply": {
+        "ok": true,
+        "snapshot": {
+          "runningVersion": "0.0.1",
+          "installed": true,
+          "installedVersion": "0.0.1",
+          "latestVersion": "0.0.2",
+          "canInstall": true,
+          "blockedReason": null,
+          "job": null,
+          "identity": "update",
+          "registered": true
+        },
+        "manual": "dsh plugin --profile t9j1c add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:55747",
+        "receipt": {
+          "checkId": "7a7b1761-b8a7-4a1e-84b8-c9e060046704",
+          "checkedAt": 1793670633360,
+          "expiresAt": 1793671233360
+        }
+      }
+    }
+  },
+  "install": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "reply": {
+        "ok": true,
+        "snapshot": {
+          "runningVersion": "0.0.1",
+          "installed": true,
+          "installedVersion": "0.0.1",
+          "latestVersion": "0.0.2",
+          "canInstall": false,
+          "blockedReason": null,
+          "job": {
+            "id": "ef0fc7bb-2b1b-4ded-8f5b-8aa745a934e3",
+            "state": "installing",
+            "targetVersion": "0.0.2",
+            "message": null,
+            "requestId": "can-red-1793670633365",
+            "previousVersion": "0.0.1"
+          },
+          "identity": "update",
+          "registered": true
+        },
+        "manual": "dsh plugin --profile t9j1c add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:55747",
+        "receipt": null
+      }
+    }
+  }
+}

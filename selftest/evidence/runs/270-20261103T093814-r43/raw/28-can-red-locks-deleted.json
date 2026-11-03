@@ -1,0 +1,12 @@
+{
+  "deleteAt": 1793670639620,
+  "deleted": [
+    "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-r43\\os-home\\.dsh\\update-queue\\75c1bf695ca3d76c4beaec02\\global.lock",
+    "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-r43\\os-home\\.dsh\\updates\\fxa-a\\75c1bf695ca3d76c4beaec02\\install.lock"
+  ],
+  "globalRawBeforeDelete": "{\"id\":\"4a2a21ab-52ca-41d8-a2f9-5fac545139ad\",\"pluginId\":\"fxa-a\",\"pid\":84784,\"startedAt\":1793670639585}",
+  "baseRawBeforeDelete": "{\"id\":\"4a2a21ab-52ca-41d8-a2f9-5fac545139ad\",\"pid\":84784,\"startedAt\":1793670639587}",
+  "queueRawBefore": "{\n  \"version\": 1,\n  \"owner\": {\n    \"pluginId\": \"fxa-a\",\n    \"jobId\": \"4a2a21ab-52ca-41d8-a2f9-5fac545139ad\",\n    \"requestId\": \"h1-red-a-1793670639576\",\n    \"targetVersion\": \"0.0.2\",\n    \"startedAt\": 1793670639597\n  },\n  \"waiting\": []\n}\n",
+  "queueRawAfter": "{\n  \"version\": 1,\n  \"owner\": null,\n  \"waiting\": []\n}\n",
+  "why": "can-red 注入：入口 1 持锁安装中，删除 global.lock + install.lock 并把 queue.json 置空（锁与队列状态一起丢失），看第二入口是否越过互斥（预期红）"
+}

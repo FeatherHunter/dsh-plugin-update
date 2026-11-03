@@ -1,0 +1,29 @@
+{
+  "startedHosts": [
+    {
+      "label": "host1",
+      "pid": 58196,
+      "port": 55627,
+      "closed": true
+    },
+    {
+      "label": "host2",
+      "pid": 77924,
+      "port": 57293,
+      "closed": true
+    }
+  ],
+  "remainingPids": [],
+  "portChecks": [
+    {
+      "label": "host1",
+      "port": 55627,
+      "free": true
+    },
+    {
+      "label": "host2",
+      "port": 57293,
+      "free": true
+    }
+  ]
+}

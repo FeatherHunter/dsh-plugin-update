@@ -1,0 +1,35 @@
+{
+  "baselineRows": 9,
+  "baselinePerNs": {
+    "fxa-a": 5,
+    "fxa-b": 2,
+    "fxa-c": 2
+  },
+  "windowStartPoll": 5,
+  "pollPerPage": [
+    3,
+    2
+  ],
+  "pollSample": [
+    [
+      {
+        "t": 1793676342298,
+        "body": "{\"phone\":\"fxa-a.updateStatus\",\"args\":{\"includeQueue\":true,\"includeEnv\":true,\"showOthers\":false}}"
+      },
+      {
+        "t": 1793676347291,
+        "body": "{\"phone\":\"fxa-a.updateStatus\",\"args\":{\"includeQueue\":true,\"includeEnv\":true,\"showOthers\":false}}"
+      }
+    ],
+    [
+      {
+        "t": 1793676344364,
+        "body": "{\"phone\":\"fxa-a.updateStatus\",\"args\":{\"includeQueue\":true,\"includeEnv\":true,\"showOthers\":false}}"
+      },
+      {
+        "t": 1793676349355,
+        "body": "{\"phone\":\"fxa-a.updateStatus\",\"args\":{\"includeQueue\":true,\"includeEnv\":true,\"showOthers\":false}}"
+      }
+    ]
+  ]
+}

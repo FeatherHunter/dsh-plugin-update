@@ -1,0 +1,9 @@
+{
+  "看什么": "官方桌面（本机唯一桌面宿主）里装着夹具，更新面板真的渲染出来——出口二通道活着的证据",
+  "步骤": "本机唯一桌面宿主里的更新面板",
+  "expected": "面板 present=true、seal=ready、卡片显示 client v0.0.1",
+  "actual": "present=true；seal=已是最新；clientTag=client v0.0.1",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\20-shot.png"
+}

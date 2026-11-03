@@ -1,0 +1,7 @@
+{
+  "osHomeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p07\\os-home",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p07\\os-home\\.dsh",
+  "profileName": "t3cli",
+  "why": "产品 spawn 的 CLI 子进程走 scrubbedParentEnv，DSH_* 全被剥掉、按 homedir()/.dsh 解析 home；宿主 homeDir 因此必须正好等于 USERPROFILE/.dsh，否则安装落到默认 home（T3 探针实测）",
+  "maintainerHomeUntouched": true
+}

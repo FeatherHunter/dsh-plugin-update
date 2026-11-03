@@ -1,0 +1,13 @@
+{
+  "osHomeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p28\\os-home",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p28\\os-home\\.dsh",
+  "profileName": "t10ui",
+  "pnpmStoreDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p28\\pnpm-store",
+  "pnpmCacheDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p28\\pnpm-cache",
+  "npmCacheDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p28\\npm-cache",
+  "registryUrl": "https://127.0.0.1:55525",
+  "upstreamRegistryUrl": "http://127.0.0.1:51872",
+  "playwrightDir": "D:/dsh-plugin/dsh-mattpocock-skills-deck/node_modules/playwright",
+  "node": "v24.19.0",
+  "platform": "win32"
+}

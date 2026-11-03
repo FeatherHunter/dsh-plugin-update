@@ -1,0 +1,9 @@
+{
+  "看什么": "can-red 现场：台账说 0.0.2，B 卡片 buildTag 应为旧版（本条预期 fail）",
+  "步骤": "D4 can-red 成功诚实性（预期红）",
+  "expected": "client v0.0.2",
+  "actual": "{\"cardB\":{\"present\":true,\"key\":\"b\",\"ui\":\"single\",\"title\":\"夹具 B · 更新演示\",\"clientTag\":\"client v0.0.1\",\"hostTag\":\"host v0.0.1\",\"seatLine\":{\"attr\":\"none\",\"text\":\"单席位集成方（无批量席位行）\"},\"behavior\":{\"attr\":\"none\",\"text\":\"宿主行为 无（v1）\"},\"dockHost\":null},\"rowB\":{\"key\":\"b\",\"phase\":\"current\",\"queued\":false,\"busy\":false,\"title\":\"夹具 B\",\"status\":\"已是最新，无需操作。\",\"versionCur\":\"0.0.2\",\"versionNew\":null,\"actions\":[\"toggle-details\",\"toggle-details\"],\"fail\":null}}",
+  "判定": "fail",
+  "备注": null,
+  "截图": "shots\\74-shot.png"
+}

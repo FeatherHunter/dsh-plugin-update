@@ -1,0 +1,9 @@
+{
+  "source": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p09\\home\\logs\\fxa-a\\2026-11-03.log",
+  "bytes": 931,
+  "characters": 931,
+  "truncated": false,
+  "keptCharacters": 931,
+  "tailFile": null,
+  "content": "{\"v\":3,\"ts\":1793671357176,\"level\":\"info\",\"event\":\"host.start\",\"fields\":{\"pid\":97340,\"startedAt\":\"2026-11-03T02:02:37.174Z\",\"dir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t11-275\\\\267-20261103T093814-p09\\\\home\\\\logs\",\"pluginVersion\":\"0.18.39\",\"os\":\"win32\"}}\n{\"v\":3,\"ts\":1793671357177,\"level\":\"info\",\"event\":\"update.wire.ready\",\"fields\":{\"logSink\":\"self\",\"logDirHash\":\"5485dfec\",\"updaterVersion\":\"0.18.39\",\"copyLevel\":\"profile\",\"hostKind\":\"desktop-manager\"}}\n{\"v\":3,\"ts\":1793671359531,\"level\":\"info\",\"event\":\"update.status.changed\",\"fields\":{\"kind\":\"unknown\",\"latest\":null,\"runningVersion\":\"0.0.1\",\"installedVersion\":\"0.0.1\",\"registered\":true,\"identity\":\"unknown\",\"blockedReason\":\"none\",\"unknownCause\":\"no-latest\",\"traceId\":\"3819adc5bb708b58\",\"spanId\":\"1e5611bf\",\"seq\":0}}\n{\"v\":3,\"ts\":1793671360112,\"level\":\"info\",\"event\":\"update.panel.mount\",\"fields\":{\"mode\":\"embedded\",\"theme\":\"default\",\"lang\":\"zh\",\"pollMs\":5000,\"autoCheck\":\"disabled\"}}\n"
+}

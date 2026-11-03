@@ -1,0 +1,21 @@
+{
+  "repeatPolls": 20,
+  "repeatRows": [
+    {
+      "ts": 1793676602654,
+      "fields": {
+        "kind": "update-available",
+        "latest": "0.0.2",
+        "runningVersion": "0.0.1",
+        "installedVersion": "0.0.1",
+        "registered": true,
+        "identity": "update",
+        "blockedReason": "none",
+        "traceId": "35b1647df4d0162f",
+        "spanId": "d323ef31",
+        "seq": 0
+      }
+    }
+  ],
+  "reached": true
+}

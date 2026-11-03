@@ -1,0 +1,29 @@
+{
+  "scenarioId": "c-pure-target-no-wiring",
+  "specs": [
+    "dsh-plugin-update-fixture-a@0.0.1",
+    "dsh-plugin-update-fixture-c@0.0.1"
+  ],
+  "effects": [
+    {
+      "slotKey": "a",
+      "effect": {
+        "ui": "batch",
+        "titleSuffix": "",
+        "hubDock": false,
+        "hostBehavior": null,
+        "seatLine": "批量席位 fxa · 自键 a · 目标 a/b/c"
+      }
+    },
+    {
+      "slotKey": "c",
+      "effect": {
+        "ui": "batch",
+        "titleSuffix": "",
+        "hubDock": false,
+        "hostBehavior": null,
+        "seatLine": ""
+      }
+    }
+  ]
+}

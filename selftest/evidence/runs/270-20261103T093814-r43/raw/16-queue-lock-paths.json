@@ -1,0 +1,11 @@
+{
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-r43\\os-home\\.dsh",
+  "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-r43\\os-home\\.dsh\\profiles\\t6lock",
+  "queueDirectory": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-r43\\os-home\\.dsh\\update-queue\\75c1bf695ca3d76c4beaec02",
+  "queueFile": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-r43\\os-home\\.dsh\\update-queue\\75c1bf695ca3d76c4beaec02\\queue.json",
+  "globalLockFile": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-r43\\os-home\\.dsh\\update-queue\\75c1bf695ca3d76c4beaec02\\global.lock",
+  "baseLockFile": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-r43\\os-home\\.dsh\\updates\\fxa-a\\75c1bf695ca3d76c4beaec02\\install.lock",
+  "stateFile": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\270-20261103T093814-r43\\os-home\\.dsh\\updates\\fxa-a\\75c1bf695ca3d76c4beaec02\\state.json",
+  "shortHashOfProfileDir": "75c1bf695ca3d76c4beaec02",
+  "why": "两个宿主进程按产品 queuePathsForUpdate(homeDir, profileDir) 解析，profileDir 相同 => 队列目录/global.lock 相同"
+}

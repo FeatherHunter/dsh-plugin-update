@@ -199,3 +199,44 @@ node selftest/real-machine/tools/run-a-main-chain.ts \
 ```
 
 （端口动态选空闲端口，runId 自动取本地时间。每个 run 的 index.md 末尾也会打印它自己从零复跑的那一行。）
+
+## 11. 全量 suite 证据（编排器 run-all.ts，T11/#275）
+
+单场景 run 回答「这条场景是否可信」；全量 suite 回答「整套矩阵现在是什么状态」。suite 由
+`selftest/real-machine/tools/run-all.ts` 编排，它不实现断言，只 spawn 上文的单场景工具。
+
+- 目录：`runs/<stamp>-full/{run.json,index.md,raw/}`。每个被编排的场景仍落在自己的
+  `runs/<ticket>-<stamp局部>` 目录（§1 契约不变），suite 的 `scenarios[].evidencePath` 指过去。
+- suite `run.json`（schemaVersion=1、kind=`full-matrix-suite`）顶层：
+  `verdict/exitCode`（按四态聚合，规则同 §2）、`scenarios[]`（每项含 scenarioId、runId、verdict、
+  outcome、assertions 计数、shots、durationMs、evidencePath、isHistorical）、`isolationFacts`
+  （pnpm/npm 缓存根、每场景独立 registry、Playwright 目录）、`knownRedLedger`（账本终账与本轮观察）、
+  `cleanup`、`notes`。`isHistorical=false` 表示本轮重跑；历史定稿 run 只是对照，不并入本轮判定。
+- can-red：`scenarios[]` 里 kind=`can-red` 的 run 必须『verdict=fail 且红断言集合 ⊆ 该组历史 fail run
+  的红断言集合』；pass/known-red 记为 `can-red-unexpected-pass`，红断言超集记 `can-red-mismatch`，两者都按 fail 算。
+  `expectedRedIds` 从历史 run 的 run.json 自动读取，不手抄。
+- 编号漂移：场景增删断言会让历史红断言编号移动（同一条断言 40-assert → 41-assert）。编排器除编号外还读历史红断言的
+  `assertion.step`（断言语义步骤）比对：仅靠 step 命中时记 note『can-red 断言编号漂移：历史 … → 本轮 …』，
+  `index.md` 的期望列追加『（本轮编号漂移，按步骤语义匹配）』；不在历史集合里的多余红断言仍判 `can-red-mismatch`。
+  这样既不放宽语义，也不因序号移动误报。
+- known-red 只允许 `selftest/evidence/known-red.md` 已登记场景以 known-red 收尾；账本外的 known-red 按 fail 算。
+  blocked/超时/无 run.json 一律映射 unknown（永不算通过）。
+- 退出码：`0` = 全 pass（或仅账本内 known-red）；`1` = 有 fail/unknown/期望失败未达成；`2` = 编排器自身 blocked。
+- 隔离：每个 run 私有 pnpm/npm 缓存（`pnpm_config_cache_dir/npm_config_cache/npm_config_store_dir` 指向
+  `<run-base-dir>/_pkgcache/<ticket>-<stamp>`；共享缓存键含 registry origin+端口，复用会命中旧 packument 假红）；
+  每个场景独立 verdaccio/端口；官方桌面通道串行单实例，dsh-web 通道默认 3 并发；k/j 组 UI 场景的 Playwright
+  经 `DSH_VERIFY_PLAYWRIGHT` 注入（仓库外已装，不进 package.json）；维护者 profile 只读核对。
+- 续跑：同一 `--stamp` 重跑会复用 `<stamp>-full` 与已完成记录、补跑未完成/blocked/unknown；`--rerun` 表示
+  『不跳过已完成、按计划重跑』，**不重置聚合记录**（`--only` 部分重跑不会清掉其它记录）。执行前编排器会先删自己
+  上一轮那个运行目录——复用旧目录会让 verdaccio 存储残留上一轮 tarball（同版本 publish exit 1），新旧 raw 也会混。
+- 聚合记录抢救：`--rebuild-state` 是事故恢复模式，只从已定稿单场景证据（`runs/<runId>/run.json` + 编排
+  `raw/<key>.log` 的 `[exit]` 行）补回缺失的聚合记录，**不跑真机**；记录备注写明数据源，`index.md` 的结论表有
+  『记录来源』行、证据链接带『（证据重建）』标记，结论表下方也有说明。可重复执行（幂等）。
+- Web 通道 E/F/G/H/I/J 组多数 `shots=0`：证据力来自断言与 `raw/*.json`（电话回执、台账/队列/日志、宿主进程状态），
+  suite 的 `index.md` 有专段列出这些 run，避免把『没有截图』误读成『没有证据』。
+
+```powershell
+cd D:/dsh-plugin/_wt263/t11
+$stamp = Get-Date -Format 'yyyyMMddTHHmmss'
+node selftest/real-machine/tools/run-all.ts --worktree D:/dsh-plugin/_wt263/t11 --run-base-dir D:/dsh-plugin/_wt263/runtime/t11-275 --stamp $stamp
+```

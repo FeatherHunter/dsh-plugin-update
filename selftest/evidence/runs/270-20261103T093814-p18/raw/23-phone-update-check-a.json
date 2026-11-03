@@ -1,0 +1,27 @@
+{
+  "status": 200,
+  "durationMs": 32,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.1",
+        "installed": true,
+        "installedVersion": "0.0.1",
+        "latestVersion": "0.0.2",
+        "canInstall": true,
+        "blockedReason": null,
+        "job": null,
+        "identity": "update",
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t6lock add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:57659",
+      "receipt": {
+        "checkId": "85b3b5dd-15ca-4fbe-bf77-2d56fe79eeb4",
+        "checkedAt": 1793669927918,
+        "expiresAt": 1793670527918
+      }
+    }
+  }
+}

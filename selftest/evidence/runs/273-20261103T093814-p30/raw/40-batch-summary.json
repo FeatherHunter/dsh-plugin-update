@@ -1,0 +1,20 @@
+{
+  "matched": true,
+  "rows": [
+    {
+      "ts": 1793670125620,
+      "ns": "fxa-a",
+      "fields": {
+        "total": 3,
+        "ok": 1,
+        "failed": 2,
+        "skipped": 0,
+        "durationMs": 13061,
+        "sessionAgeMs": 13062,
+        "resumed": false,
+        "sessionHash": "9fa0a31b",
+        "stoppedBecause": "finished"
+      }
+    }
+  ]
+}

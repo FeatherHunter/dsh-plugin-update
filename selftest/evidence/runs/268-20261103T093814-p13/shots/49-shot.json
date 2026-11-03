@@ -1,0 +1,9 @@
+{
+  "看什么": "重启后台账仍 failed、B 行不谎称更新中/已完成（包被移除时按磁盘投影为未安装可装）",
+  "步骤": "D3 重启后如实展示",
+  "expected": "B 行非 done/current/installing、不显示「已是最新/安装完成」；页面无「正在安装」",
+  "actual": "{\"rowB\":{\"key\":\"b\",\"phase\":\"ready\",\"queued\":false,\"busy\":false,\"title\":\"夹具 B\",\"status\":\"选择「安装此插件」安装 0.0.2\",\"versionCur\":\"未安装\",\"versionNew\":\"0.0.2\",\"actions\":[\"toggle-details\",\"row-install\",\"toggle-details\"],\"fail\":null},\"rowHonest\":true}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\49-shot.png"
+}

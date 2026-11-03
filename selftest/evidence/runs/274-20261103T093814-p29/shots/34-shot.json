@@ -1,0 +1,9 @@
+{
+  "看什么": "重启后续跑入口：A/B 已完成（0.0.2），C 的失败行被自动检查对账成 ready，「继续上次未完成的更新」按钮出现；双闸下没有自动续跑",
+  "步骤": "k4-20-resume-offer",
+  "expected": "resume 文案「继续上次未完成的更新（剩余 n 个）。」、title「从上次中断处继续安装，已完成的不会重复安装。」、cancel「丢弃本批未完成的更新（已完成的将保留）。」、data-confirm 初始为空；A/B 行终态 0.0.2；C 行 ready、versionNew=0.0.2",
+  "actual": "{\"more\":{\"resume\":\"继续上次未完成的更新（剩余 1 个）。\",\"resumeTitle\":\"从上次中断处继续安装，已完成的不会重复安装。\",\"cancel\":\"丢弃本批未完成的更新（已完成的将保留）。\",\"cancelConfirm\":\"\",\"cancelDisabled\":false,\"resumeDisabled\":false},\"rows\":[{\"key\":\"a\",\"phase\":\"current\",\"cur\":\"0.0.2\",\"next\":null},{\"key\":\"b\",\"phase\":\"current\",\"cur\":\"0.0.2\",\"next\":null},{\"key\":\"c\",\"phase\":\"ready\",\"cur\":\"0.0.1\",\"next\":\"0.0.2\"}],\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":\"0.0.2\",\"dsh-plugin-update-fixture-c\":\"0.0.1\"}}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\34-shot.png"
+}

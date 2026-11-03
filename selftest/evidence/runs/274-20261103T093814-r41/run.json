@@ -1,0 +1,289 @@
+{
+  "schemaVersion": 1,
+  "runId": "274-20261103T093814-r41",
+  "ticket": "274",
+  "scenarioId": "k-single-panel-happy",
+  "hostChannel": "dsh-web",
+  "startedAt": "2026-11-03T01:49:35.922Z",
+  "finishedAt": "2026-11-03T01:50:26.051Z",
+  "verdict": "fail",
+  "exitCode": 1,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:/dsh-plugin/_wt263/t11",
+    "branch": "impl/263-t11",
+    "head": "bd39b57baa10f3c9f128dfd05f66b286d8828045",
+    "hostChannel": "dsh-web"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-r41\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "3502f4da6b9116c24b0e67a15a3b8dd96584b24d8a68afbaa273c1681d201efc",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:53302",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 3502f4da6b9116c2…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "10-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "13-assert",
+      "step": "setup-sut",
+      "what": "通道 B profile 里装的 SUT 与工作树构建一致",
+      "expected": "installed distDigest === worktree distDigest",
+      "actual": "true",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "setup-base-disk",
+      "what": "基版安装后磁盘版本与声明一致",
+      "expected": "{\"dsh-plugin-update-fixture-a\":\"0.0.1\"}",
+      "actual": "dsh-plugin-update-fixture-a=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "18-assert",
+      "step": "can-red-01-before-patch",
+      "what": "注入前基线：横幅原文精确匹配（证明断言在未改动时是绿的）",
+      "expected": "标题精确等于「已是最新，无需更新。」",
+      "actual": "{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "21-assert",
+      "step": "can-red-02-patch-applied",
+      "what": "注入：run 私有 home 已装包 client bundle 的横幅文案被追加 RED（只动磁盘副本）",
+      "expected": "occurrences>=1、sha256 前后不同",
+      "actual": "{\"file\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t11-275\\\\274-20261103T093814-r41\\\\os-home\\\\.dsh\\\\profiles\\\\t10ui\\\\node_modules\\\\dsh-plugin-update-fixture-a\\\\lib\\\\client.js\",\"occurrences\":2,\"escapedNeedle\":\"\\\\u5DF2\\\\u662F\\\\u6700\\\\u65B0\\\\uFF0C\\\\u65E0\\\\u9700\\\\u66F4\\\\u65B0\\\\u3002\",\"charsBefore\":435034,\"charsAfter\":435040,\"sha256Before\":\"1a3a42bfe7d95a625765d290745aba39a1c511cf9f8089802526f03cc4545c1b\",\"sha256After\":\"c7dc017cc9e4b814d95d9b2082586e4e36827c31a498eef049406f1ed38183f1\",\"changed\":true}",
+      "verdict": "pass"
+    },
+    {
+      "id": "24-assert",
+      "step": "can-red-03-banner-exact",
+      "what": "精确原文断言（真红点）：注入后实际渲染带 RED",
+      "expected": "标题精确等于「已是最新，无需更新。」",
+      "actual": "{\"title\":\"已是最新，无需更新。RED\"}",
+      "verdict": "fail"
+    }
+  ],
+  "shots": [
+    {
+      "id": "17-shot",
+      "step": "can-red-10-before-patch",
+      "what": "注入前对照：真 UI 装完 0.0.2 后面板横幅原文",
+      "expected": "横幅标题精确等于「已是最新，无需更新。」",
+      "actual": "{\"kind\":\"done\",\"title\":\"已是最新，无需更新。\",\"sub\":\"\"}",
+      "verdict": "pass",
+      "png": "shots\\17-shot.png",
+      "sidecar": "shots\\17-shot.json"
+    },
+    {
+      "id": "23-shot",
+      "step": "can-red-50-after-patch",
+      "what": "注入重启后：精确原文断言（可证伪点：若断言只做 includes 或没比对原文，这一格会假绿）",
+      "expected": "横幅标题精确等于「已是最新，无需更新。」",
+      "actual": "{\"title\":\"已是最新，无需更新。RED\",\"banner\":{\"kind\":\"done\",\"title\":\"已是最新，无需更新。RED\",\"sub\":\"\"}}",
+      "verdict": "fail",
+      "png": "shots\\23-shot.png",
+      "sidecar": "shots\\23-shot.json"
+    }
+  ],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-tls-registry-front",
+      "name": "tls-registry-front",
+      "file": "raw\\07-tls-registry-front.json"
+    },
+    {
+      "id": "08-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\08-isolation-facts.json"
+    },
+    {
+      "id": "09-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\09-install-baseline.json"
+    },
+    {
+      "id": "11-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\11-sut-installed-dist.json"
+    },
+    {
+      "id": "15-fixture-publication",
+      "name": "fixture-publication",
+      "file": "raw\\15-fixture-publication.json"
+    },
+    {
+      "id": "16-host-launch-can-red-gen1",
+      "name": "host-launch-can-red-gen1",
+      "file": "raw\\16-host-launch-can-red-gen1.json"
+    },
+    {
+      "id": "19-host-stop-0",
+      "name": "host-stop-0",
+      "file": "raw\\19-host-stop-0.json"
+    },
+    {
+      "id": "20-can-red-patch",
+      "name": "can-red-patch",
+      "file": "raw\\20-can-red-patch.json"
+    },
+    {
+      "id": "22-host-launch-can-red-gen2",
+      "name": "host-launch-can-red-gen2",
+      "file": "raw\\22-host-launch-can-red-gen2.json"
+    },
+    {
+      "id": "25-host-stop-1",
+      "name": "host-stop-1",
+      "file": "raw\\25-host-stop-1.json"
+    },
+    {
+      "id": "26-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\26-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "27-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\27-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "28-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\28-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "29-cleanup-log-files",
+      "name": "cleanup-log-files",
+      "file": "raw\\29-cleanup-log-files.json"
+    },
+    {
+      "id": "30-tls-front-stop",
+      "name": "tls-front-stop",
+      "file": "raw\\30-tls-front-stop.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "can-red-gen1-host",
+        "pid": 40432,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "can-red-gen2-host",
+        "pid": 65036,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "tls-registry-front",
+        "port": 51693,
+        "released": false
+      },
+      {
+        "label": "can-red-gen1-host-port",
+        "port": 56912,
+        "released": false
+      },
+      {
+        "label": "can-red-gen2-host-port",
+        "port": 60212,
+        "released": false
+      },
+      {
+        "label": "registry",
+        "port": 53302,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:53302（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "宿主 can-red-gen1 已起：port=56912，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:51693）",
+      "宿主 can-red-gen2 已起：port=60212，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:51693）"
+    ]
+  },
+  "maintainerProfile": {
+    "homeDir": "C:/Users/辰辰洋洋/.dsh",
+    "before": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "77441cc19d6b8f4dc5026b694b42bbf141097822b8359e208585db4303de34f4",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "after": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "77441cc19d6b8f4dc5026b694b42bbf141097822b8359e208585db4303de34f4",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "unchanged": true
+  },
+  "notes": [
+    "本地 registry：http://127.0.0.1:53302（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "宿主 can-red-gen1 已起：port=56912，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:51693）",
+    "宿主 can-red-gen2 已起：port=60212，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright（registry=https://127.0.0.1:51693）"
+  ]
+}

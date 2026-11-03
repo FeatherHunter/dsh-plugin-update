@@ -1,0 +1,9 @@
+{
+  "看什么": "续跑完成：C 行转 done/current，失败横幅消失，三行 0.0.2；总账/台账与磁盘一致",
+  "步骤": "k3-50-after-resume",
+  "expected": "三行 done/current 0.0.2；summary 含「已全部为最新」或「个已安装完成」；ledger 含「3 个已是最新」或「3 个待重启」；磁盘三包 0.0.2；C 台账成功终态；notice 含「已继续上次未完成的更新」",
+  "actual": "{\"rows\":[{\"key\":\"a\",\"phase\":\"current\",\"cur\":\"0.0.2\"},{\"key\":\"b\",\"phase\":\"current\",\"cur\":\"0.0.2\"},{\"key\":\"c\",\"phase\":\"done\",\"cur\":\"0.0.2\"}],\"summary\":\"已全部为最新，无需操作。\",\"ledger\":\"3 个已是最新\",\"disk\":{\"dsh-plugin-update-fixture-a\":\"0.0.2\",\"dsh-plugin-update-fixture-b\":\"0.0.2\",\"dsh-plugin-update-fixture-c\":\"0.0.2\"},\"ledgerC\":{\"state\":\"completed\",\"target\":\"0.0.2\"},\"notice\":\"已继续上次未完成的更新（剩余 0 个）。\",\"failed\":null}",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\51-shot.png"
+}

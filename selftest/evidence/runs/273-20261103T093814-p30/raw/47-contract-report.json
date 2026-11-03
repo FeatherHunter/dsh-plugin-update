@@ -1,0 +1,10 @@
+{
+  "manifestPath": "D:\\dsh-plugin\\_wt263\\t11\\event-list.update.json",
+  "contract": {
+    "checkedRows": 84,
+    "unknownEvents": [],
+    "levelMismatches": [],
+    "fieldViolations": [],
+    "enumViolations": []
+  }
+}

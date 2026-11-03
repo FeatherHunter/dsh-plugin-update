@@ -1,0 +1,20 @@
+{
+  "diskVersion": "0.0.2",
+  "dependency": "0.0.2",
+  "manifest": {
+    "name": "dsh-profile-desktop",
+    "private": true,
+    "dsh": {
+      "profile": {
+        "bundles": [
+          "@deepseek-ai/dsh-base",
+          "@deepseek-ai/dsh-web-app",
+          "dsh-plugin-update-fixture-a"
+        ]
+      }
+    },
+    "dependencies": {
+      "dsh-plugin-update-fixture-a": "0.0.2"
+    }
+  }
+}

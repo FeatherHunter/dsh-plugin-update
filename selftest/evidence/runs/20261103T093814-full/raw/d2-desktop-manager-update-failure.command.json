@@ -1,0 +1,22 @@
+{
+  "key": "d2-desktop-manager-update-failure",
+  "kind": "pass",
+  "scenarioId": "d2-desktop-manager-update-failure",
+  "ticket": "267",
+  "hostChannel": "desktop-official",
+  "tool": "run-d-desktop-manager",
+  "mode": "failure",
+  "fault": null,
+  "stamp": "20261103T093814-p05",
+  "runId": "267-20261103T093814-p05",
+  "command": "node D:\\dsh-plugin\\_wt263\\t11\\selftest\\real-machine\\tools\\run-d-desktop-manager.ts --worktree D:/dsh-plugin/_wt263/t11 --run-base-dir D:/dsh-plugin/_wt263/runtime/t11-275 --verdaccio-install-dir D:/dsh-plugin/_wt263/runtime/tools/verdaccio --esbuild D:\\dsh-plugin\\_wt263\\t11\\node_modules\\@esbuild\\win32-x64\\esbuild.exe --stamp 20261103T093814-p05 --maintainer-home C:/Users/辰辰洋洋/.dsh --mode failure",
+  "cwd": "D:/dsh-plugin/_wt263/t11",
+  "env": {
+    "pnpm_config_cache_dir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\_pkgcache\\267-20261103T093814-p05",
+    "npm_config_cache": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\_pkgcache\\267-20261103T093814-p05",
+    "npm_config_store_dir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\_pkgcache\\267-20261103T093814-p05",
+    "DSH_VERIFY_PLAYWRIGHT": "D:/dsh-plugin/dsh-mattpocock-skills-deck/node_modules/playwright"
+  },
+  "timeoutMs": 1800000,
+  "evidenceSync": true
+}

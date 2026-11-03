@@ -1,0 +1,15 @@
+{
+  "fault": null,
+  "injected": [],
+  "spec": "dsh-plugin-update-fixture-c@0.0.2",
+  "effect": {
+    "ui": "batch",
+    "titleSuffix": "（新版）",
+    "hubDock": false,
+    "hostBehavior": null,
+    "seatLine": ""
+  },
+  "oldClientHash": "702b04232df1f4a555693f4ddeb438d4e6eec482ef021d04df9548441a28d306",
+  "newClientHash": "22caabb86a7b8d3b8afedbddbbd1cc443c160817d5bb3096c6c19022939b5583",
+  "hasNewTag": true
+}

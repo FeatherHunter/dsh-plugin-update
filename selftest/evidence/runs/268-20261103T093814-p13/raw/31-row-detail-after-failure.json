@@ -1,0 +1,10 @@
+{
+  "text": "fxa-b\n使用范围 desktopprofile\n更新失败（install-failed）：安装执行失败，详情见诊断摘要。\n请查阅诊断摘要；官方桌面版请提交该诊断信息至插件作者\n运行版\n未知\n已安装\n未安装\n最新版\n未知\n重试检查更新复制诊断\n01\n检查与安装\n02\n更新日志\n尚未查询到新版本；查询到后将显示更新日志。\n03\n更新队列\n当前无排队任务；同一使用范围同时仅安装一项。\n04\n错误信息\n稳定码 install-failed：上方中文说明即需执行的操作；如需向上游反馈，请使用「复制诊断」整段粘贴（已脱敏）。\n请查看日志：<DSH_HOME>/logs/<derived>（一个插件一棵目录，互不覆盖）。一条命令看：npx dsh-log <log-dir>；按插件标识 fxa-b 筛选 host.call、host.call.fail、update.install.exec 事件。\n05\n手工命令\n当前没有可用的手工命令。读不到正在运行的版本号，无法保证给出的命令不会降级。重启宿主后再查一次；若仍读不到，请把复制诊断发给插件作者。\n关闭窗口，更新不受影响，可随时返回查看。\n关闭",
+  "actions": [
+    "row-install",
+    "row-check",
+    "row-copy-diag",
+    "detail-close"
+  ],
+  "hasManualCommand": false
+}

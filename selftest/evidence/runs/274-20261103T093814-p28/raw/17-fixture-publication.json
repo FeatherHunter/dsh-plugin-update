@@ -1,0 +1,13 @@
+{
+  "baseline": {
+    "a": "dsh-plugin-update-fixture-a@0.0.1",
+    "b": "dsh-plugin-update-fixture-b@0.0.1",
+    "c": "dsh-plugin-update-fixture-c@0.0.1"
+  },
+  "variants": {
+    "a": "dsh-plugin-update-fixture-a@0.0.2",
+    "b": "dsh-plugin-update-fixture-b@0.0.2",
+    "c": "dsh-plugin-update-fixture-c@0.0.2"
+  },
+  "injected": []
+}

@@ -1,0 +1,6 @@
+{
+  "port": 55525,
+  "requests": 40,
+  "delayed": 13,
+  "certSha256": "15e6417ff2344c5caab8a8297697d256758a393d81c6aecb48695871087ce989"
+}

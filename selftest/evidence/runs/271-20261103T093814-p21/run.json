@@ -1,0 +1,544 @@
+{
+  "schemaVersion": 1,
+  "runId": "271-20261103T093814-p21",
+  "ticket": "271",
+  "scenarioId": "g6-hub-survives-self-replacement",
+  "hostChannel": "dsh-web",
+  "startedAt": "2026-11-03T01:38:51.536Z",
+  "finishedAt": "2026-11-03T01:39:47.960Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:/dsh-plugin/_wt263/t11",
+    "branch": "impl/263-t11",
+    "head": "bd39b57baa10f3c9f128dfd05f66b286d8828045",
+    "hostChannel": "dsh-web"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-p21\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "3502f4da6b9116c24b0e67a15a3b8dd96584b24d8a68afbaa273c1681d201efc",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:55189",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 3502f4da6b9116c2…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1, dsh-plugin-update-fixture-b@0.0.1, dsh-plugin-update-fixture-c@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "08-assert",
+      "step": "隔离口径（仓库外 home/profile）",
+      "what": "osHomeDir/homeDir/profile 名均落在 run 目录内，两代宿主共用同一 profileDir",
+      "expected": "homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-p21\\os-home\\.dsh；profile=t7hub",
+      "actual": "homeDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-p21\\os-home\\.dsh；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-p21\\os-home\\.dsh\\profiles\\t7hub",
+      "verdict": "pass"
+    },
+    {
+      "id": "10-assert",
+      "step": "建普通 profile（CLI 入口）",
+      "what": "createWebProfileInHome 建通道 B 的普通 profile（非 desktop）",
+      "expected": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-p21\\os-home\\.dsh\\profiles\\t7hub",
+      "actual": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-p21\\os-home\\.dsh\\profiles\\t7hub",
+      "verdict": "pass"
+    },
+    {
+      "id": "12-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "13-assert",
+      "step": "干净 profile 装基版（b）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-b@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-b；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "干净 profile 装基版（c）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-c@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-c；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a, dsh-plugin-update-fixture-b, dsh-plugin-update-fixture-c]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "16-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "18-assert",
+      "step": "更新前基版在盘",
+      "what": "A/B/C 三包 @0.0.1 已装进 profile，SUT 钉版与工作树 dist 一致",
+      "expected": "三包磁盘版本=0.0.1",
+      "actual": "a=0.0.1，b=0.0.1，c=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "20-assert",
+      "step": "变体 0.0.2 已发布",
+      "what": "批量三包的 0.0.2 变体发布到仓库外 verdaccio",
+      "expected": "A/B/C 均有 0.0.2，A 变体含批量坞/新版 UI",
+      "actual": "A=0.0.2；baseline=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "22-assert",
+      "step": "宿主安装预算=4s（锁陈旧阈值）",
+      "what": "DSH_SELFTEST_INSTALL_TIMEOUT_MS 透传给夹具 host half → deps.config.installTimeoutMs",
+      "expected": "installTimeoutMs=4000",
+      "actual": "DSH_SELFTEST_INSTALL_TIMEOUT_MS=4000",
+      "verdict": "pass"
+    },
+    {
+      "id": "24-assert",
+      "step": "中枢/批量目录定位",
+      "what": "按 profileDir 短哈希复算队列目录，并与盘上实际目录对照（首次安装前目录可能尚未创建）",
+      "expected": "盘上目录数 ≤1，且存在时=39e4a2cc3444907c9a17c7fc",
+      "actual": "盘上=[]；复算=39e4a2cc3444907c9a17c7fc",
+      "verdict": "pass"
+    },
+    {
+      "id": "26-assert",
+      "step": "第一代宿主启动（通道 B）",
+      "what": "startCliHost 起 DSH web 宿主（同 USERPROFILE/home/profile）",
+      "expected": "boot 成功、HTTP 电话入口可用、pid>0",
+      "actual": "pid=67124，port=51834，bootMs=1903",
+      "verdict": "pass"
+    },
+    {
+      "id": "28-assert",
+      "step": "第一代宿主批量面板可读",
+      "what": "batchStatus 电话（批量面板数据源）",
+      "expected": "ok=true；三包会话可读或空",
+      "actual": "ok=true；error=null",
+      "verdict": "pass"
+    },
+    {
+      "id": "30-assert",
+      "step": "批量检查电话受理",
+      "what": "fxa.batchCheck 建/读批量会话（A 自键排在第一位）",
+      "expected": "ok=true；三行 key=[a,b,c]（batchCheck 阶段的 session 骨架可能为空，以 rows 顺序为准）",
+      "actual": "ok=true；rowKeys=[\"a\",\"b\",\"c\"]；rows=3",
+      "verdict": "pass"
+    },
+    {
+      "id": "32-assert",
+      "step": "A 自身检查更新（批量前）",
+      "what": "A 的 updateCheck 看到 0.0.2 可更新",
+      "expected": "canInstall=true；installedVersion=0.0.1；latestVersion=0.0.2",
+      "actual": "canInstall=true；installedVersion=0.0.1；latestVersion=0.0.2",
+      "verdict": "pass"
+    },
+    {
+      "id": "34-assert",
+      "step": "批量安装电话已发出（不等回包）",
+      "what": "host1 发 fxa.batchInstall，场景并行观测 batch.json/lease",
+      "expected": "电话已发出，批量会话开始推进（A 先换）",
+      "actual": "at=1793669948352",
+      "verdict": "pass"
+    },
+    {
+      "id": "36-assert",
+      "step": "换手窗口：A 已 done、B/C 未终态",
+      "what": "轮询 batch.json 捕获第一代推进到「A 已换、B/C 未终态」的窗口",
+      "expected": "phase(a)='done' 且 phase(b) 非终态",
+      "actual": "phases={\"a\":\"done\",\"b\":\"installing\",\"c\":\"ready\"}；planSessionId=mw00rxs9-746kzyep5y",
+      "verdict": "pass"
+    },
+    {
+      "id": "38-assert",
+      "step": "换手前中枢租约由第一代宿主持有",
+      "what": "hub/lease.json 的 pid/属主与 enhancement",
+      "expected": "lease.pid=67124（第一代宿主进程）",
+      "actual": "lease={\"pid\":67124,\"generation\":1,\"driverId\":\"dsh-hub:67124:atfc8orz50\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "40-assert",
+      "step": "第一代宿主已停（换手注入）",
+      "what": "关掉第一代宿主进程（未等待批量收尾），中枢执行者消失",
+      "expected": "pid=67124 不再存活",
+      "actual": "alive=false",
+      "verdict": "pass"
+    },
+    {
+      "id": "42-assert",
+      "step": "第二代宿主启动（通道 B）",
+      "what": "startCliHost 起 DSH web 宿主（同 USERPROFILE/home/profile）",
+      "expected": "boot 成功、HTTP 电话入口可用、pid>0",
+      "actual": "pid=53844，port=57822，bootMs=2485",
+      "verdict": "pass"
+    },
+    {
+      "id": "49-assert",
+      "step": "换手后 batch 三行终态全 done、failed=0",
+      "what": "不驱动安装，只轮询 batch.json 等第二代把 B/C 推完",
+      "expected": "phases={a:'done',b:'done',c:'done'}；无 failed",
+      "actual": "phases={\"a\":\"done\",\"b\":\"done\",\"c\":\"done\"}；elapsedMs=32714",
+      "verdict": "pass"
+    },
+    {
+      "id": "50-assert",
+      "step": "B/C 在第二代宿主启动后自动续跑（无人工）",
+      "what": "B/C 的 update.install.exec ts vs 第二代 host.start ts；换手后场景只发只读查询",
+      "expected": "B/C 各有 1 条 exec（route=cli-process、ok=true、exitCode=0），且 ts > 第二代 host.start",
+      "actual": "host2StartTs=1793669953017；B=[{\"ts\":1793669984660,\"pluginId\":\"fxa-b\",\"route\":\"cli-process\",\"ok\":true,\"exitCode\":0,\"durationMs\":1000}]；C=[{\"ts\":1793669985746,\"pluginId\":\"fxa-c\",\"route\":\"cli-process\",\"ok\":true,\"exitCode\":0,\"durationMs\":1022}]；后置执行数=2；host2 启动后场景驱动电话=[]",
+      "verdict": "pass"
+    },
+    {
+      "id": "51-assert",
+      "step": "无安装期硬失败（exec 阶段失败=0）",
+      "what": "update.install.fail 里 stage=exec 的行（安装执行失败）必须为 0；gate-refused 只是队列占位恢复的等待噪声",
+      "expected": "execFailures=0",
+      "actual": "execFailures=0；gateRefused=31（≤30s 的 #217 陈旧占位恢复噪声，见 notes）",
+      "verdict": "pass"
+    },
+    {
+      "id": "52-assert",
+      "step": "中枢方案在换手后仍在盘、被第二代接管（同 sessionId）",
+      "what": "hub/plans/fxa.json 与 batch.json 的 sessionId 一致，plan 未被换手清掉",
+      "expected": "plan 存在且 plan.sessionId=batch.id",
+      "actual": "plan=D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\271-20261103T093814-p21\\os-home\\.dsh\\update-queue\\39e4a2cc3444907c9a17c7fc\\hub\\plans\\fxa.json；planSessionId=mw00rxs9-746kzyep5y；batchId=mw00rxs9-746kzyep5y；runStart=[{\"ts\":1793669948363,\"trigger\":\"entry\",\"resumed\":false,\"total\":3},{\"ts\":1793669953367,\"trigger\":\"resume\",\"resumed\":true,\"total\":3}]",
+      "verdict": "pass"
+    },
+    {
+      "id": "54-assert",
+      "step": "第二代宿主上的批量面板三行 done",
+      "what": "batchStatus 回包（面板数据源）与磁盘 batch.json 一致",
+      "expected": "三行 phase=done；targetVersion=0.0.2",
+      "actual": "ok=true；rows=[{\"key\":\"a\",\"phase\":\"done\",\"targetVersion\":\"0.0.2\"},{\"key\":\"b\",\"phase\":\"done\",\"targetVersion\":\"0.0.2\"},{\"key\":\"c\",\"phase\":\"done\",\"targetVersion\":\"0.0.2\"}]；sessionEntries=[{\"key\":\"a\",\"phase\":\"done\"},{\"key\":\"b\",\"phase\":\"done\"},{\"key\":\"c\",\"phase\":\"done\"}]",
+      "verdict": "pass"
+    },
+    {
+      "id": "56-assert",
+      "step": "中枢状态与批量台账一致（finished done3 failed0）",
+      "what": "updateHubStatus 回包：state/progress/activeInstall",
+      "expected": "state='finished'；progress.done=3、failed=0；activeInstall=null",
+      "actual": "state=finished；progress={\"total\":3,\"done\":3,\"failed\":0,\"skipped\":0,\"current\":0,\"pending\":0,\"finished\":true}；activeInstall=null",
+      "verdict": "pass"
+    },
+    {
+      "id": "58-assert",
+      "step": "A 自身换手后状态正确（已是最新）",
+      "what": "host2 上 A 的 updateCheck",
+      "expected": "installedVersion/runningVersion=0.0.2；canInstall=false",
+      "actual": "installedVersion=0.0.2；runningVersion=0.0.2；canInstall=false",
+      "verdict": "pass"
+    },
+    {
+      "id": "59-assert",
+      "step": "磁盘三包一致 0.0.2（profile 未损坏、无双装）",
+      "what": "profile package.json dependencies 与 node_modules 实际版本",
+      "expected": "A/B/C dependencies+node_modules 都=0.0.2",
+      "actual": "dependencies={\"a\":\"0.0.2\",\"b\":\"0.0.2\",\"c\":\"0.0.2\"}；node_modules={\"a\":\"0.0.2\",\"b\":\"0.0.2\",\"c\":\"0.0.2\"}",
+      "verdict": "pass"
+    },
+    {
+      "id": "60-assert",
+      "step": "台账三包各恰一条成功终态（无重复/丢单）",
+      "what": "<home>/updates/<pluginId>/<hash>/state.json",
+      "expected": "A/B/C 各 1 条：target=0.0.2、previous=0.0.1、state∈{completed,restart-required}",
+      "actual": "{\"fxa-a\":[{\"state\":\"completed\",\"targetVersion\":\"0.0.2\",\"previousVersion\":\"0.0.1\"}],\"fxa-b\":[{\"state\":\"completed\",\"targetVersion\":\"0.0.2\",\"previousVersion\":\"0.0.1\"}],\"fxa-c\":[{\"state\":\"completed\",\"targetVersion\":\"0.0.2\",\"previousVersion\":\"0.0.1\"}]}",
+      "verdict": "pass"
+    },
+    {
+      "id": "62-assert",
+      "step": "中枢租约换手：单一属主，从第一代交到第二代",
+      "what": "轮询 hub/lease.json 的 pid/generation 序列",
+      "expected": "先见到第一代 pid=67124，再见到第二代 pid=53844",
+      "actual": "leasePids=[67124,53844]；afterBatch=null",
+      "verdict": "pass"
+    },
+    {
+      "id": "70-assert",
+      "step": "收尾：宿主进程与端口无残留",
+      "what": "关闭所有宿主后核实 pid 不在、端口空闲",
+      "expected": "remainingPids=[]、所有端口 free=true",
+      "actual": "remainingPids=[]；portChecks=[{\"label\":\"host1\",\"port\":51834,\"free\":true},{\"label\":\"host2\",\"port\":57822,\"free\":true}]",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\07-isolation-facts.json"
+    },
+    {
+      "id": "09-profile-create",
+      "name": "profile-create",
+      "file": "raw\\09-profile-create.json"
+    },
+    {
+      "id": "11-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\11-install-baseline.json"
+    },
+    {
+      "id": "15-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\15-sut-installed-dist.json"
+    },
+    {
+      "id": "17-baseline-installed",
+      "name": "baseline-installed",
+      "file": "raw\\17-baseline-installed.json"
+    },
+    {
+      "id": "19-fixture-published-variant",
+      "name": "fixture-published-variant",
+      "file": "raw\\19-fixture-published-variant.json"
+    },
+    {
+      "id": "21-host-env",
+      "name": "host-env",
+      "file": "raw\\21-host-env.json"
+    },
+    {
+      "id": "23-hub-paths",
+      "name": "hub-paths",
+      "file": "raw\\23-hub-paths.json"
+    },
+    {
+      "id": "25-cli-host-launch-host1",
+      "name": "cli-host-launch-host1",
+      "file": "raw\\25-cli-host-launch-host1.json"
+    },
+    {
+      "id": "27-panel-batch-status-initial",
+      "name": "panel-batch-status-initial",
+      "file": "raw\\27-panel-batch-status-initial.json"
+    },
+    {
+      "id": "29-phone-batch-check",
+      "name": "phone-batch-check",
+      "file": "raw\\29-phone-batch-check.json"
+    },
+    {
+      "id": "31-phone-a-update-check-before-batch",
+      "name": "phone-a-update-check-before-batch",
+      "file": "raw\\31-phone-a-update-check-before-batch.json"
+    },
+    {
+      "id": "33-phone-batch-install-fire",
+      "name": "phone-batch-install-fire",
+      "file": "raw\\33-phone-batch-install-fire.json"
+    },
+    {
+      "id": "35-state-at-kill",
+      "name": "state-at-kill",
+      "file": "raw\\35-state-at-kill.json"
+    },
+    {
+      "id": "37-hub-lease-at-kill",
+      "name": "hub-lease-at-kill",
+      "file": "raw\\37-hub-lease-at-kill.json"
+    },
+    {
+      "id": "39-host1-stopped",
+      "name": "host1-stopped",
+      "file": "raw\\39-host1-stopped.json"
+    },
+    {
+      "id": "41-cli-host-launch-host2",
+      "name": "cli-host-launch-host2",
+      "file": "raw\\41-cli-host-launch-host2.json"
+    },
+    {
+      "id": "43-host2-start-window",
+      "name": "host2-start-window",
+      "file": "raw\\43-host2-start-window.json"
+    },
+    {
+      "id": "44-batch-after-handoff",
+      "name": "batch-after-handoff",
+      "file": "raw\\44-batch-after-handoff.json"
+    },
+    {
+      "id": "45-install-promise-outcome",
+      "name": "install-promise-outcome",
+      "file": "raw\\45-install-promise-outcome.json"
+    },
+    {
+      "id": "46-log-timeline",
+      "name": "log-timeline",
+      "file": "raw\\46-log-timeline.json"
+    },
+    {
+      "id": "47-disk-after-handoff",
+      "name": "disk-after-handoff",
+      "file": "raw\\47-disk-after-handoff.json"
+    },
+    {
+      "id": "48-ledger-states",
+      "name": "ledger-states",
+      "file": "raw\\48-ledger-states.json"
+    },
+    {
+      "id": "53-panel-batch-status-final",
+      "name": "panel-batch-status-final",
+      "file": "raw\\53-panel-batch-status-final.json"
+    },
+    {
+      "id": "55-panel-hub-status-final",
+      "name": "panel-hub-status-final",
+      "file": "raw\\55-panel-hub-status-final.json"
+    },
+    {
+      "id": "57-phone-a-update-check-after-handoff",
+      "name": "phone-a-update-check-after-handoff",
+      "file": "raw\\57-phone-a-update-check-after-handoff.json"
+    },
+    {
+      "id": "61-hub-lease-timeline",
+      "name": "hub-lease-timeline",
+      "file": "raw\\61-hub-lease-timeline.json"
+    },
+    {
+      "id": "63-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\63-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "64-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\64-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "65-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\65-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "66-log-fxb-b-2026-11-03",
+      "name": "log-fxb-b-2026-11-03",
+      "file": "raw\\66-log-fxb-b-2026-11-03.json"
+    },
+    {
+      "id": "67-log-fxb-c-2026-11-03",
+      "name": "log-fxb-c-2026-11-03",
+      "file": "raw\\67-log-fxb-c-2026-11-03.json"
+    },
+    {
+      "id": "68-logs-final",
+      "name": "logs-final",
+      "file": "raw\\68-logs-final.json"
+    },
+    {
+      "id": "69-cleanup-verify",
+      "name": "cleanup-verify",
+      "file": "raw\\69-cleanup-verify.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "cli-host-host1",
+        "pid": 67124,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "cli-host-host2",
+        "pid": 53844,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "cli-host-host1-port",
+        "port": 51834,
+        "released": true
+      },
+      {
+        "label": "cli-host-host2-port",
+        "port": 57822,
+        "released": true
+      },
+      {
+        "label": "registry",
+        "port": 55189,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:55189（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "换手注入：web 通道没有「应用自重启」，用「杀第一代宿主 + 同 home/profile 起第二代」注入换手，等价于桌面 relaunch 后新 fiber 接管中枢；差别（整进程退出 vs 应用内重启）写进研究笔记。",
+      "面板恢复口径：web 通道无窗口，g2 用面板电话（batchStatus/updateHubStatus/updateCheck）在「关宿主→重开」后取证，并用宿主页面 HTTP 200 辅助；不冒充桌面真 UI 截图。",
+      "为什么灌 installTimeoutMs=4000：第一代被强杀会留下陈旧 global.lock/install.lock，第二代的锁回收本身依赖该阈值；不压小则换手要等默认 15min，测不到「无需人工续跑」。"
+    ]
+  },
+  "maintainerProfile": {
+    "homeDir": "C:/Users/辰辰洋洋/.dsh",
+    "before": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "77441cc19d6b8f4dc5026b694b42bbf141097822b8359e208585db4303de34f4",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "after": {
+      "package.json": "8fde431425318b5142c3780c18a06a36251f43161d22c073fa921c0b05fd9519",
+      "pnpm-lock.yaml": "eccdaf388291bb91b20b3d27a6d5ded48803a6323ce6aa5667e917886d71963c",
+      "cordis.yml": "c300dcf2ebc5f02062d6591268d29d3db6fe45e0cb138f5467276fe2ba06076e",
+      "cordis.patch.yml": "77441cc19d6b8f4dc5026b694b42bbf141097822b8359e208585db4303de34f4",
+      "bundles": "@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app,@deepseek-ai/dsh-experimental-auto-review,@deepseek-ai/dsh-experimental-agent-team-profile,dsh-opencode-go,@deepseek-ai/dsh-experimental-inspector-profile,@deepseek-ai/dsh-experimental-plugin-market-bundle,@linxin666/dsh-client-ui-git-graph,dsh-im-companion,dsh-bill-ilife,dsh-calorie,dsh-memo-ilife,dsh-schedule-ilife,dsh-home-ilife,dsh-chef,billion-context,dsh-mattpocock-skills-deck,dsh-prompt,dsh-life-pack,dshmarket,@xmanrui/dsh-im,dsh-bili-scroll,dsh-usage-statistics-panel,dsh-vision-router,dsh-opencode-palette"
+    },
+    "unchanged": true
+  },
+  "notes": [
+    "本地 registry：http://127.0.0.1:55189（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "换手注入：web 通道没有「应用自重启」，用「杀第一代宿主 + 同 home/profile 起第二代」注入换手，等价于桌面 relaunch 后新 fiber 接管中枢；差别（整进程退出 vs 应用内重启）写进研究笔记。",
+    "面板恢复口径：web 通道无窗口，g2 用面板电话（batchStatus/updateHubStatus/updateCheck）在「关宿主→重开」后取证，并用宿主页面 HTTP 200 辅助；不冒充桌面真 UI 截图。",
+    "为什么灌 installTimeoutMs=4000：第一代被强杀会留下陈旧 global.lock/install.lock，第二代的锁回收本身依赖该阈值；不压小则换手要等默认 15min，测不到「无需人工续跑」。"
+  ]
+}

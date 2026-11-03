@@ -1,0 +1,9 @@
+{
+  "fault": {
+    "kind": "stale-variant",
+    "slotKey": "a",
+    "description": "can-red：发布 0.0.2 但构建内容仍是 0.0.1（client/host 构建标记不变），预期重启后「新版 UI」断言真红"
+  },
+  "expected": "重启后 clientTag 仍是 client v0.0.1（新版 UI 断言真红）",
+  "publishedNew": "dsh-plugin-update-fixture-a@0.0.2"
+}

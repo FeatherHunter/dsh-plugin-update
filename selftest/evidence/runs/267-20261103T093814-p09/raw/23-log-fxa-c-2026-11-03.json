@@ -1,0 +1,9 @@
+{
+  "source": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\267-20261103T093814-p09\\home\\logs\\fxa-c\\2026-11-03.log",
+  "bytes": 450,
+  "characters": 450,
+  "truncated": false,
+  "keptCharacters": 450,
+  "tailFile": null,
+  "content": "{\"v\":3,\"ts\":1793671357177,\"level\":\"info\",\"event\":\"host.start\",\"fields\":{\"pid\":97340,\"startedAt\":\"2026-11-03T02:02:37.175Z\",\"dir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t11-275\\\\267-20261103T093814-p09\\\\home\\\\logs\",\"pluginVersion\":\"0.18.39\",\"os\":\"win32\"}}\n{\"v\":3,\"ts\":1793671357177,\"level\":\"info\",\"event\":\"update.wire.ready\",\"fields\":{\"logSink\":\"self\",\"logDirHash\":\"f40e0366\",\"updaterVersion\":\"0.18.39\",\"copyLevel\":\"profile\",\"hostKind\":\"desktop-manager\"}}\n"
+}

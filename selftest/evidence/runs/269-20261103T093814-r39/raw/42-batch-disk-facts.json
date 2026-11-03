@@ -1,0 +1,165 @@
+{
+  "files": [
+    "ffbfe8bb56fbb82634c9c0bd/fxa/batch.json",
+    "ffbfe8bb56fbb82634c9c0bd/fxa/inventory.json",
+    "ffbfe8bb56fbb82634c9c0bd/fxb/inventory.json",
+    "ffbfe8bb56fbb82634c9c0bd/hub/plans/fxa.json",
+    "ffbfe8bb56fbb82634c9c0bd/queue.json"
+  ],
+  "owners": {
+    "fxa": {
+      "batch": {
+        "version": 1,
+        "id": "mw04047d-nv0hvo44mj",
+        "selfKey": "a",
+        "stopOnFailure": false,
+        "order": [
+          "a",
+          "b",
+          "c"
+        ],
+        "entries": [
+          {
+            "key": "a",
+            "phase": "done",
+            "requestId": "batch:mw04047d-nv0hvo44mj:a",
+            "targetVersion": "0.0.2",
+            "restartRequired": false,
+            "error": null,
+            "updatedAt": 1793675370622
+          },
+          {
+            "key": "b",
+            "phase": "done",
+            "requestId": "batch:mw04047d-nv0hvo44mj:b",
+            "targetVersion": "0.0.2",
+            "restartRequired": false,
+            "error": null,
+            "updatedAt": 1793675373257
+          },
+          {
+            "key": "c",
+            "phase": "done",
+            "requestId": "batch:mw04047d-nv0hvo44mj:c",
+            "targetVersion": "0.0.2",
+            "restartRequired": false,
+            "error": null,
+            "updatedAt": 1793675375380
+          }
+        ],
+        "createdAt": 1793675368777,
+        "updatedAt": 1793675375380
+      },
+      "inventory": {
+        "version": 1,
+        "updatedAt": 1793675368780,
+        "entries": {
+          "c": {
+            "lastCheckedAt": 1793675368780,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          },
+          "a": {
+            "lastCheckedAt": 1793675368780,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          },
+          "b": {
+            "lastCheckedAt": 1793675368780,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          }
+        }
+      },
+      "prefs": null
+    },
+    "fxb": {
+      "batch": null,
+      "inventory": {
+        "version": 1,
+        "updatedAt": 1793675372789,
+        "entries": {
+          "b": {
+            "lastCheckedAt": 1793675372789,
+            "installed": true,
+            "installedVersion": "0.0.2",
+            "latestVersion": "0.0.2",
+            "canInstall": false,
+            "error": null
+          },
+          "c": {
+            "lastCheckedAt": 1793675372789,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          }
+        }
+      },
+      "prefs": null
+    }
+  },
+  "queue": {
+    "version": 1,
+    "owner": null,
+    "waiting": []
+  },
+  "hubPlans": {
+    "fxa": {
+      "version": 1,
+      "sessionId": "mw04047d-nv0hvo44mj",
+      "owner": "fxa",
+      "selfKey": "a",
+      "selfOrder": "first",
+      "stopOnFailure": false,
+      "targets": [
+        {
+          "key": "a",
+          "title": "夹具 A 本体",
+          "packageName": "dsh-plugin-update-fixture-a",
+          "pluginId": "fxa-a",
+          "prefix": "fxa-a",
+          "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-r39\\home",
+          "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-r39\\home\\profiles\\desktop"
+        },
+        {
+          "key": "b",
+          "title": "夹具 B",
+          "packageName": "dsh-plugin-update-fixture-b",
+          "pluginId": "fxa-b",
+          "prefix": "fxa-b",
+          "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-r39\\home",
+          "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-r39\\home\\profiles\\desktop"
+        },
+        {
+          "key": "c",
+          "title": "夹具 C",
+          "packageName": "dsh-plugin-update-fixture-c",
+          "pluginId": "fxa-c",
+          "prefix": "fxa-c",
+          "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-r39\\home",
+          "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-r39\\home\\profiles\\desktop"
+        }
+      ],
+      "scope": {
+        "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-r39\\home",
+        "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\269-20261103T093814-r39\\home\\profiles\\desktop",
+        "profileName": "desktop",
+        "registryUrl": "http://127.0.0.1:61164"
+      },
+      "createdAt": 1793675370600,
+      "updatedAt": 1793675370600
+    }
+  },
+  "hubLease": null
+}

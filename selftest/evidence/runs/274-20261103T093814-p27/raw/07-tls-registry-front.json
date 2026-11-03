@@ -1,0 +1,8 @@
+{
+  "baseUrl": "https://127.0.0.1:57142",
+  "port": 57142,
+  "upstream": "http://127.0.0.1:60395",
+  "certPath": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\274-20261103T093814-p27\\tls-registry-front\\cert.pem",
+  "certSha256": "fc21b5a615ed4b24b9bb1ab5619fbdf2b21cfd888b49829393410c869e02e113",
+  "requests": 0
+}

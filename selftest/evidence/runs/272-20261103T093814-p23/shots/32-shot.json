@@ -1,0 +1,9 @@
+{
+  "看什么": "安装完成（未手动重启）时的官方桌面面板：\n定已是最新，无需更新。\n",
+  "步骤": "panel-after-install",
+  "expected": "已是最新，且卡片运行标记 client/host = 0.0.2",
+  "actual": "visible",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\32-shot.png"
+}

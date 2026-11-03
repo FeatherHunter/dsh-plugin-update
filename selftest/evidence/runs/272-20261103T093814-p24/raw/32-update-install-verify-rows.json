@@ -1,0 +1,12 @@
+[
+  {
+    "ts": 1793669950741,
+    "result": "restart-required",
+    "pendingRestart": true,
+    "installedVersion": "0.0.2",
+    "targetVersion": null,
+    "previousVersion": null,
+    "source": "fxa-a/2026-11-03.log",
+    "line": 14
+  }
+]

@@ -1,0 +1,30 @@
+{
+  "windows": [
+    {
+      "start": 1793670639599,
+      "end": 1793670640658,
+      "ts": 1793670640658,
+      "durationMs": 1059,
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "pluginId": "fxa-a",
+      "source": "fxa-a/2026-11-03.log",
+      "line": 19
+    },
+    {
+      "start": 1793670639652,
+      "end": 1793670641531,
+      "ts": 1793670641531,
+      "durationMs": 1879,
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "pluginId": "fxa-a",
+      "source": "fxa-a/2026-11-03.log",
+      "line": 26
+    }
+  ],
+  "count": 2,
+  "overlap": true
+}

@@ -1,0 +1,31 @@
+{
+  "status": 200,
+  "durationMs": 57,
+  "requestId": "t3e-timeout-1793669907328",
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "snapshot": {
+        "runningVersion": "0.0.1",
+        "installed": true,
+        "installedVersion": "0.0.1",
+        "latestVersion": "0.0.2",
+        "canInstall": false,
+        "blockedReason": null,
+        "job": {
+          "id": "a4efb30c-0d79-42d2-9aea-a64ff5b27264",
+          "state": "installing",
+          "targetVersion": "0.0.2",
+          "message": null,
+          "requestId": "t3e-timeout-1793669907328",
+          "previousVersion": "0.0.1"
+        },
+        "identity": "update",
+        "registered": true
+      },
+      "manual": "dsh plugin --profile t3cli add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:52181",
+      "receipt": null
+    }
+  }
+}

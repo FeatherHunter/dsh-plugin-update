@@ -1,0 +1,20 @@
+{
+  "timedOut": false,
+  "elapsedMs": 35,
+  "phases": {
+    "a": "current",
+    "b": "failed",
+    "c": "done"
+  },
+  "snapshots": [
+    {
+      "t": 1793670125690,
+      "entry": {
+        "key": "b",
+        "phase": "failed",
+        "targetVersion": "0.0.2",
+        "error": "install-failed"
+      }
+    }
+  ]
+}

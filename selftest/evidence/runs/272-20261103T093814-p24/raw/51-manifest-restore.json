@@ -1,0 +1,15 @@
+{
+  "mode": "bundles",
+  "path": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\272-20261103T093814-p24\\os-home\\.dsh\\profiles\\t8i2\\package.json",
+  "before": "{\n  \"name\": \"dsh-profile-t8i2\",\n  \"private\": true,\n  \"dependencies\": {\n    \"dsh-plugin-update-fixture-a\": \"0.0.2\"\n  },\n  \"dsh\": {\n    \"profile\": {\n      \"bundles\": [\n        \"@deepseek-ai/dsh-base\",\n        \"@deepseek-ai/dsh-web-app\"\n      ]\n    }\n  }\n}\n",
+  "after": "{\n  \"name\": \"dsh-profile-t8i2\",\n  \"private\": true,\n  \"dependencies\": {\n    \"dsh-plugin-update-fixture-a\": \"0.0.2\"\n  },\n  \"dsh\": {\n    \"profile\": {\n      \"bundles\": [\n        \"@deepseek-ai/dsh-base\",\n        \"@deepseek-ai/dsh-web-app\",\n        \"dsh-plugin-update-fixture-a\"\n      ]\n    }\n  }\n}\n",
+  "bundlesAfter": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-web-app",
+    "dsh-plugin-update-fixture-a"
+  ],
+  "dependenciesAfter": {
+    "dsh-plugin-update-fixture-a": "0.0.2"
+  },
+  "why": "通道 B 没有可驱动的 web UI（harness 无 web-ui 驱动，本票不新增驱动）；按 Lead 口径「UI 优先，兜底写回并记录」等价写回使用范围清单"
+}

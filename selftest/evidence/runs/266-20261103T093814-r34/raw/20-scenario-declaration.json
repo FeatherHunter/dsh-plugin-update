@@ -1,0 +1,21 @@
+{
+  "id": "b-batch-two-integrators",
+  "ticket": "266",
+  "install": [
+    "a@0.0.1",
+    "b@0.0.1",
+    "c@0.0.1"
+  ],
+  "variants": [
+    "a@0.0.2[ui+behavior+metadata]",
+    "b@0.0.2[ui+behavior+metadata]",
+    "c@0.0.2[behavior+metadata]"
+  ],
+  "expected": [
+    "A 批量入口列出三个目标（a/b/c），B 批量入口列出两个目标（b/c）",
+    "A 发起的批量更新把 a/b/c 的磁盘版本都推到 0.0.2",
+    "两席各自面板行状态正确（A 三行、B 两行；互不串台）",
+    "重启后 A/B 的 0.0.2 变体新 UI 元素与 host 行为字段出现，C 徽标 0.0.2",
+    "批量账本/队列/中枢计划/日志按属主隔离，无跨 scope 污染"
+  ]
+}

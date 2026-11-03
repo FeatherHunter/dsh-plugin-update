@@ -1,0 +1,6 @@
+{
+  "baselineSpec": "dsh-plugin-update-fixture-a@0.0.1",
+  "variantSpec": "dsh-plugin-update-fixture-a@0.0.2",
+  "injected": [],
+  "fault": null
+}

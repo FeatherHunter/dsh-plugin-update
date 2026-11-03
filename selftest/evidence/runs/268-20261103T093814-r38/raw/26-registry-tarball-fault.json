@@ -1,0 +1,15 @@
+{
+  "packageName": "dsh-plugin-update-fixture-b",
+  "version": "0.0.2",
+  "tarballUrl": "http://127.0.0.1:51135/dsh-plugin-update-fixture-b/-/dsh-plugin-update-fixture-b-0.0.2.tgz",
+  "tarballPath": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\268-20261103T093814-r38\\registry\\verdaccio\\storage\\dsh-plugin-update-fixture-b\\dsh-plugin-update-fixture-b-0.0.2.tgz",
+  "backupPath": "D:\\dsh-plugin\\_wt263\\runtime\\t11-275\\268-20261103T093814-r38\\registry-tarball-backup\\dsh-plugin-update-fixture-b-0.0.2.tgz",
+  "sizeBefore": 97769,
+  "versionDocBefore": "{\"name\":\"dsh-plugin-update-fixture-b\",\"version\":\"0.0.2\",\"private\":false,\"type\":\"module\",\"description\":\"批量集成方（本体 + 一家目标；本体 last） [TEST ONLY sed: selftest fixture for dsh-plugin-update]\",\"license\":\"MIT\",\"main\":\"./lib/index.js\",\"exports\":{\".\":\"./lib/index.js\",\"./client\":\"./lib/client.js\",\"./package.json\":\"./package.json\"},\"files\":[\"lib\",\"cordis.patch.yml\"],\"engines\":{\"dsh\":\">=0.2.0-rc.2 <0.3.0-0\"},\"dependencies\":{\"dsh-plugin-update\":\"0.18.39\"},\"dsh\":{\"client\":{\"platform\":\"web\",\"inject\":[]},\"bundle\":{\"patch\":\"./cordis.patch.yml\"}},\"_id\":\"dsh-plugin-update-fixture-b@0.0.2\",\"_nodeVersion\":\"24.19.0\",\"_npmVersion\":\"10.9.2\",\"dist\":{\"integrity\":\"sha512-LbTuhcs8F8eWgylHxzoxM3aSHANwSG8cyWz3mB3sruuizbJEGV2KKJg7POzkRDrkRg2M+FGlnWoS7Aw1HGjDDQ==\",\"shasum\":\"568b8c21f1c24572042a1d77f7071d30947841a6\",\"tarball\":\"http://127.0.0.1:51135/dsh-plugin-update-fixture-b/-/dsh-plugin-update-fixture-b-0.0.2.tgz\"},\"contributors\":[]}",
+  "versionDocAfter": "{\"name\":\"dsh-plugin-update-fixture-b\",\"version\":\"0.0.2\",\"private\":false,\"type\":\"module\",\"description\":\"批量集成方（本体 + 一家目标；本体 last） [TEST ONLY sed: selftest fixture for dsh-plugin-update]\",\"license\":\"MIT\",\"main\":\"./lib/index.js\",\"exports\":{\".\":\"./lib/index.js\",\"./client\":\"./lib/client.js\",\"./package.json\":\"./package.json\"},\"files\":[\"lib\",\"cordis.patch.yml\"],\"engines\":{\"dsh\":\">=0.2.0-rc.2 <0.3.0-0\"},\"dependencies\":{\"dsh-plugin-update\":\"0.18.39\"},\"dsh\":{\"client\":{\"platform\":\"web\",\"inject\":[]},\"bundle\":{\"patch\":\"./cordis.patch.yml\"}},\"_id\":\"dsh-plugin-update-fixture-b@0.0.2\",\"_nodeVersion\":\"24.19.0\",\"_npmVersion\":\"10.9.2\",\"dist\":{\"integrity\":\"sha512-LbTuhcs8F8eWgylHxzoxM3aSHANwSG8cyWz3mB3sruuizbJEGV2KKJg7POzkRDrkRg2M+FGlnWoS7Aw1HGjDDQ==\",\"shasum\":\"568b8c21f1c24572042a1d77f7071d30947841a6\",\"tarball\":\"http://127.0.0.1:51135/dsh-plugin-update-fixture-b/-/dsh-plugin-update-fixture-b-0.0.2.tgz\"},\"contributors\":[]}",
+  "versionDocUnchanged": true,
+  "servedBeforeStatus": 200,
+  "servedBeforeBytes": 92540,
+  "servedAfterStatus": 404,
+  "servedAfterBody": "{\n  \"error\": \"no such file available\"\n}\n"
+}
