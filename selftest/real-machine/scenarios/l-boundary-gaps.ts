@@ -1518,10 +1518,19 @@ async function runL3(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
   // icacls 认字面 SID 时必须带 * 前缀（*S-1-5-...）；不带会去解析账户名 → exit 1332
   // ERROR_NONE_MAPPED、拒绝项一条都没加上（真机 191500 红点：probe 仍可写，安装照常成功）。
   const sidSpec = '*' + identity.sid
-  const deny = await runExe('icacls', [nodeModulesDir, '/deny', sidSpec + ':(OI)(CI)(W,D)'])
+  // 只拒「写数据/加子目录」（WD/AD），不拒 W/D 全集：实测 (OI)(CI)(W) 或 (D) 会让
+  // readFile/realpath 包目录 EPERM（Windows 打开句柄带写属性检查），产品会把包判成
+  // invalid-installation、安装门 check-expired，根本走不到 pnpm 失败——那不是「安装被权限拒绝」。
+  // (AD,WD) 下读包/读清单照常、mkdir/写文件 EPERM：install 会在创建 staging 目录时真失败，
+  // 旧包树保持完好，产品走「exec 失败」而不是「包读坏」。
+  const deny = await runExe('icacls', [nodeModulesDir, '/deny', sidSpec + ':(OI)(CI)(AD,WD)'])
   const aclAfter = await aclTextOf(nodeModulesDir)
   const probeDenied = await writeProbe(nodeModulesDir)
-  const denyEffective = deny.exitCode === 0 && probeDenied.ok === false && (probeDenied.code !== null || PERMISSION_ERROR_TOKEN.test(probeDenied.message || ''))
+  // 读探针：注入只挡写，产品读包/读清单仍应成功（否则失败会走 invalid-installation，不是安装被拒）。
+  const probeRead = await readFile(join(profilePackageDir, 'package.json'), 'utf8')
+    .then((text) => ({ ok: true, bytes: text.length, code: null as string | null }))
+    .catch((error: { code?: unknown }) => ({ ok: false, bytes: 0, code: typeof error?.code === 'string' ? error.code : null }))
+  const denyEffective = deny.exitCode === 0 && probeDenied.ok === false && probeRead.ok && (probeDenied.code !== null || PERMISSION_ERROR_TOKEN.test(probeDenied.message || ''))
   await ctx.run.raw('l3-acl-inject', {
     profilePackageDir,
     nodeModulesDir,
@@ -1530,17 +1539,18 @@ async function runL3(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
     denyCommand: deny,
     aclAfter,
     writeProbe: probeDenied,
+    readProbe: probeRead,
     effective: denyEffective,
-    note: 'icacls /deny <SID>:(OI)(CI)(W,D) 对本 run 隔离 profile 的 node_modules 加拒绝写/删；同用户 raw 写探针证明真写不进去（外部注入，未改产品代码）',
+    note: 'icacls /deny *SID:(OI)(CI)(AD,WD) 对本 run 隔离 profile 的 node_modules 拒绝写数据/加子目录（读不受影响，产品仍认包 0.0.1 完好）；同用户 raw 写探针证明真写不进去（外部注入，未改产品代码）',
   })
   await capture(ctx.run, ui1, {
     step: 'l3-15-acl-injected',
     what: 'icacls 注入后同用户写探针被拒（外部 ACL 真生效），页面仍是注入前状态',
-    expected: 'icacls /deny exit=0；同用户 writeFile 探针 EPERM/EACCES（失败），不是猜「应该会失败」',
-    actual: JSON.stringify({ denyExit: deny.exitCode, probe: probeDenied }),
+    expected: 'icacls /deny exit=0；同用户 writeFile 探针 EPERM/EACCES（失败）、读包仍 OK，不是猜「应该会失败」',
+    actual: JSON.stringify({ denyExit: deny.exitCode, probe: probeDenied, readProbe }),
     verdict: denyEffective ? 'pass' : 'fail',
   })
-  rec({ step: 'l3-01-acl-injected', what: '外部注入生效：ACL 拒绝写 + 同用户写探针真失败（不伪造失败）', expected: 'deny exit=0 且写探针 EPERM/EACCES', actual: JSON.stringify({ denyExit: deny.exitCode, probe: probeDenied, aclTail: aclAfter.stdout.split(/\r?\n/).slice(-3) }), ok: denyEffective })
+  rec({ step: 'l3-01-acl-injected', what: '外部注入生效：ACL 拒绝写/加子目录 + 同用户写探针真失败、读包仍成功（失败可归因于安装写，不是包读坏）', expected: 'deny exit=0、写探针 EPERM/EACCES、读 package.json ok', actual: JSON.stringify({ denyExit: deny.exitCode, probe: probeDenied, readProbe, aclTail: aclAfter.stdout.split(/\r?\n/).slice(-3) }), ok: denyEffective })
   if (!denyEffective) {
     // 注入没生效就别再点安装（否则产品会正常装成，失败面证据是假的）；先把 ACL 撤掉再报错。
     await runExe('icacls', [nodeModulesDir, '/remove:d', sidSpec])
