@@ -55,6 +55,7 @@ import type { T3Run } from './t3-common.ts'
 import { cardSelectorOf, copyRunEvidence } from './batch-helpers.ts'
 import { ensureDir } from '../../tooling/fs-utils.ts'
 import { sleep, waitFor } from '../../tooling/process.ts'
+import { waitForPortFree } from '../../tooling/ports.ts'
 
 /** 组 #284 的运行模式。 */
 export type RecoveryMode = 'f2' | 'f3' | 'g8' | 'i4' | 'can-red'
@@ -151,6 +152,7 @@ interface Ctx {
 /** 一个已起的宿主。 */
 interface HostHandle {
   readonly index: number
+  readonly label: string
   readonly kind: EquivalentKind | 'plain'
   readonly host: CliHostSession
   ui: UiHandle | null
@@ -411,7 +413,7 @@ async function prepareRun(run: T3Run, options: RecoveryOptions): Promise<Ctx> {
   // 产品取更新日志要求 dist.tarball 是 https 且与 registry 同源（src/core/changelog/io.ts:347-359），
   // 所以产品侧 registry 一律走本 run 的 TLS 前置；verdaccio 仍是仓库外 http，只当上游。
   const front = await startTlsRegistryFront({ upstreamBaseUrl: fixtureEnv.registry.baseUrl, certificateDir: join(run.layout.root, 'tls-registry-front') })
-  run.registerPort('tls-registry-front', front.port)
+  // 端口释放证据统一在 cleanupContext 里等 front 真停后再登记。
   await run.raw('isolation-facts', {
     osHomeDir,
     homeDir,
@@ -582,9 +584,10 @@ async function startHost(ctx: Ctx, label: string, kind: EquivalentKind | 'plain'
     extraEnv,
   })
   ctx.run.registerProcess(label + '-host', host.pid() ?? null)
-  ctx.run.registerPort(label + '-host-port', host.port)
+  // 端口释放证据在 stopHost 里等进程真退出后再登记（起进程时登记只会永远记 false）。
   const handle: HostHandle = {
     index: ctx.hosts.length,
+    label,
     kind,
     host,
     ui: null,
@@ -632,6 +635,14 @@ async function stopHost(ctx: Ctx, handle: HostHandle, reason = 'stop'): Promise<
     stdoutTail: handle.host.stdout().slice(-4000),
     stderrTail: handle.host.stderr().slice(-4000),
   })
+  await recordPortRelease(ctx, handle.label + '-host-port', handle.host.port)
+}
+
+/** 端口释放证据：等进程真退出、端口真空闲后再登记（registerPort 会立即测一次 isPortFree）。 */
+async function recordPortRelease(ctx: Ctx, label: string, port: number): Promise<void> {
+  // waitForPortFree 轮询到端口真回来（最多 5s）；registerPort 里还会再测一次并落 run.json。
+  await waitForPortFree(port, 5000)
+  await ctx.run.registerPort(label, port)
 }
 
 /** 收尾：停掉所有未停宿主，并在全部宿主停后统一收割日志。 */
@@ -648,6 +659,7 @@ async function cleanupContext(ctx: Ctx): Promise<void> {
   const frontRequests = ctx.front.requests()
   await ctx.run.raw('tls-front-stop', { port: ctx.front.port, requests: frontRequests.length, delayed: ctx.front.delayedCount(), certSha256: ctx.front.certSha256 })
   await ctx.front.stop().catch(() => undefined)
+  await recordPortRelease(ctx, 'tls-registry-front', ctx.front.port)
 }
 
 /** 读产品日志快照（停宿主之后调用）。 */
@@ -657,6 +669,24 @@ async function readLogFacts(ctx: Ctx): Promise<{ events: LogEventRecord[]; execs
   const fails = snapshot.events.filter((event) => event.event === 'update.install.fail')
   const requests = snapshot.events.filter((event) => event.event === 'update.install.request')
   return { events: snapshot.events, execs, fails, requests }
+}
+
+/**
+ * 等产品把 update.install.exec 写进日志再停宿主。
+ * 作业终态（电话回包）比 exec 事件早：executor 在作业完成后才落 update.install.exec，
+ * 磁盘 node_modules 也可能先到位。停宿主太早会让 exec 行来不及写盘（真机竞态：
+ * 284-20261103T184726 的 route 断言读到空）。这不是放宽断言：超时后仍没有 exec 行，断言照样失败。
+ */
+async function waitForPackageExec(ctx: Ctx, timeoutMs = 30000): Promise<{ readonly appeared: boolean; readonly waitedMs: number }> {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    const facts = await readLogFacts(ctx)
+    if (facts.execs.some((event) => isPackageEvent(event, ctx.packageName))) {
+      return { appeared: true, waitedMs: Date.now() - startedAt }
+    }
+    await sleep(POLL_MS)
+  }
+  return { appeared: false, waitedMs: Date.now() - startedAt }
 }
 
 /** 产品插件短 id 是否指向该包（日志 pluginId 是更新电话前缀 fxa-a）。 */
@@ -933,6 +963,10 @@ async function runF2(ctx: Ctx): Promise<void> {
     actual: String(diskAfter),
     verdict: diskAfter === ctx.variantVersion ? 'pass' : 'fail',
   })
+  // exec 事件在作业完成之后异步落盘（见 waitForPackageExec 注释）：等它出现再停宿主。
+  const execWait = await waitForPackageExec(ctx)
+  await run.raw('f2-exec-log-wait', { appeared: execWait.appeared, waitedMs: execWait.waitedMs, timeoutMs: 30000 })
+  if (!execWait.appeared) run.addNote('f2 等 update.install.exec 超时 30s 仍没出现（断言将如实失败，不重试掩盖）。')
   await stopHost(ctx, handle, 'after-install')
 
   // 真机日志：路线必须是 desktop-service（出口一），成功 exec 一行、没有该包的失败行。

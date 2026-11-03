@@ -1,0 +1,16 @@
+{
+  "osHomeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\os-home",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\os-home\\.dsh",
+  "profileName": "t3eq",
+  "pnpmStoreDir": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\pnpm-store",
+  "pnpmCacheDir": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\pnpm-cache",
+  "npmCacheDir": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\npm-cache",
+  "registryUrl": "https://127.0.0.1:52814",
+  "upstreamRegistryUrl": "http://127.0.0.1:57559",
+  "tlsFrontPort": 52814,
+  "certSha256": "2079316fc20c3aaf3420d13ca106ed06311caa658984bb415092bd2953e1210f",
+  "playwrightDir": "D:/dsh-plugin/dsh-mattpocock-skills-deck/node_modules/playwright",
+  "node": "v24.19.0",
+  "platform": "win32",
+  "equivalentHostBoundary": "宿主侧能力（desktopProfiles/desktopPnpm/pluginManager）由夹具模板经 deps.readerOverrides 注入；产品仍走真实路由/executor/电话/面板，安装由官方发行包的 CLI 真跑 pnpm 落到真磁盘"
+}

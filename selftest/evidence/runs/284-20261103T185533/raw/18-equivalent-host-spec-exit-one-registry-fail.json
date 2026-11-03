@@ -1,0 +1,14 @@
+{
+  "kind": "desktop",
+  "rawDir": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\raw\\equivalent-host-exit-one-registry-fail",
+  "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\os-home\\.dsh\\profiles\\t3eq",
+  "profileName": "t3eq",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\os-home\\.dsh",
+  "cliProfileName": "t3eq",
+  "cliExe": "D:\\DeepseekHarness\\DeepSeek Harness.exe",
+  "cliJs": "D:\\DeepseekHarness\\resources\\app.asar\\dsh\\node_modules\\@deepseek-ai\\dsh-desktop-host\\lib\\cli.js",
+  "delayMs": 0,
+  "note": "readerOverrides.environmentKind=desktop（README deps.readerOverrides 集成方入口）；宿主服务对象由夹具提供，安装仍走官方发行包 CLI",
+  "specDir": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\equivalent-host-specs",
+  "installTimeoutMs": 300000
+}

@@ -1,0 +1,350 @@
+{
+  "schemaVersion": 1,
+  "runId": "284-20261103T185513",
+  "ticket": "284",
+  "scenarioId": "f2-exit-one-third-party-success",
+  "hostChannel": "dsh-web",
+  "startedAt": "2026-11-03T10:55:13.237Z",
+  "finishedAt": "2026-11-03T10:55:32.978Z",
+  "verdict": "pass",
+  "exitCode": 0,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "worktree": "D:/dsh-plugin/_wt263/t12",
+    "branch": "impl/284-known-red-recovery",
+    "head": "3c2997f7a73904165619412b8fcba6edb08f4171",
+    "hostChannel": "dsh-web"
+  },
+  "sut": {
+    "name": "dsh-plugin-update",
+    "version": "0.18.39",
+    "tarball": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185513\\pack\\dsh-plugin-update-0.18.39.tgz",
+    "tarballSha256": "3502f4da6b9116c24b0e67a15a3b8dd96584b24d8a68afbaa273c1681d201efc",
+    "distDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "distFiles": 208,
+    "registryUrl": "http://127.0.0.1:51949",
+    "installedDistDigest": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+    "installedDistMatch": true
+  },
+  "assertions": [
+    {
+      "id": "04-assert",
+      "step": "SUT 钉版",
+      "what": "被测更新系统 = 当前工作树 npm pack 出来的 dsh-plugin-update，发到本地 registry 的版本号等于工作树版本",
+      "expected": "本地 registry 可见 dsh-plugin-update@0.18.39，且 tarball sha256 落盘",
+      "actual": "dsh-plugin-update@0.18.39，tarball sha256 3502f4da6b9116c2…，dist 208 文件",
+      "verdict": "pass"
+    },
+    {
+      "id": "06-assert",
+      "step": "基版夹具发布",
+      "what": "按场景声明把基版夹具发到本地 registry（版本/效果都来自声明，不在场景里写死）",
+      "expected": "声明里的每个基版 spec 都在 registry 可见",
+      "actual": "dsh-plugin-update-fixture-a@0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "09-assert",
+      "step": "建普通 web profile（等效宿主的宿主环境）",
+      "what": "在 run 私有 DSH_HOME 里建一个普通 web 使用范围，基版装进它；产品对宿主种类的判定由 readerOverrides.environmentKind 显式给",
+      "expected": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185513\\os-home\\.dsh\\profiles\\t3eq",
+      "actual": "exit=0；profileDir=D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185513\\os-home\\.dsh\\profiles\\t3eq",
+      "verdict": "pass"
+    },
+    {
+      "id": "11-assert",
+      "step": "干净 profile 装基版（a）",
+      "what": "隔离 home 的新 profile 里，dsh plugin add 装上 dsh-plugin-update-fixture-a@0.0.1，磁盘清单三处（dependencies/bundles/包内 package.json）一致",
+      "expected": "dependencies=0.0.1；bundles 含 dsh-plugin-update-fixture-a；node_modules 包版本=0.0.1",
+      "actual": "dependencies=0.0.1；bundles=[@deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, dsh-plugin-update-fixture-a]；磁盘版本=0.0.1；exit=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "13-assert",
+      "step": "SUT 钉住核对",
+      "what": "夹具装进 profile 后，profile 里的 dsh-plugin-update/dist 聚合指纹等于工作树 dist（真机跑的是当前构建，不是 npm 上游旧版）",
+      "expected": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc",
+      "actual": "e8cef960ed4baca33e95515e9e1365eb9658151f7adacbe1129d0de0acc82dcc（文件数 208 / 工作树 208）",
+      "verdict": "pass"
+    },
+    {
+      "id": "14-assert",
+      "step": "setup-sut",
+      "what": "profile 里装的 SUT 与工作树构建一致",
+      "expected": "installed distDigest === worktree distDigest",
+      "actual": "true",
+      "verdict": "pass"
+    },
+    {
+      "id": "15-assert",
+      "step": "基版在盘（更新前状态）",
+      "what": "更新前隔离 profile 的 node_modules 里装的是场景声明的基版 0.0.1",
+      "expected": "磁盘版本=0.0.1",
+      "actual": "磁盘版本=0.0.1",
+      "verdict": "pass"
+    },
+    {
+      "id": "22-assert",
+      "step": "f2 安装作业终态",
+      "what": "等效第三方 Desktop（desktopProfiles+desktopPnpm）里点「更新」后的产品作业终态",
+      "expected": "completed 或 restart-required；product code=null；耗时 < 300000ms",
+      "actual": "state=completed；code=null；message=；elapsedMs=1022",
+      "verdict": "pass"
+    },
+    {
+      "id": "23-assert",
+      "step": "f2 磁盘版本（安装后）",
+      "what": "作业报成功后磁盘 node_modules 里夹具包的实际版本",
+      "expected": "dsh-plugin-update-fixture-a@0.0.2",
+      "actual": "0.0.2",
+      "verdict": "pass"
+    },
+    {
+      "id": "27-assert",
+      "step": "f2 产品路线（真机日志）",
+      "what": "产品日志 update.install.exec 的 route 必须落在出口一 desktop-service",
+      "expected": "route=desktop-service；ok=true；exitCode=0",
+      "actual": "route=desktop-service；ok=true；exitCode=0",
+      "verdict": "pass"
+    },
+    {
+      "id": "28-assert",
+      "step": "f2 成功格不该有失败行",
+      "what": "产品日志 update.install.fail 里没有该包",
+      "expected": "0 条",
+      "actual": "0 条",
+      "verdict": "pass"
+    },
+    {
+      "id": "32-assert",
+      "step": "f2 重启后运行代码真换版",
+      "what": "停宿主再起同构宿主：磁盘变体版里 host half 的构建标记必须变成 v0.0.2（不是只看清单/台账）",
+      "expected": "hostTag=host v0.0.2",
+      "actual": "hostTag=host v0.0.2",
+      "verdict": "pass"
+    }
+  ],
+  "shots": [
+    {
+      "id": "20-shot",
+      "step": "f2-before",
+      "what": "更新前的夹具卡片（单面板：未安装/已安装版本 + 更新按钮档）",
+      "expected": "卡片挂载、显示基版 0.0.1",
+      "actual": "text=夹具 A · 更新演示client v0.0.1host ?单席位集成方（无批量席位行）宿主行为 无（v1）.dsh-upd-entry{display:inline-flex;align-items:center;gap:8px;font:13px/1.6 var(--dsh-update-font-sans,system-ui,\"Microsoft YaHei\",sans-serif);font-size:var(--dsh-update-entry-font-size,13px);color:var(--dsh-update-text,#1f2937)}\n.dsh-upd-entry-btn{font:inherit;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:var(--dsh-update-entry-border-radius,6px);\nbackground:var(--dsh-update-button-bg,#f9fafb);color:inherit;padding:var(--dsh-update-entry-padding,4px 12px);zoom:var(--dsh-update-entry-scale,1);cursor:pointer}\n.dsh-upd-entry",
+      "verdict": "pass",
+      "png": "shots\\20-shot.png",
+      "sidecar": "shots\\20-shot.json"
+    },
+    {
+      "id": "21-shot",
+      "step": "f2-after-install",
+      "what": "安装作业终态后的卡片（产品人话格 + 待重启语义）",
+      "expected": "作业终态 completed|restart-required；卡片显示待重启/已了结",
+      "actual": "state=completed；code=null；text=夹具 A · 更新演示client v0.0.1host v0.0.1单席位集成方（无批量席位行）宿主行为 无（v1）.dsh-upd-entry{display:inline-flex;align-items:center;gap:8px;font:13px/1.6 var(--dsh-update-font-sans,system-ui,\"Microsoft YaHei\",sans-serif);font-size:var(--dsh-update-entry-font-size,13px);color:var(--dsh-update-text,#1f2937)}\n.dsh-upd-entry-btn{font:inherit;border:1px solid var(--dsh-update-border,#d1d5db);border-radius:var(--dsh-update-entry-border-radius,6px);\nbackground:var(--dsh-update-button-bg,#f9fafb);color:inherit;padding:var(--dsh-update-entry-padding,4px 12px);zoom:var(--dsh-update-entry-scale,1);cursor:pointer}\n.dsh-upd-",
+      "verdict": "pass",
+      "png": "shots\\21-shot.png",
+      "sidecar": "shots\\21-shot.json"
+    },
+    {
+      "id": "31-shot",
+      "step": "f2-after-restart",
+      "what": "重启后卡片上的夹具构建标记（client/host tag）与标题",
+      "expected": "client=client v0.0.2；host=host v0.0.2（运作代码来自变体版）",
+      "actual": "client=client v0.0.2；host=host v0.0.2；title=夹具 A · 更新演示（新版）",
+      "verdict": "pass",
+      "png": "shots\\31-shot.png",
+      "sidecar": "shots\\31-shot.json"
+    }
+  ],
+  "raw": [
+    {
+      "id": "01-registry-launch",
+      "name": "registry-launch",
+      "file": "raw\\01-registry-launch.json"
+    },
+    {
+      "id": "02-sut-pin",
+      "name": "sut-pin",
+      "file": "raw\\02-sut-pin.json"
+    },
+    {
+      "id": "03-dependency-mirror",
+      "name": "dependency-mirror",
+      "file": "raw\\03-dependency-mirror.json"
+    },
+    {
+      "id": "05-fixture-published-baseline",
+      "name": "fixture-published-baseline",
+      "file": "raw\\05-fixture-published-baseline.json"
+    },
+    {
+      "id": "07-isolation-facts",
+      "name": "isolation-facts",
+      "file": "raw\\07-isolation-facts.json"
+    },
+    {
+      "id": "08-profile-create",
+      "name": "profile-create",
+      "file": "raw\\08-profile-create.json"
+    },
+    {
+      "id": "10-install-baseline",
+      "name": "install-baseline",
+      "file": "raw\\10-install-baseline.json"
+    },
+    {
+      "id": "12-sut-installed-dist",
+      "name": "sut-installed-dist",
+      "file": "raw\\12-sut-installed-dist.json"
+    },
+    {
+      "id": "16-fixture-published-variant",
+      "name": "fixture-published-variant",
+      "file": "raw\\16-fixture-published-variant.json"
+    },
+    {
+      "id": "17-equivalent-host-spec-exit-one",
+      "name": "equivalent-host-spec-exit-one",
+      "file": "raw\\17-equivalent-host-spec-exit-one.json"
+    },
+    {
+      "id": "18-host-launch-exit-one",
+      "name": "host-launch-exit-one",
+      "file": "raw\\18-host-launch-exit-one.json"
+    },
+    {
+      "id": "19-equivalent-host-boundary-0",
+      "name": "equivalent-host-boundary-0",
+      "file": "raw\\19-equivalent-host-boundary-0.json"
+    },
+    {
+      "id": "24-f2-exec-log-wait",
+      "name": "f2-exec-log-wait",
+      "file": "raw\\24-f2-exec-log-wait.json"
+    },
+    {
+      "id": "25-host-stop-0",
+      "name": "host-stop-0",
+      "file": "raw\\25-host-stop-0.json"
+    },
+    {
+      "id": "26-install-log-facts",
+      "name": "install-log-facts",
+      "file": "raw\\26-install-log-facts.json"
+    },
+    {
+      "id": "29-equivalent-host-spec-exit-one-restarted",
+      "name": "equivalent-host-spec-exit-one-restarted",
+      "file": "raw\\29-equivalent-host-spec-exit-one-restarted.json"
+    },
+    {
+      "id": "30-host-launch-exit-one-restarted",
+      "name": "host-launch-exit-one-restarted",
+      "file": "raw\\30-host-launch-exit-one-restarted.json"
+    },
+    {
+      "id": "33-host-stop-1",
+      "name": "host-stop-1",
+      "file": "raw\\33-host-stop-1.json"
+    },
+    {
+      "id": "34-log-fxa-a-2026-11-03",
+      "name": "log-fxa-a-2026-11-03",
+      "file": "raw\\34-log-fxa-a-2026-11-03.json"
+    },
+    {
+      "id": "35-log-fxa-b-2026-11-03",
+      "name": "log-fxa-b-2026-11-03",
+      "file": "raw\\35-log-fxa-b-2026-11-03.json"
+    },
+    {
+      "id": "36-log-fxa-c-2026-11-03",
+      "name": "log-fxa-c-2026-11-03",
+      "file": "raw\\36-log-fxa-c-2026-11-03.json"
+    },
+    {
+      "id": "37-cleanup-log-files",
+      "name": "cleanup-log-files",
+      "file": "raw\\37-cleanup-log-files.json"
+    },
+    {
+      "id": "38-tls-front-stop",
+      "name": "tls-front-stop",
+      "file": "raw\\38-tls-front-stop.json"
+    }
+  ],
+  "cleanup": {
+    "processes": [
+      {
+        "label": "exit-one-host",
+        "pid": 7660,
+        "aliveAfterStop": false
+      },
+      {
+        "label": "exit-one-restarted-host",
+        "pid": 91312,
+        "aliveAfterStop": false
+      }
+    ],
+    "ports": [
+      {
+        "label": "exit-one-host-port",
+        "port": 53030,
+        "released": true
+      },
+      {
+        "label": "exit-one-restarted-host-port",
+        "port": 50759,
+        "released": true
+      },
+      {
+        "label": "tls-registry-front",
+        "port": 65180,
+        "released": true
+      },
+      {
+        "label": "registry",
+        "port": 51949,
+        "released": true
+      }
+    ],
+    "notes": [
+      "本地 registry：http://127.0.0.1:51949（仓库外 verdaccio，run 内独立 storage）",
+      "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+      "等效宿主（本机没有第三方 Desktop / 官方桌面）：用产品文档化入口 createMultiHostUpdate(deps.readerOverrides) 注入宿主能力；产品路由/执行器/电话/面板/日志全真实，安装由官方发行包 CLI 真跑 pnpm 落真磁盘。边界见 raw/equivalent-host-boundary-*。",
+      "宿主 exit-one 已起：kind=desktop，port=53030，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright",
+      "等效宿主边界（0，kind=desktop）：本机没有第三方 Desktop / 官方桌面；用产品文档化入口 createMultiHostUpdate(deps.readerOverrides) 注入等效宿主能力，产品走真实路由/executor/电话/面板；stub=宿主进程内的服务对象（desktopProfiles/desktopPnpm/pluginManager）由夹具模板提供，不是宿主发行包自带",
+      "宿主 exit-one-restarted 已起：kind=desktop，port=50759，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright"
+    ]
+  },
+  "maintainerProfile": null,
+  "notes": [
+    "本地 registry：http://127.0.0.1:51949（仓库外 verdaccio，run 内独立 storage）",
+    "npmjs 依赖镜像：dsh-log@0.3.4（cache）；缓存 D:\\dsh-plugin\\_wt263\\runtime\\tools\\npmjs-mirror",
+    "等效宿主（本机没有第三方 Desktop / 官方桌面）：用产品文档化入口 createMultiHostUpdate(deps.readerOverrides) 注入宿主能力；产品路由/执行器/电话/面板/日志全真实，安装由官方发行包 CLI 真跑 pnpm 落真磁盘。边界见 raw/equivalent-host-boundary-*。",
+    "宿主 exit-one 已起：kind=desktop，port=53030，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright",
+    "等效宿主边界（0，kind=desktop）：本机没有第三方 Desktop / 官方桌面；用产品文档化入口 createMultiHostUpdate(deps.readerOverrides) 注入等效宿主能力，产品走真实路由/executor/电话/面板；stub=宿主进程内的服务对象（desktopProfiles/desktopPnpm/pluginManager）由夹具模板提供，不是宿主发行包自带",
+    "宿主 exit-one-restarted 已起：kind=desktop，port=50759，UI=DSH_VERIFY_PLAYWRIGHT=D:\\dsh-plugin\\dsh-mattpocock-skills-deck\\node_modules\\playwright"
+  ],
+  "equivalentHost": {
+    "what": "出口一（第三方 Desktop）成功格：desktopProfiles/desktopPnpm 等效宿主",
+    "why": "本机没有第三方 Desktop、也没有能稳定停在与产品内部状态相反的 web 宿主：按 #284 用户要求，用产品文档化集成方入口构造等效宿主，让产品代码走真实路径、断言真状态，绝不假回包。",
+    "documentedEntry": "README「测试用集成方」deps.readerOverrides → host/factory.ts createHostUpdate；安装一律真 CLI/真 registry/真 tarball 落盘。",
+    "realParts": [
+      "产品 src/host/environment.ts 路由判定 → environmentKind=desktop",
+      "产品 src/core/executor.ts runDesktopService 真实执行路径（含 timeout/terminate 分支）",
+      "runPlugin 由夹具模板 spawn 官方发行包真 CLI 装 tarball，真 registry、真 pnpm、真磁盘",
+      "电话回包/面板/日志 update.install.exec|fail 全部来自真机",
+      "真 UI 点击 check/install"
+    ],
+    "simulatedParts": [
+      "宿主进程内的 desktopProfiles / desktopPnpm 服务对象由夹具模板（真 web 宿主内）实现，不等于第三方 Desktop 发行包自带实现",
+      "runPlugin 的 terminate 能力由夹具模板提供（本场景成功路径未用到）"
+    ],
+    "nonEquivalence": [
+      "没有第三方 Desktop 宿主进程/其 UI 壳/CDP 页面；等效宿主里产品跑在普通 web 宿主进程中",
+      "第三方 Desktop 发行包内部的 runPlugin 调度细节（并发/锁/进度）不在覆盖范围内"
+    ]
+  }
+}

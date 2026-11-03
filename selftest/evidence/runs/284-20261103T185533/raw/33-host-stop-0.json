@@ -1,0 +1,10 @@
+{
+  "reason": "after-failure",
+  "gen": 0,
+  "kind": "desktop",
+  "port": 57138,
+  "pid": 64976,
+  "equivalentSpecPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185533/equivalent-host-specs/exit-one-registry-fail.json",
+  "stdoutTail": "dsh web: http://127.0.0.1:57138/?token=bzjQgnWQIaFQXWtstwyG9G5kZ0HsAMeBALU6-lun0c0\n",
+  "stderrTail": ""
+}

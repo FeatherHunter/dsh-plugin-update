@@ -1,0 +1,11 @@
+{
+  "methods": [
+    "installBundle",
+    "removeBundle",
+    "listBundles",
+    "setBundleEnabled"
+  ],
+  "cancelInstall": false,
+  "source": "selftest/fixtures/templates/integrator/integrator-host-half-template.ts（equivalentPluginManager）",
+  "note": "模板故意不提供 cancelInstall；产品据此走「宿主未提供取消能力」文案分支"
+}

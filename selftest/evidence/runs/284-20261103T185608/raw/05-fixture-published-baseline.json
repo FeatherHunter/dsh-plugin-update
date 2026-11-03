@@ -1,0 +1,9 @@
+{
+  "scenario": "g8-desktop-manager-no-cancel-timeout",
+  "baseline": [
+    {
+      "slotKey": "a",
+      "spec": "dsh-plugin-update-fixture-a@0.0.1"
+    }
+  ]
+}

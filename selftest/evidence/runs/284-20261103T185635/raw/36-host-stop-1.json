@@ -1,0 +1,10 @@
+{
+  "reason": "after-unregistered-restart",
+  "gen": 1,
+  "kind": "reader-version",
+  "port": 62837,
+  "pid": 77892,
+  "equivalentSpecPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185635/equivalent-host-specs/i4-unregistered-restart.json",
+  "stdoutTail": "dsh web: http://127.0.0.1:62837/?token=GPR4QeRSgt0eK6R9mYekqbvbnJuiJOaK1ovRm1wplAw\n",
+  "stderrTail": ""
+}

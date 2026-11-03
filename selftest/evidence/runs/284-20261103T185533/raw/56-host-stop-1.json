@@ -1,0 +1,10 @@
+{
+  "reason": "after-timeout",
+  "gen": 1,
+  "kind": "desktop",
+  "port": 57221,
+  "pid": 80244,
+  "equivalentSpecPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185533/equivalent-host-specs/exit-one-hang.json",
+  "stdoutTail": "dsh web: http://127.0.0.1:57221/?token=bdzQ4k22lZJJbyftqylSMP0DSvGDyG3xkDadGPdozhM\n",
+  "stderrTail": ""
+}

@@ -1,0 +1,14 @@
+{
+  "path": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185635/os-home/.dsh/profiles/t3eq/package.json",
+  "mode": "bundles",
+  "bundlesBefore": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-web-app"
+  ],
+  "bundlesAfter": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-web-app",
+    "dsh-plugin-update-fixture-a"
+  ],
+  "changed": true
+}

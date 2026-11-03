@@ -1,0 +1,12 @@
+{
+  "why": "失败格必须让 pnpm 真去 registry 下载 tarball；共享 store 里可能已有历史 run 同 integrity 的 0.0.2，本 run 用带注入标记的内容构建（integrity 不同），删 tarball 后才会真的 404",
+  "effect": {
+    "ui": "single",
+    "titleSuffix": "（新版）",
+    "hubDock": false,
+    "hostBehavior": "f3-failure-injection:20261103T185533",
+    "seatLine": "f3 失败格注入 20261103T185533",
+    "installButton": true
+  },
+  "spec": "dsh-plugin-update-fixture-a@0.0.2"
+}

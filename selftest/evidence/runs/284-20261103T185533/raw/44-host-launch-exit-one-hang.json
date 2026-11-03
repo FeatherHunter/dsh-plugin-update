@@ -1,0 +1,13 @@
+{
+  "label": "exit-one-hang",
+  "urlMasked": "http://127.0.0.1:57221/?token=***",
+  "port": 57221,
+  "bootMs": 1874,
+  "profileName": "t3eq",
+  "registryUrl": "https://127.0.0.1:52814",
+  "equivalentKind": "desktop",
+  "equivalentSpecPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185533/equivalent-host-specs/exit-one-hang.json",
+  "installTimeoutMs": 3000,
+  "stdoutTail": "dsh web: http://127.0.0.1:57221/?token=bdzQ4k22lZJJbyftqylSMP0DSvGDyG3xkDadGPdozhM\n",
+  "stderrTail": ""
+}

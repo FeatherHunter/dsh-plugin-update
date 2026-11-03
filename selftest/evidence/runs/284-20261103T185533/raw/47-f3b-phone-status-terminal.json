@@ -1,0 +1,8 @@
+{
+  "state": "failed",
+  "code": "install-failed",
+  "message": "install-failed: 安装超时；宿主未提供终止能力，这次安装可能仍在后台继续",
+  "elapsedMs": 6056,
+  "polls": 7,
+  "replyStatus": 200
+}

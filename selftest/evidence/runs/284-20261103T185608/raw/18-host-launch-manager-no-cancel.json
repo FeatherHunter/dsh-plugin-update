@@ -1,0 +1,13 @@
+{
+  "label": "manager-no-cancel",
+  "urlMasked": "http://127.0.0.1:59386/?token=***",
+  "port": 59386,
+  "bootMs": 1936,
+  "profileName": "t3eq",
+  "registryUrl": "https://127.0.0.1:51172",
+  "equivalentKind": "desktop-manager",
+  "equivalentSpecPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185608/equivalent-host-specs/manager-no-cancel.json",
+  "installTimeoutMs": 3000,
+  "stdoutTail": "dsh web: http://127.0.0.1:59386/?token=JVqGxiZfkYHwTwIRap1F9pVH48b4r5FDZ2oY19OtoHs\n",
+  "stderrTail": ""
+}

@@ -1,0 +1,14 @@
+{
+  "replyStatus": 200,
+  "snapshot": {
+    "runningVersion": "0.0.1",
+    "installed": true,
+    "installedVersion": "0.0.1",
+    "latestVersion": null,
+    "canInstall": false,
+    "blockedReason": null,
+    "job": null,
+    "identity": null,
+    "registered": true
+  }
+}

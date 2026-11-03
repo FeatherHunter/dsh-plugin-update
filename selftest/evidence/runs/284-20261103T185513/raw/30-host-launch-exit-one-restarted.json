@@ -1,0 +1,13 @@
+{
+  "label": "exit-one-restarted",
+  "urlMasked": "http://127.0.0.1:50759/?token=***",
+  "port": 50759,
+  "bootMs": 1891,
+  "profileName": "t3eq",
+  "registryUrl": "https://127.0.0.1:65180",
+  "equivalentKind": "desktop",
+  "equivalentSpecPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185513/equivalent-host-specs/exit-one-restarted.json",
+  "installTimeoutMs": 300000,
+  "stdoutTail": "dsh web: http://127.0.0.1:50759/?token=qWdd2zEm9JinCayKLEwhD8vWa9teCHf88ahQnkWBi2M\n",
+  "stderrTail": ""
+}
