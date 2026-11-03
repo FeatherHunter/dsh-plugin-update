@@ -153,7 +153,7 @@ interface HostHandle {
   readonly index: number
   readonly kind: EquivalentKind | 'plain'
   readonly host: CliHostSession
-  readonly ui: UiHandle | null
+  ui: UiHandle | null
   readonly profileDir: string
   readonly specPath: string
   stopped: boolean
@@ -547,7 +547,7 @@ async function writeHostSpec(ctx: Ctx, label: string, spec: Record<string, unkno
   const dir = join(ctx.run.layout.root, 'equivalent-host-specs')
   await ensureDir(dir)
   const file = join(dir, label + '.json')
-  await writeFile(file, JSON.stringify(spec, null, 2) + '\n', 'utf8')
+  await writeFile(file, JSON.stringify(spec, null, 2) + '\n')
   await ctx.run.raw('equivalent-host-spec-' + label, spec)
   return file
 }
@@ -860,7 +860,7 @@ async function rewriteEnrollment(options: {
   }
   json['dependencies'] = dependencies
   const after = JSON.stringify(json, null, 2) + '\n'
-  await writeFile(manifestPath, after, 'utf8')
+  await writeFile(manifestPath, after)
   return { path: manifestPath, mode, before, after, bundlesBefore, bundlesAfter, changed: after !== before }
 }
 
@@ -1245,7 +1245,7 @@ async function runF3TimeoutNoTerminate(ctx: Ctx): Promise<void> {
   await waitForCard(ui)
   await checkUntilInstallable(ui, ctx.slot)
   const marker = join(handle.profileDir, '.equiv-hang')
-  await writeFile(marker, 'hang\n', 'utf8')
+  await writeFile(marker, 'hang\n')
   await run.raw('f3b-hang-marker', { markerPath: marker.replace(/\\/g, '/'), installTimeoutMs: SHORT_TIMEOUT_MS })
   run.addNote('f3b 注入：profile 目录放 .equiv-hang，夹具 runPlugin 返回永不 settle 的 done 且无 terminate。')
   try {
