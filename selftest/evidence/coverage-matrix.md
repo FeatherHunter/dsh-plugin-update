@@ -37,6 +37,26 @@
 | j2-noise-budget | dsh-web（通道 B） | A@0.0.1（profile=t9j2） | A@0.0.2（UI + 元数据） | 噪声预算 + 边沿触发 | 起宿主 → 两个 Playwright 页面同时开真 UI 面板（每页 5s updateStatus 轮询）→ 静置窗口 ≥100 次真实轮询 → 点「检查更新」→ 再等 ≥20 次轮询 | 静置窗口内常驻日志零新增（轮询不刷屏）；状态变化时恰一条 update.status.changed（update-available/latest=0.0.2），状态不变不重复；面板如实显示「有新版本 0.0.2」；每 ns ≤500 行 | run.json（断言）、shots/（点检查更新前/后各 1 图 + sidecar）、raw/（两页轮询计数与样本、窗口基线与新增行、面板文本、日志计数）、index.md | 全部断言 pass；窗口轮询≥100（每页≥50）且新增行=0；status.changed(update-available) 恰 1 行；再等 ≥20 轮询仍 1 行；panelText 含「有新版本」与 0.0.2 | ✅ 已跑：runs/273-20261103T054531（pass，退出码 0；截图见 shots/） |
 | j3-namespace-whitelist | dsh-web（通道 B） | A@0.0.1（profile=t9j3） | A@0.0.2（UI + 元数据） | 落点 + 白名单 + UI 对账 | 起宿主 → Playwright 开真 UI 面板 → 点「检查更新」→ 读面板日志健康读数（落点/目录指纹/按需开关/丢弃数/最近事件/契约）→ 与磁盘日志逐项对账 → 直接向属主 logAppend 电话伪造 update.install.exec | 面板健康读数与磁盘同源（指纹=wire.ready.logDirHash、最近事件同窗）；按需开关关/丢弃 0/契约正常且无降级行；客户端事件只落属主 fxa-a 且事件名 ⊆ CLIENT_LOG_EVENTS 6 值；伪造宿主事实事件被拒收（accepted=0/dropped=1）且不落盘、exec 行数不变 | run.json（断言）、shots/（面板日志健康区 1 图 + sidecar）、raw/（面板计数与健康读数原文、日志清单、wire.ready 原文、伪造回包、截图记录）、index.md | 全部断言 pass；sink=self 且 dirHash=logDirHash；switch=关/dropped=0/contract=正常；最近事件 deltaMs≤120000；client 事件 outside=[]；accepted=0/dropped=1/伪造行=0/exec 数不变 | ✅ 已跑：runs/273-20261103T054540（pass，退出码 0；截图见 shots/） |
 
+## #284 补测 Wave（2026-11-03 计划行；判定由各 run 定稿后回填）
+
+来源：规格 #263 收口时剩下的 3 条 known-red 与「未覆盖」边界，维护者要求用 web profile + base 库真机构造等效宿主补齐。
+
+| 场景 ID | 组 | 设计 | owner | 状态 |
+| --- | --- | --- | --- | --- |
+| f2-exit-one-third-party-success | A | 等效第三方 Desktop 宿主（desktopProfiles + desktopPnpm.runPlugin 真装）→ 出口一成功格 | t3 | 🚧 计划中（#284） |
+| f3-exit-one-third-party-failure | A | 等效第三方 Desktop 宿主让 CLI 失败/超时 → 出口一失败格与「无终止能力」诚实文案 | t3 | 🚧 计划中（#284） |
+| g8-desktop-manager-no-cancel-timeout | A | 等效 desktop-manager 宿主（pluginManager 四方法但无 cancelInstall）→ 超时用「未提供取消能力」 | t3 | 🚧 计划中（#284） |
+| i4-pending-restart-panel-truth | A | readerOverrides.runningVersion 达成真实 pending-restart 面板分支 + 摘在册重启不加载 | t3 | 🚧 计划中（#284） |
+| l1-same-process-two-plugins-concurrent | B | 同进程两插件同时点更新（两个面板并发）→ 串行/忙碌诚实、无交叉污染 | t4 | 🚧 计划中（#284） |
+| l2-registry-unreachable | B | registry 整体不可达 → 失败诚实、无假成功；恢复后重试成功 | t4 | 🚧 计划中（#284） |
+| l3-permission-denied | B | 安装目录 ACL 拒绝写 → 失败诚实、恢复后重试成功 | t4 | 🚧 计划中（#284） |
+| l4-page-close-mid-install | B | 安装中关页面再打开 → 宿主侧真相不被页面生命周期左右 | t4 | 🚧 计划中（#284） |
+| l5-host-killed-mid-install-recovery | B | 安装中硬杀宿主 → 重启后状态诚实、锁窗口行为与文案 | t4 | 🚧 计划中（#284） |
+| m1-hub-orphan-only-owner-a-returns | C | 全卸载后只回来 A → 中枢自动接管孤儿子任务并推完 | t5 | 🚧 计划中（#284） |
+| m2-hub-orphan-only-owner-b-returns | C | 只回来 B → 不冒领 A 的孤儿方案 | t5 | 🚧 计划中（#284） |
+| m3-owner-a-row-fails-still-alive | C | A 自己行失败但 A 仍活着 → B/C 继续、失败不拖累 | t5 | 🚧 计划中（#284） |
+| m4-cross-profile-concurrency | C | 不同 profile 并发更新 → 队列/锁隔离、互不阻塞 | t5 | 🚧 计划中（#284） |
+
 ## 场景声明要点（新增行必须写清）
 
 - **宿主通道**：`desktop-official`（官方桌面，通道 A）/ `dsh-web`（普通 DSH 宿主，通道 B，fallback）。
