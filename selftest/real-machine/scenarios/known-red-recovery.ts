@@ -1516,13 +1516,23 @@ async function runG8(ctx: Ctx): Promise<void> {
     actual: 'elapsedMs=' + String(elapsed),
     verdict: elapsed >= 5000 && elapsed <= 25000 ? 'pass' : 'fail',
   })
-  const card = await readCard(ui, ctx.slot)
+  // 面板独立轮询（pollMs=5000）：等它把管理器超时失败刷新出来；此刻宿主后台还在 delay/装。
+  const timeoutPanel = await tryWaitForPanelBanner(ui, ctx.slot, (state) => state.banner !== null && state.banner.kind === 'failed', 'g8 管理器超时失败横幅', 30000)
+  const card = timeoutPanel.state ?? (await readCard(ui, ctx.slot))
+  const honest = card.banner !== null && card.banner.kind === 'failed' && card.text.indexOf('已是最新') < 0 && card.text.indexOf('更新成功') < 0
+  run.record({
+    step: 'g8 超时失败后面板不撒谎',
+    what: '管理器超时失败后面板显示失败横幅，不出现「已是最新 / 更新成功」（产品确实不知道后台会成功）',
+    expected: 'banner.kind=failed；不含「已是最新」「更新成功」',
+    actual: 'banner=' + JSON.stringify(card.banner) + '；waitError=' + String(timeoutPanel.error) + '；text=' + card.text.slice(0, 600),
+    verdict: honest ? 'pass' : 'fail',
+  })
   await capture(run, ui, {
     step: 'g8-timeout-panel',
     what: '管理器超时失败后的面板（此刻后台其实还在装）',
     expected: 'banner.kind=failed；卡片不出现「已是最新 / 更新成功」',
     actual: 'banner=' + JSON.stringify(card.banner) + '；text=' + card.text.slice(0, 900),
-    verdict: card.banner !== null && card.banner.kind === 'failed' && card.text.indexOf('已是最新') < 0 && card.text.indexOf('更新成功') < 0 ? 'pass' : 'fail',
+    verdict: honest ? 'pass' : 'fail',
   })
 
   const statusNow = await callPhone(handle.host, ctx.route, ctx.statusPhone, {})
@@ -1543,13 +1553,22 @@ async function runG8(ctx: Ctx): Promise<void> {
     actual: String(diskAfter),
     verdict: diskAfter === ctx.variantVersion ? 'pass' : 'fail',
   })
-  const cardAfter = await readCard(ui, ctx.slot)
+  const afterPanel = await tryWaitForPanelBanner(ui, ctx.slot, (state) => state.banner !== null && state.banner.kind === 'failed', 'g8 后台装完后仍失败横幅', 30000)
+  const cardAfter = afterPanel.state ?? (await readCard(ui, ctx.slot))
+  const honestAfter = cardAfter.banner !== null && cardAfter.banner.kind === 'failed' && cardAfter.text.indexOf('已是最新') < 0
+  run.record({
+    step: 'g8 后台装完后产品仍报失败',
+    what: '磁盘已是变体版，但产品作业仍 failed（它真的不知道后台装完了；面板不谎称成功）',
+    expected: 'banner.kind=failed；不含「已是最新」',
+    actual: 'banner=' + JSON.stringify(cardAfter.banner) + '；waitError=' + String(afterPanel.error) + '；text=' + cardAfter.text.slice(0, 600),
+    verdict: honestAfter ? 'pass' : 'fail',
+  })
   await capture(run, ui, {
     step: 'g8-disk-updated-panel-still-failed',
     what: '磁盘已变体版但产品仍显示失败（「后台继续」的诚实文案与事实一致）',
     expected: 'banner.kind=failed；卡片不出现「已是最新」（产品没刷新到成功）',
     actual: 'banner=' + JSON.stringify(cardAfter.banner) + '；text=' + cardAfter.text.slice(0, 900),
-    verdict: cardAfter.banner !== null && cardAfter.banner.kind === 'failed' && cardAfter.text.indexOf('已是最新') < 0 ? 'pass' : 'fail',
+    verdict: honestAfter ? 'pass' : 'fail',
   })
 
   await stopHost(ctx, handle, 'after-timeout-install')
@@ -1619,11 +1638,11 @@ async function runG8(ctx: Ctx): Promise<void> {
   const failCode = fail ? String(fail.fields['code'] ?? '') : ''
   const failDetail = fail ? String(fail.fields['detail'] ?? '') : ''
   run.record({
-    step: 'g8 产品失败日志：reason=timeout + 诚实文案',
-    what: 'update.install.fail：reason=timeout、code=install-failed、detail 含「未提供取消能力」原文',
-    expected: 'reason=timeout；code=install-failed；detail 含「' + MANAGER_TIMEOUT_NO_CANCEL_DETAIL + '」',
+    step: 'g8 产品失败日志：reason=timeout',
+    what: 'update.install.fail：reason=timeout、code=install-failed（失败事件不带 detail，诚实文案在电话回包，已由上一条断言覆盖）',
+    expected: 'reason=timeout；code=install-failed',
     actual: 'reason=' + failReason + '；code=' + failCode + '；detail=' + failDetail.slice(0, 700),
-    verdict: fail !== null && failReason === 'timeout' && failCode === INSTALL_FAIL_CODE && failDetail.indexOf(MANAGER_TIMEOUT_NO_CANCEL_DETAIL) >= 0 ? 'pass' : 'fail',
+    verdict: fail !== null && failReason === 'timeout' && failCode === INSTALL_FAIL_CODE ? 'pass' : 'fail',
   })
 }
 
