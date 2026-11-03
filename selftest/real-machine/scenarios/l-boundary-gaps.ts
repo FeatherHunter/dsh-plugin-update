@@ -1640,6 +1640,7 @@ async function runL3(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
   await waitForPanel(ui2, cardA, panelA, (state) => state.banner !== null && state.banner.kind !== 'loading', 'L3 gen2 A 面板初始回填')
   // 盘上失败任务保留失败横幅（#245 failure-settled 不成立：目标 0.0.2 并未装上）——诚实历史，不是更新中。
   const failedHistory = await readPanel(ui2, cardA, panelA)
+  if (failedHistory === null) throw new Error('L3 gen2 面板读不到（failedHistory=null）')
   const failedHistoryOk = failedHistory.banner !== null && failedHistory.banner.kind === 'failed' && failedHistory.banner.title.indexOf('更新失败') >= 0
   await capture(ctx.run, ui2, {
     step: 'l3-30-restart-failure-honest',
@@ -2019,6 +2020,7 @@ async function runL5(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
     await waitForPanel(uiB2, cardA, panelA, (state) => state.banner !== null && state.banner.kind !== 'loading', 'L5b 重启后 A 面板回填')
     // 被杀重启后盘上任务仍是中断态：面板如实显示失败/中断历史（不是更新中、不是已最新）。
     const interruptedB = await readPanel(uiB2, cardA, panelA)
+    if (interruptedB === null) throw new Error('L5b gen2 面板读不到（interruptedB=null）')
     const interruptedOkB = interruptedB.banner !== null && interruptedB.banner.kind === 'failed' && interruptedB.banner.title.indexOf('更新失败') >= 0
     await capture(ctx.run, uiB2, {
       step: 'l5b-25-restart-interrupted-honest',
