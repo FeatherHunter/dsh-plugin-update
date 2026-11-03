@@ -2095,23 +2095,17 @@ async function runL5(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
 /** can-red 注入的谎话：失败横幅谎称已是最新（用来证明 L2 诚实性断言真能变红）。 */
 const CAN_RED_LIE = '已是最新，无需更新。（{code}）：{detail}。'
 
-/** 在 run 私有已装 SUT 的构建产物里把失败横幅标题改成谎话（只改本 run profile，不改工作树/产品源码），跑完恢复原字节。 */
-async function runCanRed(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): Promise<void> {
-  const fixtureEnv = ctx.run.fixtureEnv
-  if (!fixtureEnv) throw new Error('can-red 需要夹具环境（run.fixtureEnv 为空）')
-  const sutDir = installedPluginDir({ homeDir: ctx.homeDir, profileName: PROFILE_NAME, packageName: fixtureEnv.sut.name })
-  const dictionaryPath = join(sutDir, 'dist', 'core', 'i18n', 'dictionary.js')
-  const original = await readFile(dictionaryPath, 'utf8')
-  const beforeSha = sha256Of(original)
-  const keyIndex = original.indexOf('"panel.banner.error.title"')
-  if (keyIndex < 0) throw new Error('can-red 注入失败：已装 SUT 的 dictionary.js 里找不到 panel.banner.error.title')
-  const zhIndex = original.indexOf('zh: "', keyIndex)
-  if (zhIndex < 0) throw new Error('can-red 注入失败：panel.banner.error.title 后找不到 zh 值')
+/** 把一段 JS 源码里某个 i18n 键的 zh 值替换成 replacement；找不到该键/值则返回 null。 */
+function patchZhValueOf(source: string, key: string, replacement: string): { patched: string; oldValue: string } | null {
+  const keyIndex = source.indexOf('"' + key + '"')
+  if (keyIndex < 0) return null
+  const zhIndex = source.indexOf('zh: "', keyIndex)
+  if (zhIndex < 0) return null
   const valueStart = zhIndex + 'zh: "'.length
   let cursor = valueStart
   let valueEnd = -1
-  while (cursor < original.length) {
-    const ch = original[cursor]
+  while (cursor < source.length) {
+    const ch = source[cursor]
     if (ch === '\\') {
       cursor += 2
       continue
@@ -2122,35 +2116,61 @@ async function runCanRed(ctx: LBoundaryContext, options: LBoundaryScenarioOption
     }
     cursor += 1
   }
-  if (valueEnd < 0) throw new Error('can-red 注入失败：zh 值没有闭合引号')
-  const oldValue = original.slice(valueStart, valueEnd)
-  const patched = original.slice(0, valueStart) + CAN_RED_LIE + original.slice(valueEnd)
-  await writeFile(dictionaryPath, patched)
-  const patchedText = await readFile(dictionaryPath, 'utf8')
-  const afterSha = sha256Of(patchedText)
-  const injectionEffective = afterSha !== beforeSha && patchedText.indexOf(CAN_RED_LIE) >= 0 && oldValue.indexOf(CAN_RED_LIE) < 0
+  if (valueEnd < 0) return null
+  const patched = source.slice(0, valueStart) + replacement + source.slice(valueEnd)
+  return { patched, oldValue: source.slice(valueStart, valueEnd) }
+}
+
+/**
+ * can-red：把本 run profile 里「面板实际会加载的失败横幅文案」改成谎话，再跑 L2 证明诚实性断言真会红。
+ * 面板文案在夹具集成方的构建产物（lib/client.js 打包了产品面板 + 字典副本）里生效，SUT 的
+ * dist/core/i18n/dictionary.js 也一并改（覆盖宿主侧/其它加载路径）；两个文件都只改本 run 私有副本，
+ * 不改工作树源码，finally 逐字节恢复并核 sha256。
+ */
+async function runCanRed(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): Promise<void> {
+  const fixtureEnv = ctx.run.fixtureEnv
+  if (!fixtureEnv) throw new Error('can-red 需要夹具环境（run.fixtureEnv 为空）')
+  const sutDir = installedPluginDir({ homeDir: ctx.homeDir, profileName: PROFILE_NAME, packageName: fixtureEnv.sut.name })
+  const fixtureDir = installedPluginDir({ homeDir: ctx.homeDir, profileName: PROFILE_NAME, packageName: FIXTURE_SLOT_A.packageName })
+  const targets = [
+    { id: 'fixture-client-bundle', path: join(fixtureDir, 'lib', 'client.js') },
+    { id: 'sut-dictionary', path: join(sutDir, 'dist', 'core', 'i18n', 'dictionary.js') },
+  ]
+  const patchedFiles: { id: string; path: string; original: string; beforeSha: string; afterSha: string; oldValue: string }[] = []
+  for (const target of targets) {
+    const original = await readFile(target.path, 'utf8')
+    const beforeSha = sha256Of(original)
+    const result = patchZhValueOf(original, 'panel.banner.error.title', CAN_RED_LIE)
+    if (result === null) throw new Error('can-red 注入失败：' + target.id + ' 里找不到 panel.banner.error.title 的 zh 值')
+    const afterSha = sha256Of(result.patched)
+    await writeFile(target.path, result.patched)
+    const readBack = await readFile(target.path, 'utf8')
+    if (readBack.indexOf(CAN_RED_LIE) < 0 || sha256Of(readBack) !== afterSha) throw new Error('can-red 注入失败：' + target.id + ' 写回后读不到谎话')
+    patchedFiles.push({ id: target.id, path: target.path, original, beforeSha, afterSha, oldValue: result.oldValue })
+  }
+  const injectionEffective = patchedFiles.length === targets.length
   await ctx.run.raw('can-red-injection', {
-    dictionaryPath,
-    beforeSha,
-    afterSha,
-    oldValue,
+    files: patchedFiles.map((file) => ({ id: file.id, path: file.path, beforeSha: file.beforeSha, afterSha: file.afterSha, oldValue: file.oldValue })),
     injectedValue: CAN_RED_LIE,
     injectionEffective,
     expectedRedAssertions: ['l2-03'],
     expectedExitCode: 1,
-    note: '把失败横幅标题改成谎称「已是最新，无需更新」：只改本 run profile 里已装 SUT 的构建产物，不改工作树源码/产品源码；finally 恢复原字节并核 sha256',
+    note: '把失败横幅标题改成谎称「已是最新，无需更新」：改本 run profile 里夹具集成方打包产物（面板实际加载的文案）与 SUT 字典副本各一处，不改工作树源码/产品源码；finally 逐字节恢复并核 sha256',
   })
-  recorderFor(ctx.run)({ step: 'can-red-injection', what: 'can-red 注入：失败横幅被改成谎称「已是最新，无需更新」', expected: '已装 SUT 的 dictionary.js 中 panel.banner.error.title 的 zh 值被替换且可读回', actual: JSON.stringify({ beforeSha, afterSha, oldValue, injectionEffective }), ok: injectionEffective })
+  recorderFor(ctx.run)({ step: 'can-red-injection', what: 'can-red 注入：面板失败横幅被改成谎称「已是最新，无需更新」', expected: '夹具 client.js 与 SUT dictionary.js 中 panel.banner.error.title 的 zh 值都被替换且可读回', actual: JSON.stringify({ files: patchedFiles.map((file) => ({ id: file.id, beforeSha: file.beforeSha, afterSha: file.afterSha, oldValue: file.oldValue })) }), ok: injectionEffective })
   if (!injectionEffective) throw new Error('can-red 注入未生效，拒绝继续（否则红点不可归因）')
-  ctx.run.addNote('can-red：把失败横幅谎话「已是最新，无需更新」注入本 run 私有已装 SUT 的 dist/core/i18n/dictionary.js；预期 l2-03 诚实性断言变红、run 退出码 1')
+  ctx.run.addNote('can-red：把失败横幅谎话「已是最新，无需更新」注入本 run 私有夹具 client.js + SUT dictionary.js；预期 l2-03 诚实性断言变红、run 退出码 1')
   try {
     await runL2(ctx, { ...options, mode: 'l2' })
   } finally {
-    await writeFile(dictionaryPath, original)
-    const restoredText = await readFile(dictionaryPath, 'utf8')
-    const restoredSha = sha256Of(restoredText)
-    await ctx.run.raw('can-red-restore', { dictionaryPath, restoredSha, beforeSha, restored: restoredSha === beforeSha })
-    ctx.run.addNote('can-red 注入已回滚：dictionary.js sha256 恢复一致=' + String(restoredSha === beforeSha))
+    const restored: { id: string; path: string; restoredSha: string; beforeSha: string; ok: boolean }[] = []
+    for (const file of patchedFiles) {
+      await writeFile(file.path, file.original)
+      const restoredSha = sha256Of(await readFile(file.path, 'utf8'))
+      restored.push({ id: file.id, path: file.path, restoredSha, beforeSha: file.beforeSha, ok: restoredSha === file.beforeSha })
+    }
+    await ctx.run.raw('can-red-restore', { files: restored })
+    ctx.run.addNote('can-red 注入已回滚：' + restored.map((item) => item.id + '=' + String(item.ok)).join('，'))
   }
 }
 
