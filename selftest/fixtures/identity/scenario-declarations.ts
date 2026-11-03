@@ -14,6 +14,9 @@
  */
 import type { FixtureChangeClass, FixtureSlot, FixtureSlotKey, FixtureVariantEffect, FixtureVersion } from './fixture-slots.ts'
 import { FIXTURE_SLOT_A, FIXTURE_SLOT_B, FIXTURE_SLOT_C, fixtureSlotOf } from './fixture-slots.ts'
+import { KNOWN_RED_RECOVERY_SCENARIOS } from './scenario-declarations-known-red-recovery.ts'
+import { BOUNDARY_GAP_SCENARIOS } from './scenario-declarations-boundary-gaps.ts'
+import { HUB_LIFECYCLE_SCENARIOS } from './scenario-declarations-hub-lifecycle.ts'
 
 /** 干净 profile 预装的一步：装哪个席位、装哪个版本、用什么效果渲染。 */
 export interface ScenarioInstallStep {
@@ -913,6 +916,10 @@ export const SCENARIOS: readonly ScenarioDeclaration[] = [
   SCENARIO_J1_LOG_CONTRACT_COVERAGE,
   SCENARIO_J2_NOISE_BUDGET,
   SCENARIO_J3_NAMESPACE_WHITELIST,
+  // #284 补测Wave：A 组（known-red 转真机）、B 组（边界缺口）、C 组（中枢生命周期）各自维护声明分片。
+  ...KNOWN_RED_RECOVERY_SCENARIOS,
+  ...BOUNDARY_GAP_SCENARIOS,
+  ...HUB_LIFECYCLE_SCENARIOS,
 ]
 
 /** 按 id 取场景（未知 id 立刻抛，避免证据跑错场景却记为另一个）。 */
