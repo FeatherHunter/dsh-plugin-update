@@ -1163,13 +1163,16 @@ async function ensureInstalledViaUi(ctx: LBoundaryContext, ui: UiHandle, cardSel
   })
   if (clickedAt === null) throw new Error(label + '：90s 内面板没有给出可点的安装按钮（last kind=' + String(lastKind) + '）')
   // ---- 2. 宿主真的接单：在飞/排队档，或 update.install.request ----
-  // 真机 185200：并发落败方此前的 queued 意图还在队列里（gate=update-busy，产品按 TTL/stale 回收），
-  // 装成后的第一次点击仍会被自己的陈旧排队意图挡住；产品回收后重试才会真接单。这是产品的真实
-  // 排队语义（#217 会话保留意图），驱动不能只点一次就判死：按面板仍可点安装时重试点击，等真接单。
-  const acceptDeadline = Date.now() + RETRY_VIA_UI_TIMEOUT_MS
+  // 真机 185200：并发落败方此前的 queued 意图还在队列里（gate=update-busy），装成后第一次点击
+  // 仍被挡；真机 185900：高频重点点不出结果——每次点击会把「自己上一份 waiting 意图」留给队列，
+  // 产品按 stale（~30s）回收，8s 一次的点法永远重排到队尾（日志 position 恒为 4、abandoned 每
+  // 8s 一条）。所以驱动按真实节奏：点一次后先等产品回收陈旧意图（35s 冷却），再点下一次；
+  // 总窗口 210s。只等接单事实，不放宽任何诚实性断言。
+  const acceptDeadline = Date.now() + 210000
   let acceptedKind: string | null = null
   let requestCount = 0
   let acceptAttempts = 0
+  let lastClickAtMs = 0
   while (Date.now() < acceptDeadline) {
     const state = await readPanel(ui, cardSelector, panelSelector)
     acceptedKind = state && state.banner ? state.banner.kind : null
@@ -1179,15 +1182,14 @@ async function ensureInstalledViaUi(ctx: LBoundaryContext, ui: UiHandle, cardSel
     if (inFlight || requestCount > 0) break
     const installAction = state ? state.actions.find((item) => item.action === 'install') : undefined
     const retryable = acceptedKind !== null && ['update', 'idle', 'failed', 'blocked'].indexOf(acceptedKind) >= 0
-    if (installAction !== undefined && !installAction.disabled && retryable) {
+    const cooldownMs = acceptAttempts === 0 ? 0 : 35000
+    if (installAction !== undefined && !installAction.disabled && retryable && Date.now() - lastClickAtMs >= cooldownMs) {
       await clickInCard(ui, cardSelector, panelSelector + ' button[data-action="install"]')
       acceptAttempts += 1
-      ctx.run.addNote(label + '：第 ' + acceptAttempts + ' 次点安装（此前未被接单，面板 ' + acceptedKind + '）')
-      // 给产品回收陈旧排队意图留出时间，避免高频空点把日志埋掉。
-      await sleep(8000)
-    } else {
-      await sleep(POLL_MS)
+      lastClickAtMs = Date.now()
+      ctx.run.addNote(label + '：第 ' + acceptAttempts + ' 次点安装（此前未被接单，面板 ' + acceptedKind + '；距上次 ' + String(lastClickAtMs) + 'ms）')
     }
+    await sleep(1000)
   }
   const accepted = requestCount > 0 || (acceptedKind !== null && (IN_FLIGHT_KINDS as readonly string[]).indexOf(acceptedKind) >= 0)
   rec({
