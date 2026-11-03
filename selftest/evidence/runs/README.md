@@ -130,3 +130,8 @@
 | 284-20261103T201400 | l4-page-close-mid-install | dsh-web | pass | 0 | #284 补测 Wave B 组：安装中关页面，宿主侧真相不被页面生命周期左右 | 13 断言 / 4 图；延迟代理 8s 拉窗；完成时刻晚于关页面；重开无重复作业 |
 | 284-20261103T203000 | l5-host-killed-mid-install-recovery | dsh-web | pass | 0 | #284 补测 Wave B 组：安装中硬杀宿主后的诚实恢复 + 短阈值陈旧锁回收正式证据 | 20 断言 / 5 图；taskkill /T /F 本 run 宿主；L5a 诚实中断、L5b 恰一次成功 |
 | 284-20261103T205500 | l2-registry-unreachable | dsh-web | fail | 1 | #284 B 组 can-red：私有已装副本注入谎话横幅，证明失败诚实断言真会红 | 预期失败；恰好 `25-assert` 红（其余 21 pass）；注入/恢复 sha 入 raw，两文件恢复 ok=true |
+| 284-20261103T224027 | m1-hub-orphan-only-owner-a-returns | dsh-web（通道 B；taskkill 换手） | pass | 0 | #284 补测 Wave C 组：孤儿方案自动接管（只回来 A）正式证据 | 30 断言；resume sessionHash=44cc80da、fxb 未被冒领、B/C 各恰一次成功 exec；can-red 见 284-20261103T224448 |
+| 284-20261103T224122 | m2-hub-orphan-only-owner-b-returns | dsh-web（通道 B；taskkill 换手） | pass | 0 | #284 补测 Wave C 组：属主隔离（只回来 B 不冒领 fxa，第三幕 A 回来推完）正式证据 | 34 断言；fxb 自续 total=2、fxa 字节不变、exactly-once fxbB=1/fxbC=1 |
+| 284-20261103T224225 | m3-owner-a-row-fails-still-alive | dsh-web（通道 B + Playwright 真页面） | pass | 0 | #284 补测 Wave C 组：A 行失败但 A 仍活着、B/C 继续，恢复后行内重试只重跑 A 正式证据 | 36 断言 / 4 图；坏 tarball sha 58e0a978→53125b1a |
+| 284-20261103T224418 | m4-cross-profile-concurrency | dsh-web（通道 B；同 home 两 profile 两宿主） | pass | 0 | #284 补测 Wave C 组：queue/lock 按 profile 隔离 + 两安装窗真重叠正式证据 | 33 断言；两套 queue hash、B/C exec 时间窗重叠；全局 minimumReleaseAge 噪声隔离见 raw/19 |
+| 284-20261103T224448 | m1-hub-orphan-only-owner-a-returns | dsh-web（通道 B；taskkill 换手） | fail | 1 | #284 C 组 can-red：换手窗口删 hub/plans/fxa.json，证明「自动接管/续跑」断言真会红 | 预期失败；恰 1 红（can-red 断言），其余 20 pass；注入前后 plan 原文入 raw |
