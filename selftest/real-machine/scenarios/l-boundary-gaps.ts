@@ -1638,8 +1638,19 @@ async function runL3(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
   const gen2 = await startHostGen(ctx, 'l3-gen2')
   const ui2 = uiOf(gen2)
   await waitForPanel(ui2, cardA, panelA, (state) => state.banner !== null && state.banner.kind !== 'loading', 'L3 gen2 A 面板初始回填')
+  // 盘上失败任务保留失败横幅（#245 failure-settled 不成立：目标 0.0.2 并未装上）——诚实历史，不是更新中。
+  const failedHistory = await readPanel(ui2, cardA, panelA)
+  const failedHistoryOk = failedHistory.banner !== null && failedHistory.banner.kind === 'failed' && failedHistory.banner.title.indexOf('更新失败') >= 0
+  await capture(ctx.run, ui2, {
+    step: 'l3-30-restart-failure-honest',
+    what: '失败后重启（ACL 已恢复、未重试）：新宿主首屏如实保留上次失败横幅，不谎称更新中/已最新',
+    expected: '横幅 kind=failed、标题含「更新失败」；无更新中/已是最新字样',
+    actual: JSON.stringify({ banner: failedHistory.banner, errCode: failedHistory.errCode }),
+    verdict: failedHistoryOk ? 'pass' : 'fail',
+  })
+  rec({ step: 'l3-06a-failure-persisted', what: '失败后重启仍如实展示失败（不谎称更新中、不自动重试）', expected: 'kind=failed 且标题含「更新失败」', actual: JSON.stringify({ banner: failedHistory.banner }), ok: failedHistoryOk })
   await clickInCard(ui2, cardA, panelA + ' button[data-action="check"]')
-  await waitForPanel(ui2, cardA, panelA, (state) => state.banner !== null && state.banner.kind === 'update', 'L3 恢复后检查仍给出可更新')
+  await waitForPanel(ui2, cardA, panelA, (state) => state.banner !== null && state.actions.some((entry) => entry.action === 'install' && entry.disabled === false), 'L3 恢复后安装按钮可用（检查拿到新凭证）', 90000)
   await clickInCard(ui2, cardA, panelA + ' button[data-action="install"]')
   await waitDiskVersions(ctx, { [packageA]: FIXTURE_VARIANT_VERSION }, 'L3 恢复后真装到 0.0.2')
   // 装完读取器换代首屏诚实未知，真 UI 点检查更新后落定（见 helper 注释）。
