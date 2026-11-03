@@ -1655,9 +1655,7 @@ async function runG8(ctx: Ctx): Promise<void> {
  * 「磁盘已新版、进程仍跑旧版」的待重启状态只存在毫秒级。关掉 HMR（base 组合包的 hmr 条目）
  * 才能稳定验证这个非 HMR 宿主的真实状态；不注入 runningVersion 以外的产品内部状态。
  */
-async function disableHostHmr(ctx: Ctx): Promise<void> {
-  const patchPath = join(ctx.homeDir, 'profiles', PROFILE_NAME, 'cordis.patch.yml')
-  const before = await readFile(patchPath, 'utf8')
+export function applyHmrPatch(before: string): { readonly after: string; readonly changed: boolean } {
   const already = /^- id:\s*hmr\s*$/m.test(before)
   const block = [
     '# [selftest #284 i4] 关闭宿主内建 HMR：让「新版本已写盘、进程仍跑旧版」的待重启状态稳定可验证。',
@@ -1672,15 +1670,28 @@ async function disableHostHmr(ctx: Ctx): Promise<void> {
     .filter((line) => line.trim() !== '' && !line.trim().startsWith('#'))
   const emptyArray = commentsOnly.length === 1 && commentsOnly[0].trim() === '[]'
   const after = already ? before : emptyArray ? before.replace(/\[\]\s*$/, block) : before.replace(/\s*$/, '') + '\n' + block
-  if (!already) await writeFile(patchPath, after)
+  return { after, changed: !already }
+}
+
+async function disableHostHmr(ctx: Ctx): Promise<void> {
+  const patchPath = join(ctx.homeDir, 'profiles', PROFILE_NAME, 'cordis.patch.yml')
+  const before = await readFile(patchPath, 'utf8')
+  const patched = applyHmrPatch(before)
+  const after = patched.after
+  if (patched.changed) await writeFile(patchPath, after)
   await ctx.run.raw('i4-hmr-disabled', {
     path: patchPath.replace(/\\/g, '/'),
-    changed: !already,
+    changed: patched.changed,
     before,
     after,
     why: 'HMR 会在装盘后热重载新插件代码，使 runningVersion 与磁盘版相等，待重启分支只存在毫秒级；关 HMR 是宿主文档化配置，用来验证无 HMR 宿主的真实待重启状态。',
   })
   ctx.run.addNote('i4 宿主配置：profile patch 关闭 base 组合包的 hmr 条目（HMR 会在装盘后热重载插件，掩盖待重启状态）。patch 原文见 raw/i4-hmr-disabled。')
+}
+
+/** 插件电话桥不可用判定：未匹配 POST 在宿主上可能回 404 或 405；两者都证明桥不存在（200=桥存在）。 */
+export function bridgeGoneOf(status: number | null): boolean {
+  return status === 404 || status === 405
 }
 
 /** I4：已写盘未登记的待重启面板真相 + 重启后运行版权威。 */
@@ -1821,7 +1832,7 @@ async function runI4(ctx: Ctx): Promise<void> {
   })
   // 电话桥不可用的观测：插件没加载就没有这座桥。本机宿主对未匹配的 POST 回 405
   // （Method Not Allowed），有的宿主形态回 404；两者都证明「桥不存在」，不能拿 200 当结论。
-  const bridgeGone = bridge404 === 404 || bridge404 === 405
+  const bridgeGone = bridgeGoneOf(bridge404)
   run.record({
     step: 'i4 未登记 + 重启：插件不加载',
     what: '重启后 10s 内卡片不出现（未被登记就不会被宿主加载），持卡插件电话桥不可用（404/405，不是 200）',
@@ -1913,6 +1924,100 @@ async function runI4(ctx: Ctx): Promise<void> {
 }
 
 /** 跑一个 #284 恢复格。 */
+/** run.json 自定义字段 equivalentHost：等效宿主说明（#284 brief 要求；schemaVersion 保持 1）。 */
+export interface EquivalentHostManifestFacts {
+  readonly what: string
+  readonly why: string
+  readonly documentedEntry: string
+  readonly realParts: readonly string[]
+  readonly simulatedParts: readonly string[]
+  readonly nonEquivalence: readonly string[]
+}
+
+/** 按场景给出「等效了什么 / 什么是真的 / 什么没等效」。纯函数，单测可覆盖。 */
+export function equivalentHostFactsOf(mode: RecoveryMode): EquivalentHostManifestFacts {
+  const common = {
+    why: '本机没有第三方 Desktop、也没有能稳定停在与产品内部状态相反的 web 宿主：按 #284 用户要求，用产品文档化集成方入口构造等效宿主，让产品代码走真实路径、断言真状态，绝不假回包。',
+    documentedEntry: 'README「测试用集成方」deps.readerOverrides → host/factory.ts createHostUpdate；安装一律真 CLI/真 registry/真 tarball 落盘。',
+  }
+  if (mode === 'f2' || mode === 'f3' || mode === 'can-red') {
+    const failure = mode === 'f3'
+    return {
+      what: failure
+        ? '出口一（第三方 Desktop）失败格：desktopProfiles/desktopPnpm 等效宿主 + registry tarball 404 + runPlugin 无 terminate 挂起'
+        : mode === 'can-red'
+          ? '出口一成功格 + can-red 故障注入（stale-variant：清单 0.0.2、构建内容仍是 0.0.1）'
+          : '出口一（第三方 Desktop）成功格：desktopProfiles/desktopPnpm 等效宿主',
+      why: common.why,
+      documentedEntry: common.documentedEntry,
+      realParts: [
+        '产品 src/host/environment.ts 路由判定 → environmentKind=desktop',
+        '产品 src/core/executor.ts runDesktopService 真实执行路径（含 timeout/terminate 分支）',
+        'runPlugin 由夹具模板 spawn 官方发行包真 CLI 装 tarball，真 registry、真 pnpm、真磁盘',
+        '电话回包/面板/日志 update.install.exec|fail 全部来自真机',
+        failure ? 'registry 下架用真 tarball 删除（元数据不变）制造 404' : '真 UI 点击 check/install',
+      ],
+      simulatedParts: [
+        '宿主进程内的 desktopProfiles / desktopPnpm 服务对象由夹具模板（真 web 宿主内）实现，不等于第三方 Desktop 发行包自带实现',
+        failure ? 'runPlugin 的「挂起且无 terminate」模式由夹具模板等效（targetDir/.equiv-hang）' : 'runPlugin 的 terminate 能力由夹具模板提供（本场景成功路径未用到）',
+      ],
+      nonEquivalence: [
+        '没有第三方 Desktop 宿主进程/其 UI 壳/CDP 页面；等效宿主里产品跑在普通 web 宿主进程中',
+        '第三方 Desktop 发行包内部的 runPlugin 调度细节（并发/锁/进度）不在覆盖范围内',
+      ],
+    }
+  }
+  if (mode === 'g8') {
+    return {
+      what: '出口二（官方桌面 in-process 插件管理器）超时格：pluginManager 故意不提供 cancelInstall，installBundle 延迟后真装',
+      why: common.why,
+      documentedEntry: common.documentedEntry,
+      realParts: [
+        '产品 src/host/environment.ts 路由判定 → environmentKind=desktop-manager（profileName=desktop）',
+        '产品 src/core/executor.ts runDesktopManager 真实执行路径（含 installTimeoutDetail 无取消分支）',
+        'installBundle 延迟结束后由夹具模板 spawn 真 CLI 装 tarball 落真磁盘',
+        '超时后面板/电话/日志全部来自真机',
+      ],
+      simulatedParts: [
+        'pluginManager 服务对象由夹具模板实现，故意不提供 cancelInstall（官方桌面管理器在 HMR 宿主上通常提供），用来覆盖「宿主无取消能力」真实分支',
+        'installBundle 的延迟由夹具模板注入（delayMs），真安装随后发生',
+      ],
+      nonEquivalence: [
+        '不是官方桌面进程内管理器；官方桌面 already-installed 毫秒守卫、removeBundle/取消语义未在等效宿主上重现',
+        '真实官方桌面进程无法安全构造「无 cancelInstall」实例（这就是原 known-red 的原因）',
+      ],
+    }
+  }
+  return {
+    what: '出口三（普通 DSH 宿主 spawn CLI）待重启真相：runningVersion 由文档化 readerOverrides 注入，三宿主代真重启/真改在册',
+    why: common.why + ' 另：web 宿主内建 HMR 会在装盘后热重载插件、把待重启窗口压到毫秒级；按 @deepseek-ai/dsh-hmr 文档化 profile patch 关闭 HMR 后，注入值=真实已加载代（基版），不是伪造。',
+    documentedEntry: common.documentedEntry + ' 另：HMR 停用走宿主文档化 profile patch（cordis.patch.yml 的 - id: hmr / disabled: true）。',
+    realParts: [
+      '真 dsh web 宿主（普通宿主，非官方桌面）与真 CLI 子进程安装',
+      '产品 src/host/environment.ts 路由判定 → cli-process（profile 名 t3eq≠desktop）',
+      '真改 profile/package.json 的 dsh.profile.bundles 摘/恢复在册',
+      '三次真实宿主重启（未登记不加载 / 恢复登记后加载变体）',
+      '面板/电话/日志/磁盘全部真机',
+    ],
+    simulatedParts: [
+      'runningVersion 由文档化 readerOverrides 注入（web 宿主本身不提供运行代码版本）；关 HMR 后注入值等于真实已加载的基版',
+      'HMR 以宿主文档化 profile patch 停用（不是产品后门，不是注入产品内部状态）',
+    ],
+    nonEquivalence: [
+      '不是官方桌面宿主；官方桌面的 already-installed/remove→install 两步不在本场景',
+      '关 HMR 是宿主配置选择；真实普通宿主若开 HMR，待重启窗口会更短（本场景验证的是无 HMR 宿主的真实状态）',
+    ],
+  }
+}
+
+/** 在 recorder 落盘后把等效宿主说明补进 run.json；schemaVersion 仍为 1（自定义字段不破坏契约）。 */
+async function attachEquivalentHostFacts(run: T3Run, mode: RecoveryMode): Promise<void> {
+  const file = join(run.layout.root, 'run.json')
+  const manifest = JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>
+  manifest['equivalentHost'] = equivalentHostFactsOf(mode)
+  await writeFile(file, JSON.stringify(manifest, null, 2) + '\n')
+}
+
 export async function runKnownRedRecovery(options: RecoveryOptions): Promise<RunManifest> {
   const scenarioId = MODE_SCENARIO[options.mode]
   const run = await openT3Run({
@@ -1945,6 +2050,7 @@ export async function runKnownRedRecovery(options: RecoveryOptions): Promise<Run
     if (ctx) await cleanupContext(ctx)
   }
   const manifest = await run.close()
+  await attachEquivalentHostFacts(run, options.mode)
   if (options.syncEvidence !== false) await copyRunEvidence(run.layout, options.worktree)
   return manifest
 }
