@@ -350,6 +350,12 @@ function jobCodeOf(job: Record<string, unknown>): string | null {
   if (error && typeof error === 'object' && typeof (error as Record<string, unknown>)['code'] === 'string') {
     return (error as Record<string, unknown>)['code'] as string
   }
+  // 出口一/出口三的作业载荷把产品码嵌在 message 前缀（如 'install-failed: …'），job.code 常为空。
+  const message = job['message']
+  if (typeof message === 'string') {
+    const matched = /^([a-z][a-z0-9-]*):\s/.exec(message)
+    if (matched) return matched[1] as string
+  }
   return null
 }
 
@@ -1046,9 +1052,61 @@ function normalizeUrl(value: unknown): string {
   return typeof value === 'string' ? value.replace(/\/+$/, '') : ''
 }
 
+/**
+ * 清掉上一格失败作业的持久化面板状态（home/.dsh/updates/<前缀>/<hash>/state.json 与 update-queue/<hash>/queue.json）。
+ * 面板横幅由 state.json 重建：F3-A 的失败状态会粘住下一次检查（横幅一直停 failed），
+ * F3-B 需要从「干净面板 → check → install」开始。只动这份面板状态，不动磁盘上的包。
+ */
+async function resetPersistedPanelState(ctx: Ctx, label: string): Promise<void> {
+  const run = ctx.run
+  const roots = [join(ctx.homeDir, 'update-queue'), join(ctx.homeDir, 'updates')]
+  const snapshot: { path: string; bytes: number; contentTail: string }[] = []
+  async function walk(dir: string): Promise<void> {
+    let names: string[]
+    try {
+      names = await readdir(dir)
+    } catch {
+      return
+    }
+    for (const name of names) {
+      const path = join(dir, name)
+      const isDir = await readdir(path).then(() => true, () => false)
+      if (isDir) {
+        await walk(path)
+        continue
+      }
+      try {
+        const text = await readFile(path, 'utf8')
+        snapshot.push({ path: path.replace(/\\/g, '/'), bytes: text.length, contentTail: text.slice(-1200) })
+      } catch {
+        // 读不到的单文件不拖垮清理
+      }
+    }
+  }
+  for (const root of roots) await walk(root)
+  const hadFailedState = snapshot.some((item) => item.path.endsWith('state.json') && item.contentTail.indexOf('"state": "failed"') >= 0)
+  for (const root of roots) await rm(root, { recursive: true, force: true })
+  const absentAfter = (await Promise.all(roots.map((root) => readdir(root).then(() => false, () => true)))).every(Boolean)
+  await run.raw(label, {
+    roots: roots.map((root) => root.replace(/\\/g, '/')),
+    filesBefore: snapshot,
+    hadFailedState,
+    absentAfter,
+    note: '面板横幅由持久化 state.json 重建；清掉上一格失败状态后，新宿主从 check 开始（磁盘上的安装不变）',
+  })
+  run.record({
+    step: 'f3b 前置：清掉上一格持久化失败状态（干净面板，不动磁盘安装）',
+    what: '清 home/.dsh/updates 与 update-queue：F3-A 的失败作业状态会让面板横幅一直停在「更新失败」',
+    expected: '清理前读到 state=failed（带 install-failed 原文）；清理后两个目录都不存在',
+    actual: 'files=' + String(snapshot.length) + '；hadFailedState=' + String(hadFailedState) + '；absentAfter=' + String(absentAfter),
+    verdict: hadFailedState && absentAfter ? 'pass' : 'fail',
+  })
+}
+
 /** F3：出口一失败格（A 注册表 tarball 404 真失败 + B 超时无终止能力）。 */
 async function runF3(ctx: Ctx): Promise<void> {
   await runF3RegistryFailure(ctx)
+  await resetPersistedPanelState(ctx, 'f3b-panel-state-reset')
   await runF3TimeoutNoTerminate(ctx)
 }
 
@@ -1184,11 +1242,11 @@ async function runF3RegistryFailure(ctx: Ctx): Promise<void> {
     captures: captureSummary(captures),
   })
   const runPlugin = captures.find((item) => item.payload['phase'] === 'runPlugin') ?? null
-  const pluginArgs = runPlugin && Array.isArray(runPlugin.payload['args']) ? (runPlugin.payload['args'] as unknown[]).map(String) : []
-  const clis = captures.filter((item) => item.payload['phase'] === 'cli')
-  const lastCli = clis.length > 0 ? clis[clis.length - 1] : null
-  const cliExit = lastCli ? lastCli.payload['exitCode'] : null
-  const cliOutput = lastCli ? String(lastCli.payload['stdout'] ?? '') + String(lastCli.payload['stderr'] ?? '') : ''
+  // 模板的 runPlugin 采集在真 CLI 退出后写 argv/exitCode/stdout/stderr（没有单独的 cli 阶段）。
+  const runPluginPayload = runPlugin ? runPlugin.payload : null
+  const pluginArgs = runPluginPayload && Array.isArray(runPluginPayload['argv']) ? (runPluginPayload['argv'] as unknown[]).map(String) : []
+  const cliExit = runPluginPayload ? runPluginPayload['exitCode'] : null
+  const cliOutput = runPluginPayload ? String(runPluginPayload['stdout'] ?? '') + String(runPluginPayload['stderr'] ?? '') : ''
   const specToken = ctx.packageName + '@' + ctx.variantVersion
   run.record({
     step: 'f3a 等效宿主真的跑了 CLI（不是假回包）',
@@ -1221,13 +1279,13 @@ async function runF3RegistryFailure(ctx: Ctx): Promise<void> {
   const fail = fails.length > 0 ? fails[fails.length - 1] : null
   const failReason = fail ? String(fail.fields['reason'] ?? '') : ''
   const failCode = fail ? String(fail.fields['code'] ?? '') : ''
-  const failDetail = fail ? String(fail.fields['detail'] ?? '') : ''
+  const failHostHash = fail ? String(fail.fields['hostCodeHash'] ?? '') : ''
   run.record({
-    step: 'f3a 产品失败日志：reason/code/detail',
-    what: 'update.install.fail 一行：reason=nonzero-exit、code=install-failed、detail 含 pnpm 原话',
-    expected: 'reason=nonzero-exit；code=install-failed；detail 含 ERR_PNPM/404/fetch',
-    actual: 'reason=' + failReason + '；code=' + failCode + '；detail=' + failDetail.slice(0, 700),
-    verdict: fail !== null && failReason === 'nonzero-exit' && failCode === INSTALL_FAIL_CODE && /ERR_PNPM|404|fetch/i.test(failDetail) ? 'pass' : 'fail',
+    step: 'f3a 产品失败日志：reason/code（宿主原话在电话回包，不在日志事件）',
+    what: 'update.install.fail 一行：reason=nonzero-exit、code=install-failed、hostCodeHash=none；pnpm 原话在电话回包 message（前面已断言）',
+    expected: 'reason=nonzero-exit；code=install-failed；hostCodeHash=none',
+    actual: 'reason=' + failReason + '；code=' + failCode + '；hostCodeHash=' + failHostHash,
+    verdict: fail !== null && failReason === 'nonzero-exit' && failCode === INSTALL_FAIL_CODE && failHostHash === 'none' ? 'pass' : 'fail',
   })
 }
 
