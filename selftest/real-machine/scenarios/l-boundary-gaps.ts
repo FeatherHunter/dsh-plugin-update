@@ -1527,10 +1527,10 @@ async function runL3(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
   const aclAfter = await aclTextOf(nodeModulesDir)
   const probeDenied = await writeProbe(nodeModulesDir)
   // 读探针：注入只挡写，产品读包/读清单仍应成功（否则失败会走 invalid-installation，不是安装被拒）。
-  const probeRead = await readFile(join(profilePackageDir, 'package.json'), 'utf8')
+  const readProbe = await readFile(join(profilePackageDir, 'package.json'), 'utf8')
     .then((text) => ({ ok: true, bytes: text.length, code: null as string | null }))
     .catch((error: { code?: unknown }) => ({ ok: false, bytes: 0, code: typeof error?.code === 'string' ? error.code : null }))
-  const denyEffective = deny.exitCode === 0 && probeDenied.ok === false && probeRead.ok && (probeDenied.code !== null || PERMISSION_ERROR_TOKEN.test(probeDenied.message || ''))
+  const denyEffective = deny.exitCode === 0 && probeDenied.ok === false && readProbe.ok && (probeDenied.code !== null || PERMISSION_ERROR_TOKEN.test(probeDenied.message || ''))
   await ctx.run.raw('l3-acl-inject', {
     profilePackageDir,
     nodeModulesDir,
@@ -1539,7 +1539,7 @@ async function runL3(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
     denyCommand: deny,
     aclAfter,
     writeProbe: probeDenied,
-    readProbe: probeRead,
+    readProbe,
     effective: denyEffective,
     note: 'icacls /deny *SID:(OI)(CI)(AD,WD) 对本 run 隔离 profile 的 node_modules 拒绝写数据/加子目录（读不受影响，产品仍认包 0.0.1 完好）；同用户 raw 写探针证明真写不进去（外部注入，未改产品代码）',
   })
