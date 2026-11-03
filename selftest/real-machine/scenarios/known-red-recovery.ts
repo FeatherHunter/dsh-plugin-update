@@ -1467,7 +1467,9 @@ async function runG8(ctx: Ctx): Promise<void> {
     subcase: 'timeout-no-cancelInstall',
     installTimeoutMs: SHORT_TIMEOUT_MS,
     managerDelayMs: MANAGER_DELAY_MS,
+    runningVersionInjected: ctx.baseVersion,
     whyThisSubcase: '等效 pluginManager 故意没有 cancelInstall（模板 equivalentPluginManager）；installBundle 先 delay ' + String(MANAGER_DELAY_MS) + 'ms 再真跑 CLI，产品 ' + String(SHORT_TIMEOUT_MS) + 'ms deadline 到点只能报「未提供取消能力」',
+    whyRunningVersionInjected: '官方桌面宿主报「已加载代码」的版本，不拿磁盘 package.json 冒充；模板 desktop-manager readerOverrides 因此注入 runningVersion=' + ctx.baseVersion + '（当前加载的 host half 版本）。缺这格时 #245 的失败结算会以为目标版本已在跑，面板会在宿主仍跑旧版时说「已是最新」（#272-i2 的缺口）',
   })
   await run.raw('g8-equivalent-manager-methods', {
     methods: ['installBundle', 'removeBundle', 'listBundles', 'setBundleEnabled'],
@@ -1722,19 +1724,20 @@ async function runI4(ctx: Ctx): Promise<void> {
     changed: unregister.changed,
   })
   run.addNote('i4 注入：把包从 profile 的 dsh.profile.bundles 里摘掉（真实改 profile/package.json），模拟「未登记在使用范围清单」。')
+  const expectedAction2 = '请先在宿主插件页选中该插件，再重启宿主以加载新版本。'
   await reopenUi(ui, gen1.host.url)
   await waitForCard(ui)
+  // 面板 5s 轮询：必须等到「未登记」这一版文案（不能拿到重载前的已登记 restart 横幅就下结论）。
   const banner2 = await waitForPanelBanner(
     ui,
     ctx.slot,
-    (state) => state.banner !== null && (state.banner.title.indexOf('未登记') >= 0 || state.banner.title.indexOf('新版本') >= 0 || state.seal.indexOf('待重启') >= 0),
+    (state) => state.banner !== null && (state.banner.title.indexOf('未登记在使用范围清单') >= 0 || state.banner.action === expectedAction2),
     '未登记待重启横幅',
   )
   const b2 = banner2.banner
   const title2 = b2 ? b2.title : ''
   const action2 = b2 ? b2.action : ''
   const kind2 = b2 ? b2.kind : null
-  const expectedAction2 = '请先在宿主插件页选中该插件，再重启宿主以加载新版本。'
   await capture(run, ui, {
     step: 'i4-unregistered-banner',
     what: '同一宿主里把包从在册摘掉后面板：未登记分支（重启也不会加载）',
