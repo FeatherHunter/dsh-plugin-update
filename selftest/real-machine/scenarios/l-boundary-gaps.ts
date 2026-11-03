@@ -1163,9 +1163,13 @@ async function ensureInstalledViaUi(ctx: LBoundaryContext, ui: UiHandle, cardSel
   })
   if (clickedAt === null) throw new Error(label + '：90s 内面板没有给出可点的安装按钮（last kind=' + String(lastKind) + '）')
   // ---- 2. 宿主真的接单：在飞/排队档，或 update.install.request ----
+  // 真机 185200：并发落败方此前的 queued 意图还在队列里（gate=update-busy，产品按 TTL/stale 回收），
+  // 装成后的第一次点击仍会被自己的陈旧排队意图挡住；产品回收后重试才会真接单。这是产品的真实
+  // 排队语义（#217 会话保留意图），驱动不能只点一次就判死：按面板仍可点安装时重试点击，等真接单。
   const acceptDeadline = Date.now() + RETRY_VIA_UI_TIMEOUT_MS
   let acceptedKind: string | null = null
   let requestCount = 0
+  let acceptAttempts = 0
   while (Date.now() < acceptDeadline) {
     const state = await readPanel(ui, cardSelector, panelSelector)
     acceptedKind = state && state.banner ? state.banner.kind : null
@@ -1173,14 +1177,24 @@ async function ensureInstalledViaUi(ctx: LBoundaryContext, ui: UiHandle, cardSel
     requestCount = installRequestsOf(events, packageName).length
     const inFlight = acceptedKind !== null && (IN_FLIGHT_KINDS as readonly string[]).indexOf(acceptedKind) >= 0
     if (inFlight || requestCount > 0) break
-    await sleep(POLL_MS)
+    const installAction = state ? state.actions.find((item) => item.action === 'install') : undefined
+    const retryable = acceptedKind !== null && ['update', 'idle', 'failed', 'blocked'].indexOf(acceptedKind) >= 0
+    if (installAction !== undefined && !installAction.disabled && retryable) {
+      await clickInCard(ui, cardSelector, panelSelector + ' button[data-action="install"]')
+      acceptAttempts += 1
+      ctx.run.addNote(label + '：第 ' + acceptAttempts + ' 次点安装（此前未被接单，面板 ' + acceptedKind + '）')
+      // 给产品回收陈旧排队意图留出时间，避免高频空点把日志埋掉。
+      await sleep(8000)
+    } else {
+      await sleep(POLL_MS)
+    }
   }
   const accepted = requestCount > 0 || (acceptedKind !== null && (IN_FLIGHT_KINDS as readonly string[]).indexOf(acceptedKind) >= 0)
   rec({
     step: 'l1-retry-ui-' + packageName + '-accepted',
     what: label + '：点击后宿主真的接单（不是按钮没接线的空点）',
-    expected: '90s 内面板进入在飞/排队档，或日志出现该包的 update.install.request',
-    actual: JSON.stringify({ acceptedKind, requestCount }),
+    expected: '90s 内面板进入在飞/排队档，或日志出现该包的 update.install.request（若此前被自己的陈旧排队意图挡住，产品回收后重试点击）',
+    actual: JSON.stringify({ acceptedKind, requestCount, acceptAttempts }),
     ok: accepted,
   })
   if (!accepted) throw new Error(label + '：点击后 90s 内既没进入在飞/排队档，也没有 update.install.request')
