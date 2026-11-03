@@ -1,0 +1,97 @@
+{
+  "eventCounts": {
+    "host.start": 10,
+    "update.wire.ready": 20,
+    "update.status.changed": 42,
+    "update.check.done": 18,
+    "host.call": 32,
+    "update.batch.entry.request": 2,
+    "update.batch.run.start": 2,
+    "update.queue.transition": 30,
+    "update.install.fail": 6,
+    "host.call.fail": 6,
+    "update.install.request": 6,
+    "update.install.retry": 6,
+    "update.install.exec": 6,
+    "update.install.verify": 6,
+    "update.batch.summary": 2
+  },
+  "okExecB": [
+    {
+      "ts": 1793717082040,
+      "pluginId": "fxa-b",
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 1018
+    },
+    {
+      "ts": 1793717082070,
+      "pluginId": "fxa-b",
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 1008
+    }
+  ],
+  "okExecC": [
+    {
+      "ts": 1793717083527,
+      "pluginId": "fxa-c",
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 1093
+    },
+    {
+      "ts": 1793717083611,
+      "pluginId": "fxa-c",
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 1139
+    }
+  ],
+  "overlapB": [
+    {
+      "left": {
+        "ts": 1793717082040,
+        "pluginId": "fxa-b",
+        "route": "cli-process",
+        "ok": true,
+        "exitCode": 0,
+        "durationMs": 1018
+      },
+      "right": {
+        "ts": 1793717082070,
+        "pluginId": "fxa-b",
+        "route": "cli-process",
+        "ok": true,
+        "exitCode": 0,
+        "durationMs": 1008
+      }
+    }
+  ],
+  "overlapC": [
+    {
+      "left": {
+        "ts": 1793717083527,
+        "pluginId": "fxa-c",
+        "route": "cli-process",
+        "ok": true,
+        "exitCode": 0,
+        "durationMs": 1093
+      },
+      "right": {
+        "ts": 1793717083611,
+        "pluginId": "fxa-c",
+        "route": "cli-process",
+        "ok": true,
+        "exitCode": 0,
+        "durationMs": 1139
+      }
+    }
+  ],
+  "busyRows": [],
+  "note": "同 home 两宿主写同一 logs 目录；exec 行没有 profile 字段，因此用「每包成功 exec 恰 2 条（两 profile 各一）+ 时间窗重叠」证明并发，台账/磁盘按 hash 分组证明无串写。"
+}

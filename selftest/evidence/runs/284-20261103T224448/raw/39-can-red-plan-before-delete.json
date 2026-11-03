@@ -1,0 +1,50 @@
+{
+  "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224448\\os-home\\.dsh\\update-queue\\47afcf060ff22b781e9832d0\\hub\\plans\\fxa.json",
+  "raw": "{\"version\":1,\"sessionId\":\"mw0sumhb-vd5npzn1yy\",\"owner\":\"fxa\",\"selfKey\":\"a\",\"selfOrder\":\"first\",\"stopOnFailure\":false,\"targets\":[{\"key\":\"a\",\"title\":\"夹具 A 本体\",\"packageName\":\"dsh-plugin-update-fixture-a\",\"pluginId\":\"fxa-a\",\"prefix\":\"fxa-a\",\"homeDir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t14-284\\\\284-20261103T224448\\\\os-home\\\\.dsh\",\"profileDir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t14-284\\\\284-20261103T224448\\\\os-home\\\\.dsh\\\\profiles\\\\t14hub\"},{\"key\":\"b\",\"title\":\"夹具 B\",\"packageName\":\"dsh-plugin-update-fixture-b\",\"pluginId\":\"fxa-b\",\"prefix\":\"fxa-b\",\"homeDir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t14-284\\\\284-20261103T224448\\\\os-home\\\\.dsh\",\"profileDir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t14-284\\\\284-20261103T224448\\\\os-home\\\\.dsh\\\\profiles\\\\t14hub\"},{\"key\":\"c\",\"title\":\"夹具 C\",\"packageName\":\"dsh-plugin-update-fixture-c\",\"pluginId\":\"fxa-c\",\"prefix\":\"fxa-c\",\"homeDir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t14-284\\\\284-20261103T224448\\\\os-home\\\\.dsh\",\"profileDir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t14-284\\\\284-20261103T224448\\\\os-home\\\\.dsh\\\\profiles\\\\t14hub\"}],\"scope\":{\"homeDir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t14-284\\\\284-20261103T224448\\\\os-home\\\\.dsh\",\"profileDir\":\"D:\\\\dsh-plugin\\\\_wt263\\\\runtime\\\\t14-284\\\\284-20261103T224448\\\\os-home\\\\.dsh\\\\profiles\\\\t14hub\",\"profileName\":\"t14hub\",\"registryUrl\":\"http://127.0.0.1:63650\"},\"createdAt\":1793717102948,\"updatedAt\":1793717102948}",
+  "json": {
+    "version": 1,
+    "sessionId": "mw0sumhb-vd5npzn1yy",
+    "owner": "fxa",
+    "selfKey": "a",
+    "selfOrder": "first",
+    "stopOnFailure": false,
+    "targets": [
+      {
+        "key": "a",
+        "title": "夹具 A 本体",
+        "packageName": "dsh-plugin-update-fixture-a",
+        "pluginId": "fxa-a",
+        "prefix": "fxa-a",
+        "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224448\\os-home\\.dsh",
+        "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224448\\os-home\\.dsh\\profiles\\t14hub"
+      },
+      {
+        "key": "b",
+        "title": "夹具 B",
+        "packageName": "dsh-plugin-update-fixture-b",
+        "pluginId": "fxa-b",
+        "prefix": "fxa-b",
+        "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224448\\os-home\\.dsh",
+        "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224448\\os-home\\.dsh\\profiles\\t14hub"
+      },
+      {
+        "key": "c",
+        "title": "夹具 C",
+        "packageName": "dsh-plugin-update-fixture-c",
+        "pluginId": "fxa-c",
+        "prefix": "fxa-c",
+        "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224448\\os-home\\.dsh",
+        "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224448\\os-home\\.dsh\\profiles\\t14hub"
+      }
+    ],
+    "scope": {
+      "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224448\\os-home\\.dsh",
+      "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224448\\os-home\\.dsh\\profiles\\t14hub",
+      "profileName": "t14hub",
+      "registryUrl": "http://127.0.0.1:63650"
+    },
+    "createdAt": 1793717102948,
+    "updatedAt": 1793717102948
+  },
+  "sha256": "ab86af7300204ea6e78283ee744d04e5846c4bba567a256f7974f7ef3c24275f"
+}

@@ -1,0 +1,460 @@
+{
+  "at": 1793716902439,
+  "phasesA": {
+    "a": "done",
+    "b": "installing",
+    "c": "ready"
+  },
+  "phasesB": {
+    "a": null,
+    "b": "ready",
+    "c": "ready"
+  },
+  "planNames": [
+    "fxa.json",
+    "fxb.json"
+  ],
+  "planA": {
+    "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\update-queue\\afe54603808af02737bf8a89\\hub\\plans\\fxa.json",
+    "json": {
+      "version": 1,
+      "sessionId": "mw0sqa6a-29adsvrjpz",
+      "owner": "fxa",
+      "selfKey": "a",
+      "selfOrder": "first",
+      "stopOnFailure": false,
+      "targets": [
+        {
+          "key": "a",
+          "title": "夹具 A 本体",
+          "packageName": "dsh-plugin-update-fixture-a",
+          "pluginId": "fxa-a",
+          "prefix": "fxa-a",
+          "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh",
+          "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\profiles\\t14hub"
+        },
+        {
+          "key": "b",
+          "title": "夹具 B",
+          "packageName": "dsh-plugin-update-fixture-b",
+          "pluginId": "fxa-b",
+          "prefix": "fxa-b",
+          "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh",
+          "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\profiles\\t14hub"
+        },
+        {
+          "key": "c",
+          "title": "夹具 C",
+          "packageName": "dsh-plugin-update-fixture-c",
+          "pluginId": "fxa-c",
+          "prefix": "fxa-c",
+          "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh",
+          "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\profiles\\t14hub"
+        }
+      ],
+      "scope": {
+        "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh",
+        "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\profiles\\t14hub",
+        "profileName": "t14hub",
+        "registryUrl": "http://127.0.0.1:52976"
+      },
+      "createdAt": 1793716900383,
+      "updatedAt": 1793716900383
+    },
+    "sha256": "6c90b2561a36ef32091fa0b185c64166fe529f5c63810251633ac6797f640ef5"
+  },
+  "planB": {
+    "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\update-queue\\afe54603808af02737bf8a89\\hub\\plans\\fxb.json",
+    "json": {
+      "version": 1,
+      "sessionId": "mw0sqbqo-wldv0qkv68",
+      "owner": "fxb",
+      "selfKey": "b",
+      "selfOrder": "last",
+      "stopOnFailure": false,
+      "targets": [
+        {
+          "key": "c",
+          "title": "夹具 C",
+          "packageName": "dsh-plugin-update-fixture-c",
+          "pluginId": "fxb-c",
+          "prefix": "fxb-c",
+          "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh",
+          "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\profiles\\t14hub"
+        },
+        {
+          "key": "b",
+          "title": "夹具 B 本体",
+          "packageName": "dsh-plugin-update-fixture-b",
+          "pluginId": "fxb-b",
+          "prefix": "fxb-b",
+          "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh",
+          "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\profiles\\t14hub"
+        }
+      ],
+      "scope": {
+        "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh",
+        "profileDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\profiles\\t14hub",
+        "profileName": "t14hub",
+        "registryUrl": "http://127.0.0.1:52976"
+      },
+      "createdAt": 1793716902423,
+      "updatedAt": 1793716902423
+    },
+    "sha256": "fed24fba4843b8acad523623cf3d640fbbd8da310e0e0672019e234d6722ba5f"
+  },
+  "batchA": {
+    "version": 1,
+    "id": "mw0sqa6a-29adsvrjpz",
+    "selfKey": "a",
+    "stopOnFailure": false,
+    "order": [
+      "a",
+      "b",
+      "c"
+    ],
+    "entries": [
+      {
+        "key": "a",
+        "phase": "done",
+        "requestId": "batch:mw0sqa6a-29adsvrjpz:a",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793716902309
+      },
+      {
+        "key": "b",
+        "phase": "installing",
+        "requestId": "batch:mw0sqa6a-29adsvrjpz:b",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793716902321
+      },
+      {
+        "key": "c",
+        "phase": "ready",
+        "requestId": "batch:mw0sqa6a-29adsvrjpz:c",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793716900382
+      }
+    ],
+    "createdAt": 1793716900354,
+    "updatedAt": 1793716902321
+  },
+  "batchB": {
+    "version": 1,
+    "id": "mw0sqbqo-wldv0qkv68",
+    "selfKey": "b",
+    "stopOnFailure": false,
+    "order": [
+      "c",
+      "b"
+    ],
+    "entries": [
+      {
+        "key": "c",
+        "phase": "ready",
+        "requestId": "batch:mw0sqbqo-wldv0qkv68:c",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793716902420
+      },
+      {
+        "key": "b",
+        "phase": "ready",
+        "requestId": "batch:mw0sqbqo-wldv0qkv68:b",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793716902422
+      }
+    ],
+    "createdAt": 1793716902384,
+    "updatedAt": 1793716902422
+  },
+  "lease": {
+    "version": 1,
+    "driverId": "dsh-hub:42480:cju9bqbjt7",
+    "pluginId": "fxa",
+    "pid": 42480,
+    "startedAt": 1793716900384,
+    "heartbeatAt": 1793716900384,
+    "generation": 1
+  },
+  "bFiredAt": 1793716902381,
+  "samples": [
+    {
+      "t": 1793716900354,
+      "planNames": [],
+      "phasesA": {
+        "a": null,
+        "b": null,
+        "c": null
+      },
+      "phasesB": {
+        "a": null,
+        "b": null,
+        "c": null
+      },
+      "lease": null
+    },
+    {
+      "t": 1793716900558,
+      "planNames": [
+        "fxa.json"
+      ],
+      "phasesA": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "phasesB": {
+        "a": null,
+        "b": null,
+        "c": null
+      },
+      "lease": {
+        "pid": 42480,
+        "generation": 1,
+        "driverId": "dsh-hub:42480:cju9bqbjt7"
+      }
+    },
+    {
+      "t": 1793716900760,
+      "planNames": [
+        "fxa.json"
+      ],
+      "phasesA": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "phasesB": {
+        "a": null,
+        "b": null,
+        "c": null
+      },
+      "lease": {
+        "pid": 42480,
+        "generation": 1,
+        "driverId": "dsh-hub:42480:cju9bqbjt7"
+      }
+    },
+    {
+      "t": 1793716900961,
+      "planNames": [
+        "fxa.json"
+      ],
+      "phasesA": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "phasesB": {
+        "a": null,
+        "b": null,
+        "c": null
+      },
+      "lease": {
+        "pid": 42480,
+        "generation": 1,
+        "driverId": "dsh-hub:42480:cju9bqbjt7"
+      }
+    },
+    {
+      "t": 1793716901163,
+      "planNames": [
+        "fxa.json"
+      ],
+      "phasesA": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "phasesB": {
+        "a": null,
+        "b": null,
+        "c": null
+      },
+      "lease": {
+        "pid": 42480,
+        "generation": 1,
+        "driverId": "dsh-hub:42480:cju9bqbjt7"
+      }
+    },
+    {
+      "t": 1793716901365,
+      "planNames": [
+        "fxa.json"
+      ],
+      "phasesA": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "phasesB": {
+        "a": null,
+        "b": null,
+        "c": null
+      },
+      "lease": {
+        "pid": 42480,
+        "generation": 1,
+        "driverId": "dsh-hub:42480:cju9bqbjt7"
+      }
+    },
+    {
+      "t": 1793716901566,
+      "planNames": [
+        "fxa.json"
+      ],
+      "phasesA": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "phasesB": {
+        "a": null,
+        "b": null,
+        "c": null
+      },
+      "lease": {
+        "pid": 42480,
+        "generation": 1,
+        "driverId": "dsh-hub:42480:cju9bqbjt7"
+      }
+    },
+    {
+      "t": 1793716901770,
+      "planNames": [
+        "fxa.json"
+      ],
+      "phasesA": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "phasesB": {
+        "a": null,
+        "b": null,
+        "c": null
+      },
+      "lease": {
+        "pid": 42480,
+        "generation": 1,
+        "driverId": "dsh-hub:42480:cju9bqbjt7"
+      }
+    },
+    {
+      "t": 1793716901975,
+      "planNames": [
+        "fxa.json"
+      ],
+      "phasesA": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "phasesB": {
+        "a": null,
+        "b": null,
+        "c": null
+      },
+      "lease": {
+        "pid": 42480,
+        "generation": 1,
+        "driverId": "dsh-hub:42480:cju9bqbjt7"
+      }
+    },
+    {
+      "t": 1793716902178,
+      "planNames": [
+        "fxa.json"
+      ],
+      "phasesA": {
+        "a": "installing",
+        "b": "ready",
+        "c": "ready"
+      },
+      "phasesB": {
+        "a": null,
+        "b": null,
+        "c": null
+      },
+      "lease": {
+        "pid": 42480,
+        "generation": 1,
+        "driverId": "dsh-hub:42480:cju9bqbjt7"
+      }
+    },
+    {
+      "t": 1793716902381,
+      "planNames": [
+        "fxa.json"
+      ],
+      "phasesA": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "phasesB": {
+        "a": null,
+        "b": null,
+        "c": null
+      },
+      "lease": {
+        "pid": 42480,
+        "generation": 1,
+        "driverId": "dsh-hub:42480:cju9bqbjt7"
+      }
+    },
+    {
+      "t": 1793716902411,
+      "planNames": [
+        "fxa.json"
+      ],
+      "phasesA": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "phasesB": {
+        "a": null,
+        "b": "checking",
+        "c": "checking"
+      },
+      "lease": {
+        "pid": 42480,
+        "generation": 1,
+        "driverId": "dsh-hub:42480:cju9bqbjt7"
+      }
+    },
+    {
+      "t": 1793716902439,
+      "planNames": [
+        "fxa.json",
+        "fxb.json"
+      ],
+      "phasesA": {
+        "a": "done",
+        "b": "installing",
+        "c": "ready"
+      },
+      "phasesB": {
+        "a": null,
+        "b": "ready",
+        "c": "ready"
+      },
+      "lease": {
+        "pid": 42480,
+        "generation": 1,
+        "driverId": "dsh-hub:42480:cju9bqbjt7"
+      }
+    }
+  ]
+}

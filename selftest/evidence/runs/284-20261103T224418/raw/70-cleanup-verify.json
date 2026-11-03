@@ -1,0 +1,29 @@
+{
+  "startedHosts": [
+    {
+      "label": "m4-p1",
+      "pid": 40412,
+      "port": 60678,
+      "closed": true
+    },
+    {
+      "label": "m4-p2",
+      "pid": 20304,
+      "port": 60690,
+      "closed": true
+    }
+  ],
+  "remainingPids": [],
+  "portChecks": [
+    {
+      "label": "m4-p1",
+      "port": 60678,
+      "free": true
+    },
+    {
+      "label": "m4-p2",
+      "port": 60690,
+      "free": true
+    }
+  ]
+}

@@ -1,0 +1,218 @@
+{
+  "eventCounts": {
+    "host.start": 10,
+    "update.wire.ready": 10,
+    "update.status.changed": 123,
+    "update.check.done": 13,
+    "host.call": 31,
+    "update.batch.entry.request": 1,
+    "update.batch.run.start": 2,
+    "update.queue.transition": 20,
+    "update.install.fail": 4,
+    "host.call.fail": 4,
+    "update.install.request": 4,
+    "update.install.retry": 4,
+    "update.panel.mount": 6,
+    "update.install.exec": 4,
+    "update.install.verify": 4,
+    "update.batch.entry.fail": 1,
+    "update.batch.summary": 2,
+    "update.panel.action": 1,
+    "update.log.degraded": 1
+  },
+  "execA": [
+    {
+      "ts": 1793717045284,
+      "pluginId": "fxa-a",
+      "route": "cli-process",
+      "ok": false,
+      "exitCode": 1,
+      "durationMs": 72784
+    },
+    {
+      "ts": 1793717051425,
+      "pluginId": "fxa-a",
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 1038
+    }
+  ],
+  "execB": [
+    {
+      "ts": 1793717046803,
+      "pluginId": "fxa-b",
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 1008
+    }
+  ],
+  "execC": [
+    {
+      "ts": 1793717048205,
+      "pluginId": "fxa-c",
+      "route": "cli-process",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 1010
+    }
+  ],
+  "selfInstallRequests": [
+    {
+      "ts": 1793716972480,
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "batch",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 15,
+        "intentHash": "8a1f8f7f",
+        "traceId": "9faa684c1a1c74f2",
+        "spanId": "3228ac9b",
+        "seq": 1
+      },
+      "source": "fxa-a/2026-11-03.log",
+      "line": 20
+    },
+    {
+      "ts": 1793717050373,
+      "event": "update.install.request",
+      "level": "info",
+      "fields": {
+        "from": "batch",
+        "current": "0.0.1",
+        "latest": "0.0.2",
+        "checkAgeMs": 162,
+        "intentHash": "84e3a429",
+        "traceId": "219b18010fbd0823",
+        "spanId": "4424c6ad",
+        "seq": 1
+      },
+      "source": "fxa-a/2026-11-03.log",
+      "line": 48
+    }
+  ],
+  "hostCallOkA": [
+    {
+      "ts": 1793716972527,
+      "event": "host.call",
+      "level": "info",
+      "fields": {
+        "method": "fxa-a.updateInstall",
+        "latencyMs": 54,
+        "ok": true,
+        "kind": "update-install",
+        "pluginId": "fxa-a",
+        "traceId": "9faa684c1a1c74f2",
+        "spanId": "3228ac9b",
+        "seq": 3
+      },
+      "source": "fxa-a/2026-11-03.log",
+      "line": 22
+    },
+    {
+      "ts": 1793717050367,
+      "event": "host.call",
+      "level": "info",
+      "fields": {
+        "method": "fxa-a.updateInstall",
+        "latencyMs": 11,
+        "ok": true,
+        "kind": "update-install",
+        "pluginId": "fxa-a",
+        "traceId": "7ad528a9abfc8d76",
+        "spanId": "7705e451",
+        "seq": 2
+      },
+      "source": "fxa-a/2026-11-03.log",
+      "line": 45
+    },
+    {
+      "ts": 1793717050403,
+      "event": "host.call",
+      "level": "info",
+      "fields": {
+        "method": "fxa-a.updateInstall",
+        "latencyMs": 36,
+        "ok": true,
+        "kind": "update-install",
+        "pluginId": "fxa-a",
+        "traceId": "219b18010fbd0823",
+        "spanId": "4424c6ad",
+        "seq": 3
+      },
+      "source": "fxa-a/2026-11-03.log",
+      "line": 50
+    }
+  ],
+  "entryFailRows": [
+    {
+      "ts": 1793717045431,
+      "errorKind": "install-failed",
+      "stage": "settle",
+      "index": 0,
+      "exitCode": null
+    }
+  ],
+  "installFailRows": [
+    {
+      "ts": 1793716972149,
+      "stage": "gate",
+      "code": "check-expired",
+      "reason": "gate-refused",
+      "pluginId": null
+    },
+    {
+      "ts": 1793717045287,
+      "stage": "exec",
+      "code": "install-failed",
+      "reason": "nonzero-exit",
+      "pluginId": null
+    },
+    {
+      "ts": 1793717045456,
+      "stage": "gate",
+      "code": "check-expired",
+      "reason": "gate-refused",
+      "pluginId": null
+    },
+    {
+      "ts": 1793717046853,
+      "stage": "gate",
+      "code": "check-expired",
+      "reason": "gate-refused",
+      "pluginId": null
+    }
+  ],
+  "batchRunStarts": [
+    {
+      "trigger": "entry",
+      "resumed": false,
+      "total": 3,
+      "sessionHash": "1de6811b"
+    },
+    {
+      "trigger": "entry",
+      "resumed": false,
+      "total": 3,
+      "sessionHash": "1de6811b"
+    }
+  ],
+  "batchSummaries": [
+    {
+      "total": 3,
+      "ok": 2,
+      "failed": 1,
+      "stoppedBecause": "finished"
+    },
+    {
+      "total": 3,
+      "ok": 3,
+      "failed": 0,
+      "stoppedBecause": "finished"
+    }
+  ],
+  "note": "M3 里 A 自键更新同样走 cli-process executor（exec 行 pluginId=fxa-a）：坏 tarball 那次 ok=false，回滚 + 恢复后重试 ok=true；B/C 各 1 条 ok=true。host.call ok 行有 3 条（check-expired 退避/重提），不能当 exactly-once 口径。"
+}

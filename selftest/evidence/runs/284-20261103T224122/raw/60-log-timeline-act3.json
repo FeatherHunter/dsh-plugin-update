@@ -1,0 +1,88 @@
+{
+  "hostStartRows": [
+    {
+      "ts": 1793716899893,
+      "pid": 42480,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716899895,
+      "pid": 42480,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716899895,
+      "pid": 42480,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716899895,
+      "pid": 42480,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716899896,
+      "pid": 42480,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716905550,
+      "pid": 29248,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716905551,
+      "pid": 29248,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716941865,
+      "pid": 37868,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716941867,
+      "pid": 37868,
+      "hostKind": null
+    },
+    {
+      "ts": 1793716941867,
+      "pid": 37868,
+      "hostKind": null
+    }
+  ],
+  "host3StartTs": 1793716941865,
+  "batchRunStart": [
+    {
+      "ts": 1793716900356,
+      "trigger": "entry",
+      "resumed": false,
+      "total": 3,
+      "sessionHash": "d84ef6e1"
+    },
+    {
+      "ts": 1793716905567,
+      "trigger": "resume",
+      "resumed": true,
+      "total": 2,
+      "sessionHash": "e91f19d9"
+    },
+    {
+      "ts": 1793716942133,
+      "trigger": "resume",
+      "resumed": true,
+      "total": 3,
+      "sessionHash": "d84ef6e1"
+    }
+  ],
+  "fxaResumes3": [
+    {
+      "ts": 1793716942133,
+      "trigger": "resume",
+      "resumed": true,
+      "total": 3,
+      "sessionHash": "d84ef6e1"
+    }
+  ],
+  "fxaEntryHash": "d84ef6e1"
+}

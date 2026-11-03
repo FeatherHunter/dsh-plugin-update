@@ -1,0 +1,263 @@
+{
+  "a": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "session": {
+        "version": 1,
+        "id": "",
+        "selfKey": null,
+        "stopOnFailure": false,
+        "order": [],
+        "entries": [],
+        "createdAt": 0,
+        "updatedAt": 0
+      },
+      "rows": [
+        {
+          "key": "a",
+          "title": "夹具 A 本体",
+          "phase": "pending",
+          "targetVersion": null,
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": "0.0.1",
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": null,
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t14hub add --save-exact dsh-plugin-update-fixture-a@0.0.1 --registry=http://127.0.0.1:57814",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t14hub",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-a.updateStatus",
+            "updateCheck": "fxa-a.updateCheck",
+            "updateInstall": "fxa-a.updateInstall",
+            "updateChangelog": "fxa-a.updateChangelog",
+            "updateCheckFallback": "fxa-a.updateCheckFallback",
+            "logAppend": "fxa-a.logAppend"
+          },
+          "pluginId": "fxa-a",
+          "diag": null
+        },
+        {
+          "key": "b",
+          "title": "夹具 B",
+          "phase": "pending",
+          "targetVersion": null,
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": "0.0.1",
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": null,
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t14hub add --save-exact dsh-plugin-update-fixture-b@0.0.1 --registry=http://127.0.0.1:57814",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t14hub",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-b.updateStatus",
+            "updateCheck": "fxa-b.updateCheck",
+            "updateInstall": "fxa-b.updateInstall",
+            "updateChangelog": "fxa-b.updateChangelog",
+            "updateCheckFallback": "fxa-b.updateCheckFallback",
+            "logAppend": "fxa-b.logAppend"
+          },
+          "pluginId": "fxa-b",
+          "diag": null
+        },
+        {
+          "key": "c",
+          "title": "夹具 C",
+          "phase": "pending",
+          "targetVersion": null,
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": null,
+            "installed": false,
+            "installedVersion": null,
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": null,
+            "identity": "first-install",
+            "registered": false
+          },
+          "manual": null,
+          "manualSource": null,
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t14hub",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-c.updateStatus",
+            "updateCheck": "fxa-c.updateCheck",
+            "updateInstall": "fxa-c.updateInstall",
+            "updateChangelog": "fxa-c.updateChangelog",
+            "updateCheckFallback": "fxa-c.updateCheckFallback",
+            "logAppend": "fxa-c.logAppend"
+          },
+          "pluginId": "fxa-c",
+          "diag": null
+        }
+      ],
+      "progress": {
+        "total": 3,
+        "done": 0,
+        "failed": 0,
+        "skipped": 0,
+        "current": 0,
+        "pending": 3,
+        "finished": false
+      },
+      "inventory": {
+        "version": 1,
+        "updatedAt": 0,
+        "entries": {}
+      },
+      "prefs": {}
+    }
+  },
+  "b": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "session": {
+        "version": 1,
+        "id": "",
+        "selfKey": null,
+        "stopOnFailure": false,
+        "order": [],
+        "entries": [],
+        "createdAt": 0,
+        "updatedAt": 0
+      },
+      "rows": [
+        {
+          "key": "c",
+          "title": "夹具 C",
+          "phase": "pending",
+          "targetVersion": null,
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": null,
+            "installed": false,
+            "installedVersion": null,
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": null,
+            "identity": "first-install",
+            "registered": false
+          },
+          "manual": null,
+          "manualSource": null,
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t14hub",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxb-c.updateStatus",
+            "updateCheck": "fxb-c.updateCheck",
+            "updateInstall": "fxb-c.updateInstall",
+            "updateChangelog": "fxb-c.updateChangelog",
+            "updateCheckFallback": "fxb-c.updateCheckFallback",
+            "logAppend": "fxb-c.logAppend"
+          },
+          "pluginId": "fxb-c",
+          "diag": null
+        },
+        {
+          "key": "b",
+          "title": "夹具 B 本体",
+          "phase": "pending",
+          "targetVersion": null,
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": "0.0.1",
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": null,
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t14hub add --save-exact dsh-plugin-update-fixture-b@0.0.1 --registry=http://127.0.0.1:57814",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t14hub",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxb-b.updateStatus",
+            "updateCheck": "fxb-b.updateCheck",
+            "updateInstall": "fxb-b.updateInstall",
+            "updateChangelog": "fxb-b.updateChangelog",
+            "updateCheckFallback": "fxb-b.updateCheckFallback",
+            "logAppend": "fxb-b.logAppend"
+          },
+          "pluginId": "fxb-b",
+          "diag": null
+        }
+      ],
+      "progress": {
+        "total": 2,
+        "done": 0,
+        "failed": 0,
+        "skipped": 0,
+        "current": 0,
+        "pending": 2,
+        "finished": false
+      },
+      "inventory": {
+        "version": 1,
+        "updatedAt": 0,
+        "entries": {}
+      },
+      "prefs": {}
+    }
+  }
+}

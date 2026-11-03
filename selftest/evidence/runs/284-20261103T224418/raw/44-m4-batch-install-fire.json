@@ -1,0 +1,8 @@
+{
+  "at": 1793717079243,
+  "hostPids": [
+    40412,
+    20304
+  ],
+  "note": "两批 batchInstall 同一 tick 发出；期间只轮询两套 batch.json/queue.json/lease.json 采样（安装窗内不重启、不读日志）。"
+}

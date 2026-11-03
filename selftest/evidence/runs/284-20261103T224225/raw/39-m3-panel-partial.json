@@ -1,0 +1,94 @@
+{
+  "rows": [
+    {
+      "key": "a",
+      "phase": "failed",
+      "queued": false,
+      "busy": false,
+      "title": "夹具 A 本体",
+      "status": "最后手段安装失败，请选择「重试」。",
+      "versionCur": "0.0.1",
+      "versionNew": "0.0.2",
+      "actions": [
+        "toggle-details",
+        "row-install",
+        "toggle-details"
+      ],
+      "fail": "失败 install-failed：安装执行失败，详情见诊断摘要"
+    },
+    {
+      "key": "b",
+      "phase": "done",
+      "queued": false,
+      "busy": false,
+      "title": "夹具 B",
+      "status": "已安装完成，无需操作。",
+      "versionCur": "0.0.2",
+      "versionNew": null,
+      "actions": [
+        "toggle-details",
+        "toggle-details"
+      ],
+      "fail": null
+    },
+    {
+      "key": "c",
+      "phase": "done",
+      "queued": false,
+      "busy": false,
+      "title": "夹具 C",
+      "status": "已安装完成，无需操作。",
+      "versionCur": "0.0.2",
+      "versionNew": null,
+      "actions": [
+        "toggle-details",
+        "toggle-details"
+      ],
+      "fail": null
+    }
+  ],
+  "summary": "1 个插件安装失败；请按下方失败提示逐项重试。",
+  "ledger": "1 个失败 · 2 个已是最新",
+  "batch": {
+    "version": 1,
+    "id": "mw0srtis-274sja1vqm",
+    "selfKey": "a",
+    "stopOnFailure": false,
+    "order": [
+      "a",
+      "b",
+      "c"
+    ],
+    "entries": [
+      {
+        "key": "a",
+        "phase": "failed",
+        "requestId": "batch:mw0srtis-274sja1vqm:a",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": "install-failed",
+        "updatedAt": 1793717045429
+      },
+      {
+        "key": "b",
+        "phase": "done",
+        "requestId": "batch:mw0srtis-274sja1vqm:b",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793717046834
+      },
+      {
+        "key": "c",
+        "phase": "done",
+        "requestId": "batch:mw0srtis-274sja1vqm:c",
+        "targetVersion": "0.0.2",
+        "restartRequired": false,
+        "error": null,
+        "updatedAt": 1793717048229
+      }
+    ],
+    "createdAt": 1793716972084,
+    "updatedAt": 1793717048229
+  }
+}

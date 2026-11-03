@@ -1,0 +1,231 @@
+{
+  "status": 200,
+  "body": {
+    "ok": true,
+    "reply": {
+      "ok": true,
+      "session": {
+        "version": 1,
+        "id": "mw0sp15y-blaqw7wf07",
+        "selfKey": "a",
+        "stopOnFailure": false,
+        "order": [
+          "a",
+          "b",
+          "c"
+        ],
+        "entries": [
+          {
+            "key": "a",
+            "phase": "done",
+            "requestId": "batch:mw0sp15y-blaqw7wf07:a",
+            "targetVersion": "0.0.2",
+            "restartRequired": false,
+            "error": null,
+            "updatedAt": 1793716843960
+          },
+          {
+            "key": "b",
+            "phase": "done",
+            "requestId": "batch:mw0sp15y-blaqw7wf07:b",
+            "targetVersion": "0.0.2",
+            "restartRequired": false,
+            "error": null,
+            "updatedAt": 1793716879287
+          },
+          {
+            "key": "c",
+            "phase": "done",
+            "requestId": "batch:mw0sp15y-blaqw7wf07:c",
+            "targetVersion": "0.0.2",
+            "restartRequired": false,
+            "error": null,
+            "updatedAt": 1793716880905
+          }
+        ],
+        "createdAt": 1793716842022,
+        "updatedAt": 1793716880905
+      },
+      "rows": [
+        {
+          "key": "a",
+          "title": "夹具 A 本体",
+          "phase": "done",
+          "targetVersion": "0.0.2",
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": "0.0.2",
+            "installed": true,
+            "installedVersion": "0.0.2",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": {
+              "requestId": "batch-mw0sp15y-blaqw7wf07-a-441331b1",
+              "message": null,
+              "id": "ac7904f6-f0fd-4373-9025-90fa91e54e9f",
+              "state": "completed",
+              "targetVersion": "0.0.2",
+              "previousVersion": "0.0.1"
+            },
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t14hub add --save-exact dsh-plugin-update-fixture-a@0.0.2 --registry=http://127.0.0.1:57814",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t14hub",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-a.updateStatus",
+            "updateCheck": "fxa-a.updateCheck",
+            "updateInstall": "fxa-a.updateInstall",
+            "updateChangelog": "fxa-a.updateChangelog",
+            "updateCheckFallback": "fxa-a.updateCheckFallback",
+            "logAppend": "fxa-a.logAppend"
+          },
+          "pluginId": "fxa-a",
+          "diag": null
+        },
+        {
+          "key": "b",
+          "title": "夹具 B",
+          "phase": "done",
+          "targetVersion": "0.0.2",
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": "0.0.2",
+            "installed": true,
+            "installedVersion": "0.0.2",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": {
+              "requestId": "batch-mw0sp15y-blaqw7wf07-b-441331b2-a0dd1dea8",
+              "message": null,
+              "id": "7e75417e-59a8-4e4a-843b-f8ae4da8f361",
+              "state": "completed",
+              "targetVersion": "0.0.2",
+              "previousVersion": null
+            },
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t14hub add --save-exact dsh-plugin-update-fixture-b@0.0.2 --registry=http://127.0.0.1:57814",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t14hub",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-b.updateStatus",
+            "updateCheck": "fxa-b.updateCheck",
+            "updateInstall": "fxa-b.updateInstall",
+            "updateChangelog": "fxa-b.updateChangelog",
+            "updateCheckFallback": "fxa-b.updateCheckFallback",
+            "logAppend": "fxa-b.logAppend"
+          },
+          "pluginId": "fxa-b",
+          "diag": null
+        },
+        {
+          "key": "c",
+          "title": "夹具 C",
+          "phase": "done",
+          "targetVersion": "0.0.2",
+          "restartRequired": false,
+          "error": null,
+          "snapshot": {
+            "runningVersion": "0.0.2",
+            "installed": true,
+            "installedVersion": "0.0.2",
+            "latestVersion": null,
+            "canInstall": false,
+            "blockedReason": null,
+            "job": {
+              "requestId": "batch-mw0sp15y-blaqw7wf07-c-441331b3",
+              "message": null,
+              "id": "6cba5d8c-26e7-4557-ac9e-0d8638069037",
+              "state": "completed",
+              "targetVersion": "0.0.2",
+              "previousVersion": null
+            },
+            "identity": null,
+            "registered": true
+          },
+          "manual": "dsh plugin --profile t14hub add --save-exact dsh-plugin-update-fixture-c@0.0.2 --registry=http://127.0.0.1:57814",
+          "manualSource": "frame",
+          "queue": {
+            "busy": false,
+            "owner": null,
+            "waiting": [],
+            "position": null
+          },
+          "profileName": "t14hub",
+          "hostKind": "cli",
+          "phoneNames": {
+            "updateStatus": "fxa-c.updateStatus",
+            "updateCheck": "fxa-c.updateCheck",
+            "updateInstall": "fxa-c.updateInstall",
+            "updateChangelog": "fxa-c.updateChangelog",
+            "updateCheckFallback": "fxa-c.updateCheckFallback",
+            "logAppend": "fxa-c.logAppend"
+          },
+          "pluginId": "fxa-c",
+          "diag": null
+        }
+      ],
+      "progress": {
+        "total": 3,
+        "done": 3,
+        "failed": 0,
+        "skipped": 0,
+        "current": 0,
+        "pending": 0,
+        "finished": true
+      },
+      "inventory": {
+        "version": 1,
+        "updatedAt": 1793716842025,
+        "entries": {
+          "c": {
+            "lastCheckedAt": 1793716842025,
+            "installed": false,
+            "installedVersion": null,
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          },
+          "a": {
+            "lastCheckedAt": 1793716842025,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          },
+          "b": {
+            "lastCheckedAt": 1793716842025,
+            "installed": true,
+            "installedVersion": "0.0.1",
+            "latestVersion": "0.0.2",
+            "canInstall": true,
+            "error": null
+          }
+        }
+      },
+      "prefs": {}
+    }
+  }
+}

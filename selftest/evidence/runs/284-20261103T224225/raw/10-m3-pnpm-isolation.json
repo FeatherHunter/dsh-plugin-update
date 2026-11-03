@@ -1,0 +1,6 @@
+{
+  "storeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224225\\pnpm-store",
+  "cacheDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224225\\pnpm-cache",
+  "npmCacheDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224225\\npm-cache",
+  "note": "M3 坏 tarball 的失败尝试会污染共享 pnpm store；从基版安装起就用 run 私有 store/cache，恢复 tarball 后清空 store 才能真重试成功（K3 实测，只清缓存不动已装包）。"
+}

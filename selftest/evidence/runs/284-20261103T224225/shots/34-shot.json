@@ -1,0 +1,9 @@
+{
+  "看什么": "真 UI 点「全部更新」之后：批量会话已落盘（batch.json 三行在飞），面板进入安装中",
+  "步骤": "m3-20-batch-started",
+  "expected": "batch.json 存在且 entries=[a,b,c]（真 UI 宏→批量入口已触发，不是电话模拟）",
+  "actual": "batchId=mw0srtis-274sja1vqm；keys=[\"a\",\"b\",\"c\"]",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\34-shot.png"
+}

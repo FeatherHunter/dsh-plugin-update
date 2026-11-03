@@ -1,0 +1,9 @@
+{
+  "label": "m4-p2",
+  "pid": 20304,
+  "port": 60690,
+  "aliveBefore": true,
+  "aliveAfter": false,
+  "stoppedAt": 1793717087862,
+  "note": "host.close() = proc.stop() = taskkill /T /F 硬杀进程树（等价 SIGKILL）；web 通道没有应用内重启。"
+}

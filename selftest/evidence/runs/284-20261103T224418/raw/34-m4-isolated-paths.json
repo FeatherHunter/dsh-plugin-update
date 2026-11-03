@@ -1,0 +1,13 @@
+{
+  "hash1": "bd5189e28a3b2dafb88cc9ab",
+  "hash2": "a328f0af2908efbb800dbcf8",
+  "queueDirP1": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\update-queue\\bd5189e28a3b2dafb88cc9ab",
+  "queueDirP2": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\update-queue\\a328f0af2908efbb800dbcf8",
+  "leaseFileP1": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\update-queue\\bd5189e28a3b2dafb88cc9ab\\hub\\lease.json",
+  "leaseFileP2": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\update-queue\\a328f0af2908efbb800dbcf8\\hub\\lease.json",
+  "batchFileP1": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\update-queue\\bd5189e28a3b2dafb88cc9ab\\fxa\\batch.json",
+  "batchFileP2": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\update-queue\\a328f0af2908efbb800dbcf8\\fxa\\batch.json",
+  "ledgerP1": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\updates\\fxa-a\\bd5189e28a3b2dafb88cc9ab\\state.json",
+  "ledgerP2": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224418\\os-home\\.dsh\\updates\\fxa-a\\a328f0af2908efbb800dbcf8\\state.json",
+  "why": "队列/锁/台账目录 = <home>/update-queue/<shortHash(profileDir)>；两 profile 不同 ⇒ 两套目录（盘上实测见后验断言）。"
+}

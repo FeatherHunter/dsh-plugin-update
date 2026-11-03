@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:64633/?token=wGvXxLYJW3JJAZbAhrISLjKV0hKCTKKLp5_v7zLSJ-E",
+  "port": 64633,
+  "pid": 21116,
+  "bootMs": 1927,
+  "profileName": "t14hub",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224225\\os-home\\.dsh",
+  "stdoutTail": "dsh web: http://127.0.0.1:64633/?token=wGvXxLYJW3JJAZbAhrISLjKV0hKCTKKLp5_v7zLSJ-E\n",
+  "stderrTail": ""
+}

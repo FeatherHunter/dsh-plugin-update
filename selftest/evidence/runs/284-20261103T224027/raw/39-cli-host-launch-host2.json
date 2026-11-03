@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:65405/?token=13Ohc2XaKDlHgZ9T2KW-RjRsP4X4C8ef87RD9fMs3PE",
+  "port": 65405,
+  "pid": 21500,
+  "bootMs": 1958,
+  "profileName": "t14hub",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224027\\os-home\\.dsh",
+  "stdoutTail": "dsh web: http://127.0.0.1:65405/?token=13Ohc2XaKDlHgZ9T2KW-RjRsP4X4C8ef87RD9fMs3PE\n",
+  "stderrTail": ""
+}

@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:55221/?token=NF5gh7zIo26_lo-AkzRXiZ4CkLnJSugaWjaaqVzZp2g",
+  "port": 55221,
+  "pid": 30496,
+  "bootMs": 2193,
+  "profileName": "t14hub",
+  "homeDir": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224225\\os-home\\.dsh",
+  "stdoutTail": "dsh web: http://127.0.0.1:55221/?token=NF5gh7zIo26_lo-AkzRXiZ4CkLnJSugaWjaaqVzZp2g\n",
+  "stderrTail": ""
+}

@@ -1,0 +1,78 @@
+{
+  "entries": [
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\updates\\fxa-a\\afe54603808af02737bf8a89\\state.json",
+      "state": {
+        "requestId": "batch-mw0sqa6a-29adsvrjpz-a-c20b4578",
+        "message": null,
+        "id": "8ea4db88-3a4f-46fe-8370-aea4e4e6733b",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    },
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\updates\\fxa-b\\afe54603808af02737bf8a89\\state.json",
+      "state": {
+        "requestId": "batch-mw0sqa6a-29adsvrjpz-b-c20b4579",
+        "message": null,
+        "id": "40e310e7-fe15-431b-9f57-4cc85220b2ad",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": null
+      }
+    },
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\updates\\fxb-b\\afe54603808af02737bf8a89\\state.json",
+      "state": {
+        "requestId": "batch-mw0sqbqo-wldv0qkv68-b-47700671",
+        "message": null,
+        "id": "97c56771-95d3-4ff7-929e-3630d388aa81",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    },
+    {
+      "file": "D:\\dsh-plugin\\_wt263\\runtime\\t14-284\\284-20261103T224122\\os-home\\.dsh\\updates\\fxb-c\\afe54603808af02737bf8a89\\state.json",
+      "state": {
+        "requestId": "batch-mw0sqbqo-wldv0qkv68-c-47700672",
+        "message": null,
+        "id": "af769e7a-3aa7-4a05-94f2-7f194d055f60",
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": null
+      }
+    }
+  ],
+  "byPlugin": {
+    "fxa-a": [
+      {
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    ],
+    "fxa-b": [
+      {
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": null
+      }
+    ],
+    "fxb-b": [
+      {
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": "0.0.1"
+      }
+    ],
+    "fxb-c": [
+      {
+        "state": "completed",
+        "targetVersion": "0.0.2",
+        "previousVersion": null
+      }
+    ]
+  }
+}
