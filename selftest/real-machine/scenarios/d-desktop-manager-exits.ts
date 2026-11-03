@@ -268,7 +268,7 @@ export async function runDesktopManagerExits(options: DesktopManagerExitsOptions
       // 为什么不是「下架版本」：产品安装前的候选门会重取版本文档并与 check 时的 release 逐字节比对，
       // 版本消失会被诚实拒绝（check-expired），根本进不到 pnpm/exec（d2 首跑实测）。
       // 这里只让 tarball 404：候选门能过，pnpm 下载时非零退出，才看得到「移除成功、重装失败」的真实失败面。
-      const warm = await warmRegistryTarball({ registry, packageName: 'dsh-log', version: '0.3.4' })
+      const warm = await warmRegistryTarball({ registry, packageName: 'dsh-log', version: '0.4.1' })
       const tarballFault = await removePublishedTarball({
         registry,
         backupDir: join(run.layout.root, 'registry-tarball-backup'),
@@ -289,7 +289,7 @@ export async function runDesktopManagerExits(options: DesktopManagerExitsOptions
           'check 已经看到 ' +
           variantVersion +
           '；随后把该版本的 tarball 从 registry storage 删掉（元数据与 integrity 一字不改）：安装前的候选门能过，pnpm 下载 tarball 时 404 非零退出',
-        expected: '删前 GET tarball=200 且字节>0；删后=404；元数据版本文档一字不差；依赖 dsh-log@0.3.4 tarball 预热=200（避免依赖下载失败掩盖根因）',
+        expected: '删前 GET tarball=200 且字节>0；删后=404；元数据版本文档一字不差；依赖 dsh-log@0.4.1 tarball 预热=200（避免依赖下载失败掩盖根因）',
         actual:
           'warm=' +
           JSON.stringify(warm) +

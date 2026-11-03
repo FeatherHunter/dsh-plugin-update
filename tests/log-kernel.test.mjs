@@ -6,7 +6,7 @@
  *   2. 登记表：同目录同进程只有一个句柄、引用计数到零才释放、撞租约降级而不抛、冷却不永久死；
  *   3. 路由：每个插件标识各写各的落点，取不到就丢弃计数，绝不回退到别人的 sink；
  *   4. 唯一发射口四条纪律：字段白名单 / 脱敏 / 准入短路 / 预算守卫，且落点抛错不外抛。
- * 外加一条真引擎端到端：真装 dsh-log 0.3.4，真落一份文件，真读出五键行（含启动头那一行）。
+ * 外加一条真引擎端到端：真装 dsh-log（当前 0.4.1），真落一份文件，真读出五键行（含启动头那一行）。
  */
 import { describe, it, after, before } from 'node:test'
 import assert from 'node:assert/strict'
@@ -401,7 +401,7 @@ describe('日志内核：唯一发射口的四条纪律', () => {
   })
 })
 
-describe('日志内核：真引擎端到端（dsh-log 0.3.4 真落一份文件）', () => {
+describe('日志内核：真引擎端到端（dsh-log 真落一份文件）', () => {
   let tempRoot = ''
   before(() => {
     __resetOwnLogRegistryForTests()

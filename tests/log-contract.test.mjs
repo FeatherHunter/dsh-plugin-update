@@ -430,7 +430,7 @@ describe('#210 随包清单本身带上机器表达', () => {
   })
 
   it('交给 dsh-log 的清单（条目形状）不被顶层扩展键破坏', async () => {
-    // 真正的验收：dsh-log 0.3.4 的条目校验不认 enums 这类新键，顶层未知键才收；
+    // 真正的验收：dsh-log 的条目校验（0.3.4 起）不认 enums 这类新键，顶层未知键才收；
     // 这里直接拿它的解析器过一遍我们 buildUpdateManifest 的产物。
     const dshConfig = await import('dsh-log')
     const built = await log.buildUpdateManifest('third-party-plugin')

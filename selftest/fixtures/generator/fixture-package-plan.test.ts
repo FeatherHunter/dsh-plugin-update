@@ -249,19 +249,19 @@ try {
   writeFileSync(
     resolvedFile,
     JSON.stringify({
-      'dsh-log': { version: '0.3.5', range: '^0.3.4', sha256: 'abc' },
+      'dsh-log': { version: '0.4.1', range: '^0.4.1', sha256: 'abc' },
       bad: { version: 3 },
       num: 1,
     }),
   )
   const cache = await readResolvedCache(resolvedFile)
   const dshLogEntry = cache['dsh-log']
-  assertEqual(dshLogEntry ? dshLogEntry.version : null, '0.3.5', 'resolved.json 有效条目可读')
+  assertEqual(dshLogEntry ? dshLogEntry.version : null, '0.4.1', 'resolved.json 有效条目可读')
   assertEqual(cache['bad'], undefined, '形状不对的条目被丢弃')
   assertEqual(cache['num'], undefined, '非对象条目被丢弃')
   await writeResolvedCacheEntry(resolvedFile, 'x', { version: '1.0.0', range: '^1.0.0' })
   const merged = JSON.parse(readFileSync(resolvedFile, 'utf8')) as Record<string, { version?: string }>
-  assertEqual(merged['dsh-log'] ? merged['dsh-log'].version : null, '0.3.5', '写缓存时保留已有条目')
+  assertEqual(merged['dsh-log'] ? merged['dsh-log'].version : null, '0.4.1', '写缓存时保留已有条目')
   assertEqual(merged['x'] ? merged['x'].version : null, '1.0.0', '写缓存时并入新条目')
 } finally {
   rmSync(cacheTmpDir, { recursive: true, force: true })

@@ -107,6 +107,6 @@
     "typescript": "5.6.3"
   },
   "dependencies": {
-    "dsh-log": "^0.3.4"
+    "dsh-log": "^0.4.1"
   }
 }

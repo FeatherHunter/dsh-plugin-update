@@ -2,7 +2,7 @@
  * selftest/fixtures/release/npmjs-mirror.ts —— 把 SUT 的 npmjs 运行时依赖镜像进本次 run 的本地 registry。
  *
  * 为什么需要：夹具安装 fixture-a@0.0.1 时，pnpm 要经本次 run 的 verdaccio 拉 SUT 的运行时依赖
- * （当前是 dsh-log@^0.3.4）。verdaccio 的 npmjs uplink 是「按需流式回源」，今天连续跑几十个 run
+ * （当前是 dsh-log@^0.4.1）。verdaccio 的 npmjs uplink 是「按需流式回源」，今天连续跑几十个 run
  * 后会被上游限流/超时（#269 实测 215839/220513 两次 unknown 都是 dsh-log 拉取失败）。这不是产品
  * BUG，而是夹具环境非确定性：每个 run 都在赌 npmjs 实时可达。
  *

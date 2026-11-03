@@ -423,7 +423,7 @@ export async function runCliHostExits(options: CliHostExitsOptions): Promise<Run
     // ---- 7. 失败格：check 之后删掉变体版 tarball（元数据与 integrity 不变） ----
     let tarballFault: TarballFault | null = null
     if (mode === 'failure') {
-      const warm = await warmRegistryTarball({ registry, packageName: 'dsh-log', version: '0.3.4' })
+      const warm = await warmRegistryTarball({ registry, packageName: 'dsh-log', version: '0.4.1' })
       tarballFault = await removePublishedTarball({
         registry,
         backupDir: join(run.layout.root, 'registry-tarball-backup'),
@@ -444,7 +444,7 @@ export async function runCliHostExits(options: CliHostExitsOptions): Promise<Run
           'check 已经看到 ' +
           variantVersion +
           '；随后只删 registry storage 里的 tarball（元数据与 integrity 一字不改）：候选门能过，载体 CLI 子进程里的 pnpm 下载 tarball 时 404 非零退出（真实网络失败，不是注入假回包）',
-        expected: '删前 GET tarball=200 且字节>0；删后=404；元数据版本文档一字不差；依赖 dsh-log@0.3.4 tarball 预热=200',
+        expected: '删前 GET tarball=200 且字节>0；删后=404；元数据版本文档一字不差；依赖 dsh-log@0.4.1 tarball 预热=200',
         actual:
           'warm=' +
           JSON.stringify(warm) +

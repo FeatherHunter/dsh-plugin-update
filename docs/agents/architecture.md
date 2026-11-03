@@ -201,7 +201,7 @@ ADR-0006 的纪律：**新增字段/枚举要改三处，机械门禁兜底**。
    只在业务发生处发，不为凑日志新增状态。
 2. **契约清单**：`event-list.update.json`。事件条目的 `fields` 加字段名；枚举值成组写进**顶层**
    `fieldEnums`（不要塞进条目里）；常驻事件把「一行一条」的口径写进 `guard`。条目只许
-   `level/kind/fields/codes/rules/guard` 六个键（dsh-log 0.3.4 对未知键整份拒收）。
+   `level/kind/fields/codes/rules/guard` 六个键（dsh-log 对未知键整份拒收，0.3.4 起）。
 3. **负向断言测试**：`tests/log-contract.test.mjs` 的 `makeEmitter`（:72）样板；dev 模式用
    `mode:'throw'`（:197）让表外字段/事件直接炸。表外值必须被摘字段且整行仍落。
 4. **人读目录（生成产物，不算手改点）**：`docs/research/20261014-log-event-catalog.md` 的 §1 常驻

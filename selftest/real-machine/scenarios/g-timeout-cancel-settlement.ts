@@ -1426,7 +1426,7 @@ export async function runSettlementScenario(options: SettlementScenarioOptions):
 
     if (options.mode === 'failed-no-retry' || options.mode === 'retry-single-success' || options.mode === 'retry-can-red') {
       // D3 / D4 共用失败格：删 B 的 0.0.2 tarball（元数据不动），真 UI 安装 →移除步成功、重装步 404。
-      await warmRegistryTarball({ registry: fixtureEnv.registry, packageName: 'dsh-log', version: '0.3.4' })
+      await warmRegistryTarball({ registry: fixtureEnv.registry, packageName: 'dsh-log', version: '0.4.1' })
       const fault: TarballFault = await removePublishedTarball({
         registry: fixtureEnv.registry,
         backupDir: join(run.layout.root, 'registry-tarball-backup'),
