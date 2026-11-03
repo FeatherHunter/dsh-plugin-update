@@ -1451,7 +1451,12 @@ async function runL1(ctx: LBoundaryContext, options: LBoundaryScenarioOptions): 
     note: '两包各自一份 state.json（同一插件+profile 共槽，成功重试覆盖失败）；恰一条成功终态才算 exactly-once',
   })
   rec({ step: 'l1-04-each-one-success', what: '两包各恰一次成功、各一条成功台账、无重复成功记录、无跨目标污染', expected: 'A/B 各恰 1 份成功 state.json + 1 份 before.json；target 各为 0.0.2；磁盘各 0.0.2', actual: JSON.stringify({ jobsA: jobsA.length, successJobsA: successJobsA.length, targetA, jobsB: jobsB.length, successJobsB: successJobsB.length, targetB, beforeA: beforeA.length, beforeB: beforeB.length, disk: diskFinal }), ok: exactlyOnce && targetA === FIXTURE_VARIANT_VERSION && targetB === FIXTURE_VARIANT_VERSION })
-  rec({ step: 'l1-05-attempts-and-tags', what: '并发窗口只产生必要尝试，无重试风暴；两包运行构建都是 0.0.2', expected: 'install.request 总数<=3（两包各首次 + 至多一次后到者重试）、无失败谎报；（若产品自动续跑则 request=2）', actual: JSON.stringify({ requestTotal, failTotal, tags: tagsFinal }), ok: requestTotal <= 3 && failTotal <= 1 && tagsFinal.a.clientTag === tagsA.clientTag && tagsFinal.b.clientTag === tagsB.clientTag })
+  // 真机 190500：后到者按真实排队语义重试时，每次被公平门拒绝都会留一行诚实 update.install.fail
+  // （code=update-busy / stage=gate），这不是失败谎报也不是重试风暴；只要失败行全是真实忙碌拒绝即可。
+  const failEvents1 = [...installFailsOf(events1, packageA), ...installFailsOf(events1, packageB)]
+  const failCodes1 = failEvents1.map((event) => String(event.fields['code'] || '') + '/' + String(event.fields['reason'] || ''))
+  const failAllHonestBusy = failCodes1.every((code) => code.indexOf('update-busy') >= 0 || code.indexOf('gate-refused') >= 0)
+  rec({ step: 'l1-05-attempts-and-tags', what: '并发窗口只产生必要尝试，无重试风暴与假失败；两包客户端构建都是 0.0.2（宿主侧旧构建等重启后换，见 l1-06）', expected: 'install.request 总数<=3（两包各首次 + 至多一次后到者重试）；失败行只允许真实忙碌拒绝（gate-refused/update-busy）；两包 clientTag=0.0.2', actual: JSON.stringify({ requestTotal, failTotal, failCodes1, tags: tagsFinal }), ok: requestTotal <= 3 && failTotal <= 3 && failAllHonestBusy && tagsFinal.a.clientTag === tagsA.clientTag && tagsFinal.b.clientTag === tagsB.clientTag })
 
   // ---- 6. 重启后不回退 ----
   const gen2 = await startHostGen(ctx, 'l1-gen2')
