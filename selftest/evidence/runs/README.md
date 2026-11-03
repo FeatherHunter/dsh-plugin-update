@@ -119,3 +119,14 @@
 | 42 | `273-20261103T093814-r42` | j1-log-contract-coverage（can-red） | 273 | web | fail | 13/1/0 | 0m20s |
 | 43 | `270-20261103T093814-r43` | h1-queue-lock-concurrent（can-red） | 270 | web | fail | 11/1/0 | 0m17s |
 | 44 | `271-20261103T093814-r44` | g6-hub-survives-self-replacement（can-red） | 271 | web | fail | 23/1/0 | 1m05s |
+| 284-20261103T185513 | f2-exit-one-third-party-success | dsh-web（等效第三方 Desktop） | pass | 0 | #284 补测 Wave A 组：出口一成功格正式证据（等效宿主 route=desktop-service，真 spawn 载体 CLI 装成 0.0.2） | 12 断言 / 3 图；等效宿主边界见 run.json equivalentHost 与 raw/equivalent-host-boundary-*；重启后 hostTag=host v0.0.2 |
+| 284-20261103T185533 | f3-exit-one-third-party-failure | dsh-web（等效第三方 Desktop） | pass | 0 | #284 补测 Wave A 组：出口一失败格（registry tarball 404 → reason=nonzero-exit/无载体命令）+ 无终止能力超时格 | 33 断言 / 0 图；超时原话逐字「安装超时；宿主未提供终止能力，这次安装可能仍在后台继续」；runPlugin 采集 mode=hang-no-terminate 入 raw |
+| 284-20261103T185608 | g8-desktop-manager-no-cancel-timeout | dsh-web（等效 desktop-manager） | pass | 0 | #284 补测 Wave A 组：无 cancelInstall 宿主超时诚实文案正式证据 | 19 断言 / 3 图；原话逐字「安装超时；宿主未提供取消能力，这次安装可能仍在后台继续」；delay 结束后 CLI 真装成 0.0.2，证明「可能仍在后台继续」为真 |
+| 284-20261103T185635 | i4-pending-restart-panel-truth | dsh-web（等效集成方注入 runningVersion） | pass | 0 | #284 补测 Wave A 组：pending-restart 面板分支 + 未登记重启不加载正式证据 | 15 断言 / 4 图；blockedReason=pending-restart；摘在册重启 cardSeen=false；恢复登记重启 client+host v0.0.2 |
+| 284-20261103T185708 | f2-exit-one-third-party-success | dsh-web（等效第三方 Desktop） | fail | 1 | #284 A 组 can-red：stale-variant（清单 0.0.2、内容 0.0.1）证明「重启后真换版」断言会红 | 预期失败；恰好 `33-assert` 红（hostTag 仍 v0.0.1），其余 11 条 pass；注入细节见 raw/16-can-red-fault-injection.json |
+| 284-20261103T191200 | l1-same-process-two-plugins-concurrent | dsh-web | pass | 0 | #284 补测 Wave B 组：同进程两插件并发更新正式证据（A/B@0.0.1→0.0.2，串行/诚实忙碌、无假最新、各恰一条成功终态） | 17 断言 / 4 图；修前假「已是最新」见仓库外 284-20261103T151900；产品修复 a587dad/1dc4c77/b0e4565 |
+| 284-20261103T191400 | l2-registry-unreachable | dsh-web | pass | 0 | #284 补测 Wave B 组：registry 不可达失败诚实 + 恢复后重启→检查→重试真装成正式证据 | 21 断言 / 6 图；杀本 run verdaccio 为外部注入，无产品测试钩子；失败格无 exec/无假成功/无自动重试 |
+| 284-20261103T200100 | l3-permission-denied | dsh-web | pass | 0 | #284 补测 Wave B 组：Windows ACL 拒绝写真失败 + 撤 ACL 后重试装成正式证据 | 17 断言 / 6 图；icacls (AD,WD) 注入与恢复探针入 raw；pnpm ERR_PNPM_EPERM 原话 |
+| 284-20261103T201400 | l4-page-close-mid-install | dsh-web | pass | 0 | #284 补测 Wave B 组：安装中关页面，宿主侧真相不被页面生命周期左右 | 13 断言 / 4 图；延迟代理 8s 拉窗；完成时刻晚于关页面；重开无重复作业 |
+| 284-20261103T203000 | l5-host-killed-mid-install-recovery | dsh-web | pass | 0 | #284 补测 Wave B 组：安装中硬杀宿主后的诚实恢复 + 短阈值陈旧锁回收正式证据 | 20 断言 / 5 图；taskkill /T /F 本 run 宿主；L5a 诚实中断、L5b 恰一次成功 |
+| 284-20261103T205500 | l2-registry-unreachable | dsh-web | fail | 1 | #284 B 组 can-red：私有已装副本注入谎话横幅，证明失败诚实断言真会红 | 预期失败；恰好 `25-assert` 红（其余 21 pass）；注入/恢复 sha 入 raw，两文件恢复 ok=true |
