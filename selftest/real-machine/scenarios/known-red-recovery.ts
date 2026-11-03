@@ -747,6 +747,15 @@ async function waitForPanelBanner(ui: UiHandle, slot: FixtureSlot, predicate: (s
   throw new Error('等面板横幅超时（' + label + '）：last=' + JSON.stringify({ banner: last ? last.banner : null, install: last ? last.install : null }))
 }
 
+/** 等面板横幅满足条件；超时不抛错，返回最后一次读数与错误（供失败格记录而不是把场景打成 unknown）。 */
+async function tryWaitForPanelBanner(ui: UiHandle, slot: FixtureSlot, predicate: (state: CardState) => boolean, label: string, timeoutMs = PANEL_TIMEOUT_MS): Promise<{ state: CardState | null; error: string | null }> {
+  try {
+    return { state: await waitForPanelBanner(ui, slot, predicate, label, timeoutMs), error: null }
+  } catch (error) {
+    return { state: null, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
 /** 两步检查（与 K1 真机流程一致）：先点面板检查等可更新横幅，再点安装按钮自身的检查等 install 动作。 */
 async function checkUntilInstallable(ui: UiHandle, slot: FixtureSlot): Promise<CardState> {
   const cardSelector = cardSelectorOf(slot.key)
@@ -1200,15 +1209,25 @@ async function runF3RegistryFailure(ctx: Ctx): Promise<void> {
       verdict: carrier ? 'fail' : 'pass',
     })
 
-    const card = await readCard(ui, ctx.slot)
+    // 面板是独立轮询（夹具页挂载时 pollMs=5000）：作业终态后要等面板下一次刷新，不能立刻读 DOM 当结论。
+    const failurePanel = await tryWaitForPanelBanner(ui, ctx.slot, (state) => state.banner !== null && state.banner.kind === 'failed', 'f3a tarball404 失败横幅', 30000)
+    const card = failurePanel.state ?? (await readCard(ui, ctx.slot))
     const bannerKind = card.banner ? card.banner.kind : null
-    const cardText = card.text.slice(0, 900)
+    const cardText = card.text
+    const honest = bannerKind === 'failed' && cardText.indexOf('已是最新') < 0 && cardText.indexOf('更新成功') < 0
+    run.record({
+      step: 'f3a 失败后面板不撒谎',
+      what: 'tarball 404 失败后面板（5s 轮询刷新后）显示失败横幅，且不出现「已是最新 / 更新成功」等成功话术',
+      expected: 'banner.kind=failed；卡片不出现「已是最新 / 更新成功」',
+      actual: 'banner=' + JSON.stringify(card.banner) + '；install=' + JSON.stringify(card.install) + '；waitError=' + String(failurePanel.error) + '；text=' + cardText.slice(0, 600),
+      verdict: honest ? 'pass' : 'fail',
+    })
     await capture(run, ui, {
       step: 'f3a-failed-panel',
       what: 'tarball 404 失败后的面板：失败横幅与磁盘/版本读数',
       expected: 'banner.kind=failed；卡片不出现「已是最新 / 更新成功」等成功话术',
-      actual: 'banner=' + JSON.stringify(card.banner) + '；text=' + cardText,
-      verdict: bannerKind === 'failed' && cardText.indexOf('已是最新') < 0 && cardText.indexOf('更新成功') < 0 ? 'pass' : 'fail',
+      actual: 'banner=' + JSON.stringify(card.banner) + '；install=' + JSON.stringify(card.install) + '；text=' + cardText.slice(0, 900),
+      verdict: honest ? 'pass' : 'fail',
     })
     const diskAfter = await installedFixtureVersion({ homeDir: ctx.homeDir, profileName: ctx.profileName, packageName: ctx.packageName })
     run.record({
@@ -1359,14 +1378,25 @@ async function runF3TimeoutNoTerminate(ctx: Ctx): Promise<void> {
       actual: 'elapsedMs=' + String(elapsed),
       verdict: elapsed >= 5000 && elapsed <= 20000 ? 'pass' : 'fail',
     })
-    const card = await readCard(ui, ctx.slot)
+    // 面板独立轮询（pollMs=5000）：等它把超时失败刷新出来，而不是立刻读旧 DOM。
+    const timeoutPanel = await tryWaitForPanelBanner(ui, ctx.slot, (state) => state.banner !== null && state.banner.kind === 'failed', 'f3b 超时失败横幅', 30000)
+    const card = timeoutPanel.state ?? (await readCard(ui, ctx.slot))
     const bannerKind = card.banner ? card.banner.kind : null
+    const cardText = card.text
+    const honest = bannerKind === 'failed' && cardText.indexOf('已是最新') < 0 && cardText.indexOf('更新成功') < 0 && cardText.indexOf('已终止子进程') < 0
+    run.record({
+      step: 'f3b 超时失败后面板不撒谎',
+      what: '超时失败后面板显示失败横幅；不出现「已是最新/更新成功」，也不谎称「已终止子进程」（无 terminate 能力）',
+      expected: 'banner.kind=failed；不含「已是最新」「更新成功」「已终止子进程」',
+      actual: 'banner=' + JSON.stringify(card.banner) + '；install=' + JSON.stringify(card.install) + '；waitError=' + String(timeoutPanel.error) + '；text=' + cardText.slice(0, 600),
+      verdict: honest ? 'pass' : 'fail',
+    })
     await capture(run, ui, {
       step: 'f3b-timeout-panel',
       what: '超时失败后的面板：失败横幅 + 无「已终止」误导',
-      expected: 'banner.kind=failed；文本里出现「可能仍在后台继续」的诚实提示（若有 detail 展示）',
-      actual: 'banner=' + JSON.stringify(card.banner) + '；text=' + card.text.slice(0, 900),
-      verdict: bannerKind === 'failed' ? 'pass' : 'fail',
+      expected: 'banner.kind=failed；不含「已是最新」「更新成功」「已终止子进程」',
+      actual: 'banner=' + JSON.stringify(card.banner) + '；install=' + JSON.stringify(card.install) + '；text=' + cardText.slice(0, 900),
+      verdict: honest ? 'pass' : 'fail',
     })
     await sleep(1000)
     const diskAfter = await installedFixtureVersion({ homeDir: ctx.homeDir, profileName: ctx.profileName, packageName: ctx.packageName })
