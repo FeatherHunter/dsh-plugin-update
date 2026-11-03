@@ -1,0 +1,10 @@
+{
+  "reason": "after-unregistered-banner",
+  "gen": 0,
+  "kind": "reader-version",
+  "port": 59515,
+  "pid": 103964,
+  "equivalentSpecPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185635/equivalent-host-specs/i4-pending-restart.json",
+  "stdoutTail": "dsh web: http://127.0.0.1:59515/?token=lijjatqgbQkFANIi__D-SpzixyB4X0z6Bv5tt2Lkx0s\n",
+  "stderrTail": ""
+}

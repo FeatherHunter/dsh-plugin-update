@@ -1,0 +1,11 @@
+{
+  "execs": [
+    "{\"event\":\"update.install.exec\",\"level\":\"info\",\"fields\":{\"route\":\"desktop-manager\",\"ok\":false,\"exitCode\":null,\"durationMs\":6002,\"pluginId\":\"fxa-a\",\"traceId\":\"7a78b276647621bd\",\"spanId\":\"2d3ecdb0\",\"seq\":4},\"source\":\"fxa-a/2026-11-03.log\",\"line\":21}"
+  ],
+  "fails": [
+    "{\"event\":\"update.install.fail\",\"level\":\"warn\",\"fields\":{\"stage\":\"exec\",\"reason\":\"timeout\",\"code\":\"install-failed\",\"hostCodeHash\":\"none\",\"check\":\"none\",\"exitCode\":null,\"observedVersion\":null,\"intentHash\":\"05ca22f6\",\"traceId\":\"7a78b276647621bd\",\"spanId\":\"2d3ecdb0\",\"seq\":6},\"source\":\"fxa-a/2026-11-03.log\",\"line\":23}"
+  ],
+  "requests": [
+    "{\"event\":\"update.install.request\",\"level\":\"info\",\"fields\":{\"from\":\"entry\",\"current\":\"0.0.1\",\"latest\":\"0.0.2\",\"checkAgeMs\":496,\"intentHash\":\"05ca22f6\",\"traceId\":\"7a78b276647621bd\",\"spanId\":\"2d3ecdb0\",\"seq\":1},\"source\":\"fxa-a/2026-11-03.log\",\"line\":11}"
+  ]
+}

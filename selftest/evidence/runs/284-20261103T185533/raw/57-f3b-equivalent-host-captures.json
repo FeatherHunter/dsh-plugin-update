@@ -1,0 +1,52 @@
+{
+  "dir": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185533/raw/equivalent-host-exit-one-hang",
+  "captures": [
+    {
+      "file": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185533/raw/equivalent-host-exit-one-hang/equivalent-host-01.json",
+      "phase": "apply",
+      "mode": null,
+      "argv": null,
+      "cwd": null,
+      "exitCode": null,
+      "packageSpec": null,
+      "requestId": null,
+      "application": null,
+      "delayMs": null,
+      "stdoutTail": null,
+      "stderrTail": null
+    },
+    {
+      "file": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185533/raw/equivalent-host-exit-one-hang/equivalent-host-02.json",
+      "phase": "apply-summary",
+      "mode": null,
+      "argv": null,
+      "cwd": null,
+      "exitCode": null,
+      "packageSpec": null,
+      "requestId": null,
+      "application": null,
+      "delayMs": null,
+      "stdoutTail": null,
+      "stderrTail": null
+    },
+    {
+      "file": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185533/raw/equivalent-host-exit-one-hang/equivalent-host-03.json",
+      "phase": "runPlugin",
+      "mode": "hang-no-terminate",
+      "argv": [
+        "add",
+        "--save-exact",
+        "dsh-plugin-update-fixture-a@0.0.2",
+        "--registry=https://127.0.0.1:52814"
+      ],
+      "cwd": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\os-home\\.dsh\\profiles\\t3eq",
+      "exitCode": null,
+      "packageSpec": null,
+      "requestId": null,
+      "application": null,
+      "delayMs": null,
+      "stdoutTail": null,
+      "stderrTail": null
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "kind": "reader-version",
+  "why": "本机没有第三方 Desktop / 官方桌面；用产品文档化入口 createMultiHostUpdate(deps.readerOverrides) 注入等效宿主能力，产品走真实路由/executor/电话/面板",
+  "whatIsReal": "产品源码路径（environment.ts 路由、executor.ts 执行器、电话/面板、日志、失败码与人话格）全部真实；安装由官方发行包 CLI（dsh plugin add --save-exact --registry）真跑 pnpm 落到真磁盘",
+  "whatIsStubbed": "宿主进程内的服务对象（desktopProfiles/desktopPnpm/pluginManager）由夹具模板提供，不是宿主发行包自带",
+  "specPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185635/equivalent-host-specs/i4-pending-restart.json",
+  "subcase": "pending-restart/unregistered/running-version",
+  "runningVersionInjected": "0.0.1",
+  "whyThisSubcase": "真实 web 宿主（cli 路由）里把「当前运行版本」注入成基版 0.0.1：模拟「新版本已写盘、进程还跑旧版」；真 CLI 安装落真磁盘"
+}

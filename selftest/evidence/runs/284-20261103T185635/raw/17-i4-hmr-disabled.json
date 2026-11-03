@@ -1,0 +1,7 @@
+{
+  "path": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185635/os-home/.dsh/profiles/t3eq/cordis.patch.yml",
+  "changed": true,
+  "before": "# Your patch layer for this dsh profile, applied after every bundle layer:\n# a top-level YAML array of loader patch entries (id-targeted config\n# overrides, disables, and insert lists; `!!js` expressions allowed).\n[]\n",
+  "after": "# Your patch layer for this dsh profile, applied after every bundle layer:\n# a top-level YAML array of loader patch entries (id-targeted config\n# overrides, disables, and insert lists; `!!js` expressions allowed).\n# [selftest #284 i4] 关闭宿主内建 HMR：让「新版本已写盘、进程仍跑旧版」的待重启状态稳定可验证。\n# 这是宿主文档化的 profile patch 入口（@deepseek-ai/dsh-hmr README「使用本包」）；只停用宿主热重载，\n# 不注入产品内部状态，安装仍由真 CLI 落真磁盘。\n- id: hmr\n  disabled: true\n",
+  "why": "HMR 会在装盘后热重载新插件代码，使 runningVersion 与磁盘版相等，待重启分支只存在毫秒级；关 HMR 是宿主文档化配置，用来验证无 HMR 宿主的真实待重启状态。"
+}

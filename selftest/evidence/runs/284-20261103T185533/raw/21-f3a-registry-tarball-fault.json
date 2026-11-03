@@ -1,0 +1,13 @@
+{
+  "packageName": "dsh-plugin-update-fixture-a",
+  "version": "0.0.2",
+  "tarballUrl": "http://127.0.0.1:57559/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz",
+  "tarballPath": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\registry\\verdaccio\\storage\\dsh-plugin-update-fixture-a\\dsh-plugin-update-fixture-a-0.0.2.tgz",
+  "backupPath": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\registry-tarball-backup\\dsh-plugin-update-fixture-a-0.0.2.tgz",
+  "sizeBefore": 110448,
+  "versionDocUnchanged": true,
+  "servedBeforeStatus": 200,
+  "servedBeforeBytes": 104489,
+  "servedAfterStatus": 404,
+  "servedAfterBody": "{\n  \"error\": \"no such file available\"\n}\n"
+}

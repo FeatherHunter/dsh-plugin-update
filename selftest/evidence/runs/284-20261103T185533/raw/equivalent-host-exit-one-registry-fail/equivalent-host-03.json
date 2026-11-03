@@ -1,0 +1,22 @@
+{
+  "phase": "runPlugin",
+  "mode": "real-cli",
+  "exe": "D:\\DeepseekHarness\\DeepSeek Harness.exe",
+  "argv": [
+    "--expose-internals",
+    "D:\\DeepseekHarness\\resources\\app.asar\\dsh\\node_modules\\@deepseek-ai\\dsh-desktop-host\\lib\\cli.js",
+    "plugin",
+    "--profile",
+    "t3eq",
+    "add",
+    "--save-exact",
+    "dsh-plugin-update-fixture-a@0.0.2",
+    "--registry=https://127.0.0.1:52814"
+  ],
+  "cwd": "D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\os-home\\.dsh\\profiles\\t3eq",
+  "startedAt": "2026-11-03T10:55:48.468Z",
+  "finishedAt": "2026-11-03T10:55:49.335Z",
+  "exitCode": 1,
+  "stdout": "? Verifying lockfile against supply-chain policies (3 entries)...\n✓ Lockfile passes supply-chain policies (3 entries in 2ms)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nAdded 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt):\n  dsh-plugin-update-fixture-a@0.0.2\nPackages: +1\n+\n[ERR_PNPM_FETCH_404] GET https://127.0.0.1:52814/dsh-plugin-update-fixture-a/-/dsh-plugin-update-fixture-a-0.0.2.tgz: Not Found - 404\n\nNo authorization header was set for the request.\n",
+  "stderr": "dsh: plugin command failed; diagnostics: D:\\dsh-plugin\\_wt263\\runtime\\t12-284\\284-20261103T185533\\os-home\\.dsh\\profiles\\t3eq\\.plugin-manager\\logs\\operation-kjn4XS\\pnpm.log\n"
+}

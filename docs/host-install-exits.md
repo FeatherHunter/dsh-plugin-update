@@ -247,6 +247,13 @@
   UI/磁盘/日志）与 `26-assert`（失败格：宿主失败码/人话格/手工命令）均为 known-red，note 与
   `selftest/evidence/known-red.md` 的 `t3-267-exit-one` 写明可复现条件（需第三方 Desktop 宿主 +
   `desktopProfiles` 服务）。不伪造：没有第三方宿主就没有截图/日志，只记探测原文与条件。
+- **2026-11-03 #284 A 组订正**：出口一的成功/失败路径已用产品**文档化入口**
+  `createMultiHostUpdate(deps.readerOverrides)` 构造等效第三方 Desktop 宿主真机跑通（F2/F3，见文末
+  「#284 A 组」表）：产品路由/执行器/电话/面板/日志全真实，宿主 `desktopProfiles` + `desktopPnpm.runPlugin`
+  由等效宿主实现并真 spawn 官方发行包 CLI 跑 pnpm。**真实第三方 Desktop 发行包**仍未出现在本机，
+  「宿主自身怎么被发现/启动/升级/卸载」属于宿主程序的环境边界；产品侧 `desktopProfiles` 服务存在时的
+  成功/失败路径已由 F2/F3 真机覆盖，`t3-267-exit-one` 可按「已用等效宿主转绿」处理（这不等于真实
+  第三方宿主本体已验证，边界见文末「已知边界」）。
 
 ### 出口二：官方桌面 in-process 插件管理器（`pluginManager`）
 
@@ -279,3 +286,30 @@
 
 通道 B 是无窗口 CLI 宿主：e1/e2/e3 的 UI 证据是 DOM/pageText 原文（电话回包、页面状态、产品日志），
 没有 PNG 截图；窗口截图证据由出口二的 d1/d2 与 T10 UI 组承担（三个 run 的 `index.md` 备注同样写明）。
+
+## 真机验证记录（#284 A 组：known-red 转绿 + 出口一等效覆盖，2026-11-03）
+
+集合口径：本机没有第三方 Desktop / 官方桌面 / 待重启状态时，**不用「本机没有那种宿主」当结论**，改用产品
+**文档化入口** `createMultiHostUpdate(deps.readerOverrides)` 构造等效宿主（evidence 契约里的 equivalentHost 边界）：
+产品路由判定 / 执行器 / 电话 / 面板 / 日志全走真实代码；宿主能力（`desktopProfiles`+`desktopPnpm.runPlugin`、
+`pluginManager.installBundle`、注入 runningVersion）由等效宿主实现；安装一律由官方发行包 CLI 真 spawn 执行
+pnpm、真落磁盘（不是假回包）。每个 run.json 带 `equivalentHost{what,why,documentedEntry,realParts,
+simulatedParts,nonEquivalence}`，边界原文另见 raw/`equivalent-host-boundary-*` 与 `equivalent-host-spec-*`。
+
+| 场景（票） | runId | 断言/截图 | 关键断言 | 真机事实 |
+| --- | --- | --- | --- | --- |
+| F2 出口一成功格（t3-267-exit-one） | `runs/284-20261103T185513`（pass / 0） | 12 / 3 | `04/13/14/22/23/27/28/32-assert` | 等效第三方 Desktop（`environmentKind=desktop`）点更新：作业 completed（1022ms）、磁盘 0.0.2、exec `route=desktop-service ok=true exitCode=0`、无 fail；停宿主重启后 hostTag=host v0.0.2（真的换了运行代码） |
+| F3 出口一失败格（t3-267-exit-one 失败面 + 失败兜底） | `runs/284-20261103T185533`（pass / 0） | 33 / 2 | f3a `22/24/25/26/27/28/30/32/35/37/38/39/40-assert`；f3b `42/48/49/50/51/52/53/55/58/60/61/62/63-assert` | f3a：check 后只删 tarball（元数据/integrity 不动）→ 真 CLI pnpm 404 非零退出、作业 failed/code=install-failed、detail 含 pnpm 原话、**不含载体命令**、面板失败横幅、磁盘仍 0.0.1，tarball 放回后 200；f3b：宿主 `runPlugin` 挂起且**无 terminate**、`installTimeoutMs=3000` → 6056ms 收尾，message 逐字「安装超时；宿主未提供终止能力，这次安装可能仍在后台继续」，不谎称已终止、不给载体命令 |
+| G8 官方管理器无 `cancelInstall` 超时（t4-268-no-cancel-probe） | `runs/284-20261103T185608`（pass / 0） | 19 / 3 | `22/23/24/25/26/28/29/30/34/35/41/42-assert` | 等效管理器无 cancelInstall、installBundle delay 8s > 超时 3s：产品 6057ms 判 failed，文案逐字「安装超时；宿主未提供取消能力，这次安装可能仍在后台继续」；后台 delay 结束**真跑 CLI 成功**、磁盘变 0.0.2，但产品仍报 failed、面板不谎称成功（它确实不知道后台装完了）；exec `route=desktop-manager ok=false`、fail `reason=timeout`；重启宿主后因注入 runningVersion 不误判「已是最新」 |
+| I4 待重启面板真相（t8-272-panel-pending-restart-branch / i2-runtime-version-not-authoritative） | `runs/284-20261103T185635`（pass / 0） | 15 / 4 | `23/24/27/34/41/42/46/47-assert` | 按 `@deepseek-ai/dsh-hmr` README 的文档化 profile patch 关 HMR（`- id: hmr / disabled: true`，raw `i4-hmr-disabled`）：真 CLI 装变体后作业 restart-required、status runningVersion=0.0.1 / installedVersion=0.0.2 / blockedReason=pending-restart；把包从 `dsh.profile.bundles` 摘掉重启 → 10s 无卡片、电话桥 405（未登记就不加载）；写回在册再重启 → client+host 双标记 v0.0.2、running=installed=0.0.2、blockedReason=null；exec `route=cli-process ok=true` |
+| can-red（stale-variant 注入） | `runs/284-20261103T185708`（fail / 1，**预期**） | 12 / 3 | `33-assert`、`32-shot` 红 | 注入：清单发 0.0.2 但构建内容仍是 0.0.1（raw `16-can-red-fault-injection.json` 记 fault.kind=stale-variant 与 why）；作业 completed、磁盘/日志/route 全 pass，唯独「重启后运行代码真换版」红（actual hostTag=host v0.0.1），证明该断言非永真、红点落在被测断言 |
+
+已知边界（诚实留白）：
+- 等效宿主这一层不可冒充真实宿主自身：真实第三方 Desktop 的发现 / 启动 / 升级 / 卸载、真实官方桌面
+  `.plugin-manager` 的已装包拓扑（`not-removable` / `bundle-in-use` / pendingBuilds 批准流程）本机仍不可真机
+  触发，继续按库内测试 + known-red 口径处理（`tests/desktop-manager*.test.mjs`、
+  `tests/issue-194-pending-builds.test.mjs`、`tests/issue-236-manager-remove-failure-restore.test.mjs`）。
+- HMR 关闭是**测试隔离**手段（用宿主自己的文档化 profile patch），不是产品开关；生产 HMR 会把「待重启」
+  窗口压到毫秒级（i4 首跑观测 ~9ms），所以 t8 的两个状态必须在关 HMR 的宿主上验证。
+- 五个 run 的 `cleanup.ports` 全部 `released=true`（宿主/TLS 前置/registry 端口都真的还回来了），维护者真实
+  `~/.dsh` 前后指纹一致；隔离 home、pnpm store、registry storage、浏览器 user-data 全在仓库外 runtime。

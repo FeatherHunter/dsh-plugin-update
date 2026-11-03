@@ -1,0 +1,5 @@
+{
+  "phase": "apply-summary",
+  "kind": "desktop",
+  "routedBy": "readerOverrides.environmentKind（显式覆盖）"
+}

@@ -1,0 +1,8 @@
+{
+  "kind": "desktop",
+  "why": "本机没有第三方 Desktop / 官方桌面；用产品文档化入口 createMultiHostUpdate(deps.readerOverrides) 注入等效宿主能力，产品走真实路由/executor/电话/面板",
+  "whatIsReal": "产品源码路径（environment.ts 路由、executor.ts 执行器、电话/面板、日志、失败码与人话格）全部真实；安装由官方发行包 CLI（dsh plugin add --save-exact --registry）真跑 pnpm 落到真磁盘",
+  "whatIsStubbed": "宿主进程内的服务对象（desktopProfiles/desktopPnpm/pluginManager）由夹具模板提供，不是宿主发行包自带",
+  "specPath": "D:/dsh-plugin/_wt263/runtime/t12-284/284-20261103T185708/equivalent-host-specs/exit-one.json",
+  "mode": "can-red"
+}

@@ -1,0 +1,9 @@
+{
+  "看什么": "已写盘未重启的面板横幅（登记在册）：待重启文案 + 非安装失败",
+  "步骤": "i4-pending-restart-banner",
+  "expected": "banner.kind=restart；title=「新版本 0.0.2 已安装，重启宿主后生效。」；sub=「重启宿主以加载新版本；此为正常状态，非安装失败」（restart 横幅没有 seal 徽标，不能拿空 seal 判失败）",
+  "actual": "banner={\"kind\":\"restart\",\"title\":\"新版本 0.0.2 已安装，重启宿主后生效。\",\"sub\":\"重启宿主以加载新版本；此为正常状态，非安装失败\",\"action\":\"\"}；seal=",
+  "判定": "pass",
+  "备注": null,
+  "截图": "shots\\25-shot.png"
+}

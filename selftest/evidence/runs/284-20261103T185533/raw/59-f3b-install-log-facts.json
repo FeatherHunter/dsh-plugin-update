@@ -1,0 +1,14 @@
+{
+  "execs": [
+    "{\"event\":\"update.install.exec\",\"level\":\"info\",\"fields\":{\"route\":\"desktop-service\",\"ok\":false,\"exitCode\":1,\"durationMs\":868,\"pluginId\":\"fxa-a\",\"traceId\":\"40ee504b3a983c49\",\"spanId\":\"55fc2b6e\",\"seq\":4},\"source\":\"fxa-a/2026-11-03.log\",\"line\":19}",
+    "{\"event\":\"update.install.exec\",\"level\":\"info\",\"fields\":{\"route\":\"desktop-service\",\"ok\":false,\"exitCode\":null,\"durationMs\":6000,\"pluginId\":\"fxa-a\",\"traceId\":\"e847570d55bc0fa3\",\"spanId\":\"86120561\",\"seq\":4},\"source\":\"fxa-a/2026-11-03.log\",\"line\":45}"
+  ],
+  "fails": [
+    "{\"event\":\"update.install.fail\",\"level\":\"warn\",\"fields\":{\"stage\":\"exec\",\"reason\":\"nonzero-exit\",\"code\":\"install-failed\",\"hostCodeHash\":\"none\",\"check\":\"none\",\"exitCode\":1,\"observedVersion\":null,\"intentHash\":\"ba28cb95\",\"traceId\":\"40ee504b3a983c49\",\"spanId\":\"55fc2b6e\",\"seq\":6},\"source\":\"fxa-a/2026-11-03.log\",\"line\":21}",
+    "{\"event\":\"update.install.fail\",\"level\":\"warn\",\"fields\":{\"stage\":\"exec\",\"reason\":\"timeout\",\"code\":\"install-failed\",\"hostCodeHash\":\"none\",\"check\":\"none\",\"exitCode\":null,\"observedVersion\":null,\"intentHash\":\"102017f0\",\"traceId\":\"e847570d55bc0fa3\",\"spanId\":\"86120561\",\"seq\":6},\"source\":\"fxa-a/2026-11-03.log\",\"line\":47}"
+  ],
+  "requests": [
+    "{\"event\":\"update.install.request\",\"level\":\"info\",\"fields\":{\"from\":\"entry\",\"current\":\"0.0.1\",\"latest\":\"0.0.2\",\"checkAgeMs\":521,\"intentHash\":\"ba28cb95\",\"traceId\":\"40ee504b3a983c49\",\"spanId\":\"55fc2b6e\",\"seq\":1},\"source\":\"fxa-a/2026-11-03.log\",\"line\":16}",
+    "{\"event\":\"update.install.request\",\"level\":\"info\",\"fields\":{\"from\":\"entry\",\"current\":\"0.0.1\",\"latest\":\"0.0.2\",\"checkAgeMs\":483,\"intentHash\":\"102017f0\",\"traceId\":\"e847570d55bc0fa3\",\"spanId\":\"86120561\",\"seq\":1},\"source\":\"fxa-a/2026-11-03.log\",\"line\":36}"
+  ]
+}
